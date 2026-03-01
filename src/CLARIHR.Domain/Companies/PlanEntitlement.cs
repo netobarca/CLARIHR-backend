@@ -1,0 +1,26 @@
+using CLARIHR.Domain.Common;
+
+namespace CLARIHR.Domain.Companies;
+
+public sealed class PlanEntitlement : AuditableEntity
+{
+    private PlanEntitlement()
+    {
+    }
+
+    private PlanEntitlement(string planCode, string moduleKey, bool isEnabled)
+    {
+        PlanCode = CompanyNormalization.NormalizePlanCode(planCode);
+        ModuleKey = CompanyNormalization.NormalizeModuleKey(moduleKey);
+        IsEnabled = isEnabled;
+    }
+
+    public string PlanCode { get; private set; } = string.Empty;
+
+    public string ModuleKey { get; private set; } = string.Empty;
+
+    public bool IsEnabled { get; private set; }
+
+    public static PlanEntitlement Create(string planCode, string moduleKey, bool isEnabled) =>
+        new(planCode, moduleKey, isEnabled);
+}

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CLARIHR.Api/CLARIHR.Api.csproj" />
+    <Project Path="src/CLARIHR.Application/CLARIHR.Application.csproj" />
+    <Project Path="src/CLARIHR.Domain/CLARIHR.Domain.csproj" />
+    <Project Path="src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CLARIHR.Application.UnitTests/CLARIHR.Application.UnitTests.csproj" />
+  </Folder>
+</Solution>

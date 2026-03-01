@@ -1,0 +1,79 @@
+using CLARIHR.Application.Abstractions.Auth;
+using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Abstractions.Time;
+using CLARIHR.Infrastructure.Auth;
+using CLARIHR.Infrastructure.Auditing;
+using CLARIHR.Infrastructure.Authentication;
+using CLARIHR.Infrastructure.Companies;
+using CLARIHR.Infrastructure.Configuration;
+using CLARIHR.Infrastructure.IdentityAccess;
+using CLARIHR.Infrastructure.Persistence;
+using CLARIHR.Infrastructure.Tenancy;
+using CLARIHR.Infrastructure.Time;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+namespace CLARIHR.Infrastructure;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
+        services.Configure<JwtTokenOptions>(configuration.GetSection(JwtTokenOptions.SectionName));
+        services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
+        services.AddHttpContextAccessor();
+
+        services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+        services.AddSingleton<IPasswordHasher, BuiltInPasswordHasher>();
+        services.AddMemoryCache();
+        services.AddSingleton<RefreshTokenHasher>();
+        services.AddSingleton<IRefreshTokenHasher>(serviceProvider => serviceProvider.GetRequiredService<RefreshTokenHasher>());
+        services.AddSingleton<IInvitationTokenHasher>(serviceProvider => serviceProvider.GetRequiredService<RefreshTokenHasher>());
+        services.AddSingleton<IGoogleIdTokenValidator, GoogleIdTokenValidator>();
+        services.AddScoped<ITenantContext, HttpTenantContext>();
+        services.AddScoped<ICurrentUserService, HttpCurrentUserService>();
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IAuditService, AuditService>();
+        services.AddSingleton<IAuditSanitizer, AuditSanitizer>();
+        services.AddScoped<ICompanyRepository, CompanyRepository>();
+        services.AddScoped<ICompanySubscriptionRepository, CompanySubscriptionRepository>();
+        services.AddScoped<IUserCompanyRepository, UserCompanyRepository>();
+        services.AddScoped<IInvitationTokenRepository, InvitationTokenRepository>();
+        services.AddScoped<IEmailService, LoggingEmailService>();
+        services.AddScoped<ICompanyUserAuthorizationService, CompanyUserAuthorizationService>();
+        services.AddScoped<IPlanEntitlementService, PlanEntitlementService>();
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IExternalAuthProviderService, GoogleExternalAuthProviderService>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<ITokenService, JwtTokenService>();
+        services.AddScoped<IRbacAuthorizationService, RbacAuthorizationService>();
+        services.AddScoped<IIamAdministrationRepository, IamAdministrationRepository>();
+        services.AddScoped<IIamAdministrationAuthorizationService, IamAdministrationAuthorizationService>();
+        services.AddScoped<IFieldAccessProfileService, FieldAccessProfileService>();
+        services.AddScoped<IFieldPermissionService, FieldPermissionService>();
+        services.AddSingleton<IFieldSerializationService, FieldSerializationService>();
+
+        services.AddDbContext<ApplicationDbContext>((serviceProvider, optionsBuilder) =>
+        {
+            var databaseOptions = serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+
+            optionsBuilder.EnableDetailedErrors();
+            optionsBuilder.EnableSensitiveDataLogging(false);
+
+            PostgreSqlOptionsConfigurator.Configure(optionsBuilder, databaseOptions.ConnectionString);
+        });
+
+        services.AddScoped<IApplicationDbContext>(serviceProvider => serviceProvider.GetRequiredService<ApplicationDbContext>());
+
+        return services;
+    }
+}

@@ -1,0 +1,169 @@
+using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+
+namespace CLARIHR.Infrastructure.IdentityAccess;
+
+internal sealed class FieldAccessProfileService(
+    ApplicationDbContext dbContext,
+    ICurrentUserService currentUserService,
+    ITenantContext tenantContext,
+    IMemoryCache memoryCache) : IFieldAccessProfileService
+{
+    public async Task<Result<FieldAccessProfile>> GetCurrentUserAccessProfileAsync(
+        string resourceKey,
+        CancellationToken cancellationToken)
+    {
+        if (!PermissionMatrixCatalog.TryGet(resourceKey, out var definition))
+        {
+            return Result<FieldAccessProfile>.Failure(CreateResourceValidationError(resourceKey));
+        }
+
+        var catalog = await GetCatalogAsync(definition.ResourceKey, cancellationToken);
+        if (currentUserService.Roles.Contains("platform_admin", StringComparer.OrdinalIgnoreCase))
+        {
+            var fullAccess = FieldPermissionEvaluator.BuildProfile(
+                definition.ResourceKey,
+                catalog,
+                new Dictionary<string, FieldPermissionOverrideState>(StringComparer.OrdinalIgnoreCase),
+                new RbacPermissionState(true, true, true, true, false));
+            return Result<FieldAccessProfile>.Success(fullAccess);
+        }
+
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<FieldAccessProfile>.Failure(IdentityAccessErrors.TenantContextRequired);
+        }
+
+        var actorUserId = TryParseCurrentUserId(currentUserService.UserId);
+        if (!actorUserId.HasValue)
+        {
+            return Result<FieldAccessProfile>.Failure(IdentityAccessErrors.InvalidCurrentUser);
+        }
+
+        var actor = await dbContext.IamUsers
+            .AsNoTracking()
+            .Include(user => user.RoleAssignments)
+            .ThenInclude(assignment => assignment.Role)
+            .ThenInclude(role => role.PermissionAssignments)
+            .ThenInclude(assignment => assignment.Permission)
+            .SingleOrDefaultAsync(user => user.PublicId == actorUserId.Value && user.IsActive, cancellationToken);
+        if (actor is null || actor.RoleAssignments.Count == 0)
+        {
+            var claimBasedProfile = FieldPermissionEvaluator.BuildProfile(
+                definition.ResourceKey,
+                catalog,
+                new Dictionary<string, FieldPermissionOverrideState>(StringComparer.OrdinalIgnoreCase),
+                CaptureScreenState(currentUserService.Permissions, definition.ScreenKey));
+            return Result<FieldAccessProfile>.Success(claimBasedProfile);
+        }
+
+        var profiles = new List<FieldAccessProfile>();
+        foreach (var assignment in actor.RoleAssignments)
+        {
+            var screenState = CaptureScreenState(
+                assignment.Role.PermissionAssignments.Select(static permissionAssignment => permissionAssignment.Permission),
+                definition.ScreenKey);
+            var overrides = await GetRoleOverridesAsync(assignment.RoleId, definition.ResourceKey, cancellationToken);
+            profiles.Add(FieldPermissionEvaluator.BuildProfile(definition.ResourceKey, catalog, overrides, screenState));
+        }
+
+        return Result<FieldAccessProfile>.Success(FieldPermissionEvaluator.Merge(definition.ResourceKey, catalog, profiles));
+    }
+
+    private async Task<IReadOnlyCollection<FieldCatalogDefinition>> GetCatalogAsync(
+        string resourceKey,
+        CancellationToken cancellationToken)
+    {
+        var inCode = FieldCatalogRegistry.GetResourceFields(resourceKey);
+        if (inCode.Count > 0)
+        {
+            return inCode;
+        }
+
+        var normalizedResourceKey = resourceKey.Trim().ToUpperInvariant();
+        return await dbContext.FieldCatalogEntries
+            .AsNoTracking()
+            .Where(entry => entry.NormalizedResourceKey == normalizedResourceKey)
+            .OrderBy(entry => entry.DisplayName)
+            .Select(entry => new FieldCatalogDefinition(
+                entry.FieldKey,
+                entry.ResourceKey,
+                entry.PropertyName,
+                entry.DisplayName,
+                entry.DataType,
+                entry.IsConfigurable,
+                entry.IsSensitive))
+            .ToListAsync(cancellationToken);
+    }
+
+    private async Task<IReadOnlyDictionary<string, FieldPermissionOverrideState>> GetRoleOverridesAsync(
+        long roleId,
+        string resourceKey,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return new Dictionary<string, FieldPermissionOverrideState>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var cacheKey = BuildCacheKey(tenantContext.TenantId.Value, roleId, resourceKey);
+        if (memoryCache.TryGetValue(cacheKey, out IReadOnlyDictionary<string, FieldPermissionOverrideState>? cached) &&
+            cached is not null)
+        {
+            return cached;
+        }
+
+        var normalizedResourcePrefix = $"{resourceKey.Trim().ToUpperInvariant()}.";
+        var permissions = await dbContext.RoleFieldPermissions
+            .AsNoTracking()
+            .Where(permission => permission.RoleId == roleId && permission.NormalizedFieldKey.StartsWith(normalizedResourcePrefix))
+            .ToDictionaryAsync(
+                permission => permission.FieldKey,
+                permission => new FieldPermissionOverrideState(
+                    permission.IsVisible,
+                    permission.IsEditable,
+                    permission.IsRequired,
+                    permission.IsMasked),
+                StringComparer.OrdinalIgnoreCase,
+                cancellationToken);
+
+        memoryCache.Set(cacheKey, permissions, TimeSpan.FromMinutes(10));
+        return permissions;
+    }
+
+    private static RbacPermissionState CaptureScreenState(IEnumerable<IamPermission> permissions, RbacPermissionScreen screen) =>
+        CaptureScreenState(
+            permissions.Select(static permission => permission.NormalizedCode),
+            screen);
+
+    private static RbacPermissionState CaptureScreenState(IEnumerable<string> grantedCodes, RbacPermissionScreen screen)
+    {
+        var normalizedCodes = grantedCodes.ToArray();
+
+        return new RbacPermissionState(
+            HasAccess: RbacAuthorizationEvaluator.IsAllowed(normalizedCodes, screen, RbacPermissionAction.Access),
+            CanRead: RbacAuthorizationEvaluator.IsAllowed(normalizedCodes, screen, RbacPermissionAction.Read),
+            CanCreate: RbacAuthorizationEvaluator.IsAllowed(normalizedCodes, screen, RbacPermissionAction.Create),
+            CanUpdate: RbacAuthorizationEvaluator.IsAllowed(normalizedCodes, screen, RbacPermissionAction.Update),
+            CanDelete: RbacAuthorizationEvaluator.IsAllowed(normalizedCodes, screen, RbacPermissionAction.Delete));
+    }
+
+    private static Error CreateResourceValidationError(string resourceKey) =>
+        ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [nameof(resourceKey)] = [$"Unknown resource key '{resourceKey}'."]
+        });
+
+    private static Guid? TryParseCurrentUserId(string? currentUserId) =>
+        Guid.TryParse(currentUserId, out var actorUserId) ? actorUserId : null;
+
+    private static string BuildCacheKey(Guid tenantId, long roleId, string resourceKey) =>
+        $"field-permissions:{tenantId:N}:{roleId}:{resourceKey.Trim().ToUpperInvariant()}";
+}

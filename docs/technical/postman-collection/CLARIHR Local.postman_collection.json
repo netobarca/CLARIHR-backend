@@ -1,0 +1,756 @@
+{
+  "info": {
+    "name": "CLARIHR Local",
+    "_postman_id": "1a5c7054-5dd4-45f1-8e8c-cf8b9e51d801",
+    "description": "Postman collection for manual local testing of the CLARIHR backend up to HU-008.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "currentUserId",
+      "value": ""
+    },
+    {
+      "key": "roleId",
+      "value": ""
+    },
+    {
+      "key": "permissionId",
+      "value": ""
+    },
+    {
+      "key": "iamUserId",
+      "value": ""
+    },
+    {
+      "key": "companyUserId",
+      "value": ""
+    },
+    {
+      "key": "auditLogId",
+      "value": ""
+    },
+    {
+      "key": "resourceKey",
+      "value": "RBAC_USERS"
+    },
+    {
+      "key": "fieldKey",
+      "value": "RBAC_USERS.EMAIL"
+    }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Get API Status",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/system/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Local User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', data.accessToken || '');",
+                  "  pm.collectionVariables.set('refreshToken', data.refreshToken || '');",
+                  "  pm.collectionVariables.set('currentUserId', data.user?.id || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Admin\",\n  \"lastName\": \"Local\",\n  \"email\": \"admin@clarihr.test\",\n  \"password\": \"StrongPass123!\",\n  \"companyName\": \"Acme Local\",\n  \"country\": \"SV\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "External Auth",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"Google\",\n  \"idToken\": \"replace-with-real-id-token\",\n  \"companyName\": \"Acme Local\",\n  \"country\": \"SV\",\n  \"source\": \"postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/external"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', data.accessToken || '');",
+                  "  pm.collectionVariables.set('refreshToken', data.refreshToken || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/refresh"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Company Users",
+      "item": [
+        {
+          "name": "List Company Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/company/users?page=1&pageSize=20"
+          }
+        },
+        {
+          "name": "Create Company User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('companyUserId', data.user?.id || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"viewer@clarihr.test\",\n  \"firstName\": \"Viewer\",\n  \"lastName\": \"User\",\n  \"roleId\": \"{{roleId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/company/users"
+          }
+        },
+        {
+          "name": "Update Company User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Viewer\",\n  \"lastName\": \"Updated\",\n  \"roleId\": \"{{roleId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/company/users/{{companyUserId}}"
+          }
+        },
+        {
+          "name": "Deactivate Company User",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/company/users/{{companyUserId}}/deactivate"
+          }
+        },
+        {
+          "name": "Reactivate Company User",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/company/users/{{companyUserId}}/reactivate"
+          }
+        },
+        {
+          "name": "Reset Company User Invitation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/company/users/{{companyUserId}}/reset-invitation"
+          }
+        }
+      ]
+    },
+    {
+      "name": "IAM Users",
+      "item": [
+        {
+          "name": "Create IAM User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('iamUserId', data.id || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Carla\",\n  \"lastName\": \"Lopez\",\n  \"email\": \"carla@tenant.com\",\n  \"isActive\": true,\n  \"roleIds\": [\n    \"{{roleId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/iam/users"
+          }
+        },
+        {
+          "name": "List IAM Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/iam/users?pageNumber=1&pageSize=20"
+          }
+        },
+        {
+          "name": "Get IAM User By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/iam/users/{{iamUserId}}"
+          }
+        },
+        {
+          "name": "Sync IAM User Roles",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleIds\": [\n    \"{{roleId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/iam/users/{{iamUserId}}/roles"
+          }
+        }
+      ]
+    },
+    {
+      "name": "IAM Roles",
+      "item": [
+        {
+          "name": "Create IAM Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('roleId', data.id || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Supervisor\",\n  \"description\": \"Editable tenant role\",\n  \"permissionIds\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/iam/roles"
+          }
+        },
+        {
+          "name": "List IAM Roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/iam/roles?pageNumber=1&pageSize=20"
+          }
+        },
+        {
+          "name": "Get IAM Role By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/iam/roles/{{roleId}}"
+          }
+        },
+        {
+          "name": "Update IAM Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Supervisor Updated\",\n  \"description\": \"Updated tenant role\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/iam/roles/{{roleId}}"
+          }
+        },
+        {
+          "name": "Clone IAM Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Supervisor Copy\",\n  \"description\": \"Cloned role\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/iam/roles/{{roleId}}/clone"
+          }
+        },
+        {
+          "name": "Get Role Permission Matrix",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/iam/roles/{{roleId}}/permission-matrix"
+          }
+        },
+        {
+          "name": "Update Role Permission Matrix",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"screens\": [\n    {\n      \"screen\": \"RBAC_USERS\",\n      \"access\": true,\n      \"read\": true,\n      \"create\": true,\n      \"update\": true,\n      \"delete\": false\n    },\n    {\n      \"screen\": \"RBAC_ROLES\",\n      \"access\": true,\n      \"read\": true,\n      \"create\": false,\n      \"update\": false,\n      \"delete\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/iam/roles/{{roleId}}/permission-matrix"
+          }
+        },
+        {
+          "name": "Sync IAM Role Permissions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissionIds\": [\n    \"{{permissionId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/iam/roles/{{roleId}}/permissions"
+          }
+        },
+        {
+          "name": "Sync IAM Role Users",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userIds\": [\n    \"{{iamUserId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/iam/roles/{{roleId}}/users"
+          }
+        },
+        {
+          "name": "Delete IAM Role",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/iam/roles/{{roleId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "IAM Permissions",
+      "item": [
+        {
+          "name": "Create Screen Action Permission",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('permissionId', data.id || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Export employees\",\n  \"description\": \"Allows employee export\",\n  \"code\": \"employees.directory.export\",\n  \"module\": \"Employees\",\n  \"screen\": \"Directory\",\n  \"kind\": \"ScreenAction\",\n  \"action\": \"Export\",\n  \"fieldName\": null,\n  \"fieldAccess\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/iam/permissions"
+          }
+        },
+        {
+          "name": "Create Field Permission",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Write salary field\",\n  \"description\": \"Allows editing salary\",\n  \"code\": \"employees.profile.salary.write\",\n  \"module\": \"Employees\",\n  \"screen\": \"Profile\",\n  \"kind\": \"Field\",\n  \"action\": null,\n  \"fieldName\": \"Salary\",\n  \"fieldAccess\": \"Write\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/iam/permissions"
+          }
+        },
+        {
+          "name": "List IAM Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/iam/permissions?pageNumber=1&pageSize=20"
+          }
+        },
+        {
+          "name": "Get IAM Permission By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/iam/permissions/{{permissionId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "RBAC",
+      "item": [
+        {
+          "name": "Get RBAC Resources",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/rbac/resources"
+          }
+        },
+        {
+          "name": "Get Resource Fields",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/rbac/resources/{{resourceKey}}/fields"
+          }
+        },
+        {
+          "name": "Get Role Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/rbac/roles/{{roleId}}/permissions"
+          }
+        },
+        {
+          "name": "Upsert Role Permissions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": [\n    {\n      \"resourceKey\": \"RBAC_USERS\",\n      \"hasAccess\": true,\n      \"canRead\": true,\n      \"canCreate\": true,\n      \"canUpdate\": true,\n      \"canDelete\": false\n    },\n    {\n      \"resourceKey\": \"RBAC_ROLES\",\n      \"hasAccess\": true,\n      \"canRead\": true,\n      \"canCreate\": false,\n      \"canUpdate\": false,\n      \"canDelete\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/rbac/roles/{{roleId}}/permissions"
+          }
+        },
+        {
+          "name": "Get Role Field Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/rbac/roles/{{roleId}}/field-permissions?resourceKey={{resourceKey}}"
+          }
+        },
+        {
+          "name": "Upsert Role Field Permissions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceKey\": \"{{resourceKey}}\",\n  \"fields\": [\n    {\n      \"fieldKey\": \"{{fieldKey}}\",\n      \"isVisible\": true,\n      \"isEditable\": false,\n      \"isRequired\": false,\n      \"isMasked\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/rbac/roles/{{roleId}}/field-permissions"
+          }
+        },
+        {
+          "name": "Get RBAC Audit",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/rbac/audit?roleId={{roleId}}&resourceKey={{resourceKey}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit Logs",
+      "item": [
+        {
+          "name": "List Audit Logs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  const first = data.items && data.items.length > 0 ? data.items[0] : null;",
+                  "  if (first && first.id) {",
+                  "    pm.collectionVariables.set('auditLogId', first.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/audit/logs?page=1&pageSize=20"
+          }
+        },
+        {
+          "name": "Get Audit Log By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/audit/logs/{{auditLogId}}"
+          }
+        }
+      ]
+    }
+  ]
+}
