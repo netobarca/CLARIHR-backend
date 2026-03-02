@@ -31,6 +31,7 @@ El backend actual cubre estos bloques funcionales:
 7. RBAC por recurso y accion
 8. RBAC por campo
 9. auditoria administrativa
+10. jerarquia de ubicaciones y centros de trabajo por empresa
 
 ## Core Business Rules
 
@@ -68,10 +69,11 @@ Orden natural del sistema hoy:
 8. asignar permisos a los roles
 9. configurar permisos RBAC por recurso
 10. configurar permisos RBAC por campo
-11. crear usuarios de empresa o usuarios IAM
-12. asignar roles a usuarios
-13. operar el sistema bajo restricciones RBAC
-14. revisar auditoria y trazabilidad
+11. configurar jerarquia de ubicaciones, grupos, tipos de centro y centros de trabajo
+12. crear usuarios de empresa o usuarios IAM
+13. asignar roles a usuarios
+14. operar el sistema bajo restricciones RBAC
+15. revisar auditoria y trazabilidad
 
 ## Flow 1. Validate API Availability
 
@@ -263,6 +265,118 @@ Business value:
 
 - cambio seguro de contexto tenant
 - continuidad con el modelo actual basado en JWT
+
+### Flow 4A.7. Default locations bootstrap for every new company
+
+1. Cada empresa nueva creada por register, external auth o account companies dispara provisioning tenant-scoped.
+2. El provisioning crea automaticamente:
+   - configuracion de jerarquia
+   - nivel `General`
+   - grupo default `GENERAL`
+3. La empresa queda lista para administrar ubicaciones y centros sin bootstrap manual.
+
+Business value:
+
+- consistencia entre tenants nuevos
+- menos pasos manuales para frontend y administracion inicial
+
+## Flow 4B. Location Hierarchy, Groups And Work Centers
+
+Este flujo cubre la administracion de estructura geografica u operativa por empresa.
+
+### Purpose
+
+Permitir que cada tenant modele sus niveles, grupos, tipos de centro y centros de trabajo con aislamiento estricto por empresa.
+
+### Endpoints
+
+- `GET /api/v1/companies/{companyId}/location-hierarchy`
+- `PUT /api/v1/companies/{companyId}/location-hierarchy`
+- `GET /api/v1/companies/{companyId}/location-levels`
+- `POST /api/v1/companies/{companyId}/location-levels`
+- `PUT /api/v1/location-levels/{id}`
+- `PATCH /api/v1/location-levels/{id}/activate`
+- `PATCH /api/v1/location-levels/{id}/inactivate`
+- `GET /api/v1/companies/{companyId}/location-groups/tree`
+- `GET /api/v1/companies/{companyId}/location-groups`
+- `POST /api/v1/companies/{companyId}/location-groups`
+- `PUT /api/v1/location-groups/{id}`
+- `PATCH /api/v1/location-groups/{id}/move`
+- `PATCH /api/v1/location-groups/{id}/activate`
+- `PATCH /api/v1/location-groups/{id}/inactivate`
+- `GET /api/v1/companies/{companyId}/work-center-types`
+- `POST /api/v1/companies/{companyId}/work-center-types`
+- `PUT /api/v1/work-center-types/{id}`
+- `PATCH /api/v1/work-center-types/{id}/activate`
+- `PATCH /api/v1/work-center-types/{id}/inactivate`
+- `GET /api/v1/companies/{companyId}/work-centers`
+- `GET /api/v1/work-centers/{id}`
+- `POST /api/v1/companies/{companyId}/work-centers`
+- `PUT /api/v1/work-centers/{id}`
+- `PATCH /api/v1/work-centers/{id}/reassign-group`
+- `PATCH /api/v1/work-centers/{id}/activate`
+- `PATCH /api/v1/work-centers/{id}/inactivate`
+
+### Flow 4B.1. Review hierarchy defaults
+
+1. El admin consulta la jerarquia de su tenant.
+2. El backend valida JWT, `tid` y permisos funcionales de Locations.
+3. Devuelve configuracion y nivel default `General`.
+
+Business value:
+
+- punto de partida uniforme por empresa
+
+### Flow 4B.2. Configure levels
+
+1. El admin decide si la empresa operara con una sola capa o con multiples niveles.
+2. Crea o ajusta niveles.
+3. El backend valida:
+   - al menos un nivel activo
+   - niveles requeridos siempre activos
+   - solo el ultimo nivel activo puede aceptar centros
+4. Registra auditoria de cada cambio.
+
+Business value:
+
+- estructura adaptable al modelo real del cliente
+
+### Flow 4B.3. Create and maintain location groups
+
+1. El admin crea grupos por nivel.
+2. Si el grupo no es raiz, debe indicar un padre del nivel inmediatamente superior.
+3. El backend impide padres invalidos y protege el grupo default `GENERAL`.
+4. El admin puede mover grupos o inactivarlos.
+5. Si el grupo tiene hijos activos o centros activos, el backend bloquea la inactivacion.
+
+Business value:
+
+- arbol de ubicaciones consistente y seguro
+
+### Flow 4B.4. Create work center types
+
+1. El admin define tipos como `Agency`, `Branch` o `Plant`.
+2. Configura reglas del tipo:
+   - requiere direccion
+   - requiere geolocalizacion
+   - permite biometrico
+3. El backend evita duplicados e impide inactivar tipos en uso.
+
+Business value:
+
+- reglas reutilizables para distintos tipos de centro
+
+### Flow 4B.5. Create and maintain work centers
+
+1. El admin crea el centro de trabajo y lo asocia a tipo + grupo.
+2. El backend valida tenant, grupo permitido y reglas del tipo.
+3. Si el tipo exige direccion o geo, el request debe cumplirlo.
+4. El admin puede actualizar, reasignar, activar o inactivar el centro.
+5. La inactivacion deja listo el hook para dependencias futuras como empleados activos asignados.
+
+Business value:
+
+- catalogo operativo de centros listo para crecer con otros modulos
 
 ## Flow 5. Company User Administration
 

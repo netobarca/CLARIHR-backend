@@ -7,6 +7,7 @@ using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.Locations;
 using Microsoft.EntityFrameworkCore;
 
 namespace CLARIHR.Infrastructure.Persistence;
@@ -18,6 +19,10 @@ public sealed class ApplicationDbContext(
     : DbContext(options), IApplicationDbContext
 {
     private Guid? CurrentTenantId => tenantContext.TenantId;
+
+    private bool HasTenantScope => CurrentTenantId.HasValue;
+
+    private Guid CurrentTenantIdOrDefault => CurrentTenantId ?? Guid.Empty;
 
     public DbSet<User> AuthUsers => Set<User>();
 
@@ -54,6 +59,16 @@ public sealed class ApplicationDbContext(
     public DbSet<FieldPermissionAuditLog> FieldPermissionAuditLogs => Set<FieldPermissionAuditLog>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    public DbSet<LocationHierarchyConfig> LocationHierarchyConfigs => Set<LocationHierarchyConfig>();
+
+    public DbSet<LocationLevel> LocationLevels => Set<LocationLevel>();
+
+    public DbSet<LocationGroup> LocationGroups => Set<LocationGroup>();
+
+    public DbSet<WorkCenterType> WorkCenterTypes => Set<WorkCenterType>();
+
+    public DbSet<WorkCenter> WorkCenters => Set<WorkCenter>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -125,6 +140,6 @@ public sealed class ApplicationDbContext(
         where TEntity : class, ITenantScopedEntity
     {
         modelBuilder.Entity<TEntity>()
-            .HasQueryFilter(entity => !CurrentTenantId.HasValue || entity.TenantId == CurrentTenantId.Value);
+            .HasQueryFilter(entity => !HasTenantScope || entity.TenantId == CurrentTenantIdOrDefault);
     }
 }

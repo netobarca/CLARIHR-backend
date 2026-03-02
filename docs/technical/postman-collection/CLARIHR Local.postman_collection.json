@@ -2,7 +2,7 @@
   "info": {
     "name": "CLARIHR Local",
     "_postman_id": "1a5c7054-5dd4-45f1-8e8c-cf8b9e51d801",
-    "description": "Postman collection for manual local testing of the CLARIHR backend up to HU-009.",
+    "description": "Postman collection for manual local testing of the CLARIHR backend up to HU-010.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -71,6 +71,38 @@
     {
       "key": "fieldKey",
       "value": "RBAC_USERS.EMAIL"
+    },
+    {
+      "key": "locationLevelId",
+      "value": ""
+    },
+    {
+      "key": "locationGroupId",
+      "value": ""
+    },
+    {
+      "key": "locationGroupToken",
+      "value": ""
+    },
+    {
+      "key": "workCenterTypeId",
+      "value": ""
+    },
+    {
+      "key": "workCenterTypeToken",
+      "value": ""
+    },
+    {
+      "key": "workCenterId",
+      "value": ""
+    },
+    {
+      "key": "workCenterToken",
+      "value": ""
+    },
+    {
+      "key": "locationHierarchyToken",
+      "value": ""
     }
   ],
   "item": [
@@ -855,6 +887,224 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/rbac/audit?roleId={{roleId}}&resourceKey={{resourceKey}}&page=1&pageSize=20"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Locations",
+      "item": [
+        {
+          "name": "Get Location Hierarchy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('locationHierarchyToken', data.concurrencyToken || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/location-hierarchy"
+          }
+        },
+        {
+          "name": "Update Location Hierarchy",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isMultiLevel\": true,\n  \"concurrencyToken\": \"{{locationHierarchyToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/location-hierarchy"
+          }
+        },
+        {
+          "name": "List Location Levels",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  const first = Array.isArray(data) && data.length > 0 ? data[0] : null;",
+                  "  if (first && first.id) {",
+                  "    pm.collectionVariables.set('locationLevelId', first.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/location-levels"
+          }
+        },
+        {
+          "name": "List Location Groups",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  const first = data.items && data.items.length > 0 ? data.items[0] : null;",
+                  "  if (first && first.id) {",
+                  "    pm.collectionVariables.set('locationGroupId', first.id);",
+                  "    pm.collectionVariables.set('locationGroupToken', first.concurrencyToken || '');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/location-groups?page=1&pageSize=20"
+          }
+        },
+        {
+          "name": "Create Location Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"levelOrder\": 1,\n  \"code\": \"WEST\",\n  \"name\": \"West\",\n  \"parentId\": null,\n  \"description\": \"Western location group\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/location-groups"
+          }
+        },
+        {
+          "name": "Create Work Center Type",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('workCenterTypeId', data.id || '');",
+                  "  pm.collectionVariables.set('workCenterTypeToken', data.concurrencyToken || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"AGENCY\",\n  \"name\": \"Agency\",\n  \"requiresAddress\": true,\n  \"requiresGeo\": false,\n  \"allowsBiometric\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/work-center-types"
+          }
+        },
+        {
+          "name": "Create Work Center",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('workCenterId', data.id || '');",
+                  "  pm.collectionVariables.set('workCenterToken', data.concurrencyToken || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CEN-001\",\n  \"name\": \"Centro General\",\n  \"workCenterTypeId\": \"{{workCenterTypeId}}\",\n  \"locationGroupId\": \"{{locationGroupId}}\",\n  \"address\": \"San Salvador\",\n  \"geoLat\": 13.6929,\n  \"geoLong\": -89.2182,\n  \"phone\": \"2222-2222\",\n  \"email\": \"centro@company.com\",\n  \"notes\": \"Centro inicial\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/work-centers"
+          }
+        },
+        {
+          "name": "Inactivate Work Center",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"concurrencyToken\": \"{{workCenterToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/work-centers/{{workCenterId}}/inactivate"
           }
         }
       ]

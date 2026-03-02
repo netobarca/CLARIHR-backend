@@ -18,6 +18,10 @@ Incluye:
 
 Todos los endpoints usan prefijo `/api`.
 
+Excepcion controlada:
+
+- el modulo de Locations introducido en HU-010 usa rutas bajo `/api/v1`
+
 ### Authentication
 
 - Endpoints publicos:
@@ -47,6 +51,16 @@ Excepcion controlada:
 - No usan `AuthorizeResource(...)`.
 - Validan ownership funcional por `CreatedByUserPublicId`.
 - El `tid` del token solo se usa para marcar contexto activo y para bloquear el archivado de la empresa activa.
+
+Excepcion controlada adicional:
+
+- El modulo `Locations` no usa la matriz RBAC HU-005/HU-006 en esta iteracion.
+- Usa validacion por claims/policies funcionales:
+  - `Locations.Read`
+  - `Locations.Admin`
+  - `iam.administration.manage`
+  - `platform_admin`
+- Aun asi, sigue siendo tenant-scoped y exige coincidencia entre `companyId` de la ruta y claim `tid`.
 
 Recursos RBAC actuales:
 
@@ -125,6 +139,27 @@ Codigos relevantes hoy:
 - `ACTIVE_COMPANY_ARCHIVE_FORBIDDEN`
 - `ACTIVE_COMPANY_SWITCH_FORBIDDEN`
 - `COMPANY_REACTIVATION_LIMIT_REACHED`
+- `LOCATION_HIERARCHY_NOT_FOUND`
+- `LOCATION_LEVEL_NOT_FOUND`
+- `LOCATION_GROUP_NOT_FOUND`
+- `WORK_CENTER_TYPE_NOT_FOUND`
+- `WORK_CENTER_NOT_FOUND`
+- `LOCATION_LEVEL_ORDER_CONFLICT`
+- `LOCATION_GROUP_CODE_CONFLICT`
+- `WORK_CENTER_TYPE_CODE_CONFLICT`
+- `WORK_CENTER_CODE_CONFLICT`
+- `LOCATION_GROUP_PARENT_REQUIRED`
+- `LOCATION_GROUP_INVALID_PARENT`
+- `LOCATION_GROUP_CYCLE_DETECTED`
+- `LOCATION_GROUP_HAS_ACTIVE_CHILDREN`
+- `LOCATION_GROUP_HAS_ACTIVE_WORK_CENTERS`
+- `WORK_CENTER_TYPE_IN_USE`
+- `WORK_CENTER_HAS_ACTIVE_DEPENDENCIES`
+- `DEFAULT_GROUP_PROTECTED`
+- `LAST_ACTIVE_LEVEL_REQUIRED`
+- `WORK_CENTERS_ALLOWED_ONLY_ON_LAST_LEVEL`
+- `LOCATION_GROUP_LEVEL_NOT_ALLOWED_FOR_WORK_CENTER`
+- `CONCURRENCY_CONFLICT`
 
 Estados HTTP usados:
 
@@ -235,6 +270,94 @@ Nota: por RBAC nivel 3, algunos campos pueden venir ocultos, `null` o masked seg
     "slug": "acme-services",
     "status": "Active"
   }
+}
+```
+
+### LocationHierarchyConfigResponse
+
+```json
+{
+  "id": "guid",
+  "isMultiLevel": false,
+  "defaultGroupCode": "GENERAL",
+  "defaultGroupName": "General",
+  "concurrencyToken": "guid"
+}
+```
+
+### LocationLevelResponse
+
+```json
+{
+  "id": "guid",
+  "levelOrder": 1,
+  "displayName": "General",
+  "isActive": true,
+  "isRequired": true,
+  "allowsWorkCenters": true,
+  "concurrencyToken": "guid"
+}
+```
+
+### LocationGroupResponse
+
+```json
+{
+  "id": "guid",
+  "levelOrder": 1,
+  "code": "GENERAL",
+  "name": "General",
+  "parentId": null,
+  "description": "Default location group.",
+  "isActive": true,
+  "isDefault": true,
+  "concurrencyToken": "guid",
+  "createdAtUtc": "2026-03-01T10:00:00Z",
+  "modifiedAtUtc": "2026-03-01T10:00:00Z"
+}
+```
+
+### WorkCenterTypeResponse
+
+```json
+{
+  "id": "guid",
+  "code": "AGENCY",
+  "name": "Agency",
+  "requiresAddress": true,
+  "requiresGeo": false,
+  "allowsBiometric": true,
+  "isActive": true,
+  "concurrencyToken": "guid",
+  "createdAtUtc": "2026-03-01T10:00:00Z",
+  "modifiedAtUtc": "2026-03-01T10:00:00Z"
+}
+```
+
+### WorkCenterResponse
+
+```json
+{
+  "id": "guid",
+  "code": "CEN-001",
+  "name": "Centro General",
+  "workCenterTypeId": "guid",
+  "workCenterTypeCode": "AGENCY",
+  "workCenterTypeName": "Agency",
+  "locationGroupId": "guid",
+  "locationGroupCode": "GENERAL",
+  "locationGroupName": "General",
+  "locationGroupLevelOrder": 1,
+  "address": "San Salvador",
+  "geoLat": 13.6929,
+  "geoLong": -89.2182,
+  "phone": "2222-2222",
+  "email": "centro@company.com",
+  "notes": "Notas",
+  "isActive": true,
+  "concurrencyToken": "guid",
+  "createdAtUtc": "2026-03-01T10:00:00Z",
+  "modifiedAtUtc": "2026-03-01T10:00:00Z"
 }
 ```
 
@@ -801,6 +924,177 @@ Main errors:
 - `404`
 - `409`
 - `500`
+
+## 3B. Locations
+
+Este modulo fue agregado en HU-010 y usa rutas bajo `/api/v1`.
+
+Reglas globales del modulo:
+
+- Auth: JWT requerido
+- Seguridad: claims/policies de Locations, no matriz RBAC HU-005/HU-006
+- Tenant: `companyId` de la ruta debe coincidir con `tid`
+- Concurrencia: updates con `concurrencyToken`
+- Provisioning: toda empresa nueva nace con config, nivel y grupo default `General`
+
+### GET /api/v1/companies/{companyId}/location-hierarchy
+
+- Auth: JWT requerido
+- Authorization: `Locations.Read` o `Locations.Admin`
+
+Response `200 OK`: `LocationHierarchyConfigResponse`
+
+Flow:
+
+1. Valida JWT.
+2. Valida `companyId` contra `tid`.
+3. Autoriza lectura de Locations.
+4. Carga configuracion tenant-scoped.
+5. Devuelve la config actual.
+
+Main errors:
+
+- `401`
+- `403`
+- `404`
+
+### PUT /api/v1/companies/{companyId}/location-hierarchy
+
+- Auth: JWT requerido
+- Authorization: `Locations.Admin`
+
+Request:
+
+```json
+{
+  "isMultiLevel": true,
+  "concurrencyToken": "guid"
+}
+```
+
+Response `200 OK`: `LocationHierarchyConfigResponse`
+
+Main errors:
+
+- `401`
+- `403`
+- `404`
+- `409`
+
+### GET /api/v1/companies/{companyId}/location-levels
+
+- Auth: JWT requerido
+- Authorization: `Locations.Read` o `Locations.Admin`
+
+Response `200 OK`: `IReadOnlyCollection<LocationLevelResponse>`
+
+### POST /api/v1/companies/{companyId}/location-levels
+
+- Auth: JWT requerido
+- Authorization: `Locations.Admin`
+
+Request:
+
+```json
+{
+  "levelOrder": 2,
+  "displayName": "Region",
+  "isActive": true,
+  "isRequired": false,
+  "allowsWorkCenters": false
+}
+```
+
+Response `201 Created`: `LocationLevelResponse`
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+- `404`
+- `409`
+
+### PUT /api/v1/location-levels/{id}
+### PATCH /api/v1/location-levels/{id}/activate
+### PATCH /api/v1/location-levels/{id}/inactivate
+
+- Auth: JWT requerido
+- Authorization: `Locations.Admin`
+- Concurrencia: `concurrencyToken` requerido
+
+### GET /api/v1/companies/{companyId}/location-groups/tree
+### GET /api/v1/companies/{companyId}/location-groups
+
+- Auth: JWT requerido
+- Authorization: `Locations.Read` o `Locations.Admin`
+
+Busqueda soportada:
+
+- `levelOrder?`
+- `isActive?`
+- `q?`
+- `page`
+- `pageSize`
+
+### POST /api/v1/companies/{companyId}/location-groups
+
+- Auth: JWT requerido
+- Authorization: `Locations.Admin`
+
+Request:
+
+```json
+{
+  "levelOrder": 1,
+  "code": "WEST",
+  "name": "West",
+  "parentId": null,
+  "description": "Western location group"
+}
+```
+
+Response `201 Created`: `LocationGroupResponse`
+
+### PUT /api/v1/location-groups/{id}
+### PATCH /api/v1/location-groups/{id}/move
+### PATCH /api/v1/location-groups/{id}/activate
+### PATCH /api/v1/location-groups/{id}/inactivate
+
+- Auth: JWT requerido
+- Authorization: `Locations.Admin`
+- Reglas criticas:
+  - padre del nivel inmediato superior
+  - grupo default protegido
+  - inactivacion bloqueada con hijos o centros activos
+
+### GET /api/v1/companies/{companyId}/work-center-types
+### POST /api/v1/companies/{companyId}/work-center-types
+### PUT /api/v1/work-center-types/{id}
+### PATCH /api/v1/work-center-types/{id}/activate
+### PATCH /api/v1/work-center-types/{id}/inactivate
+
+- Auth: JWT requerido
+- Authorization: `Locations.Read` o `Locations.Admin` para lectura; `Locations.Admin` para escritura
+- Reglas criticas:
+  - `code` unico por tenant
+  - inactivacion bloqueada si hay centros activos usando el tipo
+
+### GET /api/v1/companies/{companyId}/work-centers
+### GET /api/v1/work-centers/{id}
+### POST /api/v1/companies/{companyId}/work-centers
+### PUT /api/v1/work-centers/{id}
+### PATCH /api/v1/work-centers/{id}/reassign-group
+### PATCH /api/v1/work-centers/{id}/activate
+### PATCH /api/v1/work-centers/{id}/inactivate
+
+- Auth: JWT requerido
+- Authorization: `Locations.Read` o `Locations.Admin` para lectura; `Locations.Admin` para escritura
+- Reglas criticas:
+  - tipo y grupo deben pertenecer al tenant
+  - el grupo debe estar en un nivel que permita centros
+  - direccion y geo son obligatorias segun flags del tipo
+  - inactivacion usa `ILocationDependencyPolicy`
 
 ## 4. Company Users
 

@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Time;
+using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Common;
@@ -18,6 +19,7 @@ internal sealed class CompanyProvisioningService(
     ICompanySubscriptionRepository subscriptionRepository,
     IUserCompanyRepository userCompanyRepository,
     IIamAdministrationRepository iamRepository,
+    ILocationSeedService locationSeedService,
     IPlanEntitlementService planEntitlementService,
     IUnitOfWork unitOfWork,
     IDateTimeProvider dateTimeProvider) : ICompanyProvisioningService
@@ -92,6 +94,7 @@ internal sealed class CompanyProvisioningService(
         userCompanyRepository.Add(UserCompanyMembership.Create(user.Id, company.Id, adminRole.Id, request.MakePrimary));
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        await locationSeedService.InitializeDefaultsAsync(company.PublicId, cancellationToken);
 
         return Result<ProvisionedCompanyResult>.Success(new ProvisionedCompanyResult(
             company.PublicId,

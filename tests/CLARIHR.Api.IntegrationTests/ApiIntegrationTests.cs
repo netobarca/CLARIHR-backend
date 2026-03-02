@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using CLARIHR.Application.Features.Auth.RegisterUser;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.IdentityAccess;
 using Microsoft.EntityFrameworkCore;
@@ -92,6 +93,42 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal("FREE", payload.PlanCode);
         Assert.False(payload.IsActiveContext);
         Assert.Equal("Active", payload.Status);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Create_ShouldSeedDefaultLocationsForNewTenant()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            companyToArchive.Archive();
+            await dbContext.SaveChangesAsync();
+        });
+
+        using var accountClient = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var createResponse = await accountClient.PostAsJsonAsync("/api/account/companies", new
+        {
+            name = "Acme Three"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var company = await createResponse.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(company);
+
+        using var locationClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, company!.CompanyId, LocationPermissionCodes.Read));
+
+        var hierarchyResponse = await locationClient.GetAsync($"/api/v1/companies/{company.CompanyId}/location-hierarchy");
+
+        hierarchyResponse.EnsureSuccessStatusCode();
+
+        var hierarchy = await hierarchyResponse.Content.ReadFromJsonAsync<LocationHierarchyItem>(JsonOptions);
+        Assert.NotNull(hierarchy);
+        Assert.False(hierarchy!.IsMultiLevel);
+        Assert.Equal("GENERAL", hierarchy.DefaultGroupCode);
+        Assert.Equal("General", hierarchy.DefaultGroupName);
     }
 
     [Fact]
@@ -211,6 +248,335 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var token = new JwtSecurityTokenHandler().ReadJwtToken(payload.AccessToken);
         var tid = token.Claims.Single(claim => claim.Type == "tid").Value;
         Assert.Equal(scenario.OtherTenantId.ToString(), tid);
+    }
+
+    [Fact]
+    public async Task LocationHierarchy_Get_ShouldReturnSeededDefaults()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationReadContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/location-hierarchy");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<LocationHierarchyItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload!.IsMultiLevel);
+        Assert.Equal("GENERAL", payload.DefaultGroupCode);
+        Assert.Equal("General", payload.DefaultGroupName);
+    }
+
+    [Fact]
+    public async Task LocationHierarchy_Update_WithValidToken_ShouldReturnUpdatedConfig()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var current = await GetLocationHierarchyAsync(client, scenario.TenantId);
+
+        var response = await client.PutAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-hierarchy", new
+        {
+            isMultiLevel = true,
+            concurrencyToken = current.ConcurrencyToken
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<LocationHierarchyItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.True(payload!.IsMultiLevel);
+        Assert.NotEqual(current.ConcurrencyToken, payload.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task LocationHierarchy_Update_WithStaleToken_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var response = await client.PutAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-hierarchy", new
+        {
+            isMultiLevel = true,
+            concurrencyToken = Guid.NewGuid()
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task LocationHierarchy_WithTenantMismatch_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationReadContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.OtherTenantId}/location-hierarchy");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+    }
+
+    [Fact]
+    public async Task LocationLevels_List_ShouldReturnSeededGeneralLevel()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationReadContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/location-levels");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<LocationLevelItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        var level = Assert.Single(payload!);
+        Assert.Equal(1, level.LevelOrder);
+        Assert.Equal("General", level.DisplayName);
+        Assert.True(level.IsActive);
+        Assert.True(level.IsRequired);
+        Assert.True(level.AllowsWorkCenters);
+    }
+
+    [Fact]
+    public async Task LocationGroups_Create_ShouldReturnCreatedGroup()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
+        {
+            levelOrder = 1,
+            code = "WEST",
+            name = "West",
+            parentId = (Guid?)null,
+            description = "Western location group"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<LocationGroupItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("WEST", payload!.Code);
+        Assert.Equal("West", payload.Name);
+        Assert.True(payload.IsActive);
+        Assert.False(payload.IsDefault);
+    }
+
+    [Fact]
+    public async Task WorkCenters_Create_WithAddressRequirementSatisfied_ShouldReturnCreatedCenter()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var defaultGroup = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
+
+        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        {
+            code = "AGENCY",
+            name = "Agency",
+            requiresAddress = true,
+            requiresGeo = false,
+            allowsBiometric = true
+        });
+        Assert.Equal(HttpStatusCode.Created, typeResponse.StatusCode);
+        var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
+
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        {
+            code = "CEN-001",
+            name = "Centro General",
+            workCenterTypeId = workCenterType!.Id,
+            locationGroupId = defaultGroup.Id,
+            address = "San Salvador",
+            geoLat = (decimal?)null,
+            geoLong = (decimal?)null,
+            phone = "2222-2222",
+            email = "centro@acme-one.test",
+            notes = "Centro inicial"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<WorkCenterItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("CEN-001", payload!.Code);
+        Assert.Equal("Agency", payload.WorkCenterTypeName);
+        Assert.Equal(defaultGroup.Id, payload.LocationGroupId);
+        Assert.True(payload.IsActive);
+    }
+
+    [Fact]
+    public async Task WorkCenters_Create_WhenAddressIsMissingForRequiredType_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var defaultGroup = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
+
+        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        {
+            code = "AGENCY",
+            name = "Agency",
+            requiresAddress = true,
+            requiresGeo = false,
+            allowsBiometric = true
+        });
+        typeResponse.EnsureSuccessStatusCode();
+        var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
+
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        {
+            code = "CEN-001",
+            name = "Centro General",
+            workCenterTypeId = workCenterType!.Id,
+            locationGroupId = defaultGroup.Id,
+            address = (string?)null,
+            geoLat = (decimal?)null,
+            geoLong = (decimal?)null,
+            phone = "2222-2222",
+            email = "centro@acme-one.test",
+            notes = "Centro inicial"
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.BadRequest, "WORK_CENTER_ADDRESS_REQUIRED");
+    }
+
+    [Fact]
+    public async Task LocationGroups_Inactivate_WhenActiveWorkCentersExist_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var groupResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
+        {
+            levelOrder = 1,
+            code = "WEST",
+            name = "West",
+            parentId = (Guid?)null,
+            description = "Western location group"
+        });
+        groupResponse.EnsureSuccessStatusCode();
+        var group = await groupResponse.Content.ReadFromJsonAsync<LocationGroupItem>(JsonOptions);
+
+        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        {
+            code = "AGENCY",
+            name = "Agency",
+            requiresAddress = true,
+            requiresGeo = false,
+            allowsBiometric = true
+        });
+        typeResponse.EnsureSuccessStatusCode();
+        var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
+
+        var createCenterResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        {
+            code = "CEN-001",
+            name = "Centro West",
+            workCenterTypeId = workCenterType!.Id,
+            locationGroupId = group!.Id,
+            address = "San Salvador",
+            geoLat = (decimal?)null,
+            geoLong = (decimal?)null,
+            phone = "2222-2222",
+            email = "west@acme-one.test",
+            notes = "Centro West"
+        });
+        createCenterResponse.EnsureSuccessStatusCode();
+
+        var response = await client.PatchAsJsonAsync($"/api/v1/location-groups/{group.Id}/inactivate", new
+        {
+            concurrencyToken = group.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "LOCATION_GROUP_HAS_ACTIVE_WORK_CENTERS");
+    }
+
+    [Fact]
+    public async Task WorkCenterTypes_Inactivate_WhenTypeIsInUse_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var defaultGroup = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
+
+        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        {
+            code = "AGENCY",
+            name = "Agency",
+            requiresAddress = true,
+            requiresGeo = false,
+            allowsBiometric = true
+        });
+        typeResponse.EnsureSuccessStatusCode();
+        var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
+
+        var createCenterResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        {
+            code = "CEN-001",
+            name = "Centro General",
+            workCenterTypeId = workCenterType!.Id,
+            locationGroupId = defaultGroup.Id,
+            address = "San Salvador",
+            geoLat = (decimal?)null,
+            geoLong = (decimal?)null,
+            phone = "2222-2222",
+            email = "centro@acme-one.test",
+            notes = "Centro inicial"
+        });
+        createCenterResponse.EnsureSuccessStatusCode();
+
+        var response = await client.PatchAsJsonAsync($"/api/v1/work-center-types/{workCenterType.Id}/inactivate", new
+        {
+            concurrencyToken = workCenterType.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "WORK_CENTER_TYPE_IN_USE");
+    }
+
+    [Fact]
+    public async Task WorkCenters_Inactivate_ShouldReturnInactiveCenter()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var defaultGroup = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
+
+        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        {
+            code = "AGENCY",
+            name = "Agency",
+            requiresAddress = true,
+            requiresGeo = false,
+            allowsBiometric = true
+        });
+        typeResponse.EnsureSuccessStatusCode();
+        var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
+
+        var createCenterResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        {
+            code = "CEN-001",
+            name = "Centro General",
+            workCenterTypeId = workCenterType!.Id,
+            locationGroupId = defaultGroup.Id,
+            address = "San Salvador",
+            geoLat = (decimal?)null,
+            geoLong = (decimal?)null,
+            phone = "2222-2222",
+            email = "centro@acme-one.test",
+            notes = "Centro inicial"
+        });
+        createCenterResponse.EnsureSuccessStatusCode();
+        var workCenter = await createCenterResponse.Content.ReadFromJsonAsync<WorkCenterItem>(JsonOptions);
+
+        var response = await client.PatchAsJsonAsync($"/api/v1/work-centers/{workCenter!.Id}/inactivate", new
+        {
+            concurrencyToken = workCenter.ConcurrencyToken
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<WorkCenterItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload!.IsActive);
     }
 
     [Fact]
@@ -888,6 +1254,28 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray());
 
+    private static TestUserContext CreateLocationReadContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, LocationPermissionCodes.Read);
+
+    private static TestUserContext CreateLocationAdminContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, LocationPermissionCodes.Admin);
+
+    private async Task<LocationHierarchyItem> GetLocationHierarchyAsync(HttpClient client, Guid companyId)
+    {
+        var response = await client.GetAsync($"/api/v1/companies/{companyId}/location-hierarchy");
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<LocationHierarchyItem>(JsonOptions))!;
+    }
+
+    private async Task<LocationGroupItem> GetDefaultLocationGroupAsync(HttpClient client, Guid companyId)
+    {
+        var response = await client.GetAsync($"/api/v1/companies/{companyId}/location-groups?page=1&pageSize=20");
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<LocationGroupItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        return Assert.Single(payload!.Items, static group => group.IsDefault);
+    }
+
     private static async Task AssertProblemDetailsAsync(HttpResponseMessage response, HttpStatusCode expectedStatusCode, string expectedCode)
     {
         Assert.Equal(expectedStatusCode, response.StatusCode);
@@ -946,6 +1334,69 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string? RefreshToken,
         int ExpiresIn,
         ActiveCompanyItem ActiveCompany);
+
+    private sealed record LocationHierarchyItem(
+        Guid Id,
+        bool IsMultiLevel,
+        string DefaultGroupCode,
+        string DefaultGroupName,
+        Guid ConcurrencyToken);
+
+    private sealed record LocationLevelItem(
+        Guid Id,
+        int LevelOrder,
+        string DisplayName,
+        bool IsActive,
+        bool IsRequired,
+        bool AllowsWorkCenters,
+        Guid ConcurrencyToken);
+
+    private sealed record LocationGroupItem(
+        Guid Id,
+        int LevelOrder,
+        string Code,
+        string Name,
+        Guid? ParentId,
+        string? Description,
+        bool IsActive,
+        bool IsDefault,
+        Guid ConcurrencyToken,
+        DateTime CreatedAtUtc,
+        DateTime? ModifiedAtUtc);
+
+    private sealed record WorkCenterTypeItem(
+        Guid Id,
+        string Code,
+        string Name,
+        bool RequiresAddress,
+        bool RequiresGeo,
+        bool AllowsBiometric,
+        bool IsActive,
+        Guid ConcurrencyToken,
+        DateTime CreatedAtUtc,
+        DateTime? ModifiedAtUtc);
+
+    private sealed record WorkCenterItem(
+        Guid Id,
+        string Code,
+        string Name,
+        Guid WorkCenterTypeId,
+        string WorkCenterTypeCode,
+        string WorkCenterTypeName,
+        Guid LocationGroupId,
+        string LocationGroupCode,
+        string LocationGroupName,
+        int LocationGroupLevelOrder,
+        string? Address,
+        decimal? GeoLat,
+        decimal? GeoLong,
+        string? Phone,
+        string? Email,
+        string? Notes,
+        bool IsActive,
+        Guid ConcurrencyToken,
+        DateTime CreatedAtUtc,
+        DateTime? ModifiedAtUtc);
 
     private sealed record IamUserSummaryItem(
         Guid Id,

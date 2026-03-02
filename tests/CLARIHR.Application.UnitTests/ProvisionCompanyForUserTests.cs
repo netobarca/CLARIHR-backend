@@ -2,6 +2,7 @@ using System.Reflection;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.AccountCompanies;
@@ -180,6 +181,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             subscriptionRepository,
             userCompanyRepository,
             iamRepository,
+            new TestLocationSeedService(),
             planEntitlementService,
             unitOfWork,
             new FixedDateTimeProvider(new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)));
@@ -217,6 +219,11 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
     private sealed class FixedDateTimeProvider(DateTime utcNow) : IDateTimeProvider
     {
         public DateTime UtcNow => utcNow;
+    }
+
+    private sealed class TestLocationSeedService : ILocationSeedService
+    {
+        public Task InitializeDefaultsAsync(Guid tenantId, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class TestUserRepository : IUserRepository

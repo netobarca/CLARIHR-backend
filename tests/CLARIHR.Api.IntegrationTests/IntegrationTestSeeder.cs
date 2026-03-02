@@ -5,6 +5,7 @@ using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.Locations;
 using CLARIHR.Infrastructure.Persistence;
 using System.Reflection;
 
@@ -32,6 +33,10 @@ internal static class IntegrationTestSeeder
         dbContext.CompanySubscriptions.AddRange(
             CompanySubscription.Activate(companyA.Id, ProvisioningConstants.FreePlanCode, DateTime.UtcNow.Date),
             CompanySubscription.Activate(companyB.Id, ProvisioningConstants.FreePlanCode, DateTime.UtcNow.Date));
+        await dbContext.SaveChangesAsync();
+
+        SeedDefaultLocations(dbContext, tenantA);
+        SeedDefaultLocations(dbContext, tenantB);
         await dbContext.SaveChangesAsync();
 
         var actorRole = IamRole.Create("Security Operator", "Can read and update company users plus audit logs.");
@@ -260,6 +265,36 @@ internal static class IntegrationTestSeeder
             .GetProperty("PublicId", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
             .GetSetMethod(nonPublic: true)!
             .Invoke(entity, [publicId]);
+    }
+
+    private static void SeedDefaultLocations(ApplicationDbContext dbContext, Guid tenantId)
+    {
+        var config = LocationHierarchyConfig.Create(
+            isMultiLevel: false,
+            "GENERAL",
+            "General");
+        config.SetTenantId(tenantId);
+
+        var level = LocationLevel.Create(
+            levelOrder: 1,
+            "General",
+            isActive: true,
+            isRequired: true,
+            allowsWorkCenters: true);
+        level.SetTenantId(tenantId);
+
+        var group = LocationGroup.Create(
+            levelOrder: 1,
+            "GENERAL",
+            "General",
+            parentId: null,
+            description: "Default location group.",
+            isDefault: true);
+        group.SetTenantId(tenantId);
+
+        dbContext.LocationHierarchyConfigs.Add(config);
+        dbContext.LocationLevels.Add(level);
+        dbContext.LocationGroups.Add(group);
     }
 }
 

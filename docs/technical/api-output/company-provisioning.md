@@ -30,6 +30,10 @@ Cuando el usuario no tiene empresa primaria, el backend crea en una sola transac
   - `RBAC.PERMISSIONS.MANAGE`
 - `IamUser` enlazado al mismo `PublicId` del usuario auth
 - `UserCompanyMembership` primaria con rol admin
+- base de ubicaciones tenant-scoped:
+  - `LocationHierarchyConfig`
+  - nivel `General`
+  - grupo default `GENERAL`
 
 ## Initial provisioning idempotency
 
@@ -70,8 +74,11 @@ Cuando el usuario no tiene empresa primaria, el backend crea en una sola transac
    - `plan_entitlements`
    - `user_companies`
    - `iam_users`, `iam_roles`, `iam_permissions`
+   - `location_hierarchy_configs`
+   - `location_levels`
+   - `location_groups`
 
 ## Failure behavior
 
 - Si falla cualquier paso del provisioning, el registro retorna `500` con code `provisioning.failed`.
-- La transaccion revierte usuario, empresa, suscripcion, membership, seeds IAM y refresh token.
+- La transaccion revierte usuario, empresa, suscripcion, membership, seeds IAM, seed de Locations y refresh token.
