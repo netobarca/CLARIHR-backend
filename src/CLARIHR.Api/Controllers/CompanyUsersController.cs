@@ -82,7 +82,7 @@ public sealed class CompanyUsersController(
         return this.ToActionResult(result);
     }
 
-    [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Delete)]
+    [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
     [HttpPatch("{userId:guid}/deactivate")]
     [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
