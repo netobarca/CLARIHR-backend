@@ -361,11 +361,13 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(
+    public async Task<PagedResponse<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(
         Guid? roleId,
         string? normalizedResourceKey,
         DateTime? fromUtc,
         DateTime? toUtc,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         var query = dbContext.RbacPermissionAuditLogs.AsNoTracking();
@@ -390,10 +392,15 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
             query = query.Where(log => log.ChangedAtUtc <= toUtc.Value);
         }
 
-        return await query
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
             .OrderByDescending(log => log.ChangedAtUtc)
             .ThenByDescending(log => log.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
+
+        return new PagedResponse<RbacPermissionAuditLog>(items, pageNumber, pageSize, totalCount);
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken) =>

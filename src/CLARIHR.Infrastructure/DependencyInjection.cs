@@ -29,6 +29,7 @@ public static class DependencyInjection
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<JwtTokenOptions>(configuration.GetSection(JwtTokenOptions.SectionName));
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
+        services.Configure<FieldPermissionCacheOptions>(configuration.GetSection(FieldPermissionCacheOptions.SectionName));
         services.AddHttpContextAccessor();
 
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
@@ -58,6 +59,7 @@ public static class DependencyInjection
         services.AddScoped<IRbacAuthorizationService, RbacAuthorizationService>();
         services.AddScoped<IIamAdministrationRepository, IamAdministrationRepository>();
         services.AddScoped<IIamAdministrationAuthorizationService, IamAdministrationAuthorizationService>();
+        services.AddSingleton<IFieldPermissionOverrideCache, FieldPermissionOverrideCache>();
         services.AddScoped<IFieldAccessProfileService, FieldAccessProfileService>();
         services.AddScoped<IFieldPermissionService, FieldPermissionService>();
         services.AddSingleton<IFieldSerializationService, FieldSerializationService>();

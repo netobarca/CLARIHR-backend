@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Application.Features.IdentityAccess.Roles;
@@ -28,7 +29,9 @@ public sealed record GetPermissionAuditQuery(
     Guid? RoleId,
     string? ResourceKey,
     DateTime? FromUtc,
-    DateTime? ToUtc) : IQuery<RbacPermissionAuditListResponse>;
+    DateTime? ToUtc,
+    int Page = 1,
+    int PageSize = 20) : IQuery<PagedResponse<RbacPermissionAuditEntryResponse>>;
 
 internal sealed class GetRolePermissionsQueryValidator : AbstractValidator<GetRolePermissionsQuery>
 {
@@ -72,6 +75,12 @@ internal sealed class GetPermissionAuditQueryValidator : AbstractValidator<GetPe
 {
     public GetPermissionAuditQueryValidator()
     {
+        RuleFor(query => query.Page)
+            .GreaterThan(0);
+
+        RuleFor(query => query.PageSize)
+            .InclusiveBetween(1, 100);
+
         RuleFor(query => query.RoleId)
             .NotEqual(Guid.Empty)
             .When(static query => query.RoleId.HasValue);
@@ -162,9 +171,9 @@ internal sealed class UpsertRolePermissionsCommandHandler(ICommandDispatcher com
 internal sealed class GetPermissionAuditQueryHandler(
     IIamAdministrationAuthorizationService authorizationService,
     IIamAdministrationRepository repository)
-    : IQueryHandler<GetPermissionAuditQuery, RbacPermissionAuditListResponse>
+    : IQueryHandler<GetPermissionAuditQuery, PagedResponse<RbacPermissionAuditEntryResponse>>
 {
-    public async Task<Result<RbacPermissionAuditListResponse>> Handle(
+    public async Task<Result<PagedResponse<RbacPermissionAuditEntryResponse>>> Handle(
         GetPermissionAuditQuery query,
         CancellationToken cancellationToken)
     {
@@ -174,7 +183,7 @@ internal sealed class GetPermissionAuditQueryHandler(
             cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<RbacPermissionAuditListResponse>.Failure(authorizationResult.Error);
+            return Result<PagedResponse<RbacPermissionAuditEntryResponse>>.Failure(authorizationResult.Error);
         }
 
         var normalizedResourceKey = ResolveNormalizedResourceKey(query.ResourceKey);
@@ -183,9 +192,11 @@ internal sealed class GetPermissionAuditQueryHandler(
             normalizedResourceKey,
             query.FromUtc,
             query.ToUtc,
+            query.Page,
+            query.PageSize,
             cancellationToken);
 
-        var items = auditEntries
+        var items = auditEntries.Items
             .Select(static entry =>
             {
                 var before = RbacPermissionChangeTracker.Deserialize(entry.BeforeJson);
@@ -214,7 +225,12 @@ internal sealed class GetPermissionAuditQueryHandler(
             })
             .ToArray();
 
-        return Result<RbacPermissionAuditListResponse>.Success(new RbacPermissionAuditListResponse(items));
+        return Result<PagedResponse<RbacPermissionAuditEntryResponse>>.Success(
+            new PagedResponse<RbacPermissionAuditEntryResponse>(
+                items,
+                auditEntries.PageNumber,
+                auditEntries.PageSize,
+                auditEntries.TotalCount));
     }
 
     private static string? ResolveNormalizedResourceKey(string? resourceKey)

@@ -1,81 +1,14 @@
-using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.IdentityAccess;
-using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Domain.IdentityAccess;
-using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace CLARIHR.Infrastructure.IdentityAccess;
 
-internal sealed class FieldAccessProfileService(
-    ApplicationDbContext dbContext,
-    ICurrentUserService currentUserService,
-    ITenantContext tenantContext,
-    IFieldPermissionOverrideCache fieldPermissionOverrideCache) : IFieldAccessProfileService
+internal sealed partial class FieldPermissionService
 {
-    public async Task<Result<FieldAccessProfile>> GetCurrentUserAccessProfileAsync(
-        string resourceKey,
-        CancellationToken cancellationToken)
-    {
-        if (!PermissionMatrixCatalog.TryGet(resourceKey, out var definition))
-        {
-            return Result<FieldAccessProfile>.Failure(CreateResourceValidationError(resourceKey));
-        }
-
-        var catalog = await GetCatalogAsync(definition.ResourceKey, cancellationToken);
-        if (currentUserService.Roles.Contains("platform_admin", StringComparer.OrdinalIgnoreCase))
-        {
-            var fullAccess = FieldPermissionEvaluator.BuildProfile(
-                definition.ResourceKey,
-                catalog,
-                new Dictionary<string, FieldPermissionOverrideState>(StringComparer.OrdinalIgnoreCase),
-                new RbacPermissionState(true, true, true, true, false));
-            return Result<FieldAccessProfile>.Success(fullAccess);
-        }
-
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<FieldAccessProfile>.Failure(IdentityAccessErrors.TenantContextRequired);
-        }
-
-        var actorUserId = TryParseCurrentUserId(currentUserService.UserId);
-        if (!actorUserId.HasValue)
-        {
-            return Result<FieldAccessProfile>.Failure(IdentityAccessErrors.InvalidCurrentUser);
-        }
-
-        var actor = await dbContext.IamUsers
-            .AsNoTracking()
-            .Include(user => user.RoleAssignments)
-            .ThenInclude(assignment => assignment.Role)
-            .ThenInclude(role => role.PermissionAssignments)
-            .ThenInclude(assignment => assignment.Permission)
-            .SingleOrDefaultAsync(user => user.PublicId == actorUserId.Value && user.IsActive, cancellationToken);
-        if (actor is null || actor.RoleAssignments.Count == 0)
-        {
-            var claimBasedProfile = FieldPermissionEvaluator.BuildProfile(
-                definition.ResourceKey,
-                catalog,
-                new Dictionary<string, FieldPermissionOverrideState>(StringComparer.OrdinalIgnoreCase),
-                CaptureScreenState(currentUserService.Permissions, definition.ScreenKey));
-            return Result<FieldAccessProfile>.Success(claimBasedProfile);
-        }
-
-        var profiles = new List<FieldAccessProfile>();
-        foreach (var assignment in actor.RoleAssignments)
-        {
-            var screenState = CaptureScreenState(
-                assignment.Role.PermissionAssignments.Select(static permissionAssignment => permissionAssignment.Permission),
-                definition.ScreenKey);
-            var overrides = await GetRoleOverridesAsync(assignment.RoleId, definition.ResourceKey, cancellationToken);
-            profiles.Add(FieldPermissionEvaluator.BuildProfile(definition.ResourceKey, catalog, overrides, screenState));
-        }
-
-        return Result<FieldAccessProfile>.Success(FieldPermissionEvaluator.Merge(definition.ResourceKey, catalog, profiles));
-    }
-
     private async Task<IReadOnlyCollection<FieldCatalogDefinition>> GetCatalogAsync(
         string resourceKey,
         CancellationToken cancellationToken)
@@ -87,7 +20,7 @@ internal sealed class FieldAccessProfileService(
         }
 
         var normalizedResourceKey = resourceKey.Trim().ToUpperInvariant();
-        return await dbContext.FieldCatalogEntries
+        var persisted = await _dbContext.FieldCatalogEntries
             .AsNoTracking()
             .Where(entry => entry.NormalizedResourceKey == normalizedResourceKey)
             .OrderBy(entry => entry.DisplayName)
@@ -100,6 +33,8 @@ internal sealed class FieldAccessProfileService(
                 entry.IsConfigurable,
                 entry.IsSensitive))
             .ToListAsync(cancellationToken);
+
+        return persisted;
     }
 
     private async Task<IReadOnlyDictionary<string, FieldPermissionOverrideState>> GetRoleOverridesAsync(
@@ -107,13 +42,13 @@ internal sealed class FieldAccessProfileService(
         string resourceKey,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
+        if (!_tenantContext.TenantId.HasValue)
         {
             return new Dictionary<string, FieldPermissionOverrideState>(StringComparer.OrdinalIgnoreCase);
         }
 
-        var cached = await fieldPermissionOverrideCache.GetRoleOverridesAsync(
-            tenantContext.TenantId.Value,
+        var cached = await _fieldPermissionOverrideCache.GetRoleOverridesAsync(
+            _tenantContext.TenantId.Value,
             roleId,
             resourceKey,
             cancellationToken);
@@ -123,7 +58,7 @@ internal sealed class FieldAccessProfileService(
         }
 
         var normalizedResourcePrefix = $"{resourceKey.Trim().ToUpperInvariant()}.";
-        var permissions = await dbContext.RoleFieldPermissions
+        var permissions = await _dbContext.RoleFieldPermissions
             .AsNoTracking()
             .Where(permission => permission.RoleId == roleId && permission.NormalizedFieldKey.StartsWith(normalizedResourcePrefix))
             .ToDictionaryAsync(
@@ -136,13 +71,37 @@ internal sealed class FieldAccessProfileService(
                 StringComparer.OrdinalIgnoreCase,
                 cancellationToken);
 
-        await fieldPermissionOverrideCache.SetRoleOverridesAsync(
-            tenantContext.TenantId.Value,
+        await _fieldPermissionOverrideCache.SetRoleOverridesAsync(
+            _tenantContext.TenantId.Value,
             roleId,
             resourceKey,
             permissions,
             cancellationToken);
         return permissions;
+    }
+
+    private static RoleFieldPermissionsResponse Map(
+        Guid roleId,
+        string roleName,
+        FieldAccessProfile profile)
+    {
+        var fields = profile.Rules
+            .Where(static rule => rule.IsConfigurable)
+            .OrderBy(static rule => rule.DisplayName)
+            .Select(static rule => new RoleFieldPermissionResponse(
+                rule.FieldKey,
+                rule.PropertyName,
+                rule.DisplayName,
+                rule.DataType,
+                rule.IsSensitive,
+                rule.IsVisible,
+                rule.IsEditable,
+                rule.IsRequired,
+                rule.IsMasked,
+                IsReadOnly: rule.IsVisible && !rule.IsEditable))
+            .ToArray();
+
+        return new RoleFieldPermissionsResponse(roleId, roleName, profile.ResourceKey, fields);
     }
 
     private static RbacPermissionState CaptureScreenState(IEnumerable<IamPermission> permissions, RbacPermissionScreen screen) =>
@@ -162,6 +121,42 @@ internal sealed class FieldAccessProfileService(
             CanDelete: RbacAuthorizationEvaluator.IsAllowed(normalizedCodes, screen, RbacPermissionAction.Delete));
     }
 
+    private static Error? ValidateUpdates(
+        string resourceKey,
+        IReadOnlyCollection<FieldCatalogDefinition> catalog,
+        IReadOnlyCollection<RoleFieldPermissionUpdateModel> fields)
+    {
+        var errors = new Dictionary<string, string[]>();
+        var configurableByFieldKey = catalog
+            .Where(static definition => definition.IsConfigurable)
+            .ToDictionary(static definition => definition.FieldKey, StringComparer.OrdinalIgnoreCase);
+
+        var duplicates = fields
+            .GroupBy(static field => field.FieldKey, StringComparer.OrdinalIgnoreCase)
+            .Where(static group => group.Count() > 1)
+            .Select(static group => group.Key)
+            .ToArray();
+        if (duplicates.Length > 0)
+        {
+            errors[nameof(RoleFieldPermissionUpdateModel.FieldKey)] =
+                [$"Duplicate field keys are not allowed: {string.Join(", ", duplicates)}."];
+        }
+
+        foreach (var field in fields)
+        {
+            if (!configurableByFieldKey.ContainsKey(field.FieldKey))
+            {
+                errors[nameof(RoleFieldPermissionUpdateModel.FieldKey)] =
+                    [$"Field '{field.FieldKey}' is not configurable for resource '{resourceKey}'."];
+            }
+        }
+
+        return errors.Count > 0 ? ErrorCatalog.Validation(errors) : null;
+    }
+
+    private static bool TryResolveResource(string resourceKey, out PermissionMatrixScreenDefinition definition) =>
+        PermissionMatrixCatalog.TryGet(resourceKey, out definition!);
+
     private static Error CreateResourceValidationError(string resourceKey) =>
         ErrorCatalog.Validation(new Dictionary<string, string[]>
         {
@@ -170,4 +165,6 @@ internal sealed class FieldAccessProfileService(
 
     private static Guid? TryParseCurrentUserId(string? currentUserId) =>
         Guid.TryParse(currentUserId, out var actorUserId) ? actorUserId : null;
+
+    private string? GetEndpoint() => _httpContextAccessor.HttpContext?.Request.Path.Value;
 }

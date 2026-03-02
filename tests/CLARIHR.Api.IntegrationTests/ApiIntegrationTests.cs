@@ -1,0 +1,881 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using CLARIHR.Application.Features.Auth.RegisterUser;
+using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Domain.IdentityAccess;
+
+namespace CLARIHR.Api.IntegrationTests;
+
+public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory factory)
+    : IClassFixture<IntegrationTestWebApplicationFactory>
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    static ApiIntegrationTests()
+    {
+        JsonOptions.Converters.Add(new JsonStringEnumConverter());
+    }
+
+    [Fact]
+    public async Task Register_ShouldReturnCreatedAndTokens()
+    {
+        await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "Admin",
+            lastName = "Local",
+            email = "admin.local@test.com",
+            password = "StrongPass123!",
+            companyName = "Acme Local",
+            country = "SV",
+            source = "integration-tests"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(string.IsNullOrWhiteSpace(payload!.AccessToken));
+        Assert.False(string.IsNullOrWhiteSpace(payload.RefreshToken));
+        Assert.Equal("admin.local@test.com", payload.User.Email);
+    }
+
+    [Fact]
+    public async Task ProtectedEndpoint_WithoutAuthentication_ShouldReturn401()
+    {
+        await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/company/users");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Unauthorized, "UNAUTHENTICATED");
+    }
+
+    [Fact]
+    public async Task RbacEndpoint_WithoutPermission_ShouldReturn403RbacDenied()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId));
+
+        var response = await client.GetAsync("/api/rbac/resources");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "RBAC_DENIED");
+    }
+
+    [Fact]
+    public async Task AuditLogs_WithoutPermission_ShouldReturn403RbacDenied()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync("/api/audit/logs");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "RBAC_DENIED");
+    }
+
+    [Fact]
+    public async Task AuditLogDetail_ForOtherTenant_ShouldReturn403TenantMismatch()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync($"/api/audit/logs/{scenario.OtherTenantAuditLogId}");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+    }
+
+    [Fact]
+    public async Task CompanyUsers_List_ShouldApplyFieldVisibilityRules()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync("/api/company/users?page=1&pageSize=20");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedCompanyUserResponse>(JsonOptions);
+        Assert.NotNull(payload);
+        var user = Assert.Single(payload!.Items);
+        Assert.Null(user.Email);
+        Assert.Equal("Target", user.FirstName);
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Update_WhenFieldIsNotEditable_ShouldReturn403FieldEditForbidden()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        var response = await client.PutAsJsonAsync($"/api/company/users/{scenario.TargetUserId}", new
+        {
+            firstName = "Blocked",
+            lastName = "User",
+            roleId = scenario.TargetRoleId
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "FIELD_EDIT_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Update_WhenFieldsAreAllowed_ShouldReturnUpdatedUser()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        var response = await client.PutAsJsonAsync($"/api/company/users/{scenario.TargetUserId}", new
+        {
+            firstName = "Target",
+            lastName = "Updated",
+            roleId = scenario.TargetRoleId
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<CompanyUserItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Updated", payload!.LastName);
+        Assert.Equal("Target", payload.FirstName);
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Deactivate_WithUpdatePermission_ShouldReturnInactiveUser()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        var response = await client.PatchAsync($"/api/company/users/{scenario.TargetUserId}/deactivate", content: null);
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<CompanyUserItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Inactive", payload!.Status);
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Deactivate_WithDeleteOnly_ShouldReturn403RbacDenied()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                Guid.Parse("55555555-5555-5555-5555-555555555555"),
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Delete)));
+
+        var response = await client.PatchAsync($"/api/company/users/{scenario.TargetUserId}/deactivate", content: null);
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "RBAC_DENIED");
+    }
+
+    [Fact]
+    public async Task IamUsers_List_WithPermission_ShouldReturnPagedUsers()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Users, RbacPermissionAction.Access),
+            (RbacPermissionScreen.Users, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync("/api/iam/users?pageNumber=1&pageSize=20");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<IamUserSummaryItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(1, payload!.PageNumber);
+        Assert.Equal(20, payload.PageSize);
+        Assert.Equal(2, payload.TotalCount);
+        Assert.Contains(payload.Items, static user => user.Email == "security.operator@acme-one.test");
+        Assert.Contains(payload.Items, static user => user.Email == "tenant.security.admin@acme-one.test");
+    }
+
+    [Fact]
+    public async Task IamRoles_List_WithPermission_ShouldReturnTenantRolesOnly()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Access),
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync("/api/iam/roles?pageNumber=1&pageSize=20");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<IamRoleSummaryItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(3, payload!.TotalCount);
+        Assert.Contains(payload.Items, static role => role.Name == "Security Operator");
+        Assert.Contains(payload.Items, static role => role.Name == "Security Admin");
+        Assert.Contains(payload.Items, static role => role.Name == "Employee");
+        Assert.DoesNotContain(payload.Items, static role => role.Name == "Auditor B");
+    }
+
+    [Fact]
+    public async Task IamRoles_GetById_ForOtherTenantRole_ShouldReturn403TenantMismatch()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Access),
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync($"/api/iam/roles/{scenario.OtherTenantRoleId}");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+    }
+
+    [Fact]
+    public async Task IamPermissions_GetById_WithPermission_ShouldReturnPermissionContract()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Access),
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync($"/api/iam/permissions/{scenario.ActorPermissionId}");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<IamPermissionItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access), payload!.Code);
+        Assert.Equal("RBAC", payload.Module);
+        Assert.Equal("Users", payload.Screen);
+    }
+
+    [Fact]
+    public async Task RbacResources_WithPermission_ShouldReturnKnownResources()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Access),
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync("/api/rbac/resources");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<RbacResourcesPayload>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Items, static item => item.ResourceKey == "RBAC_USERS");
+        Assert.Contains(payload.Items, static item => item.ResourceKey == "RBAC_ROLES");
+        Assert.Contains(payload.Items, static item => item.ResourceKey == "RBAC_PERMISSIONS");
+    }
+
+    [Fact]
+    public async Task RbacRolePermissions_WithPermission_ShouldReturnGrantedActions()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Access),
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync($"/api/rbac/roles/{scenario.ActorRoleId}/permissions");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<RbacRolePermissionsPayload>(JsonOptions);
+        Assert.NotNull(payload);
+        var usersPermission = Assert.Single(payload!.Permissions, static permission => permission.ResourceKey == "RBAC_USERS");
+        Assert.True(usersPermission.HasAccess);
+        Assert.True(usersPermission.CanRead);
+        Assert.True(usersPermission.CanUpdate);
+        Assert.False(usersPermission.CanCreate);
+    }
+
+    [Fact]
+    public async Task RbacRoleFieldPermissions_WithPermission_ShouldReturnConfiguredOverrides()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Access),
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync($"/api/rbac/roles/{scenario.ActorRoleId}/field-permissions?resourceKey=RBAC_USERS");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<RoleFieldPermissionsPayload>(JsonOptions);
+        Assert.NotNull(payload);
+
+        var email = Assert.Single(payload!.Fields, static field => field.FieldKey == "RBAC_USERS.EMAIL");
+        Assert.False(email.IsVisible);
+        Assert.False(email.IsEditable);
+
+        var firstName = Assert.Single(payload.Fields, static field => field.FieldKey == "RBAC_USERS.FIRST_NAME");
+        Assert.True(firstName.IsVisible);
+        Assert.False(firstName.IsEditable);
+        Assert.True(firstName.IsReadOnly);
+    }
+
+    [Fact]
+    public async Task RbacAudit_WithPermission_ShouldReturnPagedTenantScopedEntries()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Access),
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync("/api/rbac/audit?resourceKey=RBAC_USERS&page=2&pageSize=1");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<RbacPermissionAuditItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(2, payload!.PageNumber);
+        Assert.Equal(1, payload.PageSize);
+        Assert.Equal(2, payload.TotalCount);
+        var entry = Assert.Single(payload.Items);
+        Assert.Equal("RBAC_USERS", entry.ResourceKey);
+        Assert.Equal("Upsert", entry.ChangeType);
+    }
+
+    [Fact]
+    public async Task RbacAudit_WithoutPermission_ShouldReturn403RbacDenied()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Users, RbacPermissionAction.Access),
+            (RbacPermissionScreen.Users, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync("/api/rbac/audit?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "RBAC_DENIED");
+    }
+
+    [Fact]
+    public async Task AuditLogDetail_WithPermission_ShouldReturnDetailContract()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync($"/api/audit/logs/{scenario.AuditLogId}");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<AuditLogDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(scenario.AuditLogId, payload!.Id);
+        Assert.Equal(scenario.TenantId, payload.CompanyId);
+        Assert.Equal("USER_UPDATED", payload.EventType);
+        Assert.NotNull(payload.Before);
+        Assert.NotNull(payload.After);
+        Assert.NotNull(payload.Diff);
+    }
+
+    [Fact]
+    public async Task IamUsers_Create_WithPermission_ShouldReturnCreatedUser()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Users, RbacPermissionAction.Create)));
+
+        var response = await client.PostAsJsonAsync("/api/iam/users", new
+        {
+            firstName = "New",
+            lastName = "Operator",
+            email = "new.operator@acme-one.test",
+            isActive = true,
+            roleIds = new[] { scenario.TargetRoleId }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<IamUserDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("new.operator@acme-one.test", payload!.Email);
+        var role = Assert.Single(payload.Roles);
+        Assert.Equal(scenario.TargetRoleId, role.Id);
+    }
+
+    [Fact]
+    public async Task IamUsers_SyncRoles_WithPermission_ShouldReturnUpdatedRoles()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        var response = await client.PutAsJsonAsync($"/api/iam/users/{scenario.ActorUserId}/roles", new
+        {
+            roleIds = new[] { scenario.TargetRoleId }
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<IamUserDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        var role = Assert.Single(payload!.Roles);
+        Assert.Equal(scenario.TargetRoleId, role.Id);
+        Assert.Equal("Employee", role.Name);
+    }
+
+    [Fact]
+    public async Task IamRoles_Create_WithPermission_ShouldReturnCreatedRole()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Create)));
+
+        var response = await client.PostAsJsonAsync("/api/iam/roles", new
+        {
+            name = "Payroll Reviewer",
+            description = "Reviews payroll changes",
+            permissionIds = new[] { scenario.ActorPermissionId }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<IamRoleDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Payroll Reviewer", payload!.Name);
+        var permission = Assert.Single(payload.Permissions);
+        Assert.Equal(scenario.ActorPermissionId, permission.Id);
+    }
+
+    [Fact]
+    public async Task IamRoles_Update_WithPermission_ShouldReturnUpdatedRole()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Update)));
+
+        var response = await client.PutAsJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}", new
+        {
+            name = "Employee Updated",
+            description = "Updated tenant role"
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<IamRoleDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Employee Updated", payload!.Name);
+        Assert.Equal("Updated tenant role", payload.Description);
+    }
+
+    [Fact]
+    public async Task IamRoles_Clone_WithPermission_ShouldReturnClonedRole()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Create)));
+
+        var response = await client.PostAsJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}/clone", new
+        {
+            name = "Employee Clone",
+            description = "Cloned role"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<IamRoleDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Employee Clone", payload!.Name);
+        Assert.Equal("Cloned role", payload.Description);
+    }
+
+    [Fact]
+    public async Task IamRoles_SyncPermissions_WithPermission_ShouldReturnUpdatedPermissions()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            userId: scenario.SecurityAdminUserId,
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Update),
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Update)));
+
+        var response = await client.PutAsJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}/permissions", new
+        {
+            permissionIds = new[] { scenario.ActorPermissionId }
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<IamRoleDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        var permission = Assert.Single(payload!.Permissions);
+        Assert.Equal(scenario.ActorPermissionId, permission.Id);
+    }
+
+    [Fact]
+    public async Task IamRoles_SyncUsers_WithPermission_ShouldReturnUpdatedUserCount()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Update)));
+
+        var response = await client.PutAsJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}/users", new
+        {
+            userIds = new[] { scenario.ActorUserId }
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<IamRoleDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(1, payload!.UserCount);
+    }
+
+    [Fact]
+    public async Task IamPermissions_Create_WithPermission_ShouldReturnCreatedPermission()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Create)));
+
+        var response = await client.PostAsJsonAsync("/api/iam/permissions", new
+        {
+            name = "Export Reports",
+            description = "Allows exporting reports",
+            code = "CUSTOM.REPORTS.EXPORT",
+            module = "Reports",
+            screen = "Reports",
+            kind = IamPermissionKind.ScreenAction,
+            action = "Export",
+            fieldName = (string?)null,
+            fieldAccess = (IamFieldAccessLevel?)null
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<IamPermissionItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("CUSTOM.REPORTS.EXPORT", payload!.Code);
+        Assert.Equal("Reports", payload.Module);
+        Assert.Equal("Reports", payload.Screen);
+        Assert.Equal("ScreenAction", payload.Kind);
+    }
+
+    [Fact]
+    public async Task RbacRolePermissions_Update_WithPermission_ShouldReturnUpdatedMatrix()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            userId: scenario.SecurityAdminUserId,
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Update)));
+
+        var response = await client.PutAsJsonAsync($"/api/rbac/roles/{scenario.TargetRoleId}/permissions", new
+        {
+            permissions = new[]
+            {
+                new
+                {
+                    resourceKey = "RBAC_USERS",
+                    hasAccess = true,
+                    canRead = true,
+                    canCreate = false,
+                    canUpdate = true,
+                    canDelete = false
+                }
+            }
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<RbacRolePermissionsPayload>(JsonOptions);
+        Assert.NotNull(payload);
+        var usersPermission = Assert.Single(payload!.Permissions, static permission => permission.ResourceKey == "RBAC_USERS");
+        Assert.True(usersPermission.HasAccess);
+        Assert.True(usersPermission.CanRead);
+        Assert.True(usersPermission.CanUpdate);
+        Assert.False(usersPermission.CanCreate);
+    }
+
+    [Fact]
+    public async Task RbacRoleFieldPermissions_Update_WithPermission_ShouldNormalizeOverrides()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            userId: scenario.SecurityAdminUserId,
+            (RbacPermissionScreen.Permissions, RbacPermissionAction.Update)));
+
+        var grantResourceResponse = await client.PutAsJsonAsync($"/api/rbac/roles/{scenario.TargetRoleId}/permissions", new
+        {
+            permissions = new[]
+            {
+                new
+                {
+                    resourceKey = "RBAC_USERS",
+                    hasAccess = true,
+                    canRead = true,
+                    canCreate = false,
+                    canUpdate = true,
+                    canDelete = false
+                }
+            }
+        });
+
+        grantResourceResponse.EnsureSuccessStatusCode();
+
+        var response = await client.PutAsJsonAsync($"/api/rbac/roles/{scenario.TargetRoleId}/field-permissions", new
+        {
+            resourceKey = "RBAC_USERS",
+            fields = new[]
+            {
+                new
+                {
+                    fieldKey = "RBAC_USERS.EMAIL",
+                    isVisible = false,
+                    isEditable = true,
+                    isRequired = false,
+                    isMasked = true
+                }
+            }
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<RoleFieldPermissionsPayload>(JsonOptions);
+        Assert.NotNull(payload);
+        var email = Assert.Single(payload!.Fields, static field => field.FieldKey == "RBAC_USERS.EMAIL");
+        Assert.False(email.IsVisible);
+        Assert.False(email.IsEditable);
+        Assert.False(email.IsReadOnly);
+    }
+
+    private static TestUserContext CreateUserContext(
+        IntegrationTestScenario scenario,
+        params (RbacPermissionScreen Screen, RbacPermissionAction Action)[] grants) =>
+        CreateUserContext(scenario, userId: null, grants);
+
+    private static TestUserContext CreateUserContext(
+        IntegrationTestScenario scenario,
+        Guid? userId,
+        params (RbacPermissionScreen Screen, RbacPermissionAction Action)[] grants) =>
+        TestUserContext.Authenticated(
+            userId ?? scenario.ActorUserId,
+            scenario.TenantId,
+            grants
+                .SelectMany(static grant => grant.Action == RbacPermissionAction.Access
+                    ? new[]
+                    {
+                        PermissionMatrixCatalog.BuildPermissionCode(grant.Screen, RbacPermissionAction.Access)
+                    }
+                    : new[]
+                    {
+                        PermissionMatrixCatalog.BuildPermissionCode(grant.Screen, RbacPermissionAction.Access),
+                        PermissionMatrixCatalog.BuildPermissionCode(grant.Screen, grant.Action)
+                    })
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray());
+
+    private static async Task AssertProblemDetailsAsync(HttpResponseMessage response, HttpStatusCode expectedStatusCode, string expectedCode)
+    {
+        Assert.Equal(expectedStatusCode, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal((int)expectedStatusCode, document.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal(expectedCode, document.RootElement.GetProperty("code").GetString());
+    }
+
+    private sealed record PagedCompanyUserResponse(IReadOnlyCollection<CompanyUserItem> Items);
+
+    private sealed record PagedResponseEnvelope<TItem>(
+        IReadOnlyCollection<TItem> Items,
+        int PageNumber,
+        int PageSize,
+        int TotalCount);
+
+    private sealed record CompanyUserItem(
+        Guid Id,
+        string? Email,
+        string? FirstName,
+        string? LastName,
+        Guid? RoleId,
+        string? Role,
+        string? Status);
+
+    private sealed record IamUserSummaryItem(
+        Guid Id,
+        string Email,
+        string FirstName,
+        string LastName,
+        bool IsActive,
+        int RoleCount);
+
+    private sealed record IamRoleReferenceItem(Guid Id, string Name, string? Description);
+
+    private sealed record IamPermissionReferenceItem(
+        Guid Id,
+        string Code,
+        string Name,
+        string? Description,
+        string Module,
+        string Screen,
+        string Kind,
+        string? Action,
+        string? FieldName,
+        string? FieldAccess);
+
+    private sealed record IamUserDetailItem(
+        Guid Id,
+        string Email,
+        string FirstName,
+        string LastName,
+        bool IsActive,
+        IReadOnlyCollection<IamRoleReferenceItem> Roles);
+
+    private sealed record IamRoleSummaryItem(
+        Guid Id,
+        string Name,
+        string? Description,
+        bool IsSystemRole,
+        int PermissionCount,
+        int UserCount);
+
+    private sealed record IamRoleDetailItem(
+        Guid Id,
+        string Name,
+        string? Description,
+        bool IsSystemRole,
+        int UserCount,
+        IReadOnlyCollection<IamPermissionReferenceItem> Permissions);
+
+    private sealed record IamPermissionItem(
+        Guid Id,
+        string Code,
+        string Name,
+        string? Description,
+        string Module,
+        string Screen,
+        string Kind,
+        string? Action,
+        string? FieldName,
+        string? FieldAccess);
+
+    private sealed record RbacResourceItem(string ResourceKey, string DisplayName);
+
+    private sealed record RbacResourcesPayload(IReadOnlyCollection<RbacResourceItem> Items);
+
+    private sealed record RbacRolePermissionItem(
+        string ResourceKey,
+        string DisplayName,
+        bool HasAccess,
+        bool CanRead,
+        bool CanCreate,
+        bool CanUpdate,
+        bool CanDelete);
+
+    private sealed record RbacRolePermissionsPayload(
+        Guid RoleId,
+        string RoleName,
+        bool IsSystemRole,
+        IReadOnlyCollection<RbacRolePermissionItem> Permissions);
+
+    private sealed record RoleFieldPermissionItem(
+        string FieldKey,
+        string PropertyName,
+        string DisplayName,
+        string DataType,
+        bool IsSensitive,
+        bool IsVisible,
+        bool IsEditable,
+        bool IsRequired,
+        bool IsMasked,
+        bool IsReadOnly);
+
+    private sealed record RoleFieldPermissionsPayload(
+        Guid RoleId,
+        string RoleName,
+        string ResourceKey,
+        IReadOnlyCollection<RoleFieldPermissionItem> Fields);
+
+    private sealed record RbacPermissionAuditStateItem(
+        bool HasAccess,
+        bool CanRead,
+        bool CanCreate,
+        bool CanUpdate,
+        bool CanDelete);
+
+    private sealed record RbacPermissionAuditItem(
+        long Id,
+        Guid CompanyId,
+        Guid RoleId,
+        string ResourceKey,
+        Guid ChangedByUserId,
+        string ChangeType,
+        RbacPermissionAuditStateItem Before,
+        RbacPermissionAuditStateItem After,
+        DateTime ChangedAtUtc);
+
+    private sealed record AuditLogDetailItem(
+        Guid Id,
+        Guid CompanyId,
+        DateTime CreatedAtUtc,
+        Guid ActorUserId,
+        string? ActorEmail,
+        string EventType,
+        string EntityType,
+        Guid? EntityId,
+        string? EntityKey,
+        string Action,
+        string Summary,
+        JsonElement? Before,
+        JsonElement? After,
+        JsonElement? Diff,
+        string? IpAddress,
+        string? UserAgent);
+}

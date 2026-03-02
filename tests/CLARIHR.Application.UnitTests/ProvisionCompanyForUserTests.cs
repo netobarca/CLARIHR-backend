@@ -417,7 +417,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task<PagedResponse<IamPermissionSummaryResponse>> GetPermissionsAsync(int pageNumber, int pageSize, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IamPermissionResponse?> GetPermissionAsync(Guid permissionId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<RbacResource>> GetActiveRbacResourcesAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<RbacResource>>([]);
-        public Task<IReadOnlyList<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(Guid? roleId, string? normalizedResourceKey, DateTime? fromUtc, DateTime? toUtc, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<RbacPermissionAuditLog>>([]);
+        public Task<PagedResponse<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(Guid? roleId, string? normalizedResourceKey, DateTime? fromUtc, DateTime? toUtc, int pageNumber, int pageSize, CancellationToken cancellationToken) => Task.FromResult(new PagedResponse<RbacPermissionAuditLog>([], pageNumber, pageSize, 0));
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(1);
     }
 

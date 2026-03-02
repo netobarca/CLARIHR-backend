@@ -168,6 +168,3 @@ public sealed record RbacPermissionAuditEntryResponse(
     RbacPermissionAuditStateResponse Before,
     RbacPermissionAuditStateResponse After,
     DateTime ChangedAtUtc);
-
-public sealed record RbacPermissionAuditListResponse(
-    IReadOnlyCollection<RbacPermissionAuditEntryResponse> Items);

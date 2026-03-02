@@ -88,11 +88,13 @@ public interface IIamAdministrationRepository
 
     Task<IReadOnlyList<RbacResource>> GetActiveRbacResourcesAsync(CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(
+    Task<PagedResponse<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(
         Guid? roleId,
         string? normalizedResourceKey,
         DateTime? fromUtc,
         DateTime? toUtc,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);

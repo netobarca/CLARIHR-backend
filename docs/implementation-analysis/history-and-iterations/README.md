@@ -8,3 +8,7 @@ Regla sugerida:
 - un archivo por iteracion cuando la entrega agrupa varias HUs
 
 Cada archivo debe basarse en la plantilla de `../templates/post-implementation-analysis-template.md`.
+
+Baseline disponible:
+
+- `current-state-up-to-HU-008/`: analisis consolidado del estado actual de la solucion hasta HU-008.

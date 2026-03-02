@@ -18,6 +18,18 @@ Cada documento debe registrar al menos:
 - `history-and-iterations/`: documentos finales por HU o iteracion.
 - `templates/`: plantillas reutilizables para mantener consistencia.
 
+## Recommended Flow
+
+Despues de cada HU o iteracion:
+
+1. Ejecutar validacion tecnica minima:
+   - `dotnet build CLARIHR.slnx`
+   - `dotnet test CLARIHR.slnx --no-build`
+2. Crear el analisis narrativo usando `templates/post-implementation-analysis-template.md`.
+3. Crear el checklist ejecutable usando `templates/post-implementation-validation-checklist-template.md`.
+4. Guardar ambos artefactos dentro de `history-and-iterations/`.
+5. Dejar riesgos residuales y siguientes pasos explicitamente documentados.
+
 ## Naming convention
 
 Usar nombres estables y faciles de rastrear, por ejemplo:

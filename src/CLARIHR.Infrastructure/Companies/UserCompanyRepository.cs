@@ -117,7 +117,28 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
         string? search,
         CancellationToken cancellationToken)
     {
-        var query = BuildCompanyUsersQuery(companyPublicId);
+        var query = dbContext.UserCompanyMemberships
+            .AsNoTracking()
+            .Join(
+                dbContext.Companies.AsNoTracking().Where(company => company.PublicId == companyPublicId),
+                membership => membership.CompanyId,
+                company => company.Id,
+                (membership, _) => membership)
+            .Join(
+                dbContext.AuthUsers.AsNoTracking(),
+                membership => membership.UserId,
+                user => user.Id,
+                (membership, user) => new { Membership = membership, User = user })
+            .Join(
+                dbContext.IamRoles.AsNoTracking(),
+                item => item.Membership.RoleId,
+                role => role.Id,
+                (item, role) => new
+                {
+                    item.Membership,
+                    item.User,
+                    Role = role
+                });
 
         if (status.HasValue)
         {
@@ -160,19 +181,6 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
     }
 
     public Task<CompanyUserResponse?> GetUserAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
-        BuildCompanyUsersQuery(companyPublicId)
-            .Where(item => item.User.PublicId == userPublicId)
-            .Select(item => new CompanyUserResponse(
-                item.User.PublicId,
-                item.User.Email,
-                item.User.FirstName,
-                item.User.LastName,
-                item.Role.PublicId,
-                item.Role.Name,
-                item.User.Status))
-            .SingleOrDefaultAsync(cancellationToken);
-
-    private IQueryable<CompanyUserQueryItem> BuildCompanyUsersQuery(Guid companyPublicId) =>
         dbContext.UserCompanyMemberships
             .AsNoTracking()
             .Join(
@@ -189,7 +197,20 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 dbContext.IamRoles.AsNoTracking(),
                 item => item.Membership.RoleId,
                 role => role.Id,
-                (item, role) => new CompanyUserQueryItem(item.Membership, item.User, role));
-
-    private sealed record CompanyUserQueryItem(UserCompanyMembership Membership, User User, IamRole Role);
+                (item, role) => new
+                {
+                    item.Membership,
+                    item.User,
+                    Role = role
+                })
+            .Where(item => item.User.PublicId == userPublicId)
+            .Select(item => new CompanyUserResponse(
+                item.User.PublicId,
+                item.User.Email,
+                item.User.FirstName,
+                item.User.LastName,
+                item.Role.PublicId,
+                item.Role.Name,
+                item.User.Status))
+            .SingleOrDefaultAsync(cancellationToken);
 }

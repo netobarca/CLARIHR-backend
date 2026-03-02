@@ -459,13 +459,50 @@ public sealed class IdentityAccessAdministrationTests
         await using var serviceProvider = CreateServiceProvider(repository);
         var dispatcher = serviceProvider.GetRequiredService<IQueryDispatcher>();
 
-        var result = await dispatcher.SendAsync(new GetPermissionAuditQuery(null, "RBAC_USERS", null, null));
+        var result = await dispatcher.SendAsync(new GetPermissionAuditQuery(null, "RBAC_USERS", null, null, 1, 20));
 
         Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.Value.PageNumber);
+        Assert.Equal(20, result.Value.PageSize);
+        Assert.Equal(1, result.Value.TotalCount);
         var entry = Assert.Single(result.Value.Items);
         Assert.Equal("RBAC_USERS", entry.ResourceKey);
         Assert.False(entry.Before.HasAccess);
         Assert.True(entry.After.HasAccess);
+        Assert.Equal("Upsert", entry.ChangeType);
+    }
+
+    [Fact]
+    public async Task GetPermissionAuditQuery_WhenPaged_ShouldReturnRequestedSlice()
+    {
+        var repository = new TestIamAdministrationRepository();
+        repository.AddPermissionAuditLog(RbacPermissionAuditLog.Create(
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            "RBAC_USERS",
+            Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            RbacPermissionAuditChangeType.Upsert,
+            """{"hasAccess":false,"canRead":false,"canCreate":false,"canUpdate":false,"canDelete":false}""",
+            """{"hasAccess":true,"canRead":true,"canCreate":false,"canUpdate":false,"canDelete":false}""",
+            DateTime.Parse("2026-02-28T12:00:00Z").ToUniversalTime()));
+        repository.AddPermissionAuditLog(RbacPermissionAuditLog.Create(
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            "RBAC_USERS",
+            Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            RbacPermissionAuditChangeType.Disable,
+            """{"hasAccess":true,"canRead":true,"canCreate":false,"canUpdate":false,"canDelete":false}""",
+            """{"hasAccess":true,"canRead":false,"canCreate":false,"canUpdate":false,"canDelete":false}""",
+            DateTime.Parse("2026-02-28T13:00:00Z").ToUniversalTime()));
+
+        await using var serviceProvider = CreateServiceProvider(repository);
+        var dispatcher = serviceProvider.GetRequiredService<IQueryDispatcher>();
+
+        var result = await dispatcher.SendAsync(new GetPermissionAuditQuery(null, "RBAC_USERS", null, null, 2, 1));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Value.PageNumber);
+        Assert.Equal(1, result.Value.PageSize);
+        Assert.Equal(2, result.Value.TotalCount);
+        var entry = Assert.Single(result.Value.Items);
         Assert.Equal("Upsert", entry.ChangeType);
     }
 
@@ -994,11 +1031,13 @@ public sealed class IdentityAccessAdministrationTests
             return Task.FromResult(resources);
         }
 
-        public Task<IReadOnlyList<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(
+        public Task<PagedResponse<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(
             Guid? roleId,
             string? normalizedResourceKey,
             DateTime? fromUtc,
             DateTime? toUtc,
+            int pageNumber,
+            int pageSize,
             CancellationToken cancellationToken)
         {
             var query = _permissionAuditLogs.AsEnumerable();
@@ -1023,7 +1062,17 @@ public sealed class IdentityAccessAdministrationTests
                 query = query.Where(log => log.ChangedAtUtc <= toUtc.Value);
             }
 
-            return Task.FromResult<IReadOnlyList<RbacPermissionAuditLog>>(query.ToList());
+            var ordered = query
+                .OrderByDescending(log => log.ChangedAtUtc)
+                .ThenByDescending(log => log.Id)
+                .ToList();
+
+            var items = ordered
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToArray();
+
+            return Task.FromResult(new PagedResponse<RbacPermissionAuditLog>(items, pageNumber, pageSize, ordered.Count));
         }
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(1);

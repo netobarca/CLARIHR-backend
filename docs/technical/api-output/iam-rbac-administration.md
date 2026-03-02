@@ -72,7 +72,7 @@ Acceso permitido si se cumple cualquiera de estas condiciones:
 - `GET /api/rbac/resources`
 - `GET /api/rbac/roles/{roleId}/permissions`
 - `PUT /api/rbac/roles/{roleId}/permissions`
-- `GET /api/rbac/audit?roleId=&resourceKey=&from=&to=`
+- `GET /api/rbac/audit?roleId=&resourceKey=&from=&to=&page=&pageSize=`
 
 #### Create role request
 

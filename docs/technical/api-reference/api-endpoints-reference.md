@@ -711,7 +711,7 @@ Main errors:
 ### PATCH /api/company/users/{userId}/deactivate
 
 - Auth: JWT requerido
-- RBAC: `RBAC_USERS` + `Delete`
+- RBAC: `RBAC_USERS` + `Update`
 - Request body: none
 
 Response `200 OK`: `CompanyUserResponse`
@@ -731,7 +731,7 @@ Response `200 OK`: `CompanyUserResponse`
 Flow:
 
 1. Valida JWT y tenant actual.
-2. Autoriza `RBAC_USERS:Delete`.
+2. Autoriza `RBAC_USERS:Update`.
 3. Verifica pertenencia del usuario al tenant actual.
 4. Desactiva membresia y acceso.
 5. Invalida sesiones o tokens relacionados cuando corresponde.
@@ -2114,15 +2114,20 @@ Query params:
 - `resourceKey` optional
 - `from` optional UTC date
 - `to` optional UTC date
+- `page` optional, default `1`
+- `pageSize` optional, default `20`, max `100`
 
 Ejemplo:
 
-`GET /api/rbac/audit?roleId={roleId}&resourceKey=RBAC_USERS&from=2026-03-01T00:00:00Z&to=2026-03-01T23:59:59Z`
+`GET /api/rbac/audit?roleId={roleId}&resourceKey=RBAC_USERS&from=2026-03-01T00:00:00Z&to=2026-03-01T23:59:59Z&page=1&pageSize=20`
 
-Response `200 OK`: `RbacPermissionAuditListResponse`
+Response `200 OK`: `PagedResponse<RbacPermissionAuditEntryResponse>`
 
 ```json
 {
+  "pageNumber": 1,
+  "pageSize": 20,
+  "totalCount": 1,
   "items": [
     {
       "id": 1,
@@ -2130,7 +2135,7 @@ Response `200 OK`: `RbacPermissionAuditListResponse`
       "roleId": "guid",
       "resourceKey": "RBAC_USERS",
       "changedByUserId": "guid",
-      "changeType": "UPSERT",
+      "changeType": "Upsert",
       "before": {
         "hasAccess": false,
         "canRead": false,
@@ -2156,8 +2161,8 @@ Flow:
 1. Valida JWT y tenant actual.
 2. Autoriza `RBAC_PERMISSIONS:Read`.
 3. Filtra auditoria RBAC por tenant actual.
-4. Aplica filtros opcionales de rol, recurso y rango de fechas.
-5. Devuelve historial de cambios de matriz por recurso.
+4. Aplica filtros opcionales de rol, recurso, rango de fechas y paginacion.
+5. Devuelve historial paginado de cambios de matriz por recurso.
 
 Main errors:
 

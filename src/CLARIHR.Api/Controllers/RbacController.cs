@@ -1,6 +1,7 @@
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Authorization;
 using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.IdentityAccess.Rbac;
@@ -96,7 +97,6 @@ public sealed class RbacController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<RoleFieldPermissionsResponse>> GetRoleFieldPermissions(
         Guid roleId,
@@ -142,20 +142,22 @@ public sealed class RbacController(
 
     [AuthorizeResource("RBAC_PERMISSIONS", RbacPermissionAction.Read)]
     [HttpGet("audit")]
-    [ProducesResponseType<RbacPermissionAuditListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PagedResponse<RbacPermissionAuditEntryResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<RbacPermissionAuditListResponse>> GetAudit(
+    public async Task<ActionResult<PagedResponse<RbacPermissionAuditEntryResponse>>> GetAudit(
         [FromQuery] Guid? roleId,
         [FromQuery] string? resourceKey,
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
     {
         var result = await queryDispatcher.SendAsync(
-            new GetPermissionAuditQuery(roleId, resourceKey, from, to),
+            new GetPermissionAuditQuery(roleId, resourceKey, from, to, page, pageSize),
             cancellationToken);
         return this.ToActionResult(result);
     }

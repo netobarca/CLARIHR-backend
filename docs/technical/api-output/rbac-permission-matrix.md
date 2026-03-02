@@ -28,7 +28,7 @@ Acciones soportadas por recurso:
 - `GET /api/rbac/resources/{resourceKey}/fields`
 - `GET /api/rbac/roles/{roleId}/field-permissions?resourceKey=...`
 - `PUT /api/rbac/roles/{roleId}/field-permissions`
-- `GET /api/rbac/audit?roleId=&resourceKey=&from=&to=`
+- `GET /api/rbac/audit?roleId=&resourceKey=&from=&to=&page=&pageSize=`
 
 Compatibilidad temporal:
 

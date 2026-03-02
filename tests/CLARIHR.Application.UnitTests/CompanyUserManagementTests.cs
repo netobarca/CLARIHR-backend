@@ -1201,13 +1201,15 @@ public sealed class CompanyUserManagementTests
         public Task<IReadOnlyList<RbacResource>> GetActiveRbacResourcesAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<RbacResource>>([]);
 
-        public Task<IReadOnlyList<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(
+        public Task<PagedResponse<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(
             Guid? roleId,
             string? normalizedResourceKey,
             DateTime? fromUtc,
             DateTime? toUtc,
+            int pageNumber,
+            int pageSize,
             CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<RbacPermissionAuditLog>>([]);
+            Task.FromResult(new PagedResponse<RbacPermissionAuditLog>([], pageNumber, pageSize, 0));
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(1);
     }

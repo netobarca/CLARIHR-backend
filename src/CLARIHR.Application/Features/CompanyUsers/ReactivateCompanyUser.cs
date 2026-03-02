@@ -1,0 +1,127 @@
+using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Auth;
+using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.CompanyUsers.Common;
+using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Domain.Auth;
+using Microsoft.Extensions.Logging;
+
+namespace CLARIHR.Application.Features.CompanyUsers;
+
+internal sealed class ReactivateCompanyUserCommandHandler(
+    IUserRepository userRepository,
+    IUserCompanyRepository userCompanyRepository,
+    IIamAdministrationRepository iamRepository,
+    ICompanyUserAuthorizationService authorizationService,
+    ITenantContext tenantContext,
+    IFieldPermissionService fieldPermissionService,
+    IFieldSerializationService fieldSerializationService,
+    IUnitOfWork unitOfWork,
+    IAuditService auditService,
+    ILogger<ReactivateCompanyUserCommandHandler> logger)
+    : ICommandHandler<ReactivateCompanyUserCommand, CompanyUserResponse>
+{
+    public async Task<Result<CompanyUserResponse>> Handle(
+        ReactivateCompanyUserCommand command,
+        CancellationToken cancellationToken)
+    {
+        var authorizationResult = await authorizationService.EnsureAuthorizedAsync(RbacPermissionAction.Update, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<CompanyUserResponse>.Failure(authorizationResult.Error);
+        }
+
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<CompanyUserResponse>.Failure(CompanyUserErrors.TenantContextRequired);
+        }
+
+        var fieldAccessResult = await fieldPermissionService.GetCurrentUserAccessProfileAsync(
+            CompanyUserFieldKeys.ResourceKey,
+            cancellationToken);
+        if (fieldAccessResult.IsFailure)
+        {
+            return Result<CompanyUserResponse>.Failure(fieldAccessResult.Error);
+        }
+
+        var companyPublicId = tenantContext.TenantId.Value;
+        var user = await userRepository.GetByPublicIdAsync(command.UserId, cancellationToken);
+        if (user is null)
+        {
+            return Result<CompanyUserResponse>.Failure(CompanyUserErrors.UserNotFound);
+        }
+
+        var membership = await userCompanyRepository.FindByUserPublicIdAsync(companyPublicId, command.UserId, cancellationToken);
+        if (membership is null)
+        {
+            return await userCompanyRepository.UserExistsOutsideCompanyAsync(companyPublicId, command.UserId, cancellationToken)
+                ? Result<CompanyUserResponse>.Failure(AuthorizationErrors.TenantMismatch(CompanyUserFieldKeys.ResourceKey, RbacPermissionAction.Update))
+                : Result<CompanyUserResponse>.Failure(CompanyUserErrors.UserNotFound);
+        }
+
+        var currentState = await userCompanyRepository.GetUserAsync(companyPublicId, command.UserId, cancellationToken);
+        var beforeStatus = currentState?.Status?.ToString() ?? user.Status.ToString();
+        var beforeMembershipStatus = membership.Status.ToString();
+
+        user.Reactivate();
+        membership.Reactivate();
+
+        var iamUser = await iamRepository.FindUserByPublicIdAsync(command.UserId, includeRoles: false, cancellationToken);
+        iamUser?.SetActive(user.Status == UserStatus.Active);
+
+        await auditService.LogAsync(
+            new AuditLogEntry(
+                AuditEventTypes.UserReactivated,
+                AuditEntityTypes.User,
+                user.PublicId,
+                EntityKey: user.Email,
+                AuditActions.Reactivate,
+                $"Reactivated user {user.Email}.",
+                currentState is null
+                    ? null
+                    : CompanyUserAuditMapper.CreateSnapshot(
+                        user.PublicId,
+                        currentState.Email ?? user.Email,
+                        currentState.FirstName ?? user.FirstName,
+                        currentState.LastName ?? user.LastName,
+                        currentState.RoleId ?? Guid.Empty,
+                        currentState.Role ?? string.Empty,
+                        beforeStatus,
+                        beforeMembershipStatus),
+                CompanyUserAuditMapper.CreateSnapshot(
+                    user.PublicId,
+                    currentState?.Email ?? user.Email,
+                    currentState?.FirstName ?? user.FirstName,
+                    currentState?.LastName ?? user.LastName,
+                    currentState?.RoleId ?? Guid.Empty,
+                    currentState?.Role ?? string.Empty,
+                    user.Status.ToString(),
+                    membership.Status.ToString()),
+                CompanyUserAuditMapper.CreateStatusDiff(
+                    beforeStatus,
+                    user.Status.ToString(),
+                    beforeMembershipStatus,
+                    membership.Status.ToString())),
+            cancellationToken);
+
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "CompanyUserReactivated tenant {TenantId} user {UserPublicId} resultingStatus {Status}",
+            companyPublicId,
+            user.PublicId,
+            user.Status);
+
+        var response = await userCompanyRepository.GetUserAsync(companyPublicId, user.PublicId, cancellationToken);
+        return response is null
+            ? Result<CompanyUserResponse>.Failure(CompanyUserErrors.UserNotFound)
+            : Result<CompanyUserResponse>.Success(
+                CompanyUserManagementHelpers.Filter(response, fieldAccessResult.Value, fieldSerializationService));
+    }
+}

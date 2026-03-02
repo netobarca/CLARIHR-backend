@@ -709,7 +709,7 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}/api/rbac/audit?roleId={{roleId}}&resourceKey={{resourceKey}}"
+            "url": "{{baseUrl}}/api/rbac/audit?roleId={{roleId}}&resourceKey={{resourceKey}}&page=1&pageSize=20"
           }
         }
       ]
