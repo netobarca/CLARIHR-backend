@@ -19,6 +19,7 @@ Todos los endpoints requieren JWT con claim `tid` y permiso tenant-scoped `RBAC.
 - No permite asignar roles de otro tenant.
 - No permite gestionar usuarios de otra empresa.
 - El `CompanyId` nunca viaja en el request y no puede ser cambiado por API.
+- Si la cuenta opera varias empresas, primero debe cambiar el tenant activo usando `POST /api/account/companies/{companyId}/switch`.
 
 ## User states
 

@@ -58,4 +58,8 @@ public sealed class UserCompanyMembership : AuditableEntity
     public void Deactivate() => Status = UserCompanyStatus.Inactive;
 
     public void Reactivate() => Status = UserCompanyStatus.Active;
+
+    public void MarkPrimary() => IsPrimary = true;
+
+    public void ClearPrimary() => IsPrimary = false;
 }

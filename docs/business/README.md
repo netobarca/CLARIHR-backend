@@ -12,3 +12,7 @@ Uso esperado:
 Documento principal actual:
 
 - `current-system-business-flows.md`
+
+Nota:
+
+- este documento ya incluye el flujo multiempresa a nivel cuenta y sirve como referencia funcional vigente para producto, QA y frontend.

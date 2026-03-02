@@ -27,6 +27,7 @@ Todos los endpoints usan prefijo `/api`.
   - `POST /api/auth/refresh`
 - Todo endpoint administrativo o de negocio requiere `Authorization: Bearer <jwt>`.
 - Los endpoints protegidos esperan contexto de tenant via claim `tid`.
+- Excepcion: `api/account/companies` sigue requiriendo JWT, pero su enforcement principal es por ownership de cuenta y no por RBAC tenant-scoped.
 
 ### Authorization model
 
@@ -39,6 +40,13 @@ Reglas vigentes:
 3. Validar permiso RBAC nivel 1 y 2 por `resourceKey` + `action`.
 4. En updates sensibles, validar RBAC nivel 3 por campo.
 5. Consultar y modificar siempre dentro del tenant actual.
+
+Excepcion controlada:
+
+- Los endpoints `api/account/companies` son `account-level`.
+- No usan `AuthorizeResource(...)`.
+- Validan ownership funcional por `CreatedByUserPublicId`.
+- El `tid` del token solo se usa para marcar contexto activo y para bloquear el archivado de la empresa activa.
 
 Recursos RBAC actuales:
 
@@ -109,6 +117,14 @@ Codigos relevantes hoy:
 - `RBAC_DENIED`
 - `TENANT_MISMATCH`
 - `FIELD_EDIT_FORBIDDEN`
+- `COMPANY_LIMIT_REACHED`
+- `COMPANY_NOT_FOUND`
+- `COMPANY_OWNERSHIP_FORBIDDEN`
+- `COMPANY_ALREADY_ARCHIVED`
+- `COMPANY_ALREADY_ACTIVE`
+- `ACTIVE_COMPANY_ARCHIVE_FORBIDDEN`
+- `ACTIVE_COMPANY_SWITCH_FORBIDDEN`
+- `COMPANY_REACTIVATION_LIMIT_REACHED`
 
 Estados HTTP usados:
 
@@ -172,6 +188,53 @@ Nota: por RBAC nivel 3, algunos campos pueden venir ocultos, `null` o masked seg
     "status": "PendingActivation"
   },
   "invitationExpiresUtc": "2026-03-04T12:00:00Z"
+}
+```
+
+### AccountCompanySummaryResponse
+
+```json
+{
+  "companyId": "guid",
+  "name": "Acme Services",
+  "slug": "acme-services",
+  "status": "Active",
+  "planCode": "FREE",
+  "isActiveContext": false,
+  "isOwnedByCurrentUser": true,
+  "createdAtUtc": "2026-03-01T10:00:00Z"
+}
+```
+
+### AccountCompanyDetailResponse
+
+```json
+{
+  "companyId": "guid",
+  "name": "Acme Services",
+  "slug": "acme-services",
+  "status": "Active",
+  "planCode": "FREE",
+  "isActiveContext": false,
+  "isOwnedByCurrentUser": true,
+  "createdAtUtc": "2026-03-01T10:00:00Z",
+  "modifiedAtUtc": "2026-03-01T11:00:00Z"
+}
+```
+
+### SwitchActiveCompanyResponse
+
+```json
+{
+  "accessToken": "jwt",
+  "refreshToken": "refresh-token",
+  "expiresIn": 3600,
+  "activeCompany": {
+    "companyId": "guid",
+    "name": "Acme Services",
+    "slug": "acme-services",
+    "status": "Active"
+  }
 }
 ```
 
@@ -540,7 +603,206 @@ Main errors:
 - `401`
 - `500`
 
-## 3. Company Users
+## 3. Account Companies
+
+Estos endpoints permiten gestionar empresas propias a nivel cuenta sin mezclar ese flujo con RBAC tenant-scoped.
+
+Notas:
+
+- Requieren JWT.
+- No usan `AuthorizeResource(...)`.
+- Aplican ownership funcional sobre empresas creadas por el usuario autenticado.
+- `slug` es inmutable en esta version.
+- La baja es logica por `Archived`.
+- El limite temporal actual es configurable y por defecto permite la empresa inicial mas una adicional activa.
+
+### GET /api/account/companies
+
+- Auth: JWT requerido
+- RBAC: no aplica, ownership account-level
+
+Query params:
+
+- `status`: `Active`, `Suspended`, `Archived`
+- `page`
+- `pageSize`
+
+Example:
+
+`GET /api/account/companies?status=Active&page=1&pageSize=20`
+
+Response `200 OK`: `PagedResponse<AccountCompanySummaryResponse>`
+
+Flow:
+
+1. Resuelve el usuario actual.
+2. Busca empresas creadas por ese usuario.
+3. Marca `isActiveContext` comparando con el `tid` actual del JWT.
+4. Devuelve listado paginado.
+
+Main errors:
+
+- `400`
+- `401`
+- `500`
+
+### GET /api/account/companies/{companyId}
+
+- Auth: JWT requerido
+- RBAC: no aplica, ownership account-level
+
+Response `200 OK`: `AccountCompanyDetailResponse`
+
+Flow:
+
+1. Resuelve el usuario actual.
+2. Verifica si la empresa existe.
+3. Si existe pero no pertenece al usuario, devuelve `COMPANY_OWNERSHIP_FORBIDDEN`.
+4. Si no existe, devuelve `COMPANY_NOT_FOUND`.
+5. Si pertenece al usuario, devuelve detalle.
+
+Main errors:
+
+- `401`
+- `403`
+- `404`
+- `500`
+
+### POST /api/account/companies
+
+- Auth: JWT requerido
+- RBAC: no aplica, ownership account-level
+
+Request:
+
+```json
+{
+  "name": "Acme Services"
+}
+```
+
+Response `201 Created`: `AccountCompanyDetailResponse`
+
+Flow:
+
+1. Resuelve usuario actual.
+2. Valida el limite temporal de empresas activas permitidas para esa cuenta.
+3. Provisiona tenant nuevo reutilizando el provisioning actual.
+4. Crea membership no primaria.
+5. Emite auditoria `COMPANY_CREATED`.
+6. Devuelve la nueva empresa sin cambiar el contexto activo de la sesion.
+
+Main errors:
+
+- `400`
+- `401`
+- `409`
+- `500`
+
+### PUT /api/account/companies/{companyId}
+
+- Auth: JWT requerido
+- RBAC: no aplica, ownership account-level
+
+Request:
+
+```json
+{
+  "name": "Acme Services Group"
+}
+```
+
+Response `200 OK`: `AccountCompanyDetailResponse`
+
+Flow:
+
+1. Resuelve usuario actual.
+2. Valida ownership.
+3. Cambia solo `name`.
+4. Mantiene `slug` sin cambios.
+5. Registra `COMPANY_UPDATED`.
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+- `404`
+- `500`
+
+### PATCH /api/account/companies/{companyId}/archive
+
+- Auth: JWT requerido
+- RBAC: no aplica, ownership account-level
+
+Response `200 OK`: `AccountCompanyDetailResponse`
+
+Flow:
+
+1. Resuelve usuario actual.
+2. Valida ownership.
+3. Bloquea el archivado si la empresa coincide con la empresa activa del token o con la membership primaria actual.
+4. Cambia estado a `Archived`.
+5. Registra `COMPANY_ARCHIVED`.
+
+Main errors:
+
+- `401`
+- `403`
+- `404`
+- `409`
+- `500`
+
+### PATCH /api/account/companies/{companyId}/reactivate
+
+- Auth: JWT requerido
+- RBAC: no aplica, ownership account-level
+
+Response `200 OK`: `AccountCompanyDetailResponse`
+
+Flow:
+
+1. Resuelve usuario actual.
+2. Valida ownership.
+3. Verifica que la empresa este archivada.
+4. Revalida el limite temporal de empresas activas.
+5. Cambia estado a `Active`.
+6. Registra `COMPANY_REACTIVATED`.
+
+Main errors:
+
+- `401`
+- `403`
+- `404`
+- `409`
+- `500`
+
+### POST /api/account/companies/{companyId}/switch
+
+- Auth: JWT requerido
+- RBAC: no aplica, ownership account-level
+
+Response `200 OK`: `SwitchActiveCompanyResponse`
+
+Flow:
+
+1. Resuelve usuario actual.
+2. Valida ownership.
+3. Verifica que la empresa destino este activa.
+4. Verifica membership activa del usuario en esa empresa.
+5. Actualiza la membership primaria.
+6. Reemite JWT con nuevo `tid`.
+7. Registra `ACTIVE_COMPANY_SWITCHED`.
+
+Main errors:
+
+- `401`
+- `403`
+- `404`
+- `409`
+- `500`
+
+## 4. Company Users
 
 Todos estos endpoints son tenant-scoped y aplican RBAC real en backend.
 
@@ -827,7 +1089,7 @@ Main errors:
 - `409`
 - `500`
 
-## 4. IAM Users
+## 5. IAM Users
 
 Estos endpoints administran usuarios IAM del tenant actual.
 
@@ -1032,7 +1294,7 @@ Main errors:
 - `404`
 - `500`
 
-## 5. IAM Roles
+## 6. IAM Roles
 
 ### POST /api/iam/roles
 
@@ -1603,7 +1865,7 @@ Main errors:
 - `409`
 - `500`
 
-## 6. IAM Permissions
+## 7. IAM Permissions
 
 ### POST /api/iam/permissions
 
@@ -1771,7 +2033,7 @@ Main errors:
 - `404`
 - `500`
 
-## 7. RBAC
+## 8. RBAC
 
 Estos endpoints exponen catalogos, permisos por recurso y permisos por campo.
 
@@ -2171,9 +2433,9 @@ Main errors:
 - `403`
 - `500`
 
-## 8. Audit Logs
+## 9. Audit Logs
 
-Estos endpoints consultan la auditoria administrativa consolidada de HU-008.
+Estos endpoints consultan la auditoria administrativa consolidada introducida en HU-008 y ampliada en HU-009 con eventos de lifecycle de empresa.
 
 Reglas:
 
@@ -2333,6 +2595,13 @@ Estado actual del API documentado en este archivo:
 - `POST /api/auth/register`
 - `POST /api/auth/external`
 - `POST /api/auth/refresh`
+- `GET /api/account/companies`
+- `GET /api/account/companies/{companyId}`
+- `POST /api/account/companies`
+- `PUT /api/account/companies/{companyId}`
+- `PATCH /api/account/companies/{companyId}/archive`
+- `PATCH /api/account/companies/{companyId}/reactivate`
+- `POST /api/account/companies/{companyId}/switch`
 - `GET /api/company/users`
 - `POST /api/company/users`
 - `PUT /api/company/users/{userId}`

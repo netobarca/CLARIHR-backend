@@ -6,6 +6,7 @@ using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Infrastructure.Persistence;
+using System.Reflection;
 
 namespace CLARIHR.Api.IntegrationTests;
 
@@ -100,7 +101,18 @@ internal static class IntegrationTestSeeder
             "hashed-password",
             country: "SV",
             source: "integration-tests");
+        SetPublicId(actorAuthUser, actorUserId);
         dbContext.AuthUsers.Add(actorAuthUser);
+
+        var securityAdminAuthUser = User.RegisterLocal(
+            "Tenant",
+            "SecurityAdmin",
+            "tenant.security.admin@acme-one.test",
+            "hashed-password",
+            country: "SV",
+            source: "integration-tests");
+        SetPublicId(securityAdminAuthUser, securityAdminUserId);
+        dbContext.AuthUsers.Add(securityAdminAuthUser);
 
         var targetAuthUser = User.RegisterLocal(
             "Target",
@@ -240,6 +252,14 @@ internal static class IntegrationTestSeeder
         {
             entity.SetTenantId(tenantId);
         }
+    }
+
+    private static void SetPublicId(object entity, Guid publicId)
+    {
+        entity.GetType()
+            .GetProperty("PublicId", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
+            .GetSetMethod(nonPublic: true)!
+            .Invoke(entity, [publicId]);
     }
 }
 

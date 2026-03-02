@@ -47,6 +47,20 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 (_, company) => (Guid?)company.PublicId)
             .SingleOrDefaultAsync(cancellationToken);
 
+    public Task<UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken) =>
+        dbContext.UserCompanyMemberships.SingleOrDefaultAsync(
+            membership => membership.UserId == userId && membership.IsPrimary,
+            cancellationToken);
+
+    public Task<UserCompanyMembership?> GetMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
+        dbContext.UserCompanyMemberships
+            .Join(
+                dbContext.Companies.Where(company => company.PublicId == companyPublicId),
+                membership => membership.CompanyId,
+                company => company.Id,
+                (membership, _) => membership)
+            .SingleOrDefaultAsync(membership => membership.UserId == userId, cancellationToken);
+
     public Task<UserCompanyMembership?> FindByUserPublicIdAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
         dbContext.UserCompanyMemberships
             .Join(
@@ -74,6 +88,39 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 company => company.Id,
                 (membership, company) => company.PublicId)
             .AnyAsync(otherCompanyPublicId => otherCompanyPublicId != companyPublicId, cancellationToken);
+
+    public Task<bool> HasActiveMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
+        dbContext.UserCompanyMemberships
+            .Where(membership => membership.UserId == userId && membership.Status == UserCompanyStatus.Active)
+            .Join(
+                dbContext.Companies.Where(company => company.PublicId == companyPublicId),
+                membership => membership.CompanyId,
+                company => company.Id,
+                (_, _) => true)
+            .AnyAsync(cancellationToken);
+
+    public async Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
+    {
+        var memberships = await dbContext.UserCompanyMemberships
+            .Join(
+                dbContext.Companies,
+                membership => membership.CompanyId,
+                company => company.Id,
+                (membership, company) => new { Membership = membership, company.PublicId })
+            .Where(item => item.Membership.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var item in memberships)
+        {
+            if (item.PublicId == companyPublicId)
+            {
+                item.Membership.MarkPrimary();
+                continue;
+            }
+
+            item.Membership.ClearPrimary();
+        }
+    }
 
     public async Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken)
     {

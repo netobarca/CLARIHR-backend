@@ -1,10 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CLARIHR.Application.Features.Auth.RegisterUser;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.IdentityAccess;
+using Microsoft.EntityFrameworkCore;
 
 namespace CLARIHR.Api.IntegrationTests;
 
@@ -45,6 +48,169 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.False(string.IsNullOrWhiteSpace(payload!.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(payload.RefreshToken));
         Assert.Equal("admin.local@test.com", payload.User.Email);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_List_ShouldReturnOwnedCompaniesOnly()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync("/api/account/companies?page=1&pageSize=20");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<AccountCompanyItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(2, payload!.TotalCount);
+        Assert.Contains(payload.Items, static item => item.Name == "Acme One" && item.IsActiveContext);
+        Assert.Contains(payload.Items, static item => item.Name == "Acme Two" && !item.IsActiveContext);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Create_WhenBelowLimit_ShouldReturnCreatedCompanyWithoutSwitchingContext()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            companyToArchive.Archive();
+            await dbContext.SaveChangesAsync();
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PostAsJsonAsync("/api/account/companies", new
+        {
+            name = "Acme Three"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Acme Three", payload!.Name);
+        Assert.Equal("FREE", payload.PlanCode);
+        Assert.False(payload.IsActiveContext);
+        Assert.Equal("Active", payload.Status);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Create_WhenLimitReached_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PostAsJsonAsync("/api/account/companies", new
+        {
+            name = "Acme Three"
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "COMPANY_LIMIT_REACHED");
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Update_ShouldRenameOwnedCompany()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PutAsJsonAsync($"/api/account/companies/{scenario.OtherTenantId}", new
+        {
+            name = "Acme Two Updated"
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Acme Two Updated", payload!.Name);
+        Assert.Equal("acme-two", payload.Slug);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Archive_CurrentActiveCompany_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PatchAsync($"/api/account/companies/{scenario.TenantId}/archive", content: null);
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ACTIVE_COMPANY_ARCHIVE_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Reactivate_ArchivedCompany_ShouldReturnActiveCompany()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            companyToArchive.Archive();
+            await dbContext.SaveChangesAsync();
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PatchAsync($"/api/account/companies/{scenario.OtherTenantId}/reactivate", content: null);
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Active", payload!.Status);
+        Assert.Equal("Acme Two", payload.Name);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_GetById_ForUnownedCompany_ShouldReturn403()
+    {
+        Guid foreignCompanyId = Guid.Empty;
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var foreignCompany = Company.Create(
+                "Foreign Company",
+                "foreign-company",
+                Guid.Parse("99999999-9999-9999-9999-999999999999"));
+            dbContext.Companies.Add(foreignCompany);
+            await dbContext.SaveChangesAsync();
+            foreignCompanyId = foreignCompany.PublicId;
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/account/companies/{foreignCompanyId}");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "COMPANY_OWNERSHIP_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Switch_ShouldReturnTokenWithSelectedTenant()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var actorUser = dbContext.AuthUsers.Single(user => user.PublicId == Guid.Parse("11111111-1111-1111-1111-111111111111"));
+            var companyA = dbContext.Companies.Single(company => company.Slug == "acme-one");
+            var companyB = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            var roleA = dbContext.IamRoles.IgnoreQueryFilters().Single(role => role.Name == "Security Operator");
+            var roleB = dbContext.IamRoles.IgnoreQueryFilters().Single(role => role.Name == "Auditor B");
+
+            dbContext.UserCompanyMemberships.Add(UserCompanyMembership.Create(actorUser.Id, companyA.Id, roleA.Id, isPrimary: true));
+            dbContext.UserCompanyMemberships.Add(UserCompanyMembership.Create(actorUser.Id, companyB.Id, roleB.Id, isPrimary: false));
+            await dbContext.SaveChangesAsync();
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PostAsync($"/api/account/companies/{scenario.OtherTenantId}/switch", content: null);
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<SwitchActiveCompanyItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(scenario.OtherTenantId, payload!.ActiveCompany.CompanyId);
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(payload.AccessToken);
+        var tid = token.Claims.Single(claim => claim.Type == "tid").Value;
+        Assert.Equal(scenario.OtherTenantId.ToString(), tid);
     }
 
     [Fact]
@@ -747,6 +913,39 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid? RoleId,
         string? Role,
         string? Status);
+
+    private sealed record AccountCompanyItem(
+        Guid CompanyId,
+        string Name,
+        string Slug,
+        string Status,
+        string PlanCode,
+        bool IsActiveContext,
+        bool IsOwnedByCurrentUser,
+        DateTime CreatedAtUtc);
+
+    private sealed record AccountCompanyDetailItem(
+        Guid CompanyId,
+        string Name,
+        string Slug,
+        string Status,
+        string PlanCode,
+        bool IsActiveContext,
+        bool IsOwnedByCurrentUser,
+        DateTime CreatedAtUtc,
+        DateTime? ModifiedAtUtc);
+
+    private sealed record ActiveCompanyItem(
+        Guid CompanyId,
+        string Name,
+        string Slug,
+        string Status);
+
+    private sealed record SwitchActiveCompanyItem(
+        string AccessToken,
+        string? RefreshToken,
+        int ExpiresIn,
+        ActiveCompanyItem ActiveCompany);
 
     private sealed record IamUserSummaryItem(
         Guid Id,

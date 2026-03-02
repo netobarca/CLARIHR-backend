@@ -57,5 +57,7 @@
 - El password se guarda hasheado
 - El email se persiste normalizado en lowercase
 - El registro dispara el provisionamiento inicial de empresa, plan Free, roles/permisos base y membership primaria
+- `companyName` en este flujo solo aplica para la empresa inicial
+- Las empresas adicionales se crean despues del login con `POST /api/account/companies`
 - Se emite refresh token persistido en `auth_refresh_tokens`
 - La rotacion se realiza con `POST /api/auth/refresh`

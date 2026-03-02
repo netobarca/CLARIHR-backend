@@ -1,6 +1,8 @@
 # Administrative Audit Logs
 
-HU-008 introduces a tenant-scoped audit log for administrative actions over users, roles, and RBAC permissions.
+HU-008 introduce auditoria administrativa tenant-scoped para usuarios, roles y permisos.
+
+HU-009 amplia esa auditoria para lifecycle de empresa creado desde endpoints account-level.
 
 ## Scope
 
@@ -17,6 +19,11 @@ Audited events:
 - `ROLE_CLONED`
 - `ROLE_RESOURCE_PERMISSIONS_UPDATED`
 - `ROLE_FIELD_PERMISSIONS_UPDATED`
+- `COMPANY_CREATED`
+- `COMPANY_UPDATED`
+- `COMPANY_ARCHIVED`
+- `COMPANY_REACTIVATED`
+- `ACTIVE_COMPANY_SWITCHED`
 
 ## Architecture
 
@@ -81,3 +88,4 @@ Handlers pass explicit whitelisted snapshots whenever possible to avoid leaking 
 - Audit logs are immutable from the application layer.
 - Queries are tenant-scoped by the global EF tenant filter.
 - Detail requests return `TENANT_MISMATCH` when the log exists but belongs to another tenant.
+- Las acciones account-level de empresa quedan auditadas bajo el tenant de la empresa afectada usando auditoria con tenant explicito.

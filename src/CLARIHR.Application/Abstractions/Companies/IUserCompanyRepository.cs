@@ -17,9 +17,17 @@ public interface IUserCompanyRepository
 
     Task<Guid?> GetPrimaryCompanyPublicIdAsync(long userId, CancellationToken cancellationToken);
 
+    Task<UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken);
+
+    Task<UserCompanyMembership?> GetMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken);
+
     Task<UserCompanyMembership?> FindByUserPublicIdAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken);
 
     Task<bool> UserExistsOutsideCompanyAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken);
+
+    Task<bool> HasActiveMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken);
+
+    Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken);
 
     Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken);
 

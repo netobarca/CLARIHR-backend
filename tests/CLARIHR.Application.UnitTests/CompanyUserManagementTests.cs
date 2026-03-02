@@ -7,6 +7,7 @@ using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.AccountCompanies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.CompanyUsers.Common;
@@ -713,6 +714,25 @@ public sealed class CompanyUserManagementTests
         public Task<Company?> FindByPublicIdAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(company => company.PublicId == companyPublicId));
 
+        public Task<AccountCompanyDetailResponse?> FindOwnedByUserAsync(
+            Guid companyPublicId,
+            Guid ownerUserPublicId,
+            Guid? activeTenantId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<PagedResponse<AccountCompanySummaryResponse>> GetOwnedByUserAsync(
+            Guid ownerUserPublicId,
+            CompanyListFilter filter,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<int> CountOwnedByUserAsync(
+            Guid ownerUserPublicId,
+            CompanyOwnershipCountFilter filter,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public void Seed(Company company) => Items.Add(company);
     }
 
@@ -800,6 +820,19 @@ public sealed class CompanyUserManagementTests
             return Task.FromResult(companyPublicId);
         }
 
+        public Task<UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.SingleOrDefault(item => item.UserId == userId && item.IsPrimary));
+
+        public Task<UserCompanyMembership?> GetMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
+        {
+            var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
+            var membership = company is null
+                ? null
+                : Items.SingleOrDefault(item => item.UserId == userId && item.CompanyId == company.Id);
+
+            return Task.FromResult(membership);
+        }
+
         public Task<UserCompanyMembership?> FindByUserPublicIdAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken)
         {
             var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
@@ -833,6 +866,32 @@ public sealed class CompanyUserManagementTests
                 .Any(company => company.PublicId != companyPublicId);
 
             return Task.FromResult(outside);
+        }
+
+        public Task<bool> HasActiveMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
+        {
+            var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
+            var active = company is not null &&
+                Items.Any(item => item.UserId == userId && item.CompanyId == company.Id && item.Status == UserCompanyStatus.Active);
+
+            return Task.FromResult(active);
+        }
+
+        public Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
+        {
+            var company = companyRepository.Items.Single(item => item.PublicId == companyPublicId);
+            foreach (var membership in Items.Where(item => item.UserId == userId))
+            {
+                if (membership.CompanyId == company.Id)
+                {
+                    membership.MarkPrimary();
+                    continue;
+                }
+
+                membership.ClearPrimary();
+            }
+
+            return Task.CompletedTask;
         }
 
         public Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken)
@@ -1054,6 +1113,12 @@ public sealed class CompanyUserManagementTests
         public List<AuditLogEntry> Entries { get; } = [];
 
         public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken)
+        {
+            Entries.Add(entry);
+            return Task.CompletedTask;
+        }
+
+        public Task LogForTenantAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken)
         {
             Entries.Add(entry);
             return Task.CompletedTask;

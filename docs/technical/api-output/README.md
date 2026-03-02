@@ -5,6 +5,7 @@ Esta carpeta agrupa la documentacion tecnica de soporte por modulo, flujo o HU p
 Ejemplos:
 
 - auth
+- account companies
 - company users
 - IAM RBAC
 - auditoria administrativa

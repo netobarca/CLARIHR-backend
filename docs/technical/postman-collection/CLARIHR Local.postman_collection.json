@@ -2,7 +2,7 @@
   "info": {
     "name": "CLARIHR Local",
     "_postman_id": "1a5c7054-5dd4-45f1-8e8c-cf8b9e51d801",
-    "description": "Postman collection for manual local testing of the CLARIHR backend up to HU-008.",
+    "description": "Postman collection for manual local testing of the CLARIHR backend up to HU-009.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -30,6 +30,18 @@
     },
     {
       "key": "currentUserId",
+      "value": ""
+    },
+    {
+      "key": "ownedCompanyId",
+      "value": ""
+    },
+    {
+      "key": "archivedCompanyId",
+      "value": ""
+    },
+    {
+      "key": "activeCompanyId",
       "value": ""
     },
     {
@@ -185,6 +197,139 @@
               }
             },
             "url": "{{baseUrl}}/api/auth/refresh"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Account Companies",
+      "item": [
+        {
+          "name": "List Owned Companies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/account/companies?page=1&pageSize=20"
+          }
+        },
+        {
+          "name": "Create Owned Company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('ownedCompanyId', data.companyId || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Satellite\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/account/companies"
+          }
+        },
+        {
+          "name": "Get Owned Company",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/account/companies/{{ownedCompanyId}}"
+          }
+        },
+        {
+          "name": "Update Owned Company",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Satellite Updated\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/account/companies/{{ownedCompanyId}}"
+          }
+        },
+        {
+          "name": "Archive Owned Company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('archivedCompanyId', data.companyId || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/account/companies/{{ownedCompanyId}}/archive"
+          }
+        },
+        {
+          "name": "Reactivate Owned Company",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{baseUrl}}/api/account/companies/{{archivedCompanyId}}/reactivate"
+          }
+        },
+        {
+          "name": "Switch Active Company",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', data.accessToken || '');",
+                  "  pm.collectionVariables.set('refreshToken', data.refreshToken || '');",
+                  "  pm.collectionVariables.set('activeCompanyId', data.activeCompany?.companyId || '');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/account/companies/{{ownedCompanyId}}/switch"
           }
         }
       ]

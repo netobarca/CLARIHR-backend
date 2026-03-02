@@ -24,6 +24,14 @@ internal sealed class AuditService(
             throw new InvalidOperationException("Audit logging requires a tenant context.");
         }
 
+        await LogInternalAsync(tenantContext.TenantId.Value, entry, cancellationToken);
+    }
+
+    public Task LogForTenantAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken) =>
+        LogInternalAsync(tenantId, entry, cancellationToken);
+
+    private async Task LogInternalAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken)
+    {
         var actorUserId = Guid.TryParse(currentUserService.UserId, out var parsedUserId)
             ? parsedUserId
             : Guid.Empty;
@@ -51,7 +59,7 @@ internal sealed class AuditService(
             httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString(),
             httpContextAccessor.HttpContext?.Request.Headers.UserAgent.ToString());
 
-        auditLog.SetTenantId(tenantContext.TenantId.Value);
+        auditLog.SetTenantId(tenantId);
         auditLogRepository.Add(auditLog);
     }
 }

@@ -41,4 +41,6 @@
 - Los refresh tokens se almacenan hasheados en `auth_refresh_tokens`
 - Cada uso valido rota el refresh token anterior
 - Si se detecta reuse de un refresh token ya rotado, se revoca la familia activa
+- El `accessToken` emitido usa la empresa primaria vigente del usuario al momento del refresh
+- Si el usuario hizo `switch` de empresa con `POST /api/account/companies/{companyId}/switch`, el refresh siguiente conserva ese contexto primario actualizado
 - Los endpoints `/api/auth/*` responden con headers `Cache-Control: no-store`

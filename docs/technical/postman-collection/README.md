@@ -11,12 +11,17 @@ Contenido:
 2. Selecciona el entorno `CLARIHR Local`.
 3. Ejecuta `Auth/Register Local User` para obtener `accessToken` y `refreshToken`.
 4. Usa los requests protegidos con el token almacenado en variables de la coleccion.
+5. Para validar multiempresa, usa la carpeta `Account Companies` despues del onboarding inicial.
 
 ## Variables relevantes
 
 - `baseUrl`
 - `accessToken`
 - `refreshToken`
+- `currentUserId`
+- `ownedCompanyId`
+- `archivedCompanyId`
+- `activeCompanyId`
 - `roleId`
 - `permissionId`
 - `iamUserId`

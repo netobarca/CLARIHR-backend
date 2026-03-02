@@ -13,6 +13,11 @@ public static class AuditEventTypes
     public const string RoleCloned = "ROLE_CLONED";
     public const string RoleResourcePermissionsUpdated = "ROLE_RESOURCE_PERMISSIONS_UPDATED";
     public const string RoleFieldPermissionsUpdated = "ROLE_FIELD_PERMISSIONS_UPDATED";
+    public const string CompanyCreated = "COMPANY_CREATED";
+    public const string CompanyUpdated = "COMPANY_UPDATED";
+    public const string CompanyArchived = "COMPANY_ARCHIVED";
+    public const string CompanyReactivated = "COMPANY_REACTIVATED";
+    public const string ActiveCompanySwitched = "ACTIVE_COMPANY_SWITCHED";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -26,7 +31,12 @@ public static class AuditEventTypes
         RoleUpdated,
         RoleCloned,
         RoleResourcePermissionsUpdated,
-        RoleFieldPermissionsUpdated
+        RoleFieldPermissionsUpdated,
+        CompanyCreated,
+        CompanyUpdated,
+        CompanyArchived,
+        CompanyReactivated,
+        ActiveCompanySwitched
     ];
 
     public static bool TryNormalize(string? value, out string normalized)
@@ -47,12 +57,14 @@ public static class AuditEntityTypes
     public const string User = "User";
     public const string Role = "Role";
     public const string Permission = "Permission";
+    public const string Company = "Company";
 
     public static readonly IReadOnlyCollection<string> All =
     [
         User,
         Role,
-        Permission
+        Permission,
+        Company
     ];
 
     public static bool TryNormalize(string? value, out string normalized)
@@ -78,4 +90,6 @@ public static class AuditActions
     public const string InvitationReset = "InvitationReset";
     public const string Clone = "Clone";
     public const string PermissionChange = "PermissionChange";
+    public const string Archive = "Archive";
+    public const string Switch = "Switch";
 }

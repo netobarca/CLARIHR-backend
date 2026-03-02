@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.Configure<JwtTokenOptions>(configuration.GetSection(JwtTokenOptions.SectionName));
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
         services.Configure<FieldPermissionCacheOptions>(configuration.GetSection(FieldPermissionCacheOptions.SectionName));
+        services.Configure<CompanyOwnershipOptions>(configuration.GetSection(CompanyOwnershipOptions.SectionName));
         services.AddHttpContextAccessor();
 
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
@@ -47,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<ICompanySubscriptionRepository, CompanySubscriptionRepository>();
         services.AddScoped<IUserCompanyRepository, UserCompanyRepository>();
+        services.AddScoped<ICompanyOwnershipPolicy, CompanyOwnershipPolicy>();
         services.AddScoped<IInvitationTokenRepository, InvitationTokenRepository>();
         services.AddScoped<IEmailService, LoggingEmailService>();
         services.AddScoped<ICompanyUserAuthorizationService, CompanyUserAuthorizationService>();

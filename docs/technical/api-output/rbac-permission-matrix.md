@@ -41,7 +41,8 @@ Compatibilidad temporal:
 - `Read` bloquea listados/consultas si no esta presente
 - `Create` bloquea altas/invitaciones
 - `Update` bloquea ediciones, reasignaciones y cambios de matriz
-- `Delete` bloquea operaciones destructivas como eliminacion de roles o desactivacion de usuarios
+- `Delete` bloquea operaciones destructivas como eliminacion de roles
+- La desactivacion/reactivacion de usuarios usa `Update`, no `Delete`, porque es cambio de estado y no eliminacion
 
 Overrides permitidos:
 

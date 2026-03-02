@@ -183,11 +183,23 @@ public sealed class JwtTokenServiceTests
         public Task<Guid?> GetPrimaryCompanyPublicIdAsync(long userId, CancellationToken cancellationToken) =>
             Task.FromResult<Guid?>(companyPublicId);
 
+        public Task<Domain.Companies.UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<Domain.Companies.UserCompanyMembership?> GetMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<Domain.Companies.UserCompanyMembership?> FindByUserPublicIdAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<bool> UserExistsOutsideCompanyAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
+
+        public Task<bool> HasActiveMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
 
         public Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();

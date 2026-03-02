@@ -56,6 +56,8 @@ El token debe cumplir, como minimo:
 - Se aceptan cuentas Google personales y Google Workspace
 - Si el usuario no existe, se crea usando `sub` como `provider_user_id`
 - Si el usuario no tiene empresa primaria, el backend ejecuta provisioning inicial durante este login/registro
+- `companyName` en este flujo solo se usa para la empresa inicial si el usuario aun no tenia empresa primaria
+- Las empresas adicionales no se crean desde este endpoint; se crean con `POST /api/account/companies`
 - El login externo tambien emite refresh token persistido y rotado por backend
 - Si el usuario existe por email y no tenia `provider_user_id`, solo se enlaza automaticamente cuando Google devuelve un email confiable para linking:
   `email_verified = true` y el email es `@gmail.com`, o viene con `hd` de Google Workspace

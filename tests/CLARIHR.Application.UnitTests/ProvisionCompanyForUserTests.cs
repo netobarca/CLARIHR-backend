@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.AccountCompanies;
 using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Application.Features.Provisioning;
@@ -171,8 +172,9 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         TestUserCompanyRepository userCompanyRepository,
         TestIamAdministrationRepository iamRepository,
         IPlanEntitlementService planEntitlementService,
-        TestUnitOfWork unitOfWork) =>
-        new(
+        TestUnitOfWork unitOfWork)
+    {
+        var provisioningService = new CompanyProvisioningService(
             userRepository,
             companyRepository,
             subscriptionRepository,
@@ -180,8 +182,15 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             iamRepository,
             planEntitlementService,
             unitOfWork,
-            new FixedDateTimeProvider(new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)),
+            new FixedDateTimeProvider(new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)));
+
+        return new ProvisionCompanyForUserCommandHandler(
+            userRepository,
+            userCompanyRepository,
+            provisioningService,
+            unitOfWork,
             NullLogger<ProvisionCompanyForUserCommandHandler>.Instance);
+    }
 
     private static User CreatePersistedUser(string email)
     {
@@ -269,6 +278,25 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task<Company?> FindByPublicIdAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(company => company.PublicId == companyPublicId));
 
+        public Task<AccountCompanyDetailResponse?> FindOwnedByUserAsync(
+            Guid companyPublicId,
+            Guid ownerUserPublicId,
+            Guid? activeTenantId,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<PagedResponse<AccountCompanySummaryResponse>> GetOwnedByUserAsync(
+            Guid ownerUserPublicId,
+            CompanyListFilter filter,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<int> CountOwnedByUserAsync(
+            Guid ownerUserPublicId,
+            CompanyOwnershipCountFilter filter,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Company? FindById(long companyId) => Items.SingleOrDefault(company => company.Id == companyId);
     }
 
@@ -330,11 +358,50 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             return Task.FromResult(companyPublicId);
         }
 
+        public Task<UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.SingleOrDefault(item => item.UserId == userId && item.IsPrimary));
+
+        public Task<UserCompanyMembership?> GetMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
+        {
+            var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
+            var membership = company is null
+                ? null
+                : Items.SingleOrDefault(item => item.UserId == userId && item.CompanyId == company.Id);
+
+            return Task.FromResult(membership);
+        }
+
         public Task<UserCompanyMembership?> FindByUserPublicIdAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<bool> UserExistsOutsideCompanyAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
+
+        public Task<bool> HasActiveMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
+        {
+            var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
+            var active = company is not null &&
+                Items.Any(item => item.UserId == userId && item.CompanyId == company.Id && item.Status == UserCompanyStatus.Active);
+
+            return Task.FromResult(active);
+        }
+
+        public Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
+        {
+            var company = companyRepository.Items.Single(item => item.PublicId == companyPublicId);
+            foreach (var membership in Items.Where(item => item.UserId == userId))
+            {
+                if (membership.CompanyId == company.Id)
+                {
+                    membership.MarkPrimary();
+                    continue;
+                }
+
+                membership.ClearPrimary();
+            }
+
+            return Task.CompletedTask;
+        }
 
         public Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();

@@ -44,4 +44,29 @@ public sealed class Company : AuditableEntity
             slug,
             CompanyStatus.Active,
             createdByUserPublicId);
+
+    public void Rename(string name)
+    {
+        Name = CompanyNormalization.Clean(name, nameof(name));
+    }
+
+    public void Archive()
+    {
+        if (Status == CompanyStatus.Archived)
+        {
+            throw new InvalidOperationException("Company is already archived.");
+        }
+
+        Status = CompanyStatus.Archived;
+    }
+
+    public void Reactivate()
+    {
+        if (Status == CompanyStatus.Active)
+        {
+            throw new InvalidOperationException("Company is already active.");
+        }
+
+        Status = CompanyStatus.Active;
+    }
 }

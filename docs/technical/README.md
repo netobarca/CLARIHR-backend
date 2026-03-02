@@ -11,3 +11,4 @@
 
 - `api-reference/api-endpoints-reference.md` es la fuente central que se debe actualizar en cada HU o iteracion.
 - Los documentos de `api-output/` se mantienen como soporte por tema o modulo.
+- Para frontend, el archivo a compartir por defecto es `api-reference/api-endpoints-reference.md`.

@@ -26,6 +26,18 @@ internal sealed class JwtTokenService(
 {
     public async Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken)
     {
+        var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
+        return await GenerateInternalAsync(user, tenantId, cancellationToken);
+    }
+
+    public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
+        GenerateInternalAsync(user, tenantId, cancellationToken);
+
+    private async Task<Result<AuthTokenResult>> GenerateInternalAsync(
+        User user,
+        Guid? tenantId,
+        CancellationToken cancellationToken)
+    {
         var jwtOptions = options.Value;
         if (!jwtOptions.IsConfigured)
         {
@@ -49,7 +61,6 @@ internal sealed class JwtTokenService(
             new("user_status", user.Status.ToString())
         };
 
-        var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
         if (tenantId.HasValue)
         {
             claims.Add(new Claim("tid", tenantId.Value.ToString()));

@@ -696,6 +696,12 @@ public sealed class IdentityAccessAdministrationTests
             Entries.Add(entry);
             return Task.CompletedTask;
         }
+
+        public Task LogForTenantAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken)
+        {
+            Entries.Add(entry);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class TestIamAdministrationRepository : IIamAdministrationRepository

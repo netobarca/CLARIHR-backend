@@ -315,6 +315,9 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 RefreshToken: "refresh-token",
                 ExpiresIn: 900)));
 
+        public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
+            GenerateAsync(user, cancellationToken);
+
         public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
             Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
     }

@@ -15,6 +15,8 @@ Este modulo implementa la base de administracion tenant-scoped para RBAC nivel 3
 
 Todos los endpoints requieren autenticacion JWT y un `tid` valido.
 
+Si una cuenta administra varias empresas, el tenant efectivo para estos endpoints depende del `tid` del JWT vigente. Para cambiar de empresa se debe usar antes `POST /api/account/companies/{companyId}/switch`.
+
 Acceso permitido si se cumple cualquiera de estas condiciones:
 
 - claim de rol `platform_admin`
@@ -227,6 +229,7 @@ Todas son tenant-scoped y usan `TenantId` en indices compuestos.
 ## Current scope limits
 
 - no documenta los flujos de auth; el registro local vive en `docs/technical/api-output/auth-register.md`
+- no documenta los flujos account-level de multiempresa; esos viven en `docs/technical/api-output/account-companies.md`
 - no incluye enforcement de field masking sobre otros modulos
 - no incluye endpoints de delete para usuarios o permisos
 - no incluye migraciones EF en esta entrega

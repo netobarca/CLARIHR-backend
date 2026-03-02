@@ -71,6 +71,9 @@ public sealed class RefreshTokenCommandHandlerTests
         public Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
             Task.FromResult(Result<RefreshTokenExchangeResult>.Success(new RefreshTokenExchangeResult(
                 user,
@@ -80,6 +83,9 @@ public sealed class RefreshTokenCommandHandlerTests
     private sealed class FailingTokenService : ITokenService
     {
         public Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>

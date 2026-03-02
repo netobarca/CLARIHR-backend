@@ -25,11 +25,12 @@ El backend actual cubre estos bloques funcionales:
 1. disponibilidad y estado del API
 2. autenticacion local y autenticacion externa
 3. provisioning inicial de empresa y administrador
-4. administracion de usuarios por empresa
-5. administracion IAM de usuarios, roles y permisos
-6. RBAC por recurso y accion
-7. RBAC por campo
-8. auditoria administrativa
+4. gestion multiempresa a nivel cuenta
+5. administracion de usuarios por empresa
+6. administracion IAM de usuarios, roles y permisos
+7. RBAC por recurso y accion
+8. RBAC por campo
+9. auditoria administrativa
 
 ## Core Business Rules
 
@@ -41,10 +42,13 @@ El backend actual cubre estos bloques funcionales:
 5. Si un campo no es editable, la API rechaza el cambio. No lo ignora silenciosamente.
 6. Los cambios administrativos clave quedan auditados.
 7. Los roles, permisos y configuraciones RBAC se gestionan por empresa.
+8. Los endpoints `account-level` solo permiten operar empresas creadas por el usuario autenticado.
+9. No existe hard delete de empresa; la baja es logica por `Archived`.
 
 ## Actors
 
 - `Public User`: usuario no autenticado.
+- `Account Owner`: usuario autenticado que puede operar varias empresas propias desde la misma cuenta.
 - `Company Admin`: administrador de empresa con capacidad de gestionar accesos.
 - `Security Admin`: administrador que gestiona roles, permisos y RBAC.
 - `Auditor`: usuario con acceso a lectura de logs.
@@ -57,15 +61,17 @@ Orden natural del sistema hoy:
 1. validar que el API esta arriba
 2. registrar el primer usuario y crear la empresa inicial
 3. autenticarse y obtener JWT
-4. crear o ajustar roles
-5. crear permisos personalizados si hacen falta
-6. asignar permisos a los roles
-7. configurar permisos RBAC por recurso
-8. configurar permisos RBAC por campo
-9. crear usuarios de empresa o usuarios IAM
-10. asignar roles a usuarios
-11. operar el sistema bajo restricciones RBAC
-12. revisar auditoria y trazabilidad
+4. crear empresas adicionales si la cuenta tiene capacidad
+5. cambiar la empresa activa cuando sea necesario
+6. crear o ajustar roles
+7. crear permisos personalizados si hacen falta
+8. asignar permisos a los roles
+9. configurar permisos RBAC por recurso
+10. configurar permisos RBAC por campo
+11. crear usuarios de empresa o usuarios IAM
+12. asignar roles a usuarios
+13. operar el sistema bajo restricciones RBAC
+14. revisar auditoria y trazabilidad
 
 ## Flow 1. Validate API Availability
 
@@ -162,6 +168,101 @@ Mantener la sesion sin volver a registrar o volver a autenticar completamente al
 
 - continuidad de sesion
 - control de expiracion y rotacion de tokens
+
+## Flow 4A. Account Company Administration
+
+Este flujo permite que una misma cuenta opere varias empresas propias sin mezclar ese proceso con RBAC tenant-scoped.
+
+### Endpoints
+
+- `GET /api/account/companies`
+- `GET /api/account/companies/{companyId}`
+- `POST /api/account/companies`
+- `PUT /api/account/companies/{companyId}`
+- `PATCH /api/account/companies/{companyId}/archive`
+- `PATCH /api/account/companies/{companyId}/reactivate`
+- `POST /api/account/companies/{companyId}/switch`
+
+### Flow 4A.1. List owned companies
+
+1. El usuario autenticado consulta sus empresas con `GET /api/account/companies`.
+2. El backend resuelve el usuario actual.
+3. El backend lista solo empresas creadas por esa cuenta.
+4. Marca cual coincide con el `tid` actual del JWT.
+5. Devuelve lista paginada.
+
+Business value:
+
+- visibilidad clara de las empresas bajo la misma cuenta
+- separacion entre ownership de cuenta y tenant activo
+
+### Flow 4A.2. Create an additional company
+
+1. El usuario decide crear una empresa nueva desde su cuenta.
+2. Llama `POST /api/account/companies`.
+3. El backend valida capacidad segun la policy temporal de ownership.
+4. El backend provisiona el tenant nuevo reutilizando el flujo actual de bootstrap.
+5. Crea membership no primaria.
+6. Mantiene intacta la empresa activa actual.
+7. Registra auditoria `COMPANY_CREATED`.
+
+Business value:
+
+- crecimiento multiempresa desde una misma cuenta
+- bootstrap consistente de empresa nueva sin romper el contexto actual
+
+### Flow 4A.3. Update a company owned by the current account
+
+1. El usuario selecciona una empresa propia.
+2. Llama `PUT /api/account/companies/{companyId}`.
+3. El backend valida ownership.
+4. Actualiza solo `name`.
+5. Mantiene `slug` inmutable.
+6. Registra auditoria `COMPANY_UPDATED`.
+
+Business value:
+
+- mantenimiento simple del tenant sin alterar identidad tecnica
+
+### Flow 4A.4. Archive an owned company
+
+1. El usuario intenta archivar una empresa propia.
+2. El backend valida ownership.
+3. Si la empresa es la activa del token o la primaria actual, bloquea la operacion.
+4. Si no es la activa, cambia estado a `Archived`.
+5. Registra auditoria `COMPANY_ARCHIVED`.
+
+Business value:
+
+- baja logica segura
+- evita dejar la sesion apuntando a una empresa archivada
+
+### Flow 4A.5. Reactivate an owned company
+
+1. El usuario selecciona una empresa archivada.
+2. Llama `PATCH /api/account/companies/{companyId}/reactivate`.
+3. El backend valida ownership.
+4. Revalida el limite temporal de empresas activas.
+5. Si el limite lo permite, reactiva la empresa.
+6. Registra auditoria `COMPANY_REACTIVATED`.
+
+Business value:
+
+- recuperacion de empresa sin reprovisionar tenant
+
+### Flow 4A.6. Switch active company
+
+1. El usuario decide operar otra empresa propia.
+2. Llama `POST /api/account/companies/{companyId}/switch`.
+3. El backend valida ownership y membership activa.
+4. Cambia la membership primaria.
+5. Reemite JWT con nuevo `tid`.
+6. Registra auditoria `ACTIVE_COMPANY_SWITCHED`.
+
+Business value:
+
+- cambio seguro de contexto tenant
+- continuidad con el modelo actual basado en JWT
 
 ## Flow 5. Company User Administration
 
@@ -653,14 +754,16 @@ Business value:
 1. Verificar salud del API con `GET /api/system/status`.
 2. Registrar primer usuario con `POST /api/auth/register`.
 3. Guardar `accessToken` y `refreshToken`.
-4. Consultar roles existentes con `GET /api/iam/roles`.
-5. Si hace falta, crear rol con `POST /api/iam/roles`.
-6. Configurar permisos del rol con:
+4. Si la cuenta necesita otra empresa, crearla con `POST /api/account/companies`.
+5. Si hace falta operar esa nueva empresa, cambiar contexto con `POST /api/account/companies/{companyId}/switch`.
+6. Consultar roles existentes con `GET /api/iam/roles`.
+7. Si hace falta, crear rol con `POST /api/iam/roles`.
+8. Configurar permisos del rol con:
    `PUT /api/rbac/roles/{roleId}/permissions`
-7. Configurar permisos por campo con:
+9. Configurar permisos por campo con:
    `PUT /api/rbac/roles/{roleId}/field-permissions`
-8. Invitar usuarios de empresa con `POST /api/company/users`.
-9. Revisar logs administrativos con `GET /api/audit/logs`.
+10. Invitar usuarios de empresa con `POST /api/company/users`.
+11. Revisar logs administrativos con `GET /api/audit/logs`.
 
 ## Journey B. Create a role and assign it to a user
 
@@ -695,6 +798,17 @@ Business value:
 7. Si no, responde error estandar.
 8. El evento queda auditado.
 
+## Journey E. Operate multiple companies from one account
+
+1. El usuario se registra y recibe su empresa inicial.
+2. Crea una empresa adicional con `POST /api/account/companies`.
+3. Confirma que el contexto activo no cambio.
+4. Consulta sus empresas con `GET /api/account/companies`.
+5. Cambia a la nueva empresa con `POST /api/account/companies/{companyId}/switch`.
+6. Usa el nuevo JWT para gestionar roles, usuarios y permisos de ese tenant.
+7. Si deja de usar una empresa, la archiva con `PATCH /api/account/companies/{companyId}/archive`.
+8. Si necesita recuperarla, la reactiva con `PATCH /api/account/companies/{companyId}/reactivate`.
+
 ## Full API Flow Inventory
 
 Todos los flujos actuales del API quedan cubiertos en este documento:
@@ -703,6 +817,13 @@ Todos los flujos actuales del API quedan cubiertos en este documento:
 - `POST /api/auth/register`
 - `POST /api/auth/external`
 - `POST /api/auth/refresh`
+- `GET /api/account/companies`
+- `GET /api/account/companies/{companyId}`
+- `POST /api/account/companies`
+- `PUT /api/account/companies/{companyId}`
+- `PATCH /api/account/companies/{companyId}/archive`
+- `PATCH /api/account/companies/{companyId}/reactivate`
+- `POST /api/account/companies/{companyId}/switch`
 - `GET /api/company/users`
 - `POST /api/company/users`
 - `PUT /api/company/users/{userId}`
