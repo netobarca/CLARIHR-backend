@@ -61,6 +61,28 @@ Excepcion controlada adicional:
   - `iam.administration.manage`
   - `platform_admin`
 - Aun asi, sigue siendo tenant-scoped y exige coincidencia entre `companyId` de la ruta y claim `tid`.
+- El modulo `OrgUnits` sigue el mismo patron de claims/policies funcionales:
+  - `OrgUnits.Read`
+  - `OrgUnits.Admin`
+  - `iam.administration.manage`
+  - `platform_admin`
+  - y exige coincidencia entre `companyId` de la ruta y claim `tid`.
+- El modulo `JobProfiles` sigue un patron funcional equivalente:
+  - lectura:
+    - `JobProfiles.Read`
+    - `JobProfiles.Admin`
+    - `JobCatalogs.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - escritura de perfiles:
+    - `JobProfiles.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - administracion de catalogos y creacion inline:
+    - `JobCatalogs.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - y exige coincidencia entre `companyId` de la ruta y claim `tid`.
 
 Recursos RBAC actuales:
 
@@ -144,13 +166,28 @@ Codigos relevantes hoy:
 - `LOCATION_GROUP_NOT_FOUND`
 - `WORK_CENTER_TYPE_NOT_FOUND`
 - `WORK_CENTER_NOT_FOUND`
+- `ORG_UNIT_NOT_FOUND`
 - `LOCATION_LEVEL_ORDER_CONFLICT`
 - `LOCATION_GROUP_CODE_CONFLICT`
 - `WORK_CENTER_TYPE_CODE_CONFLICT`
 - `WORK_CENTER_CODE_CONFLICT`
+- `ORG_UNIT_CODE_CONFLICT`
 - `LOCATION_GROUP_PARENT_REQUIRED`
 - `LOCATION_GROUP_INVALID_PARENT`
 - `LOCATION_GROUP_CYCLE_DETECTED`
+- `ORG_UNIT_PARENT_NOT_FOUND`
+- `ORG_UNIT_CYCLE_DETECTED`
+- `ORG_UNIT_DEPTH_LIMIT_EXCEEDED`
+- `ORG_UNIT_HAS_ACTIVE_CHILDREN`
+- `JOB_PROFILE_NOT_FOUND`
+- `JOB_CATALOG_ITEM_NOT_FOUND`
+- `JOB_PROFILE_CODE_CONFLICT`
+- `JOB_PROFILE_DEPENDENCY_CYCLE`
+- `JOB_PROFILE_STATE_CONFLICT`
+- `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING`
+- `JOB_CATALOG_INLINE_CREATE_FORBIDDEN`
+- `JOB_CATALOG_ITEM_CODE_CONFLICT`
+- `JOB_PROFILE_EXPORT_FORMAT_INVALID`
 - `LOCATION_GROUP_HAS_ACTIVE_CHILDREN`
 - `LOCATION_GROUP_HAS_ACTIVE_WORK_CENTERS`
 - `WORK_CENTER_TYPE_IN_USE`
@@ -1095,6 +1132,171 @@ Response `201 Created`: `LocationGroupResponse`
   - el grupo debe estar en un nivel que permita centros
   - direccion y geo son obligatorias segun flags del tipo
   - inactivacion usa `ILocationDependencyPolicy`
+
+## 3C. Org Units
+
+Este modulo fue agregado en HU-011 y usa rutas bajo `/api/v1`.
+
+Reglas globales del modulo:
+
+- Auth: JWT requerido
+- Seguridad: autorizacion funcional por claims/policies de OrgUnits
+- Tenant: `companyId` de la ruta debe coincidir con `tid`
+- Concurrencia: updates con `concurrencyToken`
+- Integridad: anti-ciclos y profundidad maxima `15`
+
+Detalle tecnico complementario: `../api-output/org-units.md`.
+
+### GET /api/v1/companies/{companyId}/org-units
+
+- Auth: JWT requerido
+- Authorization: `OrgUnits.Read` o `OrgUnits.Admin`
+
+Busqueda soportada:
+
+- `isActive?`
+- `type?`
+- `parentId?`
+- `q?`
+- `page`
+- `pageSize`
+
+### GET /api/v1/org-units/{id}
+
+- Auth: JWT requerido
+- Authorization: `OrgUnits.Read` o `OrgUnits.Admin`
+- Resolucion por id distingue `ORG_UNIT_NOT_FOUND` vs `TENANT_MISMATCH`.
+
+### POST /api/v1/companies/{companyId}/org-units
+
+- Auth: JWT requerido
+- Authorization: `OrgUnits.Admin`
+
+Request:
+
+```json
+{
+  "code": "DIR-001",
+  "name": "Direccion General",
+  "unitType": "Direccion",
+  "parentId": null,
+  "sortOrder": 1,
+  "description": "Nivel directivo",
+  "costCenterCode": "CC-001",
+  "managerEmployeeId": null
+}
+```
+
+Response `201 Created`: `OrgUnitResponse`
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+- `404`
+- `409`
+
+### PUT /api/v1/org-units/{id}
+### PATCH /api/v1/org-units/{id}/move
+### PATCH /api/v1/org-units/{id}/activate
+### PATCH /api/v1/org-units/{id}/inactivate
+
+- Auth: JWT requerido
+- Authorization: `OrgUnits.Admin`
+- Concurrencia: `concurrencyToken` requerido
+- Reglas criticas:
+  - `code` unico por tenant
+  - no auto-parent
+  - no ciclos en jerarquia
+  - no inactivar unidad con hijos activos
+
+### GET /api/v1/companies/{companyId}/org-units/tree
+### GET /api/v1/companies/{companyId}/org-units/graph
+
+- Auth: JWT requerido
+- Authorization: `OrgUnits.Read` o `OrgUnits.Admin`
+- Query params:
+  - `rootId?`
+  - `depth?` (1..15)
+
+## 3D. Job Profiles And Job Catalogs
+
+Este modulo fue agregado en HU-012 y usa rutas bajo `/api/v1`.
+
+Reglas globales del modulo:
+
+- Auth: JWT requerido
+- Tenant: `companyId` de la ruta debe coincidir con `tid`
+- Concurrencia: operaciones de escritura por id validan `concurrencyToken`
+- Estado de perfil: `Draft | Published | Archived`
+- Integridad: bloqueo de ciclos en `reportsTo` y `dependentPositions`
+
+Detalle tecnico complementario: `../api-output/job-profiles.md`.
+
+### GET /api/v1/companies/{companyId}/job-profiles
+
+- Auth: JWT requerido
+- Authorization:
+  - `JobProfiles.Read`
+  - `JobProfiles.Admin`
+  - `JobCatalogs.Admin`
+
+Busqueda soportada:
+
+- `status?`
+- `orgUnitId?`
+- `salaryClass?`
+- `q?`
+- `page`
+- `pageSize`
+
+### GET /api/v1/job-profiles/{id}
+### GET /api/v1/job-profiles/{id}/vacancy-template
+### GET /api/v1/job-profiles/{id}/print
+### GET /api/v1/job-profiles/{id}/export?format=json|csv
+
+- Auth: JWT requerido
+- Authorization: mismo set de lectura del modulo
+- Export v1 soporta:
+  - `json`
+  - `csv`
+
+### POST /api/v1/companies/{companyId}/job-profiles
+### PUT /api/v1/job-profiles/{id}
+### PATCH /api/v1/job-profiles/{id}/publish
+### PATCH /api/v1/job-profiles/{id}/archive
+
+- Auth: JWT requerido
+- Authorization: `JobProfiles.Admin`
+- Reglas criticas:
+  - `code` unico por tenant
+  - publicar exige minimos de completitud
+  - perfil archivado no puede editarse
+  - catalog create inline solo permitido con `allowInlineCatalogCreate=true` y permiso de catalogos
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+- `404`
+- `409`
+- `422` (publicacion incompleta)
+
+### GET /api/v1/companies/{companyId}/job-catalogs/{category}
+### POST /api/v1/companies/{companyId}/job-catalogs/{category}
+### PATCH /api/v1/job-catalogs/{id}/activate
+### PATCH /api/v1/job-catalogs/{id}/inactivate
+
+- Auth: JWT requerido
+- Authorization:
+  - lectura: permisos de lectura del modulo
+  - escritura catalogos: `JobCatalogs.Admin`
+- Reglas criticas:
+  - `code` unico por tenant+categoria
+  - item inactivo no es valido para nuevas asociaciones
+  - invalidacion de cache por tenant/categoria tras escrituras
 
 ## 4. Company Users
 
@@ -2928,3 +3130,25 @@ Estado actual del API documentado en este archivo:
 - `GET /api/rbac/audit`
 - `GET /api/audit/logs`
 - `GET /api/audit/logs/{auditLogId}`
+- `POST /api/v1/companies/{companyId}/org-units`
+- `GET /api/v1/companies/{companyId}/org-units`
+- `GET /api/v1/org-units/{id}`
+- `PUT /api/v1/org-units/{id}`
+- `PATCH /api/v1/org-units/{id}/move`
+- `PATCH /api/v1/org-units/{id}/activate`
+- `PATCH /api/v1/org-units/{id}/inactivate`
+- `GET /api/v1/companies/{companyId}/org-units/tree`
+- `GET /api/v1/companies/{companyId}/org-units/graph`
+- `POST /api/v1/companies/{companyId}/job-profiles`
+- `GET /api/v1/companies/{companyId}/job-profiles`
+- `GET /api/v1/job-profiles/{id}`
+- `PUT /api/v1/job-profiles/{id}`
+- `PATCH /api/v1/job-profiles/{id}/publish`
+- `PATCH /api/v1/job-profiles/{id}/archive`
+- `GET /api/v1/job-profiles/{id}/vacancy-template`
+- `GET /api/v1/job-profiles/{id}/print`
+- `GET /api/v1/job-profiles/{id}/export?format=json|csv`
+- `GET /api/v1/companies/{companyId}/job-catalogs/{category}`
+- `POST /api/v1/companies/{companyId}/job-catalogs/{category}`
+- `PATCH /api/v1/job-catalogs/{id}/activate`
+- `PATCH /api/v1/job-catalogs/{id}/inactivate`

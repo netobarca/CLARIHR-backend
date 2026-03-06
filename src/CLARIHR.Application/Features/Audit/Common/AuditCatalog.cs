@@ -18,6 +18,17 @@ public static class AuditEventTypes
     public const string CompanyArchived = "COMPANY_ARCHIVED";
     public const string CompanyReactivated = "COMPANY_REACTIVATED";
     public const string ActiveCompanySwitched = "ACTIVE_COMPANY_SWITCHED";
+    public const string OrgUnitCreated = "ORG_UNIT_CREATED";
+    public const string OrgUnitUpdated = "ORG_UNIT_UPDATED";
+    public const string OrgUnitMoved = "ORG_UNIT_MOVED";
+    public const string OrgUnitActivated = "ORG_UNIT_ACTIVATED";
+    public const string OrgUnitInactivated = "ORG_UNIT_INACTIVATED";
+    public const string JobProfileCreated = "JOB_PROFILE_CREATED";
+    public const string JobProfileUpdated = "JOB_PROFILE_UPDATED";
+    public const string JobProfilePublished = "JOB_PROFILE_PUBLISHED";
+    public const string JobProfileArchived = "JOB_PROFILE_ARCHIVED";
+    public const string JobCatalogItemCreated = "JOB_CATALOG_ITEM_CREATED";
+    public const string JobCatalogItemUpdated = "JOB_CATALOG_ITEM_UPDATED";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -36,7 +47,18 @@ public static class AuditEventTypes
         CompanyUpdated,
         CompanyArchived,
         CompanyReactivated,
-        ActiveCompanySwitched
+        ActiveCompanySwitched,
+        OrgUnitCreated,
+        OrgUnitUpdated,
+        OrgUnitMoved,
+        OrgUnitActivated,
+        OrgUnitInactivated,
+        JobProfileCreated,
+        JobProfileUpdated,
+        JobProfilePublished,
+        JobProfileArchived,
+        JobCatalogItemCreated,
+        JobCatalogItemUpdated
     ];
 
     public static bool TryNormalize(string? value, out string normalized)
@@ -58,13 +80,19 @@ public static class AuditEntityTypes
     public const string Role = "Role";
     public const string Permission = "Permission";
     public const string Company = "Company";
+    public const string OrgUnit = "OrgUnit";
+    public const string JobProfile = "JobProfile";
+    public const string JobCatalogItem = "JobCatalogItem";
 
     public static readonly IReadOnlyCollection<string> All =
     [
         User,
         Role,
         Permission,
-        Company
+        Company,
+        OrgUnit,
+        JobProfile,
+        JobCatalogItem
     ];
 
     public static bool TryNormalize(string? value, out string normalized)

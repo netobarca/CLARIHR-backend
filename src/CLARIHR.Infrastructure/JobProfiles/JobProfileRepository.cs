@@ -1,0 +1,406 @@
+using CLARIHR.Application.Abstractions.JobProfiles;
+using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.JobProfiles;
+using CLARIHR.Domain.JobProfiles;
+using CLARIHR.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
+namespace CLARIHR.Infrastructure.JobProfiles;
+
+internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJobProfileRepository
+{
+    public void Add(JobProfile profile) => dbContext.JobProfiles.Add(profile);
+
+    public Task<JobProfile?> GetByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .Include(profile => profile.Requirements)
+                .ThenInclude(requirement => requirement.CatalogItem)
+            .Include(profile => profile.Functions)
+            .Include(profile => profile.Relations)
+                .ThenInclude(relation => relation.CatalogItem)
+            .Include(profile => profile.Competencies)
+                .ThenInclude(competency => competency.CatalogItem)
+            .Include(profile => profile.Trainings)
+                .ThenInclude(training => training.CatalogItem)
+            .Include(profile => profile.Compensations)
+                .ThenInclude(compensation => compensation.SalaryClassCatalogItem)
+            .Include(profile => profile.Benefits)
+                .ThenInclude(benefit => benefit.CatalogItem)
+            .Include(profile => profile.WorkingConditions)
+                .ThenInclude(condition => condition.CatalogItem)
+            .Include(profile => profile.DependentPositions)
+                .ThenInclude(position => position.DependentJobProfile)
+            .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
+
+    public Task<bool> ExistsOutsideTenantAsync(Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .IgnoreQueryFilters()
+            .AnyAsync(profile => profile.PublicId == profileId, cancellationToken);
+
+    public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingProfileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles.AnyAsync(
+            profile => profile.TenantId == tenantId &&
+                       profile.NormalizedCode == normalizedCode &&
+                       (!excludingProfileId.HasValue || profile.Id != excludingProfileId.Value),
+            cancellationToken);
+
+    public Task<long?> ResolveOrgUnitIdAsync(Guid tenantId, Guid orgUnitId, CancellationToken cancellationToken) =>
+        dbContext.OrgUnits
+            .AsNoTracking()
+            .Where(unit => unit.TenantId == tenantId && unit.PublicId == orgUnitId)
+            .Select(unit => (long?)unit.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public Task<bool> OrgUnitExistsOutsideTenantAsync(Guid orgUnitId, CancellationToken cancellationToken) =>
+        dbContext.OrgUnits
+            .IgnoreQueryFilters()
+            .AnyAsync(unit => unit.PublicId == orgUnitId, cancellationToken);
+
+    public Task<long?> ResolveProfileIdAsync(Guid tenantId, Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.TenantId == tenantId && profile.PublicId == profileId)
+            .Select(profile => (long?)profile.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public Task<bool> ProfileExistsInTenantAsync(Guid tenantId, long profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .AsNoTracking()
+            .AnyAsync(profile => profile.TenantId == tenantId && profile.Id == profileId, cancellationToken);
+
+    public async Task<IReadOnlyList<JobProfileDependencyNodeData>> GetDependencyGraphAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var profiles = await dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.TenantId == tenantId)
+            .Select(profile => new
+            {
+                profile.Id,
+                profile.PublicId,
+                profile.ReportsToJobProfileId
+            })
+            .ToListAsync(cancellationToken);
+
+        var dependentEdges = await dbContext.JobProfileDependentPositions
+            .AsNoTracking()
+            .Where(position => position.TenantId == tenantId)
+            .Select(position => new
+            {
+                position.JobProfileId,
+                position.DependentJobProfileId
+            })
+            .ToListAsync(cancellationToken);
+
+        var byProfile = dependentEdges
+            .GroupBy(edge => edge.JobProfileId)
+            .ToDictionary(
+                static group => group.Key,
+                static group => (IReadOnlyCollection<long>)group
+                    .Select(edge => edge.DependentJobProfileId)
+                    .Distinct()
+                    .ToArray());
+
+        return profiles
+            .Select(profile => new JobProfileDependencyNodeData(
+                profile.Id,
+                profile.PublicId,
+                profile.ReportsToJobProfileId,
+                byProfile.TryGetValue(profile.Id, out var dependentIds)
+                    ? dependentIds
+                    : []))
+            .ToArray();
+    }
+
+    public async Task<PagedResponse<JobProfileListItemResponse>> SearchAsync(
+        Guid tenantId,
+        JobProfileStatus? status,
+        Guid? orgUnitId,
+        Guid? salaryClassId,
+        string? search,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.TenantId == tenantId);
+
+        if (status.HasValue)
+        {
+            query = query.Where(profile => profile.Status == status.Value);
+        }
+
+        if (orgUnitId.HasValue)
+        {
+            var orgUnitInternalId = await dbContext.OrgUnits
+                .AsNoTracking()
+                .Where(unit => unit.TenantId == tenantId && unit.PublicId == orgUnitId.Value)
+                .Select(unit => (long?)unit.Id)
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (!orgUnitInternalId.HasValue)
+            {
+                return new PagedResponse<JobProfileListItemResponse>([], pageNumber, pageSize, 0);
+            }
+
+            query = query.Where(profile => profile.OrgUnitId == orgUnitInternalId.Value);
+        }
+
+        if (salaryClassId.HasValue)
+        {
+            var salaryClassInternalId = await dbContext.JobCatalogItems
+                .AsNoTracking()
+                .Where(item => item.TenantId == tenantId &&
+                               item.Category == JobCatalogCategory.SalaryClass &&
+                               item.PublicId == salaryClassId.Value)
+                .Select(item => (long?)item.Id)
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (!salaryClassInternalId.HasValue)
+            {
+                return new PagedResponse<JobProfileListItemResponse>([], pageNumber, pageSize, 0);
+            }
+
+            query = query.Where(profile => dbContext.JobProfileCompensations.Any(compensation =>
+                compensation.TenantId == tenantId &&
+                compensation.JobProfileId == profile.Id &&
+                compensation.SalaryClassCatalogItemId == salaryClassInternalId.Value));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim().ToUpperInvariant();
+            query = query.Where(profile =>
+                profile.NormalizedCode.Contains(normalizedSearch) ||
+                profile.NormalizedTitle.Contains(normalizedSearch));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await
+            (from profile in query
+             join orgUnit in dbContext.OrgUnits.AsNoTracking()
+                 on profile.OrgUnitId equals orgUnit.Id into orgUnitGroup
+             from orgUnit in orgUnitGroup.DefaultIfEmpty()
+             orderby profile.Title, profile.Code
+             select new JobProfileListItemResponse(
+                 profile.PublicId,
+                 profile.Code,
+                 profile.Title,
+                 profile.Status,
+                 profile.Version,
+                 orgUnit != null ? orgUnit.PublicId : null,
+                 orgUnit != null ? orgUnit.Name : null,
+                 profile.IsActive,
+                 profile.ConcurrencyToken,
+                 profile.CreatedUtc,
+                 profile.ModifiedUtc))
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResponse<JobProfileListItemResponse>(items, pageNumber, pageSize, totalCount);
+    }
+
+    public async Task<JobProfileResponse?> GetResponseByIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        var profile = await dbContext.JobProfiles
+            .AsNoTracking()
+            .Include(item => item.Requirements)
+                .ThenInclude(item => item.CatalogItem)
+            .Include(item => item.Functions)
+            .Include(item => item.Relations)
+                .ThenInclude(item => item.CatalogItem)
+            .Include(item => item.Competencies)
+                .ThenInclude(item => item.CatalogItem)
+            .Include(item => item.Trainings)
+                .ThenInclude(item => item.CatalogItem)
+            .Include(item => item.Compensations)
+                .ThenInclude(item => item.SalaryClassCatalogItem)
+            .Include(item => item.Benefits)
+                .ThenInclude(item => item.CatalogItem)
+            .Include(item => item.WorkingConditions)
+                .ThenInclude(item => item.CatalogItem)
+            .Include(item => item.DependentPositions)
+                .ThenInclude(item => item.DependentJobProfile)
+            .SingleOrDefaultAsync(item => item.PublicId == profileId, cancellationToken);
+
+        if (profile is null)
+        {
+            return null;
+        }
+
+        var orgUnitLookup = profile.OrgUnitId.HasValue
+            ? await dbContext.OrgUnits
+                .AsNoTracking()
+                .Where(unit => unit.Id == profile.OrgUnitId.Value)
+                .Select(unit => new { unit.PublicId, unit.Name })
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
+
+        var reportsToLookup = profile.ReportsToJobProfileId.HasValue
+            ? await dbContext.JobProfiles
+                .AsNoTracking()
+                .Where(item => item.Id == profile.ReportsToJobProfileId.Value)
+                .Select(item => new { item.PublicId, item.Code, item.Title })
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
+
+        var requirementItems = profile.Requirements
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Description)
+            .Select(item => new JobProfileRequirementResponse(
+                item.CatalogItem?.PublicId,
+                item.RequirementType,
+                item.Description,
+                item.SortOrder))
+            .ToArray();
+
+        var functionItems = profile.Functions
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Description)
+            .Select(item => new JobProfileFunctionResponse(item.FunctionType, item.Description, item.SortOrder))
+            .ToArray();
+
+        var relationItems = profile.Relations
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Counterpart)
+            .Select(item => new JobProfileRelationResponse(
+                item.CatalogItem?.PublicId,
+                item.RelationType,
+                item.Counterpart,
+                item.Notes,
+                item.SortOrder))
+            .ToArray();
+
+        var competencyItems = profile.Competencies
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new JobProfileCompetencyResponse(
+                item.CatalogItem?.PublicId,
+                item.Name,
+                item.ExpectedLevel,
+                item.Notes,
+                item.SortOrder))
+            .ToArray();
+
+        var trainingItems = profile.Trainings
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new JobProfileTrainingResponse(
+                item.CatalogItem?.PublicId,
+                item.Name,
+                item.Notes,
+                item.SortOrder))
+            .ToArray();
+
+        var compensationItems = profile.Compensations
+            .OrderByDescending(item => item.IsPrimary)
+            .ThenBy(item => item.SalaryClassName)
+            .Select(item => new JobProfileCompensationResponse(
+                item.SalaryClassCatalogItem?.PublicId,
+                item.SalaryClassName,
+                item.MinSalary,
+                item.MaxSalary,
+                item.CurrencyCode,
+                item.WorkSchedule,
+                item.IsPrimary))
+            .ToArray();
+
+        var benefitItems = profile.Benefits
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new JobProfileBenefitResponse(
+                item.CatalogItem?.PublicId,
+                item.Name,
+                item.Notes,
+                item.SortOrder))
+            .ToArray();
+
+        var workingConditionItems = profile.WorkingConditions
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new JobProfileWorkingConditionResponse(
+                item.CatalogItem?.PublicId,
+                item.Name,
+                item.Notes,
+                item.SortOrder))
+            .ToArray();
+
+        var dependentPositionItems = profile.DependentPositions
+            .OrderBy(item => item.DependentJobProfile.Title)
+            .ThenBy(item => item.DependentJobProfile.Code)
+            .Select(item => new JobProfileDependentPositionResponse(
+                item.DependentJobProfile.PublicId,
+                item.DependentJobProfile.Code,
+                item.DependentJobProfile.Title,
+                item.Quantity,
+                item.Notes))
+            .ToArray();
+
+        return new JobProfileResponse(
+            profile.PublicId,
+            profile.TenantId,
+            profile.Code,
+            profile.Title,
+            profile.Status,
+            profile.Version,
+            profile.Objective,
+            orgUnitLookup?.PublicId,
+            orgUnitLookup?.Name,
+            reportsToLookup?.PublicId,
+            reportsToLookup?.Code,
+            reportsToLookup?.Title,
+            profile.DecisionScope,
+            profile.AssignedResources,
+            profile.Responsibilities,
+            profile.BenefitsSummary,
+            profile.WorkingConditionSummary,
+            profile.MarketSalaryReference,
+            profile.ValuationNotes,
+            profile.EffectiveFromUtc,
+            profile.EffectiveToUtc,
+            profile.IsActive,
+            requirementItems,
+            functionItems,
+            relationItems,
+            competencyItems,
+            trainingItems,
+            compensationItems,
+            benefitItems,
+            workingConditionItems,
+            dependentPositionItems,
+            profile.ConcurrencyToken,
+            profile.CreatedUtc,
+            profile.ModifiedUtc);
+    }
+
+    public async Task<JobProfileVacancyTemplateResponse?> GetVacancyTemplateByIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        var profile = await GetResponseByIdAsync(profileId, cancellationToken);
+        if (profile is null)
+        {
+            return null;
+        }
+
+        return new JobProfileVacancyTemplateResponse(
+            profile.Id,
+            profile.Code,
+            profile.Title,
+            profile.Objective,
+            profile.Responsibilities,
+            profile.WorkingConditionSummary,
+            profile.BenefitsSummary,
+            profile.Requirements,
+            profile.Functions,
+            profile.Competencies,
+            profile.Trainings);
+    }
+
+    public async Task<JobProfilePrintResponse?> GetPrintByIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        var profile = await GetResponseByIdAsync(profileId, cancellationToken);
+        return profile is null
+            ? null
+            : new JobProfilePrintResponse(profile, DateTime.UtcNow);
+    }
+}

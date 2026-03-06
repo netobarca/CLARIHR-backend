@@ -9,5 +9,7 @@
 \i /sql/hu008_admin_audit_logs.sql
 \i /sql/hu009_account_companies.sql
 \i /sql/hu010_locations.sql
+\i /sql/hu011_org_units.sql
+\i /sql/hu012_job_profiles.sql
 
 \echo 'CLARIHR schema scripts completed.'

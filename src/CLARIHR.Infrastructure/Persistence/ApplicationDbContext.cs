@@ -7,7 +7,9 @@ using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.Locations;
+using CLARIHR.Domain.OrgUnits;
 using Microsoft.EntityFrameworkCore;
 
 namespace CLARIHR.Infrastructure.Persistence;
@@ -69,6 +71,30 @@ public sealed class ApplicationDbContext(
     public DbSet<WorkCenterType> WorkCenterTypes => Set<WorkCenterType>();
 
     public DbSet<WorkCenter> WorkCenters => Set<WorkCenter>();
+
+    public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
+
+    public DbSet<JobProfile> JobProfiles => Set<JobProfile>();
+
+    public DbSet<JobCatalogItem> JobCatalogItems => Set<JobCatalogItem>();
+
+    public DbSet<JobProfileRequirement> JobProfileRequirements => Set<JobProfileRequirement>();
+
+    public DbSet<JobProfileFunction> JobProfileFunctions => Set<JobProfileFunction>();
+
+    public DbSet<JobProfileRelation> JobProfileRelations => Set<JobProfileRelation>();
+
+    public DbSet<JobProfileCompetency> JobProfileCompetencies => Set<JobProfileCompetency>();
+
+    public DbSet<JobProfileTraining> JobProfileTrainings => Set<JobProfileTraining>();
+
+    public DbSet<JobProfileCompensation> JobProfileCompensations => Set<JobProfileCompensation>();
+
+    public DbSet<JobProfileBenefit> JobProfileBenefits => Set<JobProfileBenefit>();
+
+    public DbSet<JobProfileWorkingCondition> JobProfileWorkingConditions => Set<JobProfileWorkingCondition>();
+
+    public DbSet<JobProfileDependentPosition> JobProfileDependentPositions => Set<JobProfileDependentPosition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
