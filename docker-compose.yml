@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: clarihr-postgres
+    environment:
+      POSTGRES_DB: clarihr
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "${CLARIHR_DB_PORT:-5432}:5432"
+    volumes:
+      - clarihr_postgres_data:/var/lib/postgresql/data
+      - ./docs/technical/sql:/sql:ro
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d clarihr"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: clarihr-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Urls: http://0.0.0.0:8080
+      Database__ConnectionString: Host=postgres;Port=5432;Database=clarihr;Username=postgres;Password=postgres
+      Authentication__Google__ClientId: 16268587172-qd30l0j2rr0dlapn75ggkdvmmei7m9dg.apps.googleusercontent.com
+      Authentication__Jwt__Issuer: clarihr-local
+      Authentication__Jwt__Audience: clarihr-local
+      Authentication__Jwt__SigningKey: clarihr-local-dev-signing-key-2026
+      Authentication__Jwt__AccessTokenExpirationMinutes: 15
+      Authentication__Jwt__RefreshTokenExpirationDays: 14
+      Caching__FieldPermissions__Mode: MemoryOnly
+      Caching__FieldPermissions__EntryTtlMinutes: 10
+      Companies__Ownership__MaxOwnedActiveCompanies: 2
+    ports:
+      - "${CLARIHR_API_PORT:-5000}:8080"
+    restart: unless-stopped
+
+volumes:
+  clarihr_postgres_data:

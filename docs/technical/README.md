@@ -6,6 +6,7 @@
 - `api-output/`: documentos tecnicos por modulo o flujo de API.
 - `postman-collection/`: coleccion y entorno base para pruebas manuales.
 - `sql/`: scripts SQL versionados por HU e iteracion.
+- `frontend-api-docker-setup.md`: paso a paso para levantar API + PostgreSQL en Docker para pruebas frontend.
 
 ## Update rule
 
