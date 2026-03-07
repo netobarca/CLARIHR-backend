@@ -12,6 +12,9 @@ Modulos y flujos documentados actualmente:
 - locations y work centers (`locations-hierarchy.md`, `location-groups.md`, `work-centers.md`)
 - org units (`org-units.md`)
 - job profiles y job catalogs (`job-profiles.md`)
+- position slots y dependencias (`position-slots.md`)
+- salary tabulator y solicitudes (`salary-tabulator.md`)
+- cost centers contables (`cost-centers.md`)
 - estrategias transversales (`permission-cache-strategy.md`, `search-growth-strategy.md`)
 
 La referencia transversal y acumulativa vive en `../api-reference/api-endpoints-reference.md`.

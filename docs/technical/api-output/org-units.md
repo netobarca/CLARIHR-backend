@@ -41,6 +41,7 @@ HU-011 introduce administracion tenant-scoped de unidades organizativas para org
 - no se permiten ciclos en la jerarquia.
 - profundidad maxima: `15` niveles.
 - no se puede inactivar una unidad con hijos activos.
+- si `costCenterCode` se provee, debe existir y estar activo en `CostCenters`.
 - la concurrencia se valida con `concurrencyToken` y devuelve `409 CONCURRENCY_CONFLICT`.
 
 ## Contratos principales
@@ -76,6 +77,7 @@ Respuesta base:
 - `403` forbidden o tenant mismatch
 - `404` recurso inexistente
 - `409` conflictos de codigo, ciclo, profundidad, hijos activos o concurrencia
+- `422` `ORG_UNIT_COST_CENTER_INVALID` cuando el `costCenterCode` no existe o esta inactivo
 
 ## Auditoria
 

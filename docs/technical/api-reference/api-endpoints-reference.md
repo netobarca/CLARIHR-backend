@@ -83,6 +83,47 @@ Excepcion controlada adicional:
     - `iam.administration.manage`
     - `platform_admin`
   - y exige coincidencia entre `companyId` de la ruta y claim `tid`.
+- El modulo `PositionSlots` sigue patron funcional equivalente:
+  - lectura:
+    - `PositionSlots.Read`
+    - `PositionSlots.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - escritura:
+    - `PositionSlots.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - y exige coincidencia entre `companyId` de la ruta y claim `tid`.
+- El modulo `SalaryTabulator` sigue patron funcional equivalente:
+  - lectura:
+    - `SalaryTabulator.Read`
+    - `SalaryTabulator.Request`
+    - `SalaryTabulator.Approve`
+    - `SalaryTabulator.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - escritura de solicitudes:
+    - `SalaryTabulator.Request`
+    - `SalaryTabulator.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - aprobacion/rechazo:
+    - `SalaryTabulator.Approve`
+    - `SalaryTabulator.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - y exige coincidencia entre `companyId` de la ruta y claim `tid`.
+- El modulo `CostCenters` sigue patron funcional equivalente:
+  - lectura:
+    - `CostCenters.Read`
+    - `CostCenters.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - escritura:
+    - `CostCenters.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - y exige coincidencia entre `companyId` de la ruta y claim `tid`.
 
 Recursos RBAC actuales:
 
@@ -179,6 +220,7 @@ Codigos relevantes hoy:
 - `ORG_UNIT_CYCLE_DETECTED`
 - `ORG_UNIT_DEPTH_LIMIT_EXCEEDED`
 - `ORG_UNIT_HAS_ACTIVE_CHILDREN`
+- `ORG_UNIT_COST_CENTER_INVALID`
 - `JOB_PROFILE_NOT_FOUND`
 - `JOB_CATALOG_ITEM_NOT_FOUND`
 - `JOB_PROFILE_CODE_CONFLICT`
@@ -188,6 +230,28 @@ Codigos relevantes hoy:
 - `JOB_CATALOG_INLINE_CREATE_FORBIDDEN`
 - `JOB_CATALOG_ITEM_CODE_CONFLICT`
 - `JOB_PROFILE_EXPORT_FORMAT_INVALID`
+- `POSITION_SLOT_NOT_FOUND`
+- `POSITION_SLOT_CODE_CONFLICT`
+- `POSITION_SLOT_DEPENDENCY_CYCLE`
+- `POSITION_SLOT_STATUS_CONFLICT`
+- `POSITION_SLOT_CAPACITY_RULE_VIOLATION`
+- `POSITION_SLOT_EFFECTIVE_DATES_INVALID`
+- `POSITION_SLOT_EXPORT_FORMAT_INVALID`
+- `POSITION_SLOT_DIAGRAM_FORMAT_INVALID`
+- `POSITION_SLOT_SUSPENDED_OCCUPANCY_CONFLICT`
+- `POSITION_SLOT_COST_CENTER_INVALID`
+- `COST_CENTER_NOT_FOUND`
+- `COST_CENTER_CODE_CONFLICT`
+- `COST_CENTER_IN_USE`
+- `COST_CENTER_EXPORT_FORMAT_INVALID`
+- `SALARY_TABULATOR_LINE_NOT_FOUND`
+- `SALARY_TABULATOR_REQUEST_NOT_FOUND`
+- `SALARY_TABULATOR_REQUEST_STATE_CONFLICT`
+- `SALARY_TABULATOR_EFFECTIVE_DATE_OVERLAP`
+- `SALARY_TABULATOR_AMOUNT_RULE_VIOLATION`
+- `SALARY_TABULATOR_APPROVAL_POLICY_VIOLATION`
+- `SALARY_TABULATOR_EFFECTIVE_DATES_INVALID`
+- `SALARY_TABULATOR_EXPORT_FORMAT_INVALID`
 - `LOCATION_GROUP_HAS_ACTIVE_CHILDREN`
 - `LOCATION_GROUP_HAS_ACTIVE_WORK_CENTERS`
 - `WORK_CENTER_TYPE_IN_USE`
@@ -1297,6 +1361,186 @@ Main errors:
   - `code` unico por tenant+categoria
   - item inactivo no es valido para nuevas asociaciones
   - invalidacion de cache por tenant/categoria tras escrituras
+
+## 3E. Position Slots
+
+Este modulo fue agregado en HU-013 y usa rutas bajo `/api/v1`.
+
+Reglas globales del modulo:
+
+- Auth: JWT requerido
+- Tenant: `companyId` de la ruta debe coincidir con `tid`
+- Concurrencia: operaciones de escritura por id validan `concurrencyToken`
+- Estado de plaza: `Vacant | Occupied | Suspended`
+- Integridad:
+  - `MaxEmployees >= 1`
+  - `0 <= OccupiedEmployees <= MaxEmployees`
+  - ciclo prohibido en dependencia directa
+  - dependencia funcional valida tenant y no autoreferencia
+
+Detalle tecnico complementario: `../api-output/position-slots.md`.
+
+### GET /api/v1/companies/{companyId}/position-slots
+
+- Auth: JWT requerido
+- Authorization:
+  - `PositionSlots.Read`
+  - `PositionSlots.Admin`
+- Filtros soportados:
+  - `status?`
+  - `jobProfileId?`
+  - `orgUnitId?`
+  - `workCenterId?`
+  - `isFixedTerm?`
+  - `q?`
+  - `page`
+  - `pageSize`
+
+### GET /api/v1/position-slots/{id}
+
+- Auth: JWT requerido
+- Authorization: permisos de lectura del modulo
+- Resolucion por id distingue `POSITION_SLOT_NOT_FOUND` vs `TENANT_MISMATCH`.
+
+### POST /api/v1/companies/{companyId}/position-slots
+### PUT /api/v1/position-slots/{id}
+
+- Auth: JWT requerido
+- Authorization: `PositionSlots.Admin`
+- Reglas criticas:
+  - `code` unico por tenant
+  - `jobProfileId`, `orgUnitId` y `workCenterId` deben pertenecer al tenant
+  - validaciones de capacidad y rango de fechas
+
+### PATCH /api/v1/position-slots/{id}/status
+### PATCH /api/v1/position-slots/{id}/dependencies
+### PATCH /api/v1/position-slots/{id}/occupancy
+
+- Auth: JWT requerido
+- Authorization: `PositionSlots.Admin`
+- Reglas criticas:
+  - `status` debe ser coherente con `occupiedEmployees`
+  - plaza `Suspended` no permite actualizar ocupacion
+  - dependencias directas bloquean autoreferencia y ciclos
+
+### GET /api/v1/companies/{companyId}/position-slots/graph
+
+- Auth: JWT requerido
+- Authorization: permisos de lectura del modulo
+- Query params:
+  - `rootId?`
+  - `depth?` (1..15)
+  - `includeFunctional` (default `true`)
+
+### GET /api/v1/companies/{companyId}/position-slots/diagram-export?format=graphml|json|dot
+
+- Auth: JWT requerido
+- Authorization: permisos de lectura del modulo
+- Export de grafo en formatos:
+  - `graphml`
+  - `json`
+  - `dot`
+
+### GET /api/v1/companies/{companyId}/position-slots/export?format=xlsx|csv
+
+- Auth: JWT requerido
+- Authorization: permisos de lectura del modulo
+- Export tabular con filtros de listado en:
+  - `csv`
+  - `xlsx`
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+- `404`
+- `409`
+- `422`
+
+## 3F. Salary Tabulator
+
+Este modulo fue agregado en HU-014 y usa rutas bajo `/api/v1`.
+
+Reglas globales del modulo:
+
+- Auth: JWT requerido
+- Tenant: `companyId` de la ruta debe coincidir con `tid`
+- Concurrencia: operaciones de escritura por id validan `concurrencyToken`
+- Flujo de solicitud: `Draft | Submitted | Approved | Rejected | Canceled`
+- Integridad:
+  - `BaseAmount > 0`
+  - `MinAmount <= BaseAmount <= MaxAmount` cuando aplique
+  - vigencias sin rangos invalidos
+  - bloqueo de autoaprobacion por politica
+
+Detalle tecnico complementario: `../api-output/salary-tabulator.md`.
+
+### GET /api/v1/companies/{companyId}/salary-tabulator
+### GET /api/v1/salary-tabulator/lines/{id}
+### GET /api/v1/companies/{companyId}/salary-tabulator/export?format=csv|xlsx
+
+- Auth: JWT requerido
+- Authorization:
+  - `SalaryTabulator.Read`
+  - `SalaryTabulator.Request`
+  - `SalaryTabulator.Approve`
+  - `SalaryTabulator.Admin`
+- Filtros de lineas:
+  - `salaryClass?`
+  - `salaryScale?`
+  - `isActive?`
+  - `q?`
+  - `page`
+  - `pageSize`
+
+### POST /api/v1/companies/{companyId}/salary-tabulator/change-requests
+### PUT /api/v1/salary-tabulator/change-requests/{id}
+### PATCH /api/v1/salary-tabulator/change-requests/{id}/submit
+### PATCH /api/v1/salary-tabulator/change-requests/{id}/cancel
+
+- Auth: JWT requerido
+- Authorization:
+  - `SalaryTabulator.Request`
+  - `SalaryTabulator.Admin`
+- Reglas criticas:
+  - al menos un item por solicitud
+  - en `Submitted` la solicitud ya no es editable
+
+### PATCH /api/v1/salary-tabulator/change-requests/{id}/approve
+### PATCH /api/v1/salary-tabulator/change-requests/{id}/reject
+
+- Auth: JWT requerido
+- Authorization:
+  - `SalaryTabulator.Approve`
+  - `SalaryTabulator.Admin`
+- Reglas criticas:
+  - comentario de decision obligatorio
+  - autoaprobacion bloqueada salvo override de plataforma
+  - aprobar aplica cambios al tabulador en transaccion atomica
+
+### GET /api/v1/companies/{companyId}/salary-tabulator/change-requests
+### GET /api/v1/salary-tabulator/change-requests/{id}
+### GET /api/v1/salary-tabulator/change-requests/{id}/impact
+
+- Auth: JWT requerido
+- Authorization: mismos permisos de lectura del modulo
+- Filtros de solicitudes:
+  - `status?`
+  - `requestedBy?`
+  - `effectiveFrom?`
+  - `effectiveTo?`
+  - `page`
+  - `pageSize`
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+- `404`
+- `409`
+- `422`
 
 ## 4. Company Users
 
@@ -3083,6 +3327,161 @@ Main errors:
 - `404`
 - `500`
 
+## 10. Cost Centers
+
+Estos endpoints administran centros de costo contable tenant-scoped (HU-015) y su integracion funcional con `OrgUnits` y `PositionSlots`.
+
+Reglas:
+
+- Requieren JWT.
+- El `companyId` de la ruta debe coincidir con `tid`.
+- Lectura:
+  - `CostCenters.Read`
+  - `CostCenters.Admin`
+  - `iam.administration.manage`
+  - `platform_admin`
+- Escritura:
+  - `CostCenters.Admin`
+  - `iam.administration.manage`
+  - `platform_admin`
+- Inactivacion bloqueada si hay uso activo en `OrgUnits` o `PositionSlots`.
+
+### GET /api/v1/companies/{companyId}/cost-centers
+
+Query params:
+
+- `type` optional (`SalaryExpense|EmployerContribution|ProvisionReserve|Mixed`)
+- `isActive` optional
+- `q` optional
+- `page` default `1`
+- `pageSize` default `20`
+
+Response `200 OK`: `PagedResponse<CostCenterListItemResponse>`
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+
+### GET /api/v1/cost-centers/{id}
+
+Response `200 OK`: `CostCenterResponse`
+
+Main errors:
+
+- `401`
+- `403`
+- `404`
+
+### POST /api/v1/companies/{companyId}/cost-centers
+
+Request:
+
+```json
+{
+  "code": "CC-001",
+  "name": "Centro Contable 1",
+  "type": "Mixed",
+  "payrollExpenseAccountCode": "5101-001",
+  "employerContributionAccountCode": "5102-001",
+  "provisionAccountCode": "5103-001",
+  "description": "Centro de costo principal"
+}
+```
+
+Response `201 Created`: `CostCenterResponse`
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+- `409`
+
+### PUT /api/v1/cost-centers/{id}
+
+Request: mismo contrato de create + `concurrencyToken`.
+
+Response `200 OK`: `CostCenterResponse`
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+- `404`
+- `409`
+
+### PATCH /api/v1/cost-centers/{id}/activate
+
+Request:
+
+```json
+{
+  "concurrencyToken": "guid"
+}
+```
+
+Response `200 OK`: `CostCenterResponse`
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+- `404`
+- `409`
+
+### PATCH /api/v1/cost-centers/{id}/inactivate
+
+Request:
+
+```json
+{
+  "concurrencyToken": "guid"
+}
+```
+
+Response `200 OK`: `CostCenterResponse`
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+- `404`
+- `409` (`COST_CENTER_IN_USE`)
+
+### GET /api/v1/cost-centers/{id}/usage
+
+Response `200 OK`: `CostCenterUsageResponse`
+
+Main errors:
+
+- `401`
+- `403`
+- `404`
+
+### GET /api/v1/companies/{companyId}/cost-centers/export?format=csv|xlsx
+
+Query params:
+
+- `format` required (`csv|xlsx`)
+- `type` optional
+- `isActive` optional
+- `q` optional
+
+Response:
+
+- `200 OK` archivo exportado
+
+Main errors:
+
+- `400` (`COST_CENTER_EXPORT_FORMAT_INVALID`)
+- `401`
+- `403`
+
 ## Current endpoint inventory
 
 Estado actual del API documentado en este archivo:
@@ -3152,3 +3551,33 @@ Estado actual del API documentado en este archivo:
 - `POST /api/v1/companies/{companyId}/job-catalogs/{category}`
 - `PATCH /api/v1/job-catalogs/{id}/activate`
 - `PATCH /api/v1/job-catalogs/{id}/inactivate`
+- `POST /api/v1/companies/{companyId}/position-slots`
+- `GET /api/v1/companies/{companyId}/position-slots`
+- `GET /api/v1/position-slots/{id}`
+- `PUT /api/v1/position-slots/{id}`
+- `PATCH /api/v1/position-slots/{id}/status`
+- `PATCH /api/v1/position-slots/{id}/dependencies`
+- `PATCH /api/v1/position-slots/{id}/occupancy`
+- `GET /api/v1/companies/{companyId}/position-slots/graph`
+- `GET /api/v1/companies/{companyId}/position-slots/diagram-export?format=graphml|json|dot`
+- `GET /api/v1/companies/{companyId}/position-slots/export?format=xlsx|csv`
+- `POST /api/v1/companies/{companyId}/cost-centers`
+- `GET /api/v1/companies/{companyId}/cost-centers`
+- `GET /api/v1/cost-centers/{id}`
+- `PUT /api/v1/cost-centers/{id}`
+- `PATCH /api/v1/cost-centers/{id}/activate`
+- `PATCH /api/v1/cost-centers/{id}/inactivate`
+- `GET /api/v1/cost-centers/{id}/usage`
+- `GET /api/v1/companies/{companyId}/cost-centers/export?format=csv|xlsx`
+- `GET /api/v1/companies/{companyId}/salary-tabulator`
+- `GET /api/v1/salary-tabulator/lines/{id}`
+- `GET /api/v1/companies/{companyId}/salary-tabulator/export?format=csv|xlsx`
+- `POST /api/v1/companies/{companyId}/salary-tabulator/change-requests`
+- `GET /api/v1/companies/{companyId}/salary-tabulator/change-requests`
+- `GET /api/v1/salary-tabulator/change-requests/{id}`
+- `PUT /api/v1/salary-tabulator/change-requests/{id}`
+- `PATCH /api/v1/salary-tabulator/change-requests/{id}/submit`
+- `PATCH /api/v1/salary-tabulator/change-requests/{id}/approve`
+- `PATCH /api/v1/salary-tabulator/change-requests/{id}/reject`
+- `PATCH /api/v1/salary-tabulator/change-requests/{id}/cancel`
+- `GET /api/v1/salary-tabulator/change-requests/{id}/impact`

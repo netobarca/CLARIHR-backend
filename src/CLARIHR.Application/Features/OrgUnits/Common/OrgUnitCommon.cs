@@ -43,6 +43,11 @@ public static class OrgUnitErrors
         "The selected parent organization unit could not be found.",
         ErrorType.NotFound);
 
+    public static readonly Error CostCenterInvalid = new(
+        "ORG_UNIT_COST_CENTER_INVALID",
+        "The selected cost center code does not exist or is inactive for the company.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error CodeConflict = new(
         "ORG_UNIT_CODE_CONFLICT",
         "Another organization unit already uses the requested code.",

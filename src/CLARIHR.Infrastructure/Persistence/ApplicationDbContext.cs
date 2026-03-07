@@ -6,10 +6,13 @@ using CLARIHR.Domain.Auditing;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.OrgUnits;
+using CLARIHR.Domain.PositionSlots;
+using CLARIHR.Domain.SalaryTabulator;
 using Microsoft.EntityFrameworkCore;
 
 namespace CLARIHR.Infrastructure.Persistence;
@@ -95,6 +98,16 @@ public sealed class ApplicationDbContext(
     public DbSet<JobProfileWorkingCondition> JobProfileWorkingConditions => Set<JobProfileWorkingCondition>();
 
     public DbSet<JobProfileDependentPosition> JobProfileDependentPositions => Set<JobProfileDependentPosition>();
+
+    public DbSet<PositionSlot> PositionSlots => Set<PositionSlot>();
+
+    public DbSet<CostCenter> CostCenters => Set<CostCenter>();
+
+    public DbSet<SalaryTabulatorLine> SalaryTabulatorLines => Set<SalaryTabulatorLine>();
+
+    public DbSet<SalaryTabulatorChangeRequest> SalaryTabulatorChangeRequests => Set<SalaryTabulatorChangeRequest>();
+
+    public DbSet<SalaryTabulatorChangeRequestItem> SalaryTabulatorChangeRequestItems => Set<SalaryTabulatorChangeRequestItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

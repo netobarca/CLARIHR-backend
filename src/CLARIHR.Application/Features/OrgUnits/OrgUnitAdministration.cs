@@ -1,4 +1,5 @@
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Abstractions.OrgUnits;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
@@ -369,6 +370,7 @@ internal sealed class GetOrgUnitGraphQueryHandler(
 internal sealed class CreateOrgUnitCommandHandler(
     IOrgUnitAuthorizationService authorizationService,
     IOrgUnitRepository repository,
+    ICostCenterRepository costCenterRepository,
     IAuditService auditService,
     IUnitOfWork unitOfWork)
     : ICommandHandler<CreateOrgUnitCommand, OrgUnitResponse>
@@ -386,6 +388,15 @@ internal sealed class CreateOrgUnitCommandHandler(
         if (await repository.CodeExistsAsync(command.CompanyId, command.Code.Trim().ToUpperInvariant(), excludingOrgUnitId: null, cancellationToken))
         {
             return Result<OrgUnitResponse>.Failure(OrgUnitErrors.CodeConflict);
+        }
+
+        if (!string.IsNullOrWhiteSpace(command.CostCenterCode) &&
+            !await costCenterRepository.ExistsActiveByCodeAsync(
+                command.CompanyId,
+                command.CostCenterCode.Trim().ToUpperInvariant(),
+                cancellationToken))
+        {
+            return Result<OrgUnitResponse>.Failure(OrgUnitErrors.CostCenterInvalid);
         }
 
         OrgUnit? parent = null;
@@ -458,6 +469,7 @@ internal sealed class CreateOrgUnitCommandHandler(
 internal sealed class UpdateOrgUnitCommandHandler(
     IOrgUnitAuthorizationService authorizationService,
     IOrgUnitRepository repository,
+    ICostCenterRepository costCenterRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -495,6 +507,15 @@ internal sealed class UpdateOrgUnitCommandHandler(
         if (await repository.CodeExistsAsync(orgUnit.TenantId, command.Code.Trim().ToUpperInvariant(), orgUnit.Id, cancellationToken))
         {
             return Result<OrgUnitResponse>.Failure(OrgUnitErrors.CodeConflict);
+        }
+
+        if (!string.IsNullOrWhiteSpace(command.CostCenterCode) &&
+            !await costCenterRepository.ExistsActiveByCodeAsync(
+                orgUnit.TenantId,
+                command.CostCenterCode.Trim().ToUpperInvariant(),
+                cancellationToken))
+        {
+            return Result<OrgUnitResponse>.Failure(OrgUnitErrors.CostCenterInvalid);
         }
 
         var before = await repository.GetResponseByIdAsync(orgUnit.PublicId, cancellationToken)

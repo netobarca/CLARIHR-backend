@@ -4,14 +4,20 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CLARIHR.Application.Features.Auth.RegisterUser;
+using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
+using CLARIHR.Application.Features.PositionSlots.Common;
+using CLARIHR.Application.Features.SalaryTabulator.Common;
 using CLARIHR.Domain.Companies;
+using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.OrgUnits;
+using CLARIHR.Domain.PositionSlots;
+using CLARIHR.Domain.SalaryTabulator;
 using Microsoft.EntityFrameworkCore;
 
 namespace CLARIHR.Api.IntegrationTests;
@@ -597,7 +603,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             parentId = (Guid?)null,
             sortOrder = 1,
             description = "Direccion principal",
-            costCenterCode = "CC-01",
+            costCenterCode = (string?)null,
             managerEmployeeId = (Guid?)null
         });
 
@@ -736,7 +742,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             parentId = (Guid?)null,
             sortOrder = 1,
             description = "Direccion principal",
-            costCenterCode = "CC-01",
+            costCenterCode = (string?)null,
             managerEmployeeId = (Guid?)null
         });
         createResponse.EnsureSuccessStatusCode();
@@ -1321,6 +1327,759 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var payload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
         Assert.NotNull(payload);
         Assert.Contains(payload!.Items, static item => item.EventType == "JOB_PROFILE_CREATED" && item.EntityType == "JobProfile");
+    }
+
+    [Fact]
+    public async Task PositionSlots_FullFlow_ShouldCreateUpdateDependenciesOccupancyStatusGraphAndExports()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-PS", "Direccion Plazas", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-PS", "Analista de Plazas");
+
+        var primary = await CreatePositionSlotAsync(
+            client,
+            scenario.TenantId,
+            code: "PS-001",
+            title: "Plaza Principal",
+            jobProfileId: profile.Id,
+            orgUnitId: orgUnit.Id,
+            maxEmployees: 2);
+
+        var dependency = await CreatePositionSlotAsync(
+            client,
+            scenario.TenantId,
+            code: "PS-002",
+            title: "Plaza Dependencia",
+            jobProfileId: profile.Id,
+            orgUnitId: orgUnit.Id,
+            maxEmployees: 1);
+
+        var listResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/position-slots?page=1&pageSize=20");
+        listResponse.EnsureSuccessStatusCode();
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<PositionSlotListItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+        Assert.Contains(listPayload!.Items, item => item.Id == primary.Id);
+        Assert.Contains(listPayload.Items, item => item.Id == dependency.Id);
+
+        var getResponse = await client.GetAsync($"/api/v1/position-slots/{primary.Id}");
+        getResponse.EnsureSuccessStatusCode();
+        var getPayload = await getResponse.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions);
+        Assert.NotNull(getPayload);
+        Assert.Equal(primary.Id, getPayload!.Id);
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/v1/position-slots/{primary.Id}", new
+        {
+            code = "PS-001",
+            title = "Plaza Principal Actualizada",
+            jobProfileId = profile.Id,
+            orgUnitId = orgUnit.Id,
+            workCenterId = (Guid?)null,
+            costCenterCode = (string?)null,
+            maxEmployees = 3,
+            isFixedTerm = false,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = "Actualizada",
+            concurrencyToken = primary.ConcurrencyToken
+        });
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Equal("Plaza Principal Actualizada", updated!.Title);
+
+        var dependenciesResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{primary.Id}/dependencies", new
+        {
+            directDependencyPositionSlotId = dependency.Id,
+            functionalDependencyPositionSlotId = (Guid?)null,
+            concurrencyToken = updated.ConcurrencyToken
+        });
+        dependenciesResponse.EnsureSuccessStatusCode();
+        var withDependencies = await dependenciesResponse.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions);
+        Assert.NotNull(withDependencies);
+        Assert.Equal(dependency.Id, withDependencies!.DirectDependencyPositionSlotId);
+
+        var occupancyResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{primary.Id}/occupancy", new
+        {
+            occupiedEmployees = 1,
+            concurrencyToken = withDependencies.ConcurrencyToken
+        });
+        occupancyResponse.EnsureSuccessStatusCode();
+        var withOccupancy = await occupancyResponse.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions);
+        Assert.NotNull(withOccupancy);
+        Assert.Equal(PositionSlotStatus.Occupied, withOccupancy!.Status);
+        Assert.Equal(1, withOccupancy.OccupiedEmployees);
+
+        var statusResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{primary.Id}/status", new
+        {
+            status = "Suspended",
+            concurrencyToken = withOccupancy.ConcurrencyToken
+        });
+        statusResponse.EnsureSuccessStatusCode();
+        var suspended = await statusResponse.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions);
+        Assert.NotNull(suspended);
+        Assert.Equal(PositionSlotStatus.Suspended, suspended!.Status);
+        Assert.False(suspended.IsActive);
+
+        var graphResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/position-slots/graph?depth=5&includeFunctional=true");
+        graphResponse.EnsureSuccessStatusCode();
+        var graphPayload = await graphResponse.Content.ReadFromJsonAsync<PositionSlotGraphItem>(JsonOptions);
+        Assert.NotNull(graphPayload);
+        Assert.Contains(graphPayload!.Nodes, node => node.Id == primary.Id);
+        Assert.Contains(graphPayload.Nodes, node => node.Id == dependency.Id);
+        Assert.Contains(
+            graphPayload.Edges,
+            edge => edge.FromId == dependency.Id &&
+                    edge.ToId == primary.Id &&
+                    edge.RelationType == PositionSlotDependencyRelationType.Direct);
+
+        var graphMlResponse = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-slots/diagram-export?format=graphml&depth=5");
+        graphMlResponse.EnsureSuccessStatusCode();
+        Assert.Equal("application/graphml+xml", graphMlResponse.Content.Headers.ContentType?.MediaType);
+
+        var dotResponse = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-slots/diagram-export?format=dot&depth=5");
+        dotResponse.EnsureSuccessStatusCode();
+        Assert.Equal("text/vnd.graphviz", dotResponse.Content.Headers.ContentType?.MediaType);
+
+        var csvResponse = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-slots/export?format=csv&status=Suspended");
+        csvResponse.EnsureSuccessStatusCode();
+        Assert.Equal("text/csv", csvResponse.Content.Headers.ContentType?.MediaType);
+
+        var xlsxResponse = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-slots/export?format=xlsx&status=Suspended");
+        xlsxResponse.EnsureSuccessStatusCode();
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            xlsxResponse.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task PositionSlots_Update_WithStaleToken_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-STALE", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-STALE", "Perfil");
+        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-STALE", "Plaza", profile.Id, orgUnit.Id, 1);
+
+        var response = await client.PutAsJsonAsync($"/api/v1/position-slots/{slot.Id}", new
+        {
+            code = slot.Code,
+            title = "Plaza actualizada",
+            jobProfileId = profile.Id,
+            orgUnitId = orgUnit.Id,
+            workCenterId = (Guid?)null,
+            costCenterCode = (string?)null,
+            maxEmployees = 1,
+            isFixedTerm = false,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = "Notas",
+            concurrencyToken = Guid.NewGuid()
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WithDuplicateCode_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-DUP", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-DUP", "Perfil");
+
+        _ = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-DUP", "Plaza 1", profile.Id, orgUnit.Id, 1);
+
+        var duplicateResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        {
+            code = "PS-DUP",
+            title = "Plaza 2",
+            jobProfileId = profile.Id,
+            orgUnitId = orgUnit.Id,
+            workCenterId = (Guid?)null,
+            costCenterCode = (string?)null,
+            directDependencyPositionSlotId = (Guid?)null,
+            functionalDependencyPositionSlotId = (Guid?)null,
+            status = "Vacant",
+            maxEmployees = 1,
+            occupiedEmployees = 0,
+            isFixedTerm = false,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = (string?)null
+        });
+
+        await AssertProblemDetailsAsync(duplicateResponse, HttpStatusCode.Conflict, "POSITION_SLOT_CODE_CONFLICT");
+    }
+
+    [Fact]
+    public async Task PositionSlots_Dependencies_WhenCycleDetected_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-CYCLE", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CYCLE", "Perfil");
+
+        var parent = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-A", "A", profile.Id, orgUnit.Id, 1);
+        var child = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-B", "B", profile.Id, orgUnit.Id, 1);
+
+        var parentUpdateResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{parent.Id}/dependencies", new
+        {
+            directDependencyPositionSlotId = child.Id,
+            functionalDependencyPositionSlotId = (Guid?)null,
+            concurrencyToken = parent.ConcurrencyToken
+        });
+        parentUpdateResponse.EnsureSuccessStatusCode();
+
+        var cycleResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{child.Id}/dependencies", new
+        {
+            directDependencyPositionSlotId = parent.Id,
+            functionalDependencyPositionSlotId = (Guid?)null,
+            concurrencyToken = child.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(cycleResponse, HttpStatusCode.Conflict, "POSITION_SLOT_DEPENDENCY_CYCLE");
+    }
+
+    [Fact]
+    public async Task PositionSlots_UpdateOccupancy_WhenOverCapacity_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-CAP", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CAP", "Perfil");
+        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-CAP", "Capacidad", profile.Id, orgUnit.Id, 1);
+
+        var response = await client.PatchAsJsonAsync($"/api/v1/position-slots/{slot.Id}/occupancy", new
+        {
+            occupiedEmployees = 2,
+            concurrencyToken = slot.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_CAPACITY_RULE_VIOLATION");
+    }
+
+    [Fact]
+    public async Task PositionSlots_List_WithTenantMismatch_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotReadContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.OtherTenantId}/position-slots?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+    }
+
+    [Fact]
+    public async Task PositionSlots_List_WithoutPermission_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/position-slots?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "POSITION_SLOTS_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WithAuditPermission_ShouldWriteAuditEvent()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminWithAuditContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-AUD", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-AUD", "Perfil");
+
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        {
+            code = "PS-AUD",
+            title = "Plaza Audit",
+            jobProfileId = profile.Id,
+            orgUnitId = orgUnit.Id,
+            workCenterId = (Guid?)null,
+            costCenterCode = (string?)null,
+            directDependencyPositionSlotId = (Guid?)null,
+            functionalDependencyPositionSlotId = (Guid?)null,
+            status = "Vacant",
+            maxEmployees = 1,
+            occupiedEmployees = 0,
+            isFixedTerm = false,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = "audit"
+        });
+        response.EnsureSuccessStatusCode();
+
+        var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=50");
+        auditResponse.EnsureSuccessStatusCode();
+
+        var payload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Items, static item => item.EventType == "POSITION_SLOT_CREATED" && item.EntityType == "PositionSlot");
+    }
+
+    [Fact]
+    public async Task CostCenters_FullFlow_ShouldCreateListGetUpdateUsageActivateInactivateAndExport()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-001", "Centro Principal", "Mixed");
+
+        var listResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers?page=1&pageSize=20");
+        listResponse.EnsureSuccessStatusCode();
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<CostCenterListItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+        Assert.Contains(listPayload!.Items, item => item.Id == created.Id);
+
+        var getResponse = await client.GetAsync($"/api/v1/cost-centers/{created.Id}");
+        getResponse.EnsureSuccessStatusCode();
+        var getPayload = await getResponse.Content.ReadFromJsonAsync<CostCenterItem>(JsonOptions);
+        Assert.NotNull(getPayload);
+        Assert.Equal("CC-001", getPayload!.Code);
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/v1/cost-centers/{created.Id}", new
+        {
+            code = "CC-001",
+            name = "Centro Principal Actualizado",
+            type = "SalaryExpense",
+            payrollExpenseAccountCode = "5101-001",
+            employerContributionAccountCode = "5102-001",
+            provisionAccountCode = "5103-001",
+            description = "Actualizado",
+            concurrencyToken = created.ConcurrencyToken
+        });
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<CostCenterItem>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Equal("Centro Principal Actualizado", updated!.Name);
+        Assert.Equal(CostCenterType.SalaryExpense, updated.Type);
+
+        var usageResponse = await client.GetAsync($"/api/v1/cost-centers/{created.Id}/usage");
+        usageResponse.EnsureSuccessStatusCode();
+        var usage = await usageResponse.Content.ReadFromJsonAsync<CostCenterUsageItem>(JsonOptions);
+        Assert.NotNull(usage);
+        Assert.False(usage!.HasActiveReferences);
+        Assert.Equal(0, usage.OrgUnitActiveReferences);
+        Assert.Equal(0, usage.PositionSlotActiveReferences);
+
+        var inactivateResponse = await client.PatchAsJsonAsync($"/api/v1/cost-centers/{created.Id}/inactivate", new
+        {
+            concurrencyToken = updated.ConcurrencyToken
+        });
+        inactivateResponse.EnsureSuccessStatusCode();
+        var inactive = await inactivateResponse.Content.ReadFromJsonAsync<CostCenterItem>(JsonOptions);
+        Assert.NotNull(inactive);
+        Assert.False(inactive!.IsActive);
+
+        var activateResponse = await client.PatchAsJsonAsync($"/api/v1/cost-centers/{created.Id}/activate", new
+        {
+            concurrencyToken = inactive.ConcurrencyToken
+        });
+        activateResponse.EnsureSuccessStatusCode();
+        var active = await activateResponse.Content.ReadFromJsonAsync<CostCenterItem>(JsonOptions);
+        Assert.NotNull(active);
+        Assert.True(active!.IsActive);
+
+        var csvResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers/export?format=csv");
+        csvResponse.EnsureSuccessStatusCode();
+        Assert.Equal("text/csv", csvResponse.Content.Headers.ContentType?.MediaType);
+
+        var xlsxResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers/export?format=xlsx");
+        xlsxResponse.EnsureSuccessStatusCode();
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            xlsxResponse.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task CostCenters_Create_WithDuplicateCode_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        _ = await CreateCostCenterAsync(client, scenario.TenantId, "CC-DUP", "Centro 1", "Mixed");
+
+        var duplicateResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers", new
+        {
+            code = "CC-DUP",
+            name = "Centro 2",
+            type = "Mixed",
+            payrollExpenseAccountCode = (string?)null,
+            employerContributionAccountCode = (string?)null,
+            provisionAccountCode = (string?)null,
+            description = (string?)null
+        });
+
+        await AssertProblemDetailsAsync(duplicateResponse, HttpStatusCode.Conflict, "COST_CENTER_CODE_CONFLICT");
+    }
+
+    [Fact]
+    public async Task CostCenters_Update_WithStaleToken_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var costCenter = await CreateCostCenterAsync(client, scenario.TenantId, "CC-STALE", "Centro", "Mixed");
+
+        var response = await client.PutAsJsonAsync($"/api/v1/cost-centers/{costCenter.Id}", new
+        {
+            code = "CC-STALE",
+            name = "Centro Actualizado",
+            type = "Mixed",
+            payrollExpenseAccountCode = (string?)null,
+            employerContributionAccountCode = (string?)null,
+            provisionAccountCode = (string?)null,
+            description = (string?)null,
+            concurrencyToken = Guid.NewGuid()
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task CostCenters_Inactivate_WhenInUse_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var costCenter = await CreateCostCenterAsync(client, scenario.TenantId, "CC-USE", "Centro Uso", "Mixed");
+
+        _ = await CreateOrgUnitAsync(
+            client,
+            scenario.TenantId,
+            code: "DIR-CC-USE",
+            name: "Direccion Centro Costo",
+            unitType: "Direccion",
+            costCenterCode: costCenter.Code);
+
+        var response = await client.PatchAsJsonAsync($"/api/v1/cost-centers/{costCenter.Id}/inactivate", new
+        {
+            concurrencyToken = costCenter.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "COST_CENTER_IN_USE");
+    }
+
+    [Fact]
+    public async Task CostCenters_List_WithTenantMismatch_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterReadContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.OtherTenantId}/cost-centers?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+    }
+
+    [Fact]
+    public async Task CostCenters_List_WithoutPermission_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "COST_CENTERS_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task CostCenters_Create_WithAuditPermission_ShouldWriteAuditEvent()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminWithAuditContext(scenario));
+
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers", new
+        {
+            code = "CC-AUD",
+            name = "Centro Audit",
+            type = "Mixed",
+            payrollExpenseAccountCode = "5101-100",
+            employerContributionAccountCode = "5102-100",
+            provisionAccountCode = "5103-100",
+            description = "audit"
+        });
+        response.EnsureSuccessStatusCode();
+
+        var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=50");
+        auditResponse.EnsureSuccessStatusCode();
+
+        var payload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Items, static item => item.EventType == "COST_CENTER_CREATED" && item.EntityType == "CostCenter");
+    }
+
+    [Fact]
+    public async Task OrgUnits_Create_WithUnknownCostCenter_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
+        {
+            code = "DIR-CC-INV",
+            name = "Direccion Invalida",
+            unitType = "Direccion",
+            parentId = (Guid?)null,
+            sortOrder = 1,
+            description = (string?)null,
+            costCenterCode = "CC-NOT-EXISTS",
+            managerEmployeeId = (Guid?)null
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "ORG_UNIT_COST_CENTER_INVALID");
+    }
+
+    [Fact]
+    public async Task PositionSlots_Create_WithInactiveCostCenter_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var costCenterClient = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var costCenter = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-INACTIVE", "Centro Inactivo", "Mixed");
+
+        var inactivateResponse = await costCenterClient.PatchAsJsonAsync($"/api/v1/cost-centers/{costCenter.Id}/inactivate", new
+        {
+            concurrencyToken = costCenter.ConcurrencyToken
+        });
+        inactivateResponse.EnsureSuccessStatusCode();
+
+        using var slotClient = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(slotClient, scenario.TenantId, "DIR-PS-CC", "Direccion", "Direccion");
+        var profile = await CreateJobProfileAsync(slotClient, scenario.TenantId, "JP-PS-CC", "Perfil");
+
+        var response = await slotClient.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        {
+            code = "PS-CC-INV",
+            title = "Plaza con centro inactivo",
+            jobProfileId = profile.Id,
+            orgUnitId = orgUnit.Id,
+            workCenterId = (Guid?)null,
+            costCenterCode = "CC-INACTIVE",
+            directDependencyPositionSlotId = (Guid?)null,
+            functionalDependencyPositionSlotId = (Guid?)null,
+            status = "Vacant",
+            maxEmployees = 1,
+            occupiedEmployees = 0,
+            isFixedTerm = false,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = (string?)null
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "POSITION_SLOT_COST_CENTER_INVALID");
+    }
+
+    [Fact]
+    public async Task SalaryTabulator_FullFlow_ShouldCreateSubmitApproveAndApplyLine()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+
+        var createResponse = await requesterClient.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/change-requests", new
+        {
+            reason = "Ajuste anual",
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            items = new[]
+            {
+                new
+                {
+                    salaryClassCode = "CLS-A",
+                    salaryScaleCode = "S1",
+                    currencyCode = "USD",
+                    changeType = "Create",
+                    proposedBaseAmount = 1200m,
+                    proposedMinAmount = 1000m,
+                    proposedMaxAmount = 1500m,
+                    notes = "nuevo"
+                }
+            }
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(created);
+        Assert.Equal(SalaryTabulatorChangeRequestStatus.Draft, created!.Status);
+
+        var updateResponse = await requesterClient.PutAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}", new
+        {
+            reason = "Ajuste anual actualizado",
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            items = new[]
+            {
+                new
+                {
+                    salaryClassCode = "CLS-A",
+                    salaryScaleCode = "S1",
+                    currencyCode = "USD",
+                    changeType = "Create",
+                    proposedBaseAmount = 1250m,
+                    proposedMinAmount = 1100m,
+                    proposedMaxAmount = 1600m,
+                    notes = "ajustado"
+                }
+            },
+            concurrencyToken = created.ConcurrencyToken
+        });
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(updated);
+
+        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/submit", new
+        {
+            concurrencyToken = updated!.ConcurrencyToken
+        });
+        submitResponse.EnsureSuccessStatusCode();
+        var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(submitted);
+        Assert.Equal(SalaryTabulatorChangeRequestStatus.Submitted, submitted!.Status);
+
+        var impactResponse = await requesterClient.GetAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/impact");
+        impactResponse.EnsureSuccessStatusCode();
+
+        using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
+        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/approve", new
+        {
+            decisionComment = "Aprobado",
+            concurrencyToken = submitted.ConcurrencyToken
+        });
+        approveResponse.EnsureSuccessStatusCode();
+        var approved = await approveResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(approved);
+        Assert.Equal(SalaryTabulatorChangeRequestStatus.Approved, approved!.Status);
+
+        var listLinesResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator?salaryClass=CLS-A&page=1&pageSize=20");
+        listLinesResponse.EnsureSuccessStatusCode();
+        var linesPayload = await listLinesResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<SalaryTabulatorLineItem>>(JsonOptions);
+        Assert.NotNull(linesPayload);
+        Assert.Contains(linesPayload!.Items, line => line.SalaryClassCode == "CLS-A" && line.BaseAmount == 1250m);
+
+        var csvResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/export?format=csv");
+        csvResponse.EnsureSuccessStatusCode();
+        Assert.Equal("text/csv", csvResponse.Content.Headers.ContentType?.MediaType);
+
+        var xlsxResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/export?format=xlsx");
+        xlsxResponse.EnsureSuccessStatusCode();
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", xlsxResponse.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task SalaryTabulator_Approve_WithSelfApproval_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateSalaryTabulatorRequestAndApproveContext(scenario));
+
+        var created = await CreateSalaryTabulatorRequestAsync(client, scenario.TenantId, "CLS-B", "S1", 1100m);
+
+        var submitResponse = await client.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/submit", new
+        {
+            concurrencyToken = created.ConcurrencyToken
+        });
+        submitResponse.EnsureSuccessStatusCode();
+        var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(submitted);
+
+        var approveResponse = await client.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/approve", new
+        {
+            decisionComment = "auto",
+            concurrencyToken = submitted!.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(approveResponse, HttpStatusCode.UnprocessableEntity, "SALARY_TABULATOR_APPROVAL_POLICY_VIOLATION");
+    }
+
+    [Fact]
+    public async Task SalaryTabulator_Update_WithStaleToken_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+
+        var created = await CreateSalaryTabulatorRequestAsync(client, scenario.TenantId, "CLS-C", "S1", 1000m);
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}", new
+        {
+            reason = "stale",
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            items = new[]
+            {
+                new
+                {
+                    salaryClassCode = "CLS-C",
+                    salaryScaleCode = "S1",
+                    currencyCode = "USD",
+                    changeType = "Create",
+                    proposedBaseAmount = 1050m,
+                    proposedMinAmount = (decimal?)null,
+                    proposedMaxAmount = (decimal?)null,
+                    notes = (string?)null
+                }
+            },
+            concurrencyToken = Guid.NewGuid()
+        });
+
+        await AssertProblemDetailsAsync(updateResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task SalaryTabulator_SearchLines_WithTenantMismatch_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateSalaryTabulatorReadContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.OtherTenantId}/salary-tabulator?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+    }
+
+    [Fact]
+    public async Task SalaryTabulator_SearchLines_WithoutPermission_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "SALARY_TABULATOR_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task SalaryTabulator_Approve_WithAuditPermission_ShouldWriteAuditEvent()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        var created = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-D", "S1", 1400m);
+
+        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/submit", new
+        {
+            concurrencyToken = created.ConcurrencyToken
+        });
+        submitResponse.EnsureSuccessStatusCode();
+        var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(submitted);
+
+        using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverWithAuditContext(scenario));
+        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/approve", new
+        {
+            decisionComment = "approved",
+            concurrencyToken = submitted!.ConcurrencyToken
+        });
+        approveResponse.EnsureSuccessStatusCode();
+
+        var auditResponse = await approverClient.GetAsync("/api/audit/logs?page=1&pageSize=50");
+        auditResponse.EnsureSuccessStatusCode();
+
+        var payload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Items, static item => item.EventType == "SALARY_TABULATOR_REQUEST_APPROVED");
     }
 
     [Fact]
@@ -2039,6 +2798,84 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
 
+    private static TestUserContext CreatePositionSlotReadContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, PositionSlotPermissionCodes.Read);
+
+    private static TestUserContext CreatePositionSlotAdminContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            PositionSlotPermissionCodes.Admin,
+            OrgUnitPermissionCodes.Admin,
+            JobProfilePermissionCodes.Admin);
+
+    private static TestUserContext CreatePositionSlotAdminWithAuditContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            PositionSlotPermissionCodes.Admin,
+            OrgUnitPermissionCodes.Admin,
+            JobProfilePermissionCodes.Admin,
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
+
+    private static TestUserContext CreateCostCenterReadContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, CostCenterPermissionCodes.Read);
+
+    private static TestUserContext CreateCostCenterAdminContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            CostCenterPermissionCodes.Admin,
+            OrgUnitPermissionCodes.Admin,
+            JobProfilePermissionCodes.Admin,
+            PositionSlotPermissionCodes.Admin);
+
+    private static TestUserContext CreateCostCenterAdminWithAuditContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            CostCenterPermissionCodes.Admin,
+            OrgUnitPermissionCodes.Admin,
+            JobProfilePermissionCodes.Admin,
+            PositionSlotPermissionCodes.Admin,
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
+
+    private static TestUserContext CreateSalaryTabulatorReadContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, SalaryTabulatorPermissionCodes.Read);
+
+    private static TestUserContext CreateSalaryTabulatorRequesterContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            SalaryTabulatorPermissionCodes.Read,
+            SalaryTabulatorPermissionCodes.Request);
+
+    private static TestUserContext CreateSalaryTabulatorApproverContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.SecurityAdminUserId,
+            scenario.TenantId,
+            SalaryTabulatorPermissionCodes.Read,
+            SalaryTabulatorPermissionCodes.Approve);
+
+    private static TestUserContext CreateSalaryTabulatorRequestAndApproveContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            SalaryTabulatorPermissionCodes.Read,
+            SalaryTabulatorPermissionCodes.Request,
+            SalaryTabulatorPermissionCodes.Approve);
+
+    private static TestUserContext CreateSalaryTabulatorApproverWithAuditContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.SecurityAdminUserId,
+            scenario.TenantId,
+            SalaryTabulatorPermissionCodes.Read,
+            SalaryTabulatorPermissionCodes.Approve,
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
+
     private async Task<LocationHierarchyItem> GetLocationHierarchyAsync(HttpClient client, Guid companyId)
     {
         var response = await client.GetAsync($"/api/v1/companies/{companyId}/location-hierarchy");
@@ -2062,7 +2899,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string name,
         string unitType,
         Guid? parentId = null,
-        int? sortOrder = 1)
+        int? sortOrder = 1,
+        string? costCenterCode = null)
     {
         var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/org-units", new
         {
@@ -2072,12 +2910,36 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             parentId,
             sortOrder,
             description = (string?)null,
-            costCenterCode = (string?)null,
+            costCenterCode,
             managerEmployeeId = (Guid?)null
         });
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<OrgUnitItem>(JsonOptions);
+        Assert.NotNull(payload);
+        return payload!;
+    }
+
+    private async Task<CostCenterItem> CreateCostCenterAsync(
+        HttpClient client,
+        Guid companyId,
+        string code,
+        string name,
+        string type)
+    {
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/cost-centers", new
+        {
+            code,
+            name,
+            type,
+            payrollExpenseAccountCode = "5101-001",
+            employerContributionAccountCode = "5102-001",
+            provisionAccountCode = "5103-001",
+            description = "Centro de costo"
+        });
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<CostCenterItem>(JsonOptions);
         Assert.NotNull(payload);
         return payload!;
     }
@@ -2137,6 +2999,73 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(payload);
+        return payload!;
+    }
+
+    private async Task<PositionSlotItem> CreatePositionSlotAsync(
+        HttpClient client,
+        Guid companyId,
+        string code,
+        string title,
+        Guid jobProfileId,
+        Guid orgUnitId,
+        int maxEmployees)
+    {
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/position-slots", new
+        {
+            code,
+            title,
+            jobProfileId,
+            orgUnitId,
+            workCenterId = (Guid?)null,
+            costCenterCode = (string?)null,
+            directDependencyPositionSlotId = (Guid?)null,
+            functionalDependencyPositionSlotId = (Guid?)null,
+            status = "Vacant",
+            maxEmployees,
+            occupiedEmployees = 0,
+            isFixedTerm = false,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            notes = (string?)null
+        });
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions);
+        Assert.NotNull(payload);
+        return payload!;
+    }
+
+    private async Task<SalaryTabulatorChangeRequestItem> CreateSalaryTabulatorRequestAsync(
+        HttpClient client,
+        Guid companyId,
+        string salaryClassCode,
+        string salaryScaleCode,
+        decimal proposedBaseAmount)
+    {
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/salary-tabulator/change-requests", new
+        {
+            reason = "Ajuste",
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            items = new[]
+            {
+                new
+                {
+                    salaryClassCode,
+                    salaryScaleCode,
+                    currencyCode = "USD",
+                    changeType = "Create",
+                    proposedBaseAmount,
+                    proposedMinAmount = (decimal?)null,
+                    proposedMaxAmount = (decimal?)null,
+                    notes = (string?)null
+                }
+            }
+        });
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(payload);
         return payload!;
     }
@@ -2317,6 +3246,75 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string Code,
         string Name,
         bool IsActive);
+
+    private sealed record PositionSlotListItem(
+        Guid Id,
+        string Code,
+        PositionSlotStatus Status);
+
+    private sealed record PositionSlotItem(
+        Guid Id,
+        string Code,
+        string? Title,
+        PositionSlotStatus Status,
+        Guid? DirectDependencyPositionSlotId,
+        int OccupiedEmployees,
+        bool IsActive,
+        Guid ConcurrencyToken);
+
+    private sealed record PositionSlotGraphNodeItem(
+        Guid Id,
+        string Code,
+        string Label,
+        PositionSlotStatus Status);
+
+    private sealed record PositionSlotGraphEdgeItem(
+        Guid FromId,
+        Guid ToId,
+        PositionSlotDependencyRelationType RelationType);
+
+    private sealed record PositionSlotGraphItem(
+        IReadOnlyCollection<PositionSlotGraphNodeItem> Nodes,
+        IReadOnlyCollection<PositionSlotGraphEdgeItem> Edges);
+
+    private sealed record CostCenterListItem(
+        Guid Id,
+        string Code,
+        string Name,
+        CostCenterType Type,
+        bool IsActive,
+        Guid ConcurrencyToken);
+
+    private sealed record CostCenterItem(
+        Guid Id,
+        string Code,
+        string Name,
+        CostCenterType Type,
+        bool IsActive,
+        Guid ConcurrencyToken);
+
+    private sealed record CostCenterUsageItem(
+        Guid Id,
+        string Code,
+        string Name,
+        int OrgUnitActiveReferences,
+        int OrgUnitInactiveReferences,
+        int PositionSlotActiveReferences,
+        int PositionSlotInactiveReferences,
+        bool HasActiveReferences);
+
+    private sealed record SalaryTabulatorLineItem(
+        Guid Id,
+        string SalaryClassCode,
+        string SalaryScaleCode,
+        decimal BaseAmount,
+        Guid ConcurrencyToken);
+
+    private sealed record SalaryTabulatorChangeRequestItem(
+        Guid Id,
+        string RequestNumber,
+        SalaryTabulatorChangeRequestStatus Status,
+        Guid ConcurrencyToken);
 
     private sealed record IamUserSummaryItem(
         Guid Id,
