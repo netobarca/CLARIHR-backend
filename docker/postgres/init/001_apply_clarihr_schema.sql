@@ -14,5 +14,6 @@
 \i /sql/hu013_position_slots.sql
 \i /sql/hu014_salary_tabulator.sql
 \i /sql/hu015_cost_centers.sql
+\i /sql/hu016_legal_representatives.sql
 
 \echo 'CLARIHR schema scripts completed.'

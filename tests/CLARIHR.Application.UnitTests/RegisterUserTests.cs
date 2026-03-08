@@ -3,10 +3,12 @@ using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.RegisterUser;
+using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Provisioning;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.LegalRepresentatives;
 
 namespace CLARIHR.Application.UnitTests;
 
@@ -78,12 +80,30 @@ public sealed class RegisterUserCommandValidatorTests
             Password: "StrongP@ss1",
             CompanyName: null,
             Country: "SV",
-            Source: "landing");
+            Source: "landing",
+            InitialLegalRepresentative: CreateInitialLegalRepresentative());
 
         var result = _validator.Validate(command);
 
         Assert.True(result.IsValid);
     }
+
+    private static InitialLegalRepresentativeInput CreateInitialLegalRepresentative() =>
+        new(
+            "Ana",
+            "Mendoza",
+            LegalRepresentativeDocumentType.TaxId,
+            "0614-290190-102-3",
+            "Representante Legal",
+            LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
+            "Representación general",
+            "Acta de nombramiento",
+            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            null,
+            "ana@clarihr.test",
+            "+50370000000",
+            IsPrimary: true);
 }
 
 public sealed class RegisterUserCommandHandlerTests
@@ -110,7 +130,8 @@ public sealed class RegisterUserCommandHandlerTests
             "StrongP@ss1",
             null,
             "SV",
-            "landing"), CancellationToken.None);
+            "landing",
+            CreateInitialLegalRepresentative()), CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(AuthErrors.UserAlreadyExists.Code, result.Error.Code);
@@ -134,7 +155,8 @@ public sealed class RegisterUserCommandHandlerTests
             "StrongP@ss1",
             "ClariHR Demo",
             "SV",
-            "landing"), CancellationToken.None);
+            "landing",
+            CreateInitialLegalRepresentative()), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(repository.AddedUser);
@@ -172,7 +194,8 @@ public sealed class RegisterUserCommandHandlerTests
             "StrongP@ss1",
             null,
             "SV",
-            "landing"), CancellationToken.None);
+            "landing",
+            CreateInitialLegalRepresentative()), CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ProvisioningErrors.ProvisioningFailed.Code, result.Error.Code);
@@ -260,4 +283,21 @@ public sealed class RegisterUserCommandHandlerTests
         public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
             Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
     }
+
+    private static InitialLegalRepresentativeInput CreateInitialLegalRepresentative() =>
+        new(
+            "Carla",
+            "Lopez",
+            LegalRepresentativeDocumentType.TaxId,
+            "0614-000001-001-1",
+            "Representante Legal",
+            LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
+            "Representación general",
+            "Acta de nombramiento",
+            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            null,
+            "carla@clarihr.test",
+            "+50370000001",
+            IsPrimary: true);
 }

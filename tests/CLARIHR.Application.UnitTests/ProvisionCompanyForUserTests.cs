@@ -2,18 +2,22 @@ using System.Reflection;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.AccountCompanies;
 using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.IdentityAccess.Contracts;
+using CLARIHR.Application.Features.LegalRepresentatives;
+using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Provisioning;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.LegalRepresentatives;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CLARIHR.Application.UnitTests;
@@ -28,6 +32,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         var subscriptionRepository = new TestCompanySubscriptionRepository(companyRepository);
         var iamRepository = new TestIamAdministrationRepository();
         var userCompanyRepository = new TestUserCompanyRepository(companyRepository);
+        var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
         var planEntitlementService = new TestPlanEntitlementService();
         var unitOfWork = new TestUnitOfWork();
         var user = CreatePersistedUser("ana@company.com");
@@ -39,11 +44,12 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             subscriptionRepository,
             userCompanyRepository,
             iamRepository,
+            legalRepresentativeRepository,
             planEntitlementService,
             unitOfWork);
 
         var result = await handler.Handle(
-            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR"),
+            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", CreateInitialLegalRepresentative()),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -55,6 +61,9 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         Assert.Single(subscriptionRepository.Items);
         Assert.Equal(ProvisioningConstants.FreePlanCode, subscriptionRepository.Items[0].PlanCode);
         Assert.Equal(SubscriptionStatus.Active, subscriptionRepository.Items[0].Status);
+        Assert.Single(legalRepresentativeRepository.Items);
+        Assert.Equal(companyRepository.Items[0].PublicId, legalRepresentativeRepository.Items[0].TenantId);
+        Assert.True(legalRepresentativeRepository.Items[0].IsPrimary);
         Assert.Equal(2, iamRepository.Roles.Count);
         Assert.Contains(iamRepository.Roles, role => role.Name == ProvisioningConstants.CompanyAdminRoleName && role.IsSystemRole);
         Assert.Contains(iamRepository.Roles, role => role.Name == ProvisioningConstants.StandardUserRoleName && role.IsSystemRole);
@@ -76,6 +85,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         var subscriptionRepository = new TestCompanySubscriptionRepository(companyRepository);
         var iamRepository = new TestIamAdministrationRepository();
         var userCompanyRepository = new TestUserCompanyRepository(companyRepository);
+        var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
         var unitOfWork = new TestUnitOfWork();
         var user = CreatePersistedUser("ana@company.com");
         userRepository.Seed(user);
@@ -90,6 +100,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             subscriptionRepository,
             userCompanyRepository,
             iamRepository,
+            legalRepresentativeRepository,
             new TestPlanEntitlementService(),
             unitOfWork);
 
@@ -108,13 +119,14 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenProvisioningStepThrows_ShouldRollbackAndReturnFailure()
+    public async Task Handle_WhenInitialLegalRepresentativeMissingForNewProvisioning_ShouldReturnValidationError()
     {
         var userRepository = new TestUserRepository();
         var companyRepository = new TestCompanyRepository();
         var subscriptionRepository = new TestCompanySubscriptionRepository(companyRepository);
         var iamRepository = new TestIamAdministrationRepository();
         var userCompanyRepository = new TestUserCompanyRepository(companyRepository);
+        var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
         var unitOfWork = new TestUnitOfWork();
         var user = CreatePersistedUser("ana@company.com");
         userRepository.Seed(user);
@@ -125,11 +137,44 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             subscriptionRepository,
             userCompanyRepository,
             iamRepository,
-            new ThrowingPlanEntitlementService(),
+            legalRepresentativeRepository,
+            new TestPlanEntitlementService(),
             unitOfWork);
 
         var result = await handler.Handle(
             new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR"),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ProvisioningErrors.InitialLegalRepresentativeRequired.Code, result.Error.Code);
+        Assert.True(unitOfWork.Transaction.RollbackCalled);
+    }
+
+    [Fact]
+    public async Task Handle_WhenProvisioningStepThrows_ShouldRollbackAndReturnFailure()
+    {
+        var userRepository = new TestUserRepository();
+        var companyRepository = new TestCompanyRepository();
+        var subscriptionRepository = new TestCompanySubscriptionRepository(companyRepository);
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository);
+        var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
+        var unitOfWork = new TestUnitOfWork();
+        var user = CreatePersistedUser("ana@company.com");
+        userRepository.Seed(user);
+
+        var handler = CreateHandler(
+            userRepository,
+            companyRepository,
+            subscriptionRepository,
+            userCompanyRepository,
+            iamRepository,
+            legalRepresentativeRepository,
+            new ThrowingPlanEntitlementService(),
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", CreateInitialLegalRepresentative()),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -145,6 +190,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         var subscriptionRepository = new TestCompanySubscriptionRepository(companyRepository);
         var iamRepository = new TestIamAdministrationRepository();
         var userCompanyRepository = new TestUserCompanyRepository(companyRepository);
+        var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
         var user = CreatePersistedUser("ana@company.com");
         userRepository.Seed(user);
         companyRepository.Add(Company.Create("Acme HR", "acme-hr", user.PublicId));
@@ -155,11 +201,12 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             subscriptionRepository,
             userCompanyRepository,
             iamRepository,
+            legalRepresentativeRepository,
             new TestPlanEntitlementService(),
             new TestUnitOfWork());
 
         var result = await handler.Handle(
-            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR"),
+            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", CreateInitialLegalRepresentative()),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -172,6 +219,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         TestCompanySubscriptionRepository subscriptionRepository,
         TestUserCompanyRepository userCompanyRepository,
         TestIamAdministrationRepository iamRepository,
+        TestLegalRepresentativeRepository legalRepresentativeRepository,
         IPlanEntitlementService planEntitlementService,
         TestUnitOfWork unitOfWork)
     {
@@ -181,6 +229,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             subscriptionRepository,
             userCompanyRepository,
             iamRepository,
+            legalRepresentativeRepository,
             new TestLocationSeedService(),
             planEntitlementService,
             unitOfWork,
@@ -193,6 +242,23 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             unitOfWork,
             NullLogger<ProvisionCompanyForUserCommandHandler>.Instance);
     }
+
+    private static InitialLegalRepresentativeInput CreateInitialLegalRepresentative() =>
+        new(
+            "Ana",
+            "Mendoza",
+            LegalRepresentativeDocumentType.TaxId,
+            "0614-290190-102-3",
+            "Representante Legal",
+            LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
+            "Representación general",
+            "Acta notarial",
+            new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc),
+            null,
+            "ana@company.com",
+            "+50370000000",
+            IsPrimary: true);
 
     private static User CreatePersistedUser(string email)
     {
@@ -493,6 +559,83 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task<IReadOnlyList<RbacResource>> GetActiveRbacResourcesAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<RbacResource>>([]);
         public Task<PagedResponse<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(Guid? roleId, string? normalizedResourceKey, DateTime? fromUtc, DateTime? toUtc, int pageNumber, int pageSize, CancellationToken cancellationToken) => Task.FromResult(new PagedResponse<RbacPermissionAuditLog>([], pageNumber, pageSize, 0));
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(1);
+    }
+
+    private sealed class TestLegalRepresentativeRepository : ILegalRepresentativeRepository
+    {
+        public List<LegalRepresentative> Items { get; } = [];
+
+        public void Add(LegalRepresentative legalRepresentative)
+        {
+            if (legalRepresentative.Id == 0)
+            {
+                SetEntityId(legalRepresentative, Items.Count + 1);
+            }
+
+            Items.Add(legalRepresentative);
+        }
+
+        public Task<LegalRepresentative?> GetByIdAsync(Guid legalRepresentativeId, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.SingleOrDefault(item => item.PublicId == legalRepresentativeId));
+
+        public Task<bool> ExistsOutsideTenantAsync(Guid legalRepresentativeId, CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
+        public Task<bool> DocumentExistsAsync(
+            Guid tenantId,
+            LegalRepresentativeDocumentType documentType,
+            string normalizedDocumentNumber,
+            long? excludingLegalRepresentativeId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(Items.Any(item =>
+                item.TenantId == tenantId &&
+                item.DocumentType == documentType &&
+                item.NormalizedDocumentNumber == normalizedDocumentNumber &&
+                (!excludingLegalRepresentativeId.HasValue || item.Id != excludingLegalRepresentativeId.Value)));
+
+        public Task<PagedResponse<LegalRepresentativeListItemResponse>> SearchAsync(
+            Guid tenantId,
+            bool? isActive,
+            bool? isPrimary,
+            LegalRepresentativeRepresentationType? representationType,
+            string? search,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<LegalRepresentativeResponse?> GetResponseByIdAsync(Guid legalRepresentativeId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<LegalRepresentativeUsageResponse?> GetUsageByIdAsync(Guid legalRepresentativeId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<int> GetActiveCountAsync(Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.Count(item => item.TenantId == tenantId && item.IsActive));
+
+        public Task<LegalRepresentative?> GetActivePrimaryAsync(
+            Guid tenantId,
+            Guid? excludingLegalRepresentativePublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(Items.SingleOrDefault(item =>
+                item.TenantId == tenantId &&
+                item.IsActive &&
+                item.IsPrimary &&
+                (!excludingLegalRepresentativePublicId.HasValue || item.PublicId != excludingLegalRepresentativePublicId.Value)));
+
+        public Task<IReadOnlyCollection<LegalRepresentativeExportRow>> GetExportRowsAsync(
+            Guid tenantId,
+            bool? isActive,
+            bool? isPrimary,
+            LegalRepresentativeRepresentationType? representationType,
+            string? search,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyCollection<ActiveLegalRepresentativeSummary>> GetActiveSummariesByCompanyAsync(
+            Guid companyId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<ActiveLegalRepresentativeSummary>>([]);
     }
 
     private sealed class TestPlanEntitlementService : IPlanEntitlementService

@@ -2,10 +2,13 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Security;
 using System.Text;
+using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CostCenters;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Domain.CostCenters;
@@ -18,7 +21,9 @@ namespace CLARIHR.Api.Controllers;
 [Authorize]
 public sealed class CostCentersController(
     ICommandDispatcher commandDispatcher,
-    IQueryDispatcher queryDispatcher) : ControllerBase
+    IQueryDispatcher queryDispatcher,
+    IAuditService auditService,
+    IUnitOfWork unitOfWork) : ControllerBase
 {
     [HttpGet("api/v1/companies/{companyId:guid}/cost-centers")]
     [ProducesResponseType<PagedResponse<CostCenterListItemResponse>>(StatusCodes.Status200OK)]
@@ -32,10 +37,11 @@ public sealed class CostCentersController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = CostCenterValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchCostCentersQuery(companyId, type, isActive, search, page, pageSize),
+            new SearchCostCentersQuery(companyId, type, isActive, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -87,12 +93,48 @@ public sealed class CostCentersController(
 
         if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
         {
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.ReportExported,
+                    AuditEntityTypes.CostCenter,
+                    null,
+                    CostCenterPermissionCodes.ResourceKey,
+                    AuditActions.Export,
+                    "Exported cost centers report.",
+                    After: new
+                    {
+                        resourceKey = CostCenterPermissionCodes.ResourceKey,
+                        format = "csv",
+                        filters = new { type, isActive, q = search },
+                        rowCount = result.Value.Count
+                    }),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
             var csv = BuildCsv(result.Value);
             return File(Encoding.UTF8.GetBytes(csv), "text/csv", "cost-centers.csv");
         }
 
         if (string.Equals(format, "xlsx", StringComparison.OrdinalIgnoreCase))
         {
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.ReportExported,
+                    AuditEntityTypes.CostCenter,
+                    null,
+                    CostCenterPermissionCodes.ResourceKey,
+                    AuditActions.Export,
+                    "Exported cost centers report.",
+                    After: new
+                    {
+                        resourceKey = CostCenterPermissionCodes.ResourceKey,
+                        format = "xlsx",
+                        filters = new { type, isActive, q = search },
+                        rowCount = result.Value.Count
+                    }),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
             var xlsx = BuildXlsx(result.Value);
             return File(
                 xlsx,

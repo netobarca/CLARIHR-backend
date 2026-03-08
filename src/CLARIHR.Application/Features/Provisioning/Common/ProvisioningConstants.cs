@@ -9,6 +9,7 @@ public static class ProvisioningConstants
     public const string PositionSlotsModuleKey = "POSITION_SLOTS";
     public const string SalaryTabulatorModuleKey = "SALARY_TABULATOR";
     public const string CostCentersModuleKey = "COST_CENTERS";
+    public const string LegalRepresentativesModuleKey = "LEGAL_REPRESENTATIVES";
     public const string CompanyAdminRoleName = "Admin de Empresa";
     public const string StandardUserRoleName = "Usuario Estándar";
 
@@ -31,6 +32,8 @@ public static class ProvisioningConstants
         new("PositionSlots.Admin", "Administrar plazas", "Administracion completa de plazas y ocupacion.", PositionSlotsModuleKey, "PositionSlots", "Manage"),
         new("CostCenters.Read", "Leer centros de costo", "Consulta de centros de costo contable y su uso.", CostCentersModuleKey, "CostCenters", "Read"),
         new("CostCenters.Admin", "Administrar centros de costo", "Administracion completa de centros de costo contable.", CostCentersModuleKey, "CostCenters", "Manage"),
+        new("LegalRepresentatives.Read", "Leer representantes legales", "Consulta de representantes legales activos e historicos.", LegalRepresentativesModuleKey, "LegalRepresentatives", "Read"),
+        new("LegalRepresentatives.Admin", "Administrar representantes legales", "Administracion completa de representantes legales.", LegalRepresentativesModuleKey, "LegalRepresentatives", "Manage"),
         new("SalaryTabulator.Read", "Leer tabulador salarial", "Consulta de lineas y solicitudes del tabulador salarial.", SalaryTabulatorModuleKey, "SalaryTabulator", "Read"),
         new("SalaryTabulator.Request", "Solicitar cambios de tabulador salarial", "Creacion y gestion de solicitudes de cambio al tabulador salarial.", SalaryTabulatorModuleKey, "SalaryTabulator", "Request"),
         new("SalaryTabulator.Approve", "Aprobar cambios de tabulador salarial", "Aprobacion o rechazo de solicitudes del tabulador salarial.", SalaryTabulatorModuleKey, "SalaryTabulator", "Approve"),

@@ -44,3 +44,4 @@
 - El `accessToken` emitido usa la empresa primaria vigente del usuario al momento del refresh
 - Si el usuario hizo `switch` de empresa con `POST /api/account/companies/{companyId}/switch`, el refresh siguiente conserva ese contexto primario actualizado
 - Los endpoints `/api/auth/*` responden con headers `Cache-Control: no-store`
+- `POST /api/auth/logout` revoca los refresh tokens activos del usuario

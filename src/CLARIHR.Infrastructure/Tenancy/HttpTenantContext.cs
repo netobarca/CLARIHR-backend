@@ -6,14 +6,40 @@ namespace CLARIHR.Infrastructure.Tenancy;
 
 internal sealed class HttpTenantContext(IHttpContextAccessor httpContextAccessor) : ITenantContext
 {
+    private static readonly string[] TenantClaimTypes =
+    [
+        "tid",
+        "tenantid",
+        "http://schemas.microsoft.com/identity/claims/tenantid"
+    ];
+
     public Guid? TenantId
     {
         get
         {
-            var tenantClaim = httpContextAccessor.HttpContext?.User.FindFirstValue("tid");
+            var user = httpContextAccessor.HttpContext?.User;
+            if (user is null)
+            {
+                return null;
+            }
 
-            return Guid.TryParse(tenantClaim, out var tenantId)
-                ? tenantId
+            foreach (var claimType in TenantClaimTypes)
+            {
+                var tenantClaim = user.FindFirstValue(claimType);
+                if (Guid.TryParse(tenantClaim, out var tenantId))
+                {
+                    return tenantId;
+                }
+            }
+
+            var fallbackTenantClaim = user.Claims
+                .FirstOrDefault(static claim =>
+                    claim.Type.EndsWith("/tenantid", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(claim.Type, "tenant_id", StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+
+            return Guid.TryParse(fallbackTenantClaim, out var fallbackTenantId)
+                ? fallbackTenantId
                 : null;
         }
     }

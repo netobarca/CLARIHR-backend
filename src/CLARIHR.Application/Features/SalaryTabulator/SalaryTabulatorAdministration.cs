@@ -1,12 +1,14 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.SalaryTabulator;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.SalaryTabulator.Common;
@@ -29,7 +31,8 @@ public sealed record SalaryTabulatorLineListItemResponse(
     int Version,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record SalaryTabulatorLineResponse(
     Guid Id,
@@ -47,7 +50,8 @@ public sealed record SalaryTabulatorLineResponse(
     string? Notes,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record SalaryTabulatorLineExportRow(
     Guid Id,
@@ -94,7 +98,8 @@ public sealed record SalaryTabulatorChangeRequestResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    IReadOnlyCollection<SalaryTabulatorChangeRequestItemResponse> Items);
+    IReadOnlyCollection<SalaryTabulatorChangeRequestItemResponse> Items,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record SalaryTabulatorChangeRequestListItemResponse(
     Guid Id,
@@ -108,7 +113,8 @@ public sealed record SalaryTabulatorChangeRequestListItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    int ItemCount);
+    int ItemCount,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record SalaryTabulatorChangeRequestImpactItemResponse(
     long ItemId,
@@ -155,7 +161,8 @@ public sealed record SearchSalaryTabulatorLinesQuery(
     bool? IsActive,
     string? Search,
     int PageNumber = 1,
-    int PageSize = SalaryTabulatorValidationRules.DefaultPageSize)
+    int PageSize = SalaryTabulatorValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false)
     : IQuery<PagedResponse<SalaryTabulatorLineListItemResponse>>;
 
 public sealed record GetSalaryTabulatorLineByIdQuery(Guid LineId) : IQuery<SalaryTabulatorLineResponse>;
@@ -175,7 +182,8 @@ public sealed record SearchSalaryTabulatorChangeRequestsQuery(
     DateTime? EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     int PageNumber = 1,
-    int PageSize = SalaryTabulatorValidationRules.DefaultPageSize)
+    int PageSize = SalaryTabulatorValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false)
     : IQuery<PagedResponse<SalaryTabulatorChangeRequestListItemResponse>>;
 
 public sealed record GetSalaryTabulatorChangeRequestByIdQuery(Guid RequestId) : IQuery<SalaryTabulatorChangeRequestResponse>;
@@ -385,7 +393,8 @@ internal sealed class SalaryTabulatorChangeRequestItemInputValidator : AbstractV
 
 internal sealed class SearchSalaryTabulatorLinesQueryHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
-    ISalaryTabulatorRepository repository)
+    ISalaryTabulatorRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchSalaryTabulatorLinesQuery, PagedResponse<SalaryTabulatorLineListItemResponse>>
 {
     public async Task<Result<PagedResponse<SalaryTabulatorLineListItemResponse>>> Handle(
@@ -408,6 +417,16 @@ internal sealed class SearchSalaryTabulatorLinesQueryHandler(
             query.PageSize,
             cancellationToken);
 
+        if (!query.IncludeAllowedActions)
+        {
+            return Result<PagedResponse<SalaryTabulatorLineListItemResponse>>.Success(response);
+        }
+
+        var items = response.Items
+            .Select(item => SalaryTabulatorPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .ToArray();
+        response = response with { Items = items };
+
         return Result<PagedResponse<SalaryTabulatorLineListItemResponse>>.Success(response);
     }
 }
@@ -415,7 +434,8 @@ internal sealed class SearchSalaryTabulatorLinesQueryHandler(
 internal sealed class GetSalaryTabulatorLineByIdQueryHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
     ISalaryTabulatorRepository repository,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<GetSalaryTabulatorLineByIdQuery, SalaryTabulatorLineResponse>
 {
     public async Task<Result<SalaryTabulatorLineResponse>> Handle(
@@ -436,6 +456,7 @@ internal sealed class GetSalaryTabulatorLineByIdQueryHandler(
         var response = await repository.GetLineResponseByIdAsync(query.LineId, cancellationToken);
         if (response is not null)
         {
+            response = SalaryTabulatorPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
             return Result<SalaryTabulatorLineResponse>.Success(response);
         }
 
@@ -475,7 +496,8 @@ internal sealed class ExportSalaryTabulatorLinesQueryHandler(
 
 internal sealed class SearchSalaryTabulatorChangeRequestsQueryHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
-    ISalaryTabulatorRepository repository)
+    ISalaryTabulatorRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchSalaryTabulatorChangeRequestsQuery, PagedResponse<SalaryTabulatorChangeRequestListItemResponse>>
 {
     public async Task<Result<PagedResponse<SalaryTabulatorChangeRequestListItemResponse>>> Handle(
@@ -498,6 +520,16 @@ internal sealed class SearchSalaryTabulatorChangeRequestsQueryHandler(
             query.PageSize,
             cancellationToken);
 
+        if (!query.IncludeAllowedActions)
+        {
+            return Result<PagedResponse<SalaryTabulatorChangeRequestListItemResponse>>.Success(response);
+        }
+
+        var items = response.Items
+            .Select(item => SalaryTabulatorPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .ToArray();
+        response = response with { Items = items };
+
         return Result<PagedResponse<SalaryTabulatorChangeRequestListItemResponse>>.Success(response);
     }
 }
@@ -505,7 +537,8 @@ internal sealed class SearchSalaryTabulatorChangeRequestsQueryHandler(
 internal sealed class GetSalaryTabulatorChangeRequestByIdQueryHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
     ISalaryTabulatorRepository repository,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<GetSalaryTabulatorChangeRequestByIdQuery, SalaryTabulatorChangeRequestResponse>
 {
     public async Task<Result<SalaryTabulatorChangeRequestResponse>> Handle(
@@ -526,6 +559,7 @@ internal sealed class GetSalaryTabulatorChangeRequestByIdQueryHandler(
         var response = await repository.GetChangeRequestResponseByIdAsync(query.RequestId, cancellationToken);
         if (response is not null)
         {
+            response = SalaryTabulatorPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
             return Result<SalaryTabulatorChangeRequestResponse>.Success(response);
         }
 
@@ -567,6 +601,97 @@ internal sealed class GetSalaryTabulatorChangeRequestImpactQueryHandler(
             await repository.ChangeRequestExistsOutsideTenantAsync(query.RequestId, cancellationToken)
                 ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                 : SalaryTabulatorErrors.ChangeRequestNotFound);
+    }
+}
+
+internal static class SalaryTabulatorPolicyAdapter
+{
+    public static SalaryTabulatorLineListItemResponse ApplyAllowedActions(
+        SalaryTabulatorLineListItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                SalaryTabulatorPermissionCodes.ResourceKey,
+                response.IsActive ? "Active" : "Inactive",
+                response.IsActive,
+                SupportsEdit: false,
+                SupportsDelete: false,
+                SupportsArchive: false,
+                SupportsActivate: false,
+                SupportsInactivate: false));
+
+        return response with { AllowedActions = allowedActions };
+    }
+
+    public static SalaryTabulatorLineResponse ApplyAllowedActions(
+        SalaryTabulatorLineResponse response,
+        IResourceActionPolicyService resourceActionPolicyService)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                SalaryTabulatorPermissionCodes.ResourceKey,
+                response.IsActive ? "Active" : "Inactive",
+                response.IsActive,
+                SupportsEdit: false,
+                SupportsDelete: false,
+                SupportsArchive: false,
+                SupportsActivate: false,
+                SupportsInactivate: false));
+
+        return response with { AllowedActions = allowedActions };
+    }
+
+    public static SalaryTabulatorChangeRequestListItemResponse ApplyAllowedActions(
+        SalaryTabulatorChangeRequestListItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService)
+    {
+        var isActive = response.Status is SalaryTabulatorChangeRequestStatus.Draft or SalaryTabulatorChangeRequestStatus.Submitted;
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                SalaryTabulatorPermissionCodes.ResourceKey,
+                response.Status.ToString(),
+                isActive,
+                SupportsEdit: true,
+                SupportsDelete: false,
+                SupportsArchive: false,
+                SupportsActivate: false,
+                SupportsInactivate: false,
+                NonEditableStates:
+                [
+                    SalaryTabulatorChangeRequestStatus.Submitted.ToString(),
+                    SalaryTabulatorChangeRequestStatus.Approved.ToString(),
+                    SalaryTabulatorChangeRequestStatus.Rejected.ToString(),
+                    SalaryTabulatorChangeRequestStatus.Canceled.ToString()
+                ]));
+
+        return response with { AllowedActions = allowedActions };
+    }
+
+    public static SalaryTabulatorChangeRequestResponse ApplyAllowedActions(
+        SalaryTabulatorChangeRequestResponse response,
+        IResourceActionPolicyService resourceActionPolicyService)
+    {
+        var isActive = response.Status is SalaryTabulatorChangeRequestStatus.Draft or SalaryTabulatorChangeRequestStatus.Submitted;
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                SalaryTabulatorPermissionCodes.ResourceKey,
+                response.Status.ToString(),
+                isActive,
+                SupportsEdit: true,
+                SupportsDelete: false,
+                SupportsArchive: false,
+                SupportsActivate: false,
+                SupportsInactivate: false,
+                NonEditableStates:
+                [
+                    SalaryTabulatorChangeRequestStatus.Submitted.ToString(),
+                    SalaryTabulatorChangeRequestStatus.Approved.ToString(),
+                    SalaryTabulatorChangeRequestStatus.Rejected.ToString(),
+                    SalaryTabulatorChangeRequestStatus.Canceled.ToString()
+                ]));
+
+        return response with { AllowedActions = allowedActions };
     }
 }
 

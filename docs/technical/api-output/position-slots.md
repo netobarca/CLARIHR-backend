@@ -74,6 +74,8 @@ Lecturas:
 - `PositionSlotResponse`
 - `PositionSlotGraphResponse`
 
+`PositionSlotListItemResponse` y `PositionSlotResponse` incluyen `allowedActions` cuando se consulta con `includeAllowedActions=true`.
+
 ## Filtros de busqueda
 
 `GET /api/v1/companies/{companyId}/position-slots`:
@@ -86,6 +88,7 @@ Lecturas:
 - `q?`
 - `page`
 - `pageSize`
+- `includeAllowedActions` (default `false`)
 
 `GET /api/v1/companies/{companyId}/position-slots/graph`:
 

@@ -3,7 +3,9 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.AccountCompanies;
+using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Domain.Companies;
+using CLARIHR.Domain.LegalRepresentatives;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -55,7 +57,25 @@ public sealed class AccountCompaniesController(
         [FromBody] CreateAccountCompanyRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await commandDispatcher.SendAsync(new CreateAccountCompanyCommand(request.Name), cancellationToken);
+        var result = await commandDispatcher.SendAsync(
+            new CreateAccountCompanyCommand(
+                request.Name,
+                new InitialLegalRepresentativeInput(
+                    request.InitialLegalRepresentative.FirstName,
+                    request.InitialLegalRepresentative.LastName,
+                    request.InitialLegalRepresentative.DocumentType,
+                    request.InitialLegalRepresentative.DocumentNumber,
+                    request.InitialLegalRepresentative.PositionTitle,
+                    request.InitialLegalRepresentative.RepresentationType,
+                    request.InitialLegalRepresentative.AuthorityDescription,
+                    request.InitialLegalRepresentative.AppointmentInstrument,
+                    request.InitialLegalRepresentative.AppointmentDateUtc,
+                    request.InitialLegalRepresentative.EffectiveFromUtc,
+                    request.InitialLegalRepresentative.EffectiveToUtc,
+                    request.InitialLegalRepresentative.Email,
+                    request.InitialLegalRepresentative.Phone,
+                    request.InitialLegalRepresentative.IsPrimary)),
+            cancellationToken);
         if (result.IsFailure)
         {
             return this.ToActionResult(Result<AccountCompanyDetailResponse>.Failure(result.Error));
@@ -125,7 +145,25 @@ public sealed class AccountCompaniesController(
         return this.ToActionResult(result);
     }
 
-    public sealed record CreateAccountCompanyRequest(string Name);
+    public sealed record CreateAccountCompanyRequest(
+        string Name,
+        InitialLegalRepresentativeRequest InitialLegalRepresentative);
+
+    public sealed record InitialLegalRepresentativeRequest(
+        string FirstName,
+        string LastName,
+        LegalRepresentativeDocumentType DocumentType,
+        string DocumentNumber,
+        string PositionTitle,
+        LegalRepresentativeRepresentationType RepresentationType,
+        string? AuthorityDescription,
+        string? AppointmentInstrument,
+        DateTime? AppointmentDateUtc,
+        DateTime EffectiveFromUtc,
+        DateTime? EffectiveToUtc,
+        string? Email,
+        string? Phone,
+        bool IsPrimary = true);
 
     public sealed record UpdateAccountCompanyRequest(string Name);
 }

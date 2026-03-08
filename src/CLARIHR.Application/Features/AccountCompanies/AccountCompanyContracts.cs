@@ -1,6 +1,8 @@
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Domain.Companies;
+using CLARIHR.Domain.LegalRepresentatives;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.AccountCompanies;
@@ -24,7 +26,15 @@ public sealed record AccountCompanyDetailResponse(
     bool IsActiveContext,
     bool IsOwnedByCurrentUser,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    IReadOnlyCollection<ActiveLegalRepresentativeSummaryResponse> ActiveLegalRepresentatives);
+
+public sealed record ActiveLegalRepresentativeSummaryResponse(
+    Guid Id,
+    string FullName,
+    LegalRepresentativeRepresentationType RepresentationType,
+    string PositionTitle,
+    bool IsPrimary);
 
 public sealed record ActiveCompanyDto(
     Guid CompanyId,
@@ -54,7 +64,9 @@ public sealed record GetOwnedCompaniesQuery(
 
 public sealed record GetOwnedCompanyByIdQuery(Guid CompanyId) : IQuery<AccountCompanyDetailResponse>;
 
-public sealed record CreateAccountCompanyCommand(string Name) : ICommand<AccountCompanyDetailResponse>;
+public sealed record CreateAccountCompanyCommand(
+    string Name,
+    InitialLegalRepresentativeInput InitialLegalRepresentative) : ICommand<AccountCompanyDetailResponse>;
 
 public sealed record UpdateAccountCompanyCommand(Guid CompanyId, string Name) : ICommand<AccountCompanyDetailResponse>;
 
@@ -88,6 +100,9 @@ internal sealed class CreateAccountCompanyCommandValidator : AbstractValidator<C
         RuleFor(command => command.Name)
             .NotEmpty()
             .MaximumLength(150);
+        RuleFor(command => command.InitialLegalRepresentative)
+            .NotNull()
+            .SetValidator(new InitialLegalRepresentativeInputValidator());
     }
 }
 

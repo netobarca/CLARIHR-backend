@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
+using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Provisioning;
 using CLARIHR.Domain.Auth;
 using FluentValidation;
@@ -16,7 +17,8 @@ public sealed record RegisterUserCommand(
     string Password,
     string? CompanyName,
     string? Country,
-    string? Source) : ICommand<AuthResponse>;
+    string? Source,
+    InitialLegalRepresentativeInput? InitialLegalRepresentative = null) : ICommand<AuthResponse>;
 
 internal sealed class RegisterUserCommandValidator : AbstractValidator<RegisterUserCommand>
 {
@@ -47,6 +49,10 @@ internal sealed class RegisterUserCommandValidator : AbstractValidator<RegisterU
             .Matches("[a-z]").WithMessage("Password must contain at least one lowercase letter.")
             .Matches("[0-9]").WithMessage("Password must contain at least one number.")
             .Matches("[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character.");
+
+        RuleFor(command => command.InitialLegalRepresentative)
+            .NotNull()
+            .SetValidator(new InitialLegalRepresentativeInputValidator()!);
 
         RuleFor(command => command.Country)
             .MaximumLength(100)
@@ -93,7 +99,7 @@ internal sealed class RegisterUserCommandHandler(
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var provisioningResult = await commandDispatcher.SendAsync(
-            new ProvisionCompanyForUserCommand(user.PublicId, command.CompanyName),
+            new ProvisionCompanyForUserCommand(user.PublicId, command.CompanyName, command.InitialLegalRepresentative),
             cancellationToken);
         if (provisioningResult.IsFailure)
         {

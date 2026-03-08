@@ -28,7 +28,10 @@ Excepcion controlada:
   - `GET /api/system/status`
   - `POST /api/auth/register`
   - `POST /api/auth/external`
+  - `POST /api/auth/login`
   - `POST /api/auth/refresh`
+- Endpoint autenticado en Auth:
+  - `POST /api/auth/logout`
 - Todo endpoint administrativo o de negocio requiere `Authorization: Bearer <jwt>`.
 - Los endpoints protegidos esperan contexto de tenant via claim `tid`.
 - Excepcion: `api/account/companies` sigue requiriendo JWT, pero su enforcement principal es por ownership de cuenta y no por RBAC tenant-scoped.
@@ -693,6 +696,22 @@ Request:
   "email": "admin@company.com",
   "password": "StrongPass123!",
   "companyName": "Acme Inc",
+  "initialLegalRepresentative": {
+    "firstName": "Ana",
+    "lastName": "Mendoza",
+    "documentType": "TaxId",
+    "documentNumber": "0614-290190-102-3",
+    "positionTitle": "Representante Legal",
+    "representationType": "PrimaryLegalRepresentative",
+    "authorityDescription": "Representacion general",
+    "appointmentInstrument": "Acta de nombramiento",
+    "appointmentDateUtc": "2026-01-01T00:00:00Z",
+    "effectiveFromUtc": "2026-01-01T00:00:00Z",
+    "effectiveToUtc": null,
+    "email": "ana@company.com",
+    "phone": "+50370000000",
+    "isPrimary": true
+  },
   "country": "SV",
   "source": "landing"
 }
@@ -741,6 +760,22 @@ Request:
   "provider": "Google",
   "idToken": "external-provider-id-token",
   "companyName": "Acme Inc",
+  "initialLegalRepresentative": {
+    "firstName": "Ana",
+    "lastName": "Mendoza",
+    "documentType": "TaxId",
+    "documentNumber": "0614-290190-102-3",
+    "positionTitle": "Representante Legal",
+    "representationType": "PrimaryLegalRepresentative",
+    "authorityDescription": "Representacion general",
+    "appointmentInstrument": "Acta de nombramiento",
+    "appointmentDateUtc": "2026-01-01T00:00:00Z",
+    "effectiveFromUtc": "2026-01-01T00:00:00Z",
+    "effectiveToUtc": null,
+    "email": "ana@company.com",
+    "phone": "+50370000000",
+    "isPrimary": true
+  },
   "country": "SV",
   "source": "google-oauth"
 }
@@ -784,6 +819,50 @@ Main errors:
 - `422`
 - `500`
 
+### POST /api/auth/login
+
+- Auth: publico
+- RBAC: no aplica
+
+Request:
+
+```json
+{
+  "email": "admin@company.com",
+  "password": "StrongPass123!"
+}
+```
+
+Response `200 OK`: `AuthResponse`
+
+```json
+{
+  "accessToken": "jwt",
+  "refreshToken": "refresh-token",
+  "expiresIn": 3600,
+  "user": {
+    "id": "guid",
+    "email": "admin@company.com",
+    "firstName": "Admin",
+    "lastName": "User",
+    "authProvider": "Local"
+  }
+}
+```
+
+Flow:
+
+1. Valida `email` y `password`.
+2. Busca usuario por email normalizado.
+3. Verifica que sea usuario local activo y que el password hash coincida.
+4. Emite access token y refresh token nuevos.
+
+Main errors:
+
+- `400`
+- `401` (`auth.login.invalid_credentials`)
+- `500`
+
 ### POST /api/auth/refresh
 
 - Auth: publico
@@ -824,6 +903,28 @@ Flow:
 Main errors:
 
 - `400`
+- `401`
+- `500`
+
+### POST /api/auth/logout
+
+- Auth: JWT requerido
+- RBAC: no aplica
+
+Request body: none
+
+Response:
+
+- `204 No Content`
+
+Flow:
+
+1. Resuelve el usuario autenticado desde el JWT.
+2. Revoca todos los refresh tokens activos de ese usuario.
+3. Persiste revocacion y finaliza sin body.
+
+Main errors:
+
 - `401`
 - `500`
 
@@ -883,7 +984,7 @@ Flow:
 2. Verifica si la empresa existe.
 3. Si existe pero no pertenece al usuario, devuelve `COMPANY_OWNERSHIP_FORBIDDEN`.
 4. Si no existe, devuelve `COMPANY_NOT_FOUND`.
-5. Si pertenece al usuario, devuelve detalle.
+5. Si pertenece al usuario, devuelve detalle incluyendo `activeLegalRepresentatives[]`.
 
 Main errors:
 
@@ -901,7 +1002,23 @@ Request:
 
 ```json
 {
-  "name": "Acme Services"
+  "name": "Acme Services",
+  "initialLegalRepresentative": {
+    "firstName": "Ana",
+    "lastName": "Mendoza",
+    "documentType": "TaxId",
+    "documentNumber": "0614-290190-102-3",
+    "positionTitle": "Representante Legal",
+    "representationType": "PrimaryLegalRepresentative",
+    "authorityDescription": "Representacion general",
+    "appointmentInstrument": "Acta de nombramiento",
+    "appointmentDateUtc": "2026-01-01T00:00:00Z",
+    "effectiveFromUtc": "2026-01-01T00:00:00Z",
+    "effectiveToUtc": null,
+    "email": "ana@company.com",
+    "phone": "+50370000000",
+    "isPrimary": true
+  }
 }
 ```
 
@@ -1224,6 +1341,7 @@ Busqueda soportada:
 - `q?`
 - `page`
 - `pageSize`
+- `includeAllowedActions` (default `false`)
 
 ### GET /api/v1/org-units/{id}
 
@@ -1284,6 +1402,38 @@ Main errors:
   - `rootId?`
   - `depth?` (1..15)
 
+### GET /api/v1/companies/{companyId}/org-units/export?format=csv|xlsx
+
+- Auth: JWT requerido
+- Authorization: `OrgUnits.Read` o `OrgUnits.Admin`
+- Filtros opcionales:
+  - `isActive?`
+  - `type?`
+  - `parentId?`
+  - `q?`
+- Formatos:
+  - `csv`
+  - `xlsx`
+- Errores:
+  - `400` (`REPORT_FORMAT_NOT_SUPPORTED`)
+  - `401`
+  - `403`
+  - `404`
+
+### GET /api/v1/companies/{companyId}/org-units/diagram-export?format=graphml|json|dot
+
+- Auth: JWT requerido
+- Authorization: `OrgUnits.Read` o `OrgUnits.Admin`
+- Query params:
+  - `format` (`graphml|json|dot`)
+  - `rootId?`
+  - `depth?` (1..15)
+- Errores:
+  - `400` (`REPORT_FORMAT_NOT_SUPPORTED`)
+  - `401`
+  - `403`
+  - `404`
+
 ## 3D. Job Profiles And Job Catalogs
 
 Este modulo fue agregado en HU-012 y usa rutas bajo `/api/v1`.
@@ -1314,6 +1464,7 @@ Busqueda soportada:
 - `q?`
 - `page`
 - `pageSize`
+- `includeAllowedActions` (default `false`)
 
 ### GET /api/v1/job-profiles/{id}
 ### GET /api/v1/job-profiles/{id}/vacancy-template
@@ -1395,6 +1546,7 @@ Detalle tecnico complementario: `../api-output/position-slots.md`.
   - `q?`
   - `page`
   - `pageSize`
+- `includeAllowedActions` (default `false`)
 
 ### GET /api/v1/position-slots/{id}
 
@@ -1493,6 +1645,7 @@ Detalle tecnico complementario: `../api-output/salary-tabulator.md`.
   - `q?`
   - `page`
   - `pageSize`
+  - `includeAllowedActions` (default `false`)
 
 ### POST /api/v1/companies/{companyId}/salary-tabulator/change-requests
 ### PUT /api/v1/salary-tabulator/change-requests/{id}
@@ -1532,6 +1685,7 @@ Detalle tecnico complementario: `../api-output/salary-tabulator.md`.
   - `effectiveTo?`
   - `page`
   - `pageSize`
+  - `includeAllowedActions` (default `false`)
 
 Main errors:
 
@@ -3355,6 +3509,7 @@ Query params:
 - `q` optional
 - `page` default `1`
 - `pageSize` default `20`
+- `includeAllowedActions` default `false`
 
 Response `200 OK`: `PagedResponse<CostCenterListItemResponse>`
 
@@ -3482,6 +3637,32 @@ Main errors:
 - `401`
 - `403`
 
+## 11. Reports Capabilities
+
+Endpoint transversal para consultar capacidades de impresion/exportacion por recurso funcional.
+
+### GET /api/v1/companies/{companyId}/reports/capabilities?resource={resourceKey}
+
+- Auth: JWT requerido
+- Tenant: `companyId` debe coincidir con `tid`
+- Authorization: permisos de lectura del recurso solicitado (`OrgUnits.Read`, `JobProfiles.Read`, `PositionSlots.Read`, `SalaryTabulator.Read`, `CostCenters.Read`, `LegalRepresentatives.Read`)
+- Recursos soportados en v1:
+  - `ORG_UNITS`
+  - `JOB_PROFILES`
+  - `POSITION_SLOTS`
+  - `SALARY_TABULATOR`
+  - `COST_CENTERS`
+  - `LEGAL_REPRESENTATIVES`
+
+Response `200 OK`: `ReportCapabilitiesResponse`
+
+Main errors:
+
+- `400`
+- `401`
+- `403`
+- `404` (`REPORT_NOT_AVAILABLE`)
+
 ## Current endpoint inventory
 
 Estado actual del API documentado en este archivo:
@@ -3489,7 +3670,9 @@ Estado actual del API documentado en este archivo:
 - `GET /api/system/status`
 - `POST /api/auth/register`
 - `POST /api/auth/external`
+- `POST /api/auth/login`
 - `POST /api/auth/refresh`
+- `POST /api/auth/logout`
 - `GET /api/account/companies`
 - `GET /api/account/companies/{companyId}`
 - `POST /api/account/companies`
@@ -3497,6 +3680,15 @@ Estado actual del API documentado en este archivo:
 - `PATCH /api/account/companies/{companyId}/archive`
 - `PATCH /api/account/companies/{companyId}/reactivate`
 - `POST /api/account/companies/{companyId}/switch`
+- `GET /api/v1/companies/{companyId}/legal-representatives`
+- `GET /api/v1/legal-representatives/{id}`
+- `GET /api/v1/legal-representatives/{id}/usage`
+- `GET /api/v1/companies/{companyId}/legal-representatives/export`
+- `POST /api/v1/companies/{companyId}/legal-representatives`
+- `PUT /api/v1/legal-representatives/{id}`
+- `PATCH /api/v1/legal-representatives/{id}/activate`
+- `PATCH /api/v1/legal-representatives/{id}/inactivate`
+- `PATCH /api/v1/legal-representatives/{id}/set-primary`
 - `GET /api/company/users`
 - `POST /api/company/users`
 - `PUT /api/company/users/{userId}`
@@ -3538,6 +3730,8 @@ Estado actual del API documentado en este archivo:
 - `PATCH /api/v1/org-units/{id}/inactivate`
 - `GET /api/v1/companies/{companyId}/org-units/tree`
 - `GET /api/v1/companies/{companyId}/org-units/graph`
+- `GET /api/v1/companies/{companyId}/org-units/export?format=csv|xlsx`
+- `GET /api/v1/companies/{companyId}/org-units/diagram-export?format=graphml|json|dot`
 - `POST /api/v1/companies/{companyId}/job-profiles`
 - `GET /api/v1/companies/{companyId}/job-profiles`
 - `GET /api/v1/job-profiles/{id}`
@@ -3581,3 +3775,4 @@ Estado actual del API documentado en este archivo:
 - `PATCH /api/v1/salary-tabulator/change-requests/{id}/reject`
 - `PATCH /api/v1/salary-tabulator/change-requests/{id}/cancel`
 - `GET /api/v1/salary-tabulator/change-requests/{id}/impact`
+- `GET /api/v1/companies/{companyId}/reports/capabilities?resource={resourceKey}`

@@ -10,10 +10,12 @@ using CLARIHR.Application.Features.AccountCompanies;
 using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CompanyUsers;
+using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
+using CLARIHR.Domain.LegalRepresentatives;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CLARIHR.Application.UnitTests;
@@ -32,7 +34,8 @@ public sealed class AccountCompanyAdministrationTests
         userRepository.Seed(currentUser);
 
         var auditService = new TestAuditService();
-        var provisioningService = new TestCompanyProvisioningService(new ProvisionedCompanyResult(
+        var companyRepository = new TestCompanyRepository();
+        var provisioningService = new TestCompanyProvisioningService(companyRepository, new ProvisionedCompanyResult(
             Guid.Parse("22222222-2222-2222-2222-222222222222"),
             "Acme Services",
             "acme-services",
@@ -44,11 +47,15 @@ public sealed class AccountCompanyAdministrationTests
             userRepository,
             new TestCompanyOwnershipPolicy(hasCapacity: true),
             provisioningService,
+            companyRepository,
             auditService,
+            new TestTenantContext(CurrentTenantId),
             new TestUnitOfWork(),
             NullLogger<CreateAccountCompanyCommandHandler>.Instance);
 
-        var result = await handler.Handle(new CreateAccountCompanyCommand("Acme Services"), CancellationToken.None);
+        var result = await handler.Handle(
+            new CreateAccountCompanyCommand("Acme Services", CreateInitialLegalRepresentative()),
+            CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Acme Services", result.Value.Name);
@@ -65,17 +72,22 @@ public sealed class AccountCompanyAdministrationTests
     {
         var userRepository = new TestUserRepository();
         userRepository.Seed(CreatePersistedUser(CurrentUserId, "owner@test.com"));
+        var companyRepository = new TestCompanyRepository();
 
         var handler = new CreateAccountCompanyCommandHandler(
             new TestCurrentUserService(CurrentUserId),
             userRepository,
             new TestCompanyOwnershipPolicy(hasCapacity: false),
-            new TestCompanyProvisioningService(null),
+            new TestCompanyProvisioningService(companyRepository, null),
+            companyRepository,
             new TestAuditService(),
+            new TestTenantContext(CurrentTenantId),
             new TestUnitOfWork(),
             NullLogger<CreateAccountCompanyCommandHandler>.Instance);
 
-        var result = await handler.Handle(new CreateAccountCompanyCommand("Acme Services"), CancellationToken.None);
+        var result = await handler.Handle(
+            new CreateAccountCompanyCommand("Acme Services", CreateInitialLegalRepresentative()),
+            CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(AccountCompanyErrors.CompanyLimitReached.Code, result.Error.Code);
@@ -272,6 +284,23 @@ public sealed class AccountCompanyAdministrationTests
         return company;
     }
 
+    private static InitialLegalRepresentativeInput CreateInitialLegalRepresentative() =>
+        new(
+            "Ana",
+            "Mendoza",
+            LegalRepresentativeDocumentType.TaxId,
+            "0614-290190-102-3",
+            "Representante Legal",
+            LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
+            "Representación general judicial y administrativa",
+            "Acta de nombramiento",
+            new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
+            null,
+            "ana.mendoza@test.com",
+            "+50370000000",
+            IsPrimary: true);
+
     private static void SetEntityId(Entity entity, long id)
     {
         typeof(Entity)
@@ -364,7 +393,8 @@ public sealed class AccountCompanyAdministrationTests
                 activeTenantId.HasValue && activeTenantId.Value == company.PublicId,
                 IsOwnedByCurrentUser: true,
                 company.CreatedUtc,
-                company.ModifiedUtc));
+                company.ModifiedUtc,
+                Array.Empty<ActiveLegalRepresentativeSummaryResponse>()));
         }
 
         public async Task<PagedResponse<AccountCompanySummaryResponse>> GetOwnedByUserAsync(
@@ -510,7 +540,7 @@ public sealed class AccountCompanyAdministrationTests
             Task.FromResult(hasCapacity);
     }
 
-    private sealed class TestCompanyProvisioningService(ProvisionedCompanyResult? nextResult) : ICompanyProvisioningService
+    private sealed class TestCompanyProvisioningService(TestCompanyRepository companyRepository, ProvisionedCompanyResult? nextResult) : ICompanyProvisioningService
     {
         public ProvisionCompanyRequest? LastRequest { get; private set; }
 
@@ -519,6 +549,15 @@ public sealed class AccountCompanyAdministrationTests
             CancellationToken cancellationToken)
         {
             LastRequest = request;
+            if (nextResult is not null)
+            {
+                companyRepository.Add(CreateCompany(
+                    request.OwnerUserPublicId,
+                    nextResult.CompanyName,
+                    nextResult.Slug,
+                    nextResult.CompanyId));
+            }
+
             return Task.FromResult(
                 nextResult is null
                     ? Result<ProvisionedCompanyResult>.Failure(AccountCompanyErrors.CompanyLimitReached)

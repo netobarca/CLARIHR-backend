@@ -5,6 +5,7 @@ using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.LegalRepresentatives;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Infrastructure.Persistence;
 using System.Reflection;
@@ -29,6 +30,21 @@ internal static class IntegrationTestSeeder
 
         var tenantA = companyA.PublicId;
         var tenantB = companyB.PublicId;
+
+        dbContext.LegalRepresentatives.AddRange(
+            CreateLegalRepresentative(
+                tenantA,
+                "Security",
+                "Representative",
+                "security.representative@acme-one.test",
+                "A-HU016-0001"),
+            CreateLegalRepresentative(
+                tenantB,
+                "Audit",
+                "Representative",
+                "audit.representative@acme-two.test",
+                "B-HU016-0001"));
+        await dbContext.SaveChangesAsync();
 
         dbContext.CompanySubscriptions.AddRange(
             CompanySubscription.Activate(companyA.Id, ProvisioningConstants.FreePlanCode, DateTime.UtcNow.Date),
@@ -249,6 +265,32 @@ internal static class IntegrationTestSeeder
         var permission = PermissionMatrixCatalog.CreatePermission(screen, action);
         permission.SetTenantId(tenantId);
         return permission;
+    }
+
+    private static LegalRepresentative CreateLegalRepresentative(
+        Guid tenantId,
+        string firstName,
+        string lastName,
+        string email,
+        string documentNumber)
+    {
+        var legalRepresentative = LegalRepresentative.Create(
+            firstName,
+            lastName,
+            LegalRepresentativeDocumentType.Other,
+            documentNumber,
+            "Representante Legal",
+            LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
+            "Integration test seed representative.",
+            "Integration test seed instrument.",
+            appointmentDateUtc: DateTime.UtcNow.Date,
+            effectiveFromUtc: DateTime.UtcNow.Date,
+            effectiveToUtc: null,
+            email,
+            phone: null,
+            isPrimary: true);
+        legalRepresentative.SetTenantId(tenantId);
+        return legalRepresentative;
     }
 
     private static void StampTenant(IEnumerable<TenantEntity> entities, Guid tenantId)

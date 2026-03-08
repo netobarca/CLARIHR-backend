@@ -87,7 +87,9 @@ internal sealed class CreateAccountCompanyCommandHandler(
     IUserRepository userRepository,
     ICompanyOwnershipPolicy companyOwnershipPolicy,
     ICompanyProvisioningService companyProvisioningService,
+    ICompanyRepository companyRepository,
     IAuditService auditService,
+    ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
     ILogger<CreateAccountCompanyCommandHandler> logger)
     : ICommandHandler<CreateAccountCompanyCommand, AccountCompanyDetailResponse>
@@ -118,6 +120,7 @@ internal sealed class CreateAccountCompanyCommandHandler(
                 new ProvisionCompanyRequest(
                     currentUserResult.Value.PublicId,
                     command.Name,
+                    command.InitialLegalRepresentative,
                     MakePrimary: false,
                     ProvisioningConstants.FreePlanCode,
                     ProvisionAsInitialCompany: false),
@@ -128,16 +131,12 @@ internal sealed class CreateAccountCompanyCommandHandler(
                 return Result<AccountCompanyDetailResponse>.Failure(provisioningResult.Error);
             }
 
-            var response = new AccountCompanyDetailResponse(
+            var response = await companyRepository.FindOwnedByUserAsync(
                 provisioningResult.Value.CompanyId,
-                provisioningResult.Value.CompanyName,
-                provisioningResult.Value.Slug,
-                CompanyStatus.Active,
-                provisioningResult.Value.PlanCode,
-                IsActiveContext: false,
-                IsOwnedByCurrentUser: true,
-                provisioningResult.Value.CreatedAtUtc,
-                ModifiedAtUtc: null);
+                currentUserResult.Value.PublicId,
+                tenantContext.TenantId,
+                cancellationToken)
+                ?? throw new InvalidOperationException("Company response could not be resolved after creation.");
 
             await auditService.LogForTenantAsync(
                 provisioningResult.Value.CompanyId,

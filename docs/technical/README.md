@@ -7,6 +7,7 @@
 - `postman-collection/`: coleccion y entorno base para pruebas manuales.
 - `sql/`: scripts SQL versionados por HU e iteracion.
 - `frontend-api-docker-setup.md`: paso a paso para levantar API + PostgreSQL en Docker para pruebas frontend.
+- `api-seed-e2e-test-flow.md`: guia paso a paso de pruebas E2E con requests/responses usando seed local.
 
 ## Update rule
 

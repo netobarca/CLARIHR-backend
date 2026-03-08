@@ -20,6 +20,8 @@ HU-011 introduce administracion tenant-scoped de unidades organizativas para org
 - `PATCH /api/v1/org-units/{id}/inactivate`
 - `GET /api/v1/companies/{companyId}/org-units/tree`
 - `GET /api/v1/companies/{companyId}/org-units/graph`
+- `GET /api/v1/companies/{companyId}/org-units/export?format=csv|xlsx`
+- `GET /api/v1/companies/{companyId}/org-units/diagram-export?format=graphml|json|dot`
 
 ## Security
 
@@ -54,6 +56,7 @@ Busqueda `GET /api/v1/companies/{companyId}/org-units`:
 - `q?`
 - `page` (default `1`)
 - `pageSize` (default `20`)
+- `includeAllowedActions` (default `false`)
 
 Escrituras:
 
@@ -69,7 +72,7 @@ Escrituras:
 Respuesta base:
 
 - `OrgUnitResponse`
-  - `id`, `code`, `name`, `unitType`, `parentId`, `sortOrder`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc`
+  - `id`, `code`, `name`, `unitType`, `parentId`, `sortOrder`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc`, `allowedActions`
 
 ## Errores esperados
 

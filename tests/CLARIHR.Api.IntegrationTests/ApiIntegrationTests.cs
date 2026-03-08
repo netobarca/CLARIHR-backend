@@ -48,6 +48,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             email = "admin.local@test.com",
             password = "StrongPass123!",
             companyName = "Acme Local",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload(),
             country = "SV",
             source = "integration-tests"
         });
@@ -59,6 +60,134 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.False(string.IsNullOrWhiteSpace(payload!.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(payload.RefreshToken));
         Assert.Equal("admin.local@test.com", payload.User.Email);
+    }
+
+    [Fact]
+    public async Task Register_WithoutInitialLegalRepresentative_ShouldReturnBadRequest()
+    {
+        await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "Admin",
+            lastName = "Local",
+            email = "admin.local@test.com",
+            password = "StrongPass123!",
+            companyName = "Acme Local",
+            country = "SV",
+            source = "integration-tests"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_ShouldReturnTokens_WhenCredentialsAreValid()
+    {
+        await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var email = $"login.user.{Guid.NewGuid():N}@clarihr.test";
+        const string password = "StrongPass123!";
+
+        var registerResponse = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "Login",
+            lastName = "User",
+            email,
+            password,
+            companyName = "Login Company",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload(),
+            country = "SV",
+            source = "integration-tests"
+        });
+        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email,
+            password
+        });
+
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+        var payload = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(string.IsNullOrWhiteSpace(payload!.AccessToken));
+        Assert.False(string.IsNullOrWhiteSpace(payload.RefreshToken));
+        Assert.Equal(email, payload.User.Email);
+    }
+
+    [Fact]
+    public async Task Login_WithInvalidCredentials_ShouldReturnUnauthorized()
+    {
+        await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var email = $"login.user.invalid.{Guid.NewGuid():N}@clarihr.test";
+        const string password = "StrongPass123!";
+
+        var registerResponse = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "Login",
+            lastName = "Invalid",
+            email,
+            password,
+            companyName = "Login Invalid Company",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload(),
+            country = "SV",
+            source = "integration-tests"
+        });
+        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email,
+            password = "WrongPassword123!"
+        });
+
+        await AssertProblemDetailsAsync(loginResponse, HttpStatusCode.Unauthorized, "auth.login.invalid_credentials");
+    }
+
+    [Fact]
+    public async Task Logout_ShouldRevokeRefreshTokensForAuthenticatedUser()
+    {
+        await factory.ResetDatabaseAsync();
+        using var anonymousClient = factory.CreateClient();
+
+        var email = $"logout.user.{Guid.NewGuid():N}@clarihr.test";
+        const string password = "StrongPass123!";
+
+        var registerResponse = await anonymousClient.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "Logout",
+            lastName = "User",
+            email,
+            password,
+            companyName = "Logout Company",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload(),
+            country = "SV",
+            source = "integration-tests"
+        });
+        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+
+        var registerPayload = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
+        Assert.NotNull(registerPayload);
+        Assert.False(string.IsNullOrWhiteSpace(registerPayload!.RefreshToken));
+
+        var tenantId = ExtractTenantIdFromJwt(registerPayload.AccessToken);
+        using var authenticatedClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(registerPayload.User.Id, tenantId));
+
+        var logoutResponse = await authenticatedClient.PostAsync("/api/auth/logout", content: null);
+        Assert.Equal(HttpStatusCode.NoContent, logoutResponse.StatusCode);
+
+        var refreshResponse = await anonymousClient.PostAsJsonAsync("/api/auth/refresh", new
+        {
+            refreshToken = registerPayload.RefreshToken
+        });
+
+        await AssertProblemDetailsAsync(refreshResponse, HttpStatusCode.Unauthorized, "auth.refresh.invalid_token");
     }
 
     [Fact]
@@ -79,7 +208,53 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task AccountCompanies_GetById_ShouldReturnActiveLegalRepresentatives()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/account/companies/{scenario.TenantId}");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        var representative = Assert.Single(payload!.ActiveLegalRepresentatives);
+        Assert.True(representative.IsPrimary);
+        Assert.Equal("PrimaryLegalRepresentative", representative.RepresentationType);
+        Assert.False(string.IsNullOrWhiteSpace(representative.FullName));
+    }
+
+    [Fact]
     public async Task AccountCompanies_Create_WhenBelowLimit_ShouldReturnCreatedCompanyWithoutSwitchingContext()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            companyToArchive.Archive();
+            await dbContext.SaveChangesAsync();
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PostAsJsonAsync("/api/account/companies", new
+        {
+            name = "Acme Three",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Acme Three", payload!.Name);
+        Assert.Equal("FREE", payload.PlanCode);
+        Assert.False(payload.IsActiveContext);
+        Assert.Equal("Active", payload.Status);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Create_WithoutInitialLegalRepresentative_ShouldReturnBadRequest()
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
@@ -95,14 +270,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             name = "Acme Three"
         });
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
-        Assert.NotNull(payload);
-        Assert.Equal("Acme Three", payload!.Name);
-        Assert.Equal("FREE", payload.PlanCode);
-        Assert.False(payload.IsActiveContext);
-        Assert.Equal("Active", payload.Status);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
@@ -119,7 +287,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var createResponse = await accountClient.PostAsJsonAsync("/api/account/companies", new
         {
-            name = "Acme Three"
+            name = "Acme Three",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
         });
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -149,7 +318,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var response = await client.PostAsJsonAsync("/api/account/companies", new
         {
-            name = "Acme Three"
+            name = "Acme Three",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "COMPANY_LIMIT_REACHED");
@@ -258,6 +428,100 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var token = new JwtSecurityTokenHandler().ReadJwtToken(payload.AccessToken);
         var tid = token.Claims.Single(claim => claim.Type == "tid").Value;
         Assert.Equal(scenario.OtherTenantId.ToString(), tid);
+    }
+
+    [Fact]
+    public async Task LegalRepresentatives_CreateAndList_ShouldReturnCreatedRepresentative()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                "LegalRepresentatives.Admin"));
+
+        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/legal-representatives", new
+        {
+            firstName = "Carla",
+            lastName = "Lopez",
+            documentType = "Passport",
+            documentNumber = "P-12345678",
+            positionTitle = "Apoderada Legal",
+            representationType = "AttorneyInFact",
+            authorityDescription = "Representacion especial",
+            appointmentInstrument = "Poder especial",
+            appointmentDateUtc = DateTime.UtcNow.Date,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            email = "carla.lopez@test.com",
+            phone = "+50371111111",
+            isPrimary = false
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var created = await createResponse.Content.ReadFromJsonAsync<LegalRepresentativeItem>(JsonOptions);
+        Assert.NotNull(created);
+
+        var listResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/legal-representatives?page=1&pageSize=20");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<LegalRepresentativeListItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+        Assert.Contains(listPayload!.Items, item => item.Id == created!.Id);
+    }
+
+    [Fact]
+    public async Task LegalRepresentatives_InactivateLastActive_ShouldReturnConflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                "LegalRepresentatives.Admin"));
+
+        var listResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/legal-representatives?isActive=true&page=1&pageSize=20");
+        listResponse.EnsureSuccessStatusCode();
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<LegalRepresentativeListItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+        var target = Assert.Single(listPayload!.Items);
+
+        var inactivateResponse = await client.PatchAsJsonAsync(
+            $"/api/v1/legal-representatives/{target.Id}/inactivate",
+            new { concurrencyToken = target.ConcurrencyToken });
+
+        await AssertProblemDetailsAsync(
+            inactivateResponse,
+            HttpStatusCode.Conflict,
+            "LEGAL_REPRESENTATIVE_ACTIVE_MIN_REQUIRED");
+    }
+
+    [Fact]
+    public async Task LegalRepresentatives_GetById_WhenTenantMismatch_ShouldReturnForbidden()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var sourceClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                "LegalRepresentatives.Admin"));
+
+        var listResponse = await sourceClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/legal-representatives?page=1&pageSize=20");
+        listResponse.EnsureSuccessStatusCode();
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<LegalRepresentativeListItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+        var representative = Assert.Single(listPayload!.Items);
+
+        using var otherTenantClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.OtherTenantId,
+                "LegalRepresentatives.Admin"));
+
+        var response = await otherTenantClient.GetAsync($"/api/v1/legal-representatives/{representative.Id}");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
     }
 
     [Fact]
@@ -677,10 +941,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task OrgUnits_TreeAndGraph_ShouldReturnCreatedHierarchy()
+    public async Task OrgUnits_TreeGraphAndExports_ShouldReturnCreatedHierarchyAndFiles()
     {
         var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminWithAuditContext(scenario));
 
         var root = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
         var child = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia", root.Id);
@@ -704,6 +968,37 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var edge = Assert.Single(graph.Edges);
         Assert.Equal(root.Id, edge.FromId);
         Assert.Equal(child.Id, edge.ToId);
+
+        var csvResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/export?format=csv");
+        csvResponse.EnsureSuccessStatusCode();
+        Assert.Equal("text/csv", csvResponse.Content.Headers.ContentType?.MediaType);
+
+        var xlsxResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/export?format=xlsx");
+        xlsxResponse.EnsureSuccessStatusCode();
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            xlsxResponse.Content.Headers.ContentType?.MediaType);
+
+        var graphMlResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/diagram-export?format=graphml");
+        graphMlResponse.EnsureSuccessStatusCode();
+        Assert.Equal("application/graphml+xml", graphMlResponse.Content.Headers.ContentType?.MediaType);
+
+        var jsonResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/diagram-export?format=json");
+        jsonResponse.EnsureSuccessStatusCode();
+        Assert.Equal("application/json", jsonResponse.Content.Headers.ContentType?.MediaType);
+
+        var dotResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/diagram-export?format=dot");
+        dotResponse.EnsureSuccessStatusCode();
+        Assert.Equal("text/vnd.graphviz", dotResponse.Content.Headers.ContentType?.MediaType);
+
+        var invalidFormatResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units/diagram-export?format=svg");
+        await AssertProblemDetailsAsync(invalidFormatResponse, HttpStatusCode.BadRequest, "REPORT_FORMAT_NOT_SUPPORTED");
+
+        var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=100");
+        auditResponse.EnsureSuccessStatusCode();
+        var auditPayload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
+        Assert.NotNull(auditPayload);
+        Assert.Contains(auditPayload!.Items, item => item.EventType == "REPORT_EXPORTED" && item.EntityType == "OrgUnit");
     }
 
     [Fact]
@@ -726,6 +1021,118 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units?page=1&pageSize=20");
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "ORG_UNITS_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task Policy_IncludeAllowedActions_ShouldReturnActionsInCoreLists()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+
+        using var orgUnitClient = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(orgUnitClient, scenario.TenantId, "DIR-AA", "Direccion AllowedActions", "Direccion");
+
+        using var jobProfileClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var jobProfile = await CreateJobProfileAsync(jobProfileClient, scenario.TenantId, "JP-AA", "Perfil AllowedActions");
+
+        using var positionSlotClient = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+        _ = await CreatePositionSlotAsync(
+            positionSlotClient,
+            scenario.TenantId,
+            code: "PS-AA",
+            title: "Plaza AllowedActions",
+            jobProfileId: jobProfile.Id,
+            orgUnitId: orgUnit.Id,
+            maxEmployees: 1);
+
+        using var costCenterClient = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+        _ = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-AA", "Centro AllowedActions", "Mixed");
+
+        using var legalRepresentativeClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                "LegalRepresentatives.Read"));
+
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        var createdRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-AA", "S1", 1300m);
+        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
+        {
+            concurrencyToken = createdRequest.ConcurrencyToken
+        });
+        submitResponse.EnsureSuccessStatusCode();
+        var submittedRequest = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(submittedRequest);
+
+        using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
+        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        {
+            decisionComment = "ok",
+            concurrencyToken = submittedRequest!.ConcurrencyToken
+        });
+        approveResponse.EnsureSuccessStatusCode();
+
+        var orgUnitsList = await orgUnitClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/org-units?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(orgUnitsList);
+
+        var profilesList = await jobProfileClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/job-profiles?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(profilesList);
+
+        var slotsList = await positionSlotClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-slots?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(slotsList);
+
+        var costCentersList = await costCenterClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/cost-centers?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(costCentersList);
+
+        var legalRepresentativesList = await legalRepresentativeClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/legal-representatives?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(legalRepresentativesList);
+
+        var salaryLinesList = await approverClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/salary-tabulator?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(salaryLinesList);
+
+        var salaryRequestsList = await approverClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/salary-tabulator/change-requests?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(salaryRequestsList);
+    }
+
+    [Fact]
+    public async Task Reports_Capabilities_ShouldReturnCapabilitiesByResource()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitReadContext(scenario));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/reports/capabilities?resource={OrgUnitPermissionCodes.ResourceKey}");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<ReportCapabilitiesItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(OrgUnitPermissionCodes.ResourceKey, payload!.ResourceKey);
+        Assert.True(payload.SupportsExport);
+        Assert.False(payload.SupportsPrint);
+        Assert.Contains("csv", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("xlsx", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("graphml", payload.SupportedGraphFormats, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("json", payload.SupportedGraphFormats, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("dot", payload.SupportedGraphFormats, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Reports_Capabilities_WithUnsupportedResource_ShouldReturn404()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitReadContext(scenario));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/reports/capabilities?resource=NOT_SUPPORTED");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.NotFound, "REPORT_NOT_AVAILABLE");
     }
 
     [Fact]
@@ -888,6 +1295,37 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var exportCsvResponse = await client.GetAsync($"/api/v1/job-profiles/{published.Id}/export?format=csv");
         exportCsvResponse.EnsureSuccessStatusCode();
         Assert.Equal("text/csv", exportCsvResponse.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task JobProfiles_PrintAndExport_ShouldWriteReportAuditEvents()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminWithAuditContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-REP", "Perfil Reporte");
+
+        var publishResponse = await client.PatchAsJsonAsync($"/api/v1/job-profiles/{profile.Id}/publish", new
+        {
+            concurrencyToken = profile.ConcurrencyToken
+        });
+        publishResponse.EnsureSuccessStatusCode();
+        var published = await publishResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(published);
+
+        var printResponse = await client.GetAsync($"/api/v1/job-profiles/{published!.Id}/print");
+        printResponse.EnsureSuccessStatusCode();
+
+        var exportResponse = await client.GetAsync($"/api/v1/job-profiles/{published.Id}/export?format=csv");
+        exportResponse.EnsureSuccessStatusCode();
+
+        var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=100");
+        auditResponse.EnsureSuccessStatusCode();
+
+        var payload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Items, static item => item.EventType == "REPORT_PRINTED" && item.EntityType == "JobProfile");
+        Assert.Contains(payload.Items, static item => item.EventType == "REPORT_EXPORTED" && item.EntityType == "JobProfile");
     }
 
     [Fact]
@@ -3070,6 +3508,49 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return payload!;
     }
 
+    private static Guid ExtractTenantIdFromJwt(string accessToken)
+    {
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
+        var tenantId = token.Claims.FirstOrDefault(static claim => claim.Type == "tid")?.Value;
+        Assert.False(string.IsNullOrWhiteSpace(tenantId));
+        return Guid.Parse(tenantId!);
+    }
+
+    private static object CreateInitialLegalRepresentativePayload() =>
+        new
+        {
+            firstName = "Ana",
+            lastName = "Mendoza",
+            documentType = "TaxId",
+            documentNumber = "0614-290190-102-3",
+            positionTitle = "Representante Legal",
+            representationType = "PrimaryLegalRepresentative",
+            authorityDescription = "Representación general",
+            appointmentInstrument = "Acta de nombramiento",
+            appointmentDateUtc = DateTime.UtcNow.Date,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            email = "ana.mendoza@test.com",
+            phone = "+50370000000",
+            isPrimary = true
+        };
+
+    private static async Task AssertFirstItemHasAllowedActionsAsync(HttpResponseMessage response)
+    {
+        response.EnsureSuccessStatusCode();
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var items = document.RootElement.GetProperty("items");
+        Assert.True(items.GetArrayLength() > 0);
+
+        var firstItem = items[0];
+        Assert.True(firstItem.TryGetProperty("allowedActions", out var allowedActions));
+        Assert.Equal(JsonValueKind.Object, allowedActions.ValueKind);
+        Assert.True(allowedActions.TryGetProperty("canEdit", out _));
+        Assert.True(allowedActions.TryGetProperty("reasons", out var reasons));
+        Assert.Equal(JsonValueKind.Array, reasons.ValueKind);
+    }
+
     private static async Task AssertProblemDetailsAsync(HttpResponseMessage response, HttpStatusCode expectedStatusCode, string expectedCode)
     {
         Assert.Equal(expectedStatusCode, response.StatusCode);
@@ -3115,7 +3596,48 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         bool IsActiveContext,
         bool IsOwnedByCurrentUser,
         DateTime CreatedAtUtc,
-        DateTime? ModifiedAtUtc);
+        DateTime? ModifiedAtUtc,
+        IReadOnlyCollection<ActiveLegalRepresentativeItem> ActiveLegalRepresentatives);
+
+    private sealed record ActiveLegalRepresentativeItem(
+        Guid Id,
+        string FullName,
+        string RepresentationType,
+        string PositionTitle,
+        bool IsPrimary);
+
+    private sealed record LegalRepresentativeItem(
+        Guid Id,
+        Guid CompanyId,
+        string FirstName,
+        string LastName,
+        string FullName,
+        string DocumentType,
+        string DocumentNumber,
+        string PositionTitle,
+        string RepresentationType,
+        string? AuthorityDescription,
+        string? AppointmentInstrument,
+        DateTime? AppointmentDateUtc,
+        DateTime EffectiveFromUtc,
+        DateTime? EffectiveToUtc,
+        string? Email,
+        string? Phone,
+        bool IsPrimary,
+        bool IsActive,
+        Guid ConcurrencyToken);
+
+    private sealed record LegalRepresentativeListItem(
+        Guid Id,
+        Guid CompanyId,
+        string FullName,
+        string DocumentType,
+        string DocumentNumber,
+        string PositionTitle,
+        string RepresentationType,
+        bool IsPrimary,
+        bool IsActive,
+        Guid ConcurrencyToken);
 
     private sealed record ActiveCompanyItem(
         Guid CompanyId,
@@ -3315,6 +3837,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string RequestNumber,
         SalaryTabulatorChangeRequestStatus Status,
         Guid ConcurrencyToken);
+
+    private sealed record ReportCapabilitiesItem(
+        string ResourceKey,
+        bool SupportsPrint,
+        bool SupportsExport,
+        IReadOnlyCollection<string> SupportedTableFormats,
+        IReadOnlyCollection<string> SupportedGraphFormats);
 
     private sealed record IamUserSummaryItem(
         Guid Id,

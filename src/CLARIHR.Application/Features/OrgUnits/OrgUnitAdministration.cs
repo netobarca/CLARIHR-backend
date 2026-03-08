@@ -2,10 +2,12 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Abstractions.OrgUnits;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
@@ -26,6 +28,22 @@ public sealed record OrgUnitResponse(
     Guid? ManagerEmployeeId,
     bool IsActive,
     Guid ConcurrencyToken,
+    DateTime CreatedAtUtc,
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
+
+public sealed record OrgUnitExportRow(
+    Guid Id,
+    string Code,
+    string Name,
+    OrgUnitType UnitType,
+    string? ParentCode,
+    string? ParentName,
+    int? SortOrder,
+    string? Description,
+    string? CostCenterCode,
+    Guid? ManagerEmployeeId,
+    bool IsActive,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
 
@@ -75,9 +93,18 @@ public sealed record SearchOrgUnitsQuery(
     OrgUnitType? Type,
     Guid? ParentId,
     int PageNumber = 1,
-    int PageSize = OrgUnitValidationRules.DefaultPageSize) : IQuery<PagedResponse<OrgUnitResponse>>;
+    int PageSize = OrgUnitValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false) : IQuery<PagedResponse<OrgUnitResponse>>;
 
 public sealed record GetOrgUnitByIdQuery(Guid OrgUnitId) : IQuery<OrgUnitResponse>;
+
+public sealed record GetOrgUnitExportRowsQuery(
+    Guid CompanyId,
+    bool? IsActive,
+    string? Search,
+    OrgUnitType? Type,
+    Guid? ParentId)
+    : IQuery<IReadOnlyCollection<OrgUnitExportRow>>;
 
 public sealed record CreateOrgUnitCommand(
     Guid CompanyId,
@@ -246,9 +273,22 @@ internal sealed class GetOrgUnitGraphQueryValidator : AbstractValidator<GetOrgUn
     }
 }
 
+internal sealed class GetOrgUnitExportRowsQueryValidator : AbstractValidator<GetOrgUnitExportRowsQuery>
+{
+    public GetOrgUnitExportRowsQueryValidator()
+    {
+        RuleFor(query => query.CompanyId).NotEmpty();
+        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.ParentId)
+            .NotEqual(Guid.Empty)
+            .When(static query => query.ParentId.HasValue);
+    }
+}
+
 internal sealed class SearchOrgUnitsQueryHandler(
     IOrgUnitAuthorizationService authorizationService,
-    IOrgUnitRepository repository)
+    IOrgUnitRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchOrgUnitsQuery, PagedResponse<OrgUnitResponse>>
 {
     public async Task<Result<PagedResponse<OrgUnitResponse>>> Handle(
@@ -271,6 +311,16 @@ internal sealed class SearchOrgUnitsQueryHandler(
             query.PageSize,
             cancellationToken);
 
+        if (!query.IncludeAllowedActions)
+        {
+            return Result<PagedResponse<OrgUnitResponse>>.Success(result);
+        }
+
+        var items = result.Items
+            .Select(item => OrgUnitPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, hasActiveChildren: false))
+            .ToArray();
+
+        result = result with { Items = items };
         return Result<PagedResponse<OrgUnitResponse>>.Success(result);
     }
 }
@@ -278,7 +328,8 @@ internal sealed class SearchOrgUnitsQueryHandler(
 internal sealed class GetOrgUnitByIdQueryHandler(
     IOrgUnitAuthorizationService authorizationService,
     IOrgUnitRepository repository,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<GetOrgUnitByIdQuery, OrgUnitResponse>
 {
     public async Task<Result<OrgUnitResponse>> Handle(
@@ -299,6 +350,11 @@ internal sealed class GetOrgUnitByIdQueryHandler(
         var response = await repository.GetResponseByIdAsync(query.OrgUnitId, cancellationToken);
         if (response is not null)
         {
+            var orgUnit = await repository.GetByIdAsync(query.OrgUnitId, cancellationToken);
+            var hasActiveChildren = orgUnit is not null &&
+                                    await repository.HasActiveChildrenAsync(orgUnit.Id, cancellationToken);
+
+            response = OrgUnitPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, hasActiveChildren);
             return Result<OrgUnitResponse>.Success(response);
         }
 
@@ -364,6 +420,91 @@ internal sealed class GetOrgUnitGraphQueryHandler(
 
         var graph = OrgUnitHierarchyBuilder.BuildGraph(hierarchy, query.RootId, query.Depth);
         return Result<OrgUnitGraphResponse>.Success(graph);
+    }
+}
+
+internal sealed class GetOrgUnitExportRowsQueryHandler(
+    IOrgUnitAuthorizationService authorizationService,
+    IOrgUnitRepository repository)
+    : IQueryHandler<GetOrgUnitExportRowsQuery, IReadOnlyCollection<OrgUnitExportRow>>
+{
+    public async Task<Result<IReadOnlyCollection<OrgUnitExportRow>>> Handle(
+        GetOrgUnitExportRowsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(query.CompanyId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<IReadOnlyCollection<OrgUnitExportRow>>.Failure(authorizationResult.Error);
+        }
+
+        var hierarchy = await repository.GetHierarchyAsync(query.CompanyId, cancellationToken);
+        if (query.ParentId.HasValue && hierarchy.All(node => node.Id != query.ParentId.Value))
+        {
+            return Result<IReadOnlyCollection<OrgUnitExportRow>>.Failure(
+                await repository.ExistsOutsideTenantAsync(query.ParentId.Value, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                    : OrgUnitErrors.OrgUnitNotFound);
+        }
+
+        var filtered = hierarchy.AsEnumerable();
+        if (query.IsActive.HasValue)
+        {
+            filtered = filtered.Where(node => node.IsActive == query.IsActive.Value);
+        }
+
+        if (query.Type.HasValue)
+        {
+            filtered = filtered.Where(node => node.UnitType == query.Type.Value);
+        }
+
+        if (query.ParentId.HasValue)
+        {
+            filtered = filtered.Where(node => node.ParentId == query.ParentId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var normalizedSearch = query.Search.Trim().ToUpperInvariant();
+            var byId = hierarchy.ToDictionary(node => node.Id);
+            filtered = filtered.Where(node =>
+                node.Code.ToUpperInvariant().Contains(normalizedSearch) ||
+                node.Name.ToUpperInvariant().Contains(normalizedSearch) ||
+                (node.ParentId.HasValue &&
+                 byId.TryGetValue(node.ParentId.Value, out var parentNode) &&
+                 parentNode.Name.ToUpperInvariant().Contains(normalizedSearch)));
+        }
+
+        var nodesById = hierarchy.ToDictionary(node => node.Id);
+
+        var rows = filtered
+            .OrderBy(node => node.SortOrder ?? int.MaxValue)
+            .ThenBy(node => node.Name)
+            .ThenBy(node => node.Code)
+            .Select(node =>
+            {
+                var parent = node.ParentId.HasValue && nodesById.TryGetValue(node.ParentId.Value, out var parentNode)
+                    ? parentNode
+                    : null;
+
+                return new OrgUnitExportRow(
+                    node.Id,
+                    node.Code,
+                    node.Name,
+                    node.UnitType,
+                    parent?.Code,
+                    parent?.Name,
+                    node.SortOrder,
+                    node.Description,
+                    node.CostCenterCode,
+                    node.ManagerEmployeeId,
+                    node.IsActive,
+                    node.CreatedAtUtc,
+                    node.ModifiedAtUtc);
+            })
+            .ToArray();
+
+        return Result<IReadOnlyCollection<OrgUnitExportRow>>.Success(rows);
     }
 }
 
@@ -814,6 +955,29 @@ internal sealed class InactivateOrgUnitCommandHandler(
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+}
+
+internal static class OrgUnitPolicyAdapter
+{
+    public static OrgUnitResponse ApplyAllowedActions(
+        OrgUnitResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool hasActiveChildren)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                OrgUnitPermissionCodes.ResourceKey,
+                response.UnitType.ToString(),
+                response.IsActive,
+                HasDependencies: hasActiveChildren,
+                SupportsEdit: true,
+                SupportsDelete: false,
+                SupportsArchive: false,
+                SupportsActivate: true,
+                SupportsInactivate: true));
+
+        return response with { AllowedActions = allowedActions };
     }
 }
 

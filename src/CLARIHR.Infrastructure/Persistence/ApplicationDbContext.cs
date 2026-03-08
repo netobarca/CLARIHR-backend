@@ -9,6 +9,7 @@ using CLARIHR.Domain.Common;
 using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.JobProfiles;
+using CLARIHR.Domain.LegalRepresentatives;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.OrgUnits;
 using CLARIHR.Domain.PositionSlots;
@@ -102,6 +103,8 @@ public sealed class ApplicationDbContext(
     public DbSet<PositionSlot> PositionSlots => Set<PositionSlot>();
 
     public DbSet<CostCenter> CostCenters => Set<CostCenter>();
+
+    public DbSet<LegalRepresentative> LegalRepresentatives => Set<LegalRepresentative>();
 
     public DbSet<SalaryTabulatorLine> SalaryTabulatorLines => Set<SalaryTabulatorLine>();
 

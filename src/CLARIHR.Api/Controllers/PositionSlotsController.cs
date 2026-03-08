@@ -4,10 +4,13 @@ using System.Security;
 using System.Text;
 using System.Text.Json;
 using System.Xml;
+using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.PositionSlots;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Domain.PositionSlots;
@@ -20,7 +23,9 @@ namespace CLARIHR.Api.Controllers;
 [Authorize]
 public sealed class PositionSlotsController(
     ICommandDispatcher commandDispatcher,
-    IQueryDispatcher queryDispatcher) : ControllerBase
+    IQueryDispatcher queryDispatcher,
+    IAuditService auditService,
+    IUnitOfWork unitOfWork) : ControllerBase
 {
     [HttpGet("api/v1/companies/{companyId:guid}/position-slots")]
     [ProducesResponseType<PagedResponse<PositionSlotListItemResponse>>(StatusCodes.Status200OK)]
@@ -37,10 +42,21 @@ public sealed class PositionSlotsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionSlotValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchPositionSlotsQuery(companyId, status, jobProfileId, orgUnitId, workCenterId, isFixedTerm, search, page, pageSize),
+            new SearchPositionSlotsQuery(
+                companyId,
+                status,
+                jobProfileId,
+                orgUnitId,
+                workCenterId,
+                isFixedTerm,
+                search,
+                page,
+                pageSize,
+                includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -102,18 +118,72 @@ public sealed class PositionSlotsController(
 
         if (string.Equals(format, "graphml", StringComparison.OrdinalIgnoreCase))
         {
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.ReportExported,
+                    AuditEntityTypes.PositionSlot,
+                    null,
+                    PositionSlotPermissionCodes.ResourceKey,
+                    AuditActions.Export,
+                    "Exported position slots diagram.",
+                    After: new
+                    {
+                        resourceKey = PositionSlotPermissionCodes.ResourceKey,
+                        format = "graphml",
+                        filters = new { rootId, depth, includeFunctional },
+                        rowCount = graphResult.Value.Nodes.Count
+                    }),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
             var graphml = BuildGraphMl(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(graphml), "application/graphml+xml", "position-slots-diagram.graphml");
         }
 
         if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
         {
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.ReportExported,
+                    AuditEntityTypes.PositionSlot,
+                    null,
+                    PositionSlotPermissionCodes.ResourceKey,
+                    AuditActions.Export,
+                    "Exported position slots diagram.",
+                    After: new
+                    {
+                        resourceKey = PositionSlotPermissionCodes.ResourceKey,
+                        format = "json",
+                        filters = new { rootId, depth, includeFunctional },
+                        rowCount = graphResult.Value.Nodes.Count
+                    }),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
             var json = JsonSerializer.Serialize(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(json), "application/json", "position-slots-diagram.json");
         }
 
         if (string.Equals(format, "dot", StringComparison.OrdinalIgnoreCase))
         {
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.ReportExported,
+                    AuditEntityTypes.PositionSlot,
+                    null,
+                    PositionSlotPermissionCodes.ResourceKey,
+                    AuditActions.Export,
+                    "Exported position slots diagram.",
+                    After: new
+                    {
+                        resourceKey = PositionSlotPermissionCodes.ResourceKey,
+                        format = "dot",
+                        filters = new { rootId, depth, includeFunctional },
+                        rowCount = graphResult.Value.Nodes.Count
+                    }),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
             var dot = BuildDot(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(dot), "text/vnd.graphviz", "position-slots-diagram.dot");
         }
@@ -148,12 +218,48 @@ public sealed class PositionSlotsController(
 
         if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
         {
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.ReportExported,
+                    AuditEntityTypes.PositionSlot,
+                    null,
+                    PositionSlotPermissionCodes.ResourceKey,
+                    AuditActions.Export,
+                    "Exported position slots report.",
+                    After: new
+                    {
+                        resourceKey = PositionSlotPermissionCodes.ResourceKey,
+                        format = "csv",
+                        filters = new { status, jobProfileId, orgUnitId, workCenterId, isFixedTerm, q = search },
+                        rowCount = result.Value.Count
+                    }),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
             var csv = BuildCsv(result.Value);
             return File(Encoding.UTF8.GetBytes(csv), "text/csv", "position-slots.csv");
         }
 
         if (string.Equals(format, "xlsx", StringComparison.OrdinalIgnoreCase))
         {
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.ReportExported,
+                    AuditEntityTypes.PositionSlot,
+                    null,
+                    PositionSlotPermissionCodes.ResourceKey,
+                    AuditActions.Export,
+                    "Exported position slots report.",
+                    After: new
+                    {
+                        resourceKey = PositionSlotPermissionCodes.ResourceKey,
+                        format = "xlsx",
+                        filters = new { status, jobProfileId, orgUnitId, workCenterId, isFixedTerm, q = search },
+                        rowCount = result.Value.Count
+                    }),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
             var xlsx = BuildXlsx(result.Value);
             return File(
                 xlsx,

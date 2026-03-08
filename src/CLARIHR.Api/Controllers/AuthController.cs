@@ -2,6 +2,8 @@ using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.External;
+using CLARIHR.Application.Features.Auth.Login;
+using CLARIHR.Application.Features.Auth.Logout;
 using CLARIHR.Application.Features.Auth.RefreshToken;
 using CLARIHR.Application.Features.Auth.RegisterUser;
 using Microsoft.AspNetCore.Authorization;
@@ -30,7 +32,8 @@ public sealed class AuthController(ICommandDispatcher commandDispatcher) : Contr
             request.Password,
             request.CompanyName,
             request.Country,
-            request.Source);
+            request.Source,
+            request.InitialLegalRepresentative);
 
         var result = await commandDispatcher.SendAsync(command, cancellationToken);
         if (result.IsFailure)
@@ -60,7 +63,8 @@ public sealed class AuthController(ICommandDispatcher commandDispatcher) : Contr
                 request.IdToken,
                 request.CompanyName,
                 request.Country,
-                request.Source),
+                request.Source,
+                request.InitialLegalRepresentative),
             cancellationToken);
 
         if (result.IsFailure)
@@ -71,6 +75,25 @@ public sealed class AuthController(ICommandDispatcher commandDispatcher) : Contr
         return result.Value.WasCreated
             ? StatusCode(StatusCodes.Status201Created, result.Value.Response)
             : Ok(result.Value.Response);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("login")]
+    [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<AuthResponse>> Login(
+        [FromBody] LoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new LoginCommand(request.Email, request.Password),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(Result<AuthResponse>.Failure(result.Error))
+            : Ok(result.Value);
     }
 
     [AllowAnonymous]
@@ -90,5 +113,21 @@ public sealed class AuthController(ICommandDispatcher commandDispatcher) : Contr
         return result.IsFailure
             ? this.ToActionResult(Result<AuthResponse>.Failure(result.Error))
             : Ok(result.Value);
+    }
+
+    [Authorize]
+    [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+    {
+        var result = await commandDispatcher.SendAsync(new LogoutCommand(), cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(Result<bool>.Failure(result.Error)).Result!;
+        }
+
+        return NoContent();
     }
 }

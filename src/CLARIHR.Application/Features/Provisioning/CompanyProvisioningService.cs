@@ -2,6 +2,7 @@ using System.Text;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Abstractions.Locations;
@@ -10,6 +11,7 @@ using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.LegalRepresentatives;
 
 namespace CLARIHR.Application.Features.Provisioning;
 
@@ -19,6 +21,7 @@ internal sealed class CompanyProvisioningService(
     ICompanySubscriptionRepository subscriptionRepository,
     IUserCompanyRepository userCompanyRepository,
     IIamAdministrationRepository iamRepository,
+    ILegalRepresentativeRepository legalRepresentativeRepository,
     ILocationSeedService locationSeedService,
     IPlanEntitlementService planEntitlementService,
     IUnitOfWork unitOfWork,
@@ -47,6 +50,25 @@ internal sealed class CompanyProvisioningService(
         companyRepository.Add(company);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var initialLegalRepresentative = request.InitialLegalRepresentative;
+        var legalRepresentative = LegalRepresentative.Create(
+            initialLegalRepresentative.FirstName,
+            initialLegalRepresentative.LastName,
+            initialLegalRepresentative.DocumentType,
+            initialLegalRepresentative.DocumentNumber,
+            initialLegalRepresentative.PositionTitle,
+            initialLegalRepresentative.RepresentationType,
+            initialLegalRepresentative.AuthorityDescription,
+            initialLegalRepresentative.AppointmentInstrument,
+            initialLegalRepresentative.AppointmentDateUtc,
+            initialLegalRepresentative.EffectiveFromUtc,
+            initialLegalRepresentative.EffectiveToUtc,
+            initialLegalRepresentative.Email,
+            initialLegalRepresentative.Phone,
+            initialLegalRepresentative.IsPrimary);
+        legalRepresentative.SetTenantId(company.PublicId);
+        legalRepresentativeRepository.Add(legalRepresentative);
 
         subscriptionRepository.Add(CompanySubscription.Activate(
             company.Id,

@@ -63,6 +63,8 @@ Lecturas:
 - `CostCenterResponse`
 - `CostCenterUsageResponse`
 
+`CostCenterListItemResponse` y `CostCenterResponse` incluyen `allowedActions` cuando se solicita `includeAllowedActions=true` en listados.
+
 ## Filtros de busqueda
 
 `GET /api/v1/companies/{companyId}/cost-centers`:
@@ -72,6 +74,7 @@ Lecturas:
 - `q?`
 - `page`
 - `pageSize`
+- `includeAllowedActions` (default `false`)
 
 `GET /api/v1/companies/{companyId}/cost-centers/export`:
 

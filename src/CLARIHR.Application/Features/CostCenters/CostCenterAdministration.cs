@@ -1,10 +1,12 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
@@ -24,7 +26,8 @@ public sealed record CostCenterListItemResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record CostCenterResponse(
     Guid Id,
@@ -39,7 +42,8 @@ public sealed record CostCenterResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record CostCenterUsageResponse(
     Guid Id,
@@ -70,7 +74,8 @@ public sealed record SearchCostCentersQuery(
     bool? IsActive,
     string? Search,
     int PageNumber = 1,
-    int PageSize = CostCenterValidationRules.DefaultPageSize)
+    int PageSize = CostCenterValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false)
     : IQuery<PagedResponse<CostCenterListItemResponse>>;
 
 public sealed record GetCostCenterByIdQuery(Guid CostCenterId) : IQuery<CostCenterResponse>;
@@ -230,7 +235,8 @@ internal sealed class InactivateCostCenterCommandValidator : AbstractValidator<I
 
 internal sealed class SearchCostCentersQueryHandler(
     ICostCenterAuthorizationService authorizationService,
-    ICostCenterRepository repository)
+    ICostCenterRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchCostCentersQuery, PagedResponse<CostCenterListItemResponse>>
 {
     public async Task<Result<PagedResponse<CostCenterListItemResponse>>> Handle(
@@ -252,6 +258,16 @@ internal sealed class SearchCostCentersQueryHandler(
             query.PageSize,
             cancellationToken);
 
+        if (!query.IncludeAllowedActions)
+        {
+            return Result<PagedResponse<CostCenterListItemResponse>>.Success(response);
+        }
+
+        var items = response.Items
+            .Select(item => CostCenterPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .ToArray();
+        response = response with { Items = items };
+
         return Result<PagedResponse<CostCenterListItemResponse>>.Success(response);
     }
 }
@@ -259,7 +275,8 @@ internal sealed class SearchCostCentersQueryHandler(
 internal sealed class GetCostCenterByIdQueryHandler(
     ICostCenterAuthorizationService authorizationService,
     ICostCenterRepository repository,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<GetCostCenterByIdQuery, CostCenterResponse>
 {
     public async Task<Result<CostCenterResponse>> Handle(
@@ -280,6 +297,12 @@ internal sealed class GetCostCenterByIdQueryHandler(
         var response = await repository.GetResponseByIdAsync(query.CostCenterId, cancellationToken);
         if (response is not null)
         {
+            var usage = await repository.GetUsageByIdAsync(query.CostCenterId, cancellationToken);
+            response = CostCenterPolicyAdapter.ApplyAllowedActions(
+                response,
+                resourceActionPolicyService,
+                hasActiveUsage: usage?.HasActiveReferences ?? false);
+
             return Result<CostCenterResponse>.Success(response);
         }
 
@@ -647,5 +670,46 @@ internal sealed class InactivateCostCenterCommandHandler(
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+}
+
+internal static class CostCenterPolicyAdapter
+{
+    public static CostCenterListItemResponse ApplyAllowedActions(
+        CostCenterListItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                CostCenterPermissionCodes.ResourceKey,
+                response.Type.ToString(),
+                response.IsActive,
+                SupportsEdit: true,
+                SupportsDelete: false,
+                SupportsArchive: false,
+                SupportsActivate: true,
+                SupportsInactivate: true));
+
+        return response with { AllowedActions = allowedActions };
+    }
+
+    public static CostCenterResponse ApplyAllowedActions(
+        CostCenterResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool hasActiveUsage)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                CostCenterPermissionCodes.ResourceKey,
+                response.Type.ToString(),
+                response.IsActive,
+                HasDependencies: hasActiveUsage,
+                SupportsEdit: true,
+                SupportsDelete: false,
+                SupportsArchive: false,
+                SupportsActivate: true,
+                SupportsInactivate: true));
+
+        return response with { AllowedActions = allowedActions };
     }
 }

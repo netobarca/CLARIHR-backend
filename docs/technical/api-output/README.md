@@ -15,6 +15,7 @@ Modulos y flujos documentados actualmente:
 - position slots y dependencias (`position-slots.md`)
 - salary tabulator y solicitudes (`salary-tabulator.md`)
 - cost centers contables (`cost-centers.md`)
+- legal representatives (`legal-representatives.md`)
 - estrategias transversales (`permission-cache-strategy.md`, `search-growth-strategy.md`)
 
 La referencia transversal y acumulativa vive en `../api-reference/api-endpoints-reference.md`.

@@ -38,6 +38,11 @@ public static class AuditEventTypes
     public const string CostCenterUpdated = "COST_CENTER_UPDATED";
     public const string CostCenterActivated = "COST_CENTER_ACTIVATED";
     public const string CostCenterInactivated = "COST_CENTER_INACTIVATED";
+    public const string LegalRepresentativeCreated = "LEGAL_REPRESENTATIVE_CREATED";
+    public const string LegalRepresentativeUpdated = "LEGAL_REPRESENTATIVE_UPDATED";
+    public const string LegalRepresentativeActivated = "LEGAL_REPRESENTATIVE_ACTIVATED";
+    public const string LegalRepresentativeInactivated = "LEGAL_REPRESENTATIVE_INACTIVATED";
+    public const string LegalRepresentativeSetPrimary = "LEGAL_REPRESENTATIVE_SET_PRIMARY";
     public const string SalaryTabulatorRequestCreated = "SALARY_TABULATOR_REQUEST_CREATED";
     public const string SalaryTabulatorRequestUpdated = "SALARY_TABULATOR_REQUEST_UPDATED";
     public const string SalaryTabulatorRequestSubmitted = "SALARY_TABULATOR_REQUEST_SUBMITTED";
@@ -46,6 +51,8 @@ public static class AuditEventTypes
     public const string SalaryTabulatorRequestCanceled = "SALARY_TABULATOR_REQUEST_CANCELED";
     public const string SalaryTabulatorLineApplied = "SALARY_TABULATOR_LINE_APPLIED";
     public const string SalaryTabulatorLineInactivated = "SALARY_TABULATOR_LINE_INACTIVATED";
+    public const string ReportExported = "REPORT_EXPORTED";
+    public const string ReportPrinted = "REPORT_PRINTED";
 
     public static readonly IReadOnlyCollection<string> All =
     [
@@ -85,6 +92,11 @@ public static class AuditEventTypes
         CostCenterUpdated,
         CostCenterActivated,
         CostCenterInactivated,
+        LegalRepresentativeCreated,
+        LegalRepresentativeUpdated,
+        LegalRepresentativeActivated,
+        LegalRepresentativeInactivated,
+        LegalRepresentativeSetPrimary,
         SalaryTabulatorRequestCreated,
         SalaryTabulatorRequestUpdated,
         SalaryTabulatorRequestSubmitted,
@@ -92,7 +104,9 @@ public static class AuditEventTypes
         SalaryTabulatorRequestRejected,
         SalaryTabulatorRequestCanceled,
         SalaryTabulatorLineApplied,
-        SalaryTabulatorLineInactivated
+        SalaryTabulatorLineInactivated,
+        ReportExported,
+        ReportPrinted
     ];
 
     public static bool TryNormalize(string? value, out string normalized)
@@ -119,6 +133,7 @@ public static class AuditEntityTypes
     public const string JobCatalogItem = "JobCatalogItem";
     public const string PositionSlot = "PositionSlot";
     public const string CostCenter = "CostCenter";
+    public const string LegalRepresentative = "LegalRepresentative";
     public const string SalaryTabulatorChangeRequest = "SalaryTabulatorChangeRequest";
     public const string SalaryTabulatorLine = "SalaryTabulatorLine";
 
@@ -133,6 +148,7 @@ public static class AuditEntityTypes
         JobCatalogItem,
         PositionSlot,
         CostCenter,
+        LegalRepresentative,
         SalaryTabulatorChangeRequest,
         SalaryTabulatorLine
     ];
@@ -162,4 +178,6 @@ public static class AuditActions
     public const string PermissionChange = "PermissionChange";
     public const string Archive = "Archive";
     public const string Switch = "Switch";
+    public const string Export = "Export";
+    public const string Print = "Print";
 }

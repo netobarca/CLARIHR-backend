@@ -1,4 +1,5 @@
 using CLARIHR.Domain.Auth;
+using CLARIHR.Application.Features.LegalRepresentatives.Common;
 
 namespace CLARIHR.Application.Features.Auth.RegisterUser;
 
@@ -8,6 +9,7 @@ public sealed record RegisterUserRequest(
     string Email,
     string Password,
     string? CompanyName,
+    InitialLegalRepresentativeInput InitialLegalRepresentative,
     string? Country,
     string? Source);
 

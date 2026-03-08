@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Provisioning.Common;
 using FluentValidation;
 using Microsoft.Extensions.Logging;
@@ -12,7 +13,8 @@ namespace CLARIHR.Application.Features.Provisioning;
 
 public sealed record ProvisionCompanyForUserCommand(
     Guid UserId,
-    string? CompanyName) : ICommand<ProvisionCompanyForUserResult>;
+    string? CompanyName,
+    InitialLegalRepresentativeInput? InitialLegalRepresentative = null) : ICommand<ProvisionCompanyForUserResult>;
 
 public sealed record ProvisionCompanyForUserResult(
     Guid CompanyId,
@@ -31,6 +33,10 @@ internal sealed partial class ProvisionCompanyForUserCommandValidator : Abstract
             .Must(BeValidCompanyName)
             .WithMessage("Company name contains invalid characters.")
             .When(static command => !string.IsNullOrWhiteSpace(command.CompanyName));
+
+        RuleFor(command => command.InitialLegalRepresentative)
+            .SetValidator(new InitialLegalRepresentativeInputValidator()!)
+            .When(static command => command.InitialLegalRepresentative is not null);
     }
 
     private static bool BeValidCompanyName(string? companyName) =>
@@ -82,10 +88,17 @@ internal sealed class ProvisionCompanyForUserCommandHandler(
                     ProvisioningConstants.FreePlanCode));
             }
 
+            if (command.InitialLegalRepresentative is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<ProvisionCompanyForUserResult>.Failure(ProvisioningErrors.InitialLegalRepresentativeRequired);
+            }
+
             var provisioningResult = await companyProvisioningService.ProvisionAsync(
                 new ProvisionCompanyRequest(
                     user.PublicId,
                     command.CompanyName,
+                    command.InitialLegalRepresentative,
                     MakePrimary: true,
                     ProvisioningConstants.FreePlanCode,
                     ProvisionAsInitialCompany: true),

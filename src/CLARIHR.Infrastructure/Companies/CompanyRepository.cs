@@ -33,7 +33,21 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                 company.IsActiveContext,
                 IsOwnedByCurrentUser: true,
                 company.CreatedAtUtc,
-                company.ModifiedAtUtc))
+                company.ModifiedAtUtc,
+                dbContext.LegalRepresentatives
+                    .AsNoTracking()
+                    .Where(legalRepresentative =>
+                        legalRepresentative.TenantId == company.CompanyId &&
+                        legalRepresentative.IsActive)
+                    .OrderByDescending(legalRepresentative => legalRepresentative.IsPrimary)
+                    .ThenBy(legalRepresentative => legalRepresentative.FullName)
+                    .Select(legalRepresentative => new ActiveLegalRepresentativeSummaryResponse(
+                        legalRepresentative.PublicId,
+                        legalRepresentative.FullName,
+                        legalRepresentative.RepresentationType,
+                        legalRepresentative.PositionTitle,
+                        legalRepresentative.IsPrimary))
+                    .ToArray()))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<PagedResponse<AccountCompanySummaryResponse>> GetOwnedByUserAsync(

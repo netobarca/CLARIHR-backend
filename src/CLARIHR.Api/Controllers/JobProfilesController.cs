@@ -1,9 +1,12 @@
 using System.Globalization;
 using System.Text;
+using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Domain.JobProfiles;
@@ -16,7 +19,9 @@ namespace CLARIHR.Api.Controllers;
 [Authorize]
 public sealed class JobProfilesController(
     ICommandDispatcher commandDispatcher,
-    IQueryDispatcher queryDispatcher) : ControllerBase
+    IQueryDispatcher queryDispatcher,
+    IAuditService auditService,
+    IUnitOfWork unitOfWork) : ControllerBase
 {
     [HttpGet("api/v1/companies/{companyId:guid}/job-profiles")]
     [ProducesResponseType<PagedResponse<JobProfileListItemResponse>>(StatusCodes.Status200OK)]
@@ -31,10 +36,11 @@ public sealed class JobProfilesController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchJobProfilesQuery(companyId, status, orgUnitId, salaryClass, search, page, pageSize),
+            new SearchJobProfilesQuery(companyId, status, orgUnitId, salaryClass, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -72,6 +78,29 @@ public sealed class JobProfilesController(
     public async Task<ActionResult<JobProfilePrintResponse>> Print(Guid id, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetJobProfilePrintQuery(id), cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result);
+        }
+
+        await auditService.LogAsync(
+            new AuditLogEntry(
+                AuditEventTypes.ReportPrinted,
+                AuditEntityTypes.JobProfile,
+                id,
+                JobProfilePermissionCodes.ResourceKey,
+                AuditActions.Print,
+                "Printed job profile report.",
+                After: new
+                {
+                    resourceKey = JobProfilePermissionCodes.ResourceKey,
+                    format = "print",
+                    filters = new { id },
+                    rowCount = 1
+                }),
+            cancellationToken);
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
         return this.ToActionResult(result);
     }
 
@@ -95,11 +124,47 @@ public sealed class JobProfilesController(
 
         if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
         {
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.ReportExported,
+                    AuditEntityTypes.JobProfile,
+                    id,
+                    JobProfilePermissionCodes.ResourceKey,
+                    AuditActions.Export,
+                    "Exported job profile report.",
+                    After: new
+                    {
+                        resourceKey = JobProfilePermissionCodes.ResourceKey,
+                        format = "json",
+                        filters = new { id },
+                        rowCount = 1
+                    }),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
             return Ok(result.Value);
         }
 
         if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
         {
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.ReportExported,
+                    AuditEntityTypes.JobProfile,
+                    id,
+                    JobProfilePermissionCodes.ResourceKey,
+                    AuditActions.Export,
+                    "Exported job profile report.",
+                    After: new
+                    {
+                        resourceKey = JobProfilePermissionCodes.ResourceKey,
+                        format = "csv",
+                        filters = new { id },
+                        rowCount = 1
+                    }),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
             var csv = ExportCsv(result.Value);
             var bytes = Encoding.UTF8.GetBytes(csv);
             var fileName = $"job-profile-{result.Value.Profile.Code}.csv";

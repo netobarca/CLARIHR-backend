@@ -78,6 +78,8 @@ Respuestas:
 - `SalaryTabulatorChangeRequestResponse`
 - `SalaryTabulatorChangeRequestImpactResponse`
 
+Los contratos de listado/detalle de lineas y solicitudes incluyen `allowedActions` cuando `includeAllowedActions=true` en listados.
+
 ## Filtros de busqueda
 
 `GET /api/v1/companies/{companyId}/salary-tabulator`:
@@ -88,6 +90,7 @@ Respuestas:
 - `q?`
 - `page`
 - `pageSize`
+- `includeAllowedActions` (default `false`)
 
 `GET /api/v1/companies/{companyId}/salary-tabulator/change-requests`:
 
@@ -97,6 +100,7 @@ Respuestas:
 - `effectiveTo?`
 - `page`
 - `pageSize`
+- `includeAllowedActions` (default `false`)
 
 ## Errores esperados
 

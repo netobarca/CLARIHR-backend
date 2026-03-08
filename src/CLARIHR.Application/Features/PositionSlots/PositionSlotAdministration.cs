@@ -1,11 +1,13 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
@@ -34,7 +36,8 @@ public sealed record PositionSlotListItemResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record PositionSlotResponse(
     Guid Id,
@@ -63,7 +66,8 @@ public sealed record PositionSlotResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record PositionSlotGraphNodeResponse(
     Guid Id,
@@ -133,7 +137,8 @@ public sealed record SearchPositionSlotsQuery(
     bool? IsFixedTerm,
     string? Search,
     int PageNumber = 1,
-    int PageSize = PositionSlotValidationRules.DefaultPageSize)
+    int PageSize = PositionSlotValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false)
     : IQuery<PagedResponse<PositionSlotListItemResponse>>;
 
 public sealed record GetPositionSlotByIdQuery(Guid PositionSlotId) : IQuery<PositionSlotResponse>;
@@ -368,7 +373,8 @@ internal sealed class UpdatePositionSlotOccupancyCommandValidator : AbstractVali
 
 internal sealed class SearchPositionSlotsQueryHandler(
     IPositionSlotAuthorizationService authorizationService,
-    IPositionSlotRepository repository)
+    IPositionSlotRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchPositionSlotsQuery, PagedResponse<PositionSlotListItemResponse>>
 {
     public async Task<Result<PagedResponse<PositionSlotListItemResponse>>> Handle(
@@ -393,6 +399,16 @@ internal sealed class SearchPositionSlotsQueryHandler(
             query.PageSize,
             cancellationToken);
 
+        if (!query.IncludeAllowedActions)
+        {
+            return Result<PagedResponse<PositionSlotListItemResponse>>.Success(response);
+        }
+
+        var items = response.Items
+            .Select(item => PositionSlotPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .ToArray();
+        response = response with { Items = items };
+
         return Result<PagedResponse<PositionSlotListItemResponse>>.Success(response);
     }
 }
@@ -400,7 +416,8 @@ internal sealed class SearchPositionSlotsQueryHandler(
 internal sealed class GetPositionSlotByIdQueryHandler(
     IPositionSlotAuthorizationService authorizationService,
     IPositionSlotRepository repository,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<GetPositionSlotByIdQuery, PositionSlotResponse>
 {
     public async Task<Result<PositionSlotResponse>> Handle(
@@ -421,6 +438,7 @@ internal sealed class GetPositionSlotByIdQueryHandler(
         var response = await repository.GetResponseByIdAsync(query.PositionSlotId, cancellationToken);
         if (response is not null)
         {
+            response = PositionSlotPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
             return Result<PositionSlotResponse>.Success(response);
         }
 
@@ -1049,6 +1067,45 @@ internal sealed class UpdatePositionSlotOccupancyCommandHandler(
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+}
+
+internal static class PositionSlotPolicyAdapter
+{
+    public static PositionSlotListItemResponse ApplyAllowedActions(
+        PositionSlotListItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                PositionSlotPermissionCodes.ResourceKey,
+                response.Status.ToString(),
+                response.IsActive,
+                SupportsEdit: true,
+                SupportsDelete: false,
+                SupportsArchive: false,
+                SupportsActivate: true,
+                SupportsInactivate: true));
+
+        return response with { AllowedActions = allowedActions };
+    }
+
+    public static PositionSlotResponse ApplyAllowedActions(
+        PositionSlotResponse response,
+        IResourceActionPolicyService resourceActionPolicyService)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                PositionSlotPermissionCodes.ResourceKey,
+                response.Status.ToString(),
+                response.IsActive,
+                SupportsEdit: true,
+                SupportsDelete: false,
+                SupportsArchive: false,
+                SupportsActivate: true,
+                SupportsInactivate: true));
+
+        return response with { AllowedActions = allowedActions };
     }
 }
 

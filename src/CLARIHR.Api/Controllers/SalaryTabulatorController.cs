@@ -1,10 +1,13 @@
 using System.Globalization;
 using System.IO.Compression;
 using System.Text;
+using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.SalaryTabulator;
 using CLARIHR.Application.Features.SalaryTabulator.Common;
 using CLARIHR.Domain.SalaryTabulator;
@@ -17,7 +20,9 @@ namespace CLARIHR.Api.Controllers;
 [Authorize]
 public sealed class SalaryTabulatorController(
     ICommandDispatcher commandDispatcher,
-    IQueryDispatcher queryDispatcher) : ControllerBase
+    IQueryDispatcher queryDispatcher,
+    IAuditService auditService,
+    IUnitOfWork unitOfWork) : ControllerBase
 {
     [HttpGet("api/v1/companies/{companyId:guid}/salary-tabulator")]
     [ProducesResponseType<PagedResponse<SalaryTabulatorLineListItemResponse>>(StatusCodes.Status200OK)]
@@ -32,10 +37,19 @@ public sealed class SalaryTabulatorController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = SalaryTabulatorValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchSalaryTabulatorLinesQuery(companyId, salaryClass, salaryScale, isActive, search, page, pageSize),
+            new SearchSalaryTabulatorLinesQuery(
+                companyId,
+                salaryClass,
+                salaryScale,
+                isActive,
+                search,
+                page,
+                pageSize,
+                includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -77,12 +91,48 @@ public sealed class SalaryTabulatorController(
 
         if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
         {
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.ReportExported,
+                    AuditEntityTypes.SalaryTabulatorLine,
+                    null,
+                    SalaryTabulatorPermissionCodes.ResourceKey,
+                    AuditActions.Export,
+                    "Exported salary tabulator lines report.",
+                    After: new
+                    {
+                        resourceKey = SalaryTabulatorPermissionCodes.ResourceKey,
+                        format = "csv",
+                        filters = new { salaryClass, salaryScale, isActive, q = search },
+                        rowCount = result.Value.Count
+                    }),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
             var csv = BuildCsv(result.Value);
             return File(Encoding.UTF8.GetBytes(csv), "text/csv", "salary-tabulator.csv");
         }
 
         if (string.Equals(format, "xlsx", StringComparison.OrdinalIgnoreCase))
         {
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.ReportExported,
+                    AuditEntityTypes.SalaryTabulatorLine,
+                    null,
+                    SalaryTabulatorPermissionCodes.ResourceKey,
+                    AuditActions.Export,
+                    "Exported salary tabulator lines report.",
+                    After: new
+                    {
+                        resourceKey = SalaryTabulatorPermissionCodes.ResourceKey,
+                        format = "xlsx",
+                        filters = new { salaryClass, salaryScale, isActive, q = search },
+                        rowCount = result.Value.Count
+                    }),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
             var xlsx = BuildXlsx(result.Value);
             return File(
                 xlsx,
@@ -106,6 +156,7 @@ public sealed class SalaryTabulatorController(
         [FromQuery] DateTime? effectiveTo,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = SalaryTabulatorValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
@@ -116,7 +167,8 @@ public sealed class SalaryTabulatorController(
                 effectiveFrom,
                 effectiveTo,
                 page,
-                pageSize),
+                pageSize,
+                includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);

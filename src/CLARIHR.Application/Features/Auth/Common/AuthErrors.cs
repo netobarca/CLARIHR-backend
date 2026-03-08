@@ -4,6 +4,11 @@ namespace CLARIHR.Application.Features.Auth.Common;
 
 public static class AuthErrors
 {
+    public static readonly Error InvalidCredentials = new(
+        "auth.login.invalid_credentials",
+        "The provided credentials are invalid.",
+        ErrorType.Unauthorized);
+
     public static readonly Error UserAlreadyExists = new(
         "auth.user_already_exists",
         "A user with the same email already exists.",
@@ -47,6 +52,11 @@ public static class AuthErrors
     public static readonly Error RefreshTokenInvalid = new(
         "auth.refresh.invalid_token",
         "The refresh token is invalid or expired.",
+        ErrorType.Unauthorized);
+
+    public static readonly Error InvalidCurrentUser = new(
+        "auth.logout.invalid_current_user",
+        "The authenticated user context is invalid.",
         ErrorType.Unauthorized);
 
     public static readonly Error TokenConfigurationInvalid = new(

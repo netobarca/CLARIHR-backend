@@ -1,4 +1,5 @@
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.LegalRepresentatives.Common;
 
 namespace CLARIHR.Application.Abstractions.Companies;
 
@@ -12,6 +13,7 @@ public interface ICompanyProvisioningService
 public sealed record ProvisionCompanyRequest(
     Guid OwnerUserPublicId,
     string? CompanyName,
+    InitialLegalRepresentativeInput InitialLegalRepresentative,
     bool MakePrimary,
     string PlanCode,
     bool ProvisionAsInitialCompany);

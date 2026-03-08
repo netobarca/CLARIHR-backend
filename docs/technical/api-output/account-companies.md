@@ -41,6 +41,12 @@ Este documento resume la implementacion tecnica del modulo de gestion multiempre
 - `PATCH /api/account/companies/{companyId}/reactivate`
 - `POST /api/account/companies/{companyId}/switch`
 
+## Contract updates
+
+- `POST /api/account/companies` requiere `initialLegalRepresentative` para crear la empresa.
+- `GET /api/account/companies/{companyId}` devuelve `activeLegalRepresentatives[]` (resumen de activos ordenado por `isPrimary desc`, `fullName asc`).
+- Una empresa no puede quedar sin al menos un representante legal activo.
+
 ## Security notes
 
 1. Solo el owner funcional puede leer o modificar la empresa.

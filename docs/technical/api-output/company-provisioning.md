@@ -18,6 +18,7 @@ No expone endpoint tecnico separado de provisioning; se reutiliza internamente d
 Cuando el usuario no tiene empresa primaria, el backend crea en una sola transaccion:
 
 - `Company` activa
+- representante legal inicial activo (`LegalRepresentative`)
 - `CompanySubscription` con plan `FREE`
 - `PlanEntitlement` base para `FREE` si aun no existe
 - roles base por tenant:
@@ -44,8 +45,15 @@ Cuando el usuario no tiene empresa primaria, el backend crea en una sola transac
 
 - Cuando la empresa se crea desde `POST /api/account/companies`, el provisioning:
   - crea tenant nuevo y recursos base
+  - exige `initialLegalRepresentative` y lo crea en la misma transaccion
   - crea membership activa no primaria
   - no cambia el `tid` del token actual
+
+## Input requirements
+
+- `POST /api/auth/register` requiere `initialLegalRepresentative`.
+- `POST /api/account/companies` requiere `initialLegalRepresentative`.
+- `POST /api/auth/external` exige `initialLegalRepresentative` solo cuando provisiona una empresa nueva.
 - El cambio de empresa activa se hace despues con `POST /api/account/companies/{companyId}/switch`
 
 ## Token behavior

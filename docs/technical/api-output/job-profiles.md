@@ -90,6 +90,8 @@ Respuestas:
 - `JobProfilePrintResponse` para print/export
 - `JobCatalogItemResponse` para catalogos
 
+`JobProfileListItemResponse` y `JobProfileResponse` exponen `allowedActions` cuando se solicita `includeAllowedActions=true` en listados.
+
 ## Filtros de busqueda
 
 `GET /api/v1/companies/{companyId}/job-profiles`:
@@ -100,6 +102,7 @@ Respuestas:
 - `q?`
 - `page`
 - `pageSize`
+- `includeAllowedActions` (default `false`)
 
 `GET /api/v1/companies/{companyId}/job-catalogs/{category}`:
 

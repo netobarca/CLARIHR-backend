@@ -156,7 +156,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Admin\",\n  \"lastName\": \"Local\",\n  \"email\": \"admin@clarihr.test\",\n  \"password\": \"StrongPass123!\",\n  \"companyName\": \"Acme Local\",\n  \"country\": \"SV\",\n  \"source\": \"postman\"\n}",
+              "raw": "{\n  \"firstName\": \"Admin\",\n  \"lastName\": \"Local\",\n  \"email\": \"admin@clarihr.test\",\n  \"password\": \"StrongPass123!\",\n  \"companyName\": \"Acme Local\",\n  \"initialLegalRepresentative\": {\n    \"firstName\": \"Ana\",\n    \"lastName\": \"Mendoza\",\n    \"documentType\": \"TaxId\",\n    \"documentNumber\": \"0614-290190-102-3\",\n    \"positionTitle\": \"Representante Legal\",\n    \"representationType\": \"PrimaryLegalRepresentative\",\n    \"authorityDescription\": \"Representacion general\",\n    \"appointmentInstrument\": \"Acta de nombramiento\",\n    \"appointmentDateUtc\": \"2026-01-01T00:00:00Z\",\n    \"effectiveFromUtc\": \"2026-01-01T00:00:00Z\",\n    \"effectiveToUtc\": null,\n    \"email\": \"ana@clarihr.test\",\n    \"phone\": \"+50370000000\",\n    \"isPrimary\": true\n  },\n  \"country\": \"SV\",\n  \"source\": \"postman\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -181,7 +181,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"provider\": \"Google\",\n  \"idToken\": \"replace-with-real-id-token\",\n  \"companyName\": \"Acme Local\",\n  \"country\": \"SV\",\n  \"source\": \"postman\"\n}",
+              "raw": "{\n  \"provider\": \"Google\",\n  \"idToken\": \"replace-with-real-id-token\",\n  \"companyName\": \"Acme Local\",\n  \"initialLegalRepresentative\": {\n    \"firstName\": \"Ana\",\n    \"lastName\": \"Mendoza\",\n    \"documentType\": \"TaxId\",\n    \"documentNumber\": \"0614-290190-102-3\",\n    \"positionTitle\": \"Representante Legal\",\n    \"representationType\": \"PrimaryLegalRepresentative\",\n    \"authorityDescription\": \"Representacion general\",\n    \"appointmentInstrument\": \"Acta de nombramiento\",\n    \"appointmentDateUtc\": \"2026-01-01T00:00:00Z\",\n    \"effectiveFromUtc\": \"2026-01-01T00:00:00Z\",\n    \"effectiveToUtc\": null,\n    \"email\": \"ana@clarihr.test\",\n    \"phone\": \"+50370000000\",\n    \"isPrimary\": true\n  },\n  \"country\": \"SV\",\n  \"source\": \"postman\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -270,7 +270,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Acme Satellite\"\n}",
+              "raw": "{\n  \"name\": \"Acme Satellite\",\n  \"initialLegalRepresentative\": {\n    \"firstName\": \"Ana\",\n    \"lastName\": \"Mendoza\",\n    \"documentType\": \"TaxId\",\n    \"documentNumber\": \"0614-290190-102-3\",\n    \"positionTitle\": \"Representante Legal\",\n    \"representationType\": \"PrimaryLegalRepresentative\",\n    \"authorityDescription\": \"Representacion general\",\n    \"appointmentInstrument\": \"Acta de nombramiento\",\n    \"appointmentDateUtc\": \"2026-01-01T00:00:00Z\",\n    \"effectiveFromUtc\": \"2026-01-01T00:00:00Z\",\n    \"effectiveToUtc\": null,\n    \"email\": \"ana@clarihr.test\",\n    \"phone\": \"+50370000000\",\n    \"isPrimary\": true\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"

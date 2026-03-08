@@ -61,12 +61,74 @@ curl -X POST http://localhost:${CLARIHR_API_PORT:-5000}/api/auth/register \
     "email": "frontend.tester@clarihr.test",
     "password": "StrongPass123!",
     "companyName": "Frontend QA Company",
+    "initialLegalRepresentative": {
+      "firstName": "Frontend",
+      "lastName": "Representative",
+      "documentType": "TaxId",
+      "documentNumber": "0614-290190-102-3",
+      "positionTitle": "Representante Legal",
+      "representationType": "PrimaryLegalRepresentative",
+      "authorityDescription": "Representacion general",
+      "appointmentInstrument": "Acta de nombramiento",
+      "appointmentDateUtc": "2026-01-01T00:00:00Z",
+      "effectiveFromUtc": "2026-01-01T00:00:00Z",
+      "effectiveToUtc": null,
+      "email": "frontend.representative@clarihr.test",
+      "phone": "+50370000000",
+      "isPrimary": true
+    },
     "country": "SV",
     "source": "frontend-local"
   }'
 ```
 
 La respuesta devuelve `accessToken` y `refreshToken` para pruebas de endpoints protegidos.
+
+Re-login local (si tu refresh token ya no es usable):
+
+```bash
+curl -X POST http://localhost:${CLARIHR_API_PORT:-5000}/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "frontend.tester@clarihr.test",
+    "password": "StrongPass123!"
+  }'
+```
+
+Logout (revoca refresh tokens activos del usuario autenticado):
+
+```bash
+curl -X POST http://localhost:${CLARIHR_API_PORT:-5000}/api/auth/logout \
+  -H "Authorization: Bearer ACCESS_TOKEN_AQUI"
+```
+
+## 4.1 Usar seed pre-cargado (sin register)
+
+En arranque limpio (`docker compose down -v` + `up`), PostgreSQL aplica tambien:
+
+- `docs/technical/sql/seed_api_test_data.sql`
+
+Datos seed relevantes:
+
+- Tenant A (`companyId`): `aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`
+- Tenant B (`companyId`): `bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb`
+- Usuario admin A (`auth_users.public_id`): `11111111-1111-1111-1111-111111111111`
+- Usuario admin B (`auth_users.public_id`): `33333333-3333-3333-3333-333333333333`
+
+Refresh token seed (valor plano) para obtener `accessToken`:
+
+- `seed-main-refresh-token-2026` (Tenant A)
+- `seed-secondary-refresh-token-2026` (Tenant B)
+
+Ejemplo:
+
+```bash
+curl -X POST http://localhost:${CLARIHR_API_PORT:-5000}/api/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refreshToken": "seed-main-refresh-token-2026"
+  }'
+```
 
 ## 5. Configurar el frontend para pruebas
 

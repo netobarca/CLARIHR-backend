@@ -2,10 +2,12 @@ using System.Globalization;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -84,7 +86,8 @@ public sealed record JobProfileListItemResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record JobProfileResponse(
     Guid Id,
@@ -120,7 +123,8 @@ public sealed record JobProfileResponse(
     IReadOnlyCollection<JobProfileDependentPositionResponse> DependentPositions,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record JobProfileVacancyTemplateResponse(
     Guid Id,
@@ -222,7 +226,8 @@ public sealed record SearchJobProfilesQuery(
     Guid? SalaryClassId,
     string? Search,
     int PageNumber = 1,
-    int PageSize = JobProfileValidationRules.DefaultPageSize) : IQuery<PagedResponse<JobProfileListItemResponse>>;
+    int PageSize = JobProfileValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false) : IQuery<PagedResponse<JobProfileListItemResponse>>;
 
 public sealed record GetJobProfileByIdQuery(Guid JobProfileId) : IQuery<JobProfileResponse>;
 
@@ -603,7 +608,8 @@ internal sealed class JobProfileDependentPositionInputValidator : AbstractValida
 
 internal sealed class SearchJobProfilesQueryHandler(
     IJobProfileAuthorizationService authorizationService,
-    IJobProfileRepository repository)
+    IJobProfileRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchJobProfilesQuery, PagedResponse<JobProfileListItemResponse>>
 {
     public async Task<Result<PagedResponse<JobProfileListItemResponse>>> Handle(
@@ -626,6 +632,16 @@ internal sealed class SearchJobProfilesQueryHandler(
             query.PageSize,
             cancellationToken);
 
+        if (!query.IncludeAllowedActions)
+        {
+            return Result<PagedResponse<JobProfileListItemResponse>>.Success(payload);
+        }
+
+        var items = payload.Items
+            .Select(item => JobProfilePolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .ToArray();
+        payload = payload with { Items = items };
+
         return Result<PagedResponse<JobProfileListItemResponse>>.Success(payload);
     }
 }
@@ -633,7 +649,8 @@ internal sealed class SearchJobProfilesQueryHandler(
 internal sealed class GetJobProfileByIdQueryHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<GetJobProfileByIdQuery, JobProfileResponse>
 {
     public async Task<Result<JobProfileResponse>> Handle(GetJobProfileByIdQuery query, CancellationToken cancellationToken)
@@ -652,6 +669,7 @@ internal sealed class GetJobProfileByIdQueryHandler(
         var response = await repository.GetResponseByIdAsync(query.JobProfileId, cancellationToken);
         if (response is not null)
         {
+            response = JobProfilePolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
             return Result<JobProfileResponse>.Success(response);
         }
 
@@ -699,7 +717,8 @@ internal sealed class GetJobProfileVacancyTemplateQueryHandler(
 internal sealed class GetJobProfilePrintQueryHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<GetJobProfilePrintQuery, JobProfilePrintResponse>
 {
     public async Task<Result<JobProfilePrintResponse>> Handle(
@@ -720,6 +739,8 @@ internal sealed class GetJobProfilePrintQueryHandler(
         var response = await repository.GetPrintByIdAsync(query.JobProfileId, cancellationToken);
         if (response is not null)
         {
+            var enrichedProfile = JobProfilePolicyAdapter.ApplyAllowedActions(response.Profile, resourceActionPolicyService);
+            response = response with { Profile = enrichedProfile };
             return Result<JobProfilePrintResponse>.Success(response);
         }
 
@@ -1767,6 +1788,48 @@ internal static class JobProfileDependencyAnalyzer
         }
 
         return false;
+    }
+}
+
+internal static class JobProfilePolicyAdapter
+{
+    public static JobProfileListItemResponse ApplyAllowedActions(
+        JobProfileListItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                JobProfilePermissionCodes.ResourceKey,
+                response.Status.ToString(),
+                response.IsActive,
+                SupportsEdit: true,
+                SupportsDelete: false,
+                SupportsArchive: true,
+                SupportsActivate: false,
+                SupportsInactivate: false,
+                NonEditableStates: [JobProfileStatus.Archived.ToString()]));
+
+        return response with { AllowedActions = allowedActions };
+    }
+
+    public static JobProfileResponse ApplyAllowedActions(
+        JobProfileResponse response,
+        IResourceActionPolicyService resourceActionPolicyService)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                JobProfilePermissionCodes.ResourceKey,
+                response.Status.ToString(),
+                response.IsActive,
+                HasDependencies: response.DependentPositions.Count > 0,
+                SupportsEdit: true,
+                SupportsDelete: false,
+                SupportsArchive: true,
+                SupportsActivate: false,
+                SupportsInactivate: false,
+                NonEditableStates: [JobProfileStatus.Archived.ToString()]));
+
+        return response with { AllowedActions = allowedActions };
     }
 }
 
