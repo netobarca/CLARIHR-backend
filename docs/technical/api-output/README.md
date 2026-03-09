@@ -17,6 +17,7 @@ Modulos y flujos documentados actualmente:
 - cost centers contables (`cost-centers.md`)
 - legal representatives (`legal-representatives.md`)
 - competency framework y matriz por puesto (`competency-framework.md`)
+- personnel files employee administration (`personnel-files-employee-administration.md`)
 - estrategias transversales (`permission-cache-strategy.md`, `search-growth-strategy.md`)
 
 La referencia transversal y acumulativa vive en `../api-reference/api-endpoints-reference.md`.

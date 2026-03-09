@@ -3547,7 +3547,30 @@ WITH tenant_source AS (
         ('Country', 'CR', 'Costa Rica', 50),
         ('Country', 'PA', 'Panama', 60),
         ('Country', 'MX', 'Mexico', 70),
-        ('Country', 'US', 'United States', 80)
+        ('Country', 'US', 'United States', 80),
+        ('EmployeeStatus', 'ACTIVE', 'Activo', 10),
+        ('EmployeeStatus', 'INACTIVE', 'Inactivo', 20),
+        ('EmploymentContractType', 'UNSPECIFIED', 'No especificado', 10),
+        ('EmploymentWorkday', 'FULL_TIME', 'Tiempo completo', 10),
+        ('EmploymentPayrollType', 'MONTHLY', 'Mensual', 10),
+        ('EmploymentIncomeType', 'BASE_SALARY', 'Salario base', 10),
+        ('EmploymentSalaryRubric', 'ORDINARY', 'Ordinario', 10),
+        ('EmploymentPayPeriod', 'MONTHLY', 'Mensual', 10),
+        ('EmploymentBenefitType', 'VACATION', 'Vacaciones', 10),
+        ('EmploymentPaymentMethod', 'BANK_TRANSFER', 'Transferencia bancaria', 10),
+        ('EmploymentAuthorizationSubstitutionType', 'GENERAL', 'General', 10),
+        ('EmploymentPersonnelActionType', 'SALARY_INCREMENT', 'Incremento salarial', 10),
+        ('EmploymentPersonnelActionStatus', 'APPLIED', 'Aplicado', 10),
+        ('EmploymentPayrollTransactionType', 'EARNING', 'Ingreso', 10),
+        ('EmploymentAssetType', 'LAPTOP', 'Computadora', 10),
+        ('EmploymentAccessLevel', 'STANDARD', 'Estandar', 10),
+        ('EmploymentInsurance', 'MEDICAL', 'Seguro medico', 10),
+        ('EmploymentInsuranceRange', 'FAMILY', 'Familiar', 10),
+        ('EmploymentKinship', 'SPOUSE', 'Conyuge', 10),
+        ('EmploymentMedicalClaimType', 'OUTPATIENT', 'Consulta externa', 10),
+        ('EmploymentEvaluationQualitativeScale', 'EXPECTED', 'Esperado', 20),
+        ('EmploymentCurricularRequirementType', 'ACADEMIC', 'Academico', 10),
+        ('EmploymentCurricularMetricType', 'YEARS', 'Anios', 10)
     ) AS source(category, code, name, sort_order)
 )
 INSERT INTO personnel_catalog_items (

@@ -647,8 +647,8 @@ internal abstract class PersonnelFileEmployeeCommandValidatorBase<TCommand, TIte
         RuleForEach(itemsAccessor.Accessor).SetValidator(itemValidator);
     }
 
-    protected readonly record struct GuidAccessor<T>(System.Linq.Expressions.Expression<Func<T, Guid>> Accessor);
-    protected readonly record struct CollectionAccessor<T, TCollectionItem>(System.Linq.Expressions.Expression<Func<T, IReadOnlyCollection<TCollectionItem>>> Accessor);
+    protected readonly record struct GuidAccessor<T>(global::System.Linq.Expressions.Expression<Func<T, Guid>> Accessor);
+    protected readonly record struct CollectionAccessor<T, TCollectionItem>(global::System.Linq.Expressions.Expression<Func<T, IEnumerable<TCollectionItem>>> Accessor);
 }
 
 internal sealed class EmploymentAssignmentInputValidator : AbstractValidator<EmploymentAssignmentInput>
@@ -1415,6 +1415,11 @@ internal sealed class GetPersonnelFilePositionHierarchyQueryHandler(
             return failure;
         }
 
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
+        {
+            return Result<PersonnelFilePositionHierarchyResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
         var response = await employeeRepository.GetPositionHierarchyAsync(personnelFile!.PublicId, cancellationToken);
         return Result<PersonnelFilePositionHierarchyResponse>.Success(response);
     }
@@ -1790,6 +1795,11 @@ internal sealed class SearchPersonnelFilePersonnelActionsQueryHandler(
             return failure;
         }
 
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
+        {
+            return Result<PagedResponse<PersonnelFilePersonnelActionResponse>>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
         var response = await employeeRepository.SearchPersonnelActionsAsync(
             personnelFile!.PublicId,
             query.FromUtc,
@@ -1827,6 +1837,11 @@ internal sealed class ExportPersonnelFilePersonnelActionsQueryHandler(
         if (failure is not null)
         {
             return failure;
+        }
+
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
+        {
+            return Result<IReadOnlyCollection<PersonnelFilePersonnelActionExportRow>>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
         var response = await employeeRepository.ExportPersonnelActionsAsync(
@@ -1936,6 +1951,11 @@ internal sealed class SearchPersonnelFilePayrollTransactionsQueryHandler(
             return failure;
         }
 
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
+        {
+            return Result<PagedResponse<PersonnelFilePayrollTransactionResponse>>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
         var response = await employeeRepository.SearchPayrollTransactionsAsync(
             personnelFile!.PublicId,
             query.FromUtc,
@@ -1973,6 +1993,11 @@ internal sealed class ExportPersonnelFilePayrollTransactionsQueryHandler(
         if (failure is not null)
         {
             return failure;
+        }
+
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
+        {
+            return Result<IReadOnlyCollection<PersonnelFilePayrollTransactionExportRow>>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
         var response = await employeeRepository.ExportPayrollTransactionsAsync(
@@ -2302,6 +2327,11 @@ internal sealed class GetPersonnelFilePerformanceEvaluationsQueryHandler(
             return failure;
         }
 
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
+        {
+            return Result<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
         var response = await employeeRepository.GetPerformanceEvaluationsAsync(personnelFile!.PublicId, cancellationToken);
         return Result<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>>.Success(response);
     }
@@ -2399,6 +2429,11 @@ internal sealed class GetPersonnelFilePositionCompetencyResultsQueryHandler(
             return failure;
         }
 
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
+        {
+            return Result<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
         var response = await employeeRepository.GetPositionCompetencyResultsAsync(personnelFile!.PublicId, cancellationToken);
         return Result<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>>.Success(response);
     }
@@ -2493,6 +2528,11 @@ internal sealed class GetPersonnelFileSelectionContestsQueryHandler(
         if (failure is not null)
         {
             return failure;
+        }
+
+        if (personnelFile!.RecordType != PersonnelFileRecordType.Employee)
+        {
+            return Result<IReadOnlyCollection<PersonnelFileSelectionContestResponse>>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
         var response = await employeeRepository.GetSelectionContestsAsync(personnelFile!.PublicId, cancellationToken);

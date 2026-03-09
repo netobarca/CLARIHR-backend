@@ -168,6 +168,11 @@ public static class PersonnelFileErrors
         "The requested operation is not allowed for the current personnel file state.",
         ErrorType.UnprocessableEntity);
 
+    public static readonly Error HireEndpointRequired = new(
+        "PERSONNEL_FILE_HIRE_ENDPOINT_REQUIRED",
+        "Candidate to employee conversion is only allowed through the hire endpoint.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error EffectiveDatesInvalid = new(
         "PERSONNEL_FILE_EFFECTIVE_DATES_INVALID",
         "The date range is invalid.",

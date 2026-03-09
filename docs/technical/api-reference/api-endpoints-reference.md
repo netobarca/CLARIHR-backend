@@ -281,6 +281,9 @@ Codigos relevantes hoy:
 - `LAST_ACTIVE_LEVEL_REQUIRED`
 - `WORK_CENTERS_ALLOWED_ONLY_ON_LAST_LEVEL`
 - `LOCATION_GROUP_LEVEL_NOT_ALLOWED_FOR_WORK_CENTER`
+- `PERSONNEL_FILE_STATE_RULE_VIOLATION`
+- `PERSONNEL_FILE_HIRE_ENDPOINT_REQUIRED`
+- `PERSONNEL_FILE_EXPORT_FORMAT_INVALID`
 - `CONCURRENCY_CONFLICT`
 
 Estados HTTP usados:
@@ -1789,6 +1792,96 @@ Main errors:
 - `404` (`COMPETENCY_CONDUCT_NOT_FOUND`, `OCCUPATIONAL_PYRAMID_LEVEL_NOT_FOUND`, `JOB_PROFILE_NOT_FOUND`)
 - `409` (`CONCURRENCY_CONFLICT`, `OCCUPATIONAL_PYRAMID_LEVEL_IN_USE`, `JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT`, `RESOURCE_IN_USE`)
 - `422`
+
+## 3H. Personnel Files Employee Administration (HU-PF-EMP-001)
+
+Modulo administrativo integral del expediente de empleado sobre `PersonnelFiles` con entrega por fases 1-3.
+
+Reglas globales:
+
+- Auth: JWT requerido.
+- Authorization:
+  - lectura: `PersonnelFiles.Read|Admin`
+  - escritura: `PersonnelFiles.Admin`
+- Tenant isolation: enforcement por `tid` + resolucion de `TENANT_MISMATCH`.
+- Escritura principal por seccion con `PUT` (replace completo del bloque).
+- Transiciones de tipo:
+  - `Candidate -> Employee` solo via `POST /api/v1/personnel-files/{id}/hire`.
+  - `PUT /api/v1/personnel-files/{id}/personal-info` ya no permite esa conversion.
+- Historicos pesados se exponen solo por endpoints paginados dedicados.
+- Exportes auditados (`REPORT_EXPORTED`).
+
+### Fase 1 - Nucleo laboral administrativo
+
+- `POST /api/v1/personnel-files/{id}/hire`
+- `PUT /api/v1/personnel-files/{id}/employee-profile`
+- `PUT /api/v1/personnel-files/{id}/employment-assignments`
+- `PUT /api/v1/personnel-files/{id}/contract-history`
+- `GET /api/v1/personnel-files/{id}/position-hierarchy`
+- `PUT /api/v1/personnel-files/{id}/salary-items`
+- `PUT /api/v1/personnel-files/{id}/additional-benefits`
+- `PUT /api/v1/personnel-files/{id}/payment-methods`
+- `PUT /api/v1/personnel-files/{id}/authorization-substitutions`
+
+Contratos principales:
+
+- `HirePersonnelFileRequest`
+- `UpdatePersonnelFileEmployeeProfileRequest`
+- `ReplaceEmploymentAssignmentsRequest`
+- `ReplaceContractHistoryRequest`
+- `ReplaceSalaryItemsRequest`
+- `ReplaceAdditionalBenefitsRequest`
+- `ReplacePaymentMethodsRequest`
+- `ReplaceAuthorizationSubstitutionsRequest`
+
+### Fase 2 - Historicos y operacion diaria
+
+- `POST /api/v1/personnel-files/{id}/personnel-actions`
+- `GET /api/v1/personnel-files/{id}/personnel-actions`
+- `GET /api/v1/personnel-files/{id}/personnel-actions/export?format=csv|xlsx`
+- `PUT /api/v1/personnel-files/{id}/payroll-transactions`
+- `GET /api/v1/personnel-files/{id}/payroll-transactions`
+- `GET /api/v1/personnel-files/{id}/payroll-transactions/export?format=csv|xlsx`
+- `PUT /api/v1/personnel-files/{id}/assets-accesses`
+- `PUT /api/v1/personnel-files/{id}/insurances`
+- `PUT /api/v1/personnel-files/{id}/medical-claims`
+
+Filtros estandar de historicos (`GET` listados):
+
+- `fromUtc`
+- `toUtc`
+- `type`
+- `status`
+- `q`
+- `sortBy`
+- `sortDirection`
+- `page`
+- `pageSize`
+
+### Fase 3 - Integraciones avanzadas (staging + lectura)
+
+- `PUT /api/v1/personnel-files/{id}/evaluations`
+- `GET /api/v1/personnel-files/{id}/evaluations`
+- `PUT /api/v1/personnel-files/{id}/position-competency-results`
+- `GET /api/v1/personnel-files/{id}/position-competencies`
+- `PUT /api/v1/personnel-files/{id}/selection-contests`
+- `GET /api/v1/personnel-files/{id}/selection-contests`
+- `PUT /api/v1/personnel-files/{id}/curricular-competencies`
+
+Modelo staging en tablas de integracion:
+
+- `source_system`
+- `source_reference`
+- `source_synced_utc`
+
+Main errors:
+
+- `400` validacion de contrato
+- `401` no autenticado
+- `403` denegado o tenant mismatch
+- `404` expediente no encontrado
+- `409` concurrencia (`CONCURRENCY_CONFLICT`)
+- `422` reglas semanticas (`PERSONNEL_FILE_STATE_RULE_VIOLATION`, `PERSONNEL_FILE_HIRE_ENDPOINT_REQUIRED`)
 
 ## 4. Company Users
 
@@ -3791,6 +3884,31 @@ Estado actual del API documentado en este archivo:
 - `GET /api/v1/personnel-files/{id}`
 - `GET /api/v1/personnel-files/{id}/print?sections=...`
 - `PUT /api/v1/personnel-files/{id}/personal-info`
+- `POST /api/v1/personnel-files/{id}/hire`
+- `PUT /api/v1/personnel-files/{id}/employee-profile`
+- `PUT /api/v1/personnel-files/{id}/employment-assignments`
+- `PUT /api/v1/personnel-files/{id}/contract-history`
+- `GET /api/v1/personnel-files/{id}/position-hierarchy`
+- `PUT /api/v1/personnel-files/{id}/salary-items`
+- `PUT /api/v1/personnel-files/{id}/additional-benefits`
+- `PUT /api/v1/personnel-files/{id}/payment-methods`
+- `PUT /api/v1/personnel-files/{id}/authorization-substitutions`
+- `POST /api/v1/personnel-files/{id}/personnel-actions`
+- `GET /api/v1/personnel-files/{id}/personnel-actions`
+- `GET /api/v1/personnel-files/{id}/personnel-actions/export?format=csv|xlsx`
+- `PUT /api/v1/personnel-files/{id}/payroll-transactions`
+- `GET /api/v1/personnel-files/{id}/payroll-transactions`
+- `GET /api/v1/personnel-files/{id}/payroll-transactions/export?format=csv|xlsx`
+- `PUT /api/v1/personnel-files/{id}/assets-accesses`
+- `PUT /api/v1/personnel-files/{id}/insurances`
+- `PUT /api/v1/personnel-files/{id}/medical-claims`
+- `PUT /api/v1/personnel-files/{id}/evaluations`
+- `GET /api/v1/personnel-files/{id}/evaluations`
+- `PUT /api/v1/personnel-files/{id}/position-competency-results`
+- `GET /api/v1/personnel-files/{id}/position-competencies`
+- `PUT /api/v1/personnel-files/{id}/selection-contests`
+- `GET /api/v1/personnel-files/{id}/selection-contests`
+- `PUT /api/v1/personnel-files/{id}/curricular-competencies`
 - `PUT /api/v1/personnel-files/{id}/identifications`
 - `PUT /api/v1/personnel-files/{id}/addresses`
 - `PUT /api/v1/personnel-files/{id}/emergency-contacts`

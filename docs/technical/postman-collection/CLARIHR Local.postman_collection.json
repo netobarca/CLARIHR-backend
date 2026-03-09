@@ -17,27 +17,7 @@
   },
   "variable": [
     {
-      "key": "baseUrl",
-      "value": "http://localhost:5000"
-    },
-    {
       "key": "accessToken",
-      "value": ""
-    },
-    {
-      "key": "refreshToken",
-      "value": ""
-    },
-    {
-      "key": "currentUserId",
-      "value": ""
-    },
-    {
-      "key": "ownedCompanyId",
-      "value": ""
-    },
-    {
-      "key": "archivedCompanyId",
       "value": ""
     },
     {
@@ -45,19 +25,7 @@
       "value": ""
     },
     {
-      "key": "roleId",
-      "value": ""
-    },
-    {
-      "key": "permissionId",
-      "value": ""
-    },
-    {
-      "key": "iamUserId",
-      "value": ""
-    },
-    {
-      "key": "companyUserId",
+      "key": "archivedCompanyId",
       "value": ""
     },
     {
@@ -65,51 +33,11 @@
       "value": ""
     },
     {
-      "key": "resourceKey",
-      "value": "RBAC_USERS"
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
     },
     {
-      "key": "fieldKey",
-      "value": "RBAC_USERS.EMAIL"
-    },
-    {
-      "key": "locationLevelId",
-      "value": ""
-    },
-    {
-      "key": "locationGroupId",
-      "value": ""
-    },
-    {
-      "key": "locationGroupToken",
-      "value": ""
-    },
-    {
-      "key": "workCenterTypeId",
-      "value": ""
-    },
-    {
-      "key": "workCenterTypeToken",
-      "value": ""
-    },
-    {
-      "key": "workCenterId",
-      "value": ""
-    },
-    {
-      "key": "workCenterToken",
-      "value": ""
-    },
-    {
-      "key": "locationHierarchyToken",
-      "value": ""
-    },
-    {
-      "key": "competencyId",
-      "value": ""
-    },
-    {
-      "key": "competencyTypeId",
+      "key": "behaviorId",
       "value": ""
     },
     {
@@ -117,15 +45,7 @@
       "value": ""
     },
     {
-      "key": "behaviorId",
-      "value": ""
-    },
-    {
-      "key": "occupationalPyramidLevelId",
-      "value": ""
-    },
-    {
-      "key": "occupationalPyramidLevelToken",
+      "key": "companyUserId",
       "value": ""
     },
     {
@@ -137,11 +57,99 @@
       "value": ""
     },
     {
+      "key": "competencyId",
+      "value": ""
+    },
+    {
       "key": "competencyMatrixJobProfileId",
       "value": ""
     },
     {
       "key": "competencyMatrixToken",
+      "value": ""
+    },
+    {
+      "key": "competencyTypeId",
+      "value": ""
+    },
+    {
+      "key": "currentUserId",
+      "value": ""
+    },
+    {
+      "key": "fieldKey",
+      "value": "RBAC_USERS.EMAIL"
+    },
+    {
+      "key": "iamUserId",
+      "value": ""
+    },
+    {
+      "key": "locationGroupId",
+      "value": ""
+    },
+    {
+      "key": "locationGroupToken",
+      "value": ""
+    },
+    {
+      "key": "locationHierarchyToken",
+      "value": ""
+    },
+    {
+      "key": "locationLevelId",
+      "value": ""
+    },
+    {
+      "key": "occupationalPyramidLevelId",
+      "value": ""
+    },
+    {
+      "key": "occupationalPyramidLevelToken",
+      "value": ""
+    },
+    {
+      "key": "ownedCompanyId",
+      "value": ""
+    },
+    {
+      "key": "permissionId",
+      "value": ""
+    },
+    {
+      "key": "personnelFileId",
+      "value": ""
+    },
+    {
+      "key": "personnelFileToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "resourceKey",
+      "value": "RBAC_USERS"
+    },
+    {
+      "key": "roleId",
+      "value": ""
+    },
+    {
+      "key": "workCenterId",
+      "value": ""
+    },
+    {
+      "key": "workCenterToken",
+      "value": ""
+    },
+    {
+      "key": "workCenterTypeId",
+      "value": ""
+    },
+    {
+      "key": "workCenterTypeToken",
       "value": ""
     }
   ],
@@ -1496,6 +1504,178 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/v1/job-profiles/{{competencyMatrixJobProfileId}}/competency-matrix/export?format=xlsx"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Personnel Files Employee Administration",
+      "item": [
+        {
+          "name": "Create Candidate Personnel File",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recordType\": \"Candidate\",\n  \"firstName\": \"Postman\",\n  \"lastName\": \"Employee\",\n  \"birthDate\": \"1995-05-20T00:00:00Z\",\n  \"identifications\": [\n    {\n      \"identificationType\": \"DUI\",\n      \"identificationNumber\": \"POSTMAN-EMP-001\",\n      \"isPrimary\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/personnel-files"
+          }
+        },
+        {
+          "name": "Get Personnel File",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/personnel-files/{{personnelFileId}}"
+          }
+        },
+        {
+          "name": "Hire Personnel File",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeCode\": \"EMP-POSTMAN-001\",\n  \"employmentStatusCode\": \"ACTIVE\",\n  \"isEmploymentActive\": true,\n  \"contractTypeCode\": \"UNSPECIFIED\",\n  \"hireDate\": \"2026-01-10T00:00:00Z\",\n  \"workdayCode\": \"FULL_TIME\",\n  \"payrollTypeCode\": \"MONTHLY\",\n  \"concurrencyToken\": \"{{personnelFileToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/personnel-files/{{personnelFileId}}/hire"
+          }
+        },
+        {
+          "name": "Update Employee Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeCode\": \"EMP-POSTMAN-001\",\n  \"employmentStatusCode\": \"ACTIVE\",\n  \"isEmploymentActive\": true,\n  \"contractTypeCode\": \"UNSPECIFIED\",\n  \"hireDate\": \"2026-01-10T00:00:00Z\",\n  \"workdayCode\": \"FULL_TIME\",\n  \"payrollTypeCode\": \"MONTHLY\",\n  \"vacationConfigurationJson\": \"{\\\"policy\\\":\\\"standard\\\"}\",\n  \"concurrencyToken\": \"{{personnelFileToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/personnel-files/{{personnelFileId}}/employee-profile"
+          }
+        },
+        {
+          "name": "Add Personnel Action",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionTypeCode\": \"SALARY_INCREMENT\",\n  \"actionStatusCode\": \"APPLIED\",\n  \"actionDateUtc\": \"2026-02-01T00:00:00Z\",\n  \"description\": \"Incremento anual\",\n  \"amount\": 150.00,\n  \"currencyCode\": \"USD\",\n  \"concurrencyToken\": \"{{personnelFileToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/personnel-files/{{personnelFileId}}/personnel-actions"
+          }
+        },
+        {
+          "name": "List Personnel Actions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/personnel-files/{{personnelFileId}}/personnel-actions?fromUtc=2026-01-01T00:00:00Z&toUtc=2026-12-31T23:59:59Z&type=SALARY_INCREMENT&status=APPLIED&page=1&pageSize=20"
+          }
+        },
+        {
+          "name": "Export Personnel Actions CSV",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/personnel-files/{{personnelFileId}}/personnel-actions/export?format=csv"
+          }
+        },
+        {
+          "name": "Replace Payroll Transactions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"transactionTypeCode\": \"EARNING\",\n      \"transactionDateUtc\": \"2026-02-15T00:00:00Z\",\n      \"payrollPeriodCode\": \"2026-02\",\n      \"description\": \"Ingreso ordinario\",\n      \"amount\": 1200.00,\n      \"currencyCode\": \"USD\",\n      \"isDebit\": false\n    }\n  ],\n  \"concurrencyToken\": \"{{personnelFileToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/personnel-files/{{personnelFileId}}/payroll-transactions"
+          }
+        },
+        {
+          "name": "Export Payroll Transactions XLSX",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/personnel-files/{{personnelFileId}}/payroll-transactions/export?format=xlsx"
+          }
+        },
+        {
+          "name": "Replace Evaluations",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"evaluatorName\": \"Lider Directo\",\n      \"evaluationDateUtc\": \"2026-03-01T00:00:00Z\",\n      \"score\": 92.5,\n      \"qualitativeScoreCode\": \"EXPECTED\",\n      \"comment\": \"Desempeno estable\",\n      \"sourceSystem\": \"development-module\",\n      \"sourceReference\": \"EV-001\",\n      \"sourceSyncedUtc\": \"2026-03-02T00:00:00Z\"\n    }\n  ],\n  \"concurrencyToken\": \"{{personnelFileToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/personnel-files/{{personnelFileId}}/evaluations"
+          }
+        },
+        {
+          "name": "Get Evaluations",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/personnel-files/{{personnelFileId}}/evaluations"
           }
         }
       ]

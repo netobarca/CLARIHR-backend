@@ -2049,6 +2049,12 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
             return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
+        if (personnelFile.RecordType == PersonnelFileRecordType.Candidate &&
+            command.RecordType == PersonnelFileRecordType.Employee)
+        {
+            return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.HireEndpointRequired);
+        }
+
         var definitions = await repository.GetCustomFieldDefinitionsAsync(personnelFile.TenantId, isActive: true, cancellationToken);
         var customDataValidation = PersonnelFileValidationRules.ValidateCustomData(definitions, command.CustomDataJson);
         if (customDataValidation != Error.None)

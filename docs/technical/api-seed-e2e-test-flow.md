@@ -1259,3 +1259,119 @@ Validar:
 - `format=json` retorna lista estructurada.
 - `format=csv` retorna `Content-Type: text/csv`.
 - `format=xlsx` retorna `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
+
+### 6.25 Expediente Empleado Fase 1 - candidate -> hire -> perfil base
+
+1. Crear candidato:
+
+```bash
+PF_CREATE=$(curl -sS -X POST "$BASE_URL/api/v1/companies/$COMPANY_A/personnel-files" \
+  -H "Authorization: Bearer $ACCESS_TOKEN_A" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "recordType":"Candidate",
+    "firstName":"HU028",
+    "lastName":"Employee",
+    "birthDate":"1995-05-20T00:00:00Z",
+    "identifications":[{"identificationType":"DUI","identificationNumber":"HU028-001","isPrimary":true}]
+  }')
+echo "$PF_CREATE" | jq
+export PF_EMPLOYEE_ID="$(echo "$PF_CREATE" | jq -r '.id')"
+export PF_EMPLOYEE_TOKEN="$(echo "$PF_CREATE" | jq -r '.concurrencyToken')"
+```
+
+2. Ejecutar `hire`:
+
+```bash
+HIRE=$(curl -sS -X POST "$BASE_URL/api/v1/personnel-files/$PF_EMPLOYEE_ID/hire" \
+  -H "Authorization: Bearer $ACCESS_TOKEN_A" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"employeeCode\":\"EMP-HU028-$RUN_ID\",
+    \"employmentStatusCode\":\"ACTIVE\",
+    \"isEmploymentActive\":true,
+    \"contractTypeCode\":\"UNSPECIFIED\",
+    \"hireDate\":\"2026-01-10T00:00:00Z\",
+    \"workdayCode\":\"FULL_TIME\",
+    \"payrollTypeCode\":\"MONTHLY\",
+    \"concurrencyToken\":\"$PF_EMPLOYEE_TOKEN\"
+  }")
+echo "$HIRE" | jq
+```
+
+3. Obtener nuevo `concurrencyToken` desde `GET /api/v1/personnel-files/{id}` y usarlo para:
+   - `PUT /employee-profile`
+   - `PUT /employment-assignments`
+   - `PUT /salary-items`
+   - `PUT /additional-benefits`
+   - `PUT /payment-methods`
+   - `PUT /authorization-substitutions`
+
+### 6.26 Expediente Empleado Fase 2 - historicos + export
+
+1. Crear accion manual:
+
+```bash
+curl -sS -X POST "$BASE_URL/api/v1/personnel-files/$PF_EMPLOYEE_ID/personnel-actions" \
+  -H "Authorization: Bearer $ACCESS_TOKEN_A" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"actionTypeCode\":\"SALARY_INCREMENT\",
+    \"actionStatusCode\":\"APPLIED\",
+    \"actionDateUtc\":\"2026-02-01T00:00:00Z\",
+    \"description\":\"Incremento anual\",
+    \"amount\":125.50,
+    \"currencyCode\":\"USD\",
+    \"concurrencyToken\":\"$PF_EMPLOYEE_TOKEN\"
+  }" | jq
+```
+
+2. Consultar historicos con filtros:
+
+```bash
+curl -sS "$BASE_URL/api/v1/personnel-files/$PF_EMPLOYEE_ID/personnel-actions?fromUtc=2026-01-01T00:00:00Z&toUtc=2026-12-31T23:59:59Z&type=SALARY_INCREMENT&status=APPLIED&q=Incremento&page=1&pageSize=20" \
+  -H "Authorization: Bearer $ACCESS_TOKEN_A" | jq
+```
+
+3. Exportes:
+
+```bash
+curl -sS -D - "$BASE_URL/api/v1/personnel-files/$PF_EMPLOYEE_ID/personnel-actions/export?format=csv" \
+  -H "Authorization: Bearer $ACCESS_TOKEN_A" -o /tmp/personnel-actions.csv
+
+curl -sS -D - "$BASE_URL/api/v1/personnel-files/$PF_EMPLOYEE_ID/payroll-transactions/export?format=xlsx" \
+  -H "Authorization: Bearer $ACCESS_TOKEN_A" -o /tmp/payroll-transactions.xlsx
+```
+
+Validar `200` y tipo de contenido correcto.
+
+### 6.27 Expediente Empleado Fase 3 - staging de integraciones
+
+Validar roundtrip `PUT + GET`:
+
+- `PUT /evaluations` + `GET /evaluations`
+- `PUT /position-competency-results` + `GET /position-competencies`
+- `PUT /selection-contests` + `GET /selection-contests`
+- `PUT /curricular-competencies`
+
+Cada payload de staging debe incluir cuando aplique:
+
+- `sourceSystem`
+- `sourceReference`
+- `sourceSyncedUtc`
+
+### 6.28 Seguridad `401/403`
+
+- `401`: repetir cualquier endpoint del modulo sin header `Authorization`.
+- `403`: usar token de tenant B (`ACCESS_TOKEN_B`) contra `PF_EMPLOYEE_ID` creado en tenant A y validar `TENANT_MISMATCH` o forbidden equivalente.
+
+### 6.29 Concurrencia `409`
+
+Usar `concurrencyToken` viejo en un `PUT` de seccion (por ejemplo `PUT /employee-profile`) y validar `CONCURRENCY_CONFLICT`.
+
+### 6.30 Regla de negocio `422` (hire obligatorio)
+
+Intentar convertir candidato a empleado via `PUT /api/v1/personnel-files/{id}/personal-info` con `recordType=Employee` y validar:
+
+- status `422`
+- code `PERSONNEL_FILE_HIRE_ENDPOINT_REQUIRED`
