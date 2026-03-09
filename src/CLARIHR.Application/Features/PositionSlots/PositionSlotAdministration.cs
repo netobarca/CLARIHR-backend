@@ -28,7 +28,9 @@ public sealed record PositionSlotListItemResponse(
     string OrgUnitName,
     Guid? WorkCenterId,
     string? WorkCenterName,
-    bool IsFixedTerm,
+    Guid? ContractTypeId,
+    string? ContractTypeCode,
+    string? ContractTypeName,
     int MaxEmployees,
     int OccupiedEmployees,
     DateTime EffectiveFromUtc,
@@ -57,9 +59,13 @@ public sealed record PositionSlotResponse(
     string? DirectDependencyPositionSlotCode,
     Guid? FunctionalDependencyPositionSlotId,
     string? FunctionalDependencyPositionSlotCode,
+    Guid? PositionCategoryId,
+    Guid? PositionCategoryClassificationId,
+    Guid? ContractTypeId,
+    string? ContractTypeCode,
+    string? ContractTypeName,
     int MaxEmployees,
     int OccupiedEmployees,
-    bool IsFixedTerm,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     string? Notes,
@@ -77,7 +83,8 @@ public sealed record PositionSlotGraphNodeResponse(
     Guid JobProfileId,
     Guid OrgUnitId,
     Guid? WorkCenterId,
-    bool IsFixedTerm,
+    Guid? ContractTypeId,
+    string? ContractTypeCode,
     bool IsActive);
 
 public sealed record PositionSlotGraphEdgeResponse(
@@ -102,7 +109,8 @@ public sealed record PositionSlotGraphNodeData(
     Guid? DirectDependencyId,
     long? FunctionalDependencyInternalId,
     Guid? FunctionalDependencyId,
-    bool IsFixedTerm,
+    Guid? ContractTypeId,
+    string? ContractTypeCode,
     bool IsActive);
 
 public sealed record PositionSlotExportRow(
@@ -119,14 +127,24 @@ public sealed record PositionSlotExportRow(
     string? CostCenterCode,
     string? DirectDependencyCode,
     string? FunctionalDependencyCode,
+    Guid? ContractTypeId,
+    string? ContractTypeCode,
+    string? ContractTypeName,
     int MaxEmployees,
     int OccupiedEmployees,
-    bool IsFixedTerm,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     bool IsActive,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
+
+public sealed record PositionSlotContractTypeLookup(
+    Guid JobProfileId,
+    Guid? PositionCategoryId,
+    Guid? PositionCategoryClassificationId,
+    Guid? ContractTypeId,
+    string? ContractTypeCode,
+    string? ContractTypeName);
 
 public sealed record SearchPositionSlotsQuery(
     Guid CompanyId,
@@ -134,7 +152,7 @@ public sealed record SearchPositionSlotsQuery(
     Guid? JobProfileId,
     Guid? OrgUnitId,
     Guid? WorkCenterId,
-    bool? IsFixedTerm,
+    Guid? ContractTypeId,
     string? Search,
     int PageNumber = 1,
     int PageSize = PositionSlotValidationRules.DefaultPageSize,
@@ -156,7 +174,7 @@ public sealed record GetPositionSlotExportRowsQuery(
     Guid? JobProfileId,
     Guid? OrgUnitId,
     Guid? WorkCenterId,
-    bool? IsFixedTerm,
+    Guid? ContractTypeId,
     string? Search)
     : IQuery<IReadOnlyCollection<PositionSlotExportRow>>;
 
@@ -173,7 +191,6 @@ public sealed record CreatePositionSlotCommand(
     PositionSlotStatus Status,
     int MaxEmployees,
     int OccupiedEmployees,
-    bool IsFixedTerm,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     string? Notes)
@@ -188,7 +205,6 @@ public sealed record UpdatePositionSlotCommand(
     Guid? WorkCenterId,
     string? CostCenterCode,
     int MaxEmployees,
-    bool IsFixedTerm,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     string? Notes,
@@ -228,6 +244,9 @@ internal sealed class SearchPositionSlotsQueryValidator : AbstractValidator<Sear
         RuleFor(query => query.WorkCenterId)
             .NotEqual(Guid.Empty)
             .When(static query => query.WorkCenterId.HasValue);
+        RuleFor(query => query.ContractTypeId)
+            .NotEqual(Guid.Empty)
+            .When(static query => query.ContractTypeId.HasValue);
         RuleFor(query => query.Search).MaximumLength(150);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PositionSlotValidationRules.MaxPageSize);
@@ -270,6 +289,9 @@ internal sealed class GetPositionSlotExportRowsQueryValidator : AbstractValidato
         RuleFor(query => query.WorkCenterId)
             .NotEqual(Guid.Empty)
             .When(static query => query.WorkCenterId.HasValue);
+        RuleFor(query => query.ContractTypeId)
+            .NotEqual(Guid.Empty)
+            .When(static query => query.ContractTypeId.HasValue);
         RuleFor(query => query.Search).MaximumLength(150);
     }
 }
@@ -393,7 +415,7 @@ internal sealed class SearchPositionSlotsQueryHandler(
             query.JobProfileId,
             query.OrgUnitId,
             query.WorkCenterId,
-            query.IsFixedTerm,
+            query.ContractTypeId,
             query.Search,
             query.PageNumber,
             query.PageSize,
@@ -500,7 +522,7 @@ internal sealed class GetPositionSlotExportRowsQueryHandler(
             query.JobProfileId,
             query.OrgUnitId,
             query.WorkCenterId,
-            query.IsFixedTerm,
+            query.ContractTypeId,
             query.Search,
             cancellationToken);
 
@@ -565,6 +587,19 @@ internal sealed class CreatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(workCenterIdResult.Error);
         }
 
+        var contractTypeLookup = await repository.GetContractTypeByJobProfileAsync(
+            command.CompanyId,
+            command.JobProfileId,
+            cancellationToken);
+        if (contractTypeLookup is null || !contractTypeLookup.ContractTypeId.HasValue)
+        {
+            return Result<PositionSlotResponse>.Failure(PositionSlotErrors.ContractTypeNotResolved);
+        }
+
+        var isFixedTerm = PositionSlotContractTypeRules.IsFixedTerm(
+            contractTypeLookup.ContractTypeCode,
+            contractTypeLookup.ContractTypeName);
+
         var directDependencyResult = await PositionSlotCommandSupport.ResolveDependencyInternalIdAsync(
             command.CompanyId,
             command.DirectDependencyPositionSlotId,
@@ -613,7 +648,7 @@ internal sealed class CreatePositionSlotCommandHandler(
                 command.Status,
                 command.MaxEmployees,
                 command.OccupiedEmployees,
-                command.IsFixedTerm,
+                isFixedTerm,
                 command.EffectiveFromUtc,
                 command.EffectiveToUtc,
                 command.Notes);
@@ -734,6 +769,19 @@ internal sealed class UpdatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(workCenterIdResult.Error);
         }
 
+        var contractTypeLookup = await repository.GetContractTypeByJobProfileAsync(
+            slot.TenantId,
+            command.JobProfileId,
+            cancellationToken);
+        if (contractTypeLookup is null || !contractTypeLookup.ContractTypeId.HasValue)
+        {
+            return Result<PositionSlotResponse>.Failure(PositionSlotErrors.ContractTypeNotResolved);
+        }
+
+        var isFixedTerm = PositionSlotContractTypeRules.IsFixedTerm(
+            contractTypeLookup.ContractTypeCode,
+            contractTypeLookup.ContractTypeName);
+
         if (!string.IsNullOrWhiteSpace(command.CostCenterCode) &&
             !await costCenterRepository.ExistsActiveByCodeAsync(
                 slot.TenantId,
@@ -757,7 +805,7 @@ internal sealed class UpdatePositionSlotCommandHandler(
                 workCenterIdResult.Value,
                 command.CostCenterCode,
                 command.MaxEmployees,
-                command.IsFixedTerm,
+                isFixedTerm,
                 command.EffectiveFromUtc,
                 command.EffectiveToUtc,
                 command.Notes);
@@ -1163,7 +1211,8 @@ internal static class PositionSlotGraphBuilder
                 node.JobProfileId,
                 node.OrgUnitId,
                 node.WorkCenterId,
-                node.IsFixedTerm,
+                node.ContractTypeId,
+                node.ContractTypeCode,
                 node.IsActive))
             .ToArray();
 

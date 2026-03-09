@@ -14,7 +14,6 @@ using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.OrgUnits;
 using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.Reports.Common;
-using CLARIHR.Domain.OrgUnits;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -36,7 +35,8 @@ public sealed class OrgUnitsController(
     public async Task<ActionResult<PagedResponse<OrgUnitResponse>>> Search(
         Guid companyId,
         [FromQuery] bool? isActive,
-        [FromQuery] OrgUnitType? type,
+        [FromQuery] Guid? orgUnitTypeId,
+        [FromQuery] Guid? functionalAreaId,
         [FromQuery] Guid? parentId,
         [FromQuery] string? q,
         [FromQuery] int page = 1,
@@ -45,7 +45,7 @@ public sealed class OrgUnitsController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchOrgUnitsQuery(companyId, isActive, q, type, parentId, page, pageSize, includeAllowedActions),
+            new SearchOrgUnitsQuery(companyId, isActive, q, orgUnitTypeId, functionalAreaId, parentId, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -112,13 +112,14 @@ public sealed class OrgUnitsController(
         Guid companyId,
         [FromQuery] string format = "xlsx",
         [FromQuery] bool? isActive = null,
-        [FromQuery] OrgUnitType? type = null,
+        [FromQuery] Guid? orgUnitTypeId = null,
+        [FromQuery] Guid? functionalAreaId = null,
         [FromQuery] Guid? parentId = null,
         [FromQuery(Name = "q")] string? search = null,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new GetOrgUnitExportRowsQuery(companyId, isActive, search, type, parentId),
+            new GetOrgUnitExportRowsQuery(companyId, isActive, search, orgUnitTypeId, functionalAreaId, parentId),
             cancellationToken);
 
         if (result.IsFailure)
@@ -140,7 +141,7 @@ public sealed class OrgUnitsController(
                     {
                         resourceKey = OrgUnitPermissionCodes.ResourceKey,
                         format = "csv",
-                        filters = new { isActive, type, parentId, q = search },
+                        filters = new { isActive, orgUnitTypeId, functionalAreaId, parentId, q = search },
                         rowCount = result.Value.Count
                     }),
                 cancellationToken);
@@ -164,7 +165,7 @@ public sealed class OrgUnitsController(
                     {
                         resourceKey = OrgUnitPermissionCodes.ResourceKey,
                         format = "xlsx",
-                        filters = new { isActive, type, parentId, q = search },
+                        filters = new { isActive, orgUnitTypeId, functionalAreaId, parentId, q = search },
                         rowCount = result.Value.Count
                     }),
                 cancellationToken);
@@ -295,7 +296,8 @@ public sealed class OrgUnitsController(
                 companyId,
                 request.Code,
                 request.Name,
-                request.UnitType,
+                request.OrgUnitTypeId,
+                request.FunctionalAreaId,
                 request.ParentId,
                 request.SortOrder,
                 request.Description,
@@ -326,7 +328,8 @@ public sealed class OrgUnitsController(
                 id,
                 request.Code,
                 request.Name,
-                request.UnitType,
+                request.OrgUnitTypeId,
+                request.FunctionalAreaId,
                 request.SortOrder,
                 request.Description,
                 request.CostCenterCode,
@@ -398,14 +401,19 @@ public sealed class OrgUnitsController(
     {
         var lines = new List<string>
         {
-            "Id,Code,Name,UnitType,ParentCode,ParentName,SortOrder,Description,CostCenterCode,ManagerEmployeeId,IsActive,CreatedAtUtc,ModifiedAtUtc"
+            "Id,Code,Name,OrgUnitTypeId,OrgUnitTypeCode,OrgUnitTypeName,FunctionalAreaId,FunctionalAreaCode,FunctionalAreaName,ParentCode,ParentName,SortOrder,Description,CostCenterCode,ManagerEmployeeId,IsActive,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
             EscapeCsv(row.Id.ToString()),
             EscapeCsv(row.Code),
             EscapeCsv(row.Name),
-            EscapeCsv(row.UnitType.ToString()),
+            EscapeCsv(row.OrgUnitTypeId.ToString()),
+            EscapeCsv(row.OrgUnitTypeCode),
+            EscapeCsv(row.OrgUnitTypeName),
+            EscapeCsv(row.FunctionalAreaId?.ToString()),
+            EscapeCsv(row.FunctionalAreaCode),
+            EscapeCsv(row.FunctionalAreaName),
             EscapeCsv(row.ParentCode),
             EscapeCsv(row.ParentName),
             EscapeCsv(row.SortOrder?.ToString(CultureInfo.InvariantCulture)),
@@ -429,7 +437,12 @@ public sealed class OrgUnitsController(
             "Id",
             "Code",
             "Name",
-            "UnitType",
+            "OrgUnitTypeId",
+            "OrgUnitTypeCode",
+            "OrgUnitTypeName",
+            "FunctionalAreaId",
+            "FunctionalAreaCode",
+            "FunctionalAreaName",
             "ParentCode",
             "ParentName",
             "SortOrder",
@@ -457,7 +470,12 @@ public sealed class OrgUnitsController(
             sheetRows.Append(Cell(row.Id.ToString()));
             sheetRows.Append(Cell(row.Code));
             sheetRows.Append(Cell(row.Name));
-            sheetRows.Append(Cell(row.UnitType.ToString()));
+            sheetRows.Append(Cell(row.OrgUnitTypeId.ToString()));
+            sheetRows.Append(Cell(row.OrgUnitTypeCode));
+            sheetRows.Append(Cell(row.OrgUnitTypeName));
+            sheetRows.Append(Cell(row.FunctionalAreaId?.ToString()));
+            sheetRows.Append(Cell(row.FunctionalAreaCode));
+            sheetRows.Append(Cell(row.FunctionalAreaName));
             sheetRows.Append(Cell(row.ParentCode));
             sheetRows.Append(Cell(row.ParentName));
             sheetRows.Append(Cell(row.SortOrder?.ToString(CultureInfo.InvariantCulture)));
@@ -588,7 +606,7 @@ public sealed class OrgUnitsController(
 
                 writer.WriteStartElement("data");
                 writer.WriteAttributeString("key", "type");
-                writer.WriteString(node.Type.ToString());
+                writer.WriteString(node.OrgUnitTypeCode);
                 writer.WriteEndElement();
 
                 writer.WriteStartElement("data");
@@ -669,7 +687,8 @@ public sealed class OrgUnitsController(
     public sealed record CreateOrgUnitRequest(
         string Code,
         string Name,
-        OrgUnitType UnitType,
+        Guid OrgUnitTypeId,
+        Guid? FunctionalAreaId,
         Guid? ParentId,
         int? SortOrder,
         string? Description,
@@ -679,7 +698,8 @@ public sealed class OrgUnitsController(
     public sealed record UpdateOrgUnitRequest(
         string Code,
         string Name,
-        OrgUnitType UnitType,
+        Guid OrgUnitTypeId,
+        Guid? FunctionalAreaId,
         int? SortOrder,
         string? Description,
         string? CostCenterCode,

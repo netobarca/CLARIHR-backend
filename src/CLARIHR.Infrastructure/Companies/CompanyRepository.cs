@@ -47,7 +47,14 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                         legalRepresentative.RepresentationType,
                         legalRepresentative.PositionTitle,
                         legalRepresentative.IsPrimary))
-                    .ToArray()))
+                    .ToArray(),
+                company.CompanyTypeId.HasValue
+                    ? new CompanyTypeMetadataResponse(
+                        company.CompanyTypeId.Value,
+                        company.CompanyTypeCode ?? string.Empty,
+                        company.CompanyTypeName ?? string.Empty,
+                        company.CompanyTypeIsActive ?? false)
+                    : null))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<PagedResponse<AccountCompanySummaryResponse>> GetOwnedByUserAsync(
@@ -76,7 +83,14 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                 company.PlanCode,
                 company.IsActiveContext,
                 IsOwnedByCurrentUser: true,
-                company.CreatedAtUtc))
+                company.CreatedAtUtc,
+                company.CompanyTypeId.HasValue
+                    ? new CompanyTypeMetadataResponse(
+                        company.CompanyTypeId.Value,
+                        company.CompanyTypeCode ?? string.Empty,
+                        company.CompanyTypeName ?? string.Empty,
+                        company.CompanyTypeIsActive ?? false)
+                    : null))
             .ToListAsync(cancellationToken);
 
         return new PagedResponse<AccountCompanySummaryResponse>(items, filter.PageNumber, filter.PageSize, totalCount);
@@ -127,6 +141,26 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                     .Select(subscription => subscription.PlanCode)
                     .FirstOrDefault() ?? string.Empty,
                 IsActiveContext = activeTenantId.HasValue && company.PublicId == activeTenantId.Value,
+                CompanyTypeId = dbContext.CompanyTypeCatalogItems
+                    .AsNoTracking()
+                    .Where(item => item.Id == company.CompanyTypeCatalogItemId)
+                    .Select(item => (Guid?)item.PublicId)
+                    .FirstOrDefault(),
+                CompanyTypeCode = dbContext.CompanyTypeCatalogItems
+                    .AsNoTracking()
+                    .Where(item => item.Id == company.CompanyTypeCatalogItemId)
+                    .Select(item => item.Code)
+                    .FirstOrDefault(),
+                CompanyTypeName = dbContext.CompanyTypeCatalogItems
+                    .AsNoTracking()
+                    .Where(item => item.Id == company.CompanyTypeCatalogItemId)
+                    .Select(item => item.Name)
+                    .FirstOrDefault(),
+                CompanyTypeIsActive = dbContext.CompanyTypeCatalogItems
+                    .AsNoTracking()
+                    .Where(item => item.Id == company.CompanyTypeCatalogItemId)
+                    .Select(item => (bool?)item.IsActive)
+                    .FirstOrDefault(),
                 CreatedAtUtc = company.CreatedUtc,
                 ModifiedAtUtc = company.ModifiedUtc
             });
@@ -144,6 +178,14 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
         public string PlanCode { get; init; } = string.Empty;
 
         public bool IsActiveContext { get; init; }
+
+        public Guid? CompanyTypeId { get; init; }
+
+        public string? CompanyTypeCode { get; init; }
+
+        public string? CompanyTypeName { get; init; }
+
+        public bool? CompanyTypeIsActive { get; init; }
 
         public DateTime CreatedAtUtc { get; init; }
 

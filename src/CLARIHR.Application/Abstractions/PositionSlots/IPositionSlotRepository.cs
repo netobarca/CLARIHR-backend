@@ -34,7 +34,7 @@ public interface IPositionSlotRepository
         Guid? jobProfileId,
         Guid? orgUnitId,
         Guid? workCenterId,
-        bool? isFixedTerm,
+        Guid? contractTypeId,
         string? search,
         int pageNumber,
         int pageSize,
@@ -50,7 +50,12 @@ public interface IPositionSlotRepository
         Guid? jobProfileId,
         Guid? orgUnitId,
         Guid? workCenterId,
-        bool? isFixedTerm,
+        Guid? contractTypeId,
         string? search,
+        CancellationToken cancellationToken);
+
+    Task<PositionSlotContractTypeLookup?> GetContractTypeByJobProfileAsync(
+        Guid tenantId,
+        Guid jobProfileId,
         CancellationToken cancellationToken);
 }

@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Policies;
+using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -11,19 +12,23 @@ using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Domain.JobProfiles;
+using CLARIHR.Domain.PositionDescriptionCatalogs;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.JobProfiles;
 
 public sealed record JobProfileRequirementResponse(
     Guid? CatalogItemId,
+    Guid? RequirementTypeCatalogItemId,
     JobRequirementType RequirementType,
     string Description,
     int SortOrder);
 
 public sealed record JobProfileFunctionResponse(
     JobFunctionType FunctionType,
+    Guid? FrequencyCatalogItemId,
     string Description,
     int SortOrder);
 
@@ -64,6 +69,7 @@ public sealed record JobProfileBenefitResponse(
 
 public sealed record JobProfileWorkingConditionResponse(
     Guid? CatalogItemId,
+    Guid? WorkConditionTypeCatalogItemId,
     string Name,
     string? Notes,
     int SortOrder);
@@ -102,6 +108,10 @@ public sealed record JobProfileResponse(
     Guid? ReportsToJobProfileId,
     string? ReportsToJobProfileCode,
     string? ReportsToJobProfileTitle,
+    Guid? PositionCategoryId,
+    Guid? StrategicObjectiveCatalogItemId,
+    Guid? AssignedWorkEquipmentCatalogItemId,
+    Guid? ResponsibilityCatalogItemId,
     string? DecisionScope,
     string? AssignedResources,
     string? Responsibilities,
@@ -151,6 +161,7 @@ public sealed record JobProfileDependencyNodeData(
 
 public sealed record JobProfileRequirementInput(
     JobRequirementType RequirementType,
+    Guid? RequirementTypeCatalogItemId,
     Guid? CatalogItemId,
     string? CatalogCode,
     string? CatalogName,
@@ -159,6 +170,7 @@ public sealed record JobProfileRequirementInput(
 
 public sealed record JobProfileFunctionInput(
     JobFunctionType FunctionType,
+    Guid? FrequencyCatalogItemId,
     string Description,
     int SortOrder);
 
@@ -207,6 +219,7 @@ public sealed record JobProfileBenefitInput(
     int SortOrder);
 
 public sealed record JobProfileWorkingConditionInput(
+    Guid? WorkConditionTypeCatalogItemId,
     Guid? CatalogItemId,
     string? CatalogCode,
     string? CatalogName,
@@ -242,6 +255,10 @@ public sealed record CreateJobProfileCommand(
     string? Objective,
     Guid? OrgUnitId,
     Guid? ReportsToJobProfileId,
+    Guid? PositionCategoryId,
+    Guid? StrategicObjectiveCatalogItemId,
+    Guid? AssignedWorkEquipmentCatalogItemId,
+    Guid? ResponsibilityCatalogItemId,
     string? DecisionScope,
     string? AssignedResources,
     string? Responsibilities,
@@ -269,6 +286,10 @@ public sealed record UpdateJobProfileCommand(
     string? Objective,
     Guid? OrgUnitId,
     Guid? ReportsToJobProfileId,
+    Guid? PositionCategoryId,
+    Guid? StrategicObjectiveCatalogItemId,
+    Guid? AssignedWorkEquipmentCatalogItemId,
+    Guid? ResponsibilityCatalogItemId,
     string? DecisionScope,
     string? AssignedResources,
     string? Responsibilities,
@@ -356,6 +377,18 @@ internal sealed class CreateJobProfileCommandValidator : AbstractValidator<Creat
         RuleFor(command => command.ReportsToJobProfileId)
             .NotEqual(Guid.Empty)
             .When(static command => command.ReportsToJobProfileId.HasValue);
+        RuleFor(command => command.PositionCategoryId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.PositionCategoryId.HasValue);
+        RuleFor(command => command.StrategicObjectiveCatalogItemId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.StrategicObjectiveCatalogItemId.HasValue);
+        RuleFor(command => command.AssignedWorkEquipmentCatalogItemId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.AssignedWorkEquipmentCatalogItemId.HasValue);
+        RuleFor(command => command.ResponsibilityCatalogItemId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.ResponsibilityCatalogItemId.HasValue);
         RuleFor(command => command)
             .Must(static command => !command.EffectiveFromUtc.HasValue ||
                                    !command.EffectiveToUtc.HasValue ||
@@ -404,6 +437,18 @@ internal sealed class UpdateJobProfileCommandValidator : AbstractValidator<Updat
         RuleFor(command => command.ReportsToJobProfileId)
             .NotEqual(Guid.Empty)
             .When(static command => command.ReportsToJobProfileId.HasValue);
+        RuleFor(command => command.PositionCategoryId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.PositionCategoryId.HasValue);
+        RuleFor(command => command.StrategicObjectiveCatalogItemId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.StrategicObjectiveCatalogItemId.HasValue);
+        RuleFor(command => command.AssignedWorkEquipmentCatalogItemId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.AssignedWorkEquipmentCatalogItemId.HasValue);
+        RuleFor(command => command.ResponsibilityCatalogItemId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.ResponsibilityCatalogItemId.HasValue);
         RuleFor(command => command)
             .Must(static command => !command.EffectiveFromUtc.HasValue ||
                                    !command.EffectiveToUtc.HasValue ||
@@ -453,6 +498,9 @@ internal sealed class JobProfileRequirementInputValidator : AbstractValidator<Jo
         RuleFor(input => input.CatalogItemId)
             .NotEqual(Guid.Empty)
             .When(static input => input.CatalogItemId.HasValue);
+        RuleFor(input => input.RequirementTypeCatalogItemId)
+            .NotEqual(Guid.Empty)
+            .When(static input => input.RequirementTypeCatalogItemId.HasValue);
         RuleFor(input => input.CatalogCode)
             .MaximumLength(50)
             .Must(JobProfileValidationRules.IsValidCode)
@@ -468,6 +516,9 @@ internal sealed class JobProfileFunctionInputValidator : AbstractValidator<JobPr
 {
     public JobProfileFunctionInputValidator()
     {
+        RuleFor(input => input.FrequencyCatalogItemId)
+            .NotEqual(Guid.Empty)
+            .When(static input => input.FrequencyCatalogItemId.HasValue);
         RuleFor(input => input.Description).NotEmpty().MaximumLength(2000);
         RuleFor(input => input.SortOrder).GreaterThanOrEqualTo(0);
     }
@@ -581,6 +632,9 @@ internal sealed class JobProfileWorkingConditionInputValidator : AbstractValidat
 {
     public JobProfileWorkingConditionInputValidator()
     {
+        RuleFor(input => input.WorkConditionTypeCatalogItemId)
+            .NotEqual(Guid.Empty)
+            .When(static input => input.WorkConditionTypeCatalogItemId.HasValue);
         RuleFor(input => input.CatalogItemId)
             .NotEqual(Guid.Empty)
             .When(static input => input.CatalogItemId.HasValue);
@@ -755,6 +809,7 @@ internal sealed class CreateJobProfileCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
     IJobCatalogRepository catalogRepository,
+    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
     IAuditService auditService,
     IUnitOfWork unitOfWork)
     : ICommandHandler<CreateJobProfileCommand, JobProfileResponse>
@@ -798,6 +853,56 @@ internal sealed class CreateJobProfileCommandHandler(
             return Result<JobProfileResponse>.Failure(reportsToInternalIdResult.Error);
         }
 
+        var positionCategoryInternalIdResult = await JobProfileCommandSupport.ResolvePositionCategoryInternalIdAsync(
+            command.CompanyId,
+            command.PositionCategoryId,
+            positionDescriptionCatalogRepository,
+            RbacPermissionAction.Create,
+            cancellationToken);
+        if (positionCategoryInternalIdResult.IsFailure)
+        {
+            return Result<JobProfileResponse>.Failure(positionCategoryInternalIdResult.Error);
+        }
+
+        var strategicObjectiveInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
+            command.CompanyId,
+            command.StrategicObjectiveCatalogItemId,
+            PositionDescriptionCatalogType.StrategicObjective,
+            PositionDescriptionCatalogErrors.RelatedCatalogItemNotFound,
+            positionDescriptionCatalogRepository,
+            RbacPermissionAction.Create,
+            cancellationToken);
+        if (strategicObjectiveInternalIdResult.IsFailure)
+        {
+            return Result<JobProfileResponse>.Failure(strategicObjectiveInternalIdResult.Error);
+        }
+
+        var workEquipmentInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
+            command.CompanyId,
+            command.AssignedWorkEquipmentCatalogItemId,
+            PositionDescriptionCatalogType.WorkEquipment,
+            PositionDescriptionCatalogErrors.RelatedCatalogItemNotFound,
+            positionDescriptionCatalogRepository,
+            RbacPermissionAction.Create,
+            cancellationToken);
+        if (workEquipmentInternalIdResult.IsFailure)
+        {
+            return Result<JobProfileResponse>.Failure(workEquipmentInternalIdResult.Error);
+        }
+
+        var responsibilityInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
+            command.CompanyId,
+            command.ResponsibilityCatalogItemId,
+            PositionDescriptionCatalogType.Responsibility,
+            PositionDescriptionCatalogErrors.RelatedCatalogItemNotFound,
+            positionDescriptionCatalogRepository,
+            RbacPermissionAction.Create,
+            cancellationToken);
+        if (responsibilityInternalIdResult.IsFailure)
+        {
+            return Result<JobProfileResponse>.Failure(responsibilityInternalIdResult.Error);
+        }
+
         var inlineDecision = await JobProfileCommandSupport.ResolveInlineCatalogPermissionAsync(
             command.AllowInlineCatalogCreate,
             JobProfileMutationMapper.HasInlineCatalogReferences(command),
@@ -821,6 +926,7 @@ internal sealed class CreateJobProfileCommandHandler(
             authorizationService,
             repository,
             catalogRepository,
+            positionDescriptionCatalogRepository,
             createdCatalogItems,
             categoryInvalidation,
             cancellationToken);
@@ -837,6 +943,10 @@ internal sealed class CreateJobProfileCommandHandler(
             command.Objective,
             orgUnitInternalIdResult.Value,
             reportsToInternalIdResult.Value,
+            positionCategoryInternalIdResult.Value,
+            strategicObjectiveInternalIdResult.Value,
+            workEquipmentInternalIdResult.Value,
+            responsibilityInternalIdResult.Value,
             command.DecisionScope,
             command.AssignedResources,
             command.Responsibilities,
@@ -903,6 +1013,7 @@ internal sealed class UpdateJobProfileCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
     IJobCatalogRepository catalogRepository,
+    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -966,6 +1077,56 @@ internal sealed class UpdateJobProfileCommandHandler(
             return Result<JobProfileResponse>.Failure(reportsToInternalIdResult.Error);
         }
 
+        var positionCategoryInternalIdResult = await JobProfileCommandSupport.ResolvePositionCategoryInternalIdAsync(
+            profile.TenantId,
+            command.PositionCategoryId,
+            positionDescriptionCatalogRepository,
+            RbacPermissionAction.Update,
+            cancellationToken);
+        if (positionCategoryInternalIdResult.IsFailure)
+        {
+            return Result<JobProfileResponse>.Failure(positionCategoryInternalIdResult.Error);
+        }
+
+        var strategicObjectiveInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
+            profile.TenantId,
+            command.StrategicObjectiveCatalogItemId,
+            PositionDescriptionCatalogType.StrategicObjective,
+            PositionDescriptionCatalogErrors.RelatedCatalogItemNotFound,
+            positionDescriptionCatalogRepository,
+            RbacPermissionAction.Update,
+            cancellationToken);
+        if (strategicObjectiveInternalIdResult.IsFailure)
+        {
+            return Result<JobProfileResponse>.Failure(strategicObjectiveInternalIdResult.Error);
+        }
+
+        var workEquipmentInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
+            profile.TenantId,
+            command.AssignedWorkEquipmentCatalogItemId,
+            PositionDescriptionCatalogType.WorkEquipment,
+            PositionDescriptionCatalogErrors.RelatedCatalogItemNotFound,
+            positionDescriptionCatalogRepository,
+            RbacPermissionAction.Update,
+            cancellationToken);
+        if (workEquipmentInternalIdResult.IsFailure)
+        {
+            return Result<JobProfileResponse>.Failure(workEquipmentInternalIdResult.Error);
+        }
+
+        var responsibilityInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
+            profile.TenantId,
+            command.ResponsibilityCatalogItemId,
+            PositionDescriptionCatalogType.Responsibility,
+            PositionDescriptionCatalogErrors.RelatedCatalogItemNotFound,
+            positionDescriptionCatalogRepository,
+            RbacPermissionAction.Update,
+            cancellationToken);
+        if (responsibilityInternalIdResult.IsFailure)
+        {
+            return Result<JobProfileResponse>.Failure(responsibilityInternalIdResult.Error);
+        }
+
         var inlineDecision = await JobProfileCommandSupport.ResolveInlineCatalogPermissionAsync(
             command.AllowInlineCatalogCreate,
             JobProfileMutationMapper.HasInlineCatalogReferences(command),
@@ -989,6 +1150,7 @@ internal sealed class UpdateJobProfileCommandHandler(
             authorizationService,
             repository,
             catalogRepository,
+            positionDescriptionCatalogRepository,
             createdCatalogItems,
             categoryInvalidation,
             cancellationToken);
@@ -1011,6 +1173,10 @@ internal sealed class UpdateJobProfileCommandHandler(
                     command.Objective,
                     orgUnitInternalIdResult.Value,
                     reportsToInternalIdResult.Value,
+                    positionCategoryInternalIdResult.Value,
+                    strategicObjectiveInternalIdResult.Value,
+                    workEquipmentInternalIdResult.Value,
+                    responsibilityInternalIdResult.Value,
                     command.DecisionScope,
                     command.AssignedResources,
                     command.Responsibilities,
@@ -1276,6 +1442,7 @@ internal static class JobProfileMutationMapper
         IJobProfileAuthorizationService authorizationService,
         IJobProfileRepository profileRepository,
         IJobCatalogRepository catalogRepository,
+        IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
         IList<JobCatalogItem> createdCatalogItems,
         ISet<JobCatalogCategory> categoryInvalidation,
         CancellationToken cancellationToken) =>
@@ -1296,6 +1463,7 @@ internal static class JobProfileMutationMapper
             authorizationService,
             profileRepository,
             catalogRepository,
+            positionDescriptionCatalogRepository,
             createdCatalogItems,
             categoryInvalidation,
             cancellationToken);
@@ -1309,6 +1477,7 @@ internal static class JobProfileMutationMapper
         IJobProfileAuthorizationService authorizationService,
         IJobProfileRepository profileRepository,
         IJobCatalogRepository catalogRepository,
+        IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
         IList<JobCatalogItem> createdCatalogItems,
         ISet<JobCatalogCategory> categoryInvalidation,
         CancellationToken cancellationToken) =>
@@ -1329,6 +1498,7 @@ internal static class JobProfileMutationMapper
             authorizationService,
             profileRepository,
             catalogRepository,
+            positionDescriptionCatalogRepository,
             createdCatalogItems,
             categoryInvalidation,
             cancellationToken);
@@ -1350,6 +1520,7 @@ internal static class JobProfileMutationMapper
         IJobProfileAuthorizationService authorizationService,
         IJobProfileRepository profileRepository,
         IJobCatalogRepository catalogRepository,
+        IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
         IList<JobCatalogItem> createdCatalogItems,
         ISet<JobCatalogCategory> categoryInvalidation,
         CancellationToken cancellationToken)
@@ -1357,6 +1528,22 @@ internal static class JobProfileMutationMapper
         var requirementEntities = new List<JobProfileRequirement>();
         foreach (var input in requirements)
         {
+            long? requirementTypeCatalogItemId = null;
+            if (input.RequirementTypeCatalogItemId.HasValue)
+            {
+                var requirementTypeLookup = await positionDescriptionCatalogRepository.GetActiveCatalogReferenceAsync(
+                    tenantId,
+                    PositionDescriptionCatalogType.RequirementType,
+                    input.RequirementTypeCatalogItemId.Value,
+                    cancellationToken);
+                if (requirementTypeLookup is null)
+                {
+                    return Result<JobProfileMutation>.Failure(PositionDescriptionCatalogErrors.RequirementTypeNotFound);
+                }
+
+                requirementTypeCatalogItemId = requirementTypeLookup.InternalId;
+            }
+
             var category = ResolveRequirementCategory(input.RequirementType);
             var catalogResolution = await ResolveCatalogReferenceAsync(
                 tenantId,
@@ -1377,15 +1564,38 @@ internal static class JobProfileMutationMapper
 
             requirementEntities.Add(JobProfileRequirement.Create(
                 input.RequirementType,
+                requirementTypeCatalogItemId,
                 catalogResolution.Value?.Id,
                 catalogResolution.Value,
                 input.Description,
                 input.SortOrder));
         }
 
-        var functionEntities = functions
-            .Select(static input => JobProfileFunction.Create(input.FunctionType, input.Description, input.SortOrder))
-            .ToArray();
+        var functionEntities = new List<JobProfileFunction>(functions.Count);
+        foreach (var input in functions)
+        {
+            long? frequencyCatalogItemId = null;
+            if (input.FrequencyCatalogItemId.HasValue)
+            {
+                var frequencyLookup = await positionDescriptionCatalogRepository.GetActiveCatalogReferenceAsync(
+                    tenantId,
+                    PositionDescriptionCatalogType.Frequency,
+                    input.FrequencyCatalogItemId.Value,
+                    cancellationToken);
+                if (frequencyLookup is null)
+                {
+                    return Result<JobProfileMutation>.Failure(PositionDescriptionCatalogErrors.FrequencyNotFound);
+                }
+
+                frequencyCatalogItemId = frequencyLookup.InternalId;
+            }
+
+            functionEntities.Add(JobProfileFunction.Create(
+                input.FunctionType,
+                frequencyCatalogItemId,
+                input.Description,
+                input.SortOrder));
+        }
 
         var relationEntities = new List<JobProfileRelation>();
         foreach (var input in relations)
@@ -1549,6 +1759,22 @@ internal static class JobProfileMutationMapper
         var workingConditionEntities = new List<JobProfileWorkingCondition>();
         foreach (var input in workingConditions)
         {
+            long? workConditionTypeCatalogItemId = null;
+            if (input.WorkConditionTypeCatalogItemId.HasValue)
+            {
+                var workConditionTypeLookup = await positionDescriptionCatalogRepository.GetActiveCatalogReferenceAsync(
+                    tenantId,
+                    PositionDescriptionCatalogType.WorkConditionType,
+                    input.WorkConditionTypeCatalogItemId.Value,
+                    cancellationToken);
+                if (workConditionTypeLookup is null)
+                {
+                    return Result<JobProfileMutation>.Failure(PositionDescriptionCatalogErrors.WorkConditionTypeNotFound);
+                }
+
+                workConditionTypeCatalogItemId = workConditionTypeLookup.InternalId;
+            }
+
             var catalogResolution = await ResolveCatalogReferenceAsync(
                 tenantId,
                 JobCatalogCategory.WorkingCondition,
@@ -1571,6 +1797,7 @@ internal static class JobProfileMutationMapper
                 : input.Name;
 
             workingConditionEntities.Add(JobProfileWorkingCondition.Create(
+                workConditionTypeCatalogItemId,
                 catalogResolution.Value?.Id,
                 catalogResolution.Value,
                 name,
@@ -1983,6 +2210,60 @@ internal static class JobProfileCommandSupport
         }
 
         return Result<long?>.Success(reportsToInternalId.Value);
+    }
+
+    public static async Task<Result<long?>> ResolvePositionCategoryInternalIdAsync(
+        Guid tenantId,
+        Guid? positionCategoryId,
+        IPositionDescriptionCatalogRepository repository,
+        RbacPermissionAction action,
+        CancellationToken cancellationToken)
+    {
+        if (!positionCategoryId.HasValue)
+        {
+            return Result<long?>.Success(null);
+        }
+
+        var categoryInternalId = await repository.ResolvePositionCategoryIdAsync(tenantId, positionCategoryId.Value, cancellationToken);
+        if (categoryInternalId.HasValue)
+        {
+            return Result<long?>.Success(categoryInternalId.Value);
+        }
+
+        return Result<long?>.Failure(
+            await repository.ExistsCategoryOutsideTenantAsync(positionCategoryId.Value, cancellationToken)
+                ? PositionDescriptionCatalogErrors.TenantMismatch(action)
+                : PositionDescriptionCatalogErrors.CategoryNotFound);
+    }
+
+    public static async Task<Result<long?>> ResolvePositionDescriptionCatalogItemInternalIdAsync(
+        Guid tenantId,
+        Guid? catalogItemId,
+        PositionDescriptionCatalogType catalogType,
+        Error notFoundError,
+        IPositionDescriptionCatalogRepository repository,
+        RbacPermissionAction action,
+        CancellationToken cancellationToken)
+    {
+        if (!catalogItemId.HasValue)
+        {
+            return Result<long?>.Success(null);
+        }
+
+        var lookup = await repository.GetActiveCatalogReferenceAsync(
+            tenantId,
+            catalogType,
+            catalogItemId.Value,
+            cancellationToken);
+        if (lookup is not null)
+        {
+            return Result<long?>.Success(lookup.InternalId);
+        }
+
+        return Result<long?>.Failure(
+            await repository.ExistsCatalogItemOutsideTenantAsync(catalogItemId.Value, cancellationToken)
+                ? PositionDescriptionCatalogErrors.TenantMismatch(action)
+                : notFoundError);
     }
 
     public static async Task<Result<bool>> ResolveInlineCatalogPermissionAsync(

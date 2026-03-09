@@ -12,13 +12,24 @@ public sealed class OrgUnit : TenantEntity
         Guid publicId,
         string code,
         string name,
-        OrgUnitType unitType,
+        long orgUnitTypeCatalogItemId,
+        long? functionalAreaCatalogItemId,
         long? parentId,
         int? sortOrder,
         string? description,
         string? costCenterCode,
         Guid? managerEmployeeId)
     {
+        if (orgUnitTypeCatalogItemId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(orgUnitTypeCatalogItemId), "Organization unit type catalog id must be greater than zero.");
+        }
+
+        if (functionalAreaCatalogItemId.HasValue && functionalAreaCatalogItemId.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(functionalAreaCatalogItemId), "Functional area catalog id must be greater than zero.");
+        }
+
         if (sortOrder.HasValue && sortOrder.Value < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(sortOrder), "Sort order must be greater than or equal to zero.");
@@ -27,7 +38,8 @@ public sealed class OrgUnit : TenantEntity
         PublicId = publicId;
         SetCode(code);
         SetName(name);
-        UnitType = unitType;
+        OrgUnitTypeCatalogItemId = orgUnitTypeCatalogItemId;
+        FunctionalAreaCatalogItemId = functionalAreaCatalogItemId;
         ParentId = parentId;
         SortOrder = sortOrder;
         Description = OrgUnitNormalization.CleanOptional(description);
@@ -47,7 +59,9 @@ public sealed class OrgUnit : TenantEntity
 
     public string NormalizedName { get; private set; } = string.Empty;
 
-    public OrgUnitType UnitType { get; private set; }
+    public long OrgUnitTypeCatalogItemId { get; private set; }
+
+    public long? FunctionalAreaCatalogItemId { get; private set; }
 
     public long? ParentId { get; private set; }
 
@@ -66,23 +80,45 @@ public sealed class OrgUnit : TenantEntity
     public static OrgUnit Create(
         string code,
         string name,
-        OrgUnitType unitType,
+        long orgUnitTypeCatalogItemId,
+        long? functionalAreaCatalogItemId,
         long? parentId,
         int? sortOrder,
         string? description,
         string? costCenterCode,
         Guid? managerEmployeeId) =>
-        new(Guid.NewGuid(), code, name, unitType, parentId, sortOrder, description, costCenterCode, managerEmployeeId);
+        new(
+            Guid.NewGuid(),
+            code,
+            name,
+            orgUnitTypeCatalogItemId,
+            functionalAreaCatalogItemId,
+            parentId,
+            sortOrder,
+            description,
+            costCenterCode,
+            managerEmployeeId);
 
     public void Update(
         string code,
         string name,
-        OrgUnitType unitType,
+        long orgUnitTypeCatalogItemId,
+        long? functionalAreaCatalogItemId,
         int? sortOrder,
         string? description,
         string? costCenterCode,
         Guid? managerEmployeeId)
     {
+        if (orgUnitTypeCatalogItemId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(orgUnitTypeCatalogItemId), "Organization unit type catalog id must be greater than zero.");
+        }
+
+        if (functionalAreaCatalogItemId.HasValue && functionalAreaCatalogItemId.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(functionalAreaCatalogItemId), "Functional area catalog id must be greater than zero.");
+        }
+
         if (sortOrder.HasValue && sortOrder.Value < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(sortOrder), "Sort order must be greater than or equal to zero.");
@@ -90,7 +126,8 @@ public sealed class OrgUnit : TenantEntity
 
         SetCode(code);
         SetName(name);
-        UnitType = unitType;
+        OrgUnitTypeCatalogItemId = orgUnitTypeCatalogItemId;
+        FunctionalAreaCatalogItemId = functionalAreaCatalogItemId;
         SortOrder = sortOrder;
         Description = OrgUnitNormalization.CleanOptional(description);
         CostCenterCode = OrgUnitNormalization.CleanOptional(costCenterCode);

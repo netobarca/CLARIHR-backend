@@ -1,4 +1,5 @@
 using CLARIHR.Domain.OrgUnits;
+using CLARIHR.Domain.OrgStructureCatalogs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -38,10 +39,11 @@ internal sealed class OrgUnitConfiguration : IEntityTypeConfiguration<OrgUnit>
             .HasColumnName("normalized_name")
             .HasMaxLength(150);
 
-        builder.Property(orgUnit => orgUnit.UnitType)
-            .HasColumnName("unit_type")
-            .HasConversion<string>()
-            .HasMaxLength(50);
+        builder.Property(orgUnit => orgUnit.OrgUnitTypeCatalogItemId)
+            .HasColumnName("org_unit_type_catalog_item_id");
+
+        builder.Property(orgUnit => orgUnit.FunctionalAreaCatalogItemId)
+            .HasColumnName("functional_area_catalog_item_id");
 
         builder.Property(orgUnit => orgUnit.ParentId)
             .HasColumnName("parent_id");
@@ -90,10 +92,28 @@ internal sealed class OrgUnitConfiguration : IEntityTypeConfiguration<OrgUnit>
         builder.HasIndex(orgUnit => new { orgUnit.TenantId, orgUnit.NormalizedName })
             .HasDatabaseName("ix_org_units__tenant_name");
 
+        builder.HasIndex(orgUnit => new { orgUnit.TenantId, orgUnit.OrgUnitTypeCatalogItemId })
+            .HasDatabaseName("ix_org_units__tenant_org_unit_type_catalog_item");
+
+        builder.HasIndex(orgUnit => new { orgUnit.TenantId, orgUnit.FunctionalAreaCatalogItemId })
+            .HasDatabaseName("ix_org_units__tenant_functional_area_catalog_item");
+
         builder.HasOne<OrgUnit>()
             .WithMany()
             .HasForeignKey(orgUnit => orgUnit.ParentId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_org_units__parent");
+
+        builder.HasOne<OrgUnitTypeCatalogItem>()
+            .WithMany()
+            .HasForeignKey(orgUnit => orgUnit.OrgUnitTypeCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_org_units__org_unit_type_catalog_item");
+
+        builder.HasOne<FunctionalAreaCatalogItem>()
+            .WithMany()
+            .HasForeignKey(orgUnit => orgUnit.FunctionalAreaCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_org_units__functional_area_catalog_item");
     }
 }

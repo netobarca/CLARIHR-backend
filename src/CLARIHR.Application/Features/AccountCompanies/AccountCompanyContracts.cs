@@ -15,7 +15,8 @@ public sealed record AccountCompanySummaryResponse(
     string PlanCode,
     bool IsActiveContext,
     bool IsOwnedByCurrentUser,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    CompanyTypeMetadataResponse? CompanyType);
 
 public sealed record AccountCompanyDetailResponse(
     Guid CompanyId,
@@ -27,7 +28,14 @@ public sealed record AccountCompanyDetailResponse(
     bool IsOwnedByCurrentUser,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
-    IReadOnlyCollection<ActiveLegalRepresentativeSummaryResponse> ActiveLegalRepresentatives);
+    IReadOnlyCollection<ActiveLegalRepresentativeSummaryResponse> ActiveLegalRepresentatives,
+    CompanyTypeMetadataResponse? CompanyType);
+
+public sealed record CompanyTypeMetadataResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    bool IsActive);
 
 public sealed record ActiveLegalRepresentativeSummaryResponse(
     Guid Id,
@@ -66,9 +74,10 @@ public sealed record GetOwnedCompanyByIdQuery(Guid CompanyId) : IQuery<AccountCo
 
 public sealed record CreateAccountCompanyCommand(
     string Name,
+    Guid? CompanyTypeId,
     InitialLegalRepresentativeInput InitialLegalRepresentative) : ICommand<AccountCompanyDetailResponse>;
 
-public sealed record UpdateAccountCompanyCommand(Guid CompanyId, string Name) : ICommand<AccountCompanyDetailResponse>;
+public sealed record UpdateAccountCompanyCommand(Guid CompanyId, string Name, Guid? CompanyTypeId) : ICommand<AccountCompanyDetailResponse>;
 
 public sealed record ArchiveAccountCompanyCommand(Guid CompanyId) : ICommand<AccountCompanyDetailResponse>;
 
@@ -100,6 +109,9 @@ internal sealed class CreateAccountCompanyCommandValidator : AbstractValidator<C
         RuleFor(command => command.Name)
             .NotEmpty()
             .MaximumLength(150);
+        RuleFor(command => command.CompanyTypeId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.CompanyTypeId.HasValue);
         RuleFor(command => command.InitialLegalRepresentative)
             .NotNull()
             .SetValidator(new InitialLegalRepresentativeInputValidator());
@@ -114,6 +126,9 @@ internal sealed class UpdateAccountCompanyCommandValidator : AbstractValidator<U
         RuleFor(command => command.Name)
             .NotEmpty()
             .MaximumLength(150);
+        RuleFor(command => command.CompanyTypeId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.CompanyTypeId.HasValue);
     }
 }
 

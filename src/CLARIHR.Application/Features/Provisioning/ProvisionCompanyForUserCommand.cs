@@ -101,7 +101,8 @@ internal sealed class ProvisionCompanyForUserCommandHandler(
                     command.InitialLegalRepresentative,
                     MakePrimary: true,
                     ProvisioningConstants.FreePlanCode,
-                    ProvisionAsInitialCompany: true),
+                    ProvisionAsInitialCompany: true,
+                    CompanyTypeCatalogItemId: null),
                 cancellationToken);
             if (provisioningResult.IsFailure)
             {

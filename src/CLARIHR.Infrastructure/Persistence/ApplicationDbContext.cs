@@ -6,12 +6,16 @@ using CLARIHR.Domain.Auditing;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.LegalRepresentatives;
 using CLARIHR.Domain.Locations;
+using CLARIHR.Domain.OrgStructureCatalogs;
 using CLARIHR.Domain.OrgUnits;
+using CLARIHR.Domain.PersonnelFiles;
+using CLARIHR.Domain.PositionDescriptionCatalogs;
 using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Domain.SalaryTabulator;
 using Microsoft.EntityFrameworkCore;
@@ -78,6 +82,12 @@ public sealed class ApplicationDbContext(
 
     public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
 
+    public DbSet<CompanyTypeCatalogItem> CompanyTypeCatalogItems => Set<CompanyTypeCatalogItem>();
+
+    public DbSet<OrgUnitTypeCatalogItem> OrgUnitTypeCatalogItems => Set<OrgUnitTypeCatalogItem>();
+
+    public DbSet<FunctionalAreaCatalogItem> FunctionalAreaCatalogItems => Set<FunctionalAreaCatalogItem>();
+
     public DbSet<JobProfile> JobProfiles => Set<JobProfile>();
 
     public DbSet<JobCatalogItem> JobCatalogItems => Set<JobCatalogItem>();
@@ -102,9 +112,95 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PositionSlot> PositionSlots => Set<PositionSlot>();
 
+    public DbSet<PositionDescriptionCatalogItem> PositionDescriptionCatalogItems => Set<PositionDescriptionCatalogItem>();
+
+    public DbSet<PositionCategoryClassification> PositionCategoryClassifications => Set<PositionCategoryClassification>();
+
+    public DbSet<PositionCategory> PositionCategories => Set<PositionCategory>();
+
     public DbSet<CostCenter> CostCenters => Set<CostCenter>();
 
     public DbSet<LegalRepresentative> LegalRepresentatives => Set<LegalRepresentative>();
+
+    public DbSet<PersonnelFile> PersonnelFiles => Set<PersonnelFile>();
+
+    public DbSet<PersonnelFileIdentification> PersonnelFileIdentifications => Set<PersonnelFileIdentification>();
+
+    public DbSet<PersonnelFileAddress> PersonnelFileAddresses => Set<PersonnelFileAddress>();
+
+    public DbSet<PersonnelFileEmergencyContact> PersonnelFileEmergencyContacts => Set<PersonnelFileEmergencyContact>();
+
+    public DbSet<PersonnelFileFamilyMember> PersonnelFileFamilyMembers => Set<PersonnelFileFamilyMember>();
+
+    public DbSet<PersonnelFileHobby> PersonnelFileHobbies => Set<PersonnelFileHobby>();
+
+    public DbSet<PersonnelFileEmployeeRelation> PersonnelFileEmployeeRelations => Set<PersonnelFileEmployeeRelation>();
+
+    public DbSet<PersonnelFileBankAccount> PersonnelFileBankAccounts => Set<PersonnelFileBankAccount>();
+
+    public DbSet<PersonnelFileAssociation> PersonnelFileAssociations => Set<PersonnelFileAssociation>();
+
+    public DbSet<PersonnelFileEducation> PersonnelFileEducations => Set<PersonnelFileEducation>();
+
+    public DbSet<PersonnelFileLanguage> PersonnelFileLanguages => Set<PersonnelFileLanguage>();
+
+    public DbSet<PersonnelFileTraining> PersonnelFileTrainings => Set<PersonnelFileTraining>();
+
+    public DbSet<PersonnelFilePreviousEmployment> PersonnelFilePreviousEmployments => Set<PersonnelFilePreviousEmployment>();
+
+    public DbSet<PersonnelFileReference> PersonnelFileReferences => Set<PersonnelFileReference>();
+
+    public DbSet<PersonnelFileDocument> PersonnelFileDocuments => Set<PersonnelFileDocument>();
+
+    public DbSet<PersonnelFileCustomFieldDefinition> PersonnelFileCustomFieldDefinitions => Set<PersonnelFileCustomFieldDefinition>();
+
+    public DbSet<PersonnelFileObservation> PersonnelFileObservations => Set<PersonnelFileObservation>();
+
+    public DbSet<PersonnelCatalogItem> PersonnelCatalogItems => Set<PersonnelCatalogItem>();
+
+    public DbSet<PersonnelFileEmployeeProfile> PersonnelFileEmployeeProfiles => Set<PersonnelFileEmployeeProfile>();
+
+    public DbSet<PersonnelFileEmploymentAssignment> PersonnelFileEmploymentAssignments => Set<PersonnelFileEmploymentAssignment>();
+
+    public DbSet<PersonnelFileContractHistory> PersonnelFileContractHistories => Set<PersonnelFileContractHistory>();
+
+    public DbSet<PersonnelFileSalaryItem> PersonnelFileSalaryItems => Set<PersonnelFileSalaryItem>();
+
+    public DbSet<PersonnelFileAdditionalBenefit> PersonnelFileAdditionalBenefits => Set<PersonnelFileAdditionalBenefit>();
+
+    public DbSet<PersonnelFilePaymentMethod> PersonnelFilePaymentMethods => Set<PersonnelFilePaymentMethod>();
+
+    public DbSet<PersonnelFileAuthorizationSubstitution> PersonnelFileAuthorizationSubstitutions => Set<PersonnelFileAuthorizationSubstitution>();
+
+    public DbSet<PersonnelFilePersonnelAction> PersonnelFilePersonnelActions => Set<PersonnelFilePersonnelAction>();
+
+    public DbSet<PersonnelFilePayrollTransaction> PersonnelFilePayrollTransactions => Set<PersonnelFilePayrollTransaction>();
+
+    public DbSet<PersonnelFileAssetAccess> PersonnelFileAssetAccesses => Set<PersonnelFileAssetAccess>();
+
+    public DbSet<PersonnelFileInsurance> PersonnelFileInsurances => Set<PersonnelFileInsurance>();
+
+    public DbSet<PersonnelFileInsuranceBeneficiary> PersonnelFileInsuranceBeneficiaries => Set<PersonnelFileInsuranceBeneficiary>();
+
+    public DbSet<PersonnelFileMedicalClaim> PersonnelFileMedicalClaims => Set<PersonnelFileMedicalClaim>();
+
+    public DbSet<PersonnelFilePerformanceEvaluation> PersonnelFilePerformanceEvaluations => Set<PersonnelFilePerformanceEvaluation>();
+
+    public DbSet<PersonnelFilePositionCompetencyResult> PersonnelFilePositionCompetencyResults => Set<PersonnelFilePositionCompetencyResult>();
+
+    public DbSet<PersonnelFileSelectionContest> PersonnelFileSelectionContests => Set<PersonnelFileSelectionContest>();
+
+    public DbSet<PersonnelFileCurricularCompetency> PersonnelFileCurricularCompetencies => Set<PersonnelFileCurricularCompetency>();
+
+    public DbSet<OccupationalPyramidLevel> OccupationalPyramidLevels => Set<OccupationalPyramidLevel>();
+
+    public DbSet<CompetencyConduct> CompetencyConducts => Set<CompetencyConduct>();
+
+    public DbSet<CompetencyConductBehavior> CompetencyConductBehaviors => Set<CompetencyConductBehavior>();
+
+    public DbSet<JobProfileCompetencyExpectation> JobProfileCompetencyExpectations => Set<JobProfileCompetencyExpectation>();
+
+    public DbSet<JobProfileCompetencyExpectationConduct> JobProfileCompetencyExpectationConducts => Set<JobProfileCompetencyExpectationConduct>();
 
     public DbSet<SalaryTabulatorLine> SalaryTabulatorLines => Set<SalaryTabulatorLine>();
 

@@ -46,7 +46,8 @@ internal sealed class CompanyProvisioningService(
         var company = Company.Create(
             companyName,
             await GenerateUniqueSlugAsync(companyName, cancellationToken),
-            user.PublicId);
+            user.PublicId,
+            request.CompanyTypeCatalogItemId);
         companyRepository.Add(company);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);

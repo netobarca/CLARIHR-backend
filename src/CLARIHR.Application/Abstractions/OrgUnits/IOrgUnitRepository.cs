@@ -17,7 +17,8 @@ public interface IOrgUnitRepository
     Task<PagedResponse<OrgUnitResponse>> SearchAsync(
         Guid tenantId,
         bool? isActive,
-        OrgUnitType? unitType,
+        Guid? orgUnitTypeId,
+        Guid? functionalAreaId,
         Guid? parentId,
         string? search,
         int pageNumber,

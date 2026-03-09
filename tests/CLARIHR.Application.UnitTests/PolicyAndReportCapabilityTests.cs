@@ -1,4 +1,5 @@
 using CLARIHR.Application.Common.Policies;
+using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Infrastructure.Policies;
 using CLARIHR.Infrastructure.Reports;
@@ -82,5 +83,22 @@ public sealed class PolicyAndReportCapabilityTests
         var found = registry.TryGet("UNKNOWN_RESOURCE", out _);
 
         Assert.False(found);
+    }
+
+    [Fact]
+    public void ReportCapabilityRegistry_ShouldReturnCompetencyFrameworkCapabilities()
+    {
+        var registry = new ReportCapabilityRegistry();
+
+        var found = registry.TryGet(CompetencyFrameworkPermissionCodes.ResourceKey, out var definition);
+
+        Assert.True(found);
+        Assert.NotNull(definition);
+        Assert.True(definition.Capabilities.SupportsExport);
+        Assert.False(definition.Capabilities.SupportsPrint);
+        Assert.Contains(definition.Capabilities.SupportedTableFormats, format => format.Equals("json", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(definition.Capabilities.SupportedTableFormats, format => format.Equals("csv", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(definition.Capabilities.SupportedTableFormats, format => format.Equals("xlsx", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(definition.Capabilities.SupportedGraphFormats);
     }
 }

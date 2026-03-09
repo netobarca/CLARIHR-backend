@@ -7,6 +7,7 @@ using CLARIHR.Domain.Common;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.LegalRepresentatives;
 using CLARIHR.Domain.Locations;
+using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using System.Reflection;
 
@@ -53,6 +54,8 @@ internal static class IntegrationTestSeeder
 
         SeedDefaultLocations(dbContext, tenantA);
         SeedDefaultLocations(dbContext, tenantB);
+        SeedPersonnelCatalogItems(dbContext, tenantA);
+        SeedPersonnelCatalogItems(dbContext, tenantB);
         await dbContext.SaveChangesAsync();
 
         var actorRole = IamRole.Create("Security Operator", "Can read and update company users plus audit logs.");
@@ -337,6 +340,38 @@ internal static class IntegrationTestSeeder
         dbContext.LocationHierarchyConfigs.Add(config);
         dbContext.LocationLevels.Add(level);
         dbContext.LocationGroups.Add(group);
+    }
+
+    private static void SeedPersonnelCatalogItems(ApplicationDbContext dbContext, Guid tenantId)
+    {
+        var catalogItems = new (string Category, string Code, string Name, int SortOrder)[]
+        {
+            ("CurriculumEducationStatus", "GRADUATED", "Graduated", 10),
+            ("CurriculumEducationStatus", "IN_PROGRESS", "In progress", 20),
+            ("CurriculumStudyType", "BACHELOR", "Bachelor", 10),
+            ("CurriculumShift", "MORNING", "Morning", 10),
+            ("CurriculumModality", "ONSITE", "Onsite", 10),
+            ("CurriculumLanguage", "ENGLISH", "English", 10),
+            ("CurriculumLanguageLevel", "ADVANCED", "Advanced", 10),
+            ("CurriculumTrainingType", "COURSE", "Course", 10),
+            ("CurriculumDurationUnit", "HOUR", "Hour", 10),
+            ("CurriculumReferenceType", "PERSONAL", "Personal", 10),
+            ("Country", "SV", "El Salvador", 10),
+            ("Currency", "USD", "US Dollar", 10)
+        };
+
+        foreach (var item in catalogItems)
+        {
+            var catalogItem = PersonnelCatalogItem.Create(
+                item.Category,
+                item.Code,
+                item.Name,
+                isSystem: true,
+                isActive: true,
+                item.SortOrder);
+            catalogItem.SetTenantId(tenantId);
+            dbContext.PersonnelCatalogItems.Add(catalogItem);
+        }
     }
 }
 

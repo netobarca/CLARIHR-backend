@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.SalaryTabulator;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.SalaryTabulator;
+using CLARIHR.Domain.PositionDescriptionCatalogs;
 using CLARIHR.Domain.SalaryTabulator;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,14 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
             .Select(line => new SalaryTabulatorLineResponse(
                 line.PublicId,
                 line.TenantId,
-                line.SalaryClassCode,
+                dbContext.PositionDescriptionCatalogItems
+                    .Where(item =>
+                        item.TenantId == line.TenantId &&
+                        item.CatalogType == PositionDescriptionCatalogType.SalaryClass &&
+                        item.NormalizedCode == line.NormalizedSalaryClassCode &&
+                        item.IsActive)
+                    .Select(item => (Guid?)item.PublicId)
+                    .FirstOrDefault(),
                 line.SalaryScaleCode,
                 line.CurrencyCode,
                 line.BaseAmount,
@@ -93,7 +101,14 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
             .Take(pageSize)
             .Select(line => new SalaryTabulatorLineListItemResponse(
                 line.PublicId,
-                line.SalaryClassCode,
+                dbContext.PositionDescriptionCatalogItems
+                    .Where(item =>
+                        item.TenantId == line.TenantId &&
+                        item.CatalogType == PositionDescriptionCatalogType.SalaryClass &&
+                        item.NormalizedCode == line.NormalizedSalaryClassCode &&
+                        item.IsActive)
+                    .Select(item => (Guid?)item.PublicId)
+                    .FirstOrDefault(),
                 line.SalaryScaleCode,
                 line.CurrencyCode,
                 line.BaseAmount,
@@ -164,7 +179,14 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
             .ThenByDescending(line => line.EffectiveFromUtc)
             .Select(line => new SalaryTabulatorLineExportRow(
                 line.PublicId,
-                line.SalaryClassCode,
+                dbContext.PositionDescriptionCatalogItems
+                    .Where(item =>
+                        item.TenantId == line.TenantId &&
+                        item.CatalogType == PositionDescriptionCatalogType.SalaryClass &&
+                        item.NormalizedCode == line.NormalizedSalaryClassCode &&
+                        item.IsActive)
+                    .Select(item => (Guid?)item.PublicId)
+                    .FirstOrDefault(),
                 line.SalaryScaleCode,
                 line.CurrencyCode,
                 line.BaseAmount,
@@ -255,7 +277,16 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
             .Include(item => item.Items)
             .SingleOrDefaultAsync(item => item.PublicId == requestId, cancellationToken);
 
-        return request is null ? null : MapRequestResponse(request);
+        if (request is null)
+        {
+            return null;
+        }
+
+        var salaryClassLookup = await ResolveSalaryClassLookupAsync(
+            request.TenantId,
+            request.Items.Select(item => item.NormalizedSalaryClassCode),
+            cancellationToken);
+        return MapRequestResponse(request, salaryClassLookup);
     }
 
     public async Task<SalaryTabulatorChangeRequestImpactResponse?> GetChangeRequestImpactByIdAsync(Guid requestId, CancellationToken cancellationToken)
@@ -270,6 +301,11 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
             return null;
         }
 
+        var salaryClassLookup = await ResolveSalaryClassLookupAsync(
+            request.TenantId,
+            request.Items.Select(item => item.NormalizedSalaryClassCode),
+            cancellationToken);
+
         var impactItems = request.Items
             .Select(item =>
             {
@@ -283,7 +319,9 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
 
                 return new SalaryTabulatorChangeRequestImpactItemResponse(
                     item.Id,
-                    item.SalaryClassCode,
+                    salaryClassLookup.TryGetValue(item.NormalizedSalaryClassCode, out var salaryClassId)
+                        ? salaryClassId
+                        : null,
                     item.SalaryScaleCode,
                     item.ChangeType,
                     item.CurrentBaseAmount,
@@ -362,7 +400,9 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
         return new PagedResponse<SalaryTabulatorChangeRequestListItemResponse>(items, pageNumber, pageSize, totalCount);
     }
 
-    private static SalaryTabulatorChangeRequestResponse MapRequestResponse(SalaryTabulatorChangeRequest request)
+    private static SalaryTabulatorChangeRequestResponse MapRequestResponse(
+        SalaryTabulatorChangeRequest request,
+        IReadOnlyDictionary<string, Guid> salaryClassLookup)
     {
         var itemResponses = request.Items
             .OrderBy(item => item.SalaryClassCode)
@@ -370,7 +410,9 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
             .ThenBy(item => item.Id)
             .Select(item => new SalaryTabulatorChangeRequestItemResponse(
                 item.Id,
-                item.SalaryClassCode,
+                salaryClassLookup.TryGetValue(item.NormalizedSalaryClassCode, out var salaryClassId)
+                    ? salaryClassId
+                    : null,
                 item.SalaryScaleCode,
                 item.CurrencyCode,
                 item.ChangeType,
@@ -399,5 +441,34 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
             request.CreatedUtc,
             request.ModifiedUtc,
             itemResponses);
+    }
+
+    private async Task<IReadOnlyDictionary<string, Guid>> ResolveSalaryClassLookupAsync(
+        Guid tenantId,
+        IEnumerable<string> normalizedCodes,
+        CancellationToken cancellationToken)
+    {
+        var normalizedSet = normalizedCodes
+            .Where(static code => !string.IsNullOrWhiteSpace(code))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (normalizedSet.Length == 0)
+        {
+            return new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return await dbContext.PositionDescriptionCatalogItems
+            .AsNoTracking()
+            .Where(item =>
+                item.TenantId == tenantId &&
+                item.CatalogType == PositionDescriptionCatalogType.SalaryClass &&
+                item.IsActive &&
+                normalizedSet.Contains(item.NormalizedCode))
+            .ToDictionaryAsync(
+                item => item.NormalizedCode,
+                item => item.PublicId,
+                StringComparer.OrdinalIgnoreCase,
+                cancellationToken);
     }
 }

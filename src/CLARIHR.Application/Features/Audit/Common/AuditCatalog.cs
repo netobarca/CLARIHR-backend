@@ -18,17 +18,41 @@ public static class AuditEventTypes
     public const string CompanyArchived = "COMPANY_ARCHIVED";
     public const string CompanyReactivated = "COMPANY_REACTIVATED";
     public const string ActiveCompanySwitched = "ACTIVE_COMPANY_SWITCHED";
+    public const string CompanyTypeCatalogItemCreated = "COMPANY_TYPE_CATALOG_ITEM_CREATED";
+    public const string CompanyTypeCatalogItemUpdated = "COMPANY_TYPE_CATALOG_ITEM_UPDATED";
+    public const string CompanyTypeCatalogItemActivated = "COMPANY_TYPE_CATALOG_ITEM_ACTIVATED";
+    public const string CompanyTypeCatalogItemInactivated = "COMPANY_TYPE_CATALOG_ITEM_INACTIVATED";
     public const string OrgUnitCreated = "ORG_UNIT_CREATED";
     public const string OrgUnitUpdated = "ORG_UNIT_UPDATED";
     public const string OrgUnitMoved = "ORG_UNIT_MOVED";
     public const string OrgUnitActivated = "ORG_UNIT_ACTIVATED";
     public const string OrgUnitInactivated = "ORG_UNIT_INACTIVATED";
+    public const string OrgUnitTypeCatalogItemCreated = "ORG_UNIT_TYPE_CATALOG_ITEM_CREATED";
+    public const string OrgUnitTypeCatalogItemUpdated = "ORG_UNIT_TYPE_CATALOG_ITEM_UPDATED";
+    public const string OrgUnitTypeCatalogItemActivated = "ORG_UNIT_TYPE_CATALOG_ITEM_ACTIVATED";
+    public const string OrgUnitTypeCatalogItemInactivated = "ORG_UNIT_TYPE_CATALOG_ITEM_INACTIVATED";
+    public const string FunctionalAreaCatalogItemCreated = "FUNCTIONAL_AREA_CATALOG_ITEM_CREATED";
+    public const string FunctionalAreaCatalogItemUpdated = "FUNCTIONAL_AREA_CATALOG_ITEM_UPDATED";
+    public const string FunctionalAreaCatalogItemActivated = "FUNCTIONAL_AREA_CATALOG_ITEM_ACTIVATED";
+    public const string FunctionalAreaCatalogItemInactivated = "FUNCTIONAL_AREA_CATALOG_ITEM_INACTIVATED";
     public const string JobProfileCreated = "JOB_PROFILE_CREATED";
     public const string JobProfileUpdated = "JOB_PROFILE_UPDATED";
     public const string JobProfilePublished = "JOB_PROFILE_PUBLISHED";
     public const string JobProfileArchived = "JOB_PROFILE_ARCHIVED";
     public const string JobCatalogItemCreated = "JOB_CATALOG_ITEM_CREATED";
     public const string JobCatalogItemUpdated = "JOB_CATALOG_ITEM_UPDATED";
+    public const string PositionDescriptionCatalogItemCreated = "POSITION_DESCRIPTION_CATALOG_ITEM_CREATED";
+    public const string PositionDescriptionCatalogItemUpdated = "POSITION_DESCRIPTION_CATALOG_ITEM_UPDATED";
+    public const string PositionDescriptionCatalogItemActivated = "POSITION_DESCRIPTION_CATALOG_ITEM_ACTIVATED";
+    public const string PositionDescriptionCatalogItemInactivated = "POSITION_DESCRIPTION_CATALOG_ITEM_INACTIVATED";
+    public const string PositionCategoryClassificationCreated = "POSITION_CATEGORY_CLASSIFICATION_CREATED";
+    public const string PositionCategoryClassificationUpdated = "POSITION_CATEGORY_CLASSIFICATION_UPDATED";
+    public const string PositionCategoryClassificationActivated = "POSITION_CATEGORY_CLASSIFICATION_ACTIVATED";
+    public const string PositionCategoryClassificationInactivated = "POSITION_CATEGORY_CLASSIFICATION_INACTIVATED";
+    public const string PositionCategoryCreated = "POSITION_CATEGORY_CREATED";
+    public const string PositionCategoryUpdated = "POSITION_CATEGORY_UPDATED";
+    public const string PositionCategoryActivated = "POSITION_CATEGORY_ACTIVATED";
+    public const string PositionCategoryInactivated = "POSITION_CATEGORY_INACTIVATED";
     public const string PositionSlotCreated = "POSITION_SLOT_CREATED";
     public const string PositionSlotUpdated = "POSITION_SLOT_UPDATED";
     public const string PositionSlotStatusChanged = "POSITION_SLOT_STATUS_CHANGED";
@@ -43,6 +67,25 @@ public static class AuditEventTypes
     public const string LegalRepresentativeActivated = "LEGAL_REPRESENTATIVE_ACTIVATED";
     public const string LegalRepresentativeInactivated = "LEGAL_REPRESENTATIVE_INACTIVATED";
     public const string LegalRepresentativeSetPrimary = "LEGAL_REPRESENTATIVE_SET_PRIMARY";
+    public const string PersonnelFileCreated = "PERSONNEL_FILE_CREATED";
+    public const string PersonnelFileUpdated = "PERSONNEL_FILE_UPDATED";
+    public const string PersonnelFileActivated = "PERSONNEL_FILE_ACTIVATED";
+    public const string PersonnelFileInactivated = "PERSONNEL_FILE_INACTIVATED";
+    public const string PersonnelFileDocumentUploaded = "PERSONNEL_FILE_DOCUMENT_UPLOADED";
+    public const string PersonnelFileDocumentInactivated = "PERSONNEL_FILE_DOCUMENT_INACTIVATED";
+    public const string PersonnelFileObservationAdded = "PERSONNEL_FILE_OBSERVATION_ADDED";
+    public const string PersonnelCustomFieldDefinitionCreated = "PERSONNEL_CUSTOM_FIELD_DEFINITION_CREATED";
+    public const string PersonnelCustomFieldDefinitionUpdated = "PERSONNEL_CUSTOM_FIELD_DEFINITION_UPDATED";
+    public const string OccupationalPyramidLevelCreated = "OCCUPATIONAL_PYRAMID_LEVEL_CREATED";
+    public const string OccupationalPyramidLevelUpdated = "OCCUPATIONAL_PYRAMID_LEVEL_UPDATED";
+    public const string OccupationalPyramidLevelActivated = "OCCUPATIONAL_PYRAMID_LEVEL_ACTIVATED";
+    public const string OccupationalPyramidLevelInactivated = "OCCUPATIONAL_PYRAMID_LEVEL_INACTIVATED";
+    public const string CompetencyConductCreated = "COMPETENCY_CONDUCT_CREATED";
+    public const string CompetencyConductUpdated = "COMPETENCY_CONDUCT_UPDATED";
+    public const string CompetencyConductActivated = "COMPETENCY_CONDUCT_ACTIVATED";
+    public const string CompetencyConductInactivated = "COMPETENCY_CONDUCT_INACTIVATED";
+    public const string CompetencyBehaviorLinked = "COMPETENCY_BEHAVIOR_LINKED";
+    public const string JobProfileCompetencyMatrixUpdated = "JOB_PROFILE_COMPETENCY_MATRIX_UPDATED";
     public const string SalaryTabulatorRequestCreated = "SALARY_TABULATOR_REQUEST_CREATED";
     public const string SalaryTabulatorRequestUpdated = "SALARY_TABULATOR_REQUEST_UPDATED";
     public const string SalaryTabulatorRequestSubmitted = "SALARY_TABULATOR_REQUEST_SUBMITTED";
@@ -72,17 +115,41 @@ public static class AuditEventTypes
         CompanyArchived,
         CompanyReactivated,
         ActiveCompanySwitched,
+        CompanyTypeCatalogItemCreated,
+        CompanyTypeCatalogItemUpdated,
+        CompanyTypeCatalogItemActivated,
+        CompanyTypeCatalogItemInactivated,
         OrgUnitCreated,
         OrgUnitUpdated,
         OrgUnitMoved,
         OrgUnitActivated,
         OrgUnitInactivated,
+        OrgUnitTypeCatalogItemCreated,
+        OrgUnitTypeCatalogItemUpdated,
+        OrgUnitTypeCatalogItemActivated,
+        OrgUnitTypeCatalogItemInactivated,
+        FunctionalAreaCatalogItemCreated,
+        FunctionalAreaCatalogItemUpdated,
+        FunctionalAreaCatalogItemActivated,
+        FunctionalAreaCatalogItemInactivated,
         JobProfileCreated,
         JobProfileUpdated,
         JobProfilePublished,
         JobProfileArchived,
         JobCatalogItemCreated,
         JobCatalogItemUpdated,
+        PositionDescriptionCatalogItemCreated,
+        PositionDescriptionCatalogItemUpdated,
+        PositionDescriptionCatalogItemActivated,
+        PositionDescriptionCatalogItemInactivated,
+        PositionCategoryClassificationCreated,
+        PositionCategoryClassificationUpdated,
+        PositionCategoryClassificationActivated,
+        PositionCategoryClassificationInactivated,
+        PositionCategoryCreated,
+        PositionCategoryUpdated,
+        PositionCategoryActivated,
+        PositionCategoryInactivated,
         PositionSlotCreated,
         PositionSlotUpdated,
         PositionSlotStatusChanged,
@@ -97,6 +164,25 @@ public static class AuditEventTypes
         LegalRepresentativeActivated,
         LegalRepresentativeInactivated,
         LegalRepresentativeSetPrimary,
+        PersonnelFileCreated,
+        PersonnelFileUpdated,
+        PersonnelFileActivated,
+        PersonnelFileInactivated,
+        PersonnelFileDocumentUploaded,
+        PersonnelFileDocumentInactivated,
+        PersonnelFileObservationAdded,
+        PersonnelCustomFieldDefinitionCreated,
+        PersonnelCustomFieldDefinitionUpdated,
+        OccupationalPyramidLevelCreated,
+        OccupationalPyramidLevelUpdated,
+        OccupationalPyramidLevelActivated,
+        OccupationalPyramidLevelInactivated,
+        CompetencyConductCreated,
+        CompetencyConductUpdated,
+        CompetencyConductActivated,
+        CompetencyConductInactivated,
+        CompetencyBehaviorLinked,
+        JobProfileCompetencyMatrixUpdated,
         SalaryTabulatorRequestCreated,
         SalaryTabulatorRequestUpdated,
         SalaryTabulatorRequestSubmitted,
@@ -128,12 +214,22 @@ public static class AuditEntityTypes
     public const string Role = "Role";
     public const string Permission = "Permission";
     public const string Company = "Company";
+    public const string CompanyTypeCatalogItem = "CompanyTypeCatalogItem";
     public const string OrgUnit = "OrgUnit";
+    public const string OrgUnitTypeCatalogItem = "OrgUnitTypeCatalogItem";
+    public const string FunctionalAreaCatalogItem = "FunctionalAreaCatalogItem";
     public const string JobProfile = "JobProfile";
     public const string JobCatalogItem = "JobCatalogItem";
+    public const string PositionDescriptionCatalogItem = "PositionDescriptionCatalogItem";
+    public const string PositionCategoryClassification = "PositionCategoryClassification";
+    public const string PositionCategory = "PositionCategory";
     public const string PositionSlot = "PositionSlot";
     public const string CostCenter = "CostCenter";
     public const string LegalRepresentative = "LegalRepresentative";
+    public const string PersonnelFile = "PersonnelFile";
+    public const string OccupationalPyramidLevel = "OccupationalPyramidLevel";
+    public const string CompetencyConduct = "CompetencyConduct";
+    public const string JobProfileCompetencyMatrix = "JobProfileCompetencyMatrix";
     public const string SalaryTabulatorChangeRequest = "SalaryTabulatorChangeRequest";
     public const string SalaryTabulatorLine = "SalaryTabulatorLine";
 
@@ -143,12 +239,22 @@ public static class AuditEntityTypes
         Role,
         Permission,
         Company,
+        CompanyTypeCatalogItem,
         OrgUnit,
+        OrgUnitTypeCatalogItem,
+        FunctionalAreaCatalogItem,
         JobProfile,
         JobCatalogItem,
+        PositionDescriptionCatalogItem,
+        PositionCategoryClassification,
+        PositionCategory,
         PositionSlot,
         CostCenter,
         LegalRepresentative,
+        PersonnelFile,
+        OccupationalPyramidLevel,
+        CompetencyConduct,
+        JobProfileCompetencyMatrix,
         SalaryTabulatorChangeRequest,
         SalaryTabulatorLine
     ];

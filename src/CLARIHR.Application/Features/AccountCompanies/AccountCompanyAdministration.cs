@@ -2,6 +2,7 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
@@ -9,6 +10,8 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.OrgStructureCatalogs;
+using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
@@ -87,6 +90,7 @@ internal sealed class CreateAccountCompanyCommandHandler(
     IUserRepository userRepository,
     ICompanyOwnershipPolicy companyOwnershipPolicy,
     ICompanyProvisioningService companyProvisioningService,
+    IOrgStructureCatalogRepository orgStructureCatalogRepository,
     ICompanyRepository companyRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
@@ -112,6 +116,19 @@ internal sealed class CreateAccountCompanyCommandHandler(
             return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.CompanyLimitReached);
         }
 
+        CatalogReferenceLookup? companyType = null;
+        if (command.CompanyTypeId.HasValue)
+        {
+            companyType = await orgStructureCatalogRepository.GetActiveCompanyTypeLookupAsync(
+                currentUserResult.Value.PublicId,
+                command.CompanyTypeId.Value,
+                cancellationToken);
+            if (companyType is null)
+            {
+                return Result<AccountCompanyDetailResponse>.Failure(OrgStructureCatalogErrors.CompanyTypeNotFound);
+            }
+        }
+
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 
         try
@@ -123,7 +140,8 @@ internal sealed class CreateAccountCompanyCommandHandler(
                     command.InitialLegalRepresentative,
                     MakePrimary: false,
                     ProvisioningConstants.FreePlanCode,
-                    ProvisionAsInitialCompany: false),
+                    ProvisionAsInitialCompany: false,
+                    companyType?.InternalId),
                 cancellationToken);
             if (provisioningResult.IsFailure)
             {
@@ -171,6 +189,7 @@ internal sealed class UpdateAccountCompanyCommandHandler(
     ICurrentUserService currentUserService,
     IUserRepository userRepository,
     ICompanyRepository companyRepository,
+    IOrgStructureCatalogRepository orgStructureCatalogRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -200,6 +219,20 @@ internal sealed class UpdateAccountCompanyCommandHandler(
         }
 
         var company = companyResult.Value;
+
+        CatalogReferenceLookup? companyType = null;
+        if (command.CompanyTypeId.HasValue)
+        {
+            companyType = await orgStructureCatalogRepository.GetActiveCompanyTypeLookupAsync(
+                currentUserResult.Value.PublicId,
+                command.CompanyTypeId.Value,
+                cancellationToken);
+            if (companyType is null)
+            {
+                return Result<AccountCompanyDetailResponse>.Failure(OrgStructureCatalogErrors.CompanyTypeNotFound);
+            }
+        }
+
         var before = await companyRepository.FindOwnedByUserAsync(
             company.PublicId,
             currentUserResult.Value.PublicId,
@@ -210,6 +243,7 @@ internal sealed class UpdateAccountCompanyCommandHandler(
         try
         {
             company.Rename(command.Name);
+            company.SetCompanyType(companyType?.InternalId);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await companyRepository.FindOwnedByUserAsync(

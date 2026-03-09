@@ -29,7 +29,8 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
     public async Task<PagedResponse<OrgUnitResponse>> SearchAsync(
         Guid tenantId,
         bool? isActive,
-        OrgUnitType? unitType,
+        Guid? orgUnitTypeId,
+        Guid? functionalAreaId,
         Guid? parentId,
         string? search,
         int pageNumber,
@@ -40,11 +41,16 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
             from unit in dbContext.OrgUnits.AsNoTracking()
             join parent in dbContext.OrgUnits.AsNoTracking() on unit.ParentId equals parent.Id into parentGroup
             from parent in parentGroup.DefaultIfEmpty()
+            join unitType in dbContext.OrgUnitTypeCatalogItems.AsNoTracking() on unit.OrgUnitTypeCatalogItemId equals unitType.Id
+            join functionalArea in dbContext.FunctionalAreaCatalogItems.AsNoTracking() on unit.FunctionalAreaCatalogItemId equals functionalArea.Id into functionalAreaGroup
+            from functionalArea in functionalAreaGroup.DefaultIfEmpty()
             where unit.TenantId == tenantId
             select new
             {
                 Unit = unit,
-                Parent = parent
+                Parent = parent,
+                UnitType = unitType,
+                FunctionalArea = functionalArea
             };
 
         if (isActive.HasValue)
@@ -52,9 +58,14 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
             query = query.Where(item => item.Unit.IsActive == isActive.Value);
         }
 
-        if (unitType.HasValue)
+        if (orgUnitTypeId.HasValue)
         {
-            query = query.Where(item => item.Unit.UnitType == unitType.Value);
+            query = query.Where(item => item.UnitType.PublicId == orgUnitTypeId.Value);
+        }
+
+        if (functionalAreaId.HasValue)
+        {
+            query = query.Where(item => item.FunctionalArea != null && item.FunctionalArea.PublicId == functionalAreaId.Value);
         }
 
         if (parentId.HasValue)
@@ -68,6 +79,11 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
             query = query.Where(item =>
                 item.Unit.NormalizedCode.Contains(normalizedSearch) ||
                 item.Unit.NormalizedName.Contains(normalizedSearch) ||
+                item.UnitType.NormalizedCode.Contains(normalizedSearch) ||
+                item.UnitType.NormalizedName.Contains(normalizedSearch) ||
+                (item.FunctionalArea != null &&
+                 (item.FunctionalArea.NormalizedCode.Contains(normalizedSearch) ||
+                  item.FunctionalArea.NormalizedName.Contains(normalizedSearch))) ||
                 (item.Parent != null && item.Parent.NormalizedName.Contains(normalizedSearch)));
         }
 
@@ -82,7 +98,10 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
                 item.Unit.PublicId,
                 item.Unit.Code,
                 item.Unit.Name,
-                item.Unit.UnitType,
+                new OrgUnitCatalogReferenceResponse(item.UnitType.PublicId, item.UnitType.Code, item.UnitType.Name),
+                item.FunctionalArea != null
+                    ? new OrgUnitCatalogReferenceResponse(item.FunctionalArea.PublicId, item.FunctionalArea.Code, item.FunctionalArea.Name)
+                    : null,
                 item.Parent != null ? item.Parent.PublicId : null,
                 item.Unit.SortOrder,
                 item.Unit.Description,
@@ -101,12 +120,18 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
         (from unit in dbContext.OrgUnits.AsNoTracking()
          join parent in dbContext.OrgUnits.AsNoTracking() on unit.ParentId equals parent.Id into parentGroup
          from parent in parentGroup.DefaultIfEmpty()
+         join unitType in dbContext.OrgUnitTypeCatalogItems.AsNoTracking() on unit.OrgUnitTypeCatalogItemId equals unitType.Id
+         join functionalArea in dbContext.FunctionalAreaCatalogItems.AsNoTracking() on unit.FunctionalAreaCatalogItemId equals functionalArea.Id into functionalAreaGroup
+         from functionalArea in functionalAreaGroup.DefaultIfEmpty()
          where unit.PublicId == orgUnitId
          select new OrgUnitResponse(
              unit.PublicId,
              unit.Code,
              unit.Name,
-             unit.UnitType,
+             new OrgUnitCatalogReferenceResponse(unitType.PublicId, unitType.Code, unitType.Name),
+             functionalArea != null
+                 ? new OrgUnitCatalogReferenceResponse(functionalArea.PublicId, functionalArea.Code, functionalArea.Name)
+                 : null,
              parent != null ? parent.PublicId : null,
              unit.SortOrder,
              unit.Description,
@@ -122,13 +147,23 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
         (from unit in dbContext.OrgUnits.AsNoTracking()
          join parent in dbContext.OrgUnits.AsNoTracking() on unit.ParentId equals parent.Id into parentGroup
          from parent in parentGroup.DefaultIfEmpty()
+         join unitType in dbContext.OrgUnitTypeCatalogItems.AsNoTracking() on unit.OrgUnitTypeCatalogItemId equals unitType.Id
+         join functionalArea in dbContext.FunctionalAreaCatalogItems.AsNoTracking() on unit.FunctionalAreaCatalogItemId equals functionalArea.Id into functionalAreaGroup
+         from functionalArea in functionalAreaGroup.DefaultIfEmpty()
          where unit.TenantId == tenantId
          select new OrgUnitHierarchyNodeData(
              unit.Id,
              unit.PublicId,
              unit.Code,
              unit.Name,
-             unit.UnitType,
+             unit.OrgUnitTypeCatalogItemId,
+             unitType.PublicId,
+             unitType.Code,
+             unitType.Name,
+             unit.FunctionalAreaCatalogItemId,
+             functionalArea != null ? functionalArea.PublicId : null,
+             functionalArea != null ? functionalArea.Code : null,
+             functionalArea != null ? functionalArea.Name : null,
              unit.ParentId,
              parent != null ? parent.PublicId : null,
              unit.SortOrder,

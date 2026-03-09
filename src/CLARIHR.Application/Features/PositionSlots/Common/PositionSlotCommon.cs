@@ -53,6 +53,11 @@ public static class PositionSlotErrors
         "The selected work center could not be found.",
         ErrorType.NotFound);
 
+    public static readonly Error ContractTypeNotResolved = new(
+        "POSITION_SLOT_CONTRACT_TYPE_NOT_RESOLVED",
+        "The selected job profile does not resolve to an active contract type.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error CostCenterInvalid = new(
         "POSITION_SLOT_COST_CENTER_INVALID",
         "The selected cost center code does not exist or is inactive for the company.",
@@ -115,4 +120,19 @@ public static class PositionSlotErrors
 
     public static Error TenantMismatch(RbacPermissionAction action) =>
         AuthorizationErrors.TenantMismatch(PositionSlotPermissionCodes.ResourceKey, action);
+}
+
+public static class PositionSlotContractTypeRules
+{
+    public static bool IsFixedTerm(string? contractTypeCode, string? contractTypeName)
+    {
+        var code = (contractTypeCode ?? string.Empty).Trim().ToUpperInvariant();
+        var name = (contractTypeName ?? string.Empty).Trim().ToUpperInvariant();
+        return code.Contains("TEMP", StringComparison.Ordinal) ||
+               code.Contains("FIXED", StringComparison.Ordinal) ||
+               name.Contains("TEMPORAL", StringComparison.Ordinal) ||
+               name.Contains("PLAZO", StringComparison.Ordinal) ||
+               name.Contains("FIJO", StringComparison.Ordinal) ||
+               name.Contains("FIXED", StringComparison.Ordinal);
+    }
 }

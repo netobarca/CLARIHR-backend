@@ -60,6 +60,7 @@ public sealed class AccountCompaniesController(
         var result = await commandDispatcher.SendAsync(
             new CreateAccountCompanyCommand(
                 request.Name,
+                request.CompanyTypeId,
                 new InitialLegalRepresentativeInput(
                     request.InitialLegalRepresentative.FirstName,
                     request.InitialLegalRepresentative.LastName,
@@ -97,7 +98,7 @@ public sealed class AccountCompaniesController(
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new UpdateAccountCompanyCommand(companyId, request.Name),
+            new UpdateAccountCompanyCommand(companyId, request.Name, request.CompanyTypeId),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -147,6 +148,7 @@ public sealed class AccountCompaniesController(
 
     public sealed record CreateAccountCompanyRequest(
         string Name,
+        Guid? CompanyTypeId,
         InitialLegalRepresentativeRequest InitialLegalRepresentative);
 
     public sealed record InitialLegalRepresentativeRequest(
@@ -165,5 +167,5 @@ public sealed class AccountCompaniesController(
         string? Phone,
         bool IsPrimary = true);
 
-    public sealed record UpdateAccountCompanyRequest(string Name);
+    public sealed record UpdateAccountCompanyRequest(string Name, Guid? CompanyTypeId);
 }

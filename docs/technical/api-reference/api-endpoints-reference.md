@@ -127,6 +127,17 @@ Excepcion controlada adicional:
     - `iam.administration.manage`
     - `platform_admin`
   - y exige coincidencia entre `companyId` de la ruta y claim `tid`.
+- El modulo `CompetencyFramework` sigue patron funcional equivalente:
+  - lectura:
+    - `CompetencyFramework.Read`
+    - `CompetencyFramework.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - escritura:
+    - `CompetencyFramework.Admin`
+    - `iam.administration.manage`
+    - `platform_admin`
+  - y exige coincidencia entre `companyId` de la ruta y claim `tid`.
 
 Recursos RBAC actuales:
 
@@ -258,6 +269,13 @@ Codigos relevantes hoy:
 - `LOCATION_GROUP_HAS_ACTIVE_CHILDREN`
 - `LOCATION_GROUP_HAS_ACTIVE_WORK_CENTERS`
 - `WORK_CENTER_TYPE_IN_USE`
+- `COMPETENCY_FRAMEWORK_FORBIDDEN`
+- `COMPETENCY_CONDUCT_NOT_FOUND`
+- `OCCUPATIONAL_PYRAMID_LEVEL_NOT_FOUND`
+- `OCCUPATIONAL_PYRAMID_LEVEL_IN_USE`
+- `JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT`
+- `RESOURCE_IN_USE`
+- `COMPETENCY_FRAMEWORK_EXPORT_FORMAT_INVALID`
 - `WORK_CENTER_HAS_ACTIVE_DEPENDENCIES`
 - `DEFAULT_GROUP_PROTECTED`
 - `LAST_ACTIVE_LEVEL_REQUIRED`
@@ -1512,6 +1530,10 @@ Main errors:
   - `code` unico por tenant+categoria
   - item inactivo no es valido para nuevas asociaciones
   - invalidacion de cache por tenant/categoria tras escrituras
+- Categorias relevantes para framework:
+  - `CompetencyType`
+  - `BehaviorLevel`
+  - `Behavior`
 
 ## 3E. Position Slots
 
@@ -1694,6 +1716,78 @@ Main errors:
 - `403`
 - `404`
 - `409`
+- `422`
+
+## 3G. Competency Framework
+
+Este modulo fue agregado en HU-018 y usa rutas bajo `/api/v1`.
+
+Reglas globales del modulo:
+
+- Auth: JWT requerido.
+- Tenant: `companyId` de la ruta debe coincidir con `tid`.
+- Concurrencia: operaciones de escritura por id validan `concurrencyToken`.
+- El modelo viejo `job_profile_competencies.expected_level` coexiste sin ruptura con la nueva matriz.
+- Los catalogos base se reutilizan desde `job-catalogs` en categorias:
+  - `CompetencyType`
+  - `BehaviorLevel`
+  - `Behavior`
+
+### GET /api/v1/companies/{companyId}/occupational-pyramid-levels
+### GET /api/v1/occupational-pyramid-levels/{id}
+### POST /api/v1/companies/{companyId}/occupational-pyramid-levels
+### PUT /api/v1/occupational-pyramid-levels/{id}
+### PATCH /api/v1/occupational-pyramid-levels/{id}/activate
+### PATCH /api/v1/occupational-pyramid-levels/{id}/inactivate
+
+- Authorization:
+  - lectura: `CompetencyFramework.Read|Admin`
+  - escritura: `CompetencyFramework.Admin`
+- Filtros de listado:
+  - `isActive?`
+  - `q?`
+  - `page`
+  - `pageSize`
+  - `includeAllowedActions` (default `false`)
+
+### GET /api/v1/companies/{companyId}/competency-conducts
+### GET /api/v1/competency-conducts/{id}
+### POST /api/v1/companies/{companyId}/competency-conducts
+### PUT /api/v1/competency-conducts/{id}
+### PATCH /api/v1/competency-conducts/{id}/activate
+### PATCH /api/v1/competency-conducts/{id}/inactivate
+### PUT /api/v1/competency-conducts/{id}/behaviors
+
+- Authorization:
+  - lectura: `CompetencyFramework.Read|Admin`
+  - escritura: `CompetencyFramework.Admin`
+- Filtros de listado:
+  - `competencyId?`
+  - `competencyTypeId?`
+  - `behaviorLevelId?`
+  - `isActive?`
+  - `q?`
+  - `page`
+  - `pageSize`
+  - `includeAllowedActions` (default `false`)
+
+### GET /api/v1/job-profiles/{id}/competency-matrix
+### PUT /api/v1/job-profiles/{id}/competency-matrix
+### GET /api/v1/job-profiles/{id}/competency-matrix/export?format=json|csv|xlsx
+
+- Authorization:
+  - lectura: `CompetencyFramework.Read|Admin`
+  - escritura: `CompetencyFramework.Admin`
+- Export soportado: `json|csv|xlsx`
+- `print` no aplica para este recurso en HU-018.
+
+Main errors:
+
+- `400` (`COMPETENCY_FRAMEWORK_EXPORT_FORMAT_INVALID` o validacion)
+- `401`
+- `403` (`COMPETENCY_FRAMEWORK_FORBIDDEN`, `TENANT_MISMATCH`)
+- `404` (`COMPETENCY_CONDUCT_NOT_FOUND`, `OCCUPATIONAL_PYRAMID_LEVEL_NOT_FOUND`, `JOB_PROFILE_NOT_FOUND`)
+- `409` (`CONCURRENCY_CONFLICT`, `OCCUPATIONAL_PYRAMID_LEVEL_IN_USE`, `JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT`, `RESOURCE_IN_USE`)
 - `422`
 
 ## 4. Company Users
@@ -3645,7 +3739,7 @@ Endpoint transversal para consultar capacidades de impresion/exportacion por rec
 
 - Auth: JWT requerido
 - Tenant: `companyId` debe coincidir con `tid`
-- Authorization: permisos de lectura del recurso solicitado (`OrgUnits.Read`, `JobProfiles.Read`, `PositionSlots.Read`, `SalaryTabulator.Read`, `CostCenters.Read`, `LegalRepresentatives.Read`)
+- Authorization: permisos de lectura del recurso solicitado (`OrgUnits.Read`, `JobProfiles.Read`, `PositionSlots.Read`, `SalaryTabulator.Read`, `CostCenters.Read`, `LegalRepresentatives.Read`, `CompetencyFramework.Read`, `PersonnelFiles.Read`)
 - Recursos soportados en v1:
   - `ORG_UNITS`
   - `JOB_PROFILES`
@@ -3653,6 +3747,8 @@ Endpoint transversal para consultar capacidades de impresion/exportacion por rec
   - `SALARY_TABULATOR`
   - `COST_CENTERS`
   - `LEGAL_REPRESENTATIVES`
+  - `PERSONNEL_FILES`
+  - `COMPETENCY_FRAMEWORK`
 
 Response `200 OK`: `ReportCapabilitiesResponse`
 
@@ -3689,6 +3785,37 @@ Estado actual del API documentado en este archivo:
 - `PATCH /api/v1/legal-representatives/{id}/activate`
 - `PATCH /api/v1/legal-representatives/{id}/inactivate`
 - `PATCH /api/v1/legal-representatives/{id}/set-primary`
+- `POST /api/v1/companies/{companyId}/personnel-files`
+- `GET /api/v1/companies/{companyId}/personnel-files`
+- `POST /api/v1/companies/{companyId}/personnel-files/dynamic-query`
+- `GET /api/v1/personnel-files/{id}`
+- `GET /api/v1/personnel-files/{id}/print?sections=...`
+- `PUT /api/v1/personnel-files/{id}/personal-info`
+- `PUT /api/v1/personnel-files/{id}/identifications`
+- `PUT /api/v1/personnel-files/{id}/addresses`
+- `PUT /api/v1/personnel-files/{id}/emergency-contacts`
+- `PUT /api/v1/personnel-files/{id}/family-members`
+- `PUT /api/v1/personnel-files/{id}/hobbies`
+- `PUT /api/v1/personnel-files/{id}/employee-relations`
+- `PUT /api/v1/personnel-files/{id}/bank-accounts`
+- `PUT /api/v1/personnel-files/{id}/associations`
+- `PUT /api/v1/personnel-files/{id}/educations`
+- `PUT /api/v1/personnel-files/{id}/languages`
+- `PUT /api/v1/personnel-files/{id}/trainings`
+- `PUT /api/v1/personnel-files/{id}/previous-employments`
+- `PUT /api/v1/personnel-files/{id}/references`
+- `PATCH /api/v1/personnel-files/{id}/activate`
+- `PATCH /api/v1/personnel-files/{id}/inactivate`
+- `POST /api/v1/personnel-files/{id}/documents`
+- `PATCH /api/v1/personnel-file-documents/{documentId}/inactivate`
+- `GET /api/v1/personnel-file-documents/{documentId}/download`
+- `POST /api/v1/personnel-files/{id}/observations`
+- `GET /api/v1/companies/{companyId}/personnel-catalogs/{category}`
+- `GET /api/v1/companies/{companyId}/personnel-custom-field-definitions`
+- `POST /api/v1/companies/{companyId}/personnel-custom-field-definitions`
+- `PUT /api/v1/personnel-custom-field-definitions/{id}`
+- `GET /api/v1/companies/{companyId}/personnel-files/export?format=csv|xlsx`
+- `GET /api/v1/companies/{companyId}/personnel-files/analytics/summary`
 - `GET /api/company/users`
 - `POST /api/company/users`
 - `PUT /api/company/users/{userId}`
@@ -3745,6 +3872,22 @@ Estado actual del API documentado en este archivo:
 - `POST /api/v1/companies/{companyId}/job-catalogs/{category}`
 - `PATCH /api/v1/job-catalogs/{id}/activate`
 - `PATCH /api/v1/job-catalogs/{id}/inactivate`
+- `GET /api/v1/companies/{companyId}/occupational-pyramid-levels`
+- `GET /api/v1/occupational-pyramid-levels/{id}`
+- `POST /api/v1/companies/{companyId}/occupational-pyramid-levels`
+- `PUT /api/v1/occupational-pyramid-levels/{id}`
+- `PATCH /api/v1/occupational-pyramid-levels/{id}/activate`
+- `PATCH /api/v1/occupational-pyramid-levels/{id}/inactivate`
+- `GET /api/v1/companies/{companyId}/competency-conducts`
+- `GET /api/v1/competency-conducts/{id}`
+- `POST /api/v1/companies/{companyId}/competency-conducts`
+- `PUT /api/v1/competency-conducts/{id}`
+- `PATCH /api/v1/competency-conducts/{id}/activate`
+- `PATCH /api/v1/competency-conducts/{id}/inactivate`
+- `PUT /api/v1/competency-conducts/{id}/behaviors`
+- `GET /api/v1/job-profiles/{id}/competency-matrix`
+- `PUT /api/v1/job-profiles/{id}/competency-matrix`
+- `GET /api/v1/job-profiles/{id}/competency-matrix/export?format=json|csv|xlsx`
 - `POST /api/v1/companies/{companyId}/position-slots`
 - `GET /api/v1/companies/{companyId}/position-slots`
 - `GET /api/v1/position-slots/{id}`

@@ -38,7 +38,7 @@ public sealed class PositionSlotsController(
         [FromQuery] Guid? jobProfileId,
         [FromQuery] Guid? orgUnitId,
         [FromQuery] Guid? workCenterId,
-        [FromQuery] bool? isFixedTerm,
+        [FromQuery] Guid? contractTypeId,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionSlotValidationRules.DefaultPageSize,
@@ -52,7 +52,7 @@ public sealed class PositionSlotsController(
                 jobProfileId,
                 orgUnitId,
                 workCenterId,
-                isFixedTerm,
+                contractTypeId,
                 search,
                 page,
                 pageSize,
@@ -203,12 +203,12 @@ public sealed class PositionSlotsController(
         [FromQuery] Guid? jobProfileId = null,
         [FromQuery] Guid? orgUnitId = null,
         [FromQuery] Guid? workCenterId = null,
-        [FromQuery] bool? isFixedTerm = null,
+        [FromQuery] Guid? contractTypeId = null,
         [FromQuery(Name = "q")] string? search = null,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new GetPositionSlotExportRowsQuery(companyId, status, jobProfileId, orgUnitId, workCenterId, isFixedTerm, search),
+            new GetPositionSlotExportRowsQuery(companyId, status, jobProfileId, orgUnitId, workCenterId, contractTypeId, search),
             cancellationToken);
 
         if (result.IsFailure)
@@ -230,7 +230,7 @@ public sealed class PositionSlotsController(
                     {
                         resourceKey = PositionSlotPermissionCodes.ResourceKey,
                         format = "csv",
-                        filters = new { status, jobProfileId, orgUnitId, workCenterId, isFixedTerm, q = search },
+                        filters = new { status, jobProfileId, orgUnitId, workCenterId, contractTypeId, q = search },
                         rowCount = result.Value.Count
                     }),
                 cancellationToken);
@@ -254,7 +254,7 @@ public sealed class PositionSlotsController(
                     {
                         resourceKey = PositionSlotPermissionCodes.ResourceKey,
                         format = "xlsx",
-                        filters = new { status, jobProfileId, orgUnitId, workCenterId, isFixedTerm, q = search },
+                        filters = new { status, jobProfileId, orgUnitId, workCenterId, contractTypeId, q = search },
                         rowCount = result.Value.Count
                     }),
                 cancellationToken);
@@ -297,7 +297,6 @@ public sealed class PositionSlotsController(
                 request.Status,
                 request.MaxEmployees,
                 request.OccupiedEmployees,
-                request.IsFixedTerm,
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 request.Notes),
@@ -331,7 +330,6 @@ public sealed class PositionSlotsController(
                 request.WorkCenterId,
                 request.CostCenterCode,
                 request.MaxEmployees,
-                request.IsFixedTerm,
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 request.Notes,
@@ -407,7 +405,7 @@ public sealed class PositionSlotsController(
     {
         var lines = new List<string>
         {
-            "Id,Code,Title,Status,JobProfileCode,JobProfileTitle,OrgUnitCode,OrgUnitName,WorkCenterCode,WorkCenterName,CostCenterCode,DirectDependencyCode,FunctionalDependencyCode,MaxEmployees,OccupiedEmployees,IsFixedTerm,EffectiveFromUtc,EffectiveToUtc,IsActive,CreatedAtUtc,ModifiedAtUtc"
+            "Id,Code,Title,Status,JobProfileCode,JobProfileTitle,OrgUnitCode,OrgUnitName,WorkCenterCode,WorkCenterName,CostCenterCode,DirectDependencyCode,FunctionalDependencyCode,ContractTypeId,ContractTypeCode,ContractTypeName,MaxEmployees,OccupiedEmployees,EffectiveFromUtc,EffectiveToUtc,IsActive,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
@@ -424,9 +422,11 @@ public sealed class PositionSlotsController(
             EscapeCsv(row.CostCenterCode),
             EscapeCsv(row.DirectDependencyCode),
             EscapeCsv(row.FunctionalDependencyCode),
+            EscapeCsv(row.ContractTypeId?.ToString()),
+            EscapeCsv(row.ContractTypeCode),
+            EscapeCsv(row.ContractTypeName),
             row.MaxEmployees.ToString(CultureInfo.InvariantCulture),
             row.OccupiedEmployees.ToString(CultureInfo.InvariantCulture),
-            row.IsFixedTerm ? "true" : "false",
             EscapeCsv(row.EffectiveFromUtc.ToString("O", CultureInfo.InvariantCulture)),
             EscapeCsv(row.EffectiveToUtc?.ToString("O", CultureInfo.InvariantCulture)),
             row.IsActive ? "true" : "false",
@@ -559,9 +559,11 @@ public sealed class PositionSlotsController(
             "CostCenterCode",
             "DirectDependencyCode",
             "FunctionalDependencyCode",
+            "ContractTypeId",
+            "ContractTypeCode",
+            "ContractTypeName",
             "MaxEmployees",
             "OccupiedEmployees",
-            "IsFixedTerm",
             "EffectiveFromUtc",
             "EffectiveToUtc",
             "IsActive",
@@ -594,9 +596,11 @@ public sealed class PositionSlotsController(
             sheetRows.Append(Cell(row.CostCenterCode));
             sheetRows.Append(Cell(row.DirectDependencyCode));
             sheetRows.Append(Cell(row.FunctionalDependencyCode));
+            sheetRows.Append(Cell(row.ContractTypeId?.ToString()));
+            sheetRows.Append(Cell(row.ContractTypeCode));
+            sheetRows.Append(Cell(row.ContractTypeName));
             sheetRows.Append(Cell(row.MaxEmployees.ToString(CultureInfo.InvariantCulture)));
             sheetRows.Append(Cell(row.OccupiedEmployees.ToString(CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.IsFixedTerm ? "true" : "false"));
             sheetRows.Append(Cell(row.EffectiveFromUtc.ToString("O", CultureInfo.InvariantCulture)));
             sheetRows.Append(Cell(row.EffectiveToUtc?.ToString("O", CultureInfo.InvariantCulture)));
             sheetRows.Append(Cell(row.IsActive ? "true" : "false"));
@@ -709,7 +713,6 @@ public sealed class PositionSlotsController(
         PositionSlotStatus Status,
         int MaxEmployees,
         int OccupiedEmployees,
-        bool IsFixedTerm,
         DateTime EffectiveFromUtc,
         DateTime? EffectiveToUtc,
         string? Notes);
@@ -722,7 +725,6 @@ public sealed class PositionSlotsController(
         Guid? WorkCenterId,
         string? CostCenterCode,
         int MaxEmployees,
-        bool IsFixedTerm,
         DateTime EffectiveFromUtc,
         DateTime? EffectiveToUtc,
         string? Notes,

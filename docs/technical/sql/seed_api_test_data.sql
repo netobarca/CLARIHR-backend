@@ -28,7 +28,9 @@ VALUES
     ('FREE', 'POSITION_SLOTS', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
     ('FREE', 'SALARY_TABULATOR', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
     ('FREE', 'COST_CENTERS', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
-    ('FREE', 'LEGAL_REPRESENTATIVES', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z')
+    ('FREE', 'LEGAL_REPRESENTATIVES', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
+    ('FREE', 'ORG_STRUCTURE_CATALOGS', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
+    ('FREE', 'COMPETENCY_FRAMEWORK', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z')
 ON CONFLICT (plan_code, module_key) DO UPDATE
 SET is_enabled = EXCLUDED.is_enabled,
     modified_utc = EXCLUDED.modified_utc;
@@ -49,7 +51,9 @@ VALUES
     ('POSITION_SLOTS', 'POSITION_SLOTS', 'Position Slots', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
     ('SALARY_TABULATOR', 'SALARY_TABULATOR', 'Salary Tabulator', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
     ('COST_CENTERS', 'COST_CENTERS', 'Cost Centers', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
-    ('LEGAL_REPRESENTATIVES', 'LEGAL_REPRESENTATIVES', 'Legal Representatives', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z')
+    ('LEGAL_REPRESENTATIVES', 'LEGAL_REPRESENTATIVES', 'Legal Representatives', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
+    ('ORG_STRUCTURE_CATALOGS', 'ORG_STRUCTURE_CATALOGS', 'Org Structure Catalogs', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
+    ('COMPETENCY_FRAMEWORK', 'COMPETENCY_FRAMEWORK', 'Competency Framework', true, '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z')
 ON CONFLICT (resource_key) DO UPDATE
 SET normalized_resource_key = EXCLUDED.normalized_resource_key,
     display_name = EXCLUDED.display_name,
@@ -166,6 +170,72 @@ SET public_id = EXCLUDED.public_id,
     created_by_user_public_id = EXCLUDED.created_by_user_public_id,
     modified_utc = EXCLUDED.modified_utc;
 
+INSERT INTO company_type_catalog_items (
+    public_id,
+    owner_user_public_id,
+    code,
+    normalized_code,
+    name,
+    normalized_name,
+    description,
+    sort_order,
+    is_active,
+    concurrency_token,
+    created_utc,
+    modified_utc
+)
+VALUES
+    (
+        '11111111-5000-0000-0000-000000000001',
+        '11111111-1111-1111-1111-111111111111',
+        'PRIVATE',
+        'PRIVATE',
+        'Private Company',
+        'PRIVATE COMPANY',
+        'Seed private company type.',
+        10,
+        true,
+        '11111111-5000-0000-0000-000000000101',
+        '2026-03-01T00:00:00Z',
+        '2026-03-01T00:00:00Z'
+    ),
+    (
+        '33333333-5000-0000-0000-000000000001',
+        '33333333-3333-3333-3333-333333333333',
+        'PUBLIC',
+        'PUBLIC',
+        'Public Institution',
+        'PUBLIC INSTITUTION',
+        'Seed public institution type.',
+        10,
+        true,
+        '33333333-5000-0000-0000-000000000101',
+        '2026-03-01T00:00:00Z',
+        '2026-03-01T00:00:00Z'
+    )
+ON CONFLICT (owner_user_public_id, normalized_code) DO UPDATE
+SET public_id = EXCLUDED.public_id,
+    code = EXCLUDED.code,
+    name = EXCLUDED.name,
+    normalized_name = EXCLUDED.normalized_name,
+    description = EXCLUDED.description,
+    sort_order = EXCLUDED.sort_order,
+    is_active = EXCLUDED.is_active,
+    concurrency_token = EXCLUDED.concurrency_token,
+    modified_utc = EXCLUDED.modified_utc;
+
+UPDATE companies company
+SET company_type_catalog_item_id = company_type.id
+FROM company_type_catalog_items company_type
+WHERE (
+        company.public_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    AND company_type.public_id = '11111111-5000-0000-0000-000000000001'
+)
+   OR (
+        company.public_id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    AND company_type.public_id = '33333333-5000-0000-0000-000000000001'
+);
+
 INSERT INTO company_subscriptions (
     company_id,
     plan_code,
@@ -256,6 +326,8 @@ WITH permission_source AS (
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'Locations.Admin', 'Admin Locations', 'Manage location hierarchy.', 'LOCATIONS', 'Locations', 'Manage'),
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'OrgUnits.Read', 'Read Org Units', 'Read org units.', 'ORG_UNITS', 'OrgUnits', 'Read'),
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'OrgUnits.Admin', 'Admin Org Units', 'Manage org units.', 'ORG_UNITS', 'OrgUnits', 'Manage'),
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'OrgStructureCatalogs.Read', 'Read Org Structure Catalogs', 'Read org structure catalogs.', 'ORG_STRUCTURE_CATALOGS', 'OrgStructureCatalogs', 'Read'),
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'OrgStructureCatalogs.Admin', 'Admin Org Structure Catalogs', 'Manage org structure catalogs.', 'ORG_STRUCTURE_CATALOGS', 'OrgStructureCatalogs', 'Manage'),
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'JobProfiles.Read', 'Read Job Profiles', 'Read job profiles.', 'JOB_PROFILES', 'JobProfiles', 'Read'),
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'JobProfiles.Admin', 'Admin Job Profiles', 'Manage job profiles.', 'JOB_PROFILES', 'JobProfiles', 'Manage'),
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'JobCatalogs.Admin', 'Admin Job Catalogs', 'Manage job catalogs.', 'JOB_PROFILES', 'JobCatalogs', 'Manage'),
@@ -269,6 +341,10 @@ WITH permission_source AS (
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'CostCenters.Admin', 'Admin Cost Centers', 'Manage cost centers.', 'COST_CENTERS', 'CostCenters', 'Manage'),
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'LegalRepresentatives.Read', 'Read Legal Representatives', 'Read legal representatives.', 'LEGAL_REPRESENTATIVES', 'LegalRepresentatives', 'Read'),
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'LegalRepresentatives.Admin', 'Admin Legal Representatives', 'Manage legal representatives.', 'LEGAL_REPRESENTATIVES', 'LegalRepresentatives', 'Manage'),
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'PersonnelFiles.Read', 'Read Personnel Files', 'Read personnel files.', 'PERSONNEL_FILES', 'PersonnelFiles', 'Read'),
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'PersonnelFiles.Admin', 'Admin Personnel Files', 'Manage personnel files.', 'PERSONNEL_FILES', 'PersonnelFiles', 'Manage'),
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'CompetencyFramework.Read', 'Read Competency Framework', 'Read competency framework resources.', 'COMPETENCY_FRAMEWORK', 'CompetencyFramework', 'Read'),
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'CompetencyFramework.Admin', 'Admin Competency Framework', 'Manage competency framework resources.', 'COMPETENCY_FRAMEWORK', 'CompetencyFramework', 'Manage'),
 
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'iam.administration.manage', 'Manage IAM', 'Full IAM administration.', 'IAM', 'Administration', 'Manage'),
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'RBAC.USERS.MANAGE', 'Manage Users', 'Company users administration.', 'RBAC', 'Users', 'Manage'),
@@ -278,6 +354,8 @@ WITH permission_source AS (
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'Locations.Admin', 'Admin Locations', 'Manage location hierarchy.', 'LOCATIONS', 'Locations', 'Manage'),
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'OrgUnits.Read', 'Read Org Units', 'Read org units.', 'ORG_UNITS', 'OrgUnits', 'Read'),
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'OrgUnits.Admin', 'Admin Org Units', 'Manage org units.', 'ORG_UNITS', 'OrgUnits', 'Manage'),
+        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'OrgStructureCatalogs.Read', 'Read Org Structure Catalogs', 'Read org structure catalogs.', 'ORG_STRUCTURE_CATALOGS', 'OrgStructureCatalogs', 'Read'),
+        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'OrgStructureCatalogs.Admin', 'Admin Org Structure Catalogs', 'Manage org structure catalogs.', 'ORG_STRUCTURE_CATALOGS', 'OrgStructureCatalogs', 'Manage'),
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'JobProfiles.Read', 'Read Job Profiles', 'Read job profiles.', 'JOB_PROFILES', 'JobProfiles', 'Read'),
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'JobProfiles.Admin', 'Admin Job Profiles', 'Manage job profiles.', 'JOB_PROFILES', 'JobProfiles', 'Manage'),
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'JobCatalogs.Admin', 'Admin Job Catalogs', 'Manage job catalogs.', 'JOB_PROFILES', 'JobCatalogs', 'Manage'),
@@ -290,7 +368,11 @@ WITH permission_source AS (
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'CostCenters.Read', 'Read Cost Centers', 'Read cost centers.', 'COST_CENTERS', 'CostCenters', 'Read'),
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'CostCenters.Admin', 'Admin Cost Centers', 'Manage cost centers.', 'COST_CENTERS', 'CostCenters', 'Manage'),
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'LegalRepresentatives.Read', 'Read Legal Representatives', 'Read legal representatives.', 'LEGAL_REPRESENTATIVES', 'LegalRepresentatives', 'Read'),
-        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'LegalRepresentatives.Admin', 'Admin Legal Representatives', 'Manage legal representatives.', 'LEGAL_REPRESENTATIVES', 'LegalRepresentatives', 'Manage')
+        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'LegalRepresentatives.Admin', 'Admin Legal Representatives', 'Manage legal representatives.', 'LEGAL_REPRESENTATIVES', 'LegalRepresentatives', 'Manage'),
+        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'PersonnelFiles.Read', 'Read Personnel Files', 'Read personnel files.', 'PERSONNEL_FILES', 'PersonnelFiles', 'Read'),
+        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'PersonnelFiles.Admin', 'Admin Personnel Files', 'Manage personnel files.', 'PERSONNEL_FILES', 'PersonnelFiles', 'Manage'),
+        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'CompetencyFramework.Read', 'Read Competency Framework', 'Read competency framework resources.', 'COMPETENCY_FRAMEWORK', 'CompetencyFramework', 'Read'),
+        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'CompetencyFramework.Admin', 'Admin Competency Framework', 'Manage competency framework resources.', 'COMPETENCY_FRAMEWORK', 'CompetencyFramework', 'Manage')
     ) AS source(tenant_id, code, name, description, module_name, screen_name, action_name)
 )
 INSERT INTO iam_permissions (
@@ -378,11 +460,14 @@ WITH analyst_permission_codes AS (
     FROM (VALUES
         ('LOCATIONS.READ'),
         ('ORGUNITS.READ'),
+        ('ORGSTRUCTURECATALOGS.READ'),
         ('JOBPROFILES.READ'),
         ('POSITIONSLOTS.READ'),
         ('SALARYTABULATOR.READ'),
         ('COSTCENTERS.READ'),
-        ('LEGALREPRESENTATIVES.READ')
+        ('LEGALREPRESENTATIVES.READ'),
+        ('PERSONNELFILES.READ'),
+        ('COMPETENCYFRAMEWORK.READ')
     ) AS source(normalized_code_compact)
 )
 INSERT INTO iam_role_permission_assignments (
@@ -1033,12 +1118,73 @@ SET public_id = EXCLUDED.public_id,
     concurrency_token = EXCLUDED.concurrency_token,
     modified_utc = EXCLUDED.modified_utc;
 
+-- Org structure catalogs.
+INSERT INTO org_unit_type_catalog_items (
+    public_id,
+    tenant_id,
+    code,
+    normalized_code,
+    name,
+    normalized_name,
+    description,
+    sort_order,
+    is_active,
+    concurrency_token,
+    created_utc,
+    modified_utc
+)
+VALUES
+    ('aaaaaaaa-7000-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Direccion', 'DIRECCION', 'Direccion', 'DIRECCION', 'Seed org unit type.', 10, true, 'aaaaaaaa-7000-0000-0000-000000000101', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
+    ('aaaaaaaa-7000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Gerencia', 'GERENCIA', 'Gerencia', 'GERENCIA', 'Seed org unit type.', 20, true, 'aaaaaaaa-7000-0000-0000-000000000102', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
+    ('aaaaaaaa-7000-0000-0000-000000000003', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Departamento', 'DEPARTAMENTO', 'Departamento', 'DEPARTAMENTO', 'Seed org unit type.', 30, true, 'aaaaaaaa-7000-0000-0000-000000000103', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
+    ('bbbbbbbb-7000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Direccion', 'DIRECCION', 'Direccion', 'DIRECCION', 'Seed org unit type.', 10, true, 'bbbbbbbb-7000-0000-0000-000000000101', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
+    ('bbbbbbbb-7000-0000-0000-000000000002', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Gerencia', 'GERENCIA', 'Gerencia', 'GERENCIA', 'Seed org unit type.', 20, true, 'bbbbbbbb-7000-0000-0000-000000000102', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z')
+ON CONFLICT (tenant_id, normalized_code) DO UPDATE
+SET public_id = EXCLUDED.public_id,
+    code = EXCLUDED.code,
+    name = EXCLUDED.name,
+    normalized_name = EXCLUDED.normalized_name,
+    description = EXCLUDED.description,
+    sort_order = EXCLUDED.sort_order,
+    is_active = EXCLUDED.is_active,
+    concurrency_token = EXCLUDED.concurrency_token,
+    modified_utc = EXCLUDED.modified_utc;
+
+INSERT INTO functional_area_catalog_items (
+    public_id,
+    tenant_id,
+    code,
+    normalized_code,
+    name,
+    normalized_name,
+    description,
+    sort_order,
+    is_active,
+    concurrency_token,
+    created_utc,
+    modified_utc
+)
+VALUES
+    ('aaaaaaaa-7100-0000-0000-000000000001', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'ADMIN', 'ADMIN', 'Administration', 'ADMINISTRATION', 'Seed functional area.', 10, true, 'aaaaaaaa-7100-0000-0000-000000000101', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
+    ('aaaaaaaa-7100-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'FINANCE', 'FINANCE', 'Finance', 'FINANCE', 'Seed functional area.', 20, true, 'aaaaaaaa-7100-0000-0000-000000000102', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'),
+    ('bbbbbbbb-7100-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'AUDIT', 'AUDIT', 'Audit', 'AUDIT', 'Seed functional area.', 10, true, 'bbbbbbbb-7100-0000-0000-000000000101', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z')
+ON CONFLICT (tenant_id, normalized_code) DO UPDATE
+SET public_id = EXCLUDED.public_id,
+    code = EXCLUDED.code,
+    name = EXCLUDED.name,
+    normalized_name = EXCLUDED.normalized_name,
+    description = EXCLUDED.description,
+    sort_order = EXCLUDED.sort_order,
+    is_active = EXCLUDED.is_active,
+    concurrency_token = EXCLUDED.concurrency_token,
+    modified_utc = EXCLUDED.modified_utc;
+
 -- Org units (roots first, then child nodes).
 WITH root_source AS (
     SELECT *
     FROM (VALUES
-        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'aaaaaaaa-3000-0000-0000-000000000001'::uuid, 'OU-DIR', 'OU-DIR', 'Direccion General', 'DIRECCION GENERAL', 'Direccion', 1::integer, 'Executive management', 'CC-FIN-001', '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-3000-0000-0000-000000000101'::uuid),
-        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'bbbbbbbb-3000-0000-0000-000000000001'::uuid, 'OU-DIR', 'OU-DIR', 'Direccion General', 'DIRECCION GENERAL', 'Direccion', 1::integer, 'Executive management', 'CC-AUD-001', '33333333-3333-3333-3333-333333333333'::uuid, 'bbbbbbbb-3000-0000-0000-000000000101'::uuid)
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'aaaaaaaa-3000-0000-0000-000000000001'::uuid, 'OU-DIR', 'OU-DIR', 'Direccion General', 'DIRECCION GENERAL', 'Direccion', 'ADMIN', 1::integer, 'Executive management', 'CC-FIN-001', '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-3000-0000-0000-000000000101'::uuid),
+        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'bbbbbbbb-3000-0000-0000-000000000001'::uuid, 'OU-DIR', 'OU-DIR', 'Direccion General', 'DIRECCION GENERAL', 'Direccion', 'AUDIT', 1::integer, 'Executive management', 'CC-AUD-001', '33333333-3333-3333-3333-333333333333'::uuid, 'bbbbbbbb-3000-0000-0000-000000000101'::uuid)
     ) AS source(
         tenant_id,
         public_id,
@@ -1047,6 +1193,7 @@ WITH root_source AS (
         name,
         normalized_name,
         unit_type,
+        functional_area_code,
         sort_order,
         description,
         cost_center_code,
@@ -1060,7 +1207,8 @@ INSERT INTO org_units (
     normalized_code,
     name,
     normalized_name,
-    unit_type,
+    org_unit_type_catalog_item_id,
+    functional_area_catalog_item_id,
     parent_id,
     sort_order,
     description,
@@ -1078,7 +1226,8 @@ SELECT
     source.normalized_code,
     source.name,
     source.normalized_name,
-    source.unit_type,
+    unit_type_catalog.id,
+    functional_area.id,
     NULL,
     source.sort_order,
     source.description,
@@ -1090,11 +1239,18 @@ SELECT
     '2026-03-01T00:00:00Z',
     source.tenant_id
 FROM root_source source
+JOIN org_unit_type_catalog_items unit_type_catalog
+  ON unit_type_catalog.tenant_id = source.tenant_id
+ AND unit_type_catalog.normalized_code = UPPER(TRIM(source.unit_type))
+LEFT JOIN functional_area_catalog_items functional_area
+  ON functional_area.tenant_id = source.tenant_id
+ AND functional_area.normalized_code = UPPER(TRIM(source.functional_area_code))
 ON CONFLICT (tenant_id, normalized_code) DO UPDATE
 SET public_id = EXCLUDED.public_id,
     name = EXCLUDED.name,
     normalized_name = EXCLUDED.normalized_name,
-    unit_type = EXCLUDED.unit_type,
+    org_unit_type_catalog_item_id = EXCLUDED.org_unit_type_catalog_item_id,
+    functional_area_catalog_item_id = EXCLUDED.functional_area_catalog_item_id,
     parent_id = EXCLUDED.parent_id,
     sort_order = EXCLUDED.sort_order,
     description = EXCLUDED.description,
@@ -1107,9 +1263,9 @@ SET public_id = EXCLUDED.public_id,
 WITH child_source AS (
     SELECT *
     FROM (VALUES
-        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'aaaaaaaa-3000-0000-0000-000000000002'::uuid, 'OU-HR', 'OU-HR', 'Human Resources', 'HUMAN RESOURCES', 'Gerencia', 'OU-DIR', 1::integer, 'HR management', 'CC-HR-001', '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-3000-0000-0000-000000000102'::uuid),
-        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'aaaaaaaa-3000-0000-0000-000000000003'::uuid, 'OU-FIN', 'OU-FIN', 'Finance', 'FINANCE', 'Gerencia', 'OU-DIR', 2::integer, 'Finance management', 'CC-FIN-001', '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-3000-0000-0000-000000000103'::uuid),
-        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'aaaaaaaa-3000-0000-0000-000000000004'::uuid, 'OU-HR-OPS', 'OU-HR-OPS', 'HR Operations', 'HR OPERATIONS', 'Departamento', 'OU-HR', 1::integer, 'HR operations team', 'CC-HR-001', '22222222-2222-2222-2222-222222222222'::uuid, 'aaaaaaaa-3000-0000-0000-000000000104'::uuid)
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'aaaaaaaa-3000-0000-0000-000000000002'::uuid, 'OU-HR', 'OU-HR', 'Human Resources', 'HUMAN RESOURCES', 'Gerencia', 'ADMIN', 'OU-DIR', 1::integer, 'HR management', 'CC-HR-001', '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-3000-0000-0000-000000000102'::uuid),
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'aaaaaaaa-3000-0000-0000-000000000003'::uuid, 'OU-FIN', 'OU-FIN', 'Finance', 'FINANCE', 'Gerencia', 'FINANCE', 'OU-DIR', 2::integer, 'Finance management', 'CC-FIN-001', '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-3000-0000-0000-000000000103'::uuid),
+        ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'aaaaaaaa-3000-0000-0000-000000000004'::uuid, 'OU-HR-OPS', 'OU-HR-OPS', 'HR Operations', 'HR OPERATIONS', 'Departamento', 'ADMIN', 'OU-HR', 1::integer, 'HR operations team', 'CC-HR-001', '22222222-2222-2222-2222-222222222222'::uuid, 'aaaaaaaa-3000-0000-0000-000000000104'::uuid)
     ) AS source(
         tenant_id,
         public_id,
@@ -1118,6 +1274,7 @@ WITH child_source AS (
         name,
         normalized_name,
         unit_type,
+        functional_area_code,
         parent_code,
         sort_order,
         description,
@@ -1132,7 +1289,8 @@ INSERT INTO org_units (
     normalized_code,
     name,
     normalized_name,
-    unit_type,
+    org_unit_type_catalog_item_id,
+    functional_area_catalog_item_id,
     parent_id,
     sort_order,
     description,
@@ -1150,7 +1308,8 @@ SELECT
     source.normalized_code,
     source.name,
     source.normalized_name,
-    source.unit_type,
+    unit_type_catalog.id,
+    functional_area.id,
     parent_unit.id,
     source.sort_order,
     source.description,
@@ -1165,11 +1324,18 @@ FROM child_source source
 JOIN org_units parent_unit
   ON parent_unit.tenant_id = source.tenant_id
  AND parent_unit.normalized_code = source.parent_code
+JOIN org_unit_type_catalog_items unit_type_catalog
+  ON unit_type_catalog.tenant_id = source.tenant_id
+ AND unit_type_catalog.normalized_code = UPPER(TRIM(source.unit_type))
+LEFT JOIN functional_area_catalog_items functional_area
+  ON functional_area.tenant_id = source.tenant_id
+ AND functional_area.normalized_code = UPPER(TRIM(source.functional_area_code))
 ON CONFLICT (tenant_id, normalized_code) DO UPDATE
 SET public_id = EXCLUDED.public_id,
     name = EXCLUDED.name,
     normalized_name = EXCLUDED.normalized_name,
-    unit_type = EXCLUDED.unit_type,
+    org_unit_type_catalog_item_id = EXCLUDED.org_unit_type_catalog_item_id,
+    functional_area_catalog_item_id = EXCLUDED.functional_area_catalog_item_id,
     parent_id = EXCLUDED.parent_id,
     sort_order = EXCLUDED.sort_order,
     description = EXCLUDED.description,
@@ -1203,7 +1369,14 @@ VALUES
     ('aaaaaaaa-4000-0000-0000-000000000006', 'BenefitType', 'BEN-HEALTH', 'BEN-HEALTH', 'Health Insurance', 'HEALTH INSURANCE', false, true, 'aaaaaaaa-4000-0000-0000-000000000106', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
     ('aaaaaaaa-4000-0000-0000-000000000007', 'WorkingCondition', 'WC-HYBRID', 'WC-HYBRID', 'Hybrid Work', 'HYBRID WORK', false, true, 'aaaaaaaa-4000-0000-0000-000000000107', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
     ('aaaaaaaa-4000-0000-0000-000000000008', 'RelationType', 'REL-INTERNAL', 'REL-INTERNAL', 'Internal Areas', 'INTERNAL AREAS', false, true, 'aaaaaaaa-4000-0000-0000-000000000108', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-    ('bbbbbbbb-4000-0000-0000-000000000001', 'SalaryClass', 'SAL-B1', 'SAL-B1', 'Audit B1', 'AUDIT B1', false, true, 'bbbbbbbb-4000-0000-0000-000000000101', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb')
+    ('aaaaaaaa-4000-0000-0000-000000000009', 'CompetencyType', 'CT-GER', 'CT-GER', 'Gerencial', 'GERENCIAL', false, true, 'aaaaaaaa-4000-0000-0000-000000000109', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+    ('aaaaaaaa-4000-0000-0000-000000000010', 'BehaviorLevel', 'BL-STRAT', 'BL-STRAT', 'Estrategico', 'ESTRATEGICO', false, true, 'aaaaaaaa-4000-0000-0000-000000000110', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+    ('aaaaaaaa-4000-0000-0000-000000000011', 'Behavior', 'BH-LEAD-001', 'BH-LEAD-001', 'Comunica vision institucional', 'COMUNICA VISION INSTITUCIONAL', false, true, 'aaaaaaaa-4000-0000-0000-000000000111', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+    ('bbbbbbbb-4000-0000-0000-000000000001', 'SalaryClass', 'SAL-B1', 'SAL-B1', 'Audit B1', 'AUDIT B1', false, true, 'bbbbbbbb-4000-0000-0000-000000000101', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+    ('bbbbbbbb-4000-0000-0000-000000000002', 'Competency', 'COMP-AUD', 'COMP-AUD', 'Pensamiento Critico', 'PENSAMIENTO CRITICO', false, true, 'bbbbbbbb-4000-0000-0000-000000000102', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+    ('bbbbbbbb-4000-0000-0000-000000000003', 'CompetencyType', 'CT-GER', 'CT-GER', 'Gerencial', 'GERENCIAL', false, true, 'bbbbbbbb-4000-0000-0000-000000000103', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+    ('bbbbbbbb-4000-0000-0000-000000000004', 'BehaviorLevel', 'BL-STRAT', 'BL-STRAT', 'Estrategico', 'ESTRATEGICO', false, true, 'bbbbbbbb-4000-0000-0000-000000000104', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+    ('bbbbbbbb-4000-0000-0000-000000000005', 'Behavior', 'BH-AUD-001', 'BH-AUD-001', 'Cuestiona supuestos y valida evidencia', 'CUESTIONA SUPUESTOS Y VALIDA EVIDENCIA', false, true, 'bbbbbbbb-4000-0000-0000-000000000105', '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb')
 ON CONFLICT (tenant_id, category, normalized_code) DO UPDATE
 SET public_id = EXCLUDED.public_id,
     code = EXCLUDED.code,
@@ -1431,6 +1604,359 @@ SET public_id = EXCLUDED.public_id,
     effective_to_utc = EXCLUDED.effective_to_utc,
     is_active = EXCLUDED.is_active,
     concurrency_token = EXCLUDED.concurrency_token,
+    modified_utc = EXCLUDED.modified_utc;
+
+-- Competency framework - occupational pyramid levels.
+INSERT INTO occupational_pyramid_levels (
+    public_id,
+    code,
+    normalized_code,
+    name,
+    normalized_name,
+    level_order,
+    description,
+    is_active,
+    concurrency_token,
+    created_utc,
+    modified_utc,
+    tenant_id
+)
+VALUES
+    (
+        'aaaaaaaa-8500-0000-0000-000000000001',
+        'OPL-STRAT',
+        'OPL-STRAT',
+        'Estrategico',
+        'ESTRATEGICO',
+        1,
+        'Nivel estrategico para puestos de liderazgo.',
+        true,
+        'aaaaaaaa-8500-0000-0000-000000000101',
+        '2026-03-01T00:00:00Z',
+        '2026-03-01T00:00:00Z',
+        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    ),
+    (
+        'aaaaaaaa-8500-0000-0000-000000000002',
+        'OPL-TACT',
+        'OPL-TACT',
+        'Tactico',
+        'TACTICO',
+        2,
+        'Nivel tactico para ejecucion especializada.',
+        true,
+        'aaaaaaaa-8500-0000-0000-000000000102',
+        '2026-03-01T00:00:00Z',
+        '2026-03-01T00:00:00Z',
+        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    ),
+    (
+        'bbbbbbbb-8500-0000-0000-000000000001',
+        'OPL-STRAT',
+        'OPL-STRAT',
+        'Estrategico',
+        'ESTRATEGICO',
+        1,
+        'Nivel estrategico para puestos de control y auditoria.',
+        true,
+        'bbbbbbbb-8500-0000-0000-000000000101',
+        '2026-03-01T00:00:00Z',
+        '2026-03-01T00:00:00Z',
+        'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    )
+ON CONFLICT (tenant_id, normalized_code) DO UPDATE
+SET public_id = EXCLUDED.public_id,
+    code = EXCLUDED.code,
+    name = EXCLUDED.name,
+    normalized_name = EXCLUDED.normalized_name,
+    level_order = EXCLUDED.level_order,
+    description = EXCLUDED.description,
+    is_active = EXCLUDED.is_active,
+    concurrency_token = EXCLUDED.concurrency_token,
+    modified_utc = EXCLUDED.modified_utc;
+
+-- Competency framework - competency conducts.
+WITH conduct_source AS (
+    SELECT *
+    FROM (VALUES
+        (
+            'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+            'aaaaaaaa-8600-0000-0000-000000000001'::uuid,
+            'COMP-LEAD',
+            'CT-GER',
+            'BL-STRAT',
+            'Define vision institucional y alinea equipos.',
+            'DEFINE VISION INSTITUCIONAL Y ALINEA EQUIPOS.',
+            1::integer,
+            true,
+            'aaaaaaaa-8600-0000-0000-000000000101'::uuid
+        ),
+        (
+            'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid,
+            'bbbbbbbb-8600-0000-0000-000000000001'::uuid,
+            'COMP-AUD',
+            'CT-GER',
+            'BL-STRAT',
+            'Evalua riesgos con evidencia objetiva y oportuna.',
+            'EVALUA RIESGOS CON EVIDENCIA OBJETIVA Y OPORTUNA.',
+            1::integer,
+            true,
+            'bbbbbbbb-8600-0000-0000-000000000101'::uuid
+        )
+    ) AS source(
+        tenant_id,
+        public_id,
+        competency_code,
+        competency_type_code,
+        behavior_level_code,
+        description,
+        normalized_description,
+        sort_order,
+        is_active,
+        concurrency_token
+    )
+)
+INSERT INTO competency_conducts (
+    public_id,
+    competency_catalog_item_id,
+    competency_type_catalog_item_id,
+    behavior_level_catalog_item_id,
+    description,
+    normalized_description,
+    sort_order,
+    is_active,
+    concurrency_token,
+    created_utc,
+    modified_utc,
+    tenant_id
+)
+SELECT
+    source.public_id,
+    competency.id,
+    competency_type.id,
+    behavior_level.id,
+    source.description,
+    source.normalized_description,
+    source.sort_order,
+    source.is_active,
+    source.concurrency_token,
+    '2026-03-01T00:00:00Z',
+    '2026-03-01T00:00:00Z',
+    source.tenant_id
+FROM conduct_source source
+JOIN job_catalog_items competency
+  ON competency.tenant_id = source.tenant_id
+ AND competency.category = 'Competency'
+ AND competency.normalized_code = source.competency_code
+JOIN job_catalog_items competency_type
+  ON competency_type.tenant_id = source.tenant_id
+ AND competency_type.category = 'CompetencyType'
+ AND competency_type.normalized_code = source.competency_type_code
+JOIN job_catalog_items behavior_level
+  ON behavior_level.tenant_id = source.tenant_id
+ AND behavior_level.category = 'BehaviorLevel'
+ AND behavior_level.normalized_code = source.behavior_level_code
+ON CONFLICT (public_id) DO UPDATE
+SET competency_catalog_item_id = EXCLUDED.competency_catalog_item_id,
+    competency_type_catalog_item_id = EXCLUDED.competency_type_catalog_item_id,
+    behavior_level_catalog_item_id = EXCLUDED.behavior_level_catalog_item_id,
+    description = EXCLUDED.description,
+    normalized_description = EXCLUDED.normalized_description,
+    sort_order = EXCLUDED.sort_order,
+    is_active = EXCLUDED.is_active,
+    concurrency_token = EXCLUDED.concurrency_token,
+    modified_utc = EXCLUDED.modified_utc;
+
+-- Competency framework - conduct behaviors.
+WITH conduct_behavior_source AS (
+    SELECT *
+    FROM (VALUES
+        (
+            'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+            'aaaaaaaa-8600-0000-0000-000000000001'::uuid,
+            'BH-LEAD-001',
+            'Define y comunica metas institucionales.',
+            1::integer
+        ),
+        (
+            'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid,
+            'bbbbbbbb-8600-0000-0000-000000000001'::uuid,
+            'BH-AUD-001',
+            'Sustenta hallazgos con evidencia verificable.',
+            1::integer
+        )
+    ) AS source(tenant_id, conduct_public_id, behavior_code, notes, sort_order)
+)
+INSERT INTO competency_conduct_behaviors (
+    competency_conduct_id,
+    behavior_catalog_item_id,
+    notes,
+    sort_order,
+    created_utc,
+    modified_utc,
+    tenant_id
+)
+SELECT
+    conduct.id,
+    behavior.id,
+    source.notes,
+    source.sort_order,
+    '2026-03-01T00:00:00Z',
+    '2026-03-01T00:00:00Z',
+    source.tenant_id
+FROM conduct_behavior_source source
+JOIN competency_conducts conduct
+  ON conduct.tenant_id = source.tenant_id
+ AND conduct.public_id = source.conduct_public_id
+JOIN job_catalog_items behavior
+  ON behavior.tenant_id = source.tenant_id
+ AND behavior.category = 'Behavior'
+ AND behavior.normalized_code = source.behavior_code
+ON CONFLICT (tenant_id, competency_conduct_id, behavior_catalog_item_id) DO UPDATE
+SET notes = EXCLUDED.notes,
+    sort_order = EXCLUDED.sort_order,
+    modified_utc = EXCLUDED.modified_utc;
+
+-- Competency framework - job profile competency matrix expectations.
+WITH expectation_source AS (
+    SELECT *
+    FROM (VALUES
+        (
+            'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+            'aaaaaaaa-8700-0000-0000-000000000001'::uuid,
+            'JP-HR-MANAGER',
+            'OPL-STRAT',
+            'COMP-LEAD',
+            'CT-GER',
+            'BL-STRAT',
+            'Evidencia liderazgo transversal en iniciativas organizacionales.',
+            1::integer,
+            'aaaaaaaa-8700-0000-0000-000000000101'::uuid
+        ),
+        (
+            'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid,
+            'bbbbbbbb-8700-0000-0000-000000000001'::uuid,
+            'JP-AUDITOR',
+            'OPL-STRAT',
+            'COMP-AUD',
+            'CT-GER',
+            'BL-STRAT',
+            'Evidencia analisis critico y control de riesgos.',
+            1::integer,
+            'bbbbbbbb-8700-0000-0000-000000000101'::uuid
+        )
+    ) AS source(
+        tenant_id,
+        public_id,
+        profile_code,
+        level_code,
+        competency_code,
+        competency_type_code,
+        behavior_level_code,
+        expected_evidence,
+        sort_order,
+        concurrency_token
+    )
+)
+INSERT INTO job_profile_competency_expectations (
+    public_id,
+    job_profile_id,
+    occupational_pyramid_level_id,
+    competency_catalog_item_id,
+    competency_type_catalog_item_id,
+    behavior_level_catalog_item_id,
+    expected_evidence,
+    sort_order,
+    concurrency_token,
+    created_utc,
+    modified_utc,
+    tenant_id
+)
+SELECT
+    source.public_id,
+    profile.id,
+    level.id,
+    competency.id,
+    competency_type.id,
+    behavior_level.id,
+    source.expected_evidence,
+    source.sort_order,
+    source.concurrency_token,
+    '2026-03-01T00:00:00Z',
+    '2026-03-01T00:00:00Z',
+    source.tenant_id
+FROM expectation_source source
+JOIN job_profiles profile
+  ON profile.tenant_id = source.tenant_id
+ AND profile.normalized_code = source.profile_code
+JOIN occupational_pyramid_levels level
+  ON level.tenant_id = source.tenant_id
+ AND level.normalized_code = source.level_code
+JOIN job_catalog_items competency
+  ON competency.tenant_id = source.tenant_id
+ AND competency.category = 'Competency'
+ AND competency.normalized_code = source.competency_code
+JOIN job_catalog_items competency_type
+  ON competency_type.tenant_id = source.tenant_id
+ AND competency_type.category = 'CompetencyType'
+ AND competency_type.normalized_code = source.competency_type_code
+JOIN job_catalog_items behavior_level
+  ON behavior_level.tenant_id = source.tenant_id
+ AND behavior_level.category = 'BehaviorLevel'
+ AND behavior_level.normalized_code = source.behavior_level_code
+ON CONFLICT (public_id) DO UPDATE
+SET job_profile_id = EXCLUDED.job_profile_id,
+    occupational_pyramid_level_id = EXCLUDED.occupational_pyramid_level_id,
+    competency_catalog_item_id = EXCLUDED.competency_catalog_item_id,
+    competency_type_catalog_item_id = EXCLUDED.competency_type_catalog_item_id,
+    behavior_level_catalog_item_id = EXCLUDED.behavior_level_catalog_item_id,
+    expected_evidence = EXCLUDED.expected_evidence,
+    sort_order = EXCLUDED.sort_order,
+    concurrency_token = EXCLUDED.concurrency_token,
+    modified_utc = EXCLUDED.modified_utc;
+
+-- Competency framework - expectation conduct links.
+WITH expectation_conduct_source AS (
+    SELECT *
+    FROM (VALUES
+        (
+            'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid,
+            'aaaaaaaa-8700-0000-0000-000000000001'::uuid,
+            'aaaaaaaa-8600-0000-0000-000000000001'::uuid,
+            0::integer
+        ),
+        (
+            'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid,
+            'bbbbbbbb-8700-0000-0000-000000000001'::uuid,
+            'bbbbbbbb-8600-0000-0000-000000000001'::uuid,
+            0::integer
+        )
+    ) AS source(tenant_id, expectation_public_id, conduct_public_id, sort_order)
+)
+INSERT INTO job_profile_competency_expectation_conducts (
+    job_profile_competency_expectation_id,
+    competency_conduct_id,
+    sort_order,
+    created_utc,
+    modified_utc,
+    tenant_id
+)
+SELECT
+    expectation.id,
+    conduct.id,
+    source.sort_order,
+    '2026-03-01T00:00:00Z',
+    '2026-03-01T00:00:00Z',
+    source.tenant_id
+FROM expectation_conduct_source source
+JOIN job_profile_competency_expectations expectation
+  ON expectation.tenant_id = source.tenant_id
+ AND expectation.public_id = source.expectation_public_id
+JOIN competency_conducts conduct
+  ON conduct.tenant_id = source.tenant_id
+ AND conduct.public_id = source.conduct_public_id
+ON CONFLICT (tenant_id, job_profile_competency_expectation_id, competency_conduct_id) DO UPDATE
+SET sort_order = EXCLUDED.sort_order,
     modified_utc = EXCLUDED.modified_utc;
 
 -- Job profile requirements.
@@ -2574,6 +3100,493 @@ SET actor_user_id = EXCLUDED.actor_user_id,
     diff_json = EXCLUDED.diff_json,
     ip_address = EXCLUDED.ip_address,
     user_agent = EXCLUDED.user_agent,
+    modified_utc = EXCLUDED.modified_utc;
+
+-- Position Description Catalog defaults (HU-020/HU-021/HU-022) for seeded tenants.
+WITH seeded_tenants AS (
+    SELECT public_id AS tenant_id
+    FROM companies
+),
+missing_org_unit_types AS (
+    SELECT tenant.tenant_id
+    FROM seeded_tenants tenant
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM org_unit_type_catalog_items item
+        WHERE item.tenant_id = tenant.tenant_id)
+)
+INSERT INTO org_unit_type_catalog_items (
+    public_id,
+    tenant_id,
+    code,
+    normalized_code,
+    name,
+    normalized_name,
+    description,
+    sort_order,
+    is_active,
+    concurrency_token,
+    created_utc,
+    modified_utc
+)
+SELECT
+    gen_random_uuid(),
+    source.tenant_id,
+    'GENERAL',
+    'GENERAL',
+    'General',
+    'GENERAL',
+    'Fallback seed org unit type.',
+    0,
+    true,
+    gen_random_uuid(),
+    now() AT TIME ZONE 'utc',
+    now() AT TIME ZONE 'utc'
+FROM missing_org_unit_types source;
+
+WITH seeded_tenants AS (
+    SELECT public_id AS tenant_id
+    FROM companies
+)
+INSERT INTO position_description_catalog_items (
+    public_id,
+    tenant_id,
+    catalog_type,
+    code,
+    normalized_code,
+    name,
+    normalized_name,
+    description,
+    sort_order,
+    is_active,
+    concurrency_token,
+    created_utc,
+    modified_utc
+)
+SELECT
+    gen_random_uuid(),
+    source.tenant_id,
+    source.catalog_type,
+    source.code,
+    source.normalized_code,
+    source.name,
+    source.normalized_name,
+    source.description,
+    source.sort_order,
+    true,
+    gen_random_uuid(),
+    now() AT TIME ZONE 'utc',
+    now() AT TIME ZONE 'utc'
+FROM (
+    SELECT
+        tenant.tenant_id,
+        'PositionFunctionType'::varchar AS catalog_type,
+        'FUNC-DEFAULT'::varchar AS code,
+        'FUNC-DEFAULT'::varchar AS normalized_code,
+        'Default Function Type'::varchar AS name,
+        'DEFAULT FUNCTION TYPE'::varchar AS normalized_name,
+        'Seed fallback function type.'::varchar AS description,
+        0 AS sort_order
+    FROM seeded_tenants tenant
+
+    UNION ALL
+
+    SELECT
+        tenant.tenant_id,
+        'PositionContractType'::varchar,
+        'CONTRACT-DEFAULT'::varchar,
+        'CONTRACT-DEFAULT'::varchar,
+        'Default Contract Type'::varchar,
+        'DEFAULT CONTRACT TYPE'::varchar,
+        'Seed fallback contract type.'::varchar,
+        0
+    FROM seeded_tenants tenant
+
+    UNION ALL
+
+    SELECT
+        tenant.tenant_id,
+        'Frequency'::varchar,
+        'FREQ-DEFAULT'::varchar,
+        'FREQ-DEFAULT'::varchar,
+        'Default Frequency'::varchar,
+        'DEFAULT FREQUENCY'::varchar,
+        'Seed fallback frequency.'::varchar,
+        0
+    FROM seeded_tenants tenant
+
+    UNION ALL
+
+    SELECT
+        tenant.tenant_id,
+        'WorkConditionType'::varchar,
+        'WCT-DEFAULT'::varchar,
+        'WCT-DEFAULT'::varchar,
+        'Default Work Condition Type'::varchar,
+        'DEFAULT WORK CONDITION TYPE'::varchar,
+        'Seed fallback work condition type.'::varchar,
+        0
+    FROM seeded_tenants tenant
+) source
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM position_description_catalog_items existing
+    WHERE existing.tenant_id = source.tenant_id
+      AND existing.catalog_type = source.catalog_type
+      AND existing.normalized_code = source.normalized_code
+);
+
+WITH requirement_sources AS (
+    SELECT DISTINCT
+        item.tenant_id,
+        upper(btrim(item.requirement_type)) AS normalized_requirement_type
+    FROM job_profile_requirements item
+    WHERE item.requirement_type IS NOT NULL
+      AND btrim(item.requirement_type) <> ''
+)
+INSERT INTO position_description_catalog_items (
+    public_id,
+    tenant_id,
+    catalog_type,
+    code,
+    normalized_code,
+    name,
+    normalized_name,
+    description,
+    sort_order,
+    is_active,
+    concurrency_token,
+    created_utc,
+    modified_utc
+)
+SELECT
+    gen_random_uuid(),
+    source.tenant_id,
+    'RequirementType',
+    source.normalized_requirement_type,
+    source.normalized_requirement_type,
+    initcap(lower(source.normalized_requirement_type)),
+    source.normalized_requirement_type,
+    'Backfilled from seeded job profile requirements.',
+    0,
+    true,
+    gen_random_uuid(),
+    now() AT TIME ZONE 'utc',
+    now() AT TIME ZONE 'utc'
+FROM requirement_sources source
+WHERE source.normalized_requirement_type IN ('EDUCATION', 'EXPERIENCE', 'KNOWLEDGE', 'CERTIFICATION', 'OTHER')
+  AND NOT EXISTS (
+      SELECT 1
+      FROM position_description_catalog_items existing
+      WHERE existing.tenant_id = source.tenant_id
+        AND existing.catalog_type = 'RequirementType'
+        AND existing.normalized_code = source.normalized_requirement_type
+  );
+
+WITH seeded_tenants AS (
+    SELECT public_id AS tenant_id
+    FROM companies
+),
+function_type AS (
+    SELECT tenant_id, id
+    FROM position_description_catalog_items
+    WHERE catalog_type = 'PositionFunctionType'
+      AND normalized_code = 'FUNC-DEFAULT'
+),
+contract_type AS (
+    SELECT tenant_id, id
+    FROM position_description_catalog_items
+    WHERE catalog_type = 'PositionContractType'
+      AND normalized_code = 'CONTRACT-DEFAULT'
+),
+org_unit_type AS (
+    SELECT
+        tenant.tenant_id,
+        selected.id
+    FROM seeded_tenants tenant
+    JOIN LATERAL (
+        SELECT id
+        FROM org_unit_type_catalog_items item
+        WHERE item.tenant_id = tenant.tenant_id
+        ORDER BY item.sort_order, item.id
+        LIMIT 1
+    ) AS selected ON true
+)
+INSERT INTO position_category_classifications (
+    public_id,
+    tenant_id,
+    code,
+    normalized_code,
+    name,
+    normalized_name,
+    description,
+    position_function_catalog_item_id,
+    position_contract_catalog_item_id,
+    org_unit_type_catalog_item_id,
+    sort_order,
+    is_active,
+    concurrency_token,
+    created_utc,
+    modified_utc
+)
+SELECT
+    gen_random_uuid(),
+    tenant.tenant_id,
+    'CLASS-DEFAULT',
+    'CLASS-DEFAULT',
+    'Default Classification',
+    'DEFAULT CLASSIFICATION',
+    'Seed fallback classification.',
+    function_item.id,
+    contract_item.id,
+    org_unit_item.id,
+    0,
+    true,
+    gen_random_uuid(),
+    now() AT TIME ZONE 'utc',
+    now() AT TIME ZONE 'utc'
+FROM seeded_tenants tenant
+JOIN function_type function_item ON function_item.tenant_id = tenant.tenant_id
+JOIN contract_type contract_item ON contract_item.tenant_id = tenant.tenant_id
+JOIN org_unit_type org_unit_item ON org_unit_item.tenant_id = tenant.tenant_id
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM position_category_classifications existing
+    WHERE existing.tenant_id = tenant.tenant_id
+      AND existing.normalized_code = 'CLASS-DEFAULT'
+);
+
+WITH seeded_tenants AS (
+    SELECT public_id AS tenant_id
+    FROM companies
+),
+default_classification AS (
+    SELECT tenant_id, id
+    FROM position_category_classifications
+    WHERE normalized_code = 'CLASS-DEFAULT'
+)
+INSERT INTO position_categories (
+    public_id,
+    tenant_id,
+    code,
+    normalized_code,
+    name,
+    normalized_name,
+    description,
+    position_category_classification_id,
+    sort_order,
+    is_active,
+    concurrency_token,
+    created_utc,
+    modified_utc
+)
+SELECT
+    gen_random_uuid(),
+    tenant.tenant_id,
+    'CAT-DEFAULT',
+    'CAT-DEFAULT',
+    'Default Category',
+    'DEFAULT CATEGORY',
+    'Seed fallback category.',
+    classification.id,
+    0,
+    true,
+    gen_random_uuid(),
+    now() AT TIME ZONE 'utc',
+    now() AT TIME ZONE 'utc'
+FROM seeded_tenants tenant
+JOIN default_classification classification ON classification.tenant_id = tenant.tenant_id
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM position_categories existing
+    WHERE existing.tenant_id = tenant.tenant_id
+      AND existing.normalized_code = 'CAT-DEFAULT'
+);
+
+UPDATE job_profiles profile
+SET position_category_id = category.id
+FROM position_categories category
+WHERE profile.position_category_id IS NULL
+  AND category.tenant_id = profile.tenant_id
+  AND category.normalized_code = 'CAT-DEFAULT';
+
+UPDATE job_profile_requirements requirement
+SET requirement_type_catalog_item_id = catalog.id
+FROM position_description_catalog_items catalog
+WHERE requirement.requirement_type_catalog_item_id IS NULL
+  AND catalog.tenant_id = requirement.tenant_id
+  AND catalog.catalog_type = 'RequirementType'
+  AND catalog.normalized_code = upper(requirement.requirement_type);
+
+UPDATE job_profile_functions function
+SET frequency_catalog_item_id = catalog.id
+FROM position_description_catalog_items catalog
+WHERE function.frequency_catalog_item_id IS NULL
+  AND catalog.tenant_id = function.tenant_id
+  AND catalog.catalog_type = 'Frequency'
+  AND catalog.normalized_code = 'FREQ-DEFAULT';
+
+UPDATE job_profile_working_conditions item
+SET work_condition_type_catalog_item_id = catalog.id
+FROM position_description_catalog_items catalog
+WHERE item.work_condition_type_catalog_item_id IS NULL
+  AND catalog.tenant_id = item.tenant_id
+  AND catalog.catalog_type = 'WorkConditionType'
+  AND catalog.normalized_code = 'WCT-DEFAULT';
+
+WITH salary_sources AS (
+    SELECT DISTINCT
+        line.tenant_id,
+        btrim(line.salary_class_code) AS code,
+        btrim(line.salary_class_code) AS name
+    FROM salary_tabulator_lines line
+    WHERE line.salary_class_code IS NOT NULL
+      AND btrim(line.salary_class_code) <> ''
+
+    UNION
+
+    SELECT DISTINCT
+        item.tenant_id,
+        btrim(item.salary_class_code) AS code,
+        btrim(item.salary_class_code) AS name
+    FROM salary_tabulator_change_request_items item
+    WHERE item.salary_class_code IS NOT NULL
+      AND btrim(item.salary_class_code) <> ''
+
+    UNION
+
+    SELECT DISTINCT
+        catalog.tenant_id,
+        btrim(catalog.code) AS code,
+        COALESCE(NULLIF(btrim(catalog.name), ''), btrim(catalog.code)) AS name
+    FROM job_catalog_items catalog
+    WHERE catalog.category = 'SalaryClass'
+      AND catalog.code IS NOT NULL
+      AND btrim(catalog.code) <> ''
+)
+INSERT INTO position_description_catalog_items (
+    public_id,
+    tenant_id,
+    catalog_type,
+    code,
+    normalized_code,
+    name,
+    normalized_name,
+    description,
+    sort_order,
+    is_active,
+    concurrency_token,
+    created_utc,
+    modified_utc
+)
+SELECT
+    gen_random_uuid(),
+    source.tenant_id,
+    'SalaryClass',
+    source.code,
+    upper(source.code),
+    source.name,
+    upper(source.name),
+    'Backfilled from seeded salary data.',
+    0,
+    true,
+    gen_random_uuid(),
+    now() AT TIME ZONE 'utc',
+    now() AT TIME ZONE 'utc'
+FROM salary_sources source
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM position_description_catalog_items existing
+    WHERE existing.tenant_id = source.tenant_id
+      AND existing.catalog_type = 'SalaryClass'
+      AND existing.normalized_code = upper(source.code)
+);
+
+WITH tenant_source AS (
+    SELECT public_id AS tenant_id
+    FROM companies
+), curriculum_catalog_source AS (
+    SELECT * FROM (VALUES
+        ('CurriculumEducationStatus', 'GRADUATED', 'Graduated', 10),
+        ('CurriculumEducationStatus', 'PAUSED', 'Paused', 20),
+        ('CurriculumEducationStatus', 'IN_PROGRESS', 'In progress', 30),
+        ('CurriculumStudyType', 'TECHNICAL', 'Technical', 10),
+        ('CurriculumStudyType', 'BACHELOR', 'Bachelor', 20),
+        ('CurriculumStudyType', 'MASTER', 'Master', 30),
+        ('CurriculumStudyType', 'DOCTORATE', 'Doctorate', 40),
+        ('CurriculumShift', 'MORNING', 'Morning', 10),
+        ('CurriculumShift', 'AFTERNOON', 'Afternoon', 20),
+        ('CurriculumShift', 'EVENING', 'Evening', 30),
+        ('CurriculumShift', 'WEEKEND', 'Weekend', 40),
+        ('CurriculumModality', 'ONSITE', 'Onsite', 10),
+        ('CurriculumModality', 'ONLINE', 'Online', 20),
+        ('CurriculumModality', 'HYBRID', 'Hybrid', 30),
+        ('CurriculumLanguage', 'SPANISH', 'Spanish', 10),
+        ('CurriculumLanguage', 'ENGLISH', 'English', 20),
+        ('CurriculumLanguage', 'FRENCH', 'French', 30),
+        ('CurriculumLanguage', 'PORTUGUESE', 'Portuguese', 40),
+        ('CurriculumLanguageLevel', 'BASIC', 'Basic', 10),
+        ('CurriculumLanguageLevel', 'INTERMEDIATE', 'Intermediate', 20),
+        ('CurriculumLanguageLevel', 'ADVANCED', 'Advanced', 30),
+        ('CurriculumLanguageLevel', 'NATIVE', 'Native', 40),
+        ('CurriculumTrainingType', 'COURSE', 'Course', 10),
+        ('CurriculumTrainingType', 'CERTIFICATION', 'Certification', 20),
+        ('CurriculumTrainingType', 'WORKSHOP', 'Workshop', 30),
+        ('CurriculumTrainingType', 'SEMINAR', 'Seminar', 40),
+        ('CurriculumDurationUnit', 'HOUR', 'Hour', 10),
+        ('CurriculumDurationUnit', 'DAY', 'Day', 20),
+        ('CurriculumDurationUnit', 'WEEK', 'Week', 30),
+        ('CurriculumDurationUnit', 'MONTH', 'Month', 40),
+        ('CurriculumDurationUnit', 'YEAR', 'Year', 50),
+        ('CurriculumReferenceType', 'PERSONAL', 'Personal', 10),
+        ('CurriculumReferenceType', 'LABOR', 'Labor', 20),
+        ('Country', 'SV', 'El Salvador', 10),
+        ('Country', 'GT', 'Guatemala', 20),
+        ('Country', 'HN', 'Honduras', 30),
+        ('Country', 'NI', 'Nicaragua', 40),
+        ('Country', 'CR', 'Costa Rica', 50),
+        ('Country', 'PA', 'Panama', 60),
+        ('Country', 'MX', 'Mexico', 70),
+        ('Country', 'US', 'United States', 80)
+    ) AS source(category, code, name, sort_order)
+)
+INSERT INTO personnel_catalog_items (
+    public_id,
+    category,
+    code,
+    normalized_code,
+    name,
+    normalized_name,
+    is_system,
+    is_active,
+    sort_order,
+    concurrency_token,
+    created_utc,
+    modified_utc,
+    tenant_id
+)
+SELECT
+    gen_random_uuid(),
+    catalog.category,
+    catalog.code,
+    upper(catalog.code),
+    catalog.name,
+    upper(catalog.name),
+    true,
+    true,
+    catalog.sort_order,
+    gen_random_uuid(),
+    now() AT TIME ZONE 'utc',
+    now() AT TIME ZONE 'utc',
+    tenant.tenant_id
+FROM tenant_source tenant
+CROSS JOIN curriculum_catalog_source catalog
+ON CONFLICT (tenant_id, category, normalized_code) DO UPDATE
+SET name = EXCLUDED.name,
+    normalized_name = EXCLUDED.normalized_name,
+    is_system = EXCLUDED.is_system,
+    is_active = EXCLUDED.is_active,
+    sort_order = EXCLUDED.sort_order,
     modified_utc = EXCLUDED.modified_utc;
 
 COMMIT;

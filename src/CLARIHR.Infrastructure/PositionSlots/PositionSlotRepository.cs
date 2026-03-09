@@ -75,7 +75,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         Guid? jobProfileId,
         Guid? orgUnitId,
         Guid? workCenterId,
-        bool? isFixedTerm,
+        Guid? contractTypeId,
         string? search,
         int pageNumber,
         int pageSize,
@@ -87,13 +87,25 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             join orgUnit in dbContext.OrgUnits.AsNoTracking() on slot.OrgUnitId equals orgUnit.Id
             join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
             from workCenter in workCenterGroup.DefaultIfEmpty()
+            join positionCategory in dbContext.PositionCategories.AsNoTracking()
+                on jobProfile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
+            from positionCategory in positionCategoryGroup.DefaultIfEmpty()
+            join classification in dbContext.PositionCategoryClassifications.AsNoTracking()
+                on positionCategory.PositionCategoryClassificationId equals classification.Id into classificationGroup
+            from classification in classificationGroup.DefaultIfEmpty()
+            join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+                on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
+            from contractType in contractTypeGroup.DefaultIfEmpty()
             where slot.TenantId == tenantId
             select new
             {
                 Slot = slot,
                 JobProfile = jobProfile,
                 OrgUnit = orgUnit,
-                WorkCenter = workCenter
+                WorkCenter = workCenter,
+                PositionCategory = positionCategory,
+                Classification = classification,
+                ContractType = contractType
             };
 
         if (status.HasValue)
@@ -101,14 +113,14 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             query = query.Where(item => item.Slot.Status == status.Value);
         }
 
-        if (isFixedTerm.HasValue)
-        {
-            query = query.Where(item => item.Slot.IsFixedTerm == isFixedTerm.Value);
-        }
-
         if (jobProfileId.HasValue)
         {
             query = query.Where(item => item.JobProfile.PublicId == jobProfileId.Value);
+        }
+
+        if (contractTypeId.HasValue)
+        {
+            query = query.Where(item => item.ContractType != null && item.ContractType.PublicId == contractTypeId.Value);
         }
 
         if (orgUnitId.HasValue)
@@ -153,7 +165,9 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 item.OrgUnit.Name,
                 item.WorkCenter != null ? item.WorkCenter.PublicId : null,
                 item.WorkCenter != null ? item.WorkCenter.Name : null,
-                item.Slot.IsFixedTerm,
+                item.ContractType != null ? item.ContractType.PublicId : null,
+                item.ContractType != null ? item.ContractType.Code : null,
+                item.ContractType != null ? item.ContractType.Name : null,
                 item.Slot.MaxEmployees,
                 item.Slot.OccupiedEmployees,
                 item.Slot.EffectiveFromUtc,
@@ -177,6 +191,15 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
          from directDependency in directGroup.DefaultIfEmpty()
          join functionalDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.FunctionalDependencyPositionSlotId equals functionalDependency.Id into functionalGroup
          from functionalDependency in functionalGroup.DefaultIfEmpty()
+         join positionCategory in dbContext.PositionCategories.AsNoTracking()
+            on jobProfile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
+         from positionCategory in positionCategoryGroup.DefaultIfEmpty()
+         join classification in dbContext.PositionCategoryClassifications.AsNoTracking()
+            on positionCategory.PositionCategoryClassificationId equals classification.Id into classificationGroup
+         from classification in classificationGroup.DefaultIfEmpty()
+         join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+            on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
+         from contractType in contractTypeGroup.DefaultIfEmpty()
          where slot.PublicId == slotId
          select new PositionSlotResponse(
              slot.PublicId,
@@ -196,9 +219,13 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
              directDependency != null ? directDependency.Code : null,
              functionalDependency != null ? functionalDependency.PublicId : null,
              functionalDependency != null ? functionalDependency.Code : null,
+             positionCategory != null ? positionCategory.PublicId : null,
+             classification != null ? classification.PublicId : null,
+             contractType != null ? contractType.PublicId : null,
+             contractType != null ? contractType.Code : null,
+             contractType != null ? contractType.Name : null,
              slot.MaxEmployees,
              slot.OccupiedEmployees,
-             slot.IsFixedTerm,
              slot.EffectiveFromUtc,
              slot.EffectiveToUtc,
              slot.Notes,
@@ -216,6 +243,15 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
              join orgUnit in dbContext.OrgUnits.AsNoTracking() on slot.OrgUnitId equals orgUnit.Id
              join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
              from workCenter in workCenterGroup.DefaultIfEmpty()
+             join positionCategory in dbContext.PositionCategories.AsNoTracking()
+                on jobProfile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
+             from positionCategory in positionCategoryGroup.DefaultIfEmpty()
+             join classification in dbContext.PositionCategoryClassifications.AsNoTracking()
+                on positionCategory.PositionCategoryClassificationId equals classification.Id into classificationGroup
+             from classification in classificationGroup.DefaultIfEmpty()
+             join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+                on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
+             from contractType in contractTypeGroup.DefaultIfEmpty()
              where slot.TenantId == tenantId
              select new PositionSlotGraphNodeData(
                  slot.Id,
@@ -230,7 +266,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                  null,
                  slot.FunctionalDependencyPositionSlotId,
                  null,
-                 slot.IsFixedTerm,
+                 contractType != null ? contractType.PublicId : null,
+                 contractType != null ? contractType.Code : null,
                  slot.IsActive))
             .ToListAsync(cancellationToken);
 
@@ -255,7 +292,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         Guid? jobProfileId,
         Guid? orgUnitId,
         Guid? workCenterId,
-        bool? isFixedTerm,
+        Guid? contractTypeId,
         string? search,
         CancellationToken cancellationToken)
     {
@@ -269,6 +306,15 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             from directDependency in directGroup.DefaultIfEmpty()
             join functionalDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.FunctionalDependencyPositionSlotId equals functionalDependency.Id into functionalGroup
             from functionalDependency in functionalGroup.DefaultIfEmpty()
+            join positionCategory in dbContext.PositionCategories.AsNoTracking()
+                on jobProfile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
+            from positionCategory in positionCategoryGroup.DefaultIfEmpty()
+            join classification in dbContext.PositionCategoryClassifications.AsNoTracking()
+                on positionCategory.PositionCategoryClassificationId equals classification.Id into classificationGroup
+            from classification in classificationGroup.DefaultIfEmpty()
+            join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+                on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
+            from contractType in contractTypeGroup.DefaultIfEmpty()
             where slot.TenantId == tenantId
             select new
             {
@@ -277,7 +323,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 OrgUnit = orgUnit,
                 WorkCenter = workCenter,
                 DirectDependency = directDependency,
-                FunctionalDependency = functionalDependency
+                FunctionalDependency = functionalDependency,
+                ContractType = contractType
             };
 
         if (status.HasValue)
@@ -285,14 +332,14 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             query = query.Where(item => item.Slot.Status == status.Value);
         }
 
-        if (isFixedTerm.HasValue)
-        {
-            query = query.Where(item => item.Slot.IsFixedTerm == isFixedTerm.Value);
-        }
-
         if (jobProfileId.HasValue)
         {
             query = query.Where(item => item.JobProfile.PublicId == jobProfileId.Value);
+        }
+
+        if (contractTypeId.HasValue)
+        {
+            query = query.Where(item => item.ContractType != null && item.ContractType.PublicId == contractTypeId.Value);
         }
 
         if (orgUnitId.HasValue)
@@ -336,9 +383,11 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 item.Slot.CostCenterCode,
                 item.DirectDependency != null ? item.DirectDependency.Code : null,
                 item.FunctionalDependency != null ? item.FunctionalDependency.Code : null,
+                item.ContractType != null ? item.ContractType.PublicId : null,
+                item.ContractType != null ? item.ContractType.Code : null,
+                item.ContractType != null ? item.ContractType.Name : null,
                 item.Slot.MaxEmployees,
                 item.Slot.OccupiedEmployees,
-                item.Slot.IsFixedTerm,
                 item.Slot.EffectiveFromUtc,
                 item.Slot.EffectiveToUtc,
                 item.Slot.IsActive,
@@ -346,4 +395,28 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 item.Slot.ModifiedUtc))
             .ToArrayAsync(cancellationToken);
     }
+
+    public Task<PositionSlotContractTypeLookup?> GetContractTypeByJobProfileAsync(
+        Guid tenantId,
+        Guid jobProfileId,
+        CancellationToken cancellationToken) =>
+        (from profile in dbContext.JobProfiles.AsNoTracking()
+         join positionCategory in dbContext.PositionCategories.AsNoTracking()
+             on profile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
+         from positionCategory in positionCategoryGroup.DefaultIfEmpty()
+         join classification in dbContext.PositionCategoryClassifications.AsNoTracking()
+             on positionCategory.PositionCategoryClassificationId equals classification.Id into classificationGroup
+         from classification in classificationGroup.DefaultIfEmpty()
+         join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+             on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
+         from contractType in contractTypeGroup.DefaultIfEmpty()
+         where profile.TenantId == tenantId && profile.PublicId == jobProfileId
+         select new PositionSlotContractTypeLookup(
+             profile.PublicId,
+             positionCategory != null ? positionCategory.PublicId : null,
+             classification != null ? classification.PublicId : null,
+             contractType != null ? contractType.PublicId : null,
+             contractType != null ? contractType.Code : null,
+             contractType != null ? contractType.Name : null))
+        .SingleOrDefaultAsync(cancellationToken);
 }

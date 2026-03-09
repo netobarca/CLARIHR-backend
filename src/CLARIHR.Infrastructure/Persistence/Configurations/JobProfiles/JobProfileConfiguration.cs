@@ -1,4 +1,5 @@
 using CLARIHR.Domain.JobProfiles;
+using CLARIHR.Domain.PositionDescriptionCatalogs;
 using CLARIHR.Domain.OrgUnits;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -48,6 +49,18 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
 
         builder.Property(profile => profile.ReportsToJobProfileId)
             .HasColumnName("reports_to_job_profile_id");
+
+        builder.Property(profile => profile.PositionCategoryId)
+            .HasColumnName("position_category_id");
+
+        builder.Property(profile => profile.StrategicObjectiveCatalogItemId)
+            .HasColumnName("strategic_objective_catalog_item_id");
+
+        builder.Property(profile => profile.AssignedWorkEquipmentCatalogItemId)
+            .HasColumnName("assigned_work_equipment_catalog_item_id");
+
+        builder.Property(profile => profile.ResponsibilityCatalogItemId)
+            .HasColumnName("responsibility_catalog_item_id");
 
         builder.Property(profile => profile.DecisionScope)
             .HasColumnName("decision_scope")
@@ -118,6 +131,9 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
         builder.HasIndex(profile => new { profile.TenantId, profile.OrgUnitId })
             .HasDatabaseName("ix_job_profiles__tenant_org_unit");
 
+        builder.HasIndex(profile => new { profile.TenantId, profile.PositionCategoryId })
+            .HasDatabaseName("ix_job_profiles__tenant_position_category");
+
         builder.HasIndex(profile => new { profile.TenantId, profile.NormalizedTitle })
             .HasDatabaseName("ix_job_profiles__tenant_title");
 
@@ -132,6 +148,30 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
             .HasForeignKey(profile => profile.ReportsToJobProfileId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_job_profiles__reports_to");
+
+        builder.HasOne<PositionCategory>()
+            .WithMany()
+            .HasForeignKey(profile => profile.PositionCategoryId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_job_profiles__position_category");
+
+        builder.HasOne<PositionDescriptionCatalogItem>()
+            .WithMany()
+            .HasForeignKey(profile => profile.StrategicObjectiveCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_job_profiles__strategic_objective_catalog_item");
+
+        builder.HasOne<PositionDescriptionCatalogItem>()
+            .WithMany()
+            .HasForeignKey(profile => profile.AssignedWorkEquipmentCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_job_profiles__assigned_work_equipment_catalog_item");
+
+        builder.HasOne<PositionDescriptionCatalogItem>()
+            .WithMany()
+            .HasForeignKey(profile => profile.ResponsibilityCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_job_profiles__responsibility_catalog_item");
 
         builder.HasMany(profile => profile.Requirements)
             .WithOne(requirement => requirement.JobProfile)
@@ -288,6 +328,8 @@ internal sealed class JobProfileRequirementConfiguration : IEntityTypeConfigurat
             .HasConversion<string>()
             .HasMaxLength(30);
 
+        builder.Property(item => item.RequirementTypeCatalogItemId).HasColumnName("requirement_type_catalog_item_id");
+
         builder.Property(item => item.CatalogItemId).HasColumnName("catalog_item_id");
 
         builder.Property(item => item.Description)
@@ -306,6 +348,12 @@ internal sealed class JobProfileRequirementConfiguration : IEntityTypeConfigurat
             .HasForeignKey(item => item.CatalogItemId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_job_profile_requirements__catalog_item");
+
+        builder.HasOne<PositionDescriptionCatalogItem>()
+            .WithMany()
+            .HasForeignKey(item => item.RequirementTypeCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_job_profile_requirements__requirement_type_catalog_item");
     }
 }
 
@@ -327,6 +375,8 @@ internal sealed class JobProfileFunctionConfiguration : IEntityTypeConfiguration
             .HasConversion<string>()
             .HasMaxLength(20);
 
+        builder.Property(item => item.FrequencyCatalogItemId).HasColumnName("frequency_catalog_item_id");
+
         builder.Property(item => item.Description)
             .HasColumnName("description")
             .HasMaxLength(2000);
@@ -337,6 +387,12 @@ internal sealed class JobProfileFunctionConfiguration : IEntityTypeConfiguration
 
         builder.HasIndex(item => new { item.TenantId, item.JobProfileId, item.SortOrder })
             .HasDatabaseName("ix_job_profile_functions__tenant_profile_sort");
+
+        builder.HasOne<PositionDescriptionCatalogItem>()
+            .WithMany()
+            .HasForeignKey(item => item.FrequencyCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_job_profile_functions__frequency_catalog_item");
     }
 }
 
@@ -559,6 +615,7 @@ internal sealed class JobProfileWorkingConditionConfiguration : IEntityTypeConfi
         builder.Property(item => item.Id).HasColumnName("id");
         builder.Property(item => item.TenantId).HasColumnName("tenant_id");
         builder.Property(item => item.JobProfileId).HasColumnName("job_profile_id");
+        builder.Property(item => item.WorkConditionTypeCatalogItemId).HasColumnName("work_condition_type_catalog_item_id");
         builder.Property(item => item.CatalogItemId).HasColumnName("catalog_item_id");
 
         builder.Property(item => item.Name)
@@ -581,6 +638,12 @@ internal sealed class JobProfileWorkingConditionConfiguration : IEntityTypeConfi
             .HasForeignKey(item => item.CatalogItemId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_job_profile_working_conditions__catalog_item");
+
+        builder.HasOne<PositionDescriptionCatalogItem>()
+            .WithMany()
+            .HasForeignKey(item => item.WorkConditionTypeCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_job_profile_working_conditions__work_condition_type_catalog_item");
     }
 }
 

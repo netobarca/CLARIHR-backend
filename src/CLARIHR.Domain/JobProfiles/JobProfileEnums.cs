@@ -17,7 +17,10 @@ public enum JobCatalogCategory
     BenefitType = 6,
     WorkingCondition = 7,
     RelationType = 8,
-    DecisionLevel = 9
+    DecisionLevel = 9,
+    CompetencyType = 10,
+    BehaviorLevel = 11,
+    Behavior = 12
 }
 
 public enum JobRequirementType

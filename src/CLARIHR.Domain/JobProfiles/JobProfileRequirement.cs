@@ -10,6 +10,7 @@ public sealed class JobProfileRequirement : TenantEntity
 
     private JobProfileRequirement(
         JobRequirementType requirementType,
+        long? requirementTypeCatalogItemId,
         long? catalogItemId,
         JobCatalogItem? catalogItem,
         string description,
@@ -21,6 +22,7 @@ public sealed class JobProfileRequirement : TenantEntity
         }
 
         RequirementType = requirementType;
+        RequirementTypeCatalogItemId = requirementTypeCatalogItemId;
         CatalogItem = catalogItem;
         CatalogItemId = catalogItem?.Id ?? catalogItemId;
         Description = JobProfileNormalization.Clean(description, nameof(description));
@@ -33,6 +35,8 @@ public sealed class JobProfileRequirement : TenantEntity
 
     public JobRequirementType RequirementType { get; private set; }
 
+    public long? RequirementTypeCatalogItemId { get; private set; }
+
     public long? CatalogItemId { get; private set; }
 
     public JobCatalogItem? CatalogItem { get; private set; }
@@ -43,9 +47,10 @@ public sealed class JobProfileRequirement : TenantEntity
 
     public static JobProfileRequirement Create(
         JobRequirementType requirementType,
+        long? requirementTypeCatalogItemId,
         long? catalogItemId,
         JobCatalogItem? catalogItem,
         string description,
         int sortOrder) =>
-        new(requirementType, catalogItemId, catalogItem, description, sortOrder);
+        new(requirementType, requirementTypeCatalogItemId, catalogItemId, catalogItem, description, sortOrder);
 }

@@ -1172,3 +1172,90 @@ Validacion recomendada post-logout:
 ```
 
 Ejecuta ese body en `POST /api/auth/refresh` y espera `401` con `code = auth.refresh.invalid_token`.
+
+### 6.19 `POST /api/v1/companies/{companyId}/job-catalogs/{category}` (catalogos base framework)
+
+Crear 4 catalogos (guardar ids retornados):
+
+- `category=Competency`
+- `category=CompetencyType`
+- `category=BehaviorLevel`
+- `category=Behavior`
+
+Body ejemplo:
+
+```json
+{
+  "code": "COMP-QA-123456",
+  "name": "Liderazgo QA"
+}
+```
+
+### 6.20 `POST /api/v1/companies/{companyId}/occupational-pyramid-levels`
+
+```json
+{
+  "code": "OPL-QA-123456",
+  "name": "Nivel Estrategico QA",
+  "levelOrder": 1,
+  "description": "Nivel para pruebas competency framework"
+}
+```
+
+### 6.21 `POST /api/v1/companies/{companyId}/competency-conducts`
+
+```json
+{
+  "competencyId": "GUID_COMPETENCY",
+  "competencyTypeId": "GUID_COMPETENCY_TYPE",
+  "behaviorLevelId": "GUID_BEHAVIOR_LEVEL",
+  "description": "Alinea decisiones con objetivos institucionales",
+  "sortOrder": 1
+}
+```
+
+### 6.22 `PUT /api/v1/competency-conducts/{id}/behaviors`
+
+```json
+{
+  "behaviors": [
+    {
+      "behaviorId": "GUID_BEHAVIOR",
+      "notes": "Conducta base del escenario E2E",
+      "sortOrder": 0
+    }
+  ],
+  "concurrencyToken": "GUID_CONCURRENCY_TOKEN_CONDUCT"
+}
+```
+
+### 6.23 `PUT /api/v1/job-profiles/{id}/competency-matrix`
+
+Usa `id` de un job profile del flujo (`JP-QA-*` o seed `JP-HR-MANAGER`).
+
+```json
+{
+  "items": [
+    {
+      "occupationalPyramidLevelId": "GUID_PYRAMID_LEVEL",
+      "competencyId": "GUID_COMPETENCY",
+      "competencyTypeId": "GUID_COMPETENCY_TYPE",
+      "behaviorLevelId": "GUID_BEHAVIOR_LEVEL",
+      "conductIds": [
+        "GUID_CONDUCT"
+      ],
+      "expectedEvidence": "Evidencia observada en objetivos institucionales",
+      "sortOrder": 1
+    }
+  ],
+  "concurrencyToken": "GUID_CONCURRENCY_TOKEN_JOB_PROFILE"
+}
+```
+
+### 6.24 `GET /api/v1/job-profiles/{id}/competency-matrix/export?format=json|csv|xlsx`
+
+Validar:
+
+- `format=json` retorna lista estructurada.
+- `format=csv` retorna `Content-Type: text/csv`.
+- `format=xlsx` retorna `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.

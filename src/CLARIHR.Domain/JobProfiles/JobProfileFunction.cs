@@ -8,7 +8,11 @@ public sealed class JobProfileFunction : TenantEntity
     {
     }
 
-    private JobProfileFunction(JobFunctionType functionType, string description, int sortOrder)
+    private JobProfileFunction(
+        JobFunctionType functionType,
+        long? frequencyCatalogItemId,
+        string description,
+        int sortOrder)
     {
         if (sortOrder < 0)
         {
@@ -16,6 +20,7 @@ public sealed class JobProfileFunction : TenantEntity
         }
 
         FunctionType = functionType;
+        FrequencyCatalogItemId = frequencyCatalogItemId;
         Description = JobProfileNormalization.Clean(description, nameof(description));
         SortOrder = sortOrder;
     }
@@ -26,10 +31,16 @@ public sealed class JobProfileFunction : TenantEntity
 
     public JobFunctionType FunctionType { get; private set; }
 
+    public long? FrequencyCatalogItemId { get; private set; }
+
     public string Description { get; private set; } = string.Empty;
 
     public int SortOrder { get; private set; }
 
-    public static JobProfileFunction Create(JobFunctionType functionType, string description, int sortOrder) =>
-        new(functionType, description, sortOrder);
+    public static JobProfileFunction Create(
+        JobFunctionType functionType,
+        long? frequencyCatalogItemId,
+        string description,
+        int sortOrder) =>
+        new(functionType, frequencyCatalogItemId, description, sortOrder);
 }

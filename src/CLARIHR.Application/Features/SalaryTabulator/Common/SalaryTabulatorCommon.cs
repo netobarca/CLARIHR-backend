@@ -45,6 +45,11 @@ public static class SalaryTabulatorErrors
         "The requested salary tabulator line could not be found.",
         ErrorType.NotFound);
 
+    public static readonly Error SalaryClassNotFound = new(
+        "SALARY_TABULATOR_SALARY_CLASS_NOT_FOUND",
+        "The requested salary class could not be found or is inactive.",
+        ErrorType.NotFound);
+
     public static readonly Error ChangeRequestNotFound = new(
         "SALARY_TABULATOR_REQUEST_NOT_FOUND",
         "The requested salary tabulator change request could not be found.",

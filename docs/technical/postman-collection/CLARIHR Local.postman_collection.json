@@ -2,7 +2,7 @@
   "info": {
     "name": "CLARIHR Local",
     "_postman_id": "1a5c7054-5dd4-45f1-8e8c-cf8b9e51d801",
-    "description": "Postman collection for manual local testing of the CLARIHR backend up to HU-010.",
+    "description": "Postman collection for manual local testing of the CLARIHR backend up to HU-018.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -102,6 +102,46 @@
     },
     {
       "key": "locationHierarchyToken",
+      "value": ""
+    },
+    {
+      "key": "competencyId",
+      "value": ""
+    },
+    {
+      "key": "competencyTypeId",
+      "value": ""
+    },
+    {
+      "key": "behaviorLevelId",
+      "value": ""
+    },
+    {
+      "key": "behaviorId",
+      "value": ""
+    },
+    {
+      "key": "occupationalPyramidLevelId",
+      "value": ""
+    },
+    {
+      "key": "occupationalPyramidLevelToken",
+      "value": ""
+    },
+    {
+      "key": "competencyConductId",
+      "value": ""
+    },
+    {
+      "key": "competencyConductToken",
+      "value": ""
+    },
+    {
+      "key": "competencyMatrixJobProfileId",
+      "value": ""
+    },
+    {
+      "key": "competencyMatrixToken",
       "value": ""
     }
   ],
@@ -1143,6 +1183,319 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/api/audit/logs/{{auditLogId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Competency Framework",
+      "item": [
+        {
+          "name": "Create Competency Catalog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(competencyId, data.id || );",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"COMP-PM-001\",\n  \"name\": \"Liderazgo PM\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/job-catalogs/Competency"
+          }
+        },
+        {
+          "name": "Create Competency Type Catalog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(competencyTypeId, data.id || );",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CTYPE-PM-001\",\n  \"name\": \"Gerencial PM\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/job-catalogs/CompetencyType"
+          }
+        },
+        {
+          "name": "Create Behavior Level Catalog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(behaviorLevelId, data.id || );",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"BLEVEL-PM-001\",\n  \"name\": \"Estrategico PM\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/job-catalogs/BehaviorLevel"
+          }
+        },
+        {
+          "name": "Create Behavior Catalog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(behaviorId, data.id || );",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"BEHAV-PM-001\",\n  \"name\": \"Comunica objetivos PM\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/job-catalogs/Behavior"
+          }
+        },
+        {
+          "name": "Create Occupational Pyramid Level",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(occupationalPyramidLevelId, data.id || );",
+                  "  pm.collectionVariables.set(occupationalPyramidLevelToken, data.concurrencyToken || );",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"OPL-PM-001\",\n  \"name\": \"Nivel Estrategico PM\",\n  \"levelOrder\": 1,\n  \"description\": \"Nivel para flujo Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/occupational-pyramid-levels"
+          }
+        },
+        {
+          "name": "Create Competency Conduct",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(competencyConductId, data.id || );",
+                  "  pm.collectionVariables.set(competencyConductToken, data.concurrencyToken || );",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"competencyId\": \"{{competencyId}}\",\n  \"competencyTypeId\": \"{{competencyTypeId}}\",\n  \"behaviorLevelId\": \"{{behaviorLevelId}}\",\n  \"description\": \"Alinea decisiones con objetivos institucionales\",\n  \"sortOrder\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/companies/{{activeCompanyId}}/competency-conducts"
+          }
+        },
+        {
+          "name": "Update Conduct Behaviors",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"behaviors\": [\n    {\n      \"behaviorId\": \"{{behaviorId}}\",\n      \"notes\": \"Comportamiento base Postman\",\n      \"sortOrder\": 0\n    }\n  ],\n  \"concurrencyToken\": \"{{competencyConductToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/competency-conducts/{{competencyConductId}}/behaviors"
+          }
+        },
+        {
+          "name": "Get Job Profile Competency Matrix",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set(competencyMatrixToken, data.concurrencyToken || );",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/job-profiles/{{competencyMatrixJobProfileId}}/competency-matrix"
+          }
+        },
+        {
+          "name": "Update Job Profile Competency Matrix",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"occupationalPyramidLevelId\": \"{{occupationalPyramidLevelId}}\",\n      \"competencyId\": \"{{competencyId}}\",\n      \"competencyTypeId\": \"{{competencyTypeId}}\",\n      \"behaviorLevelId\": \"{{behaviorLevelId}}\",\n      \"conductIds\": [\n        \"{{competencyConductId}}\"\n      ],\n      \"expectedEvidence\": \"Evidencia observada en ejecucion\",\n      \"sortOrder\": 1\n    }\n  ],\n  \"concurrencyToken\": \"{{competencyMatrixToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/v1/job-profiles/{{competencyMatrixJobProfileId}}/competency-matrix"
+          }
+        },
+        {
+          "name": "Export Competency Matrix JSON",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/job-profiles/{{competencyMatrixJobProfileId}}/competency-matrix/export?format=json"
+          }
+        },
+        {
+          "name": "Export Competency Matrix CSV",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/job-profiles/{{competencyMatrixJobProfileId}}/competency-matrix/export?format=csv"
+          }
+        },
+        {
+          "name": "Export Competency Matrix XLSX",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/job-profiles/{{competencyMatrixJobProfileId}}/competency-matrix/export?format=xlsx"
           }
         }
       ]

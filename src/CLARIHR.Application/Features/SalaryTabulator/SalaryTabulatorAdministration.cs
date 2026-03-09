@@ -2,6 +2,7 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Policies;
+using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.SalaryTabulator;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
@@ -19,7 +20,7 @@ namespace CLARIHR.Application.Features.SalaryTabulator;
 
 public sealed record SalaryTabulatorLineListItemResponse(
     Guid Id,
-    string SalaryClassCode,
+    Guid? SalaryClassId,
     string SalaryScaleCode,
     string CurrencyCode,
     decimal BaseAmount,
@@ -37,7 +38,7 @@ public sealed record SalaryTabulatorLineListItemResponse(
 public sealed record SalaryTabulatorLineResponse(
     Guid Id,
     Guid CompanyId,
-    string SalaryClassCode,
+    Guid? SalaryClassId,
     string SalaryScaleCode,
     string CurrencyCode,
     decimal BaseAmount,
@@ -55,7 +56,7 @@ public sealed record SalaryTabulatorLineResponse(
 
 public sealed record SalaryTabulatorLineExportRow(
     Guid Id,
-    string SalaryClassCode,
+    Guid? SalaryClassId,
     string SalaryScaleCode,
     string CurrencyCode,
     decimal BaseAmount,
@@ -71,7 +72,7 @@ public sealed record SalaryTabulatorLineExportRow(
 
 public sealed record SalaryTabulatorChangeRequestItemResponse(
     long Id,
-    string SalaryClassCode,
+    Guid? SalaryClassId,
     string SalaryScaleCode,
     string CurrencyCode,
     SalaryTabulatorChangeType ChangeType,
@@ -118,7 +119,7 @@ public sealed record SalaryTabulatorChangeRequestListItemResponse(
 
 public sealed record SalaryTabulatorChangeRequestImpactItemResponse(
     long ItemId,
-    string SalaryClassCode,
+    Guid? SalaryClassId,
     string SalaryScaleCode,
     SalaryTabulatorChangeType ChangeType,
     decimal? CurrentBaseAmount,
@@ -145,7 +146,7 @@ public sealed record SalaryTabulatorLineSnapshot(
     DateTime? EffectiveToUtc);
 
 public sealed record SalaryTabulatorChangeRequestItemInput(
-    string SalaryClassCode,
+    Guid SalaryClassId,
     string SalaryScaleCode,
     string CurrencyCode,
     SalaryTabulatorChangeType ChangeType,
@@ -156,7 +157,7 @@ public sealed record SalaryTabulatorChangeRequestItemInput(
 
 public sealed record SearchSalaryTabulatorLinesQuery(
     Guid CompanyId,
-    string? SalaryClassCode,
+    Guid? SalaryClassId,
     string? SalaryScaleCode,
     bool? IsActive,
     string? Search,
@@ -169,7 +170,7 @@ public sealed record GetSalaryTabulatorLineByIdQuery(Guid LineId) : IQuery<Salar
 
 public sealed record ExportSalaryTabulatorLinesQuery(
     Guid CompanyId,
-    string? SalaryClassCode,
+    Guid? SalaryClassId,
     string? SalaryScaleCode,
     bool? IsActive,
     string? Search)
@@ -232,9 +233,9 @@ internal sealed class SearchSalaryTabulatorLinesQueryValidator : AbstractValidat
     public SearchSalaryTabulatorLinesQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.SalaryClassCode)
-            .MaximumLength(50)
-            .Must(static value => value is null || SalaryTabulatorValidationRules.IsValidCode(value));
+        RuleFor(query => query.SalaryClassId)
+            .NotEqual(Guid.Empty)
+            .When(static query => query.SalaryClassId.HasValue);
         RuleFor(query => query.SalaryScaleCode)
             .MaximumLength(50)
             .Must(static value => value is null || SalaryTabulatorValidationRules.IsValidCode(value));
@@ -254,9 +255,9 @@ internal sealed class ExportSalaryTabulatorLinesQueryValidator : AbstractValidat
     public ExportSalaryTabulatorLinesQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.SalaryClassCode)
-            .MaximumLength(50)
-            .Must(static value => value is null || SalaryTabulatorValidationRules.IsValidCode(value));
+        RuleFor(query => query.SalaryClassId)
+            .NotEqual(Guid.Empty)
+            .When(static query => query.SalaryClassId.HasValue);
         RuleFor(query => query.SalaryScaleCode)
             .MaximumLength(50)
             .Must(static value => value is null || SalaryTabulatorValidationRules.IsValidCode(value));
@@ -357,11 +358,7 @@ internal sealed class SalaryTabulatorChangeRequestItemInputValidator : AbstractV
 {
     public SalaryTabulatorChangeRequestItemInputValidator()
     {
-        RuleFor(item => item.SalaryClassCode)
-            .NotEmpty()
-            .MaximumLength(50)
-            .Must(SalaryTabulatorValidationRules.IsValidCode)
-            .WithMessage("SalaryClassCode format is invalid.");
+        RuleFor(item => item.SalaryClassId).NotEmpty();
         RuleFor(item => item.SalaryScaleCode)
             .NotEmpty()
             .MaximumLength(50)
@@ -394,6 +391,7 @@ internal sealed class SalaryTabulatorChangeRequestItemInputValidator : AbstractV
 internal sealed class SearchSalaryTabulatorLinesQueryHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
     ISalaryTabulatorRepository repository,
+    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
     IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchSalaryTabulatorLinesQuery, PagedResponse<SalaryTabulatorLineListItemResponse>>
 {
@@ -407,9 +405,23 @@ internal sealed class SearchSalaryTabulatorLinesQueryHandler(
             return Result<PagedResponse<SalaryTabulatorLineListItemResponse>>.Failure(authorizationResult.Error);
         }
 
+        string? salaryClassCode = null;
+        if (query.SalaryClassId.HasValue)
+        {
+            salaryClassCode = await positionDescriptionCatalogRepository.ResolveSalaryClassCodeByCatalogIdAsync(
+                query.CompanyId,
+                query.SalaryClassId.Value,
+                cancellationToken);
+            if (salaryClassCode is null)
+            {
+                return Result<PagedResponse<SalaryTabulatorLineListItemResponse>>.Success(
+                    new PagedResponse<SalaryTabulatorLineListItemResponse>([], query.PageNumber, query.PageSize, 0));
+            }
+        }
+
         var response = await repository.SearchLinesAsync(
             query.CompanyId,
-            query.SalaryClassCode,
+            salaryClassCode,
             query.SalaryScaleCode,
             query.IsActive,
             query.Search,
@@ -469,7 +481,8 @@ internal sealed class GetSalaryTabulatorLineByIdQueryHandler(
 
 internal sealed class ExportSalaryTabulatorLinesQueryHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
-    ISalaryTabulatorRepository repository)
+    ISalaryTabulatorRepository repository,
+    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository)
     : IQueryHandler<ExportSalaryTabulatorLinesQuery, IReadOnlyCollection<SalaryTabulatorLineExportRow>>
 {
     public async Task<Result<IReadOnlyCollection<SalaryTabulatorLineExportRow>>> Handle(
@@ -482,9 +495,22 @@ internal sealed class ExportSalaryTabulatorLinesQueryHandler(
             return Result<IReadOnlyCollection<SalaryTabulatorLineExportRow>>.Failure(authorizationResult.Error);
         }
 
+        string? salaryClassCode = null;
+        if (query.SalaryClassId.HasValue)
+        {
+            salaryClassCode = await positionDescriptionCatalogRepository.ResolveSalaryClassCodeByCatalogIdAsync(
+                query.CompanyId,
+                query.SalaryClassId.Value,
+                cancellationToken);
+            if (salaryClassCode is null)
+            {
+                return Result<IReadOnlyCollection<SalaryTabulatorLineExportRow>>.Success([]);
+            }
+        }
+
         var rows = await repository.GetLineExportRowsAsync(
             query.CompanyId,
-            query.SalaryClassCode,
+            salaryClassCode,
             query.SalaryScaleCode,
             query.IsActive,
             query.Search,
@@ -698,6 +724,7 @@ internal static class SalaryTabulatorPolicyAdapter
 internal sealed class CreateSalaryTabulatorChangeRequestCommandHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
     ISalaryTabulatorRepository repository,
+    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
     ICurrentUserService currentUserService,
     IDateTimeProvider dateTimeProvider,
     IAuditService auditService,
@@ -724,6 +751,7 @@ internal sealed class CreateSalaryTabulatorChangeRequestCommandHandler(
             command.EffectiveFromUtc,
             command.Items,
             repository,
+            positionDescriptionCatalogRepository,
             cancellationToken);
         if (itemResult.IsFailure)
         {
@@ -782,6 +810,7 @@ internal sealed class CreateSalaryTabulatorChangeRequestCommandHandler(
 internal sealed class UpdateSalaryTabulatorChangeRequestCommandHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
     ISalaryTabulatorRepository repository,
+    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -821,6 +850,7 @@ internal sealed class UpdateSalaryTabulatorChangeRequestCommandHandler(
             command.EffectiveFromUtc,
             command.Items,
             repository,
+            positionDescriptionCatalogRepository,
             cancellationToken);
         if (itemResult.IsFailure)
         {
@@ -1246,6 +1276,7 @@ internal static class SalaryTabulatorCommandSupport
         DateTime effectiveFromUtc,
         IReadOnlyCollection<SalaryTabulatorChangeRequestItemInput> inputs,
         ISalaryTabulatorRepository repository,
+        IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
         CancellationToken cancellationToken)
     {
         if (inputs.Count == 0)
@@ -1256,9 +1287,18 @@ internal static class SalaryTabulatorCommandSupport
         var items = new List<SalaryTabulatorChangeRequestItem>(inputs.Count);
         foreach (var input in inputs)
         {
+            var salaryClassCode = await positionDescriptionCatalogRepository.ResolveSalaryClassCodeByCatalogIdAsync(
+                tenantId,
+                input.SalaryClassId,
+                cancellationToken);
+            if (salaryClassCode is null)
+            {
+                return Result<IReadOnlyCollection<SalaryTabulatorChangeRequestItem>>.Failure(SalaryTabulatorErrors.SalaryClassNotFound);
+            }
+
             var snapshot = await repository.GetActiveLineSnapshotAsync(
                 tenantId,
-                input.SalaryClassCode.Trim().ToUpperInvariant(),
+                salaryClassCode.Trim().ToUpperInvariant(),
                 input.SalaryScaleCode.Trim().ToUpperInvariant(),
                 effectiveFromUtc.Date,
                 cancellationToken);
@@ -1276,7 +1316,7 @@ internal static class SalaryTabulatorCommandSupport
             try
             {
                 items.Add(SalaryTabulatorChangeRequestItem.Create(
-                    input.SalaryClassCode,
+                    salaryClassCode,
                     input.SalaryScaleCode,
                     input.CurrencyCode,
                     input.ChangeType,

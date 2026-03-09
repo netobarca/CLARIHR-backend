@@ -31,7 +31,7 @@ public sealed class SalaryTabulatorController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<PagedResponse<SalaryTabulatorLineListItemResponse>>> SearchLines(
         Guid companyId,
-        [FromQuery] string? salaryClass,
+        [FromQuery] Guid? salaryClassId,
         [FromQuery] string? salaryScale,
         [FromQuery] bool? isActive,
         [FromQuery(Name = "q")] string? search,
@@ -43,7 +43,7 @@ public sealed class SalaryTabulatorController(
         var result = await queryDispatcher.SendAsync(
             new SearchSalaryTabulatorLinesQuery(
                 companyId,
-                salaryClass,
+                salaryClassId,
                 salaryScale,
                 isActive,
                 search,
@@ -74,14 +74,14 @@ public sealed class SalaryTabulatorController(
     public async Task<IActionResult> ExportLines(
         Guid companyId,
         [FromQuery] string format = "xlsx",
-        [FromQuery] string? salaryClass = null,
+        [FromQuery] Guid? salaryClassId = null,
         [FromQuery] string? salaryScale = null,
         [FromQuery] bool? isActive = null,
         [FromQuery(Name = "q")] string? search = null,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new ExportSalaryTabulatorLinesQuery(companyId, salaryClass, salaryScale, isActive, search),
+            new ExportSalaryTabulatorLinesQuery(companyId, salaryClassId, salaryScale, isActive, search),
             cancellationToken);
 
         if (result.IsFailure)
@@ -103,7 +103,7 @@ public sealed class SalaryTabulatorController(
                     {
                         resourceKey = SalaryTabulatorPermissionCodes.ResourceKey,
                         format = "csv",
-                        filters = new { salaryClass, salaryScale, isActive, q = search },
+                        filters = new { salaryClassId, salaryScale, isActive, q = search },
                         rowCount = result.Value.Count
                     }),
                 cancellationToken);
@@ -127,7 +127,7 @@ public sealed class SalaryTabulatorController(
                     {
                         resourceKey = SalaryTabulatorPermissionCodes.ResourceKey,
                         format = "xlsx",
-                        filters = new { salaryClass, salaryScale, isActive, q = search },
+                        filters = new { salaryClassId, salaryScale, isActive, q = search },
                         rowCount = result.Value.Count
                     }),
                 cancellationToken);
@@ -328,7 +328,7 @@ public sealed class SalaryTabulatorController(
 
     private static IReadOnlyCollection<SalaryTabulatorChangeRequestItemInput> MapItems(IReadOnlyCollection<SalaryTabulatorChangeRequestItemRequest> items) =>
         items.Select(item => new SalaryTabulatorChangeRequestItemInput(
-                item.SalaryClassCode,
+                item.SalaryClassId,
                 item.SalaryScaleCode,
                 item.CurrencyCode,
                 item.ChangeType,
@@ -342,12 +342,12 @@ public sealed class SalaryTabulatorController(
     {
         var lines = new List<string>
         {
-            "Id,SalaryClassCode,SalaryScaleCode,CurrencyCode,BaseAmount,MinAmount,MaxAmount,EffectiveFromUtc,EffectiveToUtc,IsActive,Version,Notes,CreatedAtUtc,ModifiedAtUtc"
+            "Id,SalaryClassId,SalaryScaleCode,CurrencyCode,BaseAmount,MinAmount,MaxAmount,EffectiveFromUtc,EffectiveToUtc,IsActive,Version,Notes,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
             EscapeCsv(row.Id.ToString()),
-            EscapeCsv(row.SalaryClassCode),
+            EscapeCsv(row.SalaryClassId?.ToString()),
             EscapeCsv(row.SalaryScaleCode),
             EscapeCsv(row.CurrencyCode),
             row.BaseAmount.ToString(CultureInfo.InvariantCulture),
@@ -372,7 +372,7 @@ public sealed class SalaryTabulatorController(
         var headers = new[]
         {
             "Id",
-            "SalaryClassCode",
+            "SalaryClassId",
             "SalaryScaleCode",
             "CurrencyCode",
             "BaseAmount",
@@ -401,7 +401,7 @@ public sealed class SalaryTabulatorController(
         {
             rowsBuilder.Append($"<row r=\"{rowIndex++}\">");
             rowsBuilder.Append(Cell(row.Id.ToString()));
-            rowsBuilder.Append(Cell(row.SalaryClassCode));
+            rowsBuilder.Append(Cell(row.SalaryClassId?.ToString()));
             rowsBuilder.Append(Cell(row.SalaryScaleCode));
             rowsBuilder.Append(Cell(row.CurrencyCode));
             rowsBuilder.Append(Cell(row.BaseAmount.ToString(CultureInfo.InvariantCulture)));
@@ -519,7 +519,7 @@ public sealed class SalaryTabulatorController(
         Guid ConcurrencyToken);
 
     public sealed record SalaryTabulatorChangeRequestItemRequest(
-        string SalaryClassCode,
+        Guid SalaryClassId,
         string SalaryScaleCode,
         string CurrencyCode,
         SalaryTabulatorChangeType ChangeType,

@@ -245,11 +245,47 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 .SingleOrDefaultAsync(cancellationToken)
             : null;
 
+        var positionCategoryLookup = profile.PositionCategoryId.HasValue
+            ? await dbContext.PositionCategories
+                .AsNoTracking()
+                .Where(item => item.Id == profile.PositionCategoryId.Value)
+                .Select(item => new { item.PublicId })
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
+
+        var positionDescriptionCatalogItemIds = new HashSet<long>();
+        AddIfPresent(positionDescriptionCatalogItemIds, profile.StrategicObjectiveCatalogItemId);
+        AddIfPresent(positionDescriptionCatalogItemIds, profile.AssignedWorkEquipmentCatalogItemId);
+        AddIfPresent(positionDescriptionCatalogItemIds, profile.ResponsibilityCatalogItemId);
+
+        foreach (var requirement in profile.Requirements)
+        {
+            AddIfPresent(positionDescriptionCatalogItemIds, requirement.RequirementTypeCatalogItemId);
+        }
+
+        foreach (var function in profile.Functions)
+        {
+            AddIfPresent(positionDescriptionCatalogItemIds, function.FrequencyCatalogItemId);
+        }
+
+        foreach (var workingCondition in profile.WorkingConditions)
+        {
+            AddIfPresent(positionDescriptionCatalogItemIds, workingCondition.WorkConditionTypeCatalogItemId);
+        }
+
+        var positionDescriptionCatalogLookup = positionDescriptionCatalogItemIds.Count == 0
+            ? new Dictionary<long, Guid>()
+            : await dbContext.PositionDescriptionCatalogItems
+                .AsNoTracking()
+                .Where(item => positionDescriptionCatalogItemIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, item => item.PublicId, cancellationToken);
+
         var requirementItems = profile.Requirements
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Description)
             .Select(item => new JobProfileRequirementResponse(
                 item.CatalogItem?.PublicId,
+                ResolveCatalogPublicId(item.RequirementTypeCatalogItemId, positionDescriptionCatalogLookup),
                 item.RequirementType,
                 item.Description,
                 item.SortOrder))
@@ -258,7 +294,11 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
         var functionItems = profile.Functions
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Description)
-            .Select(item => new JobProfileFunctionResponse(item.FunctionType, item.Description, item.SortOrder))
+            .Select(item => new JobProfileFunctionResponse(
+                item.FunctionType,
+                ResolveCatalogPublicId(item.FrequencyCatalogItemId, positionDescriptionCatalogLookup),
+                item.Description,
+                item.SortOrder))
             .ToArray();
 
         var relationItems = profile.Relations
@@ -321,6 +361,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .ThenBy(item => item.Name)
             .Select(item => new JobProfileWorkingConditionResponse(
                 item.CatalogItem?.PublicId,
+                ResolveCatalogPublicId(item.WorkConditionTypeCatalogItemId, positionDescriptionCatalogLookup),
                 item.Name,
                 item.Notes,
                 item.SortOrder))
@@ -350,6 +391,10 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             reportsToLookup?.PublicId,
             reportsToLookup?.Code,
             reportsToLookup?.Title,
+            positionCategoryLookup?.PublicId,
+            ResolveCatalogPublicId(profile.StrategicObjectiveCatalogItemId, positionDescriptionCatalogLookup),
+            ResolveCatalogPublicId(profile.AssignedWorkEquipmentCatalogItemId, positionDescriptionCatalogLookup),
+            ResolveCatalogPublicId(profile.ResponsibilityCatalogItemId, positionDescriptionCatalogLookup),
             profile.DecisionScope,
             profile.AssignedResources,
             profile.Responsibilities,
@@ -373,6 +418,17 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             profile.CreatedUtc,
             profile.ModifiedUtc);
     }
+
+    private static void AddIfPresent(ISet<long> target, long? value)
+    {
+        if (value.HasValue)
+        {
+            _ = target.Add(value.Value);
+        }
+    }
+
+    private static Guid? ResolveCatalogPublicId(long? internalId, IReadOnlyDictionary<long, Guid> lookup) =>
+        internalId.HasValue && lookup.TryGetValue(internalId.Value, out var publicId) ? publicId : null;
 
     public async Task<JobProfileVacancyTemplateResponse?> GetVacancyTemplateByIdAsync(Guid profileId, CancellationToken cancellationToken)
     {

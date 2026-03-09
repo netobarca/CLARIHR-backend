@@ -45,6 +45,14 @@ public sealed class JobProfile : TenantEntity
 
     public long? ReportsToJobProfileId { get; private set; }
 
+    public long? PositionCategoryId { get; private set; }
+
+    public long? StrategicObjectiveCatalogItemId { get; private set; }
+
+    public long? AssignedWorkEquipmentCatalogItemId { get; private set; }
+
+    public long? ResponsibilityCatalogItemId { get; private set; }
+
     public string? DecisionScope { get; private set; }
 
     public string? AssignedResources { get; private set; }
@@ -97,6 +105,10 @@ public sealed class JobProfile : TenantEntity
         string? objective,
         long? orgUnitId,
         long? reportsToJobProfileId,
+        long? positionCategoryId,
+        long? strategicObjectiveCatalogItemId,
+        long? assignedWorkEquipmentCatalogItemId,
+        long? responsibilityCatalogItemId,
         string? decisionScope,
         string? assignedResources,
         string? responsibilities,
@@ -120,6 +132,10 @@ public sealed class JobProfile : TenantEntity
         Objective = JobProfileNormalization.CleanOptional(objective);
         OrgUnitId = orgUnitId;
         ReportsToJobProfileId = reportsToJobProfileId;
+        PositionCategoryId = positionCategoryId;
+        StrategicObjectiveCatalogItemId = strategicObjectiveCatalogItemId;
+        AssignedWorkEquipmentCatalogItemId = assignedWorkEquipmentCatalogItemId;
+        ResponsibilityCatalogItemId = responsibilityCatalogItemId;
         DecisionScope = JobProfileNormalization.CleanOptional(decisionScope);
         AssignedResources = JobProfileNormalization.CleanOptional(assignedResources);
         Responsibilities = JobProfileNormalization.CleanOptional(responsibilities);

@@ -195,6 +195,10 @@ public sealed class JobProfilesController(
                 request.Objective,
                 request.OrgUnitId,
                 request.ReportsToJobProfileId,
+                request.PositionCategoryId,
+                request.StrategicObjectiveCatalogItemId,
+                request.AssignedWorkEquipmentCatalogItemId,
+                request.ResponsibilityCatalogItemId,
                 request.DecisionScope,
                 request.AssignedResources,
                 request.Responsibilities,
@@ -242,6 +246,10 @@ public sealed class JobProfilesController(
                 request.Objective,
                 request.OrgUnitId,
                 request.ReportsToJobProfileId,
+                request.PositionCategoryId,
+                request.StrategicObjectiveCatalogItemId,
+                request.AssignedWorkEquipmentCatalogItemId,
+                request.ResponsibilityCatalogItemId,
                 request.DecisionScope,
                 request.AssignedResources,
                 request.Responsibilities,
@@ -309,6 +317,7 @@ public sealed class JobProfilesController(
     private static IReadOnlyCollection<JobProfileRequirementInput> MapRequirements(IReadOnlyCollection<JobProfileRequirementRequest>? values) =>
         values?.Select(value => new JobProfileRequirementInput(
                 value.RequirementType,
+                value.RequirementTypeCatalogItemId,
                 value.CatalogItemId,
                 value.CatalogCode,
                 value.CatalogName,
@@ -317,7 +326,12 @@ public sealed class JobProfilesController(
             .ToArray() ?? [];
 
     private static IReadOnlyCollection<JobProfileFunctionInput> MapFunctions(IReadOnlyCollection<JobProfileFunctionRequest>? values) =>
-        values?.Select(value => new JobProfileFunctionInput(value.FunctionType, value.Description, value.SortOrder)).ToArray() ?? [];
+        values?.Select(value => new JobProfileFunctionInput(
+                value.FunctionType,
+                value.FrequencyCatalogItemId,
+                value.Description,
+                value.SortOrder))
+            .ToArray() ?? [];
 
     private static IReadOnlyCollection<JobProfileRelationInput> MapRelations(IReadOnlyCollection<JobProfileRelationRequest>? values) =>
         values?.Select(value => new JobProfileRelationInput(
@@ -375,6 +389,7 @@ public sealed class JobProfilesController(
 
     private static IReadOnlyCollection<JobProfileWorkingConditionInput> MapWorkingConditions(IReadOnlyCollection<JobProfileWorkingConditionRequest>? values) =>
         values?.Select(value => new JobProfileWorkingConditionInput(
+                value.WorkConditionTypeCatalogItemId,
                 value.CatalogItemId,
                 value.CatalogCode,
                 value.CatalogName,
@@ -423,6 +438,10 @@ public sealed class JobProfilesController(
         string? Objective,
         Guid? OrgUnitId,
         Guid? ReportsToJobProfileId,
+        Guid? PositionCategoryId,
+        Guid? StrategicObjectiveCatalogItemId,
+        Guid? AssignedWorkEquipmentCatalogItemId,
+        Guid? ResponsibilityCatalogItemId,
         string? DecisionScope,
         string? AssignedResources,
         string? Responsibilities,
@@ -449,6 +468,10 @@ public sealed class JobProfilesController(
         string? Objective,
         Guid? OrgUnitId,
         Guid? ReportsToJobProfileId,
+        Guid? PositionCategoryId,
+        Guid? StrategicObjectiveCatalogItemId,
+        Guid? AssignedWorkEquipmentCatalogItemId,
+        Guid? ResponsibilityCatalogItemId,
         string? DecisionScope,
         string? AssignedResources,
         string? Responsibilities,
@@ -472,6 +495,7 @@ public sealed class JobProfilesController(
 
     public sealed record JobProfileRequirementRequest(
         JobRequirementType RequirementType,
+        Guid? RequirementTypeCatalogItemId,
         Guid? CatalogItemId,
         string? CatalogCode,
         string? CatalogName,
@@ -480,6 +504,7 @@ public sealed class JobProfilesController(
 
     public sealed record JobProfileFunctionRequest(
         JobFunctionType FunctionType,
+        Guid? FrequencyCatalogItemId,
         string Description,
         int SortOrder);
 
@@ -528,6 +553,7 @@ public sealed class JobProfilesController(
         int SortOrder);
 
     public sealed record JobProfileWorkingConditionRequest(
+        Guid? WorkConditionTypeCatalogItemId,
         Guid? CatalogItemId,
         string? CatalogCode,
         string? CatalogName,

@@ -12,7 +12,8 @@ public sealed class OrgUnitDomainTests
         var orgUnit = OrgUnit.Create(
             code: "  dir-001  ",
             name: "  Direccion General  ",
-            unitType: OrgUnitType.Direccion,
+            orgUnitTypeCatalogItemId: 10,
+            functionalAreaCatalogItemId: 20,
             parentId: null,
             sortOrder: 1,
             description: "  Description  ",
@@ -25,6 +26,8 @@ public sealed class OrgUnitDomainTests
         Assert.Equal("DIRECCION GENERAL", orgUnit.NormalizedName);
         Assert.Equal("Description", orgUnit.Description);
         Assert.Equal("cc-01", orgUnit.CostCenterCode);
+        Assert.Equal(10, orgUnit.OrgUnitTypeCatalogItemId);
+        Assert.Equal(20, orgUnit.FunctionalAreaCatalogItemId);
     }
 
     [Fact]
@@ -33,7 +36,8 @@ public sealed class OrgUnitDomainTests
         var orgUnit = OrgUnit.Create(
             code: "DIR-001",
             name: "Direccion General",
-            unitType: OrgUnitType.Direccion,
+            orgUnitTypeCatalogItemId: 10,
+            functionalAreaCatalogItemId: null,
             parentId: null,
             sortOrder: 1,
             description: null,
@@ -49,7 +53,8 @@ public sealed class OrgUnitDomainTests
         var orgUnit = OrgUnit.Create(
             code: "DIR-001",
             name: "Direccion General",
-            unitType: OrgUnitType.Direccion,
+            orgUnitTypeCatalogItemId: 10,
+            functionalAreaCatalogItemId: null,
             parentId: null,
             sortOrder: 1,
             description: null,
@@ -67,39 +72,8 @@ public sealed class OrgUnitDomainTests
     [Fact]
     public void OrgUnitHierarchyBuilder_WouldCreateCycle_WhenParentIsDescendant_ShouldReturnTrue()
     {
-        var root = new OrgUnitHierarchyNodeData(
-            1,
-            Guid.NewGuid(),
-            "DIR-001",
-            "Direccion General",
-            OrgUnitType.Direccion,
-            null,
-            null,
-            1,
-            null,
-            null,
-            null,
-            true,
-            Guid.NewGuid(),
-            DateTime.UtcNow,
-            null);
-
-        var child = new OrgUnitHierarchyNodeData(
-            2,
-            Guid.NewGuid(),
-            "GER-001",
-            "Gerencia Finanzas",
-            OrgUnitType.Gerencia,
-            1,
-            root.Id,
-            1,
-            null,
-            null,
-            null,
-            true,
-            Guid.NewGuid(),
-            DateTime.UtcNow,
-            null);
+        var root = CreateHierarchyNode(internalId: 1, code: "DIR-001", name: "Direccion General", parentInternalId: null, parentId: null, sortOrder: 1);
+        var child = CreateHierarchyNode(internalId: 2, code: "GER-001", name: "Gerencia Finanzas", parentInternalId: 1, parentId: root.Id, sortOrder: 1);
 
         var byInternalId = new[] { root, child }.ToDictionary(static node => node.InternalId);
 
@@ -118,7 +92,14 @@ public sealed class OrgUnitDomainTests
                 Guid.NewGuid(),
                 $"U-{index}",
                 $"Unit {index}",
-                OrgUnitType.Otro,
+                10,
+                Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                "UT",
+                "Unit Type",
+                null,
+                null,
+                null,
+                null,
                 index == 1 ? null : index - 1,
                 null,
                 index,
@@ -134,5 +115,38 @@ public sealed class OrgUnitDomainTests
         var depth = OrgUnitHierarchyBuilder.CalculateDepth(parentInternalId: OrgUnitValidationRules.MaxDepth + 1, nodes);
 
         Assert.True(depth > OrgUnitValidationRules.MaxDepth);
+    }
+
+    private static OrgUnitHierarchyNodeData CreateHierarchyNode(
+        long internalId,
+        string code,
+        string name,
+        long? parentInternalId,
+        Guid? parentId,
+        int? sortOrder)
+    {
+        return new OrgUnitHierarchyNodeData(
+            internalId,
+            Guid.NewGuid(),
+            code,
+            name,
+            10,
+            Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            "UT",
+            "Unit Type",
+            null,
+            null,
+            null,
+            null,
+            parentInternalId,
+            parentId,
+            sortOrder,
+            null,
+            null,
+            null,
+            true,
+            Guid.NewGuid(),
+            DateTime.UtcNow,
+            null);
     }
 }

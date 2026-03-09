@@ -9,6 +9,7 @@ public sealed class JobProfileWorkingCondition : TenantEntity
     }
 
     private JobProfileWorkingCondition(
+        long? workConditionTypeCatalogItemId,
         long? catalogItemId,
         JobCatalogItem? catalogItem,
         string name,
@@ -20,6 +21,7 @@ public sealed class JobProfileWorkingCondition : TenantEntity
             throw new ArgumentOutOfRangeException(nameof(sortOrder), "Sort order must be greater than or equal to zero.");
         }
 
+        WorkConditionTypeCatalogItemId = workConditionTypeCatalogItemId;
         CatalogItem = catalogItem;
         CatalogItemId = catalogItem?.Id ?? catalogItemId;
         Name = JobProfileNormalization.Clean(name, nameof(name));
@@ -30,6 +32,8 @@ public sealed class JobProfileWorkingCondition : TenantEntity
     public long JobProfileId { get; private set; }
 
     public JobProfile JobProfile { get; private set; } = null!;
+
+    public long? WorkConditionTypeCatalogItemId { get; private set; }
 
     public long? CatalogItemId { get; private set; }
 
@@ -42,10 +46,11 @@ public sealed class JobProfileWorkingCondition : TenantEntity
     public int SortOrder { get; private set; }
 
     public static JobProfileWorkingCondition Create(
+        long? workConditionTypeCatalogItemId,
         long? catalogItemId,
         JobCatalogItem? catalogItem,
         string name,
         string? notes,
         int sortOrder) =>
-        new(catalogItemId, catalogItem, name, notes, sortOrder);
+        new(workConditionTypeCatalogItemId, catalogItemId, catalogItem, name, notes, sortOrder);
 }

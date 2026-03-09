@@ -1,9 +1,12 @@
 using CLARIHR.Application.Abstractions.Reports;
 using CLARIHR.Application.Common.Policies;
+using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
+using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Application.Features.SalaryTabulator.Common;
 
@@ -25,6 +28,18 @@ internal sealed class ReportCapabilityRegistry : IReportCapabilityRegistry
                 OrgUnitPermissionCodes.Admin,
                 PrintPermissionCode: null,
                 ExportPermissionCode: OrgUnitPermissionCodes.Read),
+
+            [PositionDescriptionCatalogPermissionCodes.ResourceKey] = new(
+                new ReportCapabilitiesResponse(
+                    PositionDescriptionCatalogPermissionCodes.ResourceKey,
+                    SupportsPrint: false,
+                    SupportsExport: true,
+                    SupportedTableFormats: ["csv", "xlsx"],
+                    SupportedGraphFormats: []),
+                PositionDescriptionCatalogPermissionCodes.Read,
+                PositionDescriptionCatalogPermissionCodes.Admin,
+                PrintPermissionCode: null,
+                ExportPermissionCode: PositionDescriptionCatalogPermissionCodes.Read),
 
             [JobProfilePermissionCodes.ResourceKey] = new(
                 new ReportCapabilitiesResponse(
@@ -84,7 +99,31 @@ internal sealed class ReportCapabilityRegistry : IReportCapabilityRegistry
                 LegalRepresentativePermissionCodes.Read,
                 LegalRepresentativePermissionCodes.Admin,
                 PrintPermissionCode: null,
-                ExportPermissionCode: LegalRepresentativePermissionCodes.Read)
+                ExportPermissionCode: LegalRepresentativePermissionCodes.Read),
+
+            [PersonnelFilePermissionCodes.ResourceKey] = new(
+                new ReportCapabilitiesResponse(
+                    PersonnelFilePermissionCodes.ResourceKey,
+                    SupportsPrint: true,
+                    SupportsExport: true,
+                    SupportedTableFormats: ["csv", "xlsx"],
+                    SupportedGraphFormats: []),
+                PersonnelFilePermissionCodes.Read,
+                PersonnelFilePermissionCodes.Admin,
+                PrintPermissionCode: PersonnelFilePermissionCodes.Read,
+                ExportPermissionCode: PersonnelFilePermissionCodes.Read),
+
+            [CompetencyFrameworkPermissionCodes.ResourceKey] = new(
+                new ReportCapabilitiesResponse(
+                    CompetencyFrameworkPermissionCodes.ResourceKey,
+                    SupportsPrint: false,
+                    SupportsExport: true,
+                    SupportedTableFormats: ["json", "csv", "xlsx"],
+                    SupportedGraphFormats: []),
+                CompetencyFrameworkPermissionCodes.Read,
+                CompetencyFrameworkPermissionCodes.Admin,
+                PrintPermissionCode: null,
+                ExportPermissionCode: CompetencyFrameworkPermissionCodes.Read)
         };
 
     public bool TryGet(string resourceKey, out ReportCapabilityDefinition definition) =>

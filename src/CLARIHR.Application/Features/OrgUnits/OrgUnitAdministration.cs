@@ -1,5 +1,6 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.CostCenters;
+using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.OrgUnits;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Policies;
@@ -11,16 +12,24 @@ using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
+using CLARIHR.Application.Features.OrgStructureCatalogs;
+using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Domain.OrgUnits;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.OrgUnits;
 
+public sealed record OrgUnitCatalogReferenceResponse(
+    Guid Id,
+    string Code,
+    string Name);
+
 public sealed record OrgUnitResponse(
     Guid Id,
     string Code,
     string Name,
-    OrgUnitType UnitType,
+    OrgUnitCatalogReferenceResponse OrgUnitType,
+    OrgUnitCatalogReferenceResponse? FunctionalArea,
     Guid? ParentId,
     int? SortOrder,
     string? Description,
@@ -36,7 +45,12 @@ public sealed record OrgUnitExportRow(
     Guid Id,
     string Code,
     string Name,
-    OrgUnitType UnitType,
+    Guid OrgUnitTypeId,
+    string OrgUnitTypeCode,
+    string OrgUnitTypeName,
+    Guid? FunctionalAreaId,
+    string? FunctionalAreaCode,
+    string? FunctionalAreaName,
     string? ParentCode,
     string? ParentName,
     int? SortOrder,
@@ -51,7 +65,8 @@ public sealed record OrgUnitTreeNodeResponse(
     Guid Id,
     string Code,
     string Name,
-    OrgUnitType UnitType,
+    OrgUnitCatalogReferenceResponse OrgUnitType,
+    OrgUnitCatalogReferenceResponse? FunctionalArea,
     Guid? ParentId,
     int? SortOrder,
     bool IsActive,
@@ -60,7 +75,9 @@ public sealed record OrgUnitTreeNodeResponse(
 public sealed record OrgUnitGraphNodeResponse(
     Guid Id,
     string Label,
-    OrgUnitType Type,
+    Guid OrgUnitTypeId,
+    string OrgUnitTypeCode,
+    string OrgUnitTypeName,
     bool IsActive);
 
 public sealed record OrgUnitGraphEdgeResponse(Guid FromId, Guid ToId);
@@ -74,7 +91,14 @@ public sealed record OrgUnitHierarchyNodeData(
     Guid Id,
     string Code,
     string Name,
-    OrgUnitType UnitType,
+    long OrgUnitTypeCatalogItemId,
+    Guid OrgUnitTypeId,
+    string OrgUnitTypeCode,
+    string OrgUnitTypeName,
+    long? FunctionalAreaCatalogItemId,
+    Guid? FunctionalAreaId,
+    string? FunctionalAreaCode,
+    string? FunctionalAreaName,
     long? ParentInternalId,
     Guid? ParentId,
     int? SortOrder,
@@ -90,7 +114,8 @@ public sealed record SearchOrgUnitsQuery(
     Guid CompanyId,
     bool? IsActive,
     string? Search,
-    OrgUnitType? Type,
+    Guid? OrgUnitTypeId,
+    Guid? FunctionalAreaId,
     Guid? ParentId,
     int PageNumber = 1,
     int PageSize = OrgUnitValidationRules.DefaultPageSize,
@@ -102,7 +127,8 @@ public sealed record GetOrgUnitExportRowsQuery(
     Guid CompanyId,
     bool? IsActive,
     string? Search,
-    OrgUnitType? Type,
+    Guid? OrgUnitTypeId,
+    Guid? FunctionalAreaId,
     Guid? ParentId)
     : IQuery<IReadOnlyCollection<OrgUnitExportRow>>;
 
@@ -110,7 +136,8 @@ public sealed record CreateOrgUnitCommand(
     Guid CompanyId,
     string Code,
     string Name,
-    OrgUnitType UnitType,
+    Guid OrgUnitTypeId,
+    Guid? FunctionalAreaId,
     Guid? ParentId,
     int? SortOrder,
     string? Description,
@@ -121,7 +148,8 @@ public sealed record UpdateOrgUnitCommand(
     Guid OrgUnitId,
     string Code,
     string Name,
-    OrgUnitType UnitType,
+    Guid OrgUnitTypeId,
+    Guid? FunctionalAreaId,
     int? SortOrder,
     string? Description,
     string? CostCenterCode,
@@ -150,6 +178,12 @@ internal sealed class SearchOrgUnitsQueryValidator : AbstractValidator<SearchOrg
     {
         RuleFor(query => query.CompanyId).NotEmpty();
         RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.OrgUnitTypeId)
+            .NotEqual(Guid.Empty)
+            .When(static query => query.OrgUnitTypeId.HasValue);
+        RuleFor(query => query.FunctionalAreaId)
+            .NotEqual(Guid.Empty)
+            .When(static query => query.FunctionalAreaId.HasValue);
         RuleFor(query => query.ParentId).NotEqual(Guid.Empty).When(static query => query.ParentId.HasValue);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, OrgUnitValidationRules.MaxPageSize);
@@ -175,6 +209,10 @@ internal sealed class CreateOrgUnitCommandValidator : AbstractValidator<CreateOr
             .Must(OrgUnitValidationRules.IsValidCode)
             .WithMessage("Code format is invalid.");
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
+        RuleFor(command => command.OrgUnitTypeId).NotEmpty();
+        RuleFor(command => command.FunctionalAreaId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.FunctionalAreaId.HasValue);
         RuleFor(command => command.SortOrder)
             .GreaterThanOrEqualTo(0)
             .When(static command => command.SortOrder.HasValue);
@@ -200,6 +238,10 @@ internal sealed class UpdateOrgUnitCommandValidator : AbstractValidator<UpdateOr
             .Must(OrgUnitValidationRules.IsValidCode)
             .WithMessage("Code format is invalid.");
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
+        RuleFor(command => command.OrgUnitTypeId).NotEmpty();
+        RuleFor(command => command.FunctionalAreaId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.FunctionalAreaId.HasValue);
         RuleFor(command => command.SortOrder)
             .GreaterThanOrEqualTo(0)
             .When(static command => command.SortOrder.HasValue);
@@ -279,6 +321,12 @@ internal sealed class GetOrgUnitExportRowsQueryValidator : AbstractValidator<Get
     {
         RuleFor(query => query.CompanyId).NotEmpty();
         RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.OrgUnitTypeId)
+            .NotEqual(Guid.Empty)
+            .When(static query => query.OrgUnitTypeId.HasValue);
+        RuleFor(query => query.FunctionalAreaId)
+            .NotEqual(Guid.Empty)
+            .When(static query => query.FunctionalAreaId.HasValue);
         RuleFor(query => query.ParentId)
             .NotEqual(Guid.Empty)
             .When(static query => query.ParentId.HasValue);
@@ -304,7 +352,8 @@ internal sealed class SearchOrgUnitsQueryHandler(
         var result = await repository.SearchAsync(
             query.CompanyId,
             query.IsActive,
-            query.Type,
+            query.OrgUnitTypeId,
+            query.FunctionalAreaId,
             query.ParentId,
             query.Search,
             query.PageNumber,
@@ -453,9 +502,14 @@ internal sealed class GetOrgUnitExportRowsQueryHandler(
             filtered = filtered.Where(node => node.IsActive == query.IsActive.Value);
         }
 
-        if (query.Type.HasValue)
+        if (query.OrgUnitTypeId.HasValue)
         {
-            filtered = filtered.Where(node => node.UnitType == query.Type.Value);
+            filtered = filtered.Where(node => node.OrgUnitTypeId == query.OrgUnitTypeId.Value);
+        }
+
+        if (query.FunctionalAreaId.HasValue)
+        {
+            filtered = filtered.Where(node => node.FunctionalAreaId == query.FunctionalAreaId.Value);
         }
 
         if (query.ParentId.HasValue)
@@ -491,7 +545,12 @@ internal sealed class GetOrgUnitExportRowsQueryHandler(
                     node.Id,
                     node.Code,
                     node.Name,
-                    node.UnitType,
+                    node.OrgUnitTypeId,
+                    node.OrgUnitTypeCode,
+                    node.OrgUnitTypeName,
+                    node.FunctionalAreaId,
+                    node.FunctionalAreaCode,
+                    node.FunctionalAreaName,
                     parent?.Code,
                     parent?.Name,
                     node.SortOrder,
@@ -511,6 +570,7 @@ internal sealed class GetOrgUnitExportRowsQueryHandler(
 internal sealed class CreateOrgUnitCommandHandler(
     IOrgUnitAuthorizationService authorizationService,
     IOrgUnitRepository repository,
+    IOrgStructureCatalogRepository orgStructureCatalogRepository,
     ICostCenterRepository costCenterRepository,
     IAuditService auditService,
     IUnitOfWork unitOfWork)
@@ -529,6 +589,34 @@ internal sealed class CreateOrgUnitCommandHandler(
         if (await repository.CodeExistsAsync(command.CompanyId, command.Code.Trim().ToUpperInvariant(), excludingOrgUnitId: null, cancellationToken))
         {
             return Result<OrgUnitResponse>.Failure(OrgUnitErrors.CodeConflict);
+        }
+
+        var orgUnitType = await orgStructureCatalogRepository.GetActiveOrgUnitTypeLookupAsync(
+            command.CompanyId,
+            command.OrgUnitTypeId,
+            cancellationToken);
+        if (orgUnitType is null)
+        {
+            return Result<OrgUnitResponse>.Failure(
+                await orgStructureCatalogRepository.ExistsOrgUnitTypeOutsideTenantAsync(command.OrgUnitTypeId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Create)
+                    : OrgStructureCatalogErrors.OrgUnitTypeNotFound);
+        }
+
+        CatalogReferenceLookup? functionalArea = null;
+        if (command.FunctionalAreaId.HasValue)
+        {
+            functionalArea = await orgStructureCatalogRepository.GetActiveFunctionalAreaLookupAsync(
+                command.CompanyId,
+                command.FunctionalAreaId.Value,
+                cancellationToken);
+            if (functionalArea is null)
+            {
+                return Result<OrgUnitResponse>.Failure(
+                    await orgStructureCatalogRepository.ExistsFunctionalAreaOutsideTenantAsync(command.FunctionalAreaId.Value, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Create)
+                        : OrgStructureCatalogErrors.FunctionalAreaNotFound);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(command.CostCenterCode) &&
@@ -567,7 +655,8 @@ internal sealed class CreateOrgUnitCommandHandler(
         var orgUnit = OrgUnit.Create(
             command.Code,
             command.Name,
-            command.UnitType,
+            orgUnitType.InternalId,
+            functionalArea?.InternalId,
             parent?.Id,
             command.SortOrder,
             command.Description,
@@ -610,6 +699,7 @@ internal sealed class CreateOrgUnitCommandHandler(
 internal sealed class UpdateOrgUnitCommandHandler(
     IOrgUnitAuthorizationService authorizationService,
     IOrgUnitRepository repository,
+    IOrgStructureCatalogRepository orgStructureCatalogRepository,
     ICostCenterRepository costCenterRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
@@ -650,6 +740,34 @@ internal sealed class UpdateOrgUnitCommandHandler(
             return Result<OrgUnitResponse>.Failure(OrgUnitErrors.CodeConflict);
         }
 
+        var orgUnitType = await orgStructureCatalogRepository.GetActiveOrgUnitTypeLookupAsync(
+            orgUnit.TenantId,
+            command.OrgUnitTypeId,
+            cancellationToken);
+        if (orgUnitType is null)
+        {
+            return Result<OrgUnitResponse>.Failure(
+                await orgStructureCatalogRepository.ExistsOrgUnitTypeOutsideTenantAsync(command.OrgUnitTypeId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : OrgStructureCatalogErrors.OrgUnitTypeNotFound);
+        }
+
+        CatalogReferenceLookup? functionalArea = null;
+        if (command.FunctionalAreaId.HasValue)
+        {
+            functionalArea = await orgStructureCatalogRepository.GetActiveFunctionalAreaLookupAsync(
+                orgUnit.TenantId,
+                command.FunctionalAreaId.Value,
+                cancellationToken);
+            if (functionalArea is null)
+            {
+                return Result<OrgUnitResponse>.Failure(
+                    await orgStructureCatalogRepository.ExistsFunctionalAreaOutsideTenantAsync(command.FunctionalAreaId.Value, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : OrgStructureCatalogErrors.FunctionalAreaNotFound);
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(command.CostCenterCode) &&
             !await costCenterRepository.ExistsActiveByCodeAsync(
                 orgUnit.TenantId,
@@ -668,7 +786,8 @@ internal sealed class UpdateOrgUnitCommandHandler(
             orgUnit.Update(
                 command.Code,
                 command.Name,
-                command.UnitType,
+                orgUnitType.InternalId,
+                functionalArea?.InternalId,
                 command.SortOrder,
                 command.Description,
                 command.CostCenterCode,
@@ -968,7 +1087,7 @@ internal static class OrgUnitPolicyAdapter
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
                 OrgUnitPermissionCodes.ResourceKey,
-                response.UnitType.ToString(),
+                response.OrgUnitType.Code,
                 response.IsActive,
                 HasDependencies: hasActiveChildren,
                 SupportsEdit: true,
@@ -1014,7 +1133,9 @@ internal static class OrgUnitHierarchyBuilder
             .Select(node => new OrgUnitGraphNodeResponse(
                 node.Id,
                 node.Name,
-                node.UnitType,
+                node.OrgUnitTypeId,
+                node.OrgUnitTypeCode,
+                node.OrgUnitTypeName,
                 node.IsActive))
             .ToArray();
 
@@ -1175,7 +1296,10 @@ internal static class OrgUnitHierarchyBuilder
             node.Id,
             node.Code,
             node.Name,
-            node.UnitType,
+            new OrgUnitCatalogReferenceResponse(node.OrgUnitTypeId, node.OrgUnitTypeCode, node.OrgUnitTypeName),
+            node.FunctionalAreaId.HasValue && !string.IsNullOrWhiteSpace(node.FunctionalAreaCode) && !string.IsNullOrWhiteSpace(node.FunctionalAreaName)
+                ? new OrgUnitCatalogReferenceResponse(node.FunctionalAreaId.Value, node.FunctionalAreaCode!, node.FunctionalAreaName!)
+                : null,
             node.ParentId,
             node.SortOrder,
             node.IsActive,

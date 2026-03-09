@@ -16,7 +16,8 @@ public sealed record ProvisionCompanyRequest(
     InitialLegalRepresentativeInput InitialLegalRepresentative,
     bool MakePrimary,
     string PlanCode,
-    bool ProvisionAsInitialCompany);
+    bool ProvisionAsInitialCompany,
+    long? CompanyTypeCatalogItemId = null);
 
 public sealed record ProvisionedCompanyResult(
     Guid CompanyId,

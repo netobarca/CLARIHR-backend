@@ -13,7 +13,8 @@ public sealed class Company : AuditableEntity
         string name,
         string slug,
         CompanyStatus status,
-        Guid createdByUserPublicId)
+        Guid createdByUserPublicId,
+        long? companyTypeCatalogItemId)
     {
         if (createdByUserPublicId == Guid.Empty)
         {
@@ -25,6 +26,7 @@ public sealed class Company : AuditableEntity
         Slug = CompanyNormalization.NormalizeSlug(slug);
         Status = status;
         CreatedByUserPublicId = createdByUserPublicId;
+        SetCompanyType(companyTypeCatalogItemId);
     }
 
     public Guid PublicId { get; private set; }
@@ -37,17 +39,34 @@ public sealed class Company : AuditableEntity
 
     public Guid CreatedByUserPublicId { get; private set; }
 
-    public static Company Create(string name, string slug, Guid createdByUserPublicId) =>
+    public long? CompanyTypeCatalogItemId { get; private set; }
+
+    public static Company Create(
+        string name,
+        string slug,
+        Guid createdByUserPublicId,
+        long? companyTypeCatalogItemId = null) =>
         new(
             Guid.NewGuid(),
             name,
             slug,
             CompanyStatus.Active,
-            createdByUserPublicId);
+            createdByUserPublicId,
+            companyTypeCatalogItemId);
 
     public void Rename(string name)
     {
         Name = CompanyNormalization.Clean(name, nameof(name));
+    }
+
+    public void SetCompanyType(long? companyTypeCatalogItemId)
+    {
+        if (companyTypeCatalogItemId.HasValue && companyTypeCatalogItemId.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(companyTypeCatalogItemId), "Company type catalog id must be greater than zero.");
+        }
+
+        CompanyTypeCatalogItemId = companyTypeCatalogItemId;
     }
 
     public void Archive()

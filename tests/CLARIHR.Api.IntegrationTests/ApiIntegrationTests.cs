@@ -1,21 +1,25 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.IdentityModel.Tokens.Jwt;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CLARIHR.Application.Features.Auth.RegisterUser;
+using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Application.Features.SalaryTabulator.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.JobProfiles;
-using CLARIHR.Domain.OrgUnits;
 using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Domain.SalaryTabulator;
 using Microsoft.EntityFrameworkCore;
@@ -345,6 +349,29 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task AccountCompanies_Update_WithCompanyType_ShouldReturnCompanyTypeMetadata()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var companyType = await CreateCompanyTypeAsync(client, "PRIVATE", "Private Company");
+
+        var response = await client.PutAsJsonAsync($"/api/account/companies/{scenario.OtherTenantId}", new
+        {
+            name = "Acme Two Typed",
+            companyTypeId = companyType.Id
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.NotNull(payload!.CompanyType);
+        Assert.Equal(companyType.Id, payload.CompanyType!.Id);
+        Assert.Equal("PRIVATE", payload.CompanyType.Code);
+    }
+
+    [Fact]
     public async Task AccountCompanies_Archive_CurrentActiveCompany_ShouldReturn409()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -522,6 +549,426 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var response = await otherTenantClient.GetAsync($"/api/v1/legal-representatives/{representative.Id}");
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_CreateAndGet_ShouldReturnCreatedFile()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
+        {
+            recordType = "Candidate",
+            firstName = "Maria",
+            lastName = "Rodriguez",
+            birthDate = new DateTime(1992, 5, 6),
+            maritalStatus = "SINGLE",
+            profession = "Analyst",
+            nationality = "SV",
+            personalEmail = "maria.rodriguez@test.com",
+            institutionalEmail = (string?)null,
+            personalPhone = "+50370000001",
+            institutionalPhone = (string?)null,
+            birthCountry = "SV",
+            birthDepartment = "San Salvador",
+            birthMunicipality = "San Salvador",
+            photoUrl = (string?)null,
+            orgUnitId = (Guid?)null,
+            customDataJson = "{ \"shirt_size\": \"M\" }",
+            identifications = new[]
+            {
+                new
+                {
+                    identificationType = "DUI",
+                    identificationNumber = "01234567-8",
+                    issuedDate = (DateTime?)null,
+                    expiryDate = (DateTime?)null,
+                    issuer = (string?)null,
+                    isPrimary = true
+                }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var created = await createResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        Assert.NotNull(created);
+        Assert.Equal("Maria Rodriguez", created!.FullName);
+
+        var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        getResponse.EnsureSuccessStatusCode();
+
+        var file = await getResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        Assert.NotNull(file);
+        Assert.Single(file!.Identifications);
+        Assert.Equal("DUI", file.Identifications.First().IdentificationType);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Create_WithDuplicateIdentification_ShouldReturnConflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        async Task<HttpResponseMessage> CreateAsync(string firstName)
+        {
+            return await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
+            {
+                recordType = "Candidate",
+                firstName,
+                lastName = "Lopez",
+                birthDate = new DateTime(1991, 1, 1),
+                maritalStatus = "SINGLE",
+                profession = "Analyst",
+                nationality = "SV",
+                personalEmail = (string?)null,
+                institutionalEmail = (string?)null,
+                personalPhone = "+50370000002",
+                institutionalPhone = (string?)null,
+                birthCountry = "SV",
+                birthDepartment = "La Libertad",
+                birthMunicipality = "Santa Tecla",
+                photoUrl = (string?)null,
+                orgUnitId = (Guid?)null,
+                customDataJson = (string?)null,
+                identifications = new[]
+                {
+                    new
+                    {
+                        identificationType = "DUI",
+                        identificationNumber = "09999999-9",
+                        issuedDate = (DateTime?)null,
+                        expiryDate = (DateTime?)null,
+                        issuer = (string?)null,
+                        isPrimary = true
+                    }
+                }
+            });
+        }
+
+        var firstResponse = await CreateAsync("Ana");
+        firstResponse.EnsureSuccessStatusCode();
+
+        var secondResponse = await CreateAsync("Beatriz");
+        await AssertProblemDetailsAsync(secondResponse, HttpStatusCode.Conflict, "PERSONNEL_FILE_IDENTIFICATION_CONFLICT");
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_DocumentUploadAndDownload_ShouldReturnFile()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Carlos", "Gomez", "DUI", "07777777-7");
+
+        using var uploadContent = new MultipartFormDataContent();
+        uploadContent.Add(new StringContent("DIPLOMA"), "documentType");
+        uploadContent.Add(new StringContent("Adjunto de prueba"), "observations");
+        uploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
+
+        var fileBytes = Encoding.UTF8.GetBytes("hello personnel file");
+        var fileContent = new ByteArrayContent(fileBytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        uploadContent.Add(fileContent, "file", "proof.txt");
+
+        var uploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", uploadContent);
+        Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
+        var document = await uploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        Assert.NotNull(document);
+
+        var downloadResponse = await client.GetAsync($"/api/v1/personnel-file-documents/{document!.Id}/download");
+        downloadResponse.EnsureSuccessStatusCode();
+        Assert.Equal("text/plain", downloadResponse.Content.Headers.ContentType?.MediaType);
+        var downloaded = await downloadResponse.Content.ReadAsByteArrayAsync();
+        Assert.Equal(fileBytes, downloaded);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_CurriculumSections_ShouldReplaceAndReturnUpdatedSections()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Carla", "Rivas", "DUI", "05555555-5");
+        var concurrencyToken = created.ConcurrencyToken;
+
+        var educationsResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/educations", new
+        {
+            educations = new[]
+            {
+                new
+                {
+                    statusCode = "GRADUATED",
+                    degreeTitle = "Ingenieria en Sistemas",
+                    studyTypeCode = "BACHELOR",
+                    career = "Ingenieria de Software",
+                    institution = "Universidad CLARI",
+                    countryCode = "SV",
+                    specialty = (string?)null,
+                    isCurrentlyStudying = false,
+                    startDate = new DateTime(2015, 1, 10),
+                    endDate = new DateTime(2020, 11, 30),
+                    shiftCode = "MORNING",
+                    modalityCode = "ONSITE",
+                    totalSubjects = 50,
+                    approvedSubjects = 50
+                }
+            },
+            concurrencyToken
+        });
+        educationsResponse.EnsureSuccessStatusCode();
+        var educationPayload = await educationsResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        Assert.NotNull(educationPayload);
+        Assert.Single(educationPayload!.Educations);
+        concurrencyToken = educationPayload.ConcurrencyToken;
+
+        var languagesResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
+        {
+            languages = new[]
+            {
+                new
+                {
+                    languageCode = "ENGLISH",
+                    levelCode = "ADVANCED",
+                    speaks = true,
+                    writes = true,
+                    reads = true
+                }
+            },
+            concurrencyToken
+        });
+        languagesResponse.EnsureSuccessStatusCode();
+        var languagePayload = await languagesResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        Assert.NotNull(languagePayload);
+        Assert.Single(languagePayload!.Languages);
+        concurrencyToken = languagePayload.ConcurrencyToken;
+
+        var trainingsResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/trainings", new
+        {
+            trainings = new[]
+            {
+                new
+                {
+                    trainingName = "Scrum Fundamentals",
+                    trainingTypeCode = "COURSE",
+                    description = "Curso de agilidad",
+                    topic = "Scrum",
+                    institution = "CLARI Academy",
+                    instructors = "Trainer One",
+                    score = 95m,
+                    startDate = new DateTime(2024, 2, 1),
+                    endDate = new DateTime(2024, 2, 15),
+                    isInternal = false,
+                    isLocal = true,
+                    countryCode = "SV",
+                    durationValue = 40m,
+                    durationUnitCode = "HOUR",
+                    costAmount = 50m,
+                    costCurrencyCode = "USD"
+                }
+            },
+            concurrencyToken
+        });
+        trainingsResponse.EnsureSuccessStatusCode();
+        var trainingPayload = await trainingsResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        Assert.NotNull(trainingPayload);
+        Assert.Single(trainingPayload!.Trainings);
+        concurrencyToken = trainingPayload.ConcurrencyToken;
+
+        var employmentsResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/previous-employments", new
+        {
+            previousEmployments = new[]
+            {
+                new
+                {
+                    institution = "Empresa Uno",
+                    place = "San Salvador",
+                    lastPosition = "Developer",
+                    managerName = "Jefe Uno",
+                    entryDate = new DateTime(2021, 1, 1),
+                    retirementDate = new DateTime(2023, 1, 1),
+                    companyPhone = "+50370001111",
+                    exitReason = "Career growth",
+                    firstSalaryAmount = 700m,
+                    lastSalaryAmount = 950m,
+                    averageCommissionAmount = 0m,
+                    currencyCode = "USD"
+                }
+            },
+            concurrencyToken
+        });
+        employmentsResponse.EnsureSuccessStatusCode();
+        var employmentPayload = await employmentsResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        Assert.NotNull(employmentPayload);
+        Assert.Single(employmentPayload!.PreviousEmployments);
+        concurrencyToken = employmentPayload.ConcurrencyToken;
+
+        var referencesResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/references", new
+        {
+            references = new[]
+            {
+                new
+                {
+                    personName = "Ana Martinez",
+                    address = "Colonia Centro",
+                    phone = "+50370002222",
+                    referenceTypeCode = "PERSONAL",
+                    occupation = "Manager",
+                    workplace = "Empresa Uno",
+                    workPhone = "+50370003333",
+                    knownTimeYears = 3m
+                }
+            },
+            concurrencyToken
+        });
+        referencesResponse.EnsureSuccessStatusCode();
+        var referencePayload = await referencesResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        Assert.NotNull(referencePayload);
+        Assert.Single(referencePayload!.References);
+
+        var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        getResponse.EnsureSuccessStatusCode();
+        var file = await getResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        Assert.NotNull(file);
+        Assert.Single(file!.Educations);
+        Assert.Single(file.Languages);
+        Assert.Single(file.Trainings);
+        Assert.Single(file.PreviousEmployments);
+        Assert.Single(file.References);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Print_WithSections_ShouldReturnFilteredPayload()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Diana", "Flores", "DUI", "04444444-4");
+        var languageResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
+        {
+            languages = new[]
+            {
+                new
+                {
+                    languageCode = "ENGLISH",
+                    levelCode = "ADVANCED",
+                    speaks = true,
+                    writes = true,
+                    reads = true
+                }
+            },
+            concurrencyToken = created.ConcurrencyToken
+        });
+        languageResponse.EnsureSuccessStatusCode();
+
+        var response = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/print?sections=languages,references");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PersonnelFilePrintItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Contains("languages", payload!.IncludedSections, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("references", payload.IncludedSections, StringComparer.OrdinalIgnoreCase);
+        Assert.Single(payload.PersonnelFile.Languages);
+        Assert.Empty(payload.PersonnelFile.Identifications);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Print_WhenTenantMismatch_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var sourceClient = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+        var created = await CreatePersonnelFileAsync(sourceClient, scenario.TenantId, "Tomas", "Perez", "DUI", "03333333-3");
+
+        using var otherTenantClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.OtherTenantId,
+                PersonnelFilePermissionCodes.Admin));
+
+        var response = await otherTenantClient.GetAsync($"/api/v1/personnel-files/{created.Id}/print");
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Search_WithColumnFiltersAndSort_ShouldReturnFilteredRows()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Ana", "Lopez", "DUI", "02222222-2", profession: "Tester");
+        var designer = await CreatePersonnelFileAsync(client, scenario.TenantId, "Brenda", "Garcia", "DUI", "01111111-1", profession: "Designer");
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-files?profession=Designer&sortBy=createdAtUtc&sortDirection=Desc&page=1&pageSize=20");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<PersonnelFileListProjectionItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(1, payload!.TotalCount);
+        var item = Assert.Single(payload.Items);
+        Assert.Equal(designer.Id, item.Id);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Export_WithColumnFilters_ShouldApplySameFilters()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var tester = await CreatePersonnelFileAsync(client, scenario.TenantId, "Raul", "Navas", "DUI", "06666666-6", profession: "Tester");
+        var designer = await CreatePersonnelFileAsync(client, scenario.TenantId, "Sonia", "Mendez", "DUI", "07777777-0", profession: "Designer");
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-files/export?format=csv&profession=Designer&sortBy=fullName&sortDirection=Asc");
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("text/csv", response.Content.Headers.ContentType?.MediaType);
+
+        var csv = await response.Content.ReadAsStringAsync();
+        Assert.Contains(designer.FullName, csv, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(tester.FullName, csv, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_DynamicQuery_ShouldReturnGroupsAndPagedItems()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Luis", "Alfaro", "DUI", "01010101-1", profession: "Engineer", maritalStatus: "SINGLE", nationality: "SV");
+        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Marta", "Ayala", "DUI", "02020202-2", profession: "Engineer", maritalStatus: "SINGLE", nationality: "SV");
+        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Nora", "Zelaya", "DUI", "03030303-3", profession: "Designer", maritalStatus: "MARRIED", nationality: "GT");
+
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files/dynamic-query", new
+        {
+            filters = Array.Empty<object>(),
+            groupBy = new[] { "maritalStatus", "nationality" },
+            sort = new[]
+            {
+                new
+                {
+                    field = "fullName",
+                    direction = "Asc"
+                }
+            },
+            q = (string?)null,
+            page = 1,
+            pageSize = 50
+        });
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PersonnelFileDynamicQueryItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(3, payload!.TotalCount);
+        Assert.Equal(3, payload.Items.Count);
+
+        var maritalStatus = payload.Groups.Single(group => string.Equals(group.Field, "maritalstatus", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(maritalStatus.Buckets, bucket => bucket.Key == "SINGLE" && bucket.Count == 2);
+        Assert.Contains(maritalStatus.Buckets, bucket => bucket.Key == "MARRIED" && bucket.Count == 1);
+
+        var nationality = payload.Groups.Single(group => string.Equals(group.Field, "nationality", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(nationality.Buckets, bucket => bucket.Key == "SV" && bucket.Count == 2);
+        Assert.Contains(nationality.Buckets, bucket => bucket.Key == "GT" && bucket.Count == 1);
     }
 
     [Fact]
@@ -858,12 +1305,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+        var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
 
         var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
         {
             code = "DIR-001",
             name = "Direccion General",
-            unitType = "Direccion",
+            orgUnitTypeId = orgUnitType.Id,
+            functionalAreaId = (Guid?)null,
             parentId = (Guid?)null,
             sortOrder = 1,
             description = "Direccion principal",
@@ -876,7 +1325,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var payload = await response.Content.ReadFromJsonAsync<OrgUnitItem>(JsonOptions);
         Assert.NotNull(payload);
         Assert.Equal("DIR-001", payload!.Code);
-        Assert.Equal(OrgUnitType.Direccion, payload.UnitType);
+        Assert.Equal(orgUnitType.Id, payload.OrgUnitType.Id);
+        Assert.Equal("Direccion", payload.OrgUnitType.Code);
         Assert.Null(payload.ParentId);
         Assert.True(payload.IsActive);
     }
@@ -893,7 +1343,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         {
             code = "DIR-001",
             name = "Direccion Actualizada",
-            unitType = "Direccion",
+            orgUnitTypeId = unit.OrgUnitType.Id,
+            functionalAreaId = unit.FunctionalArea?.Id,
             sortOrder = 1,
             description = "Actualizada",
             costCenterCode = "CC-01",
@@ -938,6 +1389,55 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ORG_UNIT_HAS_ACTIVE_CHILDREN");
+    }
+
+    [Fact]
+    public async Task OrgStructureCatalogs_UnitTypes_List_WithOrgUnitsReadFallback_ShouldReturnItems()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+
+        using var adminClient = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+        _ = await EnsureOrgUnitTypeAsync(adminClient, scenario.TenantId, "Direccion");
+
+        using var readClient = factory.CreateClientFor(CreateOrgUnitReadContext(scenario));
+        var response = await readClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-structure-catalogs/unit-types?page=1&pageSize=20");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgStructureCatalogItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Contains(payload!.Items, item => item.Code.Equals("Direccion", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task OrgStructureCatalogs_FunctionalAreas_Inactivate_WhenInUse_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
+        var functionalArea = await EnsureFunctionalAreaAsync(client, scenario.TenantId, "ADMIN");
+
+        var createOrgUnitResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
+        {
+            code = "DIR-FA-USE",
+            name = "Direccion Funcional",
+            orgUnitTypeId = orgUnitType.Id,
+            functionalAreaId = functionalArea.Id,
+            parentId = (Guid?)null,
+            sortOrder = 1,
+            description = (string?)null,
+            costCenterCode = (string?)null,
+            managerEmployeeId = (Guid?)null
+        });
+        createOrgUnitResponse.EnsureSuccessStatusCode();
+
+        var response = await client.PatchAsJsonAsync($"/api/v1/org-structure-catalogs/functional-areas/{functionalArea.Id}/inactivate", new
+        {
+            concurrencyToken = functionalArea.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ORG_STRUCTURE_CATALOG_IN_USE");
     }
 
     [Fact]
@@ -1124,6 +1624,26 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task Reports_Capabilities_ShouldReturnPersonnelFilesCapabilities()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/reports/capabilities?resource={PersonnelFilePermissionCodes.ResourceKey}");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<ReportCapabilitiesItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(PersonnelFilePermissionCodes.ResourceKey, payload!.ResourceKey);
+        Assert.True(payload.SupportsPrint);
+        Assert.True(payload.SupportsExport);
+        Assert.Contains("csv", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("xlsx", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Reports_Capabilities_WithUnsupportedResource_ShouldReturn404()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -1140,12 +1660,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateOrgUnitAdminWithAuditContext(scenario));
+        var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
 
         var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
         {
             code = "DIR-001",
             name = "Direccion General",
-            unitType = "Direccion",
+            orgUnitTypeId = orgUnitType.Id,
+            functionalAreaId = (Guid?)null,
             parentId = (Guid?)null,
             sortOrder = 1,
             description = "Direccion principal",
@@ -1768,6 +2290,183 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task CompetencyFramework_FullFlow_ShouldManagePyramidConductMatrixAndExports()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-001", "Perfil Competencias");
+        var competency = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-CF-001", "Liderazgo Integral");
+        var competencyType = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.CompetencyType, "CTYPE-CF-001", "Gerencial");
+        var behaviorLevel = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.BehaviorLevel, "BLEVEL-CF-001", "Estrategico");
+        var behavior = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Behavior, "BEHAV-CF-001", "Comunica objetivos y resultados");
+
+        var levelResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/occupational-pyramid-levels", new
+        {
+            code = "OPL-CF-001",
+            name = "Nivel Estrategico CF",
+            levelOrder = 1,
+            description = "Nivel semilla para pruebas E2E."
+        });
+        levelResponse.EnsureSuccessStatusCode();
+        var level = await levelResponse.Content.ReadFromJsonAsync<OccupationalPyramidLevelItem>(JsonOptions);
+        Assert.NotNull(level);
+
+        var conductResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/competency-conducts", new
+        {
+            competencyId = competency.Id,
+            competencyTypeId = competencyType.Id,
+            behaviorLevelId = behaviorLevel.Id,
+            description = "Alinea decisiones con objetivos institucionales.",
+            sortOrder = 1
+        });
+        conductResponse.EnsureSuccessStatusCode();
+        var conduct = await conductResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions);
+        Assert.NotNull(conduct);
+
+        var conductBehaviorResponse = await client.PutAsJsonAsync($"/api/v1/competency-conducts/{conduct!.Id}/behaviors", new
+        {
+            behaviors = new[]
+            {
+                new
+                {
+                    behaviorId = behavior.Id,
+                    notes = "Comportamiento base para pruebas.",
+                    sortOrder = 0
+                }
+            },
+            concurrencyToken = conduct.ConcurrencyToken
+        });
+        conductBehaviorResponse.EnsureSuccessStatusCode();
+        var conductWithBehaviors = await conductBehaviorResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions);
+        Assert.NotNull(conductWithBehaviors);
+        Assert.Single(conductWithBehaviors!.Behaviors);
+
+        var matrixBeforeResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix");
+        matrixBeforeResponse.EnsureSuccessStatusCode();
+        var matrixBefore = await matrixBeforeResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions);
+        Assert.NotNull(matrixBefore);
+        Assert.Empty(matrixBefore!.Items);
+
+        var matrixUpdateResponse = await client.PutAsJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix", new
+        {
+            items = new[]
+            {
+                new
+                {
+                    occupationalPyramidLevelId = level!.Id,
+                    competencyId = competency.Id,
+                    competencyTypeId = competencyType.Id,
+                    behaviorLevelId = behaviorLevel.Id,
+                    conductIds = new[] { conductWithBehaviors.Id },
+                    expectedEvidence = "Resultados comprobables en objetivos institucionales.",
+                    sortOrder = 1
+                }
+            },
+            concurrencyToken = matrixBefore.ConcurrencyToken
+        });
+        matrixUpdateResponse.EnsureSuccessStatusCode();
+        var matrixUpdated = await matrixUpdateResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions);
+        Assert.NotNull(matrixUpdated);
+        Assert.Single(matrixUpdated!.Items);
+        var matrixItem = Assert.Single(matrixUpdated.Items);
+        Assert.Equal(level.Id, matrixItem.OccupationalPyramidLevelId);
+        Assert.Equal(competency.Id, matrixItem.CompetencyId);
+        Assert.Single(matrixItem.Conducts);
+
+        var csvResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/export?format=csv");
+        csvResponse.EnsureSuccessStatusCode();
+        Assert.Equal("text/csv", csvResponse.Content.Headers.ContentType?.MediaType);
+
+        var jsonResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/export?format=json");
+        jsonResponse.EnsureSuccessStatusCode();
+        var jsonPayload = await jsonResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<JobProfileCompetencyMatrixExportRowItem>>(JsonOptions);
+        Assert.NotNull(jsonPayload);
+        Assert.NotEmpty(jsonPayload!);
+
+        var xlsxResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/export?format=xlsx");
+        xlsxResponse.EnsureSuccessStatusCode();
+        Assert.Equal(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            xlsxResponse.Content.Headers.ContentType?.MediaType);
+
+        var invalidExportResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/export?format=xml");
+        await AssertProblemDetailsAsync(invalidExportResponse, HttpStatusCode.BadRequest, "COMPETENCY_FRAMEWORK_EXPORT_FORMAT_INVALID");
+
+        var auditResponse = await client.GetAsync("/api/audit/logs?page=1&pageSize=100");
+        auditResponse.EnsureSuccessStatusCode();
+        var auditPayload = await auditResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
+        Assert.NotNull(auditPayload);
+        Assert.Contains(
+            auditPayload!.Items,
+            static item => item.EventType == "REPORT_EXPORTED" &&
+                           item.EntityType == "JobProfileCompetencyMatrix");
+    }
+
+    [Fact]
+    public async Task CompetencyFramework_MatrixUpdate_WithStaleToken_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-STALE", "Perfil CF Stale");
+
+        var response = await client.PutAsJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix", new
+        {
+            items = Array.Empty<object>(),
+            concurrencyToken = Guid.NewGuid()
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task CompetencyFramework_List_WithTenantMismatch_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkReadContext(scenario));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.OtherTenantId}/occupational-pyramid-levels?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+    }
+
+    [Fact]
+    public async Task CompetencyFramework_List_WithoutPermission_ShouldReturn403()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/occupational-pyramid-levels?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "COMPETENCY_FRAMEWORK_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task Reports_Capabilities_ShouldReturnCompetencyFrameworkCapabilities()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkReadContext(scenario));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/reports/capabilities?resource={CompetencyFrameworkPermissionCodes.ResourceKey}");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<ReportCapabilitiesItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(CompetencyFrameworkPermissionCodes.ResourceKey, payload!.ResourceKey);
+        Assert.True(payload.SupportsExport);
+        Assert.False(payload.SupportsPrint);
+        Assert.Contains("json", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("csv", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("xlsx", payload.SupportedTableFormats, StringComparer.OrdinalIgnoreCase);
+        Assert.Empty(payload.SupportedGraphFormats);
+    }
+
+    [Fact]
     public async Task PositionSlots_FullFlow_ShouldCreateUpdateDependenciesOccupancyStatusGraphAndExports()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -1816,7 +2515,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             workCenterId = (Guid?)null,
             costCenterCode = (string?)null,
             maxEmployees = 3,
-            isFixedTerm = false,
             effectiveFromUtc = DateTime.UtcNow.Date,
             effectiveToUtc = (DateTime?)null,
             notes = "Actualizada",
@@ -1914,7 +2612,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             workCenterId = (Guid?)null,
             costCenterCode = (string?)null,
             maxEmployees = 1,
-            isFixedTerm = false,
             effectiveFromUtc = DateTime.UtcNow.Date,
             effectiveToUtc = (DateTime?)null,
             notes = "Notas",
@@ -1948,7 +2645,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             status = "Vacant",
             maxEmployees = 1,
             occupiedEmployees = 0,
-            isFixedTerm = false,
             effectiveFromUtc = DateTime.UtcNow.Date,
             effectiveToUtc = (DateTime?)null,
             notes = (string?)null
@@ -2050,7 +2746,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             status = "Vacant",
             maxEmployees = 1,
             occupiedEmployees = 0,
-            isFixedTerm = false,
             effectiveFromUtc = DateTime.UtcNow.Date,
             effectiveToUtc = (DateTime?)null,
             notes = "audit"
@@ -2197,7 +2892,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario.TenantId,
             code: "DIR-CC-USE",
             name: "Direccion Centro Costo",
-            unitType: "Direccion",
+            orgUnitTypeCode: "Direccion",
             costCenterCode: costCenter.Code);
 
         var response = await client.PatchAsJsonAsync($"/api/v1/cost-centers/{costCenter.Id}/inactivate", new
@@ -2261,12 +2956,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+        var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
 
         var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
         {
             code = "DIR-CC-INV",
             name = "Direccion Invalida",
-            unitType = "Direccion",
+            orgUnitTypeId = orgUnitType.Id,
+            functionalAreaId = (Guid?)null,
             parentId = (Guid?)null,
             sortOrder = 1,
             description = (string?)null,
@@ -2309,7 +3006,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             status = "Vacant",
             maxEmployees = 1,
             occupiedEmployees = 0,
-            isFixedTerm = false,
             effectiveFromUtc = DateTime.UtcNow.Date,
             effectiveToUtc = (DateTime?)null,
             notes = (string?)null
@@ -2323,6 +3019,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "CLS-A");
 
         var createResponse = await requesterClient.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/change-requests", new
         {
@@ -2332,7 +3029,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             {
                 new
                 {
-                    salaryClassCode = "CLS-A",
+                    salaryClassId = salaryClass.Id,
                     salaryScaleCode = "S1",
                     currencyCode = "USD",
                     changeType = "Create",
@@ -2356,7 +3053,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             {
                 new
                 {
-                    salaryClassCode = "CLS-A",
+                    salaryClassId = salaryClass.Id,
                     salaryScaleCode = "S1",
                     currencyCode = "USD",
                     changeType = "Create",
@@ -2395,11 +3092,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(approved);
         Assert.Equal(SalaryTabulatorChangeRequestStatus.Approved, approved!.Status);
 
-        var listLinesResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator?salaryClass=CLS-A&page=1&pageSize=20");
+        var listLinesResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator?salaryClassId={salaryClass.Id}&page=1&pageSize=20");
         listLinesResponse.EnsureSuccessStatusCode();
         var linesPayload = await listLinesResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<SalaryTabulatorLineItem>>(JsonOptions);
         Assert.NotNull(linesPayload);
-        Assert.Contains(linesPayload!.Items, line => line.SalaryClassCode == "CLS-A" && line.BaseAmount == 1250m);
+        Assert.Contains(linesPayload!.Items, line => line.SalaryClassId == salaryClass.Id && line.BaseAmount == 1250m);
 
         var csvResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/export?format=csv");
         csvResponse.EnsureSuccessStatusCode();
@@ -2440,6 +3137,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        var salaryClass = await EnsureSalaryClassAsync(client, scenario.TenantId, "CLS-C");
 
         var created = await CreateSalaryTabulatorRequestAsync(client, scenario.TenantId, "CLS-C", "S1", 1000m);
 
@@ -2451,7 +3149,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             {
                 new
                 {
-                    salaryClassCode = "CLS-C",
+                    salaryClassId = salaryClass.Id,
                     salaryScaleCode = "S1",
                     currencyCode = "USD",
                     changeType = "Create",
@@ -3219,20 +3917,54 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, JobProfilePermissionCodes.Read);
 
     private static TestUserContext CreateJobProfileAdminContext(IntegrationTestScenario scenario) =>
-        TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, JobProfilePermissionCodes.Admin);
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            JobProfilePermissionCodes.Admin,
+            PositionDescriptionCatalogPermissionCodes.Admin,
+            OrgUnitPermissionCodes.Admin);
 
     private static TestUserContext CreateJobProfileAdminWithCatalogContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(
             scenario.ActorUserId,
             scenario.TenantId,
             JobProfilePermissionCodes.Admin,
-            JobProfilePermissionCodes.CatalogAdmin);
+            JobProfilePermissionCodes.CatalogAdmin,
+            PositionDescriptionCatalogPermissionCodes.Admin,
+            OrgUnitPermissionCodes.Admin);
 
     private static TestUserContext CreateJobProfileAdminWithAuditContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(
             scenario.ActorUserId,
             scenario.TenantId,
             JobProfilePermissionCodes.Admin,
+            PositionDescriptionCatalogPermissionCodes.Admin,
+            OrgUnitPermissionCodes.Admin,
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
+            PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
+
+    private static TestUserContext CreateCompetencyFrameworkReadContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, CompetencyFrameworkPermissionCodes.Read);
+
+    private static TestUserContext CreateCompetencyFrameworkAdminContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            CompetencyFrameworkPermissionCodes.Admin,
+            JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.CatalogAdmin,
+            PositionDescriptionCatalogPermissionCodes.Admin,
+            OrgUnitPermissionCodes.Admin);
+
+    private static TestUserContext CreateCompetencyFrameworkAdminWithAuditContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            CompetencyFrameworkPermissionCodes.Admin,
+            JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.CatalogAdmin,
+            PositionDescriptionCatalogPermissionCodes.Admin,
+            OrgUnitPermissionCodes.Admin,
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
 
@@ -3245,7 +3977,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario.TenantId,
             PositionSlotPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
-            JobProfilePermissionCodes.Admin);
+            JobProfilePermissionCodes.Admin,
+            PositionDescriptionCatalogPermissionCodes.Admin);
 
     private static TestUserContext CreatePositionSlotAdminWithAuditContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(
@@ -3254,6 +3987,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             PositionSlotPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
+            PositionDescriptionCatalogPermissionCodes.Admin,
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
 
@@ -3267,7 +4001,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             CostCenterPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
-            PositionSlotPermissionCodes.Admin);
+            PositionSlotPermissionCodes.Admin,
+            PositionDescriptionCatalogPermissionCodes.Admin);
 
     private static TestUserContext CreateCostCenterAdminWithAuditContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(
@@ -3277,8 +4012,15 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             OrgUnitPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
             PositionSlotPermissionCodes.Admin,
+            PositionDescriptionCatalogPermissionCodes.Admin,
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
+
+    private static TestUserContext CreatePersonnelFileAdminContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            PersonnelFilePermissionCodes.Admin);
 
     private static TestUserContext CreateSalaryTabulatorReadContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, SalaryTabulatorPermissionCodes.Read);
@@ -3288,7 +4030,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario.ActorUserId,
             scenario.TenantId,
             SalaryTabulatorPermissionCodes.Read,
-            SalaryTabulatorPermissionCodes.Request);
+            SalaryTabulatorPermissionCodes.Request,
+            PositionDescriptionCatalogPermissionCodes.Admin);
 
     private static TestUserContext CreateSalaryTabulatorApproverContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(
@@ -3303,7 +4046,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario.TenantId,
             SalaryTabulatorPermissionCodes.Read,
             SalaryTabulatorPermissionCodes.Request,
-            SalaryTabulatorPermissionCodes.Approve);
+            SalaryTabulatorPermissionCodes.Approve,
+            PositionDescriptionCatalogPermissionCodes.Admin);
 
     private static TestUserContext CreateSalaryTabulatorApproverWithAuditContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(
@@ -3335,27 +4079,106 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid companyId,
         string code,
         string name,
-        string unitType,
+        string orgUnitTypeCode,
         Guid? parentId = null,
         int? sortOrder = 1,
         string? costCenterCode = null)
     {
+        var orgUnitType = await EnsureOrgUnitTypeAsync(client, companyId, orgUnitTypeCode);
+
         var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/org-units", new
         {
             code,
             name,
-            unitType,
+            orgUnitTypeId = orgUnitType.Id,
+            functionalAreaId = (Guid?)null,
             parentId,
             sortOrder,
             description = (string?)null,
             costCenterCode,
             managerEmployeeId = (Guid?)null
         });
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new Xunit.Sdk.XunitException($"CreateOrgUnitAsync failed: {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
+        }
 
         var payload = await response.Content.ReadFromJsonAsync<OrgUnitItem>(JsonOptions);
         Assert.NotNull(payload);
         return payload!;
+    }
+
+    private async Task<OrgStructureCatalogItem> EnsureOrgUnitTypeAsync(HttpClient client, Guid companyId, string code)
+    {
+        var listResponse = await client.GetAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/unit-types?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgStructureCatalogItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+
+        var existing = listPayload!.Items.FirstOrDefault(item => item.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/unit-types", new
+        {
+            code,
+            name = code,
+            description = (string?)null,
+            sortOrder = 10
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var created = await createResponse.Content.ReadFromJsonAsync<OrgStructureCatalogItem>(JsonOptions);
+        Assert.NotNull(created);
+        return created!;
+    }
+
+    private async Task<OrgStructureCatalogItem> EnsureFunctionalAreaAsync(HttpClient client, Guid companyId, string code)
+    {
+        var listResponse = await client.GetAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/functional-areas?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgStructureCatalogItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+
+        var existing = listPayload!.Items.FirstOrDefault(item => item.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/functional-areas", new
+        {
+            code,
+            name = code,
+            description = (string?)null,
+            sortOrder = 10
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var created = await createResponse.Content.ReadFromJsonAsync<OrgStructureCatalogItem>(JsonOptions);
+        Assert.NotNull(created);
+        return created!;
+    }
+
+    private async Task<OrgStructureCatalogItem> CreateCompanyTypeAsync(HttpClient client, string code, string name)
+    {
+        var createResponse = await client.PostAsJsonAsync("/api/account/org-structure-catalogs/company-types", new
+        {
+            code,
+            name,
+            description = (string?)null,
+            sortOrder = 10
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var created = await createResponse.Content.ReadFromJsonAsync<OrgStructureCatalogItem>(JsonOptions);
+        Assert.NotNull(created);
+        return created!;
     }
 
     private async Task<CostCenterItem> CreateCostCenterAsync(
@@ -3382,12 +4205,205 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return payload!;
     }
 
+    private async Task<PersonnelFileItem> CreatePersonnelFileAsync(
+        HttpClient client,
+        Guid companyId,
+        string firstName,
+        string lastName,
+        string identificationType,
+        string identificationNumber,
+        string profession = "Tester",
+        string maritalStatus = "SINGLE",
+        string nationality = "SV")
+    {
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/personnel-files", new
+        {
+            recordType = "Candidate",
+            firstName,
+            lastName,
+            birthDate = new DateTime(1990, 3, 3),
+            maritalStatus,
+            profession,
+            nationality,
+            personalEmail = (string?)null,
+            institutionalEmail = (string?)null,
+            personalPhone = "+50370001000",
+            institutionalPhone = (string?)null,
+            birthCountry = "SV",
+            birthDepartment = "San Salvador",
+            birthMunicipality = "San Salvador",
+            photoUrl = (string?)null,
+            orgUnitId = (Guid?)null,
+            customDataJson = (string?)null,
+            identifications = new[]
+            {
+                new
+                {
+                    identificationType,
+                    identificationNumber,
+                    issuedDate = (DateTime?)null,
+                    expiryDate = (DateTime?)null,
+                    issuer = (string?)null,
+                    isPrimary = true
+                }
+            }
+        });
+        response.EnsureSuccessStatusCode();
+        var payload = await response.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        Assert.NotNull(payload);
+        return payload!;
+    }
+
+    private async Task<JobCatalogItemItem> CreateJobCatalogItemAsync(
+        HttpClient client,
+        Guid companyId,
+        JobCatalogCategory category,
+        string code,
+        string name)
+    {
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/job-catalogs/{category}", new
+        {
+            code,
+            name
+        });
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<JobCatalogItemItem>(JsonOptions);
+        Assert.NotNull(payload);
+        return payload!;
+    }
+
+    private async Task<PositionDescriptionCatalogItem> EnsurePositionDescriptionCatalogItemAsync(
+        HttpClient client,
+        Guid companyId,
+        string routeSegment,
+        string code,
+        string? name = null)
+    {
+        var listResponse = await client.GetAsync($"/api/v1/companies/{companyId}/{routeSegment}?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<PositionDescriptionCatalogItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+
+        var existing = listPayload!.Items.FirstOrDefault(item => item.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/{routeSegment}", new
+        {
+            code,
+            name = name ?? code,
+            description = (string?)null,
+            sortOrder = 10
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var created = await createResponse.Content.ReadFromJsonAsync<PositionDescriptionCatalogItem>(JsonOptions);
+        Assert.NotNull(created);
+        return created!;
+    }
+
+    private async Task<PositionCategoryClassificationItem> EnsurePositionCategoryClassificationAsync(
+        HttpClient client,
+        Guid companyId,
+        string code,
+        Guid positionFunctionTypeId,
+        Guid positionContractTypeId,
+        Guid orgUnitTypeId)
+    {
+        var listResponse = await client.GetAsync(
+            $"/api/v1/companies/{companyId}/position-category-classifications?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<PositionCategoryClassificationItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+
+        var existing = listPayload!.Items.FirstOrDefault(item => item.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/position-category-classifications", new
+        {
+            code,
+            name = code,
+            description = (string?)null,
+            positionFunctionTypeId,
+            positionContractTypeId,
+            orgUnitTypeId,
+            sortOrder = 10
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var created = await createResponse.Content.ReadFromJsonAsync<PositionCategoryClassificationItem>(JsonOptions);
+        Assert.NotNull(created);
+        return created!;
+    }
+
+    private async Task<PositionCategoryItem> EnsurePositionCategoryAsync(
+        HttpClient client,
+        Guid companyId,
+        string code,
+        Guid classificationId)
+    {
+        var listResponse = await client.GetAsync($"/api/v1/companies/{companyId}/position-categories?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<PositionCategoryItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+
+        var existing = listPayload!.Items.FirstOrDefault(item => item.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/position-categories", new
+        {
+            code,
+            name = code,
+            description = (string?)null,
+            classificationId,
+            sortOrder = 10
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var created = await createResponse.Content.ReadFromJsonAsync<PositionCategoryItem>(JsonOptions);
+        Assert.NotNull(created);
+        return created!;
+    }
+
+    private async Task<PositionCategoryItem> EnsureDefaultPositionCategoryAsync(HttpClient client, Guid companyId)
+    {
+        var orgUnitType = await EnsureOrgUnitTypeAsync(client, companyId, "Direccion");
+        var functionType = await EnsurePositionDescriptionCatalogItemAsync(client, companyId, "position-function-types", "FUNC-BASE");
+        var contractType = await EnsurePositionDescriptionCatalogItemAsync(client, companyId, "position-contract-types", "CON-BASE");
+        var classification = await EnsurePositionCategoryClassificationAsync(
+            client,
+            companyId,
+            code: "CLASS-BASE",
+            positionFunctionTypeId: functionType.Id,
+            positionContractTypeId: contractType.Id,
+            orgUnitTypeId: orgUnitType.Id);
+
+        return await EnsurePositionCategoryAsync(client, companyId, "CAT-BASE", classification.Id);
+    }
+
+    private Task<PositionDescriptionCatalogItem> EnsureSalaryClassAsync(HttpClient client, Guid companyId, string code) =>
+        EnsurePositionDescriptionCatalogItemAsync(client, companyId, "salary-classes", code);
+
     private async Task<JobProfileItem> CreateJobProfileAsync(
         HttpClient client,
         Guid companyId,
         string code,
         string title)
     {
+        var positionCategory = await EnsureDefaultPositionCategoryAsync(client, companyId);
+
         var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/job-profiles", new
         {
             code,
@@ -3395,6 +4411,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             objective = "Objetivo",
             orgUnitId = (Guid?)null,
             reportsToJobProfileId = (Guid?)null,
+            positionCategoryId = positionCategory.Id,
+            strategicObjectiveCatalogItemId = (Guid?)null,
+            assignedWorkEquipmentCatalogItemId = (Guid?)null,
+            responsibilityCatalogItemId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
             responsibilities = "Responsabilidades",
@@ -3410,6 +4430,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     requirementType = "Experience",
+                    requirementTypeCatalogItemId = (Guid?)null,
                     catalogItemId = (Guid?)null,
                     catalogCode = (string?)null,
                     catalogName = (string?)null,
@@ -3422,6 +4443,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     functionType = "General",
+                    frequencyCatalogItemId = (Guid?)null,
                     description = "Funcion",
                     sortOrder = 1
                 }
@@ -3463,7 +4485,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             status = "Vacant",
             maxEmployees,
             occupiedEmployees = 0,
-            isFixedTerm = false,
             effectiveFromUtc = DateTime.UtcNow.Date,
             effectiveToUtc = (DateTime?)null,
             notes = (string?)null
@@ -3482,6 +4503,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string salaryScaleCode,
         decimal proposedBaseAmount)
     {
+        var salaryClass = await EnsureSalaryClassAsync(client, companyId, salaryClassCode);
+
         var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/salary-tabulator/change-requests", new
         {
             reason = "Ajuste",
@@ -3490,7 +4513,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             {
                 new
                 {
-                    salaryClassCode,
+                    salaryClassId = salaryClass.Id,
                     salaryScaleCode,
                     currencyCode = "USD",
                     changeType = "Create",
@@ -3585,7 +4608,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string PlanCode,
         bool IsActiveContext,
         bool IsOwnedByCurrentUser,
-        DateTime CreatedAtUtc);
+        DateTime CreatedAtUtc,
+        CompanyTypeMetadataItem? CompanyType);
 
     private sealed record AccountCompanyDetailItem(
         Guid CompanyId,
@@ -3597,7 +4621,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         bool IsOwnedByCurrentUser,
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc,
-        IReadOnlyCollection<ActiveLegalRepresentativeItem> ActiveLegalRepresentatives);
+        IReadOnlyCollection<ActiveLegalRepresentativeItem> ActiveLegalRepresentatives,
+        CompanyTypeMetadataItem? CompanyType);
+
+    private sealed record CompanyTypeMetadataItem(
+        Guid Id,
+        string Code,
+        string Name,
+        bool IsActive);
 
     private sealed record ActiveLegalRepresentativeItem(
         Guid Id,
@@ -3638,6 +4669,103 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         bool IsPrimary,
         bool IsActive,
         Guid ConcurrencyToken);
+
+    private sealed record PersonnelFileIdentificationItem(
+        Guid Id,
+        string IdentificationType,
+        string IdentificationNumber,
+        bool IsPrimary);
+
+    private sealed record PersonnelFileDocumentItem(
+        Guid Id,
+        string DocumentType,
+        string FileName,
+        string ContentType,
+        int SizeBytes,
+        bool IsActive,
+        Guid ConcurrencyToken);
+
+    private sealed record PersonnelFileEducationItem(
+        Guid Id,
+        string StatusCode,
+        string StudyTypeCode,
+        string Career,
+        string Institution,
+        bool IsCurrentlyStudying);
+
+    private sealed record PersonnelFileLanguageItem(
+        Guid Id,
+        string LanguageCode,
+        string LevelCode,
+        bool Speaks,
+        bool Writes,
+        bool Reads);
+
+    private sealed record PersonnelFileTrainingItem(
+        Guid Id,
+        string TrainingName,
+        string TrainingTypeCode,
+        decimal DurationValue,
+        string DurationUnitCode,
+        string? CostCurrencyCode);
+
+    private sealed record PersonnelFilePreviousEmploymentItem(
+        Guid Id,
+        string Institution,
+        DateTime EntryDate,
+        string CurrencyCode);
+
+    private sealed record PersonnelFileReferenceItem(
+        Guid Id,
+        string PersonName,
+        string ReferenceTypeCode,
+        decimal KnownTimeYears);
+
+    private sealed record PersonnelFileListProjectionItem(
+        Guid Id,
+        string FullName,
+        bool IsActive,
+        DateTime CreatedAtUtc);
+
+    private sealed record PersonnelFileItem(
+        Guid Id,
+        Guid CompanyId,
+        string RecordType,
+        string FirstName,
+        string LastName,
+        string FullName,
+        DateTime BirthDate,
+        int Age,
+        bool IsActive,
+        Guid ConcurrencyToken,
+        IReadOnlyCollection<PersonnelFileIdentificationItem> Identifications,
+        IReadOnlyCollection<PersonnelFileEducationItem> Educations,
+        IReadOnlyCollection<PersonnelFileLanguageItem> Languages,
+        IReadOnlyCollection<PersonnelFileTrainingItem> Trainings,
+        IReadOnlyCollection<PersonnelFilePreviousEmploymentItem> PreviousEmployments,
+        IReadOnlyCollection<PersonnelFileReferenceItem> References,
+        IReadOnlyCollection<PersonnelFileDocumentItem> Documents);
+
+    private sealed record PersonnelFilePrintItem(
+        DateTime GeneratedAtUtc,
+        IReadOnlyCollection<string> IncludedSections,
+        PersonnelFileItem PersonnelFile);
+
+    private sealed record PersonnelFileDynamicGroupBucketItem(
+        string Key,
+        string Label,
+        int Count);
+
+    private sealed record PersonnelFileDynamicGroupItem(
+        string Field,
+        IReadOnlyCollection<PersonnelFileDynamicGroupBucketItem> Buckets);
+
+    private sealed record PersonnelFileDynamicQueryItem(
+        IReadOnlyCollection<PersonnelFileListProjectionItem> Items,
+        IReadOnlyCollection<PersonnelFileDynamicGroupItem> Groups,
+        int TotalCount,
+        int PageNumber,
+        int PageSize);
 
     private sealed record ActiveCompanyItem(
         Guid CompanyId,
@@ -3718,7 +4846,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid Id,
         string Code,
         string Name,
-        OrgUnitType UnitType,
+        OrgUnitCatalogReferenceItem OrgUnitType,
+        OrgUnitCatalogReferenceItem? FunctionalArea,
         Guid? ParentId,
         int? SortOrder,
         string? Description,
@@ -3733,17 +4862,31 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid Id,
         string Code,
         string Name,
-        OrgUnitType UnitType,
+        OrgUnitCatalogReferenceItem OrgUnitType,
+        OrgUnitCatalogReferenceItem? FunctionalArea,
         Guid? ParentId,
         int? SortOrder,
         bool IsActive,
         IReadOnlyCollection<OrgUnitTreeNodeItem> Children);
 
+    private sealed record OrgUnitCatalogReferenceItem(Guid Id, string Code, string Name);
+
     private sealed record OrgUnitGraphNodeItem(
         Guid Id,
         string Label,
-        OrgUnitType Type,
+        Guid OrgUnitTypeId,
+        string OrgUnitTypeCode,
+        string OrgUnitTypeName,
         bool IsActive);
+
+    private sealed record OrgStructureCatalogItem(
+        Guid Id,
+        string Code,
+        string Name,
+        string? Description,
+        int SortOrder,
+        bool IsActive,
+        Guid ConcurrencyToken);
 
     private sealed record OrgUnitGraphEdgeItem(Guid FromId, Guid ToId);
 
@@ -3768,6 +4911,98 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string Code,
         string Name,
         bool IsActive);
+
+    private sealed record PositionDescriptionCatalogItem(
+        Guid Id,
+        string Code,
+        string Name,
+        bool IsActive,
+        Guid ConcurrencyToken);
+
+    private sealed record PositionCategoryClassificationItem(
+        Guid Id,
+        string Code,
+        string Name,
+        bool IsActive,
+        Guid ConcurrencyToken);
+
+    private sealed record PositionCategoryItem(
+        Guid Id,
+        string Code,
+        string Name,
+        bool IsActive,
+        Guid ConcurrencyToken);
+
+    private sealed record OccupationalPyramidLevelItem(
+        Guid Id,
+        Guid CompanyId,
+        string Code,
+        string Name,
+        int LevelOrder,
+        string? Description,
+        bool IsActive,
+        Guid ConcurrencyToken);
+
+    private sealed record CompetencyConductBehaviorItem(
+        Guid BehaviorId,
+        string BehaviorCode,
+        string BehaviorName,
+        string? Notes,
+        int SortOrder);
+
+    private sealed record CompetencyConductItem(
+        Guid Id,
+        Guid CompanyId,
+        Guid CompetencyId,
+        Guid CompetencyTypeId,
+        Guid BehaviorLevelId,
+        string Description,
+        int SortOrder,
+        bool IsActive,
+        IReadOnlyCollection<CompetencyConductBehaviorItem> Behaviors,
+        Guid ConcurrencyToken);
+
+    private sealed record JobProfileCompetencyMatrixConductItem(
+        Guid ConductId,
+        string Description,
+        int SortOrder);
+
+    private sealed record JobProfileCompetencyMatrixLineItem(
+        Guid OccupationalPyramidLevelId,
+        string OccupationalPyramidLevelCode,
+        string OccupationalPyramidLevelName,
+        int OccupationalPyramidLevelOrder,
+        Guid CompetencyId,
+        string CompetencyCode,
+        string CompetencyName,
+        Guid CompetencyTypeId,
+        string CompetencyTypeCode,
+        string CompetencyTypeName,
+        Guid BehaviorLevelId,
+        string BehaviorLevelCode,
+        string BehaviorLevelName,
+        string? ExpectedEvidence,
+        int SortOrder,
+        IReadOnlyCollection<JobProfileCompetencyMatrixConductItem> Conducts);
+
+    private sealed record JobProfileCompetencyMatrixItem(
+        Guid JobProfileId,
+        string JobProfileCode,
+        string JobProfileTitle,
+        JobProfileStatus JobProfileStatus,
+        int JobProfileVersion,
+        Guid ConcurrencyToken,
+        IReadOnlyCollection<JobProfileCompetencyMatrixLineItem> Items);
+
+    private sealed record JobProfileCompetencyMatrixExportRowItem(
+        Guid JobProfileId,
+        string JobProfileCode,
+        Guid OccupationalPyramidLevelId,
+        Guid CompetencyId,
+        Guid CompetencyTypeId,
+        Guid BehaviorLevelId,
+        Guid? ConductId,
+        int ItemSortOrder);
 
     private sealed record PositionSlotListItem(
         Guid Id,
@@ -3827,7 +5062,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
     private sealed record SalaryTabulatorLineItem(
         Guid Id,
-        string SalaryClassCode,
+        Guid? SalaryClassId,
         string SalaryScaleCode,
         decimal BaseAmount,
         Guid ConcurrencyToken);

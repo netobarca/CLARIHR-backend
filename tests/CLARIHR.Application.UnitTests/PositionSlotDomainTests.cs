@@ -124,7 +124,8 @@ public sealed class PositionSlotDomainTests
             null,
             null,
             null,
-            false,
+            null,
+            null,
             true);
 
         var b = new PositionSlotGraphNodeData(
@@ -140,7 +141,8 @@ public sealed class PositionSlotDomainTests
             a.Id,
             null,
             null,
-            false,
+            null,
+            null,
             true);
 
         var c = new PositionSlotGraphNodeData(
@@ -156,7 +158,8 @@ public sealed class PositionSlotDomainTests
             b.Id,
             null,
             null,
-            false,
+            null,
+            null,
             true);
 
         var graph = new[] { a, b, c }.ToDictionary(static node => node.InternalId);

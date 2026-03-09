@@ -30,6 +30,10 @@ public sealed class JobProfileDomainTests
             objective: "Objetivo",
             orgUnitId: null,
             reportsToJobProfileId: null,
+            positionCategoryId: null,
+            strategicObjectiveCatalogItemId: null,
+            assignedWorkEquipmentCatalogItemId: null,
+            responsibilityCatalogItemId: null,
             decisionScope: null,
             assignedResources: null,
             responsibilities: "Responsabilidades",
@@ -57,6 +61,10 @@ public sealed class JobProfileDomainTests
             objective: "Objetivo",
             orgUnitId: null,
             reportsToJobProfileId: null,
+            positionCategoryId: null,
+            strategicObjectiveCatalogItemId: null,
+            assignedWorkEquipmentCatalogItemId: null,
+            responsibilityCatalogItemId: null,
             decisionScope: null,
             assignedResources: null,
             responsibilities: "Responsabilidades",
@@ -90,6 +98,10 @@ public sealed class JobProfileDomainTests
             objective: "Objetivo del puesto",
             orgUnitId: null,
             reportsToJobProfileId: null,
+            positionCategoryId: null,
+            strategicObjectiveCatalogItemId: null,
+            assignedWorkEquipmentCatalogItemId: null,
+            responsibilityCatalogItemId: null,
             decisionScope: null,
             assignedResources: null,
             responsibilities: "Responsabilidades generales",
@@ -104,6 +116,7 @@ public sealed class JobProfileDomainTests
         profile.ReplaceRequirements([
             JobProfileRequirement.Create(
                 JobRequirementType.Experience,
+                requirementTypeCatalogItemId: null,
                 catalogItemId: null,
                 catalogItem: null,
                 description: "3 anios",
@@ -111,7 +124,11 @@ public sealed class JobProfileDomainTests
         ]);
 
         profile.ReplaceFunctions([
-            JobProfileFunction.Create(JobFunctionType.General, "Ejecutar procesos de nomina", sortOrder: 1)
+            JobProfileFunction.Create(
+                JobFunctionType.General,
+                frequencyCatalogItemId: null,
+                "Ejecutar procesos de nomina",
+                sortOrder: 1)
         ]);
 
         var beforeToken = profile.ConcurrencyToken;
