@@ -3,12 +3,8 @@ using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.RegisterUser;
-using CLARIHR.Application.Features.LegalRepresentatives.Common;
-using CLARIHR.Application.Features.Provisioning;
-using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
-using CLARIHR.Domain.LegalRepresentatives;
 
 namespace CLARIHR.Application.UnitTests;
 
@@ -24,7 +20,6 @@ public sealed class RegisterUserCommandValidatorTests
             LastName: "Mendoza",
             Email: "ana@clarihr.test",
             Password: "weakpass",
-            CompanyName: null,
             Country: "SV",
             Source: "landing");
 
@@ -42,7 +37,6 @@ public sealed class RegisterUserCommandValidatorTests
             LastName: "Mendoza",
             Email: "ana@clarihr.test",
             Password: "StrongP@ss1",
-            CompanyName: null,
             Country: "SV",
             Source: "landing");
 
@@ -60,7 +54,6 @@ public sealed class RegisterUserCommandValidatorTests
             LastName: "Mendoza",
             Email: "ana@clarihr.test",
             Password: "StrongP@ss1",
-            CompanyName: null,
             Country: "SV",
             Source: "landing\npage");
 
@@ -78,32 +71,13 @@ public sealed class RegisterUserCommandValidatorTests
             LastName: "Mendoza",
             Email: "ana@clarihr.test",
             Password: "StrongP@ss1",
-            CompanyName: null,
             Country: "SV",
-            Source: "landing",
-            InitialLegalRepresentative: CreateInitialLegalRepresentative());
+            Source: "landing");
 
         var result = _validator.Validate(command);
 
         Assert.True(result.IsValid);
     }
-
-    private static InitialLegalRepresentativeInput CreateInitialLegalRepresentative() =>
-        new(
-            "Ana",
-            "Mendoza",
-            LegalRepresentativeDocumentType.TaxId,
-            "0614-290190-102-3",
-            "Representante Legal",
-            LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
-            "Representación general",
-            "Acta de nombramiento",
-            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            null,
-            "ana@clarihr.test",
-            "+50370000000",
-            IsPrimary: true);
 }
 
 public sealed class RegisterUserCommandHandlerTests
@@ -112,7 +86,6 @@ public sealed class RegisterUserCommandHandlerTests
     public async Task Handle_WhenEmailAlreadyExists_ShouldReturnConflict()
     {
         var repository = new TestUserRepository();
-        var dispatcher = new TestProvisioningCommandDispatcher();
         var unitOfWork = new TestUnitOfWork();
         repository.Seed(User.RegisterLocal("Ana", "Mendoza", "ana@clarihr.test", "existing-hash", "SV", "seed"));
 
@@ -120,7 +93,6 @@ public sealed class RegisterUserCommandHandlerTests
             repository,
             new TestPasswordHasher(),
             new TestTokenService(),
-            dispatcher,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterUserCommand(
@@ -128,10 +100,8 @@ public sealed class RegisterUserCommandHandlerTests
             "Mendoza",
             "ana@clarihr.test",
             "StrongP@ss1",
-            null,
             "SV",
-            "landing",
-            CreateInitialLegalRepresentative()), CancellationToken.None);
+            "landing"), CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(AuthErrors.UserAlreadyExists.Code, result.Error.Code);
@@ -144,19 +114,16 @@ public sealed class RegisterUserCommandHandlerTests
         var repository = new TestUserRepository();
         var passwordHasher = new TestPasswordHasher();
         var tokenService = new TestTokenService();
-        var dispatcher = new TestProvisioningCommandDispatcher();
         var unitOfWork = new TestUnitOfWork();
-        var handler = new RegisterUserCommandHandler(repository, passwordHasher, tokenService, dispatcher, unitOfWork);
+        var handler = new RegisterUserCommandHandler(repository, passwordHasher, tokenService, unitOfWork);
 
         var result = await handler.Handle(new RegisterUserCommand(
             "Carla",
             "Lopez",
             "carla@clarihr.test",
             "StrongP@ss1",
-            "ClariHR Demo",
             "SV",
-            "landing",
-            CreateInitialLegalRepresentative()), CancellationToken.None);
+            "landing"), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(repository.AddedUser);
@@ -166,25 +133,20 @@ public sealed class RegisterUserCommandHandlerTests
         Assert.Equal(900, result.Value.ExpiresIn);
         Assert.Equal("carla@clarihr.test", result.Value.User.Email);
         Assert.Equal(AuthProvider.Local, result.Value.User.AuthProvider);
-        Assert.Equal("ClariHR Demo", dispatcher.LastCommand!.CompanyName);
         Assert.True(unitOfWork.Transaction.CommitCalled);
     }
 
     [Fact]
-    public async Task Handle_WhenProvisioningFails_ShouldReturnProvisioningErrorAndRollback()
+    public async Task Handle_WhenTokenGenerationFails_ShouldReturnTokenErrorAndRollback()
     {
         var repository = new TestUserRepository();
-        var dispatcher = new TestProvisioningCommandDispatcher
-        {
-            NextResult = Result<ProvisionCompanyForUserResult>.Failure(ProvisioningErrors.ProvisioningFailed)
-        };
         var unitOfWork = new TestUnitOfWork();
+        var tokenService = new FailingTestTokenService(AuthErrors.TokenConfigurationInvalid);
 
         var handler = new RegisterUserCommandHandler(
             repository,
             new TestPasswordHasher(),
-            new TestTokenService(),
-            dispatcher,
+            tokenService,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterUserCommand(
@@ -192,13 +154,11 @@ public sealed class RegisterUserCommandHandlerTests
             "Lopez",
             "carla@clarihr.test",
             "StrongP@ss1",
-            null,
             "SV",
-            "landing",
-            CreateInitialLegalRepresentative()), CancellationToken.None);
+            "landing"), CancellationToken.None);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(ProvisioningErrors.ProvisioningFailed.Code, result.Error.Code);
+        Assert.Equal(AuthErrors.TokenConfigurationInvalid.Code, result.Error.Code);
         Assert.True(unitOfWork.Transaction.RollbackCalled);
     }
 
@@ -284,20 +244,15 @@ public sealed class RegisterUserCommandHandlerTests
             Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
     }
 
-    private static InitialLegalRepresentativeInput CreateInitialLegalRepresentative() =>
-        new(
-            "Carla",
-            "Lopez",
-            LegalRepresentativeDocumentType.TaxId,
-            "0614-000001-001-1",
-            "Representante Legal",
-            LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
-            "Representación general",
-            "Acta de nombramiento",
-            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            null,
-            "carla@clarihr.test",
-            "+50370000001",
-            IsPrimary: true);
+    private sealed class FailingTestTokenService(Error error) : ITokenService
+    {
+        public Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken) =>
+            Task.FromResult(Result<AuthTokenResult>.Failure(error));
+
+        public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult(Result<AuthTokenResult>.Failure(error));
+
+        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
+            Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
+    }
 }

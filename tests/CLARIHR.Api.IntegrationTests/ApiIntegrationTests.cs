@@ -51,8 +51,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             lastName = "Local",
             email = "admin.local@test.com",
             password = "StrongPass123!",
-            companyName = "Acme Local",
-            initialLegalRepresentative = CreateInitialLegalRepresentativePayload(),
             country = "SV",
             source = "integration-tests"
         });
@@ -67,7 +65,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task Register_WithoutInitialLegalRepresentative_ShouldReturnBadRequest()
+    public async Task Register_WithoutCompanyPayload_ShouldReturnCreated()
     {
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
@@ -78,12 +76,63 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             lastName = "Local",
             email = "admin.local@test.com",
             password = "StrongPass123!",
-            companyName = "Acme Local",
             country = "SV",
             source = "integration-tests"
         });
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_ThenCreateFirstCompany_ThenSwitch_ShouldReturnTenantToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var anonymousClient = factory.CreateClient();
+
+        var email = $"onboarding.{Guid.NewGuid():N}@clarihr.test";
+        var registerResponse = await anonymousClient.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "Onboarding",
+            lastName = "User",
+            email,
+            password = "StrongPass123!",
+            country = "SV",
+            source = "integration-tests"
+        });
+        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+
+        var registerPayload = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
+        Assert.NotNull(registerPayload);
+        Assert.False(string.IsNullOrWhiteSpace(registerPayload!.AccessToken));
+
+        var registerToken = new JwtSecurityTokenHandler().ReadJwtToken(registerPayload.AccessToken);
+        Assert.DoesNotContain(registerToken.Claims, static claim => claim.Type == "tid");
+
+        using var accountClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(registerPayload.User.Id, scenario.TenantId));
+
+        var createCompanyResponse = await accountClient.PostAsJsonAsync("/api/account/companies", new
+        {
+            name = "First Access Company",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
+        });
+        Assert.Equal(HttpStatusCode.Created, createCompanyResponse.StatusCode);
+
+        var companyPayload = await createCompanyResponse.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(companyPayload);
+
+        var switchResponse = await accountClient.PostAsync(
+            $"/api/account/companies/{companyPayload!.CompanyId}/switch",
+            content: null);
+        Assert.Equal(HttpStatusCode.OK, switchResponse.StatusCode);
+
+        var switchPayload = await switchResponse.Content.ReadFromJsonAsync<SwitchActiveCompanyItem>(JsonOptions);
+        Assert.NotNull(switchPayload);
+        Assert.Equal(companyPayload.CompanyId, switchPayload!.ActiveCompany.CompanyId);
+
+        var switchToken = new JwtSecurityTokenHandler().ReadJwtToken(switchPayload.AccessToken);
+        var tid = switchToken.Claims.Single(claim => claim.Type == "tid").Value;
+        Assert.Equal(companyPayload.CompanyId.ToString(), tid);
     }
 
     [Fact]
@@ -101,8 +150,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             lastName = "User",
             email,
             password,
-            companyName = "Login Company",
-            initialLegalRepresentative = CreateInitialLegalRepresentativePayload(),
             country = "SV",
             source = "integration-tests"
         });
@@ -137,8 +184,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             lastName = "Invalid",
             email,
             password,
-            companyName = "Login Invalid Company",
-            initialLegalRepresentative = CreateInitialLegalRepresentativePayload(),
             country = "SV",
             source = "integration-tests"
         });
@@ -156,7 +201,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     [Fact]
     public async Task Logout_ShouldRevokeRefreshTokensForAuthenticatedUser()
     {
-        await factory.ResetDatabaseAsync();
+        var scenario = await factory.ResetDatabaseAsync();
         using var anonymousClient = factory.CreateClient();
 
         var email = $"logout.user.{Guid.NewGuid():N}@clarihr.test";
@@ -168,8 +213,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             lastName = "User",
             email,
             password,
-            companyName = "Logout Company",
-            initialLegalRepresentative = CreateInitialLegalRepresentativePayload(),
             country = "SV",
             source = "integration-tests"
         });
@@ -179,9 +222,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(registerPayload);
         Assert.False(string.IsNullOrWhiteSpace(registerPayload!.RefreshToken));
 
-        var tenantId = ExtractTenantIdFromJwt(registerPayload.AccessToken);
         using var authenticatedClient = factory.CreateClientFor(
-            TestUserContext.Authenticated(registerPayload.User.Id, tenantId));
+            TestUserContext.Authenticated(registerPayload.User.Id, scenario.TenantId));
 
         var logoutResponse = await authenticatedClient.PostAsync("/api/auth/logout", content: null);
         Assert.Equal(HttpStatusCode.NoContent, logoutResponse.StatusCode);
@@ -4529,14 +4571,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var payload = await response.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(payload);
         return payload!;
-    }
-
-    private static Guid ExtractTenantIdFromJwt(string accessToken)
-    {
-        var token = new JwtSecurityTokenHandler().ReadJwtToken(accessToken);
-        var tenantId = token.Claims.FirstOrDefault(static claim => claim.Type == "tid")?.Value;
-        Assert.False(string.IsNullOrWhiteSpace(tenantId));
-        return Guid.Parse(tenantId!);
     }
 
     private static object CreateInitialLegalRepresentativePayload() =>

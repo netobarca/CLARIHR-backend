@@ -34,6 +34,7 @@ Excepcion controlada:
   - `POST /api/auth/logout`
 - Todo endpoint administrativo o de negocio requiere `Authorization: Bearer <jwt>`.
 - Los endpoints protegidos esperan contexto de tenant via claim `tid`.
+- En `register/login/external/refresh`, el token puede no incluir `tid` si el usuario aun no tiene empresa primaria.
 - Excepcion: `api/account/companies` sigue requiriendo JWT, pero su enforcement principal es por ownership de cuenta y no por RBAC tenant-scoped.
 
 ### Authorization model
@@ -716,23 +717,6 @@ Request:
   "lastName": "User",
   "email": "admin@company.com",
   "password": "StrongPass123!",
-  "companyName": "Acme Inc",
-  "initialLegalRepresentative": {
-    "firstName": "Ana",
-    "lastName": "Mendoza",
-    "documentType": "TaxId",
-    "documentNumber": "0614-290190-102-3",
-    "positionTitle": "Representante Legal",
-    "representationType": "PrimaryLegalRepresentative",
-    "authorityDescription": "Representacion general",
-    "appointmentInstrument": "Acta de nombramiento",
-    "appointmentDateUtc": "2026-01-01T00:00:00Z",
-    "effectiveFromUtc": "2026-01-01T00:00:00Z",
-    "effectiveToUtc": null,
-    "email": "ana@company.com",
-    "phone": "+50370000000",
-    "isPrimary": true
-  },
   "country": "SV",
   "source": "landing"
 }
@@ -759,9 +743,9 @@ Flow:
 
 1. Valida payload de registro.
 2. Crea usuario local.
-3. Provisiona tenant inicial si aplica.
-4. Emite access token y refresh token.
-5. Devuelve sesion autenticada.
+3. Emite access token y refresh token.
+4. Devuelve sesion autenticada.
+5. El onboarding de empresa inicial se completa despues con `POST /api/account/companies`.
 
 Main errors:
 
@@ -780,23 +764,6 @@ Request:
 {
   "provider": "Google",
   "idToken": "external-provider-id-token",
-  "companyName": "Acme Inc",
-  "initialLegalRepresentative": {
-    "firstName": "Ana",
-    "lastName": "Mendoza",
-    "documentType": "TaxId",
-    "documentNumber": "0614-290190-102-3",
-    "positionTitle": "Representante Legal",
-    "representationType": "PrimaryLegalRepresentative",
-    "authorityDescription": "Representacion general",
-    "appointmentInstrument": "Acta de nombramiento",
-    "appointmentDateUtc": "2026-01-01T00:00:00Z",
-    "effectiveFromUtc": "2026-01-01T00:00:00Z",
-    "effectiveToUtc": null,
-    "email": "ana@company.com",
-    "phone": "+50370000000",
-    "isPrimary": true
-  },
   "country": "SV",
   "source": "google-oauth"
 }
@@ -828,9 +795,10 @@ Flow:
 
 1. Valida proveedor e `idToken`.
 2. Verifica identidad contra el proveedor externo.
-3. Si el usuario no existe, lo crea y provisiona tenant si corresponde.
+3. Si el usuario no existe, lo crea.
 4. Si ya existe, reusa el usuario.
 5. Emite access token y refresh token.
+6. Si el usuario necesita empresa inicial o adicional, la crea luego con `POST /api/account/companies`.
 
 Main errors:
 

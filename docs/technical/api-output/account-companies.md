@@ -6,6 +6,7 @@ Este documento resume la implementacion tecnica del modulo de gestion multiempre
 
 ## Functional intent
 
+- completar onboarding de primera empresa despues de `register/external`
 - permitir que un usuario autenticado cree empresas adicionales
 - listar solo las empresas que el usuario creo
 - editar nombre de empresa

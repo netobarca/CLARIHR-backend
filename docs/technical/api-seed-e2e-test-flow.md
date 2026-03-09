@@ -76,7 +76,7 @@ Usuarios cargados por seed:
 Nota importante:
 
 - El endpoint local de login existe: `POST /api/auth/login`.
-- El primer acceso local se hace con `POST /api/auth/register` (crea usuario + inicia sesion).
+- El primer acceso local se hace con `POST /api/auth/register` (crea usuario + inicia sesion, sin crear empresa).
 - Para usuarios seed de este script, el acceso de prueba recomendado es via `POST /api/auth/refresh` con:
   - `seed-main-refresh-token-2026`
   - `seed-secondary-refresh-token-2026`
@@ -115,23 +115,6 @@ AUTH_FIRST=$(curl -sS -X POST "$BASE_URL/api/auth/register" \
     \"lastName\": \"Access\",
     \"email\": \"$FIRST_TIME_EMAIL\",
     \"password\": \"$FIRST_TIME_PASSWORD\",
-    \"companyName\": \"First Access Company $RUN_ID\",
-    \"initialLegalRepresentative\": {
-      \"firstName\": \"First\",
-      \"lastName\": \"Representative\",
-      \"documentType\": \"TaxId\",
-      \"documentNumber\": \"FT-$RUN_ID\",
-      \"positionTitle\": \"Representante Legal\",
-      \"representationType\": \"PrimaryLegalRepresentative\",
-      \"authorityDescription\": \"Representacion general\",
-      \"appointmentInstrument\": \"Acta de nombramiento\",
-      \"appointmentDateUtc\": \"2026-01-01T00:00:00Z\",
-      \"effectiveFromUtc\": \"2026-01-01T00:00:00Z\",
-      \"effectiveToUtc\": null,
-      \"email\": \"rep.first.$RUN_ID@clarihr.test\",
-      \"phone\": \"+50370000099\",
-      \"isPrimary\": true
-    },
     \"country\": \"SV\",
     \"source\": \"manual-e2e\"
   }")
@@ -157,9 +140,49 @@ Response esperada (`201`):
 
 Uso recomendado:
 
-- Si quieres validar onboarding completo, inicia con este escenario.
+- Si quieres validar onboarding completo, continua con `Escenario 02A.1` para crear la primera empresa.
 - Si quieres validar reautenticacion local (refresh expirado/revocado), usa el escenario `02C`.
 - Si quieres validar sobre datos seed predecibles, usa el escenario `02B`.
+
+### Escenario 02A.1 (primera vez) - Crear primera empresa y cambiar contexto
+
+Request 1 (crear empresa):
+
+```bash
+COMPANY_FIRST=$(curl -sS -X POST "$BASE_URL/api/account/companies" \
+  -H "Authorization: Bearer $ACCESS_TOKEN_FIRST" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"name\": \"First Access Company $RUN_ID\",
+    \"initialLegalRepresentative\": {
+      \"firstName\": \"First\",
+      \"lastName\": \"Representative\",
+      \"documentType\": \"TaxId\",
+      \"documentNumber\": \"FT-$RUN_ID\",
+      \"positionTitle\": \"Representante Legal\",
+      \"representationType\": \"PrimaryLegalRepresentative\",
+      \"authorityDescription\": \"Representacion general\",
+      \"appointmentInstrument\": \"Acta de nombramiento\",
+      \"appointmentDateUtc\": \"2026-01-01T00:00:00Z\",
+      \"effectiveFromUtc\": \"2026-01-01T00:00:00Z\",
+      \"effectiveToUtc\": null,
+      \"email\": \"rep.first.$RUN_ID@clarihr.test\",
+      \"phone\": \"+50370000099\",
+      \"isPrimary\": true
+    }
+  }")
+echo "$COMPANY_FIRST" | jq
+export FIRST_COMPANY_ID="$(echo "$COMPANY_FIRST" | jq -r '.companyId')"
+```
+
+Request 2 (switch empresa activa):
+
+```bash
+SWITCH_FIRST=$(curl -sS -X POST "$BASE_URL/api/account/companies/$FIRST_COMPANY_ID/switch" \
+  -H "Authorization: Bearer $ACCESS_TOKEN_FIRST")
+echo "$SWITCH_FIRST" | jq
+export ACCESS_TOKEN_FIRST="$(echo "$SWITCH_FIRST" | jq -r '.accessToken')"
+```
 
 ---
 
@@ -902,7 +925,16 @@ Nota:
   "lastName": "Access",
   "email": "first.time.demo@clarihr.test",
   "password": "StrongPass123!",
-  "companyName": "First Access Company Demo",
+  "country": "SV",
+  "source": "manual-e2e"
+}
+```
+
+### 6.1.1 `POST /api/account/companies` (primera empresa)
+
+```json
+{
+  "name": "First Access Company Demo",
   "initialLegalRepresentative": {
     "firstName": "First",
     "lastName": "Representative",
@@ -918,9 +950,7 @@ Nota:
     "email": "rep.first.demo@clarihr.test",
     "phone": "+50370000099",
     "isPrimary": true
-  },
-  "country": "SV",
-  "source": "manual-e2e"
+  }
 }
 ```
 

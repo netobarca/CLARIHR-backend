@@ -30,10 +30,8 @@ public sealed class AuthController(ICommandDispatcher commandDispatcher) : Contr
             request.LastName,
             request.Email,
             request.Password,
-            request.CompanyName,
             request.Country,
-            request.Source,
-            request.InitialLegalRepresentative);
+            request.Source);
 
         var result = await commandDispatcher.SendAsync(command, cancellationToken);
         if (result.IsFailure)
@@ -61,10 +59,8 @@ public sealed class AuthController(ICommandDispatcher commandDispatcher) : Contr
             new RegisterExternalUserCommand(
                 request.Provider,
                 request.IdToken,
-                request.CompanyName,
                 request.Country,
-                request.Source,
-                request.InitialLegalRepresentative),
+                request.Source),
             cancellationToken);
 
         if (result.IsFailure)

@@ -3,8 +3,6 @@ using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
-using CLARIHR.Application.Features.LegalRepresentatives.Common;
-using CLARIHR.Application.Features.Provisioning;
 using CLARIHR.Application.Features.Auth.RegisterUser;
 using CLARIHR.Domain.Auth;
 using FluentValidation;
@@ -14,10 +12,8 @@ namespace CLARIHR.Application.Features.Auth.External;
 public sealed record RegisterExternalUserCommand(
     AuthProvider Provider,
     string IdToken,
-    string? CompanyName,
     string? Country,
-    string? Source,
-    InitialLegalRepresentativeInput? InitialLegalRepresentative = null) : ICommand<ExternalAuthCommandResult>;
+    string? Source) : ICommand<ExternalAuthCommandResult>;
 
 internal sealed class RegisterExternalUserCommandValidator : AbstractValidator<RegisterExternalUserCommand>
 {
@@ -30,10 +26,6 @@ internal sealed class RegisterExternalUserCommandValidator : AbstractValidator<R
         RuleFor(command => command.IdToken)
             .NotEmpty()
             .MaximumLength(8000);
-
-        RuleFor(command => command.InitialLegalRepresentative)
-            .SetValidator(new InitialLegalRepresentativeInputValidator()!)
-            .When(static command => command.InitialLegalRepresentative is not null);
 
         RuleFor(command => command.Country)
             .MaximumLength(100)
@@ -53,7 +45,6 @@ internal sealed class RegisterExternalUserCommandHandler(
     IUserRepository userRepository,
     IExternalAuthProviderService externalAuthProviderService,
     ITokenService tokenService,
-    ICommandDispatcher commandDispatcher,
     IUnitOfWork unitOfWork) : ICommandHandler<RegisterExternalUserCommand, ExternalAuthCommandResult>
 {
     public async Task<Result<ExternalAuthCommandResult>> Handle(
@@ -131,15 +122,6 @@ internal sealed class RegisterExternalUserCommandHandler(
         }
 
         await userRepository.SaveChangesAsync(cancellationToken);
-
-        var provisioningResult = await commandDispatcher.SendAsync(
-            new ProvisionCompanyForUserCommand(user.PublicId, command.CompanyName, command.InitialLegalRepresentative),
-            cancellationToken);
-        if (provisioningResult.IsFailure)
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            return Result<ExternalAuthCommandResult>.Failure(provisioningResult.Error);
-        }
 
         var tokenResult = await tokenService.GenerateAsync(user, cancellationToken);
         if (tokenResult.IsFailure)

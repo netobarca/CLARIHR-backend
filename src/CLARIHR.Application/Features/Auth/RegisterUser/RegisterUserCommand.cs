@@ -3,8 +3,6 @@ using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
-using CLARIHR.Application.Features.LegalRepresentatives.Common;
-using CLARIHR.Application.Features.Provisioning;
 using CLARIHR.Domain.Auth;
 using FluentValidation;
 
@@ -15,10 +13,8 @@ public sealed record RegisterUserCommand(
     string LastName,
     string Email,
     string Password,
-    string? CompanyName,
     string? Country,
-    string? Source,
-    InitialLegalRepresentativeInput? InitialLegalRepresentative = null) : ICommand<AuthResponse>;
+    string? Source) : ICommand<AuthResponse>;
 
 internal sealed class RegisterUserCommandValidator : AbstractValidator<RegisterUserCommand>
 {
@@ -50,10 +46,6 @@ internal sealed class RegisterUserCommandValidator : AbstractValidator<RegisterU
             .Matches("[0-9]").WithMessage("Password must contain at least one number.")
             .Matches("[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character.");
 
-        RuleFor(command => command.InitialLegalRepresentative)
-            .NotNull()
-            .SetValidator(new InitialLegalRepresentativeInputValidator()!);
-
         RuleFor(command => command.Country)
             .MaximumLength(100)
             .Must(AuthValidationRules.BeValidCountry)
@@ -72,7 +64,6 @@ internal sealed class RegisterUserCommandHandler(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
     ITokenService tokenService,
-    ICommandDispatcher commandDispatcher,
     IUnitOfWork unitOfWork) : ICommandHandler<RegisterUserCommand, AuthResponse>
 {
     public async Task<Result<AuthResponse>> Handle(RegisterUserCommand command, CancellationToken cancellationToken)
@@ -97,15 +88,6 @@ internal sealed class RegisterUserCommandHandler(
 
         await userRepository.AddAsync(user, cancellationToken);
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        var provisioningResult = await commandDispatcher.SendAsync(
-            new ProvisionCompanyForUserCommand(user.PublicId, command.CompanyName, command.InitialLegalRepresentative),
-            cancellationToken);
-        if (provisioningResult.IsFailure)
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            return Result<AuthResponse>.Failure(provisioningResult.Error);
-        }
 
         var tokenResult = await tokenService.GenerateAsync(user, cancellationToken);
         if (tokenResult.IsFailure)

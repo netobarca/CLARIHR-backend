@@ -60,7 +60,21 @@ curl -X POST http://localhost:${CLARIHR_API_PORT:-5000}/api/auth/register \
     "lastName": "Tester",
     "email": "frontend.tester@clarihr.test",
     "password": "StrongPass123!",
-    "companyName": "Frontend QA Company",
+    "country": "SV",
+    "source": "frontend-local"
+  }'
+```
+
+La respuesta devuelve `accessToken` y `refreshToken`.
+
+Luego crea la primera empresa (o una adicional) con:
+
+```bash
+curl -X POST http://localhost:${CLARIHR_API_PORT:-5000}/api/account/companies \
+  -H "Authorization: Bearer ACCESS_TOKEN_AQUI" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Frontend QA Company",
     "initialLegalRepresentative": {
       "firstName": "Frontend",
       "lastName": "Representative",
@@ -76,13 +90,16 @@ curl -X POST http://localhost:${CLARIHR_API_PORT:-5000}/api/auth/register \
       "email": "frontend.representative@clarihr.test",
       "phone": "+50370000000",
       "isPrimary": true
-    },
-    "country": "SV",
-    "source": "frontend-local"
+    }
   }'
 ```
 
-La respuesta devuelve `accessToken` y `refreshToken` para pruebas de endpoints protegidos.
+Para activar contexto tenant, ejecuta:
+
+```bash
+curl -X POST http://localhost:${CLARIHR_API_PORT:-5000}/api/account/companies/COMPANY_ID_AQUI/switch \
+  -H "Authorization: Bearer ACCESS_TOKEN_AQUI"
+```
 
 Re-login local (si tu refresh token ya no es usable):
 

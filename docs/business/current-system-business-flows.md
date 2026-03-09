@@ -60,20 +60,21 @@ El backend actual cubre estos bloques funcionales:
 Orden natural del sistema hoy:
 
 1. validar que el API esta arriba
-2. registrar el primer usuario y crear la empresa inicial
-3. autenticarse y obtener JWT
-4. crear empresas adicionales si la cuenta tiene capacidad
-5. cambiar la empresa activa cuando sea necesario
-6. crear o ajustar roles
-7. crear permisos personalizados si hacen falta
-8. asignar permisos a los roles
-9. configurar permisos RBAC por recurso
-10. configurar permisos RBAC por campo
-11. configurar jerarquia de ubicaciones, grupos, tipos de centro y centros de trabajo
-12. crear usuarios de empresa o usuarios IAM
-13. asignar roles a usuarios
-14. operar el sistema bajo restricciones RBAC
-15. revisar auditoria y trazabilidad
+2. registrar el primer usuario
+3. crear la primera empresa desde account companies
+4. autenticarse y obtener JWT
+5. crear empresas adicionales si la cuenta tiene capacidad
+6. cambiar la empresa activa cuando sea necesario
+7. crear o ajustar roles
+8. crear permisos personalizados si hacen falta
+9. asignar permisos a los roles
+10. configurar permisos RBAC por recurso
+11. configurar permisos RBAC por campo
+12. configurar jerarquia de ubicaciones, grupos, tipos de centro y centros de trabajo
+13. crear usuarios de empresa o usuarios IAM
+14. asignar roles a usuarios
+15. operar el sistema bajo restricciones RBAC
+16. revisar auditoria y trazabilidad
 
 ## Flow 1. Validate API Availability
 
@@ -97,11 +98,11 @@ Confirmar que el backend esta operativo antes de iniciar pruebas o uso administr
 - no requiere JWT
 - no ejecuta logica de negocio sensible
 
-## Flow 2. Register First User And Bootstrap Initial Company
+## Flow 2. Register First User
 
 ### Business goal
 
-Crear el primer usuario operativo y la empresa inicial para comenzar a usar el sistema.
+Crear el primer usuario operativo para comenzar el onboarding.
 
 ### Main endpoint
 
@@ -109,20 +110,17 @@ Crear el primer usuario operativo y la empresa inicial para comenzar a usar el s
 
 ### Step by step
 
-1. Un usuario publico envia nombre, apellido, email, password y datos basicos de empresa.
+1. Un usuario publico envia nombre, apellido, email y password.
 2. El sistema valida el formato del request.
 3. El sistema crea el usuario local.
-4. El sistema provisiona la empresa inicial asociada a ese usuario.
-5. El sistema crea la membresia principal del usuario dentro de la empresa.
-6. El sistema siembra los elementos base de IAM y RBAC necesarios para operar el tenant.
-7. El sistema genera access token y refresh token.
-8. El sistema devuelve sesion autenticada.
+4. El sistema genera access token y refresh token.
+5. El sistema devuelve sesion autenticada.
+6. La empresa inicial se crea despues con `POST /api/account/companies`.
 
 ### Business outcome
 
-- existe una empresa activa en el sistema
-- existe un usuario administrador inicial
-- el usuario ya puede operar endpoints protegidos usando el JWT recibido
+- existe un usuario activo autenticado
+- el onboarding de empresa puede completarse de forma explicita en el siguiente paso
 
 ## Flow 3. Authenticate With External Identity Provider
 
@@ -139,7 +137,7 @@ Permitir acceso con proveedor externo cuando el negocio requiera onboarding o lo
 1. El usuario envia `provider` e `idToken`.
 2. El backend valida el token contra Google.
 3. Si el usuario no existe, lo crea.
-4. Si corresponde, provisiona empresa o lo vincula a un contexto valido.
+4. Si el usuario no existe, queda creado y autenticado; si existe, queda autenticado.
 5. Emite access token y refresh token.
 6. Devuelve `201` si el usuario fue creado o `200` si solo se autentico.
 
@@ -268,7 +266,7 @@ Business value:
 
 ### Flow 4A.7. Default locations bootstrap for every new company
 
-1. Cada empresa nueva creada por register, external auth o account companies dispara provisioning tenant-scoped.
+1. Cada empresa nueva creada por `POST /api/account/companies` dispara provisioning tenant-scoped.
 2. El provisioning crea automaticamente:
    - configuracion de jerarquia
    - nivel `General`
@@ -868,8 +866,8 @@ Business value:
 1. Verificar salud del API con `GET /api/system/status`.
 2. Registrar primer usuario con `POST /api/auth/register`.
 3. Guardar `accessToken` y `refreshToken`.
-4. Si la cuenta necesita otra empresa, crearla con `POST /api/account/companies`.
-5. Si hace falta operar esa nueva empresa, cambiar contexto con `POST /api/account/companies/{companyId}/switch`.
+4. Crear la primera empresa con `POST /api/account/companies`.
+5. Cambiar contexto con `POST /api/account/companies/{companyId}/switch`.
 6. Consultar roles existentes con `GET /api/iam/roles`.
 7. Si hace falta, crear rol con `POST /api/iam/roles`.
 8. Configurar permisos del rol con:
@@ -914,14 +912,15 @@ Business value:
 
 ## Journey E. Operate multiple companies from one account
 
-1. El usuario se registra y recibe su empresa inicial.
-2. Crea una empresa adicional con `POST /api/account/companies`.
-3. Confirma que el contexto activo no cambio.
-4. Consulta sus empresas con `GET /api/account/companies`.
-5. Cambia a la nueva empresa con `POST /api/account/companies/{companyId}/switch`.
-6. Usa el nuevo JWT para gestionar roles, usuarios y permisos de ese tenant.
-7. Si deja de usar una empresa, la archiva con `PATCH /api/account/companies/{companyId}/archive`.
-8. Si necesita recuperarla, la reactiva con `PATCH /api/account/companies/{companyId}/reactivate`.
+1. El usuario se registra y recibe su sesion inicial.
+2. Crea su primera empresa con `POST /api/account/companies`.
+3. Si necesita otra, crea una empresa adicional con el mismo endpoint.
+4. Confirma que el contexto activo no cambio.
+5. Consulta sus empresas con `GET /api/account/companies`.
+6. Cambia a la nueva empresa con `POST /api/account/companies/{companyId}/switch`.
+7. Usa el nuevo JWT para gestionar roles, usuarios y permisos de ese tenant.
+8. Si deja de usar una empresa, la archiva con `PATCH /api/account/companies/{companyId}/archive`.
+9. Si necesita recuperarla, la reactiva con `PATCH /api/account/companies/{companyId}/reactivate`.
 
 ## Full API Flow Inventory
 

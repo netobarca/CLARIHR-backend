@@ -19,3 +19,4 @@ Baseline disponible:
 - `current-state-up-to-HU-014/`: analisis consolidado del estado actual de la solucion hasta HU-014, incluyendo SalaryTabulator y workflow de solicitudes/aprobacion.
 - `current-state-up-to-HU-015/`: analisis consolidado del estado actual de la solucion hasta HU-015, incluyendo CostCenters y validacion integrada en OrgUnits/PositionSlots.
 - `HU-PF-EMP-001/`: post-implementacion por fase (1-3) del modulo Expediente de Empleados Administrativo Integral.
+- `auth-register-company-decoupling-2026-03-09/`: analisis y checklist de la separacion de onboarding entre Auth y Account Companies.

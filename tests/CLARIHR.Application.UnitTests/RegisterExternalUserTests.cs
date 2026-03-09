@@ -4,8 +4,6 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.External;
 using CLARIHR.Application.Features.Auth.RegisterUser;
-using CLARIHR.Application.Features.Provisioning;
-using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
 
@@ -16,19 +14,16 @@ public sealed class RegisterExternalUserCommandHandlerTests
     [Fact]
     public async Task Handle_WhenTokenIsInvalid_ShouldReturnUnauthorized()
     {
-        var dispatcher = new TestProvisioningCommandDispatcher();
         var unitOfWork = new TestUnitOfWork();
         var handler = new RegisterExternalUserCommandHandler(
             new TestUserRepository(),
             new FailingExternalAuthProviderService(AuthErrors.ExternalTokenInvalid),
             new TestTokenService(),
-            dispatcher,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
             AuthProvider.Google,
             "invalid-token",
-            null,
             "SV",
             "landing"), CancellationToken.None);
 
@@ -40,7 +35,6 @@ public sealed class RegisterExternalUserCommandHandlerTests
     [Fact]
     public async Task Handle_WhenValidatedTokenHasNoEmail_ShouldReturnUnprocessableEntity()
     {
-        var dispatcher = new TestProvisioningCommandDispatcher();
         var unitOfWork = new TestUnitOfWork();
         var handler = new RegisterExternalUserCommandHandler(
             new TestUserRepository(),
@@ -52,13 +46,11 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: false)),
             new TestTokenService(),
-            dispatcher,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
             AuthProvider.Google,
             "mock-token",
-            null,
             "SV",
             "landing"), CancellationToken.None);
 
@@ -71,7 +63,6 @@ public sealed class RegisterExternalUserCommandHandlerTests
     public async Task Handle_WhenUserDoesNotExist_ShouldCreateUserAndReturnCreatedResult()
     {
         var repository = new TestUserRepository();
-        var dispatcher = new TestProvisioningCommandDispatcher();
         var unitOfWork = new TestUnitOfWork();
         var handler = new RegisterExternalUserCommandHandler(
             repository,
@@ -83,13 +74,11 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: true)),
             new TestTokenService(),
-            dispatcher,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
             AuthProvider.Google,
             "mock-token",
-            "ClariHR Demo",
             "SV",
             "landing"), CancellationToken.None);
 
@@ -100,7 +89,6 @@ public sealed class RegisterExternalUserCommandHandlerTests
         Assert.Equal("google-123", repository.AddedUser.ProviderUserId);
         Assert.Equal(AuthProvider.Google, repository.AddedUser.AuthProvider);
         Assert.Equal("refresh-token", result.Value.Response.RefreshToken);
-        Assert.Equal("ClariHR Demo", dispatcher.LastCommand!.CompanyName);
         Assert.True(unitOfWork.Transaction.CommitCalled);
     }
 
@@ -108,7 +96,6 @@ public sealed class RegisterExternalUserCommandHandlerTests
     public async Task Handle_WhenUserExists_ShouldReturnOkAndLinkProviderIfMissing()
     {
         var repository = new TestUserRepository();
-        var dispatcher = new TestProvisioningCommandDispatcher();
         var unitOfWork = new TestUnitOfWork();
         repository.Seed(User.RegisterLocal(
             "Carla",
@@ -128,13 +115,11 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: true)),
             new TestTokenService(),
-            dispatcher,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
             AuthProvider.Google,
             "mock-token",
-            null,
             "SV",
             "landing"), CancellationToken.None);
 
@@ -151,7 +136,6 @@ public sealed class RegisterExternalUserCommandHandlerTests
     public async Task Handle_WhenExistingUserCannotBeLinkedSafelyByEmail_ShouldReturnConflict()
     {
         var repository = new TestUserRepository();
-        var dispatcher = new TestProvisioningCommandDispatcher();
         var unitOfWork = new TestUnitOfWork();
         repository.Seed(User.RegisterLocal(
             "Luisa",
@@ -171,13 +155,11 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: false)),
             new TestTokenService(),
-            dispatcher,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
             AuthProvider.Google,
             "mock-token",
-            null,
             "SV",
             "landing"), CancellationToken.None);
 
@@ -188,14 +170,11 @@ public sealed class RegisterExternalUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenProvisioningFails_ShouldReturnProvisioningErrorAndRollback()
+    public async Task Handle_WhenTokenGenerationFails_ShouldReturnTokenErrorAndRollback()
     {
         var repository = new TestUserRepository();
-        var dispatcher = new TestProvisioningCommandDispatcher
-        {
-            NextResult = Result<ProvisionCompanyForUserResult>.Failure(ProvisioningErrors.ProvisioningFailed)
-        };
         var unitOfWork = new TestUnitOfWork();
+        var tokenService = new FailingTestTokenService(AuthErrors.TokenConfigurationInvalid);
 
         var handler = new RegisterExternalUserCommandHandler(
             repository,
@@ -206,19 +185,17 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 ProviderUserId: "google-123",
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: true)),
-            new TestTokenService(),
-            dispatcher,
+            tokenService,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
             AuthProvider.Google,
             "mock-token",
-            null,
             "SV",
             "landing"), CancellationToken.None);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(ProvisioningErrors.ProvisioningFailed.Code, result.Error.Code);
+        Assert.Equal(AuthErrors.TokenConfigurationInvalid.Code, result.Error.Code);
         Assert.True(unitOfWork.Transaction.RollbackCalled);
     }
 
@@ -317,6 +294,18 @@ public sealed class RegisterExternalUserCommandHandlerTests
 
         public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
             GenerateAsync(user, cancellationToken);
+
+        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
+            Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
+    }
+
+    private sealed class FailingTestTokenService(Error error) : ITokenService
+    {
+        public Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken) =>
+            Task.FromResult(Result<AuthTokenResult>.Failure(error));
+
+        public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult(Result<AuthTokenResult>.Failure(error));
 
         public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
             Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
