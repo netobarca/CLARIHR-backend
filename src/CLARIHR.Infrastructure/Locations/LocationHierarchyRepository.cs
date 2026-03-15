@@ -30,6 +30,13 @@ internal sealed class LocationHierarchyRepository(ApplicationDbContext dbContext
             .ToListAsync(cancellationToken)
             .ContinueWith(static task => (IReadOnlyList<LocationLevel>)task.Result, cancellationToken);
 
+    public Task<IReadOnlyList<LocationLevel>> GetLevelsForUpdateAsync(Guid tenantId, CancellationToken cancellationToken) =>
+        dbContext.LocationLevels
+            .Where(level => level.TenantId == tenantId)
+            .OrderBy(level => level.LevelOrder)
+            .ToListAsync(cancellationToken)
+            .ContinueWith(static task => (IReadOnlyList<LocationLevel>)task.Result, cancellationToken);
+
     public Task<LocationLevel?> GetLevelByIdAsync(Guid levelId, CancellationToken cancellationToken) =>
         dbContext.LocationLevels.SingleOrDefaultAsync(level => level.PublicId == levelId, cancellationToken);
 

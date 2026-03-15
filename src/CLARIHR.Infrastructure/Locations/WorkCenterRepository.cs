@@ -19,6 +19,9 @@ internal sealed class WorkCenterRepository(ApplicationDbContext dbContext) : IWo
             .IgnoreQueryFilters()
             .AnyAsync(center => center.PublicId == workCenterId, cancellationToken);
 
+    public Task<bool> HasAnyActiveWorkCentersAsync(Guid tenantId, CancellationToken cancellationToken) =>
+        dbContext.WorkCenters.AnyAsync(center => center.TenantId == tenantId && center.IsActive, cancellationToken);
+
     public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingWorkCenterId, CancellationToken cancellationToken) =>
         dbContext.WorkCenters.AnyAsync(
             center => center.TenantId == tenantId &&

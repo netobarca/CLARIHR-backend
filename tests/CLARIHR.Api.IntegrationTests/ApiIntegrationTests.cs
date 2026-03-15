@@ -1124,6 +1124,181 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task Locations_BootstrapTree_ShouldReplaceSeedAndKeepCrudCompatible()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/locations/bootstrap-tree",
+            CreateLocationBootstrapRequest());
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<LocationBootstrapTreeItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.True(payload!.Hierarchy.IsMultiLevel);
+        Assert.Equal("SV", payload.Hierarchy.DefaultGroupCode);
+        Assert.Equal("El Salvador", payload.Hierarchy.DefaultGroupName);
+
+        var levels = payload.Levels.OrderBy(level => level.LevelOrder).ToArray();
+        Assert.Equal(3, levels.Length);
+        Assert.Collection(
+            levels,
+            level =>
+            {
+                Assert.Equal(1, level.LevelOrder);
+                Assert.Equal("Pais", level.DisplayName);
+                Assert.True(level.IsActive);
+                Assert.True(level.IsRequired);
+                Assert.False(level.AllowsWorkCenters);
+            },
+            level =>
+            {
+                Assert.Equal(2, level.LevelOrder);
+                Assert.Equal("Departamento", level.DisplayName);
+                Assert.True(level.IsActive);
+                Assert.False(level.IsRequired);
+                Assert.False(level.AllowsWorkCenters);
+            },
+            level =>
+            {
+                Assert.Equal(3, level.LevelOrder);
+                Assert.Equal("Municipio", level.DisplayName);
+                Assert.True(level.IsActive);
+                Assert.False(level.IsRequired);
+                Assert.True(level.AllowsWorkCenters);
+            });
+
+        var country = Assert.Single(payload.Locations);
+        Assert.Equal(1, country.LevelOrder);
+        Assert.Equal("SV", country.Code);
+        Assert.True(country.IsDefault);
+        Assert.Null(country.ParentId);
+
+        var department = Assert.Single(country.Children);
+        Assert.Equal(2, department.LevelOrder);
+        Assert.Equal("SS", department.Code);
+        Assert.Equal(country.Id, department.ParentId);
+        Assert.False(department.IsDefault);
+
+        var municipality = Assert.Single(department.Children);
+        Assert.Equal(3, municipality.LevelOrder);
+        Assert.Equal("SS-CENTRO", municipality.Code);
+        Assert.Equal(department.Id, municipality.ParentId);
+        Assert.Empty(municipality.Children);
+
+        var hierarchy = await GetLocationHierarchyAsync(client, scenario.TenantId);
+        Assert.True(hierarchy.IsMultiLevel);
+        Assert.Equal("SV", hierarchy.DefaultGroupCode);
+
+        var tree = await GetLocationGroupTreeAsync(client, scenario.TenantId);
+        var treeRoot = Assert.Single(tree);
+        Assert.Equal("SV", treeRoot.Code);
+
+        var createDepartmentResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
+        {
+            levelOrder = 2,
+            code = "LP",
+            name = "La Paz",
+            parentId = country.Id,
+            description = "Additional department"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createDepartmentResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Locations_BootstrapTree_WhenTenantAlreadyHasExtraGroups_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var createGroupResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
+        {
+            levelOrder = 1,
+            code = "WEST",
+            name = "West",
+            parentId = (Guid?)null,
+            description = "Existing location group"
+        });
+        createGroupResponse.EnsureSuccessStatusCode();
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/locations/bootstrap-tree",
+            CreateLocationBootstrapRequest());
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "LOCATION_TREE_BOOTSTRAP_NOT_ALLOWED");
+    }
+
+    [Fact]
+    public async Task Locations_BootstrapTree_WhenActiveWorkCentersExist_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var defaultGroup = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
+
+        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        {
+            code = "AGENCY",
+            name = "Agency",
+            requiresAddress = true,
+            requiresGeo = false,
+            allowsBiometric = true
+        });
+        typeResponse.EnsureSuccessStatusCode();
+        var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
+
+        var workCenterResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        {
+            code = "CEN-001",
+            name = "Centro General",
+            workCenterTypeId = workCenterType!.Id,
+            locationGroupId = defaultGroup.Id,
+            address = "San Salvador",
+            geoLat = (decimal?)null,
+            geoLong = (decimal?)null,
+            phone = "2222-2222",
+            email = "centro@acme-one.test",
+            notes = "Centro inicial"
+        });
+        workCenterResponse.EnsureSuccessStatusCode();
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/locations/bootstrap-tree",
+            CreateLocationBootstrapRequest());
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "LOCATION_TREE_BOOTSTRAP_NOT_ALLOWED");
+    }
+
+    [Fact]
+    public async Task Locations_BootstrapTree_WhenTreeDepthExceedsThreeLevels_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/locations/bootstrap-tree",
+            CreateLocationBootstrapRequest(includeFourthLevel: true));
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.BadRequest, "common.validation");
+    }
+
+    [Fact]
+    public async Task Locations_BootstrapTree_WhenCodesRepeatWithinPayload_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/locations/bootstrap-tree",
+            CreateLocationBootstrapRequest(duplicateMunicipalityCode: true));
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.BadRequest, "common.validation");
+    }
+
+    [Fact]
     public async Task WorkCenters_Create_WithAddressRequirementSatisfied_ShouldReturnCreatedCenter()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -4116,6 +4291,49 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return Assert.Single(payload!.Items, static group => group.IsDefault);
     }
 
+    private async Task<IReadOnlyCollection<LocationGroupTreeItem>> GetLocationGroupTreeAsync(HttpClient client, Guid companyId)
+    {
+        var response = await client.GetAsync($"/api/v1/companies/{companyId}/location-groups/tree");
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<IReadOnlyCollection<LocationGroupTreeItem>>(JsonOptions))!;
+    }
+
+    private static LocationBootstrapRequest CreateLocationBootstrapRequest(
+        bool includeFourthLevel = false,
+        bool duplicateMunicipalityCode = false)
+    {
+        var municipalityCode = duplicateMunicipalityCode ? "SS" : "SS-CENTRO";
+        var municipalityChildren = includeFourthLevel
+            ? new[]
+            {
+                new LocationBootstrapNodeRequest(
+                    "SS-CENTRO-D1",
+                    "Distrito 1",
+                    null,
+                    [])
+            }
+            : [];
+
+        return new LocationBootstrapRequest(
+            new LocationBootstrapNodeRequest(
+                "SV",
+                "El Salvador",
+                "country-root",
+                [
+                    new LocationBootstrapNodeRequest(
+                        "SS",
+                        "San Salvador",
+                        "dept-ss-id",
+                        [
+                            new LocationBootstrapNodeRequest(
+                                municipalityCode,
+                                "San Salvador Centro",
+                                null,
+                                municipalityChildren)
+                        ])
+                ]));
+    }
+
     private async Task<OrgUnitItem> CreateOrgUnitAsync(
         HttpClient client,
         Guid companyId,
@@ -4841,6 +5059,31 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid ConcurrencyToken,
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc);
+
+    private sealed record LocationGroupTreeItem(
+        Guid Id,
+        int LevelOrder,
+        string Code,
+        string Name,
+        Guid? ParentId,
+        string? Description,
+        bool IsActive,
+        bool IsDefault,
+        Guid ConcurrencyToken,
+        IReadOnlyCollection<LocationGroupTreeItem> Children);
+
+    private sealed record LocationBootstrapTreeItem(
+        LocationHierarchyItem Hierarchy,
+        IReadOnlyCollection<LocationLevelItem> Levels,
+        IReadOnlyCollection<LocationGroupTreeItem> Locations);
+
+    private sealed record LocationBootstrapRequest(LocationBootstrapNodeRequest Root);
+
+    private sealed record LocationBootstrapNodeRequest(
+        string Code,
+        string Name,
+        string? Description,
+        IReadOnlyCollection<LocationBootstrapNodeRequest> Children);
 
     private sealed record WorkCenterTypeItem(
         Guid Id,

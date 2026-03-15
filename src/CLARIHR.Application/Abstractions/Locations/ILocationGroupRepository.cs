@@ -8,11 +8,15 @@ public interface ILocationGroupRepository
 {
     void Add(LocationGroup group);
 
+    void Remove(LocationGroup group);
+
     Task<LocationGroup?> GetByIdAsync(Guid groupId, CancellationToken cancellationToken);
 
     Task<bool> ExistsOutsideTenantAsync(Guid groupId, CancellationToken cancellationToken);
 
     Task<LocationGroup?> GetByIdIgnoreFiltersAsync(Guid groupId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<LocationGroup>> GetGroupsForUpdateAsync(Guid tenantId, CancellationToken cancellationToken);
 
     Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingGroupId, CancellationToken cancellationToken);
 

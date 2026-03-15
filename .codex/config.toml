@@ -1,0 +1,29 @@
+# Configuración de proyecto para CLARIHR Backend
+# Aplica a este repositorio cuando el proyecto sea marcado como trusted.
+
+model = "gpt-5.4"
+model_provider = "openai"
+
+# Mantiene confirmación para acciones sensibles.
+approval_policy = "on-request"
+
+# Permite escribir dentro del workspace, sin acceso irrestricto.
+sandbox_mode = "workspace-write"
+
+# Usa resultados web en modo cacheado.
+web_search = "cached"
+
+# Mantener respuestas y planes con un estilo práctico.
+personality = "pragmatic"
+
+# Razonamiento equilibrado para tareas de implementación.
+model_reasoning_effort = "medium"
+
+[profiles.clarihr-default]
+model = "gpt-5.4"
+model_provider = "openai"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "cached"
+personality = "pragmatic"
+model_reasoning_effort = "medium"

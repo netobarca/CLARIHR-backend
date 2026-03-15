@@ -12,6 +12,8 @@ public interface IWorkCenterRepository
 
     Task<bool> ExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken);
 
+    Task<bool> HasAnyActiveWorkCentersAsync(Guid tenantId, CancellationToken cancellationToken);
+
     Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingWorkCenterId, CancellationToken cancellationToken);
 
     Task<PagedResponse<WorkCenterResponse>> SearchAsync(

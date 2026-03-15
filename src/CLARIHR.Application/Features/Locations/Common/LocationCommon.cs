@@ -120,6 +120,11 @@ public static class LocationErrors
         "The default location group is protected and cannot be renamed, recoded or inactivated.",
         ErrorType.Conflict);
 
+    public static readonly Error TreeBootstrapNotAllowed = new(
+        "LOCATION_TREE_BOOTSTRAP_NOT_ALLOWED",
+        "The location tree bootstrap is only available while the tenant remains in the default seeded state.",
+        ErrorType.Conflict);
+
     public static readonly Error LastActiveLevelRequired = new(
         "LAST_ACTIVE_LEVEL_REQUIRED",
         "At least one active location level must remain available.",
