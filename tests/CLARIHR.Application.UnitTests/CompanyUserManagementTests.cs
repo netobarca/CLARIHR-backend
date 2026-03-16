@@ -567,7 +567,7 @@ public sealed class CompanyUserManagementTests
 
     private static Company CreateCompany(Guid companyPublicId, string name)
     {
-        var company = Company.Create(name, name.ToLowerInvariant().Replace(' ', '-'), companyPublicId);
+        var company = Company.Create(name, name.ToLowerInvariant().Replace(' ', '-'), companyPublicId, "SV");
         SetEntityId(company, companyPublicId == TenantId ? 1 : 2);
         SetPrivateProperty(company, nameof(Company.PublicId), companyPublicId);
         return company;

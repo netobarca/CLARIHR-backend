@@ -11,8 +11,6 @@ internal sealed class LocationGroupRepository(ApplicationDbContext dbContext) : 
 {
     public void Add(LocationGroup group) => dbContext.LocationGroups.Add(group);
 
-    public void Remove(LocationGroup group) => dbContext.LocationGroups.Remove(group);
-
     public Task<LocationGroup?> GetByIdAsync(Guid groupId, CancellationToken cancellationToken) =>
         dbContext.LocationGroups.SingleOrDefaultAsync(group => group.PublicId == groupId, cancellationToken);
 
@@ -25,14 +23,6 @@ internal sealed class LocationGroupRepository(ApplicationDbContext dbContext) : 
         dbContext.LocationGroups
             .IgnoreQueryFilters()
             .SingleOrDefaultAsync(group => group.PublicId == groupId, cancellationToken);
-
-    public Task<IReadOnlyList<LocationGroup>> GetGroupsForUpdateAsync(Guid tenantId, CancellationToken cancellationToken) =>
-        dbContext.LocationGroups
-            .Where(group => group.TenantId == tenantId)
-            .OrderBy(group => group.LevelOrder)
-            .ThenBy(group => group.Name)
-            .ToListAsync(cancellationToken)
-            .ContinueWith(static task => (IReadOnlyList<LocationGroup>)task.Result, cancellationToken);
 
     public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingGroupId, CancellationToken cancellationToken) =>
         dbContext.LocationGroups.AnyAsync(

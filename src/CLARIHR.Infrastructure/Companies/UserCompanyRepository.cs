@@ -101,25 +101,39 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
 
     public async Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
     {
-        var memberships = await dbContext.UserCompanyMemberships
-            .Join(
-                dbContext.Companies,
-                membership => membership.CompanyId,
-                company => company.Id,
-                (membership, company) => new { Membership = membership, company.PublicId })
-            .Where(item => item.Membership.UserId == userId)
-            .ToListAsync(cancellationToken);
+        var targetCompanyId = await dbContext.Companies
+            .Where(company => company.PublicId == companyPublicId)
+            .Select(company => (long?)company.Id)
+            .SingleOrDefaultAsync(cancellationToken);
 
-        foreach (var item in memberships)
+        if (!targetCompanyId.HasValue)
         {
-            if (item.PublicId == companyPublicId)
-            {
-                item.Membership.MarkPrimary();
-                continue;
-            }
-
-            item.Membership.ClearPrimary();
+            return;
         }
+
+        // Clear the current primary first to avoid violating the partial unique index
+        // while switching the flag to another membership in the same transaction.
+        _ = await dbContext.UserCompanyMemberships
+            .Where(membership =>
+                membership.UserId == userId &&
+                membership.IsPrimary &&
+                membership.CompanyId != targetCompanyId.Value)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(membership => membership.IsPrimary, false)
+                    .SetProperty(membership => membership.ModifiedUtc, DateTime.UtcNow),
+                cancellationToken);
+
+        _ = await dbContext.UserCompanyMemberships
+            .Where(membership =>
+                membership.UserId == userId &&
+                membership.CompanyId == targetCompanyId.Value &&
+                !membership.IsPrimary)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(membership => membership.IsPrimary, true)
+                    .SetProperty(membership => membership.ModifiedUtc, DateTime.UtcNow),
+                cancellationToken);
     }
 
     public async Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken)

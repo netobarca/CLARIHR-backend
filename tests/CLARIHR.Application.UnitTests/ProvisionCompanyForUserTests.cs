@@ -49,7 +49,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             unitOfWork);
 
         var result = await handler.Handle(
-            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", CreateInitialLegalRepresentative()),
+            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", "SV", CreateInitialLegalRepresentative()),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -58,6 +58,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         Assert.Single(companyRepository.Items);
         Assert.Equal("Acme HR", companyRepository.Items[0].Name);
         Assert.Equal("acme-hr", companyRepository.Items[0].Slug);
+        Assert.Equal("SV", companyRepository.Items[0].CountryCode);
         Assert.Single(subscriptionRepository.Items);
         Assert.Equal(ProvisioningConstants.FreePlanCode, subscriptionRepository.Items[0].PlanCode);
         Assert.Equal(SubscriptionStatus.Active, subscriptionRepository.Items[0].Status);
@@ -90,7 +91,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         var user = CreatePersistedUser("ana@company.com");
         userRepository.Seed(user);
 
-        var company = Company.Create("Acme HR", "acme-hr", user.PublicId);
+        var company = Company.Create("Acme HR", "acme-hr", user.PublicId, "SV");
         companyRepository.Add(company);
         userCompanyRepository.Add(UserCompanyMembership.Create(user.Id, company.Id, roleId: 10, isPrimary: true));
 
@@ -105,7 +106,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             unitOfWork);
 
         var result = await handler.Handle(
-            new ProvisionCompanyForUserCommand(user.PublicId, "Another Name"),
+            new ProvisionCompanyForUserCommand(user.PublicId, "Another Name", "SV"),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -142,11 +143,44 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             unitOfWork);
 
         var result = await handler.Handle(
-            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR"),
+            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", "SV"),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ProvisioningErrors.InitialLegalRepresentativeRequired.Code, result.Error.Code);
+        Assert.True(unitOfWork.Transaction.RollbackCalled);
+    }
+
+    [Fact]
+    public async Task Handle_WhenCountryTemplateIsNotSupported_ShouldReturnValidationError()
+    {
+        var userRepository = new TestUserRepository();
+        var companyRepository = new TestCompanyRepository();
+        var subscriptionRepository = new TestCompanySubscriptionRepository(companyRepository);
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository);
+        var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
+        var unitOfWork = new TestUnitOfWork();
+        var user = CreatePersistedUser("ana@company.com");
+        userRepository.Seed(user);
+
+        var handler = CreateHandler(
+            userRepository,
+            companyRepository,
+            subscriptionRepository,
+            userCompanyRepository,
+            iamRepository,
+            legalRepresentativeRepository,
+            new TestPlanEntitlementService(),
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", "GT", CreateInitialLegalRepresentative()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("provisioning.country_not_supported", result.Error.Code);
+        Assert.Empty(companyRepository.Items);
         Assert.True(unitOfWork.Transaction.RollbackCalled);
     }
 
@@ -174,7 +208,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             unitOfWork);
 
         var result = await handler.Handle(
-            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", CreateInitialLegalRepresentative()),
+            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", "SV", CreateInitialLegalRepresentative()),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -193,7 +227,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
         var user = CreatePersistedUser("ana@company.com");
         userRepository.Seed(user);
-        companyRepository.Add(Company.Create("Acme HR", "acme-hr", user.PublicId));
+        companyRepository.Add(Company.Create("Acme HR", "acme-hr", user.PublicId, "SV"));
 
         var handler = CreateHandler(
             userRepository,
@@ -206,7 +240,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             new TestUnitOfWork());
 
         var result = await handler.Handle(
-            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", CreateInitialLegalRepresentative()),
+            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", "SV", CreateInitialLegalRepresentative()),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -289,7 +323,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
 
     private sealed class TestLocationSeedService : ILocationSeedService
     {
-        public Task InitializeDefaultsAsync(Guid tenantId, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task InitializeDefaultsAsync(Guid tenantId, string countryCode, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class TestUserRepository : IUserRepository

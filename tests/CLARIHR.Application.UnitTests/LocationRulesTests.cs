@@ -156,7 +156,6 @@ public sealed class LocationRulesTests
         public Task<LocationHierarchyConfig?> GetConfigByIdAsync(Guid configId, CancellationToken cancellationToken) => Task.FromResult<LocationHierarchyConfig?>(null);
         public Task<bool> ConfigExistsOutsideTenantAsync(Guid configId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<IReadOnlyList<LocationLevel>> GetLevelsAsync(Guid tenantId, CancellationToken cancellationToken) => Task.FromResult(_levels);
-        public Task<IReadOnlyList<LocationLevel>> GetLevelsForUpdateAsync(Guid tenantId, CancellationToken cancellationToken) => Task.FromResult(_levels);
         public Task<LocationLevel?> GetLevelByIdAsync(Guid levelId, CancellationToken cancellationToken) => Task.FromResult<LocationLevel?>(null);
         public Task<bool> LevelExistsOutsideTenantAsync(Guid levelId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> LevelOrderExistsAsync(Guid tenantId, int levelOrder, long? excludingLevelId, CancellationToken cancellationToken) => Task.FromResult(false);
@@ -173,11 +172,9 @@ public sealed class LocationRulesTests
         public bool HasActiveWorkCentersValue { get; init; }
 
         public void Add(LocationGroup group) => throw new NotSupportedException();
-        public void Remove(LocationGroup group) => throw new NotSupportedException();
         public Task<LocationGroup?> GetByIdAsync(Guid groupId, CancellationToken cancellationToken) => Task.FromResult(_group is not null && _group.PublicId == groupId ? _group : null);
         public Task<bool> ExistsOutsideTenantAsync(Guid groupId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<LocationGroup?> GetByIdIgnoreFiltersAsync(Guid groupId, CancellationToken cancellationToken) => Task.FromResult<LocationGroup?>(null);
-        public Task<IReadOnlyList<LocationGroup>> GetGroupsForUpdateAsync(Guid tenantId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<LocationGroup>>(_group is null ? [] : [_group]);
         public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingGroupId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<IReadOnlyList<LocationGroupTreeNodeData>> GetTreeAsync(Guid tenantId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<LocationGroupTreeNodeData>>([]);
         public Task<PagedResponse<LocationGroupResponse>> SearchAsync(Guid tenantId, int? levelOrder, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();

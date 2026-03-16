@@ -14,6 +14,7 @@ namespace CLARIHR.Application.Features.Provisioning;
 public sealed record ProvisionCompanyForUserCommand(
     Guid UserId,
     string? CompanyName,
+    string CountryCode,
     InitialLegalRepresentativeInput? InitialLegalRepresentative = null) : ICommand<ProvisionCompanyForUserResult>;
 
 public sealed record ProvisionCompanyForUserResult(
@@ -33,6 +34,11 @@ internal sealed partial class ProvisionCompanyForUserCommandValidator : Abstract
             .Must(BeValidCompanyName)
             .WithMessage("Company name contains invalid characters.")
             .When(static command => !string.IsNullOrWhiteSpace(command.CompanyName));
+        RuleFor(command => command.CountryCode)
+            .NotEmpty()
+            .MaximumLength(3)
+            .Matches("^[A-Za-z]{2,3}$")
+            .WithMessage("Country code must be a 2 or 3 letter ISO-style code.");
 
         RuleFor(command => command.InitialLegalRepresentative)
             .SetValidator(new InitialLegalRepresentativeInputValidator()!)
@@ -98,6 +104,7 @@ internal sealed class ProvisionCompanyForUserCommandHandler(
                 new ProvisionCompanyRequest(
                     user.PublicId,
                     command.CompanyName,
+                    command.CountryCode,
                     command.InitialLegalRepresentative,
                     MakePrimary: true,
                     ProvisioningConstants.FreePlanCode,

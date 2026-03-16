@@ -11,6 +11,7 @@ public sealed record AccountCompanySummaryResponse(
     Guid CompanyId,
     string Name,
     string Slug,
+    string CountryCode,
     CompanyStatus Status,
     string PlanCode,
     bool IsActiveContext,
@@ -22,6 +23,7 @@ public sealed record AccountCompanyDetailResponse(
     Guid CompanyId,
     string Name,
     string Slug,
+    string CountryCode,
     CompanyStatus Status,
     string PlanCode,
     bool IsActiveContext,
@@ -48,6 +50,7 @@ public sealed record ActiveCompanyDto(
     Guid CompanyId,
     string Name,
     string Slug,
+    string CountryCode,
     CompanyStatus Status);
 
 public sealed record SwitchActiveCompanyResponse(
@@ -74,6 +77,7 @@ public sealed record GetOwnedCompanyByIdQuery(Guid CompanyId) : IQuery<AccountCo
 
 public sealed record CreateAccountCompanyCommand(
     string Name,
+    string CountryCode,
     Guid? CompanyTypeId,
     InitialLegalRepresentativeInput InitialLegalRepresentative) : ICommand<AccountCompanyDetailResponse>;
 
@@ -109,6 +113,11 @@ internal sealed class CreateAccountCompanyCommandValidator : AbstractValidator<C
         RuleFor(command => command.Name)
             .NotEmpty()
             .MaximumLength(150);
+        RuleFor(command => command.CountryCode)
+            .NotEmpty()
+            .MaximumLength(3)
+            .Matches("^[A-Za-z]{2,3}$")
+            .WithMessage("Country code must be a 2 or 3 letter ISO-style code.");
         RuleFor(command => command.CompanyTypeId)
             .NotEqual(Guid.Empty)
             .When(static command => command.CompanyTypeId.HasValue);

@@ -13,6 +13,7 @@ public interface ICompanyProvisioningService
 public sealed record ProvisionCompanyRequest(
     Guid OwnerUserPublicId,
     string? CompanyName,
+    string CountryCode,
     InitialLegalRepresentativeInput InitialLegalRepresentative,
     bool MakePrimary,
     string PlanCode,

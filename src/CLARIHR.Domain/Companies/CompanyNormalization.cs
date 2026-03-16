@@ -1,9 +1,12 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CLARIHR.Domain.Companies;
 
 internal static class CompanyNormalization
 {
+    private static readonly Regex CountryCodeRegex = new("^[A-Za-z]{2,3}$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
     public static string Clean(string value, string parameterName)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -19,6 +22,17 @@ internal static class CompanyNormalization
 
     public static string NormalizeModuleKey(string moduleKey) =>
         Clean(moduleKey, nameof(moduleKey)).ToUpperInvariant();
+
+    public static string NormalizeCountryCode(string countryCode)
+    {
+        var normalized = Clean(countryCode, nameof(countryCode)).ToUpperInvariant();
+        if (!CountryCodeRegex.IsMatch(normalized))
+        {
+            throw new ArgumentException("Country code format is invalid.", nameof(countryCode));
+        }
+
+        return normalized;
+    }
 
     public static string NormalizeSlug(string slug)
     {

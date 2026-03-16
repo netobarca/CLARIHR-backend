@@ -57,13 +57,14 @@ public sealed class AccountCompanyAdministrationTests
             NullLogger<CreateAccountCompanyCommandHandler>.Instance);
 
         var result = await handler.Handle(
-            new CreateAccountCompanyCommand("Acme Services", null, CreateInitialLegalRepresentative()),
+            new CreateAccountCompanyCommand("Acme Services", "SV", null, CreateInitialLegalRepresentative()),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Acme Services", result.Value.Name);
         Assert.False(result.Value.IsActiveContext);
         Assert.Equal(CurrentUserId, provisioningService.LastRequest!.OwnerUserPublicId);
+        Assert.Equal("SV", provisioningService.LastRequest.CountryCode);
         Assert.False(provisioningService.LastRequest.MakePrimary);
         Assert.Single(auditService.Entries);
         Assert.Equal(AuditEventTypes.CompanyCreated, auditService.Entries[0].Entry.EventType);
@@ -90,7 +91,7 @@ public sealed class AccountCompanyAdministrationTests
             NullLogger<CreateAccountCompanyCommandHandler>.Instance);
 
         var result = await handler.Handle(
-            new CreateAccountCompanyCommand("Acme Services", null, CreateInitialLegalRepresentative()),
+            new CreateAccountCompanyCommand("Acme Services", "SV", null, CreateInitialLegalRepresentative()),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -276,9 +277,9 @@ public sealed class AccountCompanyAdministrationTests
         return user;
     }
 
-    private static Company CreateCompany(Guid ownerUserPublicId, string name, string slug, Guid? publicId = null)
+    private static Company CreateCompany(Guid ownerUserPublicId, string name, string slug, Guid? publicId = null, string countryCode = "SV")
     {
-        var company = Company.Create(name, slug, ownerUserPublicId);
+        var company = Company.Create(name, slug, ownerUserPublicId, countryCode);
         SetEntityId(company, Random.Shared.NextInt64(1, 1000));
         if (publicId.HasValue)
         {
@@ -393,6 +394,7 @@ public sealed class AccountCompanyAdministrationTests
                 company.PublicId,
                 company.Name,
                 company.Slug,
+                company.CountryCode,
                 company.Status,
                 ProvisioningConstants.FreePlanCode,
                 activeTenantId.HasValue && activeTenantId.Value == company.PublicId,
@@ -422,6 +424,7 @@ public sealed class AccountCompanyAdministrationTests
                     item.PublicId,
                     item.Name,
                     item.Slug,
+                    item.CountryCode,
                     item.Status,
                     ProvisioningConstants.FreePlanCode,
                     filter.ActiveTenantId.HasValue && filter.ActiveTenantId.Value == item.PublicId,
@@ -562,7 +565,8 @@ public sealed class AccountCompanyAdministrationTests
                     request.OwnerUserPublicId,
                     nextResult.CompanyName,
                     nextResult.Slug,
-                    nextResult.CompanyId));
+                    nextResult.CompanyId,
+                    request.CountryCode));
             }
 
             return Task.FromResult(

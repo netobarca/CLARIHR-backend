@@ -12,6 +12,7 @@ public sealed class Company : AuditableEntity
         Guid publicId,
         string name,
         string slug,
+        string countryCode,
         CompanyStatus status,
         Guid createdByUserPublicId,
         long? companyTypeCatalogItemId)
@@ -24,6 +25,7 @@ public sealed class Company : AuditableEntity
         PublicId = publicId;
         Name = CompanyNormalization.Clean(name, nameof(name));
         Slug = CompanyNormalization.NormalizeSlug(slug);
+        CountryCode = CompanyNormalization.NormalizeCountryCode(countryCode);
         Status = status;
         CreatedByUserPublicId = createdByUserPublicId;
         SetCompanyType(companyTypeCatalogItemId);
@@ -35,6 +37,8 @@ public sealed class Company : AuditableEntity
 
     public string Slug { get; private set; } = string.Empty;
 
+    public string CountryCode { get; private set; } = string.Empty;
+
     public CompanyStatus Status { get; private set; }
 
     public Guid CreatedByUserPublicId { get; private set; }
@@ -45,11 +49,13 @@ public sealed class Company : AuditableEntity
         string name,
         string slug,
         Guid createdByUserPublicId,
+        string countryCode,
         long? companyTypeCatalogItemId = null) =>
         new(
             Guid.NewGuid(),
             name,
             slug,
+            countryCode,
             CompanyStatus.Active,
             createdByUserPublicId,
             companyTypeCatalogItemId);

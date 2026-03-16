@@ -24,8 +24,8 @@ internal static class IntegrationTestSeeder
             PlanEntitlement.Create(ProvisioningConstants.FreePlanCode, ProvisioningConstants.UsersModuleKey, isEnabled: true));
         await dbContext.SaveChangesAsync();
 
-        var companyA = Company.Create("Acme One", "acme-one", actorUserId);
-        var companyB = Company.Create("Acme Two", "acme-two", actorUserId);
+        var companyA = Company.Create("Acme One", "acme-one", actorUserId, "SV");
+        var companyB = Company.Create("Acme Two", "acme-two", actorUserId, "SV");
         dbContext.Companies.AddRange(companyA, companyB);
         await dbContext.SaveChangesAsync();
 
@@ -315,31 +315,79 @@ internal static class IntegrationTestSeeder
     private static void SeedDefaultLocations(ApplicationDbContext dbContext, Guid tenantId)
     {
         var config = LocationHierarchyConfig.Create(
-            isMultiLevel: false,
+            isMultiLevel: true,
             "GENERAL",
             "General");
         config.SetTenantId(tenantId);
 
-        var level = LocationLevel.Create(
+        var countryLevel = LocationLevel.Create(
             levelOrder: 1,
-            "General",
+            "Pais",
             isActive: true,
             isRequired: true,
-            allowsWorkCenters: true);
-        level.SetTenantId(tenantId);
+            allowsWorkCenters: false);
+        countryLevel.SetTenantId(tenantId);
 
-        var group = LocationGroup.Create(
+        var departmentLevel = LocationLevel.Create(
+            levelOrder: 2,
+            "Departamento",
+            isActive: true,
+            isRequired: false,
+            allowsWorkCenters: false);
+        departmentLevel.SetTenantId(tenantId);
+
+        var municipalityLevel = LocationLevel.Create(
+            levelOrder: 3,
+            "Municipio",
+            isActive: true,
+            isRequired: false,
+            allowsWorkCenters: true);
+        municipalityLevel.SetTenantId(tenantId);
+
+        var countryGroup = LocationGroup.Create(
             levelOrder: 1,
-            "GENERAL",
-            "General",
+            "SV",
+            "El Salvador",
             parentId: null,
-            description: "Default location group.",
-            isDefault: true);
-        group.SetTenantId(tenantId);
+            description: "Pais",
+            isDefault: false);
+        countryGroup.SetTenantId(tenantId);
+
+        var departmentGroup = LocationGroup.Create(
+            levelOrder: 2,
+            "SS",
+            "San Salvador",
+            parentId: null,
+            description: "Departamento",
+            isDefault: false);
+        departmentGroup.SetTenantId(tenantId);
+
+        var municipalityGroupA = LocationGroup.Create(
+            levelOrder: 3,
+            "APOPA",
+            "Apopa",
+            parentId: null,
+            description: "Municipio",
+            isDefault: false);
+        municipalityGroupA.SetTenantId(tenantId);
+
+        var municipalityGroupB = LocationGroup.Create(
+            levelOrder: 3,
+            "MEJICANOS",
+            "Mejicanos",
+            parentId: null,
+            description: "Municipio",
+            isDefault: false);
+        municipalityGroupB.SetTenantId(tenantId);
 
         dbContext.LocationHierarchyConfigs.Add(config);
-        dbContext.LocationLevels.Add(level);
-        dbContext.LocationGroups.Add(group);
+        dbContext.LocationLevels.AddRange(countryLevel, departmentLevel, municipalityLevel);
+        dbContext.LocationGroups.AddRange(countryGroup, departmentGroup, municipalityGroupA, municipalityGroupB);
+        dbContext.SaveChanges();
+
+        departmentGroup.Move(countryGroup.Id);
+        municipalityGroupA.Move(departmentGroup.Id);
+        municipalityGroupB.Move(departmentGroup.Id);
     }
 
     private static void SeedPersonnelCatalogItems(ApplicationDbContext dbContext, Guid tenantId)

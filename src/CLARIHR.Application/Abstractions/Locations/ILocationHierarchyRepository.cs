@@ -16,8 +16,6 @@ public interface ILocationHierarchyRepository
 
     Task<IReadOnlyList<LocationLevel>> GetLevelsAsync(Guid tenantId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<LocationLevel>> GetLevelsForUpdateAsync(Guid tenantId, CancellationToken cancellationToken);
-
     Task<LocationLevel?> GetLevelByIdAsync(Guid levelId, CancellationToken cancellationToken);
 
     Task<bool> LevelExistsOutsideTenantAsync(Guid levelId, CancellationToken cancellationToken);

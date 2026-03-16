@@ -18,4 +18,9 @@ public static class ProvisioningErrors
         "provisioning.initial_legal_representative_required",
         "An initial active legal representative is required to create the company.",
         ErrorType.Validation);
+
+    public static Error CountryNotSupported(string countryCode) => new(
+        "provisioning.country_not_supported",
+        $"The requested country '{countryCode}' does not have a supported location template yet.",
+        ErrorType.Validation);
 }

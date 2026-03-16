@@ -51,7 +51,7 @@ public sealed class OrgStructureCatalogDomainTests
     [Fact]
     public void Company_SetCompanyType_ShouldAllowNullAndPositiveIds()
     {
-        var company = Company.Create("Acme", "acme", Guid.NewGuid());
+        var company = Company.Create("Acme", "acme", Guid.NewGuid(), "SV");
         company.SetCompanyType(100);
         Assert.Equal(100, company.CompanyTypeCatalogItemId);
 

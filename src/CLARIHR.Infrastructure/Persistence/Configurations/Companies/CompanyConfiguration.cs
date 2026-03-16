@@ -28,6 +28,10 @@ internal sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
             .HasColumnName("slug")
             .HasMaxLength(120);
 
+        builder.Property(company => company.CountryCode)
+            .HasColumnName("country_code")
+            .HasMaxLength(3);
+
         builder.Property(company => company.Status)
             .HasColumnName("status")
             .HasConversion<string>()

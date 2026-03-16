@@ -7,6 +7,7 @@ using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
@@ -39,6 +40,11 @@ internal sealed class CompanyProvisioningService(
 
         await planEntitlementService.EnsureFreePlanDefaultsAsync(cancellationToken);
 
+        if (!LocationValidationRules.SupportsSeedCountry(request.CountryCode))
+        {
+            return Result<ProvisionedCompanyResult>.Failure(ProvisioningErrors.CountryNotSupported(request.CountryCode));
+        }
+
         var companyName = request.ProvisionAsInitialCompany
             ? DeriveCompanyName(request.CompanyName, user.FirstName, user.Email)
             : request.CompanyName!.Trim();
@@ -47,6 +53,7 @@ internal sealed class CompanyProvisioningService(
             companyName,
             await GenerateUniqueSlugAsync(companyName, cancellationToken),
             user.PublicId,
+            request.CountryCode,
             request.CompanyTypeCatalogItemId);
         companyRepository.Add(company);
 
@@ -117,7 +124,7 @@ internal sealed class CompanyProvisioningService(
         userCompanyRepository.Add(UserCompanyMembership.Create(user.Id, company.Id, adminRole.Id, request.MakePrimary));
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-        await locationSeedService.InitializeDefaultsAsync(company.PublicId, cancellationToken);
+        await locationSeedService.InitializeDefaultsAsync(company.PublicId, request.CountryCode, cancellationToken);
 
         return Result<ProvisionedCompanyResult>.Success(new ProvisionedCompanyResult(
             company.PublicId,

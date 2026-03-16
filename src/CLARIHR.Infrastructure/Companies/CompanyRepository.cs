@@ -28,6 +28,7 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                 company.CompanyId,
                 company.Name,
                 company.Slug,
+                company.CountryCode,
                 company.Status,
                 company.PlanCode,
                 company.IsActiveContext,
@@ -79,6 +80,7 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                 company.CompanyId,
                 company.Name,
                 company.Slug,
+                company.CountryCode,
                 company.Status,
                 company.PlanCode,
                 company.IsActiveContext,
@@ -131,6 +133,7 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                 CompanyId = company.PublicId,
                 Name = company.Name,
                 Slug = company.Slug,
+                CountryCode = company.CountryCode,
                 Status = company.Status,
                 PlanCode = dbContext.CompanySubscriptions
                     .AsNoTracking()
@@ -172,6 +175,8 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
         public string Name { get; init; } = string.Empty;
 
         public string Slug { get; init; } = string.Empty;
+
+        public string CountryCode { get; init; } = string.Empty;
 
         public CompanyStatus Status { get; init; }
 

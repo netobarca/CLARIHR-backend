@@ -22,7 +22,9 @@ using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Domain.SalaryTabulator;
+using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CLARIHR.Api.IntegrationTests;
 
@@ -114,6 +116,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var createCompanyResponse = await accountClient.PostAsJsonAsync("/api/account/companies", new
         {
             name = "First Access Company",
+            countryCode = "SV",
             initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
         });
         Assert.Equal(HttpStatusCode.Created, createCompanyResponse.StatusCode);
@@ -286,6 +289,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var response = await client.PostAsJsonAsync("/api/account/companies", new
         {
             name = "Acme Three",
+            countryCode = "SV",
             initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
         });
 
@@ -313,7 +317,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var response = await client.PostAsJsonAsync("/api/account/companies", new
         {
-            name = "Acme Three"
+            name = "Acme Three",
+            countryCode = "SV"
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -334,6 +339,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var createResponse = await accountClient.PostAsJsonAsync("/api/account/companies", new
         {
             name = "Acme Three",
+            countryCode = "SV",
             initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
         });
 
@@ -351,7 +357,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var hierarchy = await hierarchyResponse.Content.ReadFromJsonAsync<LocationHierarchyItem>(JsonOptions);
         Assert.NotNull(hierarchy);
-        Assert.False(hierarchy!.IsMultiLevel);
+        Assert.True(hierarchy!.IsMultiLevel);
         Assert.Equal("GENERAL", hierarchy.DefaultGroupCode);
         Assert.Equal("General", hierarchy.DefaultGroupName);
     }
@@ -365,6 +371,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var response = await client.PostAsJsonAsync("/api/account/companies", new
         {
             name = "Acme Three",
+            countryCode = "SV",
             initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
         });
 
@@ -455,7 +462,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             var foreignCompany = Company.Create(
                 "Foreign Company",
                 "foreign-company",
-                Guid.Parse("99999999-9999-9999-9999-999999999999"));
+                Guid.Parse("99999999-9999-9999-9999-999999999999"),
+                "SV");
             dbContext.Companies.Add(foreignCompany);
             await dbContext.SaveChangesAsync();
             foreignCompanyId = foreignCompany.PublicId;
@@ -497,6 +505,19 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var token = new JwtSecurityTokenHandler().ReadJwtToken(payload.AccessToken);
         var tid = token.Claims.Single(claim => claim.Type == "tid").Value;
         Assert.Equal(scenario.OtherTenantId.ToString(), tid);
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var actorUser = dbContext.AuthUsers.Single(user => user.PublicId == scenario.ActorUserId);
+        var primaryMemberships = dbContext.UserCompanyMemberships
+            .Where(membership => membership.UserId == actorUser.Id && membership.IsPrimary)
+            .ToList();
+        var primaryMembership = Assert.Single(primaryMemberships);
+        var primaryCompanyPublicId = dbContext.Companies
+            .Where(company => company.Id == primaryMembership.CompanyId)
+            .Select(company => company.PublicId)
+            .Single();
+        Assert.Equal(scenario.OtherTenantId, primaryCompanyPublicId);
     }
 
     [Fact]
@@ -1025,7 +1046,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var payload = await response.Content.ReadFromJsonAsync<LocationHierarchyItem>(JsonOptions);
         Assert.NotNull(payload);
-        Assert.False(payload!.IsMultiLevel);
+        Assert.True(payload!.IsMultiLevel);
         Assert.Equal("GENERAL", payload.DefaultGroupCode);
         Assert.Equal("General", payload.DefaultGroupName);
     }
@@ -1079,7 +1100,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task LocationLevels_List_ShouldReturnSeededGeneralLevel()
+    public async Task LocationLevels_List_ShouldReturnSeededCountryTemplate()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateLocationReadContext(scenario));
@@ -1090,58 +1111,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<LocationLevelItem>>(JsonOptions);
         Assert.NotNull(payload);
-        var level = Assert.Single(payload!);
-        Assert.Equal(1, level.LevelOrder);
-        Assert.Equal("General", level.DisplayName);
-        Assert.True(level.IsActive);
-        Assert.True(level.IsRequired);
-        Assert.True(level.AllowsWorkCenters);
-    }
-
-    [Fact]
-    public async Task LocationGroups_Create_ShouldReturnCreatedGroup()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
-
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
-        {
-            levelOrder = 1,
-            code = "WEST",
-            name = "West",
-            parentId = (Guid?)null,
-            description = "Western location group"
-        });
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        var payload = await response.Content.ReadFromJsonAsync<LocationGroupItem>(JsonOptions);
-        Assert.NotNull(payload);
-        Assert.Equal("WEST", payload!.Code);
-        Assert.Equal("West", payload.Name);
-        Assert.True(payload.IsActive);
-        Assert.False(payload.IsDefault);
-    }
-
-    [Fact]
-    public async Task Locations_BootstrapTree_ShouldReplaceSeedAndKeepCrudCompatible()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
-
-        var response = await client.PostAsJsonAsync(
-            $"/api/v1/companies/{scenario.TenantId}/locations/bootstrap-tree",
-            CreateLocationBootstrapRequest());
-
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-        var payload = await response.Content.ReadFromJsonAsync<LocationBootstrapTreeItem>(JsonOptions);
-        Assert.NotNull(payload);
-        Assert.True(payload!.Hierarchy.IsMultiLevel);
-        Assert.Equal("SV", payload.Hierarchy.DefaultGroupCode);
-        Assert.Equal("El Salvador", payload.Hierarchy.DefaultGroupName);
-
-        var levels = payload.Levels.OrderBy(level => level.LevelOrder).ToArray();
+        var levels = payload!.OrderBy(level => level.LevelOrder).ToArray();
         Assert.Equal(3, levels.Length);
         Assert.Collection(
             levels,
@@ -1169,133 +1139,31 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 Assert.False(level.IsRequired);
                 Assert.True(level.AllowsWorkCenters);
             });
-
-        var country = Assert.Single(payload.Locations);
-        Assert.Equal(1, country.LevelOrder);
-        Assert.Equal("SV", country.Code);
-        Assert.True(country.IsDefault);
-        Assert.Null(country.ParentId);
-
-        var department = Assert.Single(country.Children);
-        Assert.Equal(2, department.LevelOrder);
-        Assert.Equal("SS", department.Code);
-        Assert.Equal(country.Id, department.ParentId);
-        Assert.False(department.IsDefault);
-
-        var municipality = Assert.Single(department.Children);
-        Assert.Equal(3, municipality.LevelOrder);
-        Assert.Equal("SS-CENTRO", municipality.Code);
-        Assert.Equal(department.Id, municipality.ParentId);
-        Assert.Empty(municipality.Children);
-
-        var hierarchy = await GetLocationHierarchyAsync(client, scenario.TenantId);
-        Assert.True(hierarchy.IsMultiLevel);
-        Assert.Equal("SV", hierarchy.DefaultGroupCode);
-
-        var tree = await GetLocationGroupTreeAsync(client, scenario.TenantId);
-        var treeRoot = Assert.Single(tree);
-        Assert.Equal("SV", treeRoot.Code);
-
-        var createDepartmentResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
-        {
-            levelOrder = 2,
-            code = "LP",
-            name = "La Paz",
-            parentId = country.Id,
-            description = "Additional department"
-        });
-
-        Assert.Equal(HttpStatusCode.Created, createDepartmentResponse.StatusCode);
     }
 
     [Fact]
-    public async Task Locations_BootstrapTree_WhenTenantAlreadyHasExtraGroups_ShouldReturn409()
+    public async Task LocationGroups_Create_ShouldReturnCreatedGroup()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
 
-        var createGroupResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
+        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
         {
             levelOrder = 1,
             code = "WEST",
             name = "West",
             parentId = (Guid?)null,
-            description = "Existing location group"
+            description = "Western location group"
         });
-        createGroupResponse.EnsureSuccessStatusCode();
 
-        var response = await client.PostAsJsonAsync(
-            $"/api/v1/companies/{scenario.TenantId}/locations/bootstrap-tree",
-            CreateLocationBootstrapRequest());
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "LOCATION_TREE_BOOTSTRAP_NOT_ALLOWED");
-    }
-
-    [Fact]
-    public async Task Locations_BootstrapTree_WhenActiveWorkCentersExist_ShouldReturn409()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
-
-        var defaultGroup = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
-
-        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
-        {
-            code = "AGENCY",
-            name = "Agency",
-            requiresAddress = true,
-            requiresGeo = false,
-            allowsBiometric = true
-        });
-        typeResponse.EnsureSuccessStatusCode();
-        var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
-
-        var workCenterResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
-        {
-            code = "CEN-001",
-            name = "Centro General",
-            workCenterTypeId = workCenterType!.Id,
-            locationGroupId = defaultGroup.Id,
-            address = "San Salvador",
-            geoLat = (decimal?)null,
-            geoLong = (decimal?)null,
-            phone = "2222-2222",
-            email = "centro@acme-one.test",
-            notes = "Centro inicial"
-        });
-        workCenterResponse.EnsureSuccessStatusCode();
-
-        var response = await client.PostAsJsonAsync(
-            $"/api/v1/companies/{scenario.TenantId}/locations/bootstrap-tree",
-            CreateLocationBootstrapRequest());
-
-        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "LOCATION_TREE_BOOTSTRAP_NOT_ALLOWED");
-    }
-
-    [Fact]
-    public async Task Locations_BootstrapTree_WhenTreeDepthExceedsThreeLevels_ShouldReturn400()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
-
-        var response = await client.PostAsJsonAsync(
-            $"/api/v1/companies/{scenario.TenantId}/locations/bootstrap-tree",
-            CreateLocationBootstrapRequest(includeFourthLevel: true));
-
-        await AssertProblemDetailsAsync(response, HttpStatusCode.BadRequest, "common.validation");
-    }
-
-    [Fact]
-    public async Task Locations_BootstrapTree_WhenCodesRepeatWithinPayload_ShouldReturn400()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
-
-        var response = await client.PostAsJsonAsync(
-            $"/api/v1/companies/{scenario.TenantId}/locations/bootstrap-tree",
-            CreateLocationBootstrapRequest(duplicateMunicipalityCode: true));
-
-        await AssertProblemDetailsAsync(response, HttpStatusCode.BadRequest, "common.validation");
+        var payload = await response.Content.ReadFromJsonAsync<LocationGroupItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("WEST", payload!.Code);
+        Assert.Equal("West", payload.Name);
+        Assert.True(payload.IsActive);
+        Assert.False(payload.IsDefault);
     }
 
     [Fact]
@@ -1382,17 +1250,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
-
-        var groupResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
-        {
-            levelOrder = 1,
-            code = "WEST",
-            name = "West",
-            parentId = (Guid?)null,
-            description = "Western location group"
-        });
-        groupResponse.EnsureSuccessStatusCode();
-        var group = await groupResponse.Content.ReadFromJsonAsync<LocationGroupItem>(JsonOptions);
+        var group = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
 
         var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
         {
@@ -1408,15 +1266,15 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var createCenterResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
         {
             code = "CEN-001",
-            name = "Centro West",
+            name = "Centro Apopa",
             workCenterTypeId = workCenterType!.Id,
-            locationGroupId = group!.Id,
+            locationGroupId = group.Id,
             address = "San Salvador",
             geoLat = (decimal?)null,
             geoLong = (decimal?)null,
             phone = "2222-2222",
-            email = "west@acme-one.test",
-            notes = "Centro West"
+            email = "apopa@acme-one.test",
+            notes = "Centro Apopa"
         });
         createCenterResponse.EnsureSuccessStatusCode();
 
@@ -4288,7 +4146,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         response.EnsureSuccessStatusCode();
         var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<LocationGroupItem>>(JsonOptions);
         Assert.NotNull(payload);
-        return Assert.Single(payload!.Items, static group => group.IsDefault);
+        return Assert.Single(payload!.Items, static group => group.LevelOrder == 3 && group.Code == "APOPA");
     }
 
     private async Task<IReadOnlyCollection<LocationGroupTreeItem>> GetLocationGroupTreeAsync(HttpClient client, Guid companyId)
@@ -4296,42 +4154,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var response = await client.GetAsync($"/api/v1/companies/{companyId}/location-groups/tree");
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<IReadOnlyCollection<LocationGroupTreeItem>>(JsonOptions))!;
-    }
-
-    private static LocationBootstrapRequest CreateLocationBootstrapRequest(
-        bool includeFourthLevel = false,
-        bool duplicateMunicipalityCode = false)
-    {
-        var municipalityCode = duplicateMunicipalityCode ? "SS" : "SS-CENTRO";
-        var municipalityChildren = includeFourthLevel
-            ? new[]
-            {
-                new LocationBootstrapNodeRequest(
-                    "SS-CENTRO-D1",
-                    "Distrito 1",
-                    null,
-                    [])
-            }
-            : [];
-
-        return new LocationBootstrapRequest(
-            new LocationBootstrapNodeRequest(
-                "SV",
-                "El Salvador",
-                "country-root",
-                [
-                    new LocationBootstrapNodeRequest(
-                        "SS",
-                        "San Salvador",
-                        "dept-ss-id",
-                        [
-                            new LocationBootstrapNodeRequest(
-                                municipalityCode,
-                                "San Salvador Centro",
-                                null,
-                                municipalityChildren)
-                        ])
-                ]));
     }
 
     private async Task<OrgUnitItem> CreateOrgUnitAsync(
@@ -4856,6 +4678,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid CompanyId,
         string Name,
         string Slug,
+        string CountryCode,
         string Status,
         string PlanCode,
         bool IsActiveContext,
@@ -4867,6 +4690,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid CompanyId,
         string Name,
         string Slug,
+        string CountryCode,
         string Status,
         string PlanCode,
         bool IsActiveContext,
@@ -5023,6 +4847,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid CompanyId,
         string Name,
         string Slug,
+        string CountryCode,
         string Status);
 
     private sealed record SwitchActiveCompanyItem(
@@ -5071,19 +4896,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         bool IsDefault,
         Guid ConcurrencyToken,
         IReadOnlyCollection<LocationGroupTreeItem> Children);
-
-    private sealed record LocationBootstrapTreeItem(
-        LocationHierarchyItem Hierarchy,
-        IReadOnlyCollection<LocationLevelItem> Levels,
-        IReadOnlyCollection<LocationGroupTreeItem> Locations);
-
-    private sealed record LocationBootstrapRequest(LocationBootstrapNodeRequest Root);
-
-    private sealed record LocationBootstrapNodeRequest(
-        string Code,
-        string Name,
-        string? Description,
-        IReadOnlyCollection<LocationBootstrapNodeRequest> Children);
 
     private sealed record WorkCenterTypeItem(
         Guid Id,

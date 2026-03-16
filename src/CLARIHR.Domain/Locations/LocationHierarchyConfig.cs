@@ -34,19 +34,9 @@ public sealed class LocationHierarchyConfig : TenantEntity
     public static LocationHierarchyConfig Create(bool isMultiLevel, string defaultGroupCode, string defaultGroupName) =>
         new(Guid.NewGuid(), isMultiLevel, defaultGroupCode, defaultGroupName);
 
-    public void Update(bool isMultiLevel, string? defaultGroupCode = null, string? defaultGroupName = null)
+    public void Update(bool isMultiLevel)
     {
         IsMultiLevel = isMultiLevel;
-        if (defaultGroupCode is not null)
-        {
-            DefaultGroupCode = LocationNormalization.NormalizeCode(defaultGroupCode);
-        }
-
-        if (defaultGroupName is not null)
-        {
-            DefaultGroupName = LocationNormalization.Clean(defaultGroupName, nameof(defaultGroupName));
-        }
-
         RefreshConcurrencyToken();
     }
 

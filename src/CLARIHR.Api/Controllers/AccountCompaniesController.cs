@@ -60,6 +60,7 @@ public sealed class AccountCompaniesController(
         var result = await commandDispatcher.SendAsync(
             new CreateAccountCompanyCommand(
                 request.Name,
+                request.CountryCode,
                 request.CompanyTypeId,
                 new InitialLegalRepresentativeInput(
                     request.InitialLegalRepresentative.FirstName,
@@ -148,6 +149,7 @@ public sealed class AccountCompaniesController(
 
     public sealed record CreateAccountCompanyRequest(
         string Name,
+        string CountryCode,
         Guid? CompanyTypeId,
         InitialLegalRepresentativeRequest InitialLegalRepresentative);
 

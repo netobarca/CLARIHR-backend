@@ -11,6 +11,17 @@ public static partial class LocationValidationRules
     public const string DefaultGroupCode = "GENERAL";
     public const string DefaultGroupName = "General";
     public const string GeneralLevelDisplayName = "General";
+    public const string CountryLevelDisplayName = "Pais";
+    public const string DepartmentLevelDisplayName = "Departamento";
+    public const string MunicipalityLevelDisplayName = "Municipio";
+    public const string ElSalvadorCountryCode = "SV";
+    public const string ElSalvadorCountryName = "El Salvador";
+
+    public static string NormalizeCountryCode(string countryCode) =>
+        countryCode.Trim().ToUpperInvariant();
+
+    public static bool SupportsSeedCountry(string countryCode) =>
+        NormalizeCountryCode(countryCode) == ElSalvadorCountryCode;
 
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
@@ -118,11 +129,6 @@ public static class LocationErrors
     public static readonly Error DefaultGroupProtected = new(
         "DEFAULT_GROUP_PROTECTED",
         "The default location group is protected and cannot be renamed, recoded or inactivated.",
-        ErrorType.Conflict);
-
-    public static readonly Error TreeBootstrapNotAllowed = new(
-        "LOCATION_TREE_BOOTSTRAP_NOT_ALLOWED",
-        "The location tree bootstrap is only available while the tenant remains in the default seeded state.",
         ErrorType.Conflict);
 
     public static readonly Error LastActiveLevelRequired = new(

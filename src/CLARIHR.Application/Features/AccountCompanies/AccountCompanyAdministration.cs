@@ -137,6 +137,7 @@ internal sealed class CreateAccountCompanyCommandHandler(
                 new ProvisionCompanyRequest(
                     currentUserResult.Value.PublicId,
                     command.Name,
+                    command.CountryCode,
                     command.InitialLegalRepresentative,
                     MakePrimary: false,
                     ProvisioningConstants.FreePlanCode,
@@ -516,7 +517,7 @@ internal sealed class SwitchActiveCompanyCommandHandler(
                     company.Slug,
                     AuditActions.Switch,
                     $"Switched active company to {company.Name}.",
-                    After: new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.Status)),
+                    After: new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.CountryCode, company.Status)),
                 cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
@@ -525,7 +526,7 @@ internal sealed class SwitchActiveCompanyCommandHandler(
                 tokenResult.Value.AccessToken,
                 tokenResult.Value.RefreshToken,
                 tokenResult.Value.ExpiresIn,
-                new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.Status)));
+                new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.CountryCode, company.Status)));
         }
         catch
         {
