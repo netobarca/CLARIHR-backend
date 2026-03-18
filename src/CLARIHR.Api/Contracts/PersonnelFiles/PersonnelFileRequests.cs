@@ -1,0 +1,487 @@
+using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Domain.PersonnelFiles;
+using Microsoft.AspNetCore.Http;
+
+namespace CLARIHR.Api.Contracts.PersonnelFiles;
+
+public sealed record CreatePersonnelFileRequest(
+    PersonnelFileRecordType RecordType,
+    string FirstName,
+    string LastName,
+    DateTime BirthDate,
+    string? MaritalStatus,
+    string? Profession,
+    string? Nationality,
+    string? PersonalEmail,
+    string? InstitutionalEmail,
+    string? PersonalPhone,
+    string? InstitutionalPhone,
+    string? BirthCountry,
+    string? BirthDepartment,
+    string? BirthMunicipality,
+    string? PhotoUrl,
+    Guid? OrgUnitId,
+    string? CustomDataJson,
+    IReadOnlyCollection<IdentificationItemRequest> Identifications);
+
+public sealed record UpdatePersonnelFilePersonalInfoRequest(
+    PersonnelFileRecordType RecordType,
+    string FirstName,
+    string LastName,
+    DateTime BirthDate,
+    string? MaritalStatus,
+    string? Profession,
+    string? Nationality,
+    string? PersonalEmail,
+    string? InstitutionalEmail,
+    string? PersonalPhone,
+    string? InstitutionalPhone,
+    string? BirthCountry,
+    string? BirthDepartment,
+    string? BirthMunicipality,
+    string? PhotoUrl,
+    Guid? OrgUnitId,
+    string? CustomDataJson,
+    Guid ConcurrencyToken);
+
+public sealed record HirePersonnelFileRequest(
+    string EmployeeCode,
+    string EmploymentStatusCode,
+    bool IsEmploymentActive,
+    string ContractTypeCode,
+    DateTime HireDate,
+    string? WorkdayCode,
+    string? PayrollTypeCode,
+    Guid ConcurrencyToken);
+
+public sealed record UpdatePersonnelFileEmployeeProfileRequest(
+    string EmployeeCode,
+    string EmploymentStatusCode,
+    bool IsEmploymentActive,
+    string ContractTypeCode,
+    DateTime HireDate,
+    string? RetirementCategoryCode,
+    string? RetirementReasonCode,
+    string? RetirementNotes,
+    DateTime? RetirementDate,
+    string? WorkdayCode,
+    string? PayrollTypeCode,
+    Guid? PositionSlotId,
+    Guid? JobProfileId,
+    Guid? OrgUnitId,
+    Guid? WorkCenterId,
+    Guid? CostCenterId,
+    DateTime? ContractStartDate,
+    DateTime? ContractEndDate,
+    string? VacationConfigurationJson,
+    Guid ConcurrencyToken);
+
+public sealed record EmploymentAssignmentItemRequest(
+    string AssignmentTypeCode,
+    Guid? PositionSlotId,
+    Guid? OrgUnitId,
+    Guid? WorkCenterId,
+    Guid? CostCenterId,
+    DateTime StartDate,
+    DateTime? EndDate,
+    bool IsPrimary,
+    bool IsActive,
+    string? Notes);
+
+public sealed record ReplaceEmploymentAssignmentsRequest(IReadOnlyCollection<EmploymentAssignmentItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record ContractHistoryItemRequest(
+    string ContractTypeCode,
+    DateTime ContractDate,
+    DateTime? ContractEndDate,
+    Guid? PositionSlotId,
+    string? Notes);
+
+public sealed record ReplaceContractHistoryRequest(IReadOnlyCollection<ContractHistoryItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record SalaryItemItemRequest(
+    string IncomeTypeCode,
+    string SalaryRubricCode,
+    string CurrencyCode,
+    string PayPeriodCode,
+    decimal Amount,
+    DateTime StartDate,
+    DateTime? EndDate,
+    bool IsActive);
+
+public sealed record ReplaceSalaryItemsRequest(IReadOnlyCollection<SalaryItemItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record AdditionalBenefitItemRequest(
+    string BenefitTypeCode,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    bool IsActive,
+    string? Notes);
+
+public sealed record ReplaceAdditionalBenefitsRequest(IReadOnlyCollection<AdditionalBenefitItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record PaymentMethodItemRequest(
+    string PaymentMethodCode,
+    Guid? BankAccountId,
+    bool IsPrimary,
+    bool IsActive,
+    DateTime EffectiveFromUtc,
+    DateTime? EffectiveToUtc,
+    string? Notes);
+
+public sealed record ReplacePaymentMethodsRequest(IReadOnlyCollection<PaymentMethodItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record AuthorizationSubstitutionItemRequest(
+    string SubstitutionTypeCode,
+    Guid SubstitutePersonnelFileId,
+    string? SubstitutePositionTitle,
+    DateTime StartDate,
+    DateTime? EndDate,
+    bool IsActive,
+    string? Notes);
+
+public sealed record ReplaceAuthorizationSubstitutionsRequest(
+    IReadOnlyCollection<AuthorizationSubstitutionItemRequest> Items,
+    Guid ConcurrencyToken);
+
+public sealed record AddPersonnelActionRequest(
+    string ActionTypeCode,
+    string ActionStatusCode,
+    DateTime ActionDateUtc,
+    DateTime? EffectiveFromUtc,
+    DateTime? EffectiveToUtc,
+    string? Description,
+    string? Reference,
+    decimal? Amount,
+    string? CurrencyCode,
+    Guid ConcurrencyToken);
+
+public sealed record PayrollTransactionItemRequest(
+    string TransactionTypeCode,
+    DateTime TransactionDateUtc,
+    string PayrollPeriodCode,
+    string? Description,
+    decimal Amount,
+    string CurrencyCode,
+    bool IsDebit,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc);
+
+public sealed record ReplacePayrollTransactionsRequest(IReadOnlyCollection<PayrollTransactionItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record AssetAccessItemRequest(
+    string AssetTypeCode,
+    string AssetOrAccessName,
+    string? AccessLevelCode,
+    DateTime StartDateUtc,
+    DateTime? EndDateUtc,
+    DateTime? DeliveryDateUtc,
+    string? DeliveryStatusCode,
+    bool IsActive,
+    string? Notes);
+
+public sealed record ReplaceAssetsAccessesRequest(IReadOnlyCollection<AssetAccessItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record InsuranceBeneficiaryItemRequest(
+    string FullName,
+    string? DocumentNumber,
+    DateTime? BirthDate,
+    string KinshipCode);
+
+public sealed record InsuranceItemRequest(
+    string InsuranceCode,
+    decimal? EmployeeContribution,
+    decimal? EmployerContribution,
+    string? RangeCode,
+    string? PolicyNumber,
+    decimal? InsuredAmount,
+    string? CurrencyCode,
+    bool IsActive,
+    DateTime? StartDateUtc,
+    DateTime? EndDateUtc,
+    IReadOnlyCollection<InsuranceBeneficiaryItemRequest> Beneficiaries);
+
+public sealed record ReplaceInsurancesRequest(IReadOnlyCollection<InsuranceItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record MedicalClaimItemRequest(
+    Guid? InsuranceId,
+    string? AccountNumber,
+    string ClaimTypeCode,
+    string? Diagnosis,
+    decimal? ClaimAmount,
+    string? CurrencyCode,
+    decimal? PaidAmount,
+    int? ResponseTimeDays,
+    string? Notes,
+    DateTime ClaimDateUtc,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc);
+
+public sealed record ReplaceMedicalClaimsRequest(IReadOnlyCollection<MedicalClaimItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record PerformanceEvaluationItemRequest(
+    string EvaluatorName,
+    DateTime EvaluationDateUtc,
+    decimal? Score,
+    string? QualitativeScoreCode,
+    string? Comment,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc);
+
+public sealed record ReplacePerformanceEvaluationsRequest(IReadOnlyCollection<PerformanceEvaluationItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record PositionCompetencyResultItemRequest(
+    string CompetencyCode,
+    string? DesiredBehaviors,
+    decimal? ExpectedScore,
+    decimal? AchievedScore,
+    decimal? GapScore,
+    DateTime? EvaluationDateUtc,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc);
+
+public sealed record ReplacePositionCompetencyResultsRequest(
+    IReadOnlyCollection<PositionCompetencyResultItemRequest> Items,
+    Guid ConcurrencyToken);
+
+public sealed record SelectionContestItemRequest(
+    string ContestCode,
+    string ContestName,
+    DateTime ContestDateUtc,
+    string ResultCode,
+    string? Notes,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc);
+
+public sealed record ReplaceSelectionContestsRequest(IReadOnlyCollection<SelectionContestItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record CurricularCompetencyItemRequest(
+    string RequirementTypeCode,
+    string RequirementName,
+    string CompetencyDomain,
+    decimal? ExperienceTimeValue,
+    string? MetricCode,
+    string? Notes,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc);
+
+public sealed record ReplaceCurricularCompetenciesRequest(IReadOnlyCollection<CurricularCompetencyItemRequest> Items, Guid ConcurrencyToken);
+
+public sealed record IdentificationItemRequest(
+    string IdentificationType,
+    string IdentificationNumber,
+    DateTime? IssuedDate,
+    DateTime? ExpiryDate,
+    string? Issuer,
+    bool IsPrimary = false);
+
+public sealed record ReplaceIdentificationsRequest(
+    IReadOnlyCollection<IdentificationItemRequest> Identifications,
+    Guid ConcurrencyToken);
+
+public sealed record AddressItemRequest(
+    string AddressLine,
+    string? Country,
+    string? Department,
+    string? Municipality,
+    string? PostalCode,
+    bool IsCurrent = false);
+
+public sealed record ReplaceAddressesRequest(IReadOnlyCollection<AddressItemRequest> Addresses, Guid ConcurrencyToken);
+
+public sealed record EmergencyContactItemRequest(
+    string Name,
+    string Relationship,
+    string Phone,
+    string? Address,
+    string? Workplace);
+
+public sealed record ReplaceEmergencyContactsRequest(IReadOnlyCollection<EmergencyContactItemRequest> Contacts, Guid ConcurrencyToken);
+
+public sealed record FamilyMemberItemRequest(
+    string FirstName,
+    string LastName,
+    string Relationship,
+    string? Nationality,
+    DateTime? BirthDate,
+    PersonnelFamilyMemberSex Sex,
+    string? MaritalStatus,
+    string? Occupation,
+    string? DocumentType,
+    string? DocumentNumber,
+    string? Phone,
+    bool IsStudying,
+    string? StudyPlace,
+    string? AcademicLevel,
+    bool IsBeneficiary,
+    bool IsWorking,
+    string? Workplace,
+    string? JobTitle,
+    string? WorkPhone,
+    decimal? Salary,
+    bool IsDeceased,
+    DateTime? DeceasedDate);
+
+public sealed record ReplaceFamilyMembersRequest(IReadOnlyCollection<FamilyMemberItemRequest> FamilyMembers, Guid ConcurrencyToken);
+
+public sealed record HobbyItemRequest(string HobbyName);
+
+public sealed record ReplaceHobbiesRequest(IReadOnlyCollection<HobbyItemRequest> Hobbies, Guid ConcurrencyToken);
+
+public sealed record EmployeeRelationItemRequest(string RelatedEmployeeName, string Relationship);
+
+public sealed record ReplaceEmployeeRelationsRequest(IReadOnlyCollection<EmployeeRelationItemRequest> Relations, Guid ConcurrencyToken);
+
+public sealed record BankAccountItemRequest(
+    string BankCode,
+    string CurrencyCode,
+    string AccountNumber,
+    string AccountTypeCode,
+    bool IsPrimary = false);
+
+public sealed record ReplaceBankAccountsRequest(IReadOnlyCollection<BankAccountItemRequest> BankAccounts, Guid ConcurrencyToken);
+
+public sealed record AssociationItemRequest(
+    string AssociationName,
+    string? Role,
+    DateTime? JoinedDate,
+    DateTime? LeftDate,
+    decimal? Payment);
+
+public sealed record ReplaceAssociationsRequest(IReadOnlyCollection<AssociationItemRequest> Associations, Guid ConcurrencyToken);
+
+public sealed record EducationItemRequest(
+    string StatusCode,
+    string? DegreeTitle,
+    string StudyTypeCode,
+    string Career,
+    string Institution,
+    string CountryCode,
+    string? Specialty,
+    bool IsCurrentlyStudying,
+    DateTime StartDate,
+    DateTime? EndDate,
+    string? ShiftCode,
+    string? ModalityCode,
+    int? TotalSubjects,
+    int? ApprovedSubjects);
+
+public sealed record ReplaceEducationsRequest(IReadOnlyCollection<EducationItemRequest> Educations, Guid ConcurrencyToken);
+
+public sealed record LanguageItemRequest(
+    string LanguageCode,
+    string LevelCode,
+    bool Speaks,
+    bool Writes,
+    bool Reads);
+
+public sealed record ReplaceLanguagesRequest(IReadOnlyCollection<LanguageItemRequest> Languages, Guid ConcurrencyToken);
+
+public sealed record TrainingItemRequest(
+    string TrainingName,
+    string TrainingTypeCode,
+    string? Description,
+    string? Topic,
+    string? Institution,
+    string? Instructors,
+    decimal? Score,
+    DateTime StartDate,
+    DateTime? EndDate,
+    bool IsInternal,
+    bool IsLocal,
+    string CountryCode,
+    decimal DurationValue,
+    string DurationUnitCode,
+    decimal? CostAmount,
+    string? CostCurrencyCode);
+
+public sealed record ReplaceTrainingsRequest(IReadOnlyCollection<TrainingItemRequest> Trainings, Guid ConcurrencyToken);
+
+public sealed record PreviousEmploymentItemRequest(
+    string Institution,
+    string? Place,
+    string? LastPosition,
+    string? ManagerName,
+    DateTime EntryDate,
+    DateTime? RetirementDate,
+    string? CompanyPhone,
+    string? ExitReason,
+    decimal? FirstSalaryAmount,
+    decimal? LastSalaryAmount,
+    decimal? AverageCommissionAmount,
+    string CurrencyCode);
+
+public sealed record ReplacePreviousEmploymentsRequest(
+    IReadOnlyCollection<PreviousEmploymentItemRequest> PreviousEmployments,
+    Guid ConcurrencyToken);
+
+public sealed record ReferenceItemRequest(
+    string PersonName,
+    string? Address,
+    string Phone,
+    string ReferenceTypeCode,
+    string? Occupation,
+    string? Workplace,
+    string? WorkPhone,
+    decimal KnownTimeYears);
+
+public sealed record ReplaceReferencesRequest(IReadOnlyCollection<ReferenceItemRequest> References, Guid ConcurrencyToken);
+
+public sealed record DynamicPersonnelFileFilterRequest(
+    string Field,
+    string Operator,
+    string? Value,
+    string? ValueTo,
+    IReadOnlyCollection<string>? Values);
+
+public sealed record DynamicPersonnelFileSortRequest(
+    string Field,
+    PersonnelFileSortDirection Direction = PersonnelFileSortDirection.Asc);
+
+public sealed record DynamicQueryPersonnelFilesRequest(
+    IReadOnlyCollection<DynamicPersonnelFileFilterRequest>? Filters,
+    IReadOnlyCollection<string>? GroupBy,
+    IReadOnlyCollection<DynamicPersonnelFileSortRequest>? Sort,
+    string? Q,
+    int Page = 1,
+    int PageSize = PersonnelFileValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false);
+
+public sealed record UploadPersonnelFileDocumentRequest(
+    string DocumentType,
+    string? Observations,
+    DateTime? DeliveryDate,
+    DateTime? LoanDate,
+    DateTime? ReturnDate,
+    Guid ConcurrencyToken,
+    IFormFile File);
+
+public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
+
+public sealed record AddObservationRequest(string Note, Guid ConcurrencyToken);
+
+public sealed record CreateCustomFieldDefinitionRequest(
+    string Key,
+    string Label,
+    PersonnelCustomFieldType FieldType,
+    bool IsRequired,
+    bool IsActive,
+    string? OptionsJson,
+    int SortOrder);
+
+public sealed record UpdateCustomFieldDefinitionRequest(
+    string Key,
+    string Label,
+    PersonnelCustomFieldType FieldType,
+    bool IsRequired,
+    bool IsActive,
+    string? OptionsJson,
+    int SortOrder,
+    Guid ConcurrencyToken);
