@@ -8,6 +8,7 @@ using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.AccountCompanies;
 using CLARIHR.Application.Features.CompanyUsers;
+using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Application.Features.LegalRepresentatives;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
@@ -68,7 +69,15 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         Assert.Equal(2, iamRepository.Roles.Count);
         Assert.Contains(iamRepository.Roles, role => role.Name == ProvisioningConstants.CompanyAdminRoleName && role.IsSystemRole);
         Assert.Contains(iamRepository.Roles, role => role.Name == ProvisioningConstants.StandardUserRoleName && role.IsSystemRole);
-        Assert.Equal(ProvisioningConstants.CompanyAdminPermissions.Length, iamRepository.Permissions.Count);
+        Assert.Equal(
+            ProvisioningConstants.CompanyAdminPermissions.Length + PermissionMatrixCatalog.AllMatrixCodes.Count,
+            iamRepository.Permissions.Count);
+        Assert.All(
+            PermissionMatrixCatalog.AllMatrixCodes,
+            code => Assert.Contains(
+                iamRepository.Permissions,
+                permission => permission.TenantId == companyRepository.Items[0].PublicId &&
+                              permission.NormalizedCode == code.ToUpperInvariant()));
         Assert.Single(iamRepository.Users);
         Assert.Equal(user.PublicId, iamRepository.Users[0].PublicId);
         Assert.Single(userCompanyRepository.Items);

@@ -7,6 +7,7 @@ using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Common;
@@ -83,8 +84,10 @@ internal sealed class CompanyProvisioningService(
             request.PlanCode,
             dateTimeProvider.UtcNow));
 
-        var permissions = CreateAdminPermissions(company.PublicId);
-        foreach (var permission in permissions)
+        var adminPermissions = CreateAdminPermissions(company.PublicId);
+        var matrixPermissions = CreateMatrixPermissions(company.PublicId);
+
+        foreach (var permission in adminPermissions.Concat(matrixPermissions))
         {
             iamRepository.AddPermission(permission);
         }
@@ -96,7 +99,7 @@ internal sealed class CompanyProvisioningService(
             "Administrador inicial del tenant.",
             isSystemRole: true);
         adminRole.SetTenantId(company.PublicId);
-        adminRole.SyncPermissions(permissions);
+        adminRole.SyncPermissions(adminPermissions);
         StampTenant(adminRole.PermissionAssignments, company.PublicId);
 
         var standardRole = IamRole.Create(
@@ -187,6 +190,21 @@ internal sealed class CompanyProvisioningService(
                     definition.Module,
                     definition.Screen,
                     definition.Action);
+                permission.SetTenantId(tenantId);
+                return permission;
+            })
+            .ToArray();
+
+        return permissions;
+    }
+
+    private static IReadOnlyList<IamPermission> CreateMatrixPermissions(Guid tenantId)
+    {
+        var permissions = PermissionMatrixCatalog.Screens
+            .SelectMany(static definition => definition.SupportedActions.Select(action => (Screen: definition.ScreenKey, Action: action)))
+            .Select(definition =>
+            {
+                var permission = PermissionMatrixCatalog.CreatePermission(definition.Screen, definition.Action);
                 permission.SetTenantId(tenantId);
                 return permission;
             })

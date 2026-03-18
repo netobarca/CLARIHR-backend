@@ -22,9 +22,11 @@ using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Domain.SalaryTabulator;
+using CLARIHR.Infrastructure;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CLARIHR.Api.IntegrationTests;
 
@@ -3554,6 +3556,49 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Contains(payload!.Items, static item => item.ResourceKey == "RBAC_USERS");
         Assert.Contains(payload.Items, static item => item.ResourceKey == "RBAC_ROLES");
         Assert.Contains(payload.Items, static item => item.ResourceKey == "RBAC_PERMISSIONS");
+    }
+
+    [Fact]
+    public async Task InfrastructureInitialization_ShouldSeedRbacCatalogResourcesAndMatrixPermissions()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        var matrixCodes = PermissionMatrixCatalog.AllMatrixCodes
+            .Select(static code => code.ToUpperInvariant())
+            .ToArray();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var seededMatrixPermissions = await dbContext.IamPermissions
+                .Where(permission => permission.TenantId == scenario.TenantId && matrixCodes.Contains(permission.NormalizedCode))
+                .ToListAsync();
+
+            dbContext.IamPermissions.RemoveRange(seededMatrixPermissions);
+            dbContext.RbacResources.RemoveRange(dbContext.RbacResources);
+            await dbContext.SaveChangesAsync();
+        }
+
+        await factory.Services.InitializeInfrastructureAsync(NullLogger.Instance);
+
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationDbContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var resources = await verificationDbContext.RbacResources
+            .AsNoTracking()
+            .OrderBy(resource => resource.ResourceKey)
+            .ToListAsync();
+        Assert.Equal(PermissionMatrixCatalog.Screens.Count, resources.Count);
+        Assert.All(
+            PermissionMatrixCatalog.Screens,
+            screen => Assert.Contains(resources, resource => resource.ResourceKey == screen.ResourceKey));
+
+        var tenantMatrixPermissions = await verificationDbContext.IamPermissions
+            .AsNoTracking()
+            .Where(permission => permission.TenantId == scenario.TenantId && matrixCodes.Contains(permission.NormalizedCode))
+            .Select(permission => permission.NormalizedCode)
+            .ToListAsync();
+        Assert.Equal(matrixCodes.Length, tenantMatrixPermissions.Count);
+        Assert.All(matrixCodes, code => Assert.Contains(code, tenantMatrixPermissions));
     }
 
     [Fact]
