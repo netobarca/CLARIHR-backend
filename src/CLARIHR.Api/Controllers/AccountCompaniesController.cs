@@ -3,6 +3,7 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.AccountCompanies;
+using CLARIHR.Application.Features.LegalRepresentatives;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.LegalRepresentatives;
@@ -45,6 +46,36 @@ public sealed class AccountCompaniesController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetOwnedCompanyByIdQuery(companyId), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("legal-representative-document-types")]
+    [ProducesResponseType<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>> GetLegalRepresentativeDocumentTypes(
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetLegalRepresentativeDocumentTypesQuery(), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("legal-representative-position-titles")]
+    [ProducesResponseType<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>>> GetLegalRepresentativePositionTitles(
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetLegalRepresentativePositionTitlesQuery(), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("legal-representative-representation-types")]
+    [ProducesResponseType<IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>>> GetLegalRepresentativeRepresentationTypes(
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetLegalRepresentativeRepresentationTypesQuery(), cancellationToken);
         return this.ToActionResult(result);
     }
 

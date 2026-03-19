@@ -159,6 +159,54 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
             CanInactivate: canInactivate);
     }
 
+    public async Task<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>> GetDocumentTypeCatalogItemsAsync(
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.LegalRepresentativeDocumentTypeCatalogItems
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Id)
+            .Select(item => new LegalRepresentativeDocumentTypeCatalogItemResponse(
+                (int)item.Id,
+                item.Code,
+                item.Name,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>> GetPositionTitleCatalogItemsAsync(
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.LegalRepresentativePositionTitleCatalogItems
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Id)
+            .Select(item => new LegalRepresentativePositionTitleCatalogItemResponse(
+                (int)item.Id,
+                item.Code,
+                item.Name,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>> GetRepresentationTypeCatalogItemsAsync(
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.LegalRepresentativeRepresentationTypeCatalogItems
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Id)
+            .Select(item => new LegalRepresentativeRepresentationTypeCatalogItemResponse(
+                (int)item.Id,
+                item.Code,
+                item.Name,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken);
+    }
+
     public Task<int> GetActiveCountAsync(Guid tenantId, CancellationToken cancellationToken) =>
         dbContext.Set<LegalRepresentative>()
             .AsNoTracking()

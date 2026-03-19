@@ -2,6 +2,7 @@ using CLARIHR.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -85,7 +86,7 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
             await dbContext.Database.EnsureDeletedAsync();
-            await dbContext.Database.EnsureCreatedAsync();
+            await dbContext.Database.MigrateAsync();
 
             var scenario = await IntegrationTestSeeder.SeedAsync(dbContext);
             if (customSeed is not null)

@@ -33,6 +33,15 @@ public interface ILegalRepresentativeRepository
 
     Task<LegalRepresentativeUsageResponse?> GetUsageByIdAsync(Guid legalRepresentativeId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>> GetDocumentTypeCatalogItemsAsync(
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>> GetPositionTitleCatalogItemsAsync(
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>> GetRepresentationTypeCatalogItemsAsync(
+        CancellationToken cancellationToken);
+
     Task<int> GetActiveCountAsync(Guid tenantId, CancellationToken cancellationToken);
 
     Task<LegalRepresentative?> GetActivePrimaryAsync(

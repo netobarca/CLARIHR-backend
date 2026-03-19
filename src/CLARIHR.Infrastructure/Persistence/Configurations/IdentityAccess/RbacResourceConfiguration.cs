@@ -1,4 +1,5 @@
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -39,5 +40,7 @@ internal sealed class RbacResourceConfiguration : IEntityTypeConfiguration<RbacR
         builder.HasIndex(resource => resource.NormalizedResourceKey)
             .IsUnique()
             .HasDatabaseName("uq_rbac_resource_catalog__normalized_resource_key");
+
+        builder.HasData(GlobalCatalogSeedData.GetRbacResources());
     }
 }

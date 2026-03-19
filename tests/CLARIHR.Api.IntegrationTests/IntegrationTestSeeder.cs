@@ -19,11 +19,6 @@ internal static class IntegrationTestSeeder
     {
         var actorUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
-        dbContext.PlanEntitlements.AddRange(
-            PlanEntitlement.Create(ProvisioningConstants.FreePlanCode, ProvisioningConstants.RbacModuleKey, isEnabled: true),
-            PlanEntitlement.Create(ProvisioningConstants.FreePlanCode, ProvisioningConstants.UsersModuleKey, isEnabled: true));
-        await dbContext.SaveChangesAsync();
-
         var companyA = Company.Create("Acme One", "acme-one", actorUserId, "SV");
         var companyB = Company.Create("Acme Two", "acme-two", actorUserId, "SV");
         dbContext.Companies.AddRange(companyA, companyB);

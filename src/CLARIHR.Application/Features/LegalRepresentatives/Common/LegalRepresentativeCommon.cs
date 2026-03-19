@@ -42,7 +42,7 @@ public static partial class LegalRepresentativeValidationRules
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9_./-]{0,79}$", RegexOptions.CultureInvariant)]
     private static partial Regex DocumentRegex();
 
-    [GeneratedRegex(@"^[\p{L}\p{N}][\p{L}\p{N} '&().,-]{0,149}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^[\p{L}\p{N}][\p{L}\p{N} '&().,/-]{0,149}$", RegexOptions.CultureInvariant)]
     private static partial Regex PositionRegex();
 }
 

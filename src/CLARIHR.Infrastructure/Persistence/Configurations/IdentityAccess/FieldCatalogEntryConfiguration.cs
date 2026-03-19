@@ -1,4 +1,5 @@
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -66,5 +67,7 @@ internal sealed class FieldCatalogEntryConfiguration : IEntityTypeConfiguration<
 
         builder.HasIndex(entry => new { entry.NormalizedResourceKey, entry.IsConfigurable })
             .HasDatabaseName("ix_field_catalog__resource_configurable");
+
+        builder.HasData(GlobalCatalogSeedData.GetFieldCatalogEntries());
     }
 }

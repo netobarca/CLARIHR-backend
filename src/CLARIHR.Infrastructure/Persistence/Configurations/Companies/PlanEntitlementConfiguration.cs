@@ -1,4 +1,5 @@
 using CLARIHR.Domain.Companies;
+using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -36,5 +37,7 @@ internal sealed class PlanEntitlementConfiguration : IEntityTypeConfiguration<Pl
         builder.HasIndex(entitlement => new { entitlement.PlanCode, entitlement.ModuleKey })
             .IsUnique()
             .HasDatabaseName("uq_plan_entitlements__plan_module");
+
+        builder.HasData(GlobalCatalogSeedData.GetPlanEntitlements());
     }
 }

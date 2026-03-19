@@ -103,6 +103,9 @@ public static class DependencyInjection
         services.AddScoped<ICompetencyFrameworkAuthorizationService, CompetencyFrameworkAuthorizationService>();
         services.AddScoped<ILegalRepresentativeRepository, LegalRepresentativeRepository>();
         services.AddScoped<ILegalRepresentativeAuthorizationService, LegalRepresentativeAuthorizationService>();
+        services.AddScoped<LegalRepresentativeDocumentTypeCatalogSeedService>();
+        services.AddScoped<LegalRepresentativePositionTitleCatalogSeedService>();
+        services.AddScoped<LegalRepresentativeRepresentationTypeCatalogSeedService>();
         services.AddScoped<IPersonnelFileRepository, PersonnelFileRepository>();
         services.AddScoped<IPersonnelFileEmployeeRepository, PersonnelFileEmployeeRepository>();
         services.AddScoped<IPersonnelFileAuthorizationService, PersonnelFileAuthorizationService>();

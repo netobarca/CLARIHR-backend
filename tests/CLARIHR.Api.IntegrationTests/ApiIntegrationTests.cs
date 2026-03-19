@@ -277,6 +277,186 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task AccountCompanies_GetLegalRepresentativeDocumentTypes_ShouldReturnSeededCatalog()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync("/api/account/companies/legal-representative-document-types");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<List<LegalRepresentativeDocumentTypeCatalogItem>>(JsonOptions);
+        Assert.NotNull(payload);
+
+        Assert.Collection(
+            payload!,
+            item =>
+            {
+                Assert.Equal(1, item.Id);
+                Assert.Equal("NationalId", item.Code);
+                Assert.Equal("National ID", item.Name);
+                Assert.Equal(1, item.SortOrder);
+            },
+            item =>
+            {
+                Assert.Equal(2, item.Id);
+                Assert.Equal("Passport", item.Code);
+                Assert.Equal("Passport", item.Name);
+                Assert.Equal(2, item.SortOrder);
+            },
+            item =>
+            {
+                Assert.Equal(3, item.Id);
+                Assert.Equal("TaxId", item.Code);
+                Assert.Equal("Tax ID", item.Name);
+                Assert.Equal(3, item.SortOrder);
+            },
+            item =>
+            {
+                Assert.Equal(4, item.Id);
+                Assert.Equal("Other", item.Code);
+                Assert.Equal("Other", item.Name);
+                Assert.Equal(4, item.SortOrder);
+            });
+    }
+
+    [Fact]
+    public async Task AccountCompanies_GetLegalRepresentativePositionTitles_ShouldReturnSeededCatalog()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync("/api/account/companies/legal-representative-position-titles");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<List<LegalRepresentativePositionTitleCatalogItem>>(JsonOptions);
+        Assert.NotNull(payload);
+
+        Assert.Equal(Enumerable.Range(1, 20), payload!.Select(item => item.Id));
+        Assert.Equal(
+            [
+                "OWNER",
+                "CEO",
+                "EXECUTIVE_MANAGEMENT",
+                "HUMAN_RESOURCES",
+                "FINANCE",
+                "ACCOUNTING",
+                "OPERATIONS",
+                "PROCUREMENT",
+                "SALES",
+                "MARKETING",
+                "CUSTOMER_SERVICE",
+                "INFORMATION_TECHNOLOGY",
+                "SOFTWARE_DEVELOPMENT",
+                "INFRASTRUCTURE_DEVOPS",
+                "DATA_ANALYTICS",
+                "LEGAL",
+                "ADMINISTRATION",
+                "LOGISTICS",
+                "MAINTENANCE",
+                "SECURITY"
+            ],
+            payload.Select(item => item.Code));
+        Assert.Equal(
+            [
+                "OWNER",
+                "CEO",
+                "Executive Management",
+                "Human Resources",
+                "Finance",
+                "Accounting",
+                "Operations",
+                "Procurement",
+                "Sales",
+                "Marketing",
+                "Customer Service",
+                "Information Technology",
+                "Software Development",
+                "Infrastructure / DevOps",
+                "Data & Analytics",
+                "Legal",
+                "Administration",
+                "Logistics",
+                "Maintenance",
+                "Security"
+            ],
+            payload.Select(item => item.Name));
+        Assert.Equal(Enumerable.Range(1, 20), payload.Select(item => item.SortOrder));
+    }
+
+    [Fact]
+    public async Task AccountCompanies_GetLegalRepresentativeRepresentationTypes_ShouldReturnSeededCatalog()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync("/api/account/companies/legal-representative-representation-types");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<List<LegalRepresentativeRepresentationTypeCatalogItem>>(JsonOptions);
+        Assert.NotNull(payload);
+
+        Assert.Collection(
+            payload!,
+            item =>
+            {
+                Assert.Equal(1, item.Id);
+                Assert.Equal("PrimaryLegalRepresentative", item.Code);
+                Assert.Equal("Primary Legal Representative", item.Name);
+                Assert.Equal(1, item.SortOrder);
+            },
+            item =>
+            {
+                Assert.Equal(2, item.Id);
+                Assert.Equal("AlternateLegalRepresentative", item.Code);
+                Assert.Equal("Alternate Legal Representative", item.Name);
+                Assert.Equal(2, item.SortOrder);
+            },
+            item =>
+            {
+                Assert.Equal(3, item.Id);
+                Assert.Equal("AttorneyInFact", item.Code);
+                Assert.Equal("Attorney in Fact", item.Name);
+                Assert.Equal(3, item.SortOrder);
+            });
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Create_WithSeededPositionTitleContainingSlash_ShouldReturnCreatedCompany()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            companyToArchive.Archive();
+            await dbContext.SaveChangesAsync();
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PostAsJsonAsync("/api/account/companies", new
+        {
+            name = "Acme DevOps",
+            countryCode = "SV",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload("Infrastructure / DevOps")
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var representative = await dbContext.LegalRepresentatives
+            .AsNoTracking()
+            .SingleAsync(item => item.TenantId == payload!.CompanyId);
+
+        Assert.Equal("Infrastructure / DevOps", representative.PositionTitle);
+    }
+
+    [Fact]
     public async Task AccountCompanies_Create_WhenBelowLimit_ShouldReturnCreatedCompanyWithoutSwitchingContext()
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
@@ -4658,14 +4838,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return payload!;
     }
 
-    private static object CreateInitialLegalRepresentativePayload() =>
+    private static object CreateInitialLegalRepresentativePayload(string positionTitle = "Representante Legal") =>
         new
         {
             firstName = "Ana",
             lastName = "Mendoza",
             documentType = "TaxId",
             documentNumber = "0614-290190-102-3",
-            positionTitle = "Representante Legal",
+            positionTitle,
             representationType = "PrimaryLegalRepresentative",
             authorityDescription = "Representación general",
             appointmentInstrument = "Acta de nombramiento",
@@ -4757,6 +4937,24 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string RepresentationType,
         string PositionTitle,
         bool IsPrimary);
+
+    private sealed record LegalRepresentativeDocumentTypeCatalogItem(
+        int Id,
+        string Code,
+        string Name,
+        int SortOrder);
+
+    private sealed record LegalRepresentativePositionTitleCatalogItem(
+        int Id,
+        string Code,
+        string Name,
+        int SortOrder);
+
+    private sealed record LegalRepresentativeRepresentationTypeCatalogItem(
+        int Id,
+        string Code,
+        string Name,
+        int SortOrder);
 
     private sealed record LegalRepresentativeItem(
         Guid Id,

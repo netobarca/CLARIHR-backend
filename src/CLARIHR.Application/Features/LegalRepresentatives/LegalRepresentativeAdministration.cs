@@ -70,6 +70,24 @@ public sealed record LegalRepresentativeUsageResponse(
     int ActiveDocumentReferencesCount,
     bool CanInactivate);
 
+public sealed record LegalRepresentativeDocumentTypeCatalogItemResponse(
+    int Id,
+    string Code,
+    string Name,
+    int SortOrder);
+
+public sealed record LegalRepresentativePositionTitleCatalogItemResponse(
+    int Id,
+    string Code,
+    string Name,
+    int SortOrder);
+
+public sealed record LegalRepresentativeRepresentationTypeCatalogItemResponse(
+    int Id,
+    string Code,
+    string Name,
+    int SortOrder);
+
 public sealed record LegalRepresentativeExportRow(
     Guid Id,
     string FirstName,
@@ -107,6 +125,15 @@ public sealed record GetLegalRepresentativeByIdQuery(Guid LegalRepresentativeId)
 
 public sealed record GetLegalRepresentativeUsageQuery(Guid LegalRepresentativeId)
     : IQuery<LegalRepresentativeUsageResponse>;
+
+public sealed record GetLegalRepresentativeDocumentTypesQuery()
+    : IQuery<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>;
+
+public sealed record GetLegalRepresentativePositionTitlesQuery()
+    : IQuery<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>>;
+
+public sealed record GetLegalRepresentativeRepresentationTypesQuery()
+    : IQuery<IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>>;
 
 public sealed record ExportLegalRepresentativesQuery(
     Guid CompanyId,
@@ -416,6 +443,45 @@ internal sealed class GetLegalRepresentativeUsageQueryHandler(
             await repository.ExistsOutsideTenantAsync(query.LegalRepresentativeId, cancellationToken)
                 ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                 : LegalRepresentativeErrors.NotFound);
+    }
+}
+
+internal sealed class GetLegalRepresentativeDocumentTypesQueryHandler(
+    ILegalRepresentativeRepository repository)
+    : IQueryHandler<GetLegalRepresentativeDocumentTypesQuery, IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>
+{
+    public async Task<Result<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>> Handle(
+        GetLegalRepresentativeDocumentTypesQuery query,
+        CancellationToken cancellationToken)
+    {
+        var response = await repository.GetDocumentTypeCatalogItemsAsync(cancellationToken);
+        return Result<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>.Success(response);
+    }
+}
+
+internal sealed class GetLegalRepresentativePositionTitlesQueryHandler(
+    ILegalRepresentativeRepository repository)
+    : IQueryHandler<GetLegalRepresentativePositionTitlesQuery, IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>>
+{
+    public async Task<Result<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>>> Handle(
+        GetLegalRepresentativePositionTitlesQuery query,
+        CancellationToken cancellationToken)
+    {
+        var response = await repository.GetPositionTitleCatalogItemsAsync(cancellationToken);
+        return Result<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>>.Success(response);
+    }
+}
+
+internal sealed class GetLegalRepresentativeRepresentationTypesQueryHandler(
+    ILegalRepresentativeRepository repository)
+    : IQueryHandler<GetLegalRepresentativeRepresentationTypesQuery, IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>>
+{
+    public async Task<Result<IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>>> Handle(
+        GetLegalRepresentativeRepresentationTypesQuery query,
+        CancellationToken cancellationToken)
+    {
+        var response = await repository.GetRepresentationTypeCatalogItemsAsync(cancellationToken);
+        return Result<IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>>.Success(response);
     }
 }
 

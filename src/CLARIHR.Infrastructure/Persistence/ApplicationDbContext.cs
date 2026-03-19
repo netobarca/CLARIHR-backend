@@ -122,6 +122,12 @@ public sealed class ApplicationDbContext(
 
     public DbSet<LegalRepresentative> LegalRepresentatives => Set<LegalRepresentative>();
 
+    public DbSet<LegalRepresentativeDocumentTypeCatalogItem> LegalRepresentativeDocumentTypeCatalogItems => Set<LegalRepresentativeDocumentTypeCatalogItem>();
+
+    public DbSet<LegalRepresentativePositionTitleCatalogItem> LegalRepresentativePositionTitleCatalogItems => Set<LegalRepresentativePositionTitleCatalogItem>();
+
+    public DbSet<LegalRepresentativeRepresentationTypeCatalogItem> LegalRepresentativeRepresentationTypeCatalogItems => Set<LegalRepresentativeRepresentationTypeCatalogItem>();
+
     public DbSet<PersonnelFile> PersonnelFiles => Set<PersonnelFile>();
 
     public DbSet<PersonnelFileIdentification> PersonnelFileIdentifications => Set<PersonnelFileIdentification>();

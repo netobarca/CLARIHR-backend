@@ -653,6 +653,18 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task<LegalRepresentativeUsageResponse?> GetUsageByIdAsync(Guid legalRepresentativeId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>> GetDocumentTypeCatalogItemsAsync(
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>([]);
+
+        public Task<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>> GetPositionTitleCatalogItemsAsync(
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>>([]);
+
+        public Task<IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>> GetRepresentationTypeCatalogItemsAsync(
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<LegalRepresentativeRepresentationTypeCatalogItemResponse>>([]);
+
         public Task<int> GetActiveCountAsync(Guid tenantId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.Count(item => item.TenantId == tenantId && item.IsActive));
 

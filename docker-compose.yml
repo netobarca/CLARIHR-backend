@@ -10,13 +10,12 @@ services:
       - "${CLARIHR_DB_PORT:-5432}:5432"
     volumes:
       - clarihr_postgres_data:/var/lib/postgresql/data
-      - ./docs/technical/sql:/sql:ro
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d clarihr"]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   api:
     build:
@@ -28,7 +27,7 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      Urls: http://0.0.0.0:8080
+      ASPNETCORE_URLS: http://+:8080
       Database__ConnectionString: Host=postgres;Port=5432;Database=clarihr;Username=postgres;Password=postgres
       Authentication__Google__ClientId: 16268587172-qd30l0j2rr0dlapn75ggkdvmmei7m9dg.apps.googleusercontent.com
       Authentication__Jwt__Issuer: clarihr-local

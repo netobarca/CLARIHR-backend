@@ -1,0 +1,151 @@
+openapi: 3.0.3
+info:
+  title: CLARIHR API
+  version: 0.0-bootstrap
+  description: |
+    Partial hand-maintained OpenAPI supplement for externally relevant endpoints that need
+    a checked-in contract before automated export/versioning is introduced.
+
+    The exhaustive contract is still generated at runtime by Swagger in Development
+    at /swagger/v1/swagger.json.
+servers:
+  - url: /
+security:
+  - Bearer: []
+components:
+  securitySchemes:
+    Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    LegalRepresentativeDocumentTypeCatalogItemResponse:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - sortOrder
+      properties:
+        id:
+          type: integer
+          format: int32
+          description: Numeric value aligned with the current LegalRepresentativeDocumentType enum.
+          example: 1
+        code:
+          type: string
+          description: String enum value that must be sent in initialLegalRepresentative.documentType.
+          example: NationalId
+        name:
+          type: string
+          description: Human-readable label for display in the client.
+          example: National ID
+        sortOrder:
+          type: integer
+          format: int32
+          example: 1
+    LegalRepresentativePositionTitleCatalogItemResponse:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - sortOrder
+      properties:
+        id:
+          type: integer
+          format: int32
+          description: Stable numeric identifier for the seeded legal representative position title.
+          example: 14
+        code:
+          type: string
+          description: Stable frontend key for the seeded position title.
+          example: INFRASTRUCTURE_DEVOPS
+        name:
+          type: string
+          description: Display value and current string payload accepted by initialLegalRepresentative.positionTitle.
+          example: Infrastructure / DevOps
+        sortOrder:
+          type: integer
+          format: int32
+          example: 14
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        status:
+          type: integer
+          format: int32
+          nullable: true
+        detail:
+          type: string
+          nullable: true
+        instance:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+paths:
+  /api/account/companies/legal-representative-document-types:
+    get:
+      tags:
+        - account-companies
+      operationId: GetAccountCompanyLegalRepresentativeDocumentTypes
+      summary: List legal representative document types for account onboarding
+      description: Returns the active catalog entries that should populate the legal representative document type selector before creating a company.
+      security:
+        - Bearer: []
+      responses:
+        '200':
+          description: Active legal representative document type catalog items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LegalRepresentativeDocumentTypeCatalogItemResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/legal-representative-position-titles:
+    get:
+      tags:
+        - account-companies
+      operationId: GetAccountCompanyLegalRepresentativePositionTitles
+      summary: List legal representative position titles for account onboarding
+      description: Returns the active catalog entries that should populate the legal representative position title selector before creating a company.
+      security:
+        - Bearer: []
+      responses:
+        '200':
+          description: Active legal representative position title catalog items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LegalRepresentativePositionTitleCatalogItemResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+tags:
+  - name: auth
+    description: Authentication and session lifecycle.
+  - name: account-companies
+    description: Account-level company creation and tenant activation.
+  - name: personnel-files
+    description: Personnel file lifecycle and subsections.
+x-documentation-status: partial-manual-supplement
+x-runtime-openapi-source: /swagger/v1/swagger.json
