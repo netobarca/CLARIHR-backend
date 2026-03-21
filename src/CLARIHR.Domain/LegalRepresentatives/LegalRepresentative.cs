@@ -23,7 +23,7 @@ public sealed class LegalRepresentative : TenantEntity
         DateTime? effectiveToUtc,
         string? email,
         string? phone,
-        bool isPrimary)
+        bool? isPrimary)
     {
         PublicId = publicId;
         SetName(firstName, lastName);
@@ -75,7 +75,7 @@ public sealed class LegalRepresentative : TenantEntity
 
     public string? Phone { get; private set; }
 
-    public bool IsPrimary { get; private set; }
+    public bool? IsPrimary { get; private set; }
 
     public bool IsActive { get; private set; }
 
@@ -95,7 +95,7 @@ public sealed class LegalRepresentative : TenantEntity
         DateTime? effectiveToUtc,
         string? email,
         string? phone,
-        bool isPrimary) =>
+        bool? isPrimary) =>
         new(
             Guid.NewGuid(),
             firstName,
@@ -127,7 +127,7 @@ public sealed class LegalRepresentative : TenantEntity
         DateTime? effectiveToUtc,
         string? email,
         string? phone,
-        bool isPrimary)
+        bool? isPrimary)
     {
         SetName(firstName, lastName);
         SetDocument(documentType, documentNumber);
@@ -151,7 +151,7 @@ public sealed class LegalRepresentative : TenantEntity
 
     public void ClearPrimary()
     {
-        if (!IsPrimary)
+        if (IsPrimary != true)
         {
             return;
         }

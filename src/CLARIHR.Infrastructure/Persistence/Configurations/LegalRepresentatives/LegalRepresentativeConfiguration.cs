@@ -90,7 +90,8 @@ internal sealed class LegalRepresentativeConfiguration : IEntityTypeConfiguratio
             .HasMaxLength(40);
 
         builder.Property(legalRepresentative => legalRepresentative.IsPrimary)
-            .HasColumnName("is_primary");
+            .HasColumnName("is_primary")
+            .IsRequired(false);
 
         builder.Property(legalRepresentative => legalRepresentative.IsActive)
             .HasColumnName("is_active");

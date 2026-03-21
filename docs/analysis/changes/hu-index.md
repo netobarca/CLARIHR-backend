@@ -32,6 +32,7 @@ Cuando una HU o requerimiento se implemente o cierre, debe agregarse una fila aq
 
 | Codigo HU | Titulo | Modulo | Estado | Fecha ultima actualizacion | Archivo de cambio | Documentos vivos actualizados | Observaciones |
 |---|---|---|---|---|---|---|---|
+| HU-2026-03-19-01 | IsPrimary opcional para representante legal inicial | Account companies / Legal representatives | Implementada | 2026-03-19 | `docs/analysis/changes/HU-2026-03-19-01.md` | `docs/technical/api/endpoint-reference.md`, `docs/technical/api/openapi.yaml` | `InitialLegalRepresentativeInput.IsPrimary` pasa a nullable y se persiste con migracion EF. |
 
 ## 6. Regla de mantenimiento
 

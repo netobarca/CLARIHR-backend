@@ -271,7 +271,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
         Assert.NotNull(payload);
         var representative = Assert.Single(payload!.ActiveLegalRepresentatives);
-        Assert.True(representative.IsPrimary);
+        Assert.True(representative.IsPrimary == true);
         Assert.Equal("PrimaryLegalRepresentative", representative.RepresentationType);
         Assert.False(string.IsNullOrWhiteSpace(representative.FullName));
     }
@@ -483,6 +483,54 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal("FREE", payload.PlanCode);
         Assert.False(payload.IsActiveContext);
         Assert.Equal("Active", payload.Status);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Create_WhenInitialLegalRepresentativeOmitsPrimaryFlag_ShouldPersistNullPrimaryFlag()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            companyToArchive.Archive();
+            await dbContext.SaveChangesAsync();
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PostAsJsonAsync("/api/account/companies", new
+        {
+            name = "Acme Nullable Primary",
+            countryCode = "SV",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload(includeIsPrimary: false)
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+
+        using var legalRepresentativesClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                payload!.CompanyId,
+                "LegalRepresentatives.Read"));
+
+        var listResponse = await legalRepresentativesClient.GetAsync(
+            $"/api/v1/companies/{payload.CompanyId}/legal-representatives?page=1&pageSize=20");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<LegalRepresentativeListItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+        var representative = Assert.Single(listPayload!.Items);
+        Assert.Null(representative.IsPrimary);
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var persistedRepresentative = await dbContext.LegalRepresentatives
+            .AsNoTracking()
+            .SingleAsync(item => item.TenantId == payload.CompanyId);
+
+        Assert.Null(persistedRepresentative.IsPrimary);
     }
 
     [Fact]
@@ -4838,24 +4886,44 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return payload!;
     }
 
-    private static object CreateInitialLegalRepresentativePayload(string positionTitle = "Representante Legal") =>
-        new
-        {
-            firstName = "Ana",
-            lastName = "Mendoza",
-            documentType = "TaxId",
-            documentNumber = "0614-290190-102-3",
-            positionTitle,
-            representationType = "PrimaryLegalRepresentative",
-            authorityDescription = "Representación general",
-            appointmentInstrument = "Acta de nombramiento",
-            appointmentDateUtc = DateTime.UtcNow.Date,
-            effectiveFromUtc = DateTime.UtcNow.Date,
-            effectiveToUtc = (DateTime?)null,
-            email = "ana.mendoza@test.com",
-            phone = "+50370000000",
-            isPrimary = true
-        };
+    private static object CreateInitialLegalRepresentativePayload(
+        string positionTitle = "Representante Legal",
+        bool includeIsPrimary = true,
+        bool? isPrimary = true) =>
+        includeIsPrimary
+            ? new
+            {
+                firstName = "Ana",
+                lastName = "Mendoza",
+                documentType = "TaxId",
+                documentNumber = "0614-290190-102-3",
+                positionTitle,
+                representationType = "PrimaryLegalRepresentative",
+                authorityDescription = "Representación general",
+                appointmentInstrument = "Acta de nombramiento",
+                appointmentDateUtc = DateTime.UtcNow.Date,
+                effectiveFromUtc = DateTime.UtcNow.Date,
+                effectiveToUtc = (DateTime?)null,
+                email = "ana.mendoza@test.com",
+                phone = "+50370000000",
+                isPrimary
+            }
+            : new
+            {
+                firstName = "Ana",
+                lastName = "Mendoza",
+                documentType = "TaxId",
+                documentNumber = "0614-290190-102-3",
+                positionTitle,
+                representationType = "PrimaryLegalRepresentative",
+                authorityDescription = "Representación general",
+                appointmentInstrument = "Acta de nombramiento",
+                appointmentDateUtc = DateTime.UtcNow.Date,
+                effectiveFromUtc = DateTime.UtcNow.Date,
+                effectiveToUtc = (DateTime?)null,
+                email = "ana.mendoza@test.com",
+                phone = "+50370000000"
+            };
 
     private static async Task AssertFirstItemHasAllowedActionsAsync(HttpResponseMessage response)
     {
@@ -4936,7 +5004,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string FullName,
         string RepresentationType,
         string PositionTitle,
-        bool IsPrimary);
+        bool? IsPrimary);
 
     private sealed record LegalRepresentativeDocumentTypeCatalogItem(
         int Id,
@@ -4973,7 +5041,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         DateTime? EffectiveToUtc,
         string? Email,
         string? Phone,
-        bool IsPrimary,
+        bool? IsPrimary,
         bool IsActive,
         Guid ConcurrencyToken);
 
@@ -4985,7 +5053,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string DocumentNumber,
         string PositionTitle,
         string RepresentationType,
-        bool IsPrimary,
+        bool? IsPrimary,
         bool IsActive,
         Guid ConcurrencyToken);
 

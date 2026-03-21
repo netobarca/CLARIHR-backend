@@ -308,7 +308,7 @@ public sealed class LegalRepresentativesController(
             EscapeCsv(row.EffectiveToUtc?.ToString("O", CultureInfo.InvariantCulture)),
             EscapeCsv(row.Email),
             EscapeCsv(row.Phone),
-            row.IsPrimary ? "true" : "false",
+            FormatNullableBoolean(row.IsPrimary),
             row.IsActive ? "true" : "false",
             EscapeCsv(row.CreatedAtUtc.ToString("O", CultureInfo.InvariantCulture)),
             EscapeCsv(row.ModifiedAtUtc?.ToString("O", CultureInfo.InvariantCulture)))));
@@ -372,7 +372,7 @@ public sealed class LegalRepresentativesController(
             sheetRows.Append(Cell(row.EffectiveToUtc?.ToString("O", CultureInfo.InvariantCulture)));
             sheetRows.Append(Cell(row.Email));
             sheetRows.Append(Cell(row.Phone));
-            sheetRows.Append(Cell(row.IsPrimary ? "true" : "false"));
+            sheetRows.Append(Cell(FormatNullableBoolean(row.IsPrimary)));
             sheetRows.Append(Cell(row.IsActive ? "true" : "false"));
             sheetRows.Append(Cell(row.CreatedAtUtc.ToString("O", CultureInfo.InvariantCulture)));
             sheetRows.Append(Cell(row.ModifiedAtUtc?.ToString("O", CultureInfo.InvariantCulture)));
@@ -468,6 +468,14 @@ public sealed class LegalRepresentativesController(
 
         return SecurityElement.Escape(value) ?? string.Empty;
     }
+
+    private static string FormatNullableBoolean(bool? value) =>
+        value switch
+        {
+            true => "true",
+            false => "false",
+            null => string.Empty
+        };
 
     public sealed record CreateLegalRepresentativeRequest(
         string FirstName,

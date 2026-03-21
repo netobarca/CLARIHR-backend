@@ -40,7 +40,7 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                     .Where(legalRepresentative =>
                         legalRepresentative.TenantId == company.CompanyId &&
                         legalRepresentative.IsActive)
-                    .OrderByDescending(legalRepresentative => legalRepresentative.IsPrimary)
+                    .OrderByDescending(legalRepresentative => legalRepresentative.IsPrimary == true)
                     .ThenBy(legalRepresentative => legalRepresentative.FullName)
                     .Select(legalRepresentative => new ActiveLegalRepresentativeSummaryResponse(
                         legalRepresentative.PublicId,

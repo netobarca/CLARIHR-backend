@@ -65,7 +65,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         Assert.Equal(SubscriptionStatus.Active, subscriptionRepository.Items[0].Status);
         Assert.Single(legalRepresentativeRepository.Items);
         Assert.Equal(companyRepository.Items[0].PublicId, legalRepresentativeRepository.Items[0].TenantId);
-        Assert.True(legalRepresentativeRepository.Items[0].IsPrimary);
+        Assert.True(legalRepresentativeRepository.Items[0].IsPrimary == true);
         Assert.Equal(2, iamRepository.Roles.Count);
         Assert.Contains(iamRepository.Roles, role => role.Name == ProvisioningConstants.CompanyAdminRoleName && role.IsSystemRole);
         Assert.Contains(iamRepository.Roles, role => role.Name == ProvisioningConstants.StandardUserRoleName && role.IsSystemRole);
@@ -126,6 +126,37 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         Assert.Empty(iamRepository.Permissions);
         Assert.Empty(iamRepository.Users);
         Assert.True(unitOfWork.Transaction.CommitCalled);
+    }
+
+    [Fact]
+    public async Task Handle_WhenInitialLegalRepresentativeOmitsPrimaryFlag_ShouldPersistNullPrimaryFlag()
+    {
+        var userRepository = new TestUserRepository();
+        var companyRepository = new TestCompanyRepository();
+        var subscriptionRepository = new TestCompanySubscriptionRepository(companyRepository);
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository);
+        var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
+        var user = CreatePersistedUser("ana@company.com");
+        userRepository.Seed(user);
+
+        var handler = CreateHandler(
+            userRepository,
+            companyRepository,
+            subscriptionRepository,
+            userCompanyRepository,
+            iamRepository,
+            legalRepresentativeRepository,
+            new TestPlanEntitlementService(),
+            new TestUnitOfWork());
+
+        var result = await handler.Handle(
+            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", "SV", CreateInitialLegalRepresentative(isPrimary: null)),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(legalRepresentativeRepository.Items);
+        Assert.Null(legalRepresentativeRepository.Items[0].IsPrimary);
     }
 
     [Fact]
@@ -286,7 +317,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             NullLogger<ProvisionCompanyForUserCommandHandler>.Instance);
     }
 
-    private static InitialLegalRepresentativeInput CreateInitialLegalRepresentative() =>
+    private static InitialLegalRepresentativeInput CreateInitialLegalRepresentative(bool? isPrimary = true) =>
         new(
             "Ana",
             "Mendoza",
@@ -301,7 +332,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             null,
             "ana@company.com",
             "+50370000000",
-            IsPrimary: true);
+            IsPrimary: isPrimary);
 
     private static User CreatePersistedUser(string email)
     {
@@ -675,7 +706,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             Task.FromResult(Items.SingleOrDefault(item =>
                 item.TenantId == tenantId &&
                 item.IsActive &&
-                item.IsPrimary &&
+                item.IsPrimary == true &&
                 (!excludingLegalRepresentativePublicId.HasValue || item.PublicId != excludingLegalRepresentativePublicId.Value)));
 
         public Task<IReadOnlyCollection<LegalRepresentativeExportRow>> GetExportRowsAsync(

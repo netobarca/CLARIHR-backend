@@ -20,7 +20,7 @@ public sealed record ActiveLegalRepresentativeSummary(
     string FullName,
     LegalRepresentativeRepresentationType RepresentationType,
     string PositionTitle,
-    bool IsPrimary);
+    bool? IsPrimary);
 
 public sealed record LegalRepresentativeListItemResponse(
     Guid Id,
@@ -32,7 +32,7 @@ public sealed record LegalRepresentativeListItemResponse(
     string DocumentNumber,
     string PositionTitle,
     LegalRepresentativeRepresentationType RepresentationType,
-    bool IsPrimary,
+    bool? IsPrimary,
     bool IsActive,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
@@ -58,7 +58,7 @@ public sealed record LegalRepresentativeResponse(
     DateTime? EffectiveToUtc,
     string? Email,
     string? Phone,
-    bool IsPrimary,
+    bool? IsPrimary,
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
@@ -104,7 +104,7 @@ public sealed record LegalRepresentativeExportRow(
     DateTime? EffectiveToUtc,
     string? Email,
     string? Phone,
-    bool IsPrimary,
+    bool? IsPrimary,
     bool IsActive,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);

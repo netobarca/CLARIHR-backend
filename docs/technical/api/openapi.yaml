@@ -69,6 +69,205 @@ components:
           type: integer
           format: int32
           example: 14
+    LegalRepresentativeRepresentationTypeCatalogItemResponse:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - sortOrder
+      properties:
+        id:
+          type: integer
+          format: int32
+          description: Numeric value aligned with the current LegalRepresentativeRepresentationType enum.
+          example: 1
+        code:
+          type: string
+          description: String enum value that must be sent in initialLegalRepresentative.representationType.
+          example: PrimaryLegalRepresentative
+        name:
+          type: string
+          description: Human-readable label for display in the client.
+          example: Primary Legal Representative
+        sortOrder:
+          type: integer
+          format: int32
+          example: 1
+    InitialLegalRepresentativeRequest:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - documentType
+        - documentNumber
+        - positionTitle
+        - representationType
+        - effectiveFromUtc
+      properties:
+        firstName:
+          type: string
+          maxLength: 100
+          example: Ana
+        lastName:
+          type: string
+          maxLength: 100
+          example: Mendoza
+        documentType:
+          type: string
+          example: TaxId
+        documentNumber:
+          type: string
+          maxLength: 80
+          example: 0614-290190-102-3
+        positionTitle:
+          type: string
+          maxLength: 150
+          example: Representante Legal
+        representationType:
+          type: string
+          example: PrimaryLegalRepresentative
+        authorityDescription:
+          type: string
+          nullable: true
+          maxLength: 500
+        appointmentInstrument:
+          type: string
+          nullable: true
+          maxLength: 500
+        appointmentDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        effectiveFromUtc:
+          type: string
+          format: date-time
+        effectiveToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+          maxLength: 320
+        phone:
+          type: string
+          nullable: true
+          maxLength: 40
+        isPrimary:
+          type: boolean
+          nullable: true
+          description: Optional. When omitted or null, the legal representative is created without a primary flag.
+          example: true
+    CompanyTypeMetadataResponse:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - isActive
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        isActive:
+          type: boolean
+    ActiveLegalRepresentativeSummaryResponse:
+      type: object
+      required:
+        - id
+        - fullName
+        - representationType
+        - positionTitle
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        representationType:
+          type: string
+          example: PrimaryLegalRepresentative
+        positionTitle:
+          type: string
+        isPrimary:
+          type: boolean
+          nullable: true
+          description: Null means the onboarding flow did not specify a primary flag.
+    AccountCompanyDetailResponse:
+      type: object
+      required:
+        - companyId
+        - name
+        - slug
+        - countryCode
+        - status
+        - planCode
+        - isActiveContext
+        - isOwnedByCurrentUser
+        - createdAtUtc
+        - activeLegalRepresentatives
+      properties:
+        companyId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        countryCode:
+          type: string
+        status:
+          type: string
+          example: Active
+        planCode:
+          type: string
+          example: FREE
+        isActiveContext:
+          type: boolean
+        isOwnedByCurrentUser:
+          type: boolean
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        activeLegalRepresentatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActiveLegalRepresentativeSummaryResponse'
+        companyType:
+          allOf:
+            - $ref: '#/components/schemas/CompanyTypeMetadataResponse'
+          nullable: true
+    CreateAccountCompanyRequest:
+      type: object
+      required:
+        - name
+        - countryCode
+        - initialLegalRepresentative
+      properties:
+        name:
+          type: string
+          maxLength: 150
+          example: Acme Services
+        countryCode:
+          type: string
+          maxLength: 3
+          example: SV
+        companyTypeId:
+          type: string
+          format: uuid
+          nullable: true
+        initialLegalRepresentative:
+          $ref: '#/components/schemas/InitialLegalRepresentativeRequest'
     ProblemDetails:
       type: object
       properties:
@@ -136,6 +335,70 @@ paths:
                   $ref: '#/components/schemas/LegalRepresentativePositionTitleCatalogItemResponse'
         '401':
           description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/legal-representative-representation-types:
+    get:
+      tags:
+        - account-companies
+      operationId: GetAccountCompanyLegalRepresentativeRepresentationTypes
+      summary: List legal representative representation types for account onboarding
+      description: Returns the active catalog entries that should populate the legal representative representation type selector before creating a company.
+      security:
+        - Bearer: []
+      responses:
+        '200':
+          description: Active legal representative representation type catalog items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LegalRepresentativeRepresentationTypeCatalogItemResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies:
+    post:
+      tags:
+        - account-companies
+      operationId: CreateAccountCompany
+      summary: Create a company for the authenticated account
+      description: Creates a new company, provisions the initial tenant data, and accepts an initial legal representative whose primary flag is optional.
+      security:
+        - Bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountCompanyRequest'
+      responses:
+        '201':
+          description: Company created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCompanyDetailResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as company limit reached.
           content:
             application/problem+json:
               schema:

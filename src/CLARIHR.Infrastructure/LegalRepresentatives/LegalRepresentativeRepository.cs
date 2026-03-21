@@ -74,7 +74,7 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
-            .OrderByDescending(legalRepresentative => legalRepresentative.IsPrimary)
+            .OrderByDescending(legalRepresentative => legalRepresentative.IsPrimary == true)
             .ThenBy(legalRepresentative => legalRepresentative.FullName)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
@@ -218,7 +218,7 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
         Guid? excludingLegalRepresentativePublicId,
         CancellationToken cancellationToken) =>
         dbContext.Set<LegalRepresentative>()
-            .Where(item => item.TenantId == tenantId && item.IsActive && item.IsPrimary)
+            .Where(item => item.TenantId == tenantId && item.IsActive && item.IsPrimary == true)
             .Where(item => !excludingLegalRepresentativePublicId.HasValue || item.PublicId != excludingLegalRepresentativePublicId.Value)
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -259,7 +259,7 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
         }
 
         return await query
-            .OrderByDescending(legalRepresentative => legalRepresentative.IsPrimary)
+            .OrderByDescending(legalRepresentative => legalRepresentative.IsPrimary == true)
             .ThenBy(legalRepresentative => legalRepresentative.FullName)
             .Select(legalRepresentative => new LegalRepresentativeExportRow(
                 legalRepresentative.PublicId,
@@ -291,7 +291,7 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
         return await dbContext.Set<LegalRepresentative>()
             .AsNoTracking()
             .Where(legalRepresentative => legalRepresentative.TenantId == companyId && legalRepresentative.IsActive)
-            .OrderByDescending(legalRepresentative => legalRepresentative.IsPrimary)
+            .OrderByDescending(legalRepresentative => legalRepresentative.IsPrimary == true)
             .ThenBy(legalRepresentative => legalRepresentative.FullName)
             .Select(legalRepresentative => new ActiveLegalRepresentativeSummary(
                 legalRepresentative.PublicId,

@@ -170,6 +170,7 @@ Comportamiento observable:
 - la mayoria de actualizaciones por seccion reemplazan el payload completo de la subseccion
 - `hire` es una transicion funcional dedicada, no solo una edicion del tipo de registro
 - los endpoints de reporting y export existen tanto a nivel tenant como a nivel recurso
+- la profundizacion completa del modulo esta en `5.10 Personnel files`
 
 ### 4.6 Salary tabulator
 
@@ -820,7 +821,7 @@ Contratos principales:
 - Autenticacion: `Bearer` requerido.
 - Response: `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`.
-- Observaciones: devuelve solo representantes legales activos, ordenados con el primario primero, mas metadata del tipo de compania si existe.
+- Observaciones: devuelve solo representantes legales activos, ordenados con los marcados como primarios primero, mas metadata del tipo de compania si existe. `activeLegalRepresentatives[].isPrimary` puede venir en `true`, `false` o `null`; `null` indica que el registro fue creado sin marcar prioridad inicial.
 
 ##### `POST /api/account/companies`
 
@@ -828,10 +829,10 @@ Contratos principales:
 - Autenticacion: `Bearer` requerido.
 - Request body: `name`, `countryCode`, `companyTypeId`, `initialLegalRepresentative`.
 - Validaciones base: `name` obligatorio maximo `150`; `countryCode` de `2` o `3` letras; `companyTypeId` no puede ser `Guid.Empty`.
-- Validaciones del representante inicial: `firstName`, `lastName`, `documentNumber`, `positionTitle`, `effectiveFromUtc`; `effectiveToUtc >= effectiveFromUtc`; `email` opcional maximo `320`; `phone` opcional maximo `40`.
+- Validaciones del representante inicial: `firstName`, `lastName`, `documentNumber`, `positionTitle`, `effectiveFromUtc`; `effectiveToUtc >= effectiveFromUtc`; `email` opcional maximo `320`; `phone` opcional maximo `40`; `isPrimary` es opcional.
 - Response: `201 Created` con `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_LIMIT_REACHED`, `COMPANY_TYPE_NOT_FOUND`, `provisioning.country_not_supported`.
-- Observaciones: provisiona plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estándar`, vincula al owner como admin, siembra locations por pais y deja la nueva compania sin hacer auto-switch. Para `initialLegalRepresentative.documentType` y `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por sus endpoints de catalogo respectivos. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos.
+- Observaciones: provisiona plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estándar`, vincula al owner como admin, siembra locations por pais y deja la nueva compania sin hacer auto-switch. Para `initialLegalRepresentative.documentType` y `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por sus endpoints de catalogo respectivos. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. Si `initialLegalRepresentative.isPrimary` se omite o se envia `null`, el registro se persiste con `isPrimary = null`.
 
 ##### `PUT /api/account/companies/{companyId}`
 
@@ -1376,6 +1377,7 @@ Es un modulo administrativo sensible porque afecta onboarding de compania, datos
 - Si un representante legal existe pero pertenece a otro tenant, la API responde `TENANT_MISMATCH` en vez de devolver `404` plano.
 - `LegalRepresentativeListItemResponse` devuelve `companyId`, nombre, documento, cargo, `representationType`, `isPrimary`, `isActive`, vigencias, `concurrencyToken`, timestamps y opcionalmente `allowedActions`.
 - `LegalRepresentativeResponse` agrega `authorityDescription`, `appointmentInstrument`, `appointmentDateUtc`, `email` y `phone`.
+- `isPrimary` es nullable en respuestas. `true` significa primario vigente; `false`, no primario; `null`, prioridad no especificada en el alta original.
 - `LegalRepresentativeUsageResponse` hoy devuelve `legalRepresentativeId`, `activeDocumentReferencesCount` y `canInactivate`.
 - `firstName` y `lastName` son obligatorios, maximo `100`, y usan validacion de nombre.
 - `documentNumber` es obligatorio, maximo `80`, y usa regex alfanumerica con `_`, `.`, `/` o `-`.
@@ -1429,7 +1431,7 @@ Observaciones funcionales:
 
 - `search` soporta filtros `isActive`, `isPrimary`, `representationType`, `q`, `page`, `pageSize` e `includeAllowedActions`.
 - `q` busca por `fullName`, `positionTitle` y `documentNumber`.
-- el orden observable del listado es primero `isPrimary desc` y luego `fullName`.
+- el orden observable del listado prioriza los registros con `isPrimary = true` y luego `fullName`; `false` y `null` no se tratan como primarios.
 - `search` devuelve `PagedResponse<LegalRepresentativeListItemResponse>`.
 - `get by id` devuelve `LegalRepresentativeResponse`.
 - `search` solo calcula `allowedActions` si `includeAllowedActions=true`.
@@ -1466,7 +1468,7 @@ Observaciones funcionales:
 
 - soporta `format=csv|xlsx`.
 - reutiliza los mismos filtros de busqueda operativa, salvo paginacion.
-- devuelve filas planas con nombre, documento, cargo, tipo de representacion, vigencias, contacto, `isPrimary`, `isActive` y timestamps.
+- devuelve filas planas con nombre, documento, cargo, tipo de representacion, vigencias, contacto, `isPrimary`, `isActive` y timestamps. Cuando `isPrimary` es `null`, el valor sale vacio en el export.
 - genera auditoria de tipo `ReportExported`.
 - si `format` no es soportado, la respuesta observable es `LEGAL_REPRESENTATIVE_EXPORT_FORMAT_INVALID`.
 
@@ -1501,7 +1503,7 @@ Observaciones funcionales:
 #### 5.7.10 Relacion con otros modulos
 
 - `Account companies` expone los catalogos auxiliares de `document type` y `representation type` en `/api/account/companies/legal-representative-document-types` y `/api/account/companies/legal-representative-representation-types`.
-- `Account companies` tambien consume `InitialLegalRepresentativeInput` durante la creacion de una compania.
+- `Account companies` tambien consume `InitialLegalRepresentativeInput` durante la creacion de una compania, donde `isPrimary` ahora es opcional.
 - Los detalles de compania reutilizan resumenes de representantes activos para mostrar la representacion vigente del tenant.
 
 `Legal representatives` queda asi como el modulo operativo posterior al onboarding: los catalogos se consultan desde `Account companies`, pero la administracion continua del registro legal ya ocurre aqui.
@@ -2177,6 +2179,485 @@ Observaciones funcionales:
 - `PositionSlots` se apoya en `JobProfiles`: la plaza es la instancia operativa de un perfil, no un recurso independiente del diseno.
 
 `Job and competency design` es asi el modulo que une diseno, clasificacion y operacion: primero se definen catalogos y clasificaciones, luego el perfil de puesto, despues el framework de competencias y finalmente la plaza concreta dentro de la empresa.
+
+### 5.10 Personnel files
+
+#### 5.10.1 Alcance
+
+Este bloque cubre ocho controladores que juntos administran el expediente de personal del tenant:
+
+- `PersonnelFilesController`
+- `PersonnelFileProfileController`
+- `PersonnelFileEmploymentController`
+- `PersonnelFileCompensationController`
+- `PersonnelFileTalentController`
+- `PersonnelFileDocumentsController`
+- `PersonnelFileAdministrationController`
+- `PersonnelFileReportingController`
+
+Familias de rutas:
+
+- `/api/v1/companies/{companyId}/personnel-files`
+- `/api/v1/personnel-files/{id}`
+- `/api/v1/personnel-files/{id}/personal-info`
+- `/api/v1/personnel-files/{id}/identifications`
+- `/api/v1/personnel-files/{id}/addresses`
+- `/api/v1/personnel-files/{id}/emergency-contacts`
+- `/api/v1/personnel-files/{id}/family-members`
+- `/api/v1/personnel-files/{id}/hobbies`
+- `/api/v1/personnel-files/{id}/employee-relations`
+- `/api/v1/personnel-files/{id}/associations`
+- `/api/v1/personnel-files/{id}/educations`
+- `/api/v1/personnel-files/{id}/languages`
+- `/api/v1/personnel-files/{id}/trainings`
+- `/api/v1/personnel-files/{id}/previous-employments`
+- `/api/v1/personnel-files/{id}/references`
+- `/api/v1/personnel-files/{id}/hire`
+- `/api/v1/personnel-files/{id}/employee-profile`
+- `/api/v1/personnel-files/{id}/employment-assignments`
+- `/api/v1/personnel-files/{id}/contract-history`
+- `/api/v1/personnel-files/{id}/position-hierarchy`
+- `/api/v1/personnel-files/{id}/authorization-substitutions`
+- `/api/v1/personnel-files/{id}/personnel-actions`
+- `/api/v1/personnel-files/{id}/personnel-actions/export`
+- `/api/v1/personnel-files/{id}/assets-accesses`
+- `/api/v1/personnel-files/{id}/salary-items`
+- `/api/v1/personnel-files/{id}/additional-benefits`
+- `/api/v1/personnel-files/{id}/payment-methods`
+- `/api/v1/personnel-files/{id}/payroll-transactions`
+- `/api/v1/personnel-files/{id}/payroll-transactions/export`
+- `/api/v1/personnel-files/{id}/insurances`
+- `/api/v1/personnel-files/{id}/medical-claims`
+- `/api/v1/personnel-files/{id}/bank-accounts`
+- `/api/v1/personnel-files/{id}/evaluations`
+- `/api/v1/personnel-files/{id}/position-competency-results`
+- `/api/v1/personnel-files/{id}/position-competencies`
+- `/api/v1/personnel-files/{id}/selection-contests`
+- `/api/v1/personnel-files/{id}/curricular-competencies`
+- `/api/v1/personnel-files/{id}/documents`
+- `/api/v1/personnel-files/{id}/observations`
+- `/api/v1/personnel-files/{id}/print`
+- `/api/v1/companies/{companyId}/personnel-files/dynamic-query`
+- `/api/v1/companies/{companyId}/personnel-files/export`
+- `/api/v1/companies/{companyId}/personnel-files/analytics/summary`
+- `/api/v1/personnel-file-documents/{documentId}/inactivate`
+- `/api/v1/personnel-file-documents/{documentId}/download`
+- `/api/v1/companies/{companyId}/personnel-catalogs/{category}`
+- `/api/v1/companies/{companyId}/personnel-custom-field-definitions`
+- `/api/v1/personnel-custom-field-definitions/{id}`
+
+#### 5.10.2 Proposito funcional en CLARIHR
+
+`PersonnelFiles` es el expediente maestro de personas del tenant. Su rol funcional es cubrir todo el ciclo base alrededor de una persona dentro de RRHH:
+
+- alta y consulta del expediente
+- llenado del perfil personal, familiar y curricular
+- transicion formal de candidato a empleado
+- mantenimiento de informacion laboral, compensacion y talento
+- almacenamiento de documentos y observaciones
+- catalogos propios del modulo
+- reportes, exportes y consulta dinamica
+
+En terminos de negocio, este bloque une dos mundos:
+
+- el expediente personal base, que sirve para datos biograficos, antecedentes y documentos
+- la capa operativa de RRHH, donde el mismo expediente se convierte en empleado, recibe asignaciones, salario, historial de acciones y evidencias
+
+#### 5.10.3 Modelo operativo y reglas transversales del modulo
+
+- Todas las rutas requieren autenticacion.
+- Todo el bloque es tenant-scoped.
+- Las rutas de coleccion usan `companyId` en la ruta y exigen que coincida con el tenant activo del token.
+- Las rutas por recurso usan solo `{id}` y resuelven el tenant desde el token actual.
+- Si un expediente o documento existe pero pertenece a otro tenant, la API responde `TENANT_MISMATCH` en vez de un `404` plano.
+- La separacion de permisos es binaria:
+- lectura usa `EnsureCanReadAsync`
+- escritura usa `EnsureCanManageAsync`
+- Los listados paginados del modulo usan `page/pageSize`, con default `20` y maximo `100`.
+- No existen endpoints de borrado fisico.
+- Todas las escrituras generan auditoria.
+- `print`, `export`, `personnel-actions/export` y `payroll-transactions/export` tambien generan auditoria.
+- La mayoria de escrituras por subseccion son de reemplazo total, no de merge parcial.
+- En `Profile`, cada `PUT` reemplaza la coleccion completa de la subseccion y devuelve el `PersonnelFileResponse` completo con el nuevo `ConcurrencyToken` del expediente.
+- En `Employment`, `Compensation` y `Talent`, las escrituras tambien usan el `ConcurrencyToken` del expediente padre, pero la respuesta suele ser una coleccion o un `employee profile`, no el expediente completo.
+- El efecto observable de ese diseno es que el cliente normalmente necesita releer `/api/v1/personnel-files/{id}` antes de encadenar otra mutacion file-scoped sobre el mismo expediente.
+- Los endpoints de `Employment`, `Compensation` y `Talent` son de uso exclusivo para expedientes con `RecordType = Employee`.
+- `hire` es la unica transicion permitida de `Candidate` a `Employee`; no puede hacerse desde `personal-info`.
+- `GET /api/v1/personnel-files/{id}` y `GET /print` solo cubren el agregado base del expediente:
+- datos personales y curriculares
+- cuentas bancarias
+- documentos
+- observaciones
+- no incluyen `employee profile`, asignaciones, acciones de personal, transacciones de planilla, seguros, evaluaciones ni otros subrecursos del bloque laboral
+- `bank-accounts` se muta desde `PersonnelFileCompensationController`, pero sigue viviendo sobre el agregado base y por eso aparece en `GetById` y en `print`.
+- `search` y `dynamic-query` soportan busqueda libre por nombre completo y por numero de identificacion.
+- `export` y `analytics/summary` reutilizan la ruta de export rows, por lo que su `q` solo opera sobre nombre completo; no busca por identificaciones.
+
+#### 5.10.4 Autorizacion observable
+
+- Lectura de `PersonnelFiles` acepta alguno de estos permisos: `PersonnelFiles.Read`, `PersonnelFiles.Admin`, `iam.administration.manage` o `platform_admin`.
+- Escritura de `PersonnelFiles` acepta alguno de estos permisos: `PersonnelFiles.Admin`, `iam.administration.manage` o `platform_admin`.
+- `platform_admin` hace bypass completo del chequeo tenant-permission basado en membresias y claims.
+- Si los claims directos no bastan, la API tambien resuelve permisos a traves de la membresia activa de compania y del rol asignado en ese tenant.
+- Si el usuario no esta autenticado o no tiene tenant valido, la API responde `UNAUTHENTICATED`.
+- Si el `companyId` de la ruta no coincide con el tenant activo, la API responde `TENANT_MISMATCH`.
+- Si el usuario esta autenticado en el tenant correcto pero no cumple permisos, la API responde `PERSONNEL_FILES_FORBIDDEN`.
+- `search` y `dynamic-query` pueden devolver `AllowedActions` cuando el cliente lo pide con `includeAllowedActions=true`.
+- `get by id` siempre aplica `AllowedActions` sobre el expediente base.
+- `print` reutiliza la misma lectura autorizada del expediente y devuelve el expediente filtrado por secciones, no un bypass de autorizacion.
+
+#### 5.10.5 Errores observables relevantes en Personnel files
+
+Errores transversales:
+
+- `UNAUTHENTICATED`: `401`, autenticacion requerida o token sin tenant valido.
+- `TENANT_MISMATCH`: `403`, se intenta operar un recurso de otro tenant.
+- `PERSONNEL_FILES_FORBIDDEN`: `403`, el usuario no cumple permisos de lectura o administracion del modulo.
+- `PERSONNEL_FILE_NOT_FOUND`: `404`, el expediente solicitado no existe en el scope correcto.
+- `CONCURRENCY_CONFLICT`: `409`, el `ConcurrencyToken` del expediente o del documento ya no coincide.
+
+Errores funcionales del expediente:
+
+- `PERSONNEL_FILE_IDENTIFICATION_CONFLICT`: `409`, otra persona del tenant ya usa la misma identificacion.
+- `PERSONNEL_FILE_STATE_RULE_VIOLATION`: `422`, la operacion no aplica al estado o tipo actual del expediente.
+- `PERSONNEL_FILE_HIRE_ENDPOINT_REQUIRED`: `422`, se intento convertir un candidato a empleado desde `personal-info`.
+- `PERSONNEL_FILE_EFFECTIVE_DATES_INVALID`: `422`, hay rangos de fechas invalidos en identifications, associations, trainings, previous employments u otras subsecciones con vigencias.
+- `PERSONNEL_FILE_FAMILY_MEMBER_RULE_VIOLATION`: `422`, campos condicionales de familiares no cumplen las reglas visibles del dominio.
+- `PERSONNEL_CUSTOM_DATA_INVALID`: `400`, el JSON de custom data no es valido o no coincide con los tipos configurados.
+- `PERSONNEL_CUSTOM_FIELD_KEY_CONFLICT`: `409`, otra definicion custom del tenant ya usa la misma key.
+- `PERSONNEL_CUSTOM_FIELD_DEFINITION_NOT_FOUND`: `404`, la definicion custom solicitada no existe.
+
+Errores de documentos y reporting:
+
+- `PERSONNEL_FILE_DOCUMENT_NOT_FOUND`: `404`, el documento solicitado no existe.
+- `PERSONNEL_FILE_DOCUMENT_FILE_REQUIRED`: `400`, el upload no trajo archivo.
+- `PERSONNEL_FILE_DOCUMENT_DATES_INVALID`: `422`, las fechas de prestamo y devolucion del documento no son consistentes.
+- `PERSONNEL_FILE_EXPORT_FORMAT_INVALID`: `400`, `format` distinto de `csv|xlsx` en exportes de expedientes, acciones de personal o transacciones de planilla.
+
+Errores `400` de validacion frecuentes:
+
+- `q` mayor a `150` caracteres en `search`, `dynamic-query`, `export` o `analytics`.
+- `page` o `pageSize` fuera de rango.
+- `sortBy` o campos dinamicos no soportados.
+- `groupBy` con mas de `3` campos o con campos no groupables.
+- `Field/Operator` dinamicos no soportados o con payload incompleto.
+- `sections` de `print` con valores no soportados.
+- nombres, telefonos, codigos, keys o identificaciones con formato invalido.
+- `customDataJson` sin los campos requeridos configurados.
+- codigos curriculares inactivos o inexistentes, devueltos como errores de validacion por campo y categoria.
+
+#### 5.10.6 Core
+
+Route family:
+
+- `POST /api/v1/companies/{companyId}/personnel-files`
+- `GET /api/v1/companies/{companyId}/personnel-files`
+- `GET /api/v1/personnel-files/{id}`
+- `PATCH /api/v1/personnel-files/{id}/activate`
+- `PATCH /api/v1/personnel-files/{id}/inactivate`
+
+Uso principal:
+
+- abrir un expediente nuevo
+- listar expedientes del tenant
+- consultar el agregado base del expediente
+- activar o inactivar logicamente el expediente
+
+Observaciones funcionales:
+
+- `RecordType` hoy expone `Candidate` y `Employee`.
+- `create` exige al menos una identificacion inicial.
+- `create` valida formato de nombres, emails y telefonos, valida custom fields activos y evita duplicidad tenant-wide de identificaciones.
+- `search` soporta filtros `isActive`, `recordType`, `orgUnitId`, `minAge`, `maxAge`, `maritalStatus`, `nationality`, `profession`, `createdFromUtc`, `createdToUtc`, `q`, `sortBy`, `sortDirection`, `page`, `pageSize` e `includeAllowedActions`.
+- `search` usa como orden default `FullName ASC`.
+- `search` acepta estos `sortBy`: `fullname`, `firstname`, `lastname`, `birthdate`, `age`, `recordtype`, `maritalstatus`, `nationality`, `profession`, `orgunitid`, `isactive`, `createdatutc`, `modifiedatutc`.
+- `search` busca por nombre completo normalizado y por numero de identificacion.
+- `get by id` devuelve el agregado base del expediente con identificaciones, direcciones, contactos, familiares, hobbies, relaciones, bank accounts, asociaciones, educacion, idiomas, trainings, previous employments, referencias, documentos y observaciones.
+- `get by id` no devuelve `employee profile`, asignaciones, contract history, personnel actions, payroll transactions, seguros, evaluaciones ni concursos.
+- `activate` e `inactivate` son transiciones soft-state y requieren `ConcurrencyToken`.
+
+#### 5.10.7 Profile
+
+Route family:
+
+- `PUT /api/v1/personnel-files/{id}/personal-info`
+- `PUT /api/v1/personnel-files/{id}/identifications`
+- `PUT /api/v1/personnel-files/{id}/addresses`
+- `PUT /api/v1/personnel-files/{id}/emergency-contacts`
+- `PUT /api/v1/personnel-files/{id}/family-members`
+- `PUT /api/v1/personnel-files/{id}/hobbies`
+- `PUT /api/v1/personnel-files/{id}/employee-relations`
+- `PUT /api/v1/personnel-files/{id}/associations`
+- `PUT /api/v1/personnel-files/{id}/educations`
+- `PUT /api/v1/personnel-files/{id}/languages`
+- `PUT /api/v1/personnel-files/{id}/trainings`
+- `PUT /api/v1/personnel-files/{id}/previous-employments`
+- `PUT /api/v1/personnel-files/{id}/references`
+
+Uso principal:
+
+- completar y mantener el contenido personal, familiar y curricular del expediente
+
+Observaciones funcionales:
+
+- Todos los endpoints de `Profile` usan el `ConcurrencyToken` del expediente y devuelven el `PersonnelFileResponse` completo.
+- Todos los `PUT` de colecciones son de reemplazo total de la subseccion.
+- `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite `Candidate -> Employee`.
+- `identifications` revalida unicidad tenant-wide por `IdentificationType + IdentificationNumber` normalizado.
+- `family-members` exige consistencia entre banderas condicionales y datos dependientes:
+- si `IsStudying=true`, se esperan `StudyPlace` y `AcademicLevel`
+- si `IsWorking=true`, se esperan `Workplace` y `JobTitle`
+- si `IsDeceased=true`, se espera `DeceasedDate`
+- `educations`, `languages`, `trainings`, `previous-employments` y `references` validan codigos contra catalogos activos del modulo.
+- Los catalogos curriculares observables usados desde este bloque incluyen `CurriculumEducationStatus`, `CurriculumStudyType`, `CurriculumShift`, `CurriculumModality`, `CurriculumLanguage`, `CurriculumLanguageLevel`, `CurriculumTrainingType`, `CurriculumDurationUnit`, `CurriculumReferenceType`, `Country` y `Currency`.
+- `educations` exige `EndDate` cuando `IsCurrentlyStudying=false` y evita `ApprovedSubjects > TotalSubjects`.
+- `languages` exige que al menos uno de `Speaks`, `Writes` o `Reads` sea `true`.
+- `trainings` valida pais, tipo, unidad de duracion y moneda de costo contra catalogos activos.
+
+#### 5.10.8 Employment
+
+Route family:
+
+- `POST /api/v1/personnel-files/{id}/hire`
+- `PUT /api/v1/personnel-files/{id}/employee-profile`
+- `PUT /api/v1/personnel-files/{id}/employment-assignments`
+- `PUT /api/v1/personnel-files/{id}/contract-history`
+- `GET /api/v1/personnel-files/{id}/position-hierarchy`
+- `PUT /api/v1/personnel-files/{id}/authorization-substitutions`
+- `POST /api/v1/personnel-files/{id}/personnel-actions`
+- `GET /api/v1/personnel-files/{id}/personnel-actions`
+- `GET /api/v1/personnel-files/{id}/personnel-actions/export`
+- `PUT /api/v1/personnel-files/{id}/assets-accesses`
+
+Uso principal:
+
+- formalizar la contratacion
+- mantener la capa laboral del expediente
+- consultar y exportar movimientos laborales
+
+Observaciones funcionales:
+
+- Todo el bloque, salvo `hire`, exige que el expediente ya sea `Employee`; si no, responde `PERSONNEL_FILE_STATE_RULE_VIOLATION`.
+- `hire` exige que el expediente sea `Candidate`; si ya no lo es, tambien responde `PERSONNEL_FILE_STATE_RULE_VIOLATION`.
+- `hire` cambia el `RecordType` del expediente a `Employee` y crea el `employee profile` inicial.
+- en `hire`, `ContractStartDate` se inicializa con `HireDate` y `OrgUnitId` hereda el `OrgUnit` actual del expediente.
+- `employee-profile` hace upsert del perfil laboral y permite vincular `PositionSlotId`, `JobProfileId`, `OrgUnitId`, `WorkCenterId`, `CostCenterId`, vigencias contractuales y `VacationConfigurationJson`.
+- `employment-assignments`, `contract-history`, `authorization-substitutions` y `assets-accesses` reemplazan la coleccion completa de ese subrecurso.
+- `position-hierarchy` devuelve `ImmediateSupervisorPersonnelFileId`, `ImmediateSupervisorName` y la coleccion de subordinados.
+- `personnel-actions` agrega un evento individual de personal con fechas efectivas, monto opcional, moneda, descripcion y referencia.
+- `search personnel-actions` soporta `fromUtc`, `toUtc`, `type`, `status`, `q`, `sortBy`, `sortDirection`, `page` y `pageSize`.
+- `search personnel-actions` busca por `Description`, `Reference`, `ActionTypeCode` y `ActionStatusCode`.
+- `search personnel-actions` usa `ActionDateUtc DESC` por defecto.
+- `personnel-actions/export` soporta `csv|xlsx`.
+- `personnel-actions/export` admite `sortBy` observable en `actionDateUtc`, `createdAtUtc`, `type/actionTypeCode`, `status/actionStatusCode` y `amount`.
+- Las escrituras de `Employment` tocan deliberadamente el expediente padre, por lo que rotan su `ConcurrencyToken` aunque la respuesta sea de tipo laboral y no `PersonnelFileResponse`.
+
+#### 5.10.9 Compensation
+
+Route family:
+
+- `PUT /api/v1/personnel-files/{id}/salary-items`
+- `PUT /api/v1/personnel-files/{id}/additional-benefits`
+- `PUT /api/v1/personnel-files/{id}/payment-methods`
+- `PUT /api/v1/personnel-files/{id}/payroll-transactions`
+- `GET /api/v1/personnel-files/{id}/payroll-transactions`
+- `GET /api/v1/personnel-files/{id}/payroll-transactions/export`
+- `PUT /api/v1/personnel-files/{id}/insurances`
+- `PUT /api/v1/personnel-files/{id}/medical-claims`
+- `PUT /api/v1/personnel-files/{id}/bank-accounts`
+
+Uso principal:
+
+- mantener salario, beneficios, medios de pago, historico de planilla, seguros y reclamos
+
+Observaciones funcionales:
+
+- Todo el bloque exige que el expediente sea `Employee`.
+- Todos los `PUT` son de reemplazo total de la subseccion.
+- `salary-items` mantiene rubros salariales con vigencias, tipo de ingreso, rubrica, moneda y periodo de pago.
+- `additional-benefits` mantiene beneficios adicionales activos o historicos.
+- `payment-methods` usa vigencias `EffectiveFromUtc/EffectiveToUtc` y puede apuntar a un `BankAccountId`.
+- `payroll-transactions` mantiene el historico detallado de movimientos de planilla, con metadatos de integracion (`SourceSystem`, `SourceReference`, `SourceSyncedUtc`).
+- `search payroll-transactions` soporta `fromUtc`, `toUtc`, `type`, `status`, `q`, `sortBy`, `sortDirection`, `page` y `pageSize`.
+- en `payroll-transactions`, el filtro `status` no representa un campo persistido; hoy mapea a polaridad del movimiento:
+- `DEBIT` o `DISCOUNT` filtra `IsDebit=true`
+- `CREDIT` o `EARNING` filtra `IsDebit=false`
+- `search payroll-transactions` usa `TransactionDateUtc DESC` por defecto.
+- `payroll-transactions/export` soporta `csv|xlsx`.
+- `payroll-transactions/export` admite `sortBy` observable en `transactionDateUtc`, `createdAtUtc`, `type/transactionTypeCode` y `amount`.
+- `insurances` reemplaza tambien el conjunto de beneficiarios de cada seguro.
+- `bank-accounts` es una excepcion del bloque:
+- se expone desde `Compensation`
+- muta el agregado base del expediente
+- devuelve `PersonnelFileResponse` completo
+- aparece tambien en `get by id` y `print`
+- Las escrituras de `Compensation` tambien tocan el expediente padre y por eso hacen rotar su `ConcurrencyToken`.
+
+#### 5.10.10 Talent
+
+Route family:
+
+- `PUT /api/v1/personnel-files/{id}/evaluations`
+- `GET /api/v1/personnel-files/{id}/evaluations`
+- `PUT /api/v1/personnel-files/{id}/position-competency-results`
+- `GET /api/v1/personnel-files/{id}/position-competencies`
+- `PUT /api/v1/personnel-files/{id}/selection-contests`
+- `GET /api/v1/personnel-files/{id}/selection-contests`
+- `PUT /api/v1/personnel-files/{id}/curricular-competencies`
+
+Uso principal:
+
+- mantener evidencias de desempeno, brechas de competencia, concursos y competencias curriculares
+
+Observaciones funcionales:
+
+- Todo el bloque exige que el expediente sea `Employee`.
+- Todos los `PUT` son de reemplazo total.
+- Los endpoints `GET` del bloque devuelven la coleccion completa del subrecurso; no hay paginacion.
+- `evaluations` mantiene resultados de evaluacion con score cuantitativo, score cualitativo y comentario.
+- `position-competency-results` mantiene resultados observados por `CompetencyCode`; el endpoint lee el estado persistido del expediente, no una recomputacion en vivo desde `CompetencyFramework`.
+- `selection-contests` registra resultados de concursos internos o externos.
+- `curricular-competencies` registra requerimientos, dominio y experiencia observada en el expediente.
+- Todos los subrecursos de `Talent` exponen metadatos de integracion (`SourceSystem`, `SourceReference`, `SourceSyncedUtc`) cuando aplica.
+- Las escrituras de `Talent` tambien tocan el expediente padre y rotan su `ConcurrencyToken`.
+
+#### 5.10.11 Documents
+
+Route family:
+
+- `POST /api/v1/personnel-files/{id}/documents`
+- `PATCH /api/v1/personnel-file-documents/{documentId}/inactivate`
+- `GET /api/v1/personnel-file-documents/{documentId}/download`
+- `POST /api/v1/personnel-files/{id}/observations`
+
+Uso principal:
+
+- adjuntar evidencias documentales al expediente
+- descargar documentos
+- inactivar documentos historicos
+- registrar observaciones internas
+
+Observaciones funcionales:
+
+- `upload document` usa `multipart/form-data`.
+- `upload document` exige archivo no vacio y usa el `ConcurrencyToken` actual del expediente.
+- `upload document` calcula y persiste `sha256` del binario cargado.
+- `upload document` valida fechas de entrega, prestamo y devolucion; rangos invalidos responden `PERSONNEL_FILE_DOCUMENT_DATES_INVALID`.
+- `upload document` devuelve `PersonnelFileDocumentMetadataResponse`, no el expediente completo.
+- `inactivate document` usa `ConcurrencyToken` del documento, no del expediente.
+- `inactivate document` es soft-delete logico sobre el documento.
+- `download document` devuelve el binario y valida tenant scope del documento.
+- `add observation` usa el `ConcurrencyToken` del expediente y devuelve solo la observacion creada.
+- Comportamiento observable actual de `inactivate document`:
+- la respuesta tiene shape de metadata
+- pero varios campos se rehidratan de forma parcial en la implementacion actual
+- por eso solo deben considerarse confiables `Id`, `FileName`, `ContentType`, `SizeBytes`, `IsActive` y `ConcurrencyToken`
+
+#### 5.10.12 Administration
+
+Route family:
+
+- `GET /api/v1/companies/{companyId}/personnel-catalogs/{category}`
+- `GET /api/v1/companies/{companyId}/personnel-custom-field-definitions`
+- `POST /api/v1/companies/{companyId}/personnel-custom-field-definitions`
+- `PUT /api/v1/personnel-custom-field-definitions/{id}`
+
+Uso principal:
+
+- exponer catalogos funcionales del modulo
+- administrar campos custom del expediente
+
+Observaciones funcionales:
+
+- `personnel-catalogs/{category}` es read-only y devuelve solo items activos.
+- `personnel-catalogs/{category}` ordena por `SortOrder`, luego `Name`.
+- `personnel-custom-field-definitions` soporta filtro opcional `isActive`.
+- `PersonnelCustomFieldType` hoy expone `String`, `Number`, `Date`, `Bool` y `Select`.
+- `create/update custom-field-definition` valida `Key` con la misma regex de codigos del modulo, exige `Label`, `SortOrder >= 0` y limita `OptionsJson` a `12000` caracteres.
+- la key custom es unica por tenant en comparacion normalizada.
+- `update custom-field-definition` requiere `ConcurrencyToken`.
+- `create` y `personal-info update` validan `customDataJson` contra las definiciones activas del tenant.
+- esa validacion exige presencia de campos requeridos y coherencia de tipo por key.
+- la validacion actual no rechaza propiedades extra que no tengan definicion activa; simplemente valida las keys conocidas.
+
+#### 5.10.13 Reporting
+
+Route family:
+
+- `GET /api/v1/personnel-files/{id}/print`
+- `POST /api/v1/companies/{companyId}/personnel-files/dynamic-query`
+- `GET /api/v1/companies/{companyId}/personnel-files/export`
+- `GET /api/v1/companies/{companyId}/personnel-files/analytics/summary`
+
+Uso principal:
+
+- imprimir el expediente base
+- ejecutar consultas dinamicas sobre expedientes
+- exportar listados masivos
+- resumir indicadores del modulo
+
+Observaciones funcionales:
+
+- `print` acepta `sections` como lista separada por comas.
+- las secciones soportadas hoy son:
+- `personal-info`
+- `identifications`
+- `addresses`
+- `emergency-contacts`
+- `family-members`
+- `hobbies`
+- `employee-relations`
+- `bank-accounts`
+- `associations`
+- `educations`
+- `languages`
+- `trainings`
+- `previous-employments`
+- `references`
+- `documents`
+- `observations`
+- si `sections` se omite, `print` incluye todas las secciones soportadas.
+- `print` filtra el `PersonnelFileResponse` del agregado base; nunca imprime employment, compensation ni talent.
+- Comportamiento observable actual de `print`:
+- la seccion `personal-info` es aceptada en la API
+- pero el filtro actual solo vacia colecciones
+- por eso los campos escalares base del expediente siguen presentes aunque `personal-info` no se incluya explicitamente
+- `dynamic-query` acepta body con `Filters`, `GroupBy`, `Sort`, `Q`, `Page`, `PageSize` e `IncludeAllowedActions`.
+- `dynamic-query` permite como maximo `3` campos de agrupacion.
+- cada campo agrupado devuelve como maximo `100` buckets.
+- los campos groupables hoy son `recordtype`, `maritalstatus`, `nationality`, `orgunitid` e `isactive`.
+- los campos sortables hoy son `fullname`, `firstname`, `lastname`, `birthdate`, `age`, `recordtype`, `maritalstatus`, `nationality`, `profession`, `orgunitid`, `isactive`, `createdatutc` y `modifiedatutc`.
+- `dynamic-query` soporta estos filtros observables:
+- `recordtype`: `eq`, `in`
+- `maritalstatus`: `eq`, `in`
+- `nationality`: `eq`, `in`
+- `profession`: `eq`, `contains`
+- `orgunitid`: `eq`, `in`
+- `isactive`: `eq`
+- `age`: `eq`, `gte`, `lte`, `between`
+- `birthdate`: `eq`, `gte`, `lte`, `between`
+- `createdatutc`: `eq`, `gte`, `lte`, `between`
+- `firstname`: `eq`, `contains`
+- `lastname`: `eq`, `contains`
+- `fullname`: `eq`, `contains`
+- `dynamic-query` tambien busca por numero de identificacion cuando se usa `Q`.
+- `export` soporta `csv|xlsx` y expone filtros equivalentes al `search` core.
+- `export` devuelve un dataset fino del expediente: no incluye employment, compensation, talent ni documentos.
+- `analytics/summary` soporta `isActive`, `recordType`, `orgUnitId`, `minAge`, `maxAge` y `q`.
+- `analytics/summary` devuelve `TotalCount`, `ActiveCount`, `InactiveCount` y breakdowns por `RecordType`, rango de edad y `OrgUnit`.
+- `export` y `analytics/summary` no incluyen matching por identificacion en `q`; solo operan sobre nombre completo.
+
+#### 5.10.14 Relacion con otros modulos
+
+- `IAM` y `Auth` aportan autenticacion, roles, permisos y contexto tenant para todo el expediente.
+- `Account companies` aporta la compania activa sobre la que se crea o consulta el expediente.
+- `OrgUnits` alimenta `OrgUnitId` en el expediente base, en `employee-profile`, en asignaciones y en analytics.
+- `Locations` alimenta `WorkCenterId` en `employee-profile` y en `employment-assignments`.
+- `CostCenters` alimenta `CostCenterId` o `CostCenterCode` dentro de la capa laboral.
+- `Job and competency design` aporta `JobProfiles`, `PositionSlots`, tipos de requerimiento y el contexto de competencias que luego se reflejan en `employee-profile`, jerarquia de posicion y resultados de competencias.
+- `Reports` consume `PERSONNEL_FILES` como `resourceKey` para capacidades de export e impresion.
+
+`PersonnelFiles` es asi el modulo que aterriza el resto del sistema sobre una persona real: primero nace el expediente, luego se completa el perfil, despues puede convertirse en empleado y finalmente se conecta con puestos, estructura, compensacion, talento y evidencia documental.
 
 ## 6. Reglas observables transversales
 

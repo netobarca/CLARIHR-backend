@@ -198,7 +198,7 @@ public sealed class AccountCompaniesController(
         DateTime? EffectiveToUtc,
         string? Email,
         string? Phone,
-        bool IsPrimary = true);
+        bool? IsPrimary = null);
 
     public sealed record UpdateAccountCompanyRequest(string Name, Guid? CompanyTypeId);
 }

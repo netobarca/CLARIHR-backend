@@ -44,7 +44,7 @@ public sealed record ActiveLegalRepresentativeSummaryResponse(
     string FullName,
     LegalRepresentativeRepresentationType RepresentationType,
     string PositionTitle,
-    bool IsPrimary);
+    bool? IsPrimary);
 
 public sealed record ActiveCompanyDto(
     Guid CompanyId,

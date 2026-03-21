@@ -20,7 +20,7 @@ public sealed record InitialLegalRepresentativeInput(
     DateTime? EffectiveToUtc,
     string? Email,
     string? Phone,
-    bool IsPrimary = true);
+    bool? IsPrimary = null);
 
 public static partial class LegalRepresentativeValidationRules
 {
