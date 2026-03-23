@@ -7,10 +7,6 @@ public static class ProvisioningConstants
     public const string ProPlanCode = "PRO";
     public const string EnterprisePlanCode = "ENTERPRISE";
 
-    public const string MaxOwnedCompaniesFeature = "MAX_OWNED_COMPANIES";
-    public const string MaxEmployeesPerCompanyFeature = "MAX_EMPLOYEES_PER_COMPANY";
-    public const string DefaultCompanyPlanFeature = "DEFAULT_COMPANY_PLAN";
-
     public const string RbacModuleKey = "RBAC";
     public const string UsersModuleKey = "USERS";
     public const string OrgStructureCatalogsModuleKey = "ORG_STRUCTURE_CATALOGS";
