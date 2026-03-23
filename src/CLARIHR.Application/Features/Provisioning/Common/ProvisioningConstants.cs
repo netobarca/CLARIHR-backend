@@ -3,8 +3,6 @@ namespace CLARIHR.Application.Features.Provisioning.Common;
 public static class ProvisioningConstants
 {
     public const string FreePlanCode = "FREE";
-    public const string EnterprisePlanCode = "ENTERPRISE";
-
     public const string RbacModuleKey = "RBAC";
     public const string UsersModuleKey = "USERS";
     public const string OrgStructureCatalogsModuleKey = "ORG_STRUCTURE_CATALOGS";
@@ -22,7 +20,7 @@ public static class ProvisioningConstants
     [
         RbacModuleKey,
         UsersModuleKey,
-        OrgStructureCatalogsModuleKey,
+        OrgStructureCatalogsModuleKey
     ];
 
     public static readonly ProvisioningPermissionDefinition[] CompanyAdminPermissions =

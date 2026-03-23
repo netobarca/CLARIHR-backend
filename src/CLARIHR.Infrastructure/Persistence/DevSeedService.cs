@@ -87,7 +87,7 @@ internal sealed class DevSeedService(
 
         var subscription = CompanySubscription.Activate(
             company.Id,
-            ProvisioningConstants.EnterprisePlanCode,
+            "ENTERPRISE",
             SeedDate);
         dbContext.CompanySubscriptions.Add(subscription);
 

@@ -20,7 +20,6 @@ internal sealed class JwtTokenService(
     IDateTimeProvider dateTimeProvider,
     IUserRepository userRepository,
     IUserCompanyRepository userCompanyRepository,
-    ICompanySubscriptionRepository companySubscriptionRepository,
     IRefreshTokenRepository refreshTokenRepository,
     IRefreshTokenHasher refreshTokenHasher,
     ILogger<JwtTokenService> logger) : ITokenService
@@ -65,13 +64,6 @@ internal sealed class JwtTokenService(
         if (tenantId.HasValue)
         {
             claims.Add(new Claim("tid", tenantId.Value.ToString()));
-
-            var planCode = await companySubscriptionRepository.GetActivePlanCodeAsync(
-                tenantId.Value, cancellationToken);
-            if (planCode is not null)
-            {
-                claims.Add(new Claim("plan_code", planCode));
-            }
         }
 
         var signingCredentials = new SigningCredentials(
@@ -98,9 +90,8 @@ internal sealed class JwtTokenService(
 
         var expiresIn = (int)Math.Round((expiresAt - issuedAt).TotalSeconds);
         logger.LogInformation(
-            "Issued auth token pair for user {UserPublicId} tenant {TenantId} provider {AuthProvider}",
+            "Issued auth token pair for user {UserPublicId} provider {AuthProvider}",
             user.PublicId,
-            tenantId,
             user.AuthProvider);
 
         return Result<AuthTokenResult>.Success(new AuthTokenResult(
@@ -210,13 +201,6 @@ internal sealed class JwtTokenService(
         if (tenantId.HasValue)
         {
             claims.Add(new Claim("tid", tenantId.Value.ToString()));
-
-            var planCode = await companySubscriptionRepository.GetActivePlanCodeAsync(
-                tenantId.Value, cancellationToken);
-            if (planCode is not null)
-            {
-                claims.Add(new Claim("plan_code", planCode));
-            }
         }
 
         var signingCredentials = new SigningCredentials(
