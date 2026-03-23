@@ -3,13 +3,7 @@ namespace CLARIHR.Application.Features.Provisioning.Common;
 public static class ProvisioningConstants
 {
     public const string FreePlanCode = "FREE";
-    public const string BasicPlanCode = "BASIC";
-    public const string ProPlanCode = "PRO";
     public const string EnterprisePlanCode = "ENTERPRISE";
-
-    public const string MaxOwnedCompaniesFeature = "MAX_OWNED_COMPANIES";
-    public const string MaxEmployeesPerCompanyFeature = "MAX_EMPLOYEES_PER_COMPANY";
-    public const string DefaultCompanyPlanFeature = "DEFAULT_COMPANY_PLAN";
 
     public const string RbacModuleKey = "RBAC";
     public const string UsersModuleKey = "USERS";
@@ -29,51 +23,6 @@ public static class ProvisioningConstants
         RbacModuleKey,
         UsersModuleKey,
         OrgStructureCatalogsModuleKey,
-    ];
-
-    public static readonly string[] BasicPlanEnabledModules =
-    [
-        RbacModuleKey,
-        UsersModuleKey,
-        OrgStructureCatalogsModuleKey,
-        PositionDescriptionCatalogsModuleKey,
-        JobProfilesModuleKey,
-        CostCentersModuleKey,
-    ];
-
-    public static readonly string[] ProPlanEnabledModules =
-    [
-        RbacModuleKey,
-        UsersModuleKey,
-        OrgStructureCatalogsModuleKey,
-        PositionDescriptionCatalogsModuleKey,
-        JobProfilesModuleKey,
-        CostCentersModuleKey,
-        PositionSlotsModuleKey,
-        SalaryTabulatorModuleKey,
-        LegalRepresentativesModuleKey,
-    ];
-
-    public static readonly string[] EnterprisePlanEnabledModules =
-    [
-        RbacModuleKey,
-        UsersModuleKey,
-        OrgStructureCatalogsModuleKey,
-        PositionDescriptionCatalogsModuleKey,
-        JobProfilesModuleKey,
-        CostCentersModuleKey,
-        PositionSlotsModuleKey,
-        SalaryTabulatorModuleKey,
-        LegalRepresentativesModuleKey,
-        CompetencyFrameworkModuleKey,
-    ];
-
-    public static readonly (string PlanCode, string[] Modules)[] AllPlanModules =
-    [
-        (FreePlanCode, FreePlanEnabledModules),
-        (BasicPlanCode, BasicPlanEnabledModules),
-        (ProPlanCode, ProPlanEnabledModules),
-        (EnterprisePlanCode, EnterprisePlanEnabledModules),
     ];
 
     public static readonly ProvisioningPermissionDefinition[] CompanyAdminPermissions =
