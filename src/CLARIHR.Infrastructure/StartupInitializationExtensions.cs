@@ -16,6 +16,7 @@ public static class StartupInitializationExtensions
     public static async Task InitializeInfrastructureAsync(
         this IServiceProvider services,
         ILogger logger,
+        bool isDevelopment = false,
         CancellationToken cancellationToken = default)
     {
         for (var attempt = 1; attempt <= InitializationMaxAttempts; attempt++)
@@ -34,6 +35,12 @@ public static class StartupInitializationExtensions
                 await documentTypeCatalogSeedService.EnsureSeededAsync(cancellationToken);
                 await positionTitleCatalogSeedService.EnsureSeededAsync(cancellationToken);
                 await representationTypeCatalogSeedService.EnsureSeededAsync(cancellationToken);
+
+                if (isDevelopment)
+                {
+                    var devSeedService = scope.ServiceProvider.GetRequiredService<DevSeedService>();
+                    await devSeedService.SeedAsync(cancellationToken);
+                }
 
                 return;
             }

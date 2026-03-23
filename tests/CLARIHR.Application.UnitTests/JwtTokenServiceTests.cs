@@ -103,6 +103,7 @@ public sealed class JwtTokenServiceTests
             new FixedDateTimeProvider(new DateTime(2026, 2, 28, 18, 0, 0, DateTimeKind.Utc)),
             userRepository,
             userCompanyRepository,
+            new TestCompanySubscriptionRepository(),
             refreshTokenRepository,
             new RefreshTokenHasher(),
             NullLogger<JwtTokenService>.Instance);
@@ -255,5 +256,14 @@ public sealed class JwtTokenServiceTests
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class TestCompanySubscriptionRepository : ICompanySubscriptionRepository
+    {
+        public void Add(Domain.Companies.CompanySubscription subscription) =>
+            throw new NotSupportedException();
+
+        public Task<string?> GetActivePlanCodeAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("FREE");
     }
 }

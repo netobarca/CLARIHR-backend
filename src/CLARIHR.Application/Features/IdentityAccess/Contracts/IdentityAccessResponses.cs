@@ -7,6 +7,13 @@ public sealed record IamRoleReferenceResponse(
     string Name,
     string? Description);
 
+public sealed record IamUserRoleResponse(
+    Guid Id,
+    string Name,
+    string? Description,
+    bool IsSystemRole,
+    IReadOnlyCollection<IamPermissionReferenceResponse> Permissions);
+
 public sealed record IamPermissionReferenceResponse(
     Guid Id,
     string Code,
@@ -33,7 +40,7 @@ public sealed record IamUserResponse(
     string FirstName,
     string LastName,
     bool IsActive,
-    IReadOnlyCollection<IamRoleReferenceResponse> Roles);
+    IReadOnlyCollection<IamUserRoleResponse> Roles);
 
 public sealed record IamRoleSummaryResponse(
     Guid Id,

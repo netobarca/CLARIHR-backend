@@ -228,10 +228,25 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
                 user.IsActive,
                 user.RoleAssignments
                     .OrderBy(assignment => assignment.Role.Name)
-                    .Select(assignment => new IamRoleReferenceResponse(
+                    .Select(assignment => new IamUserRoleResponse(
                         assignment.Role.PublicId,
                         assignment.Role.Name,
-                        assignment.Role.Description))
+                        assignment.Role.Description,
+                        assignment.Role.IsSystemRole,
+                        assignment.Role.PermissionAssignments
+                            .OrderBy(pa => pa.Permission.Code)
+                            .Select(pa => new IamPermissionReferenceResponse(
+                                pa.Permission.PublicId,
+                                pa.Permission.Code,
+                                pa.Permission.Name,
+                                pa.Permission.Description,
+                                pa.Permission.Module,
+                                pa.Permission.Screen,
+                                pa.Permission.Kind,
+                                pa.Permission.Action,
+                                pa.Permission.FieldName,
+                                pa.Permission.FieldAccess))
+                            .ToArray()))
                     .ToArray()))
             .SingleOrDefaultAsync(cancellationToken);
 
