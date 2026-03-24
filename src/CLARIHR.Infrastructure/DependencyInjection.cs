@@ -122,6 +122,7 @@ public static class DependencyInjection
         services.AddScoped<IIamAdministrationRepository, IamAdministrationRepository>();
         services.AddScoped<IIamAdministrationAuthorizationService, IamAdministrationAuthorizationService>();
         services.AddScoped<RbacCatalogBackfillService>();
+        services.AddScoped<DevSeedService>();
         services.AddSingleton<IFieldPermissionOverrideCache, FieldPermissionOverrideCache>();
         services.AddScoped<IFieldAccessProfileService, FieldAccessProfileService>();
         services.AddScoped<IFieldPermissionService, FieldPermissionService>();

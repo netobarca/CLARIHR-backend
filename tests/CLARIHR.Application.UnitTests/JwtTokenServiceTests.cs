@@ -256,4 +256,5 @@ public sealed class JwtTokenServiceTests
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
+
 }

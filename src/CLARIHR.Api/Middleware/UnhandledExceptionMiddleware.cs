@@ -2,6 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CLARIHR.Api.Middleware;
 
+/// <summary>
+/// Captures unhandled exceptions and writes enriched error logs.
+/// Includes tenant, user, remote IP, and trace context for troubleshooting.
+/// </summary>
 internal sealed class UnhandledExceptionMiddleware(
     RequestDelegate next,
     IProblemDetailsService problemDetailsService,
@@ -16,7 +20,30 @@ internal sealed class UnhandledExceptionMiddleware(
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Unhandled exception processing request {TraceIdentifier}", context.TraceIdentifier);
+            // Extract enriched request context for structured logging.
+            var tenantId = context.User.FindFirst("tid")?.Value ?? context.User.FindFirst("tenantid")?.Value ?? "unknown";
+            var userId = context.User.FindFirst("sub")?.Value ?? context.User.FindFirst("uid")?.Value ?? "anonymous";
+            var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            using (logger.BeginScope(new Dictionary<string, object>
+            {
+                { "TenantId", tenantId },
+                { "UserId", userId },
+                { "RemoteIp", remoteIp },
+                { "TraceId", context.TraceIdentifier },
+                { "Method", context.Request.Method },
+                { "Path", context.Request.Path.Value ?? "/" }
+            }))
+            {
+                logger.LogError(
+                    exception,
+                    "Unhandled exception processing request {Method} {Path} | Tenant: {TenantId} | User: {UserId} | TraceId: {TraceIdentifier}",
+                    context.Request.Method,
+                    context.Request.Path.Value,
+                    tenantId,
+                    userId,
+                    context.TraceIdentifier);
+            }
 
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
 

@@ -2,6 +2,10 @@ using System.Diagnostics;
 
 namespace CLARIHR.Api.Middleware;
 
+/// <summary>
+/// Logs each HTTP request with enriched operational context.
+/// Captures method, path, status code, duration, trace identifier, tenant, user, and remote IP.
+/// </summary>
 internal sealed class RequestLoggingMiddleware(
     RequestDelegate next,
     ILogger<RequestLoggingMiddleware> logger)
@@ -18,13 +22,28 @@ internal sealed class RequestLoggingMiddleware(
         {
             stopwatch.Stop();
 
-            logger.LogInformation(
-                "HTTP request completed {Method} {Path} -> {StatusCode} in {ElapsedMs}ms trace {TraceId}",
-                context.Request.Method,
-                context.Request.Path.Value,
-                context.Response.StatusCode,
-                stopwatch.ElapsedMilliseconds,
-                context.TraceIdentifier);
+            // Extract enriched request context for structured logging.
+            var tenantId = context.User.FindFirst("tid")?.Value ?? context.User.FindFirst("tenantid")?.Value ?? "unknown";
+            var userId = context.User.FindFirst("sub")?.Value ?? context.User.FindFirst("uid")?.Value ?? "anonymous";
+            var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            using (logger.BeginScope(new Dictionary<string, object>
+            {
+                { "TenantId", tenantId },
+                { "UserId", userId },
+                { "RemoteIp", remoteIp },
+                { "TraceId", context.TraceIdentifier }
+            }))
+            {
+                logger.LogInformation(
+                    "HTTP {Method} {Path} -> {StatusCode} in {ElapsedMs}ms | Tenant: {TenantId} | User: {UserId}",
+                    context.Request.Method,
+                    context.Request.Path.Value,
+                    context.Response.StatusCode,
+                    stopwatch.ElapsedMilliseconds,
+                    tenantId,
+                    userId);
+            }
         }
     }
 }

@@ -1102,7 +1102,16 @@ public sealed class IdentityAccessAdministrationTests
         {
             var roles = user.RoleAssignments
                 .Select(assignment => _roles.Single(role => role.Id == assignment.RoleId))
-                .Select(role => new IamRoleReferenceResponse(role.PublicId, role.Name, role.Description))
+                .Select(role => new IamUserRoleResponse(
+                    role.PublicId,
+                    role.Name,
+                    role.Description,
+                    role.IsSystemRole,
+                    role.PermissionAssignments
+                        .Select(pa => _permissions.Single(p => p.Id == pa.PermissionId))
+                        .OrderBy(p => p.Module).ThenBy(p => p.Code)
+                        .Select(p => MapPermissionReference(p))
+                        .ToArray()))
                 .ToArray();
 
             return new IamUserResponse(
