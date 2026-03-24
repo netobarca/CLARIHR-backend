@@ -4,19 +4,20 @@ using CLARIHR.Api.Configuration;
 using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
 using CLARIHR.Infrastructure;
+using CLARIHR.Infrastructure.Logging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog logging
+Log.Logger = LoggingConfigurationExtensions.CreateLoggingConfiguration(builder.Environment).CreateLogger();
+
 builder.Logging.ClearProviders();
-builder.Logging.AddJsonConsole(options =>
-{
-    options.IncludeScopes = false;
-    options.UseUtcTimestamp = true;
-    options.TimestampFormat = "O";
-});
+builder.Logging.AddSerilog(Log.Logger);
 
 builder.Services.AddProblemDetails();
 builder.Services
@@ -77,7 +78,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
-await app.Services.InitializeInfrastructureAsync(app.Logger);
+await app.Services.InitializeInfrastructureAsync(app.Logger, app.Environment.IsDevelopment());
 
 if (app.Environment.IsDevelopment())
 {
