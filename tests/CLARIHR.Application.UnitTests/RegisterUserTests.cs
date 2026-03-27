@@ -19,7 +19,7 @@ public sealed class RegisterUserCommandValidatorTests
             FirstName: "Ana",
             LastName: "Mendoza",
             Email: "ana@clarihr.test",
-            Password: "weakpass",
+            Password: "Pass2019!",
             Country: "SV",
             Source: "landing");
 
@@ -27,6 +27,30 @@ public sealed class RegisterUserCommandValidatorTests
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(RegisterUserCommand.Password));
+        Assert.Contains(
+            result.Errors,
+            error => error.PropertyName == nameof(RegisterUserCommand.Password) &&
+                     error.ErrorMessage.Contains("at least 12 characters", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Validate_WhenPasswordContainsPersonalInfo_ShouldReturnValidationErrors()
+    {
+        var command = new RegisterUserCommand(
+            FirstName: "Ana",
+            LastName: "Mendoza",
+            Email: "ana@clarihr.test",
+            Password: "AnaSecure!45",
+            Country: "SV",
+            Source: "landing");
+
+        var result = _validator.Validate(command);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(
+            result.Errors,
+            error => error.PropertyName == nameof(RegisterUserCommand.Password) &&
+                     error.ErrorMessage == "Password cannot contain your name or email.");
     }
 
     [Fact]
@@ -36,7 +60,7 @@ public sealed class RegisterUserCommandValidatorTests
             FirstName: "Ana123",
             LastName: "Mendoza",
             Email: "ana@clarihr.test",
-            Password: "StrongP@ss1",
+            Password: "StrongP@ss1!",
             Country: "SV",
             Source: "landing");
 
@@ -53,7 +77,7 @@ public sealed class RegisterUserCommandValidatorTests
             FirstName: "Ana",
             LastName: "Mendoza",
             Email: "ana@clarihr.test",
-            Password: "StrongP@ss1",
+            Password: "StrongP@ss1!",
             Country: "SV",
             Source: "landing\npage");
 
@@ -70,7 +94,7 @@ public sealed class RegisterUserCommandValidatorTests
             FirstName: "Ana",
             LastName: "Mendoza",
             Email: "ana@clarihr.test",
-            Password: "StrongP@ss1",
+            Password: "StrongP@ss1!",
             Country: "SV",
             Source: "landing");
 
@@ -99,7 +123,7 @@ public sealed class RegisterUserCommandHandlerTests
             "Ana",
             "Mendoza",
             "ana@clarihr.test",
-            "StrongP@ss1",
+            "StrongP@ss1!",
             "SV",
             "landing"), CancellationToken.None);
 
@@ -121,13 +145,13 @@ public sealed class RegisterUserCommandHandlerTests
             "Carla",
             "Lopez",
             "carla@clarihr.test",
-            "StrongP@ss1",
+            "StrongP@ss1!",
             "SV",
             "landing"), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(repository.AddedUser);
-        Assert.Equal("hashed::StrongP@ss1", repository.AddedUser!.PasswordHash);
+        Assert.Equal("hashed::StrongP@ss1!", repository.AddedUser!.PasswordHash);
         Assert.Equal("jwt-access-token", result.Value.AccessToken);
         Assert.Equal("refresh-token", result.Value.RefreshToken);
         Assert.Equal(900, result.Value.ExpiresIn);
@@ -153,7 +177,7 @@ public sealed class RegisterUserCommandHandlerTests
             "Carla",
             "Lopez",
             "carla@clarihr.test",
-            "StrongP@ss1",
+            "StrongP@ss1!",
             "SV",
             "landing"), CancellationToken.None);
 

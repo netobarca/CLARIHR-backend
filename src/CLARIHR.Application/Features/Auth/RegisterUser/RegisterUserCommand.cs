@@ -38,13 +38,20 @@ internal sealed class RegisterUserCommandValidator : AbstractValidator<RegisterU
             .MaximumLength(320);
 
         RuleFor(command => command.Password)
+            .Cascade(CascadeMode.Stop)
             .NotEmpty()
-            .MinimumLength(8)
-            .MaximumLength(100)
-            .Matches("[A-Z]").WithMessage("Password must contain at least one uppercase letter.")
-            .Matches("[a-z]").WithMessage("Password must contain at least one lowercase letter.")
-            .Matches("[0-9]").WithMessage("Password must contain at least one number.")
-            .Matches("[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character.");
+            .Custom((password, context) =>
+            {
+                var command = (RegisterUserCommand)context.InstanceToValidate;
+                foreach (var error in AuthValidationRules.GetPasswordPolicyViolations(
+                             password,
+                             command.FirstName,
+                             command.LastName,
+                             command.Email))
+                {
+                    context.AddFailure(nameof(RegisterUserCommand.Password), error);
+                }
+            });
 
         RuleFor(command => command.Country)
             .MaximumLength(100)

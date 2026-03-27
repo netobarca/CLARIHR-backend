@@ -518,6 +518,9 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             return Task.FromResult(membership);
         }
 
+        public Task<string?> GetRoleNormalizedNameAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(null);
+
         public Task<UserCompanyMembership?> FindByUserPublicIdAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

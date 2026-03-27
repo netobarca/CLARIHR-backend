@@ -48,23 +48,7 @@ internal sealed class JwtTokenService(
         var expiresAt = issuedAt.AddMinutes(jwtOptions.AccessTokenExpirationMinutes);
         var refreshExpiresAt = issuedAt.AddDays(jwtOptions.RefreshTokenExpirationDays);
 
-        var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, user.PublicId.ToString()),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
-            new(ClaimTypes.NameIdentifier, user.PublicId.ToString()),
-            new(JwtRegisteredClaimNames.Email, user.Email),
-            new(ClaimTypes.Email, user.Email),
-            new(JwtRegisteredClaimNames.GivenName, user.FirstName),
-            new(JwtRegisteredClaimNames.FamilyName, user.LastName),
-            new("auth_provider", user.AuthProvider.ToString()),
-            new("user_status", user.Status.ToString())
-        };
-
-        if (tenantId.HasValue)
-        {
-            claims.Add(new Claim("tid", tenantId.Value.ToString()));
-        }
+        var claims = await CreateIdentityClaimsAsync(user, tenantId, cancellationToken);
 
         var signingCredentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey!)),
@@ -184,6 +168,27 @@ internal sealed class JwtTokenService(
         CancellationToken cancellationToken)
     {
         var expiresAt = issuedAt.AddMinutes(jwtOptions.AccessTokenExpirationMinutes);
+        var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
+        var claims = await CreateIdentityClaimsAsync(user, tenantId, cancellationToken);
+
+        var signingCredentials = new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey!)),
+            SecurityAlgorithms.HmacSha256);
+
+        return new JwtSecurityToken(
+            issuer: jwtOptions.Issuer,
+            audience: jwtOptions.Audience,
+            claims: claims,
+            notBefore: issuedAt,
+            expires: expiresAt,
+            signingCredentials: signingCredentials);
+    }
+
+    private async Task<List<Claim>> CreateIdentityClaimsAsync(
+        User user,
+        Guid? tenantId,
+        CancellationToken cancellationToken)
+    {
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.PublicId.ToString()),
@@ -197,23 +202,20 @@ internal sealed class JwtTokenService(
             new("user_status", user.Status.ToString())
         };
 
-        var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
-        if (tenantId.HasValue)
+        if (!tenantId.HasValue)
         {
-            claims.Add(new Claim("tid", tenantId.Value.ToString()));
+            return claims;
         }
 
-        var signingCredentials = new SigningCredentials(
-            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey!)),
-            SecurityAlgorithms.HmacSha256);
+        claims.Add(new Claim("tid", tenantId.Value.ToString()));
 
-        return new JwtSecurityToken(
-            issuer: jwtOptions.Issuer,
-            audience: jwtOptions.Audience,
-            claims: claims,
-            notBefore: issuedAt,
-            expires: expiresAt,
-            signingCredentials: signingCredentials);
+        var role = await userCompanyRepository.GetRoleNormalizedNameAsync(user.Id, tenantId.Value, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            claims.Add(new Claim("role", role));
+        }
+
+        return claims;
     }
 
     private static string CreateRefreshTokenValue() =>

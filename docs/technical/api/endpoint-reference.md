@@ -628,7 +628,7 @@ Este modulo no administra companias ni permisos RBAC. Su responsabilidad termina
 - La respuesta canonica del modulo es `AuthResponse`: `accessToken`, `refreshToken`, `expiresIn`, `user`.
 - `user` devuelve `id`, `email`, `firstName`, `lastName` y `authProvider`.
 - El contrato permite `refreshToken` nulo, pero la implementacion actual con `JwtTokenService` emite refresh token en `register`, `external`, `login` y `refresh`.
-- El `access token` siempre incluye identidad basica (`sub`, email, nombre, `auth_provider`, `user_status`) y solo incluye claim `tid` cuando el usuario ya tiene una compania primaria.
+- El `access token` siempre incluye identidad basica (`sub`, email, nombre, `auth_provider`, `user_status`). Cuando el token queda asociado a un tenant, tambien incluye `tid` y el claim `role` tenant-scoped con el nombre normalizado del rol activo para esa compania.
 - Un usuario recien registrado que aun no tiene compania recibe token sin tenant activo.
 - `login` solo permite usuarios `Local` y `Active`.
 - `external` hoy solo soporta `Google` en runtime; `Microsoft` y `Apple` existen en el enum `AuthProvider`, pero hoy no tienen provider service configurado.
@@ -667,9 +667,9 @@ Contratos principales:
 - Proposito: registrar una cuenta local nueva y devolver sesion autenticada.
 - Autenticacion: publica.
 - Request body: `firstName`, `lastName`, `email`, `password`, `country`, `source`.
-- Validaciones: nombres maximo `100`; email valido maximo `320`; password entre `8` y `100` con mayuscula, minuscula, numero y caracter especial; `country` y `source` tienen regex controlada.
+- Validaciones: nombres maximo `100`; email valido maximo `320`; password entre `12` y `100` con mayuscula, minuscula, numero y caracter especial, sin espacios y sin incluir nombre, apellido o correo del usuario; `country` y `source` tienen regex controlada.
 - Response: `201 Created` con `AuthResponse`.
-- Errores relevantes: `auth.user_already_exists`.
+- Errores relevantes: `common.validation`, `auth.user_already_exists`.
 - Observaciones: hace hash del password, crea `User` local, guarda en transaccion y emite un par de tokens inmediatamente.
 
 ##### `POST /api/auth/external`
@@ -866,7 +866,7 @@ Contratos principales:
 - Request body: ninguno.
 - Response: `200 OK` con `SwitchActiveCompanyResponse`.
 - Errores relevantes: `ACTIVE_COMPANY_SWITCH_FORBIDDEN`, `COMPANY_OWNERSHIP_FORBIDDEN`, `COMPANY_NOT_FOUND`.
-- Observaciones: solo funciona si la compania destino esta `Active` y el usuario tiene membresia activa en ella; marca esa membresia como primaria, emite un nuevo token con `tid` de la compania destino y devuelve `activeCompany` con `companyId`, `name`, `slug`, `countryCode` y `status`.
+- Observaciones: solo funciona si la compania destino esta `Active` y el usuario tiene membresia activa en ella; marca esa membresia como primaria, emite un nuevo token con `tid` de la compania destino y el claim `role` correspondiente a esa membresia, y devuelve `activeCompany` con `companyId`, `name`, `slug`, `countryCode` y `status`.
 
 #### 5.3.6 Relacion con `Auth` y onboarding
 
