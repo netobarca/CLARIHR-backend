@@ -14,6 +14,8 @@ public sealed class JwtTokenOptions
 
     public int RefreshTokenExpirationDays { get; init; } = 14;
 
+    public string[] PlatformAdminEmails { get; init; } = [];
+
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(Issuer) &&
         !string.IsNullOrWhiteSpace(Audience) &&

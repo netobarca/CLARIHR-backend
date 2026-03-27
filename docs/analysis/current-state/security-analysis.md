@@ -34,6 +34,8 @@ En registro local, la API exige una politica de password reforzada:
 
 El token de acceso cambia funcionalmente cuando el usuario activa una compania: el token con tenant incluye el claim que define el contexto operativo.
 
+Adicionalmente, JWT puede emitir el rol global `platform_admin` cuando el correo autenticado pertenece al allow-list `Authentication:Jwt:PlatformAdminEmails`. Esto permite autenticar usuarios de plataforma sin depender de una membresia tenant-scoped.
+
 ## 3. Resolucion de tenant
 
 `HttpTenantContext` resuelve el tenant desde claims como `tid`, `tenantid` y variantes equivalentes en [HttpTenantContext.cs](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/Tenancy/HttpTenantContext.cs#L1).
@@ -56,6 +58,8 @@ La autorizacion actual se aplica en varias capas:
 
 Este patron reduce el riesgo de que un endpoint aparente estar protegido solo por decoracion HTTP.
 
+El catalogo global de planes comerciales agrega una ruta de autorizacion fuera del tenant activo: `/api/account/commercial-plans` usa un servicio dedicado que exige autenticacion valida y rol `platform_admin`, sin pasar por `AuthorizeResource` ni por matrices RBAC tenant-scoped.
+
 ## 5. Tenant isolation
 
 La aislacion entre tenants es una regla central del sistema:
@@ -65,6 +69,8 @@ La aislacion entre tenants es una regla central del sistema:
 - cuando un recurso existe fuera del tenant, el sistema responde con `tenant mismatch` en vez de exponer el dato
 
 Este patron aparece de forma consistente en modulos como personnel files, org units, locations, competency framework y salary tabulator.
+
+La excepcion disenada actual es `CommercialPlansController`: el recurso es global y no tenant-scoped, por lo que la proteccion se basa en el rol de plataforma y no en `tenant mismatch`.
 
 ## 6. RBAC y permisos por campo
 
@@ -94,6 +100,8 @@ La auditoria conserva:
 - user-agent
 
 Esto es especialmente importante en expedientes, permisos, estructura, compensacion y gobierno de identidades.
+
+Las escrituras globales sobre el catalogo comercial de planes no usan `AuditService` porque hoy ese servicio exige `tenant context`. Por ahora quedan registradas mediante logging estructurado de application handlers, lo que mantiene trazabilidad operativa pero no reemplaza una auditoria global persistente.
 
 ## 8. Controles HTTP y middleware
 
@@ -141,6 +149,10 @@ La seguridad esta bien distribuida, pero el numero alto de endpoints administrat
 
 La politica local ya endurece longitud, complejidad y uso de datos personales, pero todavia no existe verificacion contra listas de contrasenas comprometidas o comunmente reutilizadas.
 
+### 10.6 Auditoria global pendiente para writes de plataforma
+
+El sistema ya soporta writes globales de `CommercialPlan` administrados por `platform_admin`, pero todavia no existe un `AuditLog` no tenant-scoped para persistir before/after de estas acciones.
+
 ## 11. Recomendaciones inmediatas
 
 1. Incorporar una estrategia de rate limiting para auth y endpoints costosos.
@@ -148,3 +160,4 @@ La politica local ya endurece longitud, complejidad y uso de datos personales, p
 3. Revisar si algunos headers adicionales deben endurecer respuestas HTML o navegadas en el futuro.
 4. Mantener obligatoria la validacion de tenant y permisos dentro de cada caso de uso nuevo.
 5. Evaluar verificacion de contrasenas comprometidas o blocklists administradas para auth local.
+6. Introducir auditoria persistente no tenant-scoped para operaciones globales de plataforma como `CommercialPlan`.

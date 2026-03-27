@@ -10,6 +10,7 @@ El estado actual del sistema cubre estos dominios funcionales:
 
 - acceso y autenticacion
 - onboarding y activacion de tenant
+- catalogo comercial de suscripciones
 - administracion de companias
 - ubicaciones y estructura organizacional
 - IAM, roles y permisos
@@ -22,6 +23,7 @@ El estado actual del sistema cubre estos dominios funcionales:
 
 - visitante o usuario sin autenticar
 - usuario autenticado sin compania activa
+- administrador de plataforma
 - administrador de compania
 - administrador de RRHH
 - administrador de seguridad RBAC
@@ -72,6 +74,14 @@ El provisioning actual deja creada la base operativa minima del tenant:
 1. El usuario selecciona una compania de las que posee o administra.
 2. El sistema emite un nuevo `access token` con `tenant claim` y el `role` correspondiente a la membresia activa de esa compania.
 3. A partir de ese momento, los endpoints `api/v1/companies/{companyId}` y los endpoints `tenant-scoped` operan sobre ese contexto activo.
+
+### 5.4 Catalogo comercial base de suscripciones
+
+1. Un administrador de plataforma autenticado administra planes globales desde `api/account/commercial-plans`.
+2. El sistema permite registrar `name`, `code`, `description`, `fee` mensual base, precio por empleado activo, estado y limites incluidos.
+3. Los planes quedan disponibles como catalogo reutilizable para futuras suscripciones empresariales.
+4. El plan `FREE` existe como plan de sistema sembrado y permanece protegido porque el provisioning actual depende de ese codigo.
+5. Este flujo no activa suscripciones, no calcula cobros y no administra descuentos ni add-ons.
 
 ## 6. Flujo de administracion de estructura organizacional
 
@@ -222,6 +232,7 @@ El sistema permite:
 ## 12. Reglas funcionales visibles
 
 - El sistema es tenant-scoped por defecto.
+- El catalogo comercial de planes es una excepcion global, administrada solo por `platform_admin` y sin tenant activo.
 - La compania activa define el contexto operativo del usuario.
 - Los listados operativos se consumen con paginacion.
 - La mayoria de actualizaciones sobre bloques del expediente reemplazan la seccion completa.

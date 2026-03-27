@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.Time;
@@ -78,6 +79,31 @@ public sealed class JwtTokenServiceTests
     }
 
     [Fact]
+    public async Task GenerateAsync_WhenEmailIsConfiguredAsPlatformAdmin_ShouldEmitGlobalPlatformAdminRole()
+    {
+        var userRepository = new TestUserRepository();
+        var refreshTokenRepository = new TestRefreshTokenRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(primaryCompanyPublicId: null, new Dictionary<Guid, string>());
+        var user = CreatePersistedUser();
+        userRepository.Seed(user);
+
+        var service = CreateService(
+            userRepository,
+            userCompanyRepository,
+            refreshTokenRepository,
+            platformAdminEmails: ["ana@example.com"]);
+
+        var result = await service.GenerateAsync(user, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
+        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "tid");
+        Assert.Equal("platform_admin", jwt.Claims.Single(claim => claim.Type == ClaimTypes.Role).Value);
+        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "role");
+    }
+
+    [Fact]
     public async Task RefreshAsync_WhenRefreshTokenIsActive_ShouldRotateRefreshToken()
     {
         var userRepository = new TestUserRepository();
@@ -141,7 +167,8 @@ public sealed class JwtTokenServiceTests
     private static JwtTokenService CreateService(
         TestUserRepository userRepository,
         TestUserCompanyRepository userCompanyRepository,
-        TestRefreshTokenRepository refreshTokenRepository) =>
+        TestRefreshTokenRepository refreshTokenRepository,
+        string[]? platformAdminEmails = null) =>
         new(
             Options.Create(new JwtTokenOptions
             {
@@ -149,7 +176,8 @@ public sealed class JwtTokenServiceTests
                 Audience = "clarihr-api",
                 SigningKey = "super-secret-signing-key-1234567890",
                 AccessTokenExpirationMinutes = 15,
-                RefreshTokenExpirationDays = 14
+                RefreshTokenExpirationDays = 14,
+                PlatformAdminEmails = platformAdminEmails ?? []
             }),
             new FixedDateTimeProvider(new DateTime(2026, 2, 28, 18, 0, 0, DateTimeKind.Utc)),
             userRepository,

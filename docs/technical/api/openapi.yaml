@@ -268,6 +268,239 @@ components:
           nullable: true
         initialLegalRepresentative:
           $ref: '#/components/schemas/InitialLegalRepresentativeRequest'
+    CommercialPlanStatus:
+      type: string
+      enum:
+        - Draft
+        - Active
+        - Inactive
+    CommercialPlanLimitInput:
+      type: object
+      required:
+        - code
+        - value
+      properties:
+        code:
+          type: string
+          maxLength: 80
+          example: employees
+        value:
+          type: number
+          format: decimal
+          example: 25
+    CommercialPlanLimitResponse:
+      type: object
+      required:
+        - code
+        - value
+      properties:
+        code:
+          type: string
+          example: EMPLOYEES
+        value:
+          type: number
+          format: decimal
+          example: 25
+    CommercialPlanSummaryResponse:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - baseMonthlyFee
+        - pricePerActiveEmployee
+        - status
+        - isSystemPlan
+        - createdAtUtc
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: PRO
+        name:
+          type: string
+          example: Professional
+        description:
+          type: string
+          nullable: true
+        baseMonthlyFee:
+          type: number
+          format: decimal
+          example: 120.00
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 3.50
+        status:
+          $ref: '#/components/schemas/CommercialPlanStatus'
+        isSystemPlan:
+          type: boolean
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    CommercialPlanResponse:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - baseMonthlyFee
+        - pricePerActiveEmployee
+        - status
+        - isSystemPlan
+        - concurrencyToken
+        - createdAtUtc
+        - limits
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: PRO
+        name:
+          type: string
+          example: Professional
+        description:
+          type: string
+          nullable: true
+        baseMonthlyFee:
+          type: number
+          format: decimal
+          example: 120.00
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 3.50
+        status:
+          $ref: '#/components/schemas/CommercialPlanStatus'
+        isSystemPlan:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        limits:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommercialPlanLimitResponse'
+    CreateCommercialPlanRequest:
+      type: object
+      required:
+        - code
+        - name
+        - baseMonthlyFee
+        - pricePerActiveEmployee
+        - status
+        - limits
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          example: PRO
+        name:
+          type: string
+          maxLength: 150
+          example: Professional
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        baseMonthlyFee:
+          type: number
+          format: decimal
+          example: 120.00
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 3.50
+        status:
+          $ref: '#/components/schemas/CommercialPlanStatus'
+        limits:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommercialPlanLimitInput'
+    UpdateCommercialPlanRequest:
+      type: object
+      required:
+        - code
+        - name
+        - baseMonthlyFee
+        - pricePerActiveEmployee
+        - limits
+        - concurrencyToken
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          example: PRO
+        name:
+          type: string
+          maxLength: 150
+          example: Professional Plus
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        baseMonthlyFee:
+          type: number
+          format: decimal
+          example: 180.00
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 4.00
+        limits:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommercialPlanLimitInput'
+        concurrencyToken:
+          type: string
+          format: uuid
+    CommercialPlanConcurrencyRequest:
+      type: object
+      required:
+        - concurrencyToken
+      properties:
+        concurrencyToken:
+          type: string
+          format: uuid
+    PagedCommercialPlanSummaryResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommercialPlanSummaryResponse'
+        pageNumber:
+          type: integer
+          format: int32
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          example: 20
+        totalCount:
+          type: integer
+          format: int32
+          example: 2
     ProblemDetails:
       type: object
       properties:
@@ -403,11 +636,334 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/account/commercial-plans:
+    get:
+      tags:
+        - commercial-plans
+      operationId: SearchCommercialPlans
+      summary: List global commercial plans
+      description: Returns the paged catalog of global commercial plans. Requires an authenticated `platform_admin` user and does not depend on tenant context.
+      security:
+        - Bearer: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/CommercialPlanStatus'
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 150
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Paged commercial plan summaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedCommercialPlanSummaryResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user is not a platform administrator.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - commercial-plans
+      operationId: CreateCommercialPlan
+      summary: Create a global commercial plan
+      description: Creates a reusable global commercial plan for future company subscriptions. Requires an authenticated `platform_admin` user and does not depend on tenant context.
+      security:
+        - Bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommercialPlanRequest'
+      responses:
+        '201':
+          description: Commercial plan created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialPlanResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user is not a platform administrator.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated plan code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/commercial-plans/{id}:
+    get:
+      tags:
+        - commercial-plans
+      operationId: GetCommercialPlanById
+      summary: Get a global commercial plan by id
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Commercial plan detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialPlanResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user is not a platform administrator.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - commercial-plans
+      operationId: UpdateCommercialPlan
+      summary: Update a global commercial plan
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommercialPlanRequest'
+      responses:
+        '200':
+          description: Commercial plan updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialPlanResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user is not a platform administrator.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated code, concurrency conflict, or protected system plan mutation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/commercial-plans/{id}/activate:
+    patch:
+      tags:
+        - commercial-plans
+      operationId: ActivateCommercialPlan
+      summary: Activate a global commercial plan
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommercialPlanConcurrencyRequest'
+      responses:
+        '200':
+          description: Commercial plan activated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialPlanResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user is not a platform administrator.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as concurrency conflict or already active state.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/commercial-plans/{id}/inactivate:
+    patch:
+      tags:
+        - commercial-plans
+      operationId: InactivateCommercialPlan
+      summary: Inactivate a global commercial plan
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommercialPlanConcurrencyRequest'
+      responses:
+        '200':
+          description: Commercial plan inactivated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialPlanResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user is not a platform administrator.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as concurrency conflict, already inactive state, or protected system plan inactivation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 tags:
   - name: auth
     description: Authentication and session lifecycle.
   - name: account-companies
     description: Account-level company creation and tenant activation.
+  - name: commercial-plans
+    description: Global commercial plan catalog administration for platform administrators.
   - name: personnel-files
     description: Personnel file lifecycle and subsections.
 x-documentation-status: partial-manual-supplement

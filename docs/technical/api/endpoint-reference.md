@@ -10,7 +10,7 @@ Este documento es la referencia humana inicial de la API actual. No intenta dupl
 - flujos criticos
 - comportamientos observables relevantes
 
-El backend expone actualmente `302` endpoints en `33` controladores.
+El backend expone actualmente `308` endpoints en `34` controladores.
 
 ## 2. Modelo de autenticacion y tenant
 
@@ -52,6 +52,7 @@ Despues del `switch`, el `access token` devuelto incluye contexto tenant y habil
 | System | `SystemController` | `/api/system/status` | salud y estado de runtime |
 | Auth | `AuthController` | `/api/auth/*` | registro, auth externa, login, refresh y logout |
 | Account companies | `AccountCompaniesController` | `/api/account/companies*` | crear, listar, archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
+| Commercial plans | `CommercialPlansController` | `/api/account/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables para futuras suscripciones |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
 | IAM users | `IamUsersController` | `/api/iam/users*` | administracion de usuarios a nivel IAM |
 | IAM roles | `IamRolesController` | `/api/iam/roles*` | CRUD de roles, clonacion, matrices y asignaciones |
@@ -89,7 +90,24 @@ Comportamiento observable:
 - la creacion de compania siembra datos iniciales de locations segun el pais
 - el cambio de compania modifica el contexto tenant activo del usuario
 
-### 4.3 Locations y organizacion
+### 4.3 Catalogo comercial de planes
+
+- `GET /api/account/commercial-plans`
+- `GET /api/account/commercial-plans/{id}`
+- `POST /api/account/commercial-plans`
+- `PUT /api/account/commercial-plans/{id}`
+- `PATCH /api/account/commercial-plans/{id}/activate`
+- `PATCH /api/account/commercial-plans/{id}/inactivate`
+
+Comportamiento observable:
+
+- el catalogo es global y no depende del tenant activo del token
+- solo usuarios con rol `platform_admin` pueden consultar o administrar planes comerciales
+- cada plan define `fee` mensual base, precio por empleado activo, estado y limites configurables
+- `FREE` existe sembrado como plan de sistema para el provisioning actual y no puede renombrarse ni inactivarse
+- este modulo no activa suscripciones, no calcula cobros y no administra add-ons ni descuentos
+
+### 4.4 Locations y organizacion
 
 Endpoints representativos de lectura:
 
@@ -107,7 +125,7 @@ Endpoints representativos de escritura:
 - `POST /api/v1/companies/{companyId}/org-units`
 - `PATCH /api/v1/org-units/{id}/move`
 
-### 4.4 IAM y permisos por campo
+### 4.5 IAM y permisos por campo
 
 Endpoints representativos:
 
@@ -124,7 +142,7 @@ Comportamiento observable:
 - la plataforma soporta permisos por recurso, accion y overrides por campo
 - los cambios RBAC son auditables
 
-### 4.5 Personnel files
+### 4.6 Personnel files
 
 Core:
 
@@ -172,7 +190,7 @@ Comportamiento observable:
 - los endpoints de reporting y export existen tanto a nivel tenant como a nivel recurso
 - la profundizacion completa del modulo esta en `5.10 Personnel files`
 
-### 4.6 Salary tabulator
+### 4.7 Salary tabulator
 
 Endpoints representativos:
 
@@ -877,6 +895,129 @@ Contratos principales:
 - `POST /api/account/companies/{companyId}/switch` emite el token ya tenant-scoped para operar `api/v1`.
 
 Esa secuencia explica por que `Account companies` no usa `/api/v1`: todavia esta resolviendo el paso previo al contexto tenant estable del resto del sistema.
+
+### 5.3A Commercial plans
+
+#### 5.3A.1 Alcance
+
+Este bloque cubre la administracion global del catalogo comercial mediante `CommercialPlansController`, con base `/api/account/commercial-plans`.
+
+Incluye:
+
+- `GET /api/account/commercial-plans`
+- `GET /api/account/commercial-plans/{id}`
+- `POST /api/account/commercial-plans`
+- `PUT /api/account/commercial-plans/{id}`
+- `PATCH /api/account/commercial-plans/{id}/activate`
+- `PATCH /api/account/commercial-plans/{id}/inactivate`
+
+#### 5.3A.2 Proposito funcional en CLARIHR
+
+El modulo `Commercial plans` sirve para:
+
+- definir el catalogo comercial base que luego podran consumir las futuras suscripciones a empresas
+- estandarizar el `fee` mensual base y el precio por empleado activo por plan
+- mantener limites incluidos por plan de forma reutilizable
+- administrar el estado operativo del plan (`Draft`, `Active`, `Inactive`)
+- preservar un plan canonico `FREE` alineado al provisioning actual
+
+No resuelve aun versionamiento de precios, add-ons, descuentos corporativos, activacion de suscripciones ni calculo de cobros.
+
+#### 5.3A.3 Modelo operativo y reglas transversales del modulo
+
+- Todas las rutas requieren autenticacion.
+- El scope es global de plataforma; no dependen de `tenantId` ni usan RBAC tenant-scoped.
+- La autorizacion se resuelve por rol `platform_admin`.
+- `list` soporta paginacion, filtro por `status` y busqueda libre `q` sobre codigo y nombre.
+- `create` registra `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status` y `limits`.
+- `update` reemplaza completamente la coleccion de limites del plan; no actualiza `status`.
+- Las transiciones de estado se hacen solo con `activate` e `inactivate`.
+- `FREE` existe sembrado como `system plan`, con precios `0` y lista de limites vacia.
+- Los planes de sistema no pueden cambiar `code` o `name`, y tampoco pueden inactivarse.
+- El modulo usa concurrencia optimista mediante `concurrencyToken`.
+
+#### 5.3A.4 Errores observables relevantes en Commercial plans
+
+- `UNAUTHENTICATED`: `401`, autenticacion requerida.
+- `COMMERCIAL_PLAN_FORBIDDEN`: `403`, el usuario autenticado no tiene rol `platform_admin`.
+- `COMMERCIAL_PLAN_NOT_FOUND`: `404`, el plan solicitado no existe.
+- `COMMERCIAL_PLAN_CODE_CONFLICT`: `409`, ya existe otro plan con ese `code`.
+- `CONCURRENCY_CONFLICT`: `409`, el recurso fue modificado por otra solicitud.
+- `COMMERCIAL_PLAN_ALREADY_ACTIVE`: `409`, el plan ya estaba activo.
+- `COMMERCIAL_PLAN_ALREADY_INACTIVE`: `409`, el plan ya estaba inactivo.
+- `COMMERCIAL_PLAN_SYSTEM_RENAME_FORBIDDEN`: `409`, un plan de sistema no puede cambiar `code` o `name`.
+- `COMMERCIAL_PLAN_SYSTEM_INACTIVATION_FORBIDDEN`: `409`, un plan de sistema no puede inactivarse.
+
+#### 5.3A.5 `CommercialPlansController`
+
+Base route: `/api/account/commercial-plans`
+
+Contratos principales:
+
+- `CommercialPlanSummaryResponse`: `id`, `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `isSystemPlan`, `createdAtUtc`, `modifiedAtUtc`
+- `CommercialPlanResponse`: agrega `concurrencyToken` y `limits`
+- `CommercialPlanLimitInput`: `code`, `value`
+- `CommercialPlanLimitResponse`: `code`, `value`
+
+##### `GET /api/account/commercial-plans`
+
+- Proposito: listar planes comerciales globales.
+- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Query: `status`, `q`, `page`, `pageSize`.
+- Validaciones: `page > 0`, `pageSize` entre `1` y `100`, `q` maximo `150`.
+- Response: `PagedResponse<CommercialPlanSummaryResponse>`.
+- Observaciones: no exige tenant activo; ordena por `name` y luego `code`.
+
+##### `GET /api/account/commercial-plans/{id}`
+
+- Proposito: obtener el detalle de un plan comercial global.
+- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Response: `CommercialPlanResponse`.
+- Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`.
+- Observaciones: `limits` siempre se devuelve como coleccion, aunque este vacia.
+
+##### `POST /api/account/commercial-plans`
+
+- Proposito: registrar un nuevo plan comercial global.
+- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Request body: `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `limits`.
+- Validaciones base: `code` obligatorio maximo `40`; `name` obligatorio maximo `150`; `description` maximo `500`; montos y limites no negativos; maximo `2` decimales; `limits[].code` obligatorio maximo `80`.
+- Response: `201 Created` con `CommercialPlanResponse`.
+- Errores relevantes: `COMMERCIAL_PLAN_CODE_CONFLICT`.
+- Observaciones: `limits` puede venir vacio; el `status` inicial puede registrarse como `Draft`, `Active` o `Inactive`.
+
+##### `PUT /api/account/commercial-plans/{id}`
+
+- Proposito: actualizar datos base de un plan comercial existente.
+- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Request body: `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `limits`, `concurrencyToken`.
+- Response: `CommercialPlanResponse`.
+- Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `COMMERCIAL_PLAN_CODE_CONFLICT`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_SYSTEM_RENAME_FORBIDDEN`.
+- Observaciones: la coleccion `limits` reemplaza completamente la configuracion anterior y `status` no se modifica por esta ruta.
+
+##### `PATCH /api/account/commercial-plans/{id}/activate`
+
+- Proposito: activar un plan comercial existente.
+- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Request body: `concurrencyToken`.
+- Response: `CommercialPlanResponse`.
+- Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_ALREADY_ACTIVE`.
+- Observaciones: no existe ruta para volver un plan a `Draft`.
+
+##### `PATCH /api/account/commercial-plans/{id}/inactivate`
+
+- Proposito: inactivar un plan comercial existente.
+- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Request body: `concurrencyToken`.
+- Response: `CommercialPlanResponse`.
+- Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_ALREADY_INACTIVE`, `COMMERCIAL_PLAN_SYSTEM_INACTIVATION_FORBIDDEN`.
+- Observaciones: `FREE` no puede inactivarse mientras siga siendo el plan canonico del provisioning.
+
+#### 5.3A.6 Relacion con provisioning y futuras suscripciones
+
+- `PlanEntitlementService` asegura que el plan comercial `FREE` exista y siga alineado con los `PlanEntitlement` usados por el provisioning.
+- `Commercial plans` define el catalogo comercial base, pero no crea ni activa suscripciones empresariales.
+- `CompanySubscription` y `PlanEntitlement` siguen referenciando `planCode`; la relacion formal con el catalogo comercial queda para historias futuras.
 
 ### 5.4 Org structure catalogs
 

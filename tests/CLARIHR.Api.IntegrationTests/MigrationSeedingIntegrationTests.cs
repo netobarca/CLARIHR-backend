@@ -1,5 +1,6 @@
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Provisioning.Common;
+using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.LegalRepresentatives;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -34,6 +35,20 @@ public sealed class MigrationSeedingIntegrationTests(IntegrationTestWebApplicati
                 entitlement => entitlement.PlanCode == ProvisioningConstants.FreePlanCode &&
                                entitlement.ModuleKey == moduleKey &&
                                entitlement.IsEnabled));
+
+        var freeCommercialPlan = await dbContext.CommercialPlans
+            .AsNoTracking()
+            .SingleAsync(plan => plan.Code == ProvisioningConstants.FreePlanCode);
+        Assert.Equal(CommercialPlanStatus.Active, freeCommercialPlan.Status);
+        Assert.True(freeCommercialPlan.IsSystemPlan);
+        Assert.Equal(0m, freeCommercialPlan.BaseMonthlyFee);
+        Assert.Equal(0m, freeCommercialPlan.PricePerActiveEmployee);
+
+        var freeCommercialPlanLimits = await dbContext.CommercialPlanLimits
+            .AsNoTracking()
+            .Where(limit => limit.CommercialPlanId == freeCommercialPlan.Id)
+            .ToListAsync();
+        Assert.Empty(freeCommercialPlanLimits);
 
         var seededResources = await dbContext.RbacResources
             .AsNoTracking()

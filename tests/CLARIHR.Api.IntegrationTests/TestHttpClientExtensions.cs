@@ -9,7 +9,11 @@ internal static class TestHttpClientExtensions
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthenticationHandler.SchemeName);
         client.DefaultRequestHeaders.Add(TestAuthenticationHandler.UserIdHeader, user.UserId.ToString());
-        client.DefaultRequestHeaders.Add(TestAuthenticationHandler.TenantIdHeader, user.TenantId.ToString());
+
+        if (user.TenantId.HasValue)
+        {
+            client.DefaultRequestHeaders.Add(TestAuthenticationHandler.TenantIdHeader, user.TenantId.Value.ToString());
+        }
 
         if (user.Roles.Count > 0)
         {
@@ -27,10 +31,16 @@ internal static class TestHttpClientExtensions
 
 internal sealed record TestUserContext(
     Guid UserId,
-    Guid TenantId,
+    Guid? TenantId,
     IReadOnlyCollection<string> Roles,
     IReadOnlyCollection<string> Permissions)
 {
     public static TestUserContext Authenticated(Guid userId, Guid tenantId, params string[] permissions) =>
         new(userId, tenantId, [], permissions);
+
+    public static TestUserContext AuthenticatedWithoutTenant(Guid userId, params string[] roles) =>
+        new(userId, null, roles, []);
+
+    public static TestUserContext PlatformAdmin(Guid userId) =>
+        new(userId, null, ["platform_admin"], []);
 }

@@ -63,8 +63,8 @@ El wiring principal esta en [DependencyInjection.cs](/Users/christophercanas/Dev
 
 Contiene:
 
-- `33` controladores
-- `302` endpoints HTTP
+- `34` controladores
+- `308` endpoints HTTP
 - middleware de correlacion, logging, security headers y manejo global de excepciones
 - configuracion de Swagger solo para `Development`
 
@@ -113,6 +113,10 @@ Las operaciones de lectura y escritura se separan por tipo, contratos y handlers
 
 La mayoria de handlers leen `ITenantContext` o reciben `companyId` y luego validan coincidencia de tenant antes de leer o mutar datos.
 
+### 6.2A Catalogos globales fuera de tenant
+
+El agregado `CommercialPlan` vive dentro del dominio `Companies`, pero no es `TenantEntity`. Se administra por CQRS dedicado y expone endpoints `/api/account/commercial-plans` protegidos por rol global `platform_admin`, sin depender de `tenantId`.
+
 ### 6.3 Autorizacion por servicio de dominio aplicativo
 
 Cada modulo relevante tiene su propio `AuthorizationService`, por ejemplo para personnel files, org units, locations o salary tabulator. Esto evita dejar la seguridad solo en atributos HTTP.
@@ -124,6 +128,10 @@ Los cambios importantes registran auditoria con before/after, usuario actor, ten
 ### 6.5 Controllers delgados
 
 Los controllers se limitan a mapping HTTP y despacho. La logica funcional permanece en Application y Domain.
+
+### 6.6 Compatibilidad transicional de suscripciones
+
+El nuevo catalogo comercial convive con referencias string existentes en `CompanySubscription` y `PlanEntitlement` mediante `planCode`. El sistema siembra y protege `FREE` para mantener coherencia funcional mientras la relacion formal entre suscripciones y catalogo comercial se implementa en historias futuras.
 
 ## 7. Fortalezas actuales
 
