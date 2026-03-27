@@ -22,7 +22,13 @@ public sealed class JwtTokenServiceTests
     {
         var userRepository = new TestUserRepository();
         var refreshTokenRepository = new TestRefreshTokenRepository();
-        var userCompanyRepository = new TestUserCompanyRepository(Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
+        var primaryTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var userCompanyRepository = new TestUserCompanyRepository(
+            primaryTenantId,
+            new Dictionary<Guid, string>
+            {
+                [primaryTenantId] = "ADMIN DE EMPRESA"
+            });
         var user = CreatePersistedUser();
         userRepository.Seed(user);
 
@@ -40,6 +46,35 @@ public sealed class JwtTokenServiceTests
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
         Assert.Equal("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", jwt.Claims.Single(claim => claim.Type == "tid").Value);
+        Assert.Equal("ADMIN DE EMPRESA", jwt.Claims.Single(claim => claim.Type == "role").Value);
+    }
+
+    [Fact]
+    public async Task GenerateForTenantAsync_WhenTenantIsExplicit_ShouldUseTenantRoleClaim()
+    {
+        var userRepository = new TestUserRepository();
+        var refreshTokenRepository = new TestRefreshTokenRepository();
+        var primaryTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var targetTenantId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        var userCompanyRepository = new TestUserCompanyRepository(
+            primaryTenantId,
+            new Dictionary<Guid, string>
+            {
+                [primaryTenantId] = "SECURITY OPERATOR",
+                [targetTenantId] = "AUDITOR B"
+            });
+        var user = CreatePersistedUser();
+        userRepository.Seed(user);
+
+        var service = CreateService(userRepository, userCompanyRepository, refreshTokenRepository);
+
+        var result = await service.GenerateForTenantAsync(user, targetTenantId, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
+        Assert.Equal(targetTenantId.ToString(), jwt.Claims.Single(claim => claim.Type == "tid").Value);
+        Assert.Equal("AUDITOR B", jwt.Claims.Single(claim => claim.Type == "role").Value);
     }
 
     [Fact]
@@ -47,7 +82,13 @@ public sealed class JwtTokenServiceTests
     {
         var userRepository = new TestUserRepository();
         var refreshTokenRepository = new TestRefreshTokenRepository();
-        var userCompanyRepository = new TestUserCompanyRepository(Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
+        var primaryTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var userCompanyRepository = new TestUserCompanyRepository(
+            primaryTenantId,
+            new Dictionary<Guid, string>
+            {
+                [primaryTenantId] = "ADMIN DE EMPRESA"
+            });
         var user = CreatePersistedUser();
         userRepository.Seed(user);
 
@@ -62,6 +103,10 @@ public sealed class JwtTokenServiceTests
         Assert.Equal(2, refreshTokenRepository.Items.Count);
         Assert.Single(refreshTokenRepository.Items, token => token.RevokedUtc is null);
         Assert.Single(refreshTokenRepository.Items, token => token.RevokedUtc is not null);
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.Tokens.AccessToken);
+        Assert.Equal(primaryTenantId.ToString(), jwt.Claims.Single(claim => claim.Type == "tid").Value);
+        Assert.Equal("ADMIN DE EMPRESA", jwt.Claims.Single(claim => claim.Type == "role").Value);
     }
 
     [Fact]
@@ -69,7 +114,13 @@ public sealed class JwtTokenServiceTests
     {
         var userRepository = new TestUserRepository();
         var refreshTokenRepository = new TestRefreshTokenRepository();
-        var userCompanyRepository = new TestUserCompanyRepository(Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
+        var primaryTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var userCompanyRepository = new TestUserCompanyRepository(
+            primaryTenantId,
+            new Dictionary<Guid, string>
+            {
+                [primaryTenantId] = "ADMIN DE EMPRESA"
+            });
         var user = CreatePersistedUser();
         userRepository.Seed(user);
 
@@ -166,7 +217,9 @@ public sealed class JwtTokenServiceTests
         public void Seed(User user) => _items.Add(user);
     }
 
-    private sealed class TestUserCompanyRepository(Guid companyPublicId) : IUserCompanyRepository
+    private sealed class TestUserCompanyRepository(
+        Guid? primaryCompanyPublicId,
+        IReadOnlyDictionary<Guid, string> rolesByCompanyPublicId) : IUserCompanyRepository
     {
         public void Add(Domain.Companies.UserCompanyMembership membership) =>
             throw new NotSupportedException();
@@ -181,13 +234,16 @@ public sealed class JwtTokenServiceTests
             Task.FromResult(true);
 
         public Task<Guid?> GetPrimaryCompanyPublicIdAsync(long userId, CancellationToken cancellationToken) =>
-            Task.FromResult<Guid?>(companyPublicId);
+            Task.FromResult(primaryCompanyPublicId);
 
         public Task<Domain.Companies.UserCompanyMembership?> GetPrimaryMembershipAsync(long userId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task<Domain.Companies.UserCompanyMembership?> GetMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public Task<string?> GetRoleNormalizedNameAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult(rolesByCompanyPublicId.TryGetValue(companyPublicId, out var role) ? role : null);
 
         public Task<Domain.Companies.UserCompanyMembership?> FindByUserPublicIdAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();

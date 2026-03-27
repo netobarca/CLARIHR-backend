@@ -54,12 +54,31 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
 
     public Task<UserCompanyMembership?> GetMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
         dbContext.UserCompanyMemberships
+            .AsNoTracking()
             .Join(
-                dbContext.Companies.Where(company => company.PublicId == companyPublicId),
+                dbContext.Companies.AsNoTracking().Where(company => company.PublicId == companyPublicId),
                 membership => membership.CompanyId,
                 company => company.Id,
                 (membership, _) => membership)
             .SingleOrDefaultAsync(membership => membership.UserId == userId, cancellationToken);
+
+    public Task<string?> GetRoleNormalizedNameAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
+        dbContext.UserCompanyMemberships
+            .AsNoTracking()
+            .Where(membership => membership.UserId == userId)
+            .Join(
+                dbContext.Companies.AsNoTracking().Where(company => company.PublicId == companyPublicId),
+                membership => membership.CompanyId,
+                company => company.Id,
+                (membership, _) => membership.RoleId)
+            .Join(
+                dbContext.IamRoles
+                    .IgnoreQueryFilters()
+                    .AsNoTracking(),
+                roleId => roleId,
+                role => role.Id,
+                (_, role) => role.NormalizedName)
+            .SingleOrDefaultAsync(cancellationToken);
 
     public Task<UserCompanyMembership?> FindByUserPublicIdAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
         dbContext.UserCompanyMemberships

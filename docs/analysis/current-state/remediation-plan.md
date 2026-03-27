@@ -8,6 +8,7 @@ Este plan prioriza mejoras tecnicas y documentales visibles a partir del estado 
 
 | Prioridad | Iniciativa | Motivo | Estado |
 |---|---|---|---|
+| Alta | TODO: endurecer autenticacion local para alinearla con NIST SP 800-63B, ISO/IEC 27001 y OWASP | La politica actual de passwords y el flujo de auth aun no cubren blocklist de contrasenas comprometidas, rate limiting, endurecimiento formal del almacenamiento ni evidencia documental de cumplimiento | Pendiente |
 | Alta | Automatizar export de OpenAPI desde Swagger runtime | Hoy existe Swagger en `Development`, pero no contrato versionado en docs | Pendiente |
 | Alta | Introducir rate limiting para auth y endpoints costosos | La postura de seguridad actual no muestra proteccion anti abuso explicita | Pendiente |
 | Alta | Definir criterio para sacar exportes grandes del request path | Hay multiples exportes y diagramas sin background processing | Pendiente |
@@ -20,10 +21,11 @@ Este plan prioriza mejoras tecnicas y documentales visibles a partir del estado 
 ## 3. Orden recomendado
 
 1. OpenAPI versionado
-2. rate limiting
-3. observabilidad y endpoints costosos
-4. pruebas de contrato
-5. cache y migraciones
+2. endurecimiento de autenticacion local segun NIST, ISO 27001 y OWASP
+3. rate limiting
+4. observabilidad y endpoints costosos
+5. pruebas de contrato
+6. cache y migraciones
 
 ## 4. Criterio de cierre
 

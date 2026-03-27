@@ -833,6 +833,20 @@ public sealed class CompanyUserManagementTests
             return Task.FromResult(membership);
         }
 
+        public Task<string?> GetRoleNormalizedNameAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
+        {
+            var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
+            var membership = company is null
+                ? null
+                : Items.SingleOrDefault(item => item.UserId == userId && item.CompanyId == company.Id);
+
+            var role = membership is null
+                ? null
+                : iamRepository.Roles.SingleOrDefault(item => item.Id == membership.RoleId);
+
+            return Task.FromResult(role?.NormalizedName);
+        }
+
         public Task<UserCompanyMembership?> FindByUserPublicIdAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken)
         {
             var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);

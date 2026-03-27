@@ -111,6 +111,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var registerToken = new JwtSecurityTokenHandler().ReadJwtToken(registerPayload.AccessToken);
         Assert.DoesNotContain(registerToken.Claims, static claim => claim.Type == "tid");
+        Assert.DoesNotContain(registerToken.Claims, static claim => claim.Type == "role");
 
         using var accountClient = factory.CreateClientFor(
             TestUserContext.Authenticated(registerPayload.User.Id, scenario.TenantId));
@@ -138,6 +139,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var switchToken = new JwtSecurityTokenHandler().ReadJwtToken(switchPayload.AccessToken);
         var tid = switchToken.Claims.Single(claim => claim.Type == "tid").Value;
         Assert.Equal(companyPayload.CompanyId.ToString(), tid);
+        Assert.Equal("ADMIN DE EMPRESA", switchToken.Claims.Single(claim => claim.Type == "role").Value);
     }
 
     [Fact]
@@ -735,6 +737,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var token = new JwtSecurityTokenHandler().ReadJwtToken(payload.AccessToken);
         var tid = token.Claims.Single(claim => claim.Type == "tid").Value;
         Assert.Equal(scenario.OtherTenantId.ToString(), tid);
+        Assert.Equal("AUDITOR B", token.Claims.Single(claim => claim.Type == "role").Value);
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

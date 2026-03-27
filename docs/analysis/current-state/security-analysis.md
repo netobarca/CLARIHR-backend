@@ -25,6 +25,13 @@ El sistema soporta:
 - logout
 - autenticacion externa con proveedor soportado
 
+En registro local, la API exige una politica de password reforzada:
+
+- longitud minima de `12`
+- mayuscula, minuscula, numero y caracter especial
+- sin espacios
+- sin reutilizar nombre, apellido o correo del usuario dentro del password
+
 El token de acceso cambia funcionalmente cuando el usuario activa una compania: el token con tenant incluye el claim que define el contexto operativo.
 
 ## 3. Resolucion de tenant
@@ -130,9 +137,14 @@ Los headers actuales son utiles, pero todavia no cubren un set mas completo de e
 
 La seguridad esta bien distribuida, pero el numero alto de endpoints administrativos exige mantener mucha consistencia al seguir creando handlers y services.
 
+### 10.5 Falta screening contra contrasenas comprometidas
+
+La politica local ya endurece longitud, complejidad y uso de datos personales, pero todavia no existe verificacion contra listas de contrasenas comprometidas o comunmente reutilizadas.
+
 ## 11. Recomendaciones inmediatas
 
 1. Incorporar una estrategia de rate limiting para auth y endpoints costosos.
 2. Automatizar la exportacion de OpenAPI desde Swagger para tener contrato versionado.
 3. Revisar si algunos headers adicionales deben endurecer respuestas HTML o navegadas en el futuro.
 4. Mantener obligatoria la validacion de tenant y permisos dentro de cada caso de uso nuevo.
+5. Evaluar verificacion de contrasenas comprometidas o blocklists administradas para auth local.

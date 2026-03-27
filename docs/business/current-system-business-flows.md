@@ -34,7 +34,7 @@ El estado actual del sistema cubre estos dominios funcionales:
 
 1. El usuario se registra con nombre, apellido, correo, contrasena y pais.
 2. El sistema crea la cuenta y devuelve `access token` y `refresh token`.
-3. Si todavia no existe compania activa para ese usuario, el token inicial no incluye contexto tenant.
+3. Si todavia no existe compania activa para ese usuario, el token inicial no incluye contexto tenant ni claim `role` tenant-scoped.
 
 ### 4.2 Registro externo
 
@@ -46,7 +46,7 @@ El estado actual del sistema cubre estos dominios funcionales:
 ### 4.3 Login, refresh y logout
 
 1. El usuario autentica credenciales locales o reutiliza el proveedor externo.
-2. `login` devuelve un nuevo par de tokens.
+2. `login` devuelve un nuevo par de tokens; si el usuario ya tiene compania primaria, el `access token` sale con `tid` y `role` del tenant activo.
 3. `refresh` renueva la sesion usando un refresh token valido.
 4. `logout` revoca la sesion vigente del usuario autenticado.
 
@@ -70,7 +70,7 @@ El provisioning actual deja creada la base operativa minima del tenant:
 ### 5.3 Cambio de compania activa
 
 1. El usuario selecciona una compania de las que posee o administra.
-2. El sistema emite un nuevo `access token` con `tenant claim`.
+2. El sistema emite un nuevo `access token` con `tenant claim` y el `role` correspondiente a la membresia activa de esa compania.
 3. A partir de ese momento, los endpoints `api/v1/companies/{companyId}` y los endpoints `tenant-scoped` operan sobre ese contexto activo.
 
 ## 6. Flujo de administracion de estructura organizacional
