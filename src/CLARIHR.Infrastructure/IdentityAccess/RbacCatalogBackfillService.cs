@@ -1,4 +1,5 @@
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,7 @@ internal sealed class RbacCatalogBackfillService(ApplicationDbContext dbContext)
     {
         await EnsureGlobalResourcesAsync(cancellationToken);
         await EnsureTenantMatrixPermissionsAsync(cancellationToken);
+        await EnsureTenantAdminPermissionsAsync(cancellationToken);
     }
 
     private async Task EnsureGlobalResourcesAsync(CancellationToken cancellationToken)
@@ -80,6 +82,87 @@ internal sealed class RbacCatalogBackfillService(ApplicationDbContext dbContext)
         }
 
         dbContext.IamPermissions.AddRange(missingPermissions);
+        _ = await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureTenantAdminPermissionsAsync(CancellationToken cancellationToken)
+    {
+        var tenantIds = await dbContext.Companies
+            .AsNoTracking()
+            .Select(company => company.PublicId)
+            .ToArrayAsync(cancellationToken);
+
+        foreach (var tenantId in tenantIds)
+        {
+            await EnsureTenantAdminPermissionsAsync(tenantId, cancellationToken);
+        }
+    }
+
+    private async Task EnsureTenantAdminPermissionsAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var allExpectedCodes = ProvisioningConstants.CompanyAdminPermissions
+            .Select(static definition => definition.Code.ToUpperInvariant())
+            .ToArray();
+
+        var existingCodes = new HashSet<string>(
+            await dbContext.IamPermissions
+                .AsNoTracking()
+                .Where(permission => permission.TenantId == tenantId && allExpectedCodes.Contains(permission.NormalizedCode))
+                .Select(permission => permission.NormalizedCode)
+                .ToListAsync(cancellationToken),
+            StringComparer.Ordinal);
+
+        var missingDefinitions = ProvisioningConstants.CompanyAdminPermissions
+            .Where(definition => !existingCodes.Contains(definition.Code.ToUpperInvariant()))
+            .ToArray();
+
+        if (missingDefinitions.Length == 0)
+        {
+            return;
+        }
+
+        var newPermissions = new List<IamPermission>();
+        foreach (var definition in missingDefinitions)
+        {
+            var permission = IamPermission.CreateScreenAction(
+                definition.Code,
+                definition.Name,
+                definition.Description,
+                definition.Module,
+                definition.Screen,
+                definition.Action);
+            permission.SetTenantId(tenantId);
+            newPermissions.Add(permission);
+        }
+
+        dbContext.IamPermissions.AddRange(newPermissions);
+        _ = await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Assign new permissions to the system admin role
+        var normalizedAdminName = ProvisioningConstants.CompanyAdminRoleName.ToUpperInvariant();
+
+        var adminRole = await dbContext.IamRoles
+            .Include(role => role.PermissionAssignments)
+            .FirstOrDefaultAsync(
+                role => role.TenantId == tenantId && role.IsSystemRole && role.NormalizedName == normalizedAdminName,
+                cancellationToken);
+
+        if (adminRole is null)
+        {
+            return;
+        }
+
+        var allTenantPermissions = await dbContext.IamPermissions
+            .Where(permission => permission.TenantId == tenantId)
+            .ToArrayAsync(cancellationToken);
+
+        adminRole.SyncPermissions(allTenantPermissions);
+
+        foreach (var assignment in adminRole.PermissionAssignments)
+        {
+            assignment.SetTenantId(tenantId);
+        }
+
         _ = await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
