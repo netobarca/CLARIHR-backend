@@ -10,9 +10,27 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
 {
     public async Task EnsureFreePlanDefaultsAsync(CancellationToken cancellationToken)
     {
+        var normalizedPlanCode = ProvisioningConstants.FreePlanCode.ToUpperInvariant();
+
+        var commercialPlanExists = await dbContext.CommercialPlans.AnyAsync(
+            plan => plan.NormalizedCode == normalizedPlanCode,
+            cancellationToken);
+
+        if (!commercialPlanExists)
+        {
+            dbContext.CommercialPlans.Add(CommercialPlan.Create(
+                ProvisioningConstants.FreePlanCode,
+                "Free",
+                "Canonical free commercial plan used during provisioning.",
+                baseMonthlyFee: 0m,
+                pricePerActiveEmployee: 0m,
+                CommercialPlanStatus.Active,
+                isSystemPlan: true,
+                limits: []));
+        }
+
         foreach (var moduleKey in ProvisioningConstants.FreePlanEnabledModules)
         {
-            var normalizedPlanCode = ProvisioningConstants.FreePlanCode.ToUpperInvariant();
             var normalizedModuleKey = moduleKey.ToUpperInvariant();
 
             var exists = await dbContext.PlanEntitlements.AnyAsync(

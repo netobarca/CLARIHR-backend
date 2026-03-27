@@ -24,6 +24,8 @@ internal sealed class JwtTokenService(
     IRefreshTokenHasher refreshTokenHasher,
     ILogger<JwtTokenService> logger) : ITokenService
 {
+    private const string PlatformAdminRole = "platform_admin";
+
     public async Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken)
     {
         var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
@@ -189,6 +191,7 @@ internal sealed class JwtTokenService(
         Guid? tenantId,
         CancellationToken cancellationToken)
     {
+        var jwtOptions = options.Value;
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.PublicId.ToString()),
@@ -201,6 +204,11 @@ internal sealed class JwtTokenService(
             new("auth_provider", user.AuthProvider.ToString()),
             new("user_status", user.Status.ToString())
         };
+
+        if (IsPlatformAdmin(user, jwtOptions))
+        {
+            claims.Add(new Claim(ClaimTypes.Role, PlatformAdminRole));
+        }
 
         if (!tenantId.HasValue)
         {
@@ -217,6 +225,14 @@ internal sealed class JwtTokenService(
 
         return claims;
     }
+
+    private static bool IsPlatformAdmin(User user, JwtTokenOptions jwtOptions) =>
+        jwtOptions.PlatformAdminEmails.Any(configuredEmail =>
+            !string.IsNullOrWhiteSpace(configuredEmail) &&
+            string.Equals(
+                User.NormalizeEmail(configuredEmail),
+                user.NormalizedEmail,
+                StringComparison.Ordinal));
 
     private static string CreateRefreshTokenValue() =>
         Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(64));

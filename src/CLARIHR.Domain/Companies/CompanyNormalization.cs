@@ -20,8 +20,17 @@ internal static class CompanyNormalization
     public static string NormalizePlanCode(string planCode) =>
         Clean(planCode, nameof(planCode)).ToUpperInvariant();
 
+    public static string NormalizeLimitCode(string limitCode) =>
+        Clean(limitCode, nameof(limitCode)).ToUpperInvariant();
+
     public static string NormalizeModuleKey(string moduleKey) =>
         Clean(moduleKey, nameof(moduleKey)).ToUpperInvariant();
+
+    public static string NormalizeName(string name) =>
+        Clean(name, nameof(name)).ToUpperInvariant();
+
+    public static string? CleanOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     public static string NormalizeCountryCode(string countryCode)
     {

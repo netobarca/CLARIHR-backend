@@ -40,6 +40,10 @@ public sealed class ApplicationDbContext(
 
     public DbSet<Company> Companies => Set<Company>();
 
+    public DbSet<CommercialPlan> CommercialPlans => Set<CommercialPlan>();
+
+    public DbSet<CommercialPlanLimit> CommercialPlanLimits => Set<CommercialPlanLimit>();
+
     public DbSet<CompanySubscription> CompanySubscriptions => Set<CompanySubscription>();
 
     public DbSet<UserCompanyMembership> UserCompanyMemberships => Set<UserCompanyMembership>();

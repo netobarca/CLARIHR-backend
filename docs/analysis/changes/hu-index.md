@@ -32,6 +32,7 @@ Cada nuevo requerimiento implementado debe agregarse aqui y, si aplica, dejar su
 
 | Codigo HU | Titulo | Modulo | Estado | Fecha ultima actualizacion | Archivo de cambio | Documentos vivos actualizados | Observaciones |
 |---|---|---|---|---|---|---|---|
+| HU-2026-03-26-01 | Catalogo comercial de planes | Companies / Subscriptions | Implementada | 2026-03-26 | `docs/analysis/changes/HU-2026-03-26-01.md` | `docs/technical/api/endpoint-reference.md`, `docs/technical/api/openapi.yaml`, `docs/business/current-system-business-flows.md`, `docs/analysis/current-state/architecture-analysis.md`, `docs/analysis/current-state/security-analysis.md` | Agrega el catalogo global `CommercialPlan`, el seed protegido `FREE` y endpoints `platform_admin` sin tenant para administrar planes comerciales. |
 | HU-2026-03-24-01 | Agregar rol tenant-scoped al JWT | Auth / Account companies | Implementada | 2026-03-24 | `docs/analysis/changes/HU-2026-03-24-01.md` | `docs/technical/api/endpoint-reference.md`, `docs/business/current-system-business-flows.md` | El `access token` ahora incluye claim `role` con el nombre normalizado del rol resuelto para el tenant emitido. |
 | HU-2026-03-19-01 | IsPrimary opcional para representante legal inicial | Account companies / Legal representatives | Implementada | 2026-03-19 | `docs/analysis/changes/HU-2026-03-19-01.md` | `docs/technical/api/endpoint-reference.md`, `docs/technical/api/openapi.yaml` | `InitialLegalRepresentativeInput.IsPrimary` pasa a nullable y se persiste con migracion EF. |
 

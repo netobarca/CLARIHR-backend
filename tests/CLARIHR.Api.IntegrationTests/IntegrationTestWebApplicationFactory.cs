@@ -32,7 +32,8 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
                 ["Authentication:Jwt:Audience"] = "clarihr-integration",
                 ["Authentication:Jwt:SigningKey"] = "clarihr-integration-signing-key-2026",
                 ["Authentication:Jwt:AccessTokenExpirationMinutes"] = "15",
-                ["Authentication:Jwt:RefreshTokenExpirationDays"] = "14"
+                ["Authentication:Jwt:RefreshTokenExpirationDays"] = "14",
+                ["Authentication:Jwt:PlatformAdminEmails:0"] = "dev@clarihr.local"
             });
         });
 

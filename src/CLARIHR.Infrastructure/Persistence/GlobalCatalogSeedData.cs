@@ -1,11 +1,35 @@
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Provisioning.Common;
+using CLARIHR.Domain.Companies;
 
 namespace CLARIHR.Infrastructure.Persistence;
 
 internal static class GlobalCatalogSeedData
 {
     public static readonly DateTime SeededAtUtc = new(2026, 03, 18, 0, 0, 0, DateTimeKind.Utc);
+    public static readonly Guid FreeCommercialPlanPublicId = Guid.Parse("00000000-0000-0000-0000-000000000901");
+    public static readonly Guid FreeCommercialPlanConcurrencyToken = Guid.Parse("00000000-0000-0000-0000-000000000902");
+
+    public static IEnumerable<object> GetCommercialPlans() =>
+        [
+            new
+            {
+                Id = -3000L,
+                PublicId = FreeCommercialPlanPublicId,
+                Code = ProvisioningConstants.FreePlanCode,
+                NormalizedCode = ProvisioningConstants.FreePlanCode.ToUpperInvariant(),
+                Name = "Free",
+                NormalizedName = "FREE",
+                Description = "Canonical free commercial plan used during provisioning.",
+                BaseMonthlyFee = 0m,
+                PricePerActiveEmployee = 0m,
+                Status = CommercialPlanStatus.Active,
+                IsSystemPlan = true,
+                ConcurrencyToken = FreeCommercialPlanConcurrencyToken,
+                CreatedUtc = SeededAtUtc,
+                ModifiedUtc = SeededAtUtc
+            }
+        ];
 
     public static IEnumerable<object> GetPlanEntitlements() =>
         ProvisioningConstants.FreePlanEnabledModules.Select(static (moduleKey, index) => new

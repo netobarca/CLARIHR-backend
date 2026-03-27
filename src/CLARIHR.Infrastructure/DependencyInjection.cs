@@ -72,12 +72,14 @@ public static class DependencyInjection
         services.AddScoped<IAuditService, AuditService>();
         services.AddSingleton<IAuditSanitizer, AuditSanitizer>();
         services.AddScoped<ICompanyRepository, CompanyRepository>();
+        services.AddScoped<ICommercialPlanRepository, CommercialPlanRepository>();
         services.AddScoped<ICompanySubscriptionRepository, CompanySubscriptionRepository>();
         services.AddScoped<IUserCompanyRepository, UserCompanyRepository>();
         services.AddScoped<ICompanyOwnershipPolicy, CompanyOwnershipPolicy>();
         services.AddScoped<IInvitationTokenRepository, InvitationTokenRepository>();
         services.AddScoped<IEmailService, LoggingEmailService>();
         services.AddScoped<ICompanyUserAuthorizationService, CompanyUserAuthorizationService>();
+        services.AddScoped<ICommercialPlanAuthorizationService, CommercialPlanAuthorizationService>();
         services.AddScoped<IPlanEntitlementService, PlanEntitlementService>();
         services.AddScoped<ILocationHierarchyRepository, LocationHierarchyRepository>();
         services.AddScoped<ILocationGroupRepository, LocationGroupRepository>();
