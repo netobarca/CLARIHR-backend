@@ -13,6 +13,9 @@ public static class ProvisioningConstants
     public const string CostCentersModuleKey = "COST_CENTERS";
     public const string LegalRepresentativesModuleKey = "LEGAL_REPRESENTATIVES";
     public const string CompetencyFrameworkModuleKey = "COMPETENCY_FRAMEWORK";
+    public const string OrgUnitsModuleKey = "ORG_UNITS";
+    public const string LocationsModuleKey = "LOCATIONS";
+    public const string PersonnelFilesModuleKey = "PERSONNEL_FILES";
     public const string CompanyAdminRoleName = "Admin de Empresa";
     public const string StandardUserRoleName = "Usuario Estándar";
 
@@ -47,7 +50,13 @@ public static class ProvisioningConstants
         new("SalaryTabulator.Read", "Leer tabulador salarial", "Consulta de lineas y solicitudes del tabulador salarial.", SalaryTabulatorModuleKey, "SalaryTabulator", "Read"),
         new("SalaryTabulator.Request", "Solicitar cambios de tabulador salarial", "Creacion y gestion de solicitudes de cambio al tabulador salarial.", SalaryTabulatorModuleKey, "SalaryTabulator", "Request"),
         new("SalaryTabulator.Approve", "Aprobar cambios de tabulador salarial", "Aprobacion o rechazo de solicitudes del tabulador salarial.", SalaryTabulatorModuleKey, "SalaryTabulator", "Approve"),
-        new("SalaryTabulator.Admin", "Administrar tabulador salarial", "Administracion completa del tabulador salarial.", SalaryTabulatorModuleKey, "SalaryTabulator", "Manage")
+        new("SalaryTabulator.Admin", "Administrar tabulador salarial", "Administracion completa del tabulador salarial.", SalaryTabulatorModuleKey, "SalaryTabulator", "Manage"),
+        new("OrgUnits.Read", "Leer unidades organizativas", "Consulta de unidades organizativas y su jerarquia.", OrgUnitsModuleKey, "OrgUnits", "Read"),
+        new("OrgUnits.Admin", "Administrar unidades organizativas", "Administracion completa de unidades organizativas.", OrgUnitsModuleKey, "OrgUnits", "Manage"),
+        new("Locations.Read", "Leer ubicaciones y centros de trabajo", "Consulta de ubicaciones, niveles, grupos y centros de trabajo.", LocationsModuleKey, "Locations", "Read"),
+        new("Locations.Admin", "Administrar ubicaciones y centros de trabajo", "Administracion completa de ubicaciones y centros de trabajo.", LocationsModuleKey, "Locations", "Manage"),
+        new("PersonnelFiles.Read", "Leer expedientes de personal", "Consulta de expedientes de personal y curriculum.", PersonnelFilesModuleKey, "PersonnelFiles", "Read"),
+        new("PersonnelFiles.Admin", "Administrar expedientes de personal", "Administracion completa de expedientes de personal.", PersonnelFilesModuleKey, "PersonnelFiles", "Manage")
     ];
 }
 
