@@ -221,6 +221,7 @@ public sealed class ApplicationDbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+        ApplyPublicIdConventions(modelBuilder);
         ApplyTenantFilters(modelBuilder);
 
         base.OnModelCreating(modelBuilder);
@@ -281,6 +282,39 @@ public sealed class ApplicationDbContext(
             _ = setFilterMethod
                 .MakeGenericMethod(entityType.ClrType)
                 .Invoke(this, [modelBuilder]);
+        }
+    }
+
+    private static void ApplyPublicIdConventions(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (entityType.IsOwned() || !typeof(Entity).IsAssignableFrom(entityType.ClrType))
+            {
+                continue;
+            }
+
+            if (entityType.FindProperty(nameof(Entity.PublicId)) is null)
+            {
+                continue;
+            }
+
+            var entityBuilder = modelBuilder.Entity(entityType.ClrType);
+            entityBuilder.Property<Guid>(nameof(Entity.PublicId)).HasColumnName("public_id");
+
+            var hasPublicIdIndex = entityType.GetIndexes().Any(index =>
+                index.Properties.Count == 1 &&
+                index.Properties[0].Name == nameof(Entity.PublicId));
+
+            if (hasPublicIdIndex)
+            {
+                continue;
+            }
+
+            var tableName = entityType.GetTableName() ?? entityType.ClrType.Name.ToLowerInvariant();
+            entityBuilder.HasIndex(nameof(Entity.PublicId))
+                .IsUnique()
+                .HasDatabaseName($"uq_{tableName}__public_id");
         }
     }
 

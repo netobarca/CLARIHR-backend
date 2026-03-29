@@ -41,8 +41,6 @@ public sealed class LegalRepresentative : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public string FirstName { get; private set; } = string.Empty;
 
     public string LastName { get; private set; } = string.Empty;

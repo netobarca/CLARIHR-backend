@@ -26,8 +26,6 @@ public sealed class WorkCenterType : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public string Code { get; private set; } = string.Empty;
 
     public string NormalizedCode { get; private set; } = string.Empty;
@@ -83,8 +81,8 @@ public sealed class WorkCenterType : TenantEntity
 
     private void SetCode(string code)
     {
-        Code = LocationNormalization.Clean(code, nameof(code));
-        NormalizedCode = LocationNormalization.NormalizeCode(code);
+        Code = LocationNormalization.NormalizeCode(code);
+        NormalizedCode = Code;
     }
 
     private void SetName(string name)

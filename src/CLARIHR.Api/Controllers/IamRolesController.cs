@@ -25,16 +25,18 @@ public sealed class IamRolesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<IamRoleResponse>> Create(
-        [FromBody] CreateIamRoleCommand command,
+        [FromBody] CreateIamRoleRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await commandDispatcher.SendAsync(command, cancellationToken);
+        var result = await commandDispatcher.SendAsync(
+            new CreateIamRoleCommand(request.Name, request.Description, request.PermissionPublicIds),
+            cancellationToken);
         if (result.IsFailure)
         {
             return this.ToActionResult(result);
         }
 
-        return CreatedAtAction(nameof(GetById), new { roleId = result.Value.Id }, result.Value);
+        return CreatedAtAction(nameof(GetById), new { rolePublicId = result.Value.Id }, result.Value);
     }
 
     [AuthorizeResource("RBAC_ROLES", RbacPermissionAction.Read)]
@@ -109,7 +111,7 @@ public sealed class IamRolesController(
             return this.ToActionResult(result);
         }
 
-        return CreatedAtAction(nameof(GetById), new { roleId = result.Value.Id }, result.Value);
+        return CreatedAtAction(nameof(GetById), new { rolePublicId = result.Value.Id }, result.Value);
     }
 
     [AuthorizeResource("RBAC_ROLES", RbacPermissionAction.Read)]
@@ -192,7 +194,7 @@ public sealed class IamRolesController(
         CancellationToken cancellationToken)
     {
         var result = await commandDispatcher.SendAsync(
-            new SyncIamRolePermissionsCommand(roleId, request.PermissionIds),
+            new SyncIamRolePermissionsCommand(roleId, request.PermissionPublicIds),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -213,11 +215,16 @@ public sealed class IamRolesController(
         CancellationToken cancellationToken)
     {
         var result = await commandDispatcher.SendAsync(
-            new SyncIamRoleUsersCommand(roleId, request.UserIds),
+            new SyncIamRoleUsersCommand(roleId, request.UserPublicIds),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
+
+    public sealed record CreateIamRoleRequest(
+        string Name,
+        string? Description,
+        IReadOnlyCollection<Guid>? PermissionPublicIds = null);
 
     public sealed record UpdateIamRoleRequest(string Name, string? Description);
 
@@ -234,7 +241,7 @@ public sealed class IamRolesController(
         bool Update,
         bool Delete);
 
-    public sealed record SyncIamRolePermissionsRequest(IReadOnlyCollection<Guid> PermissionIds);
+    public sealed record SyncIamRolePermissionsRequest(IReadOnlyCollection<Guid> PermissionPublicIds);
 
-    public sealed record SyncIamRoleUsersRequest(IReadOnlyCollection<Guid> UserIds);
+    public sealed record SyncIamRoleUsersRequest(IReadOnlyCollection<Guid> UserPublicIds);
 }

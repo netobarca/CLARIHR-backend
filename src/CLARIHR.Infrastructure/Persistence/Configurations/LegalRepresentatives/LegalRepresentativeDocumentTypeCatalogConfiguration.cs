@@ -18,8 +18,15 @@ internal sealed class LegalRepresentativeDocumentTypeCatalogItemConfiguration : 
             .HasColumnName("id")
             .ValueGeneratedNever();
 
+        builder.Property(item => item.PublicId)
+            .HasColumnName("public_id");
+
         builder.Property(item => item.Code)
             .HasColumnName("code")
+            .HasMaxLength(40);
+
+        builder.Property(item => item.NormalizedCode)
+            .HasColumnName("normalized_code")
             .HasMaxLength(40);
 
         builder.Property(item => item.Name)
@@ -32,14 +39,20 @@ internal sealed class LegalRepresentativeDocumentTypeCatalogItemConfiguration : 
         builder.Property(item => item.IsActive)
             .HasColumnName("is_active");
 
-        builder.HasIndex(item => item.Code)
+        builder.HasIndex(item => item.PublicId)
             .IsUnique()
-            .HasDatabaseName("uq_legal_representative_document_type_catalog__code");
+            .HasDatabaseName("uq_legal_representative_document_type_catalog__public_id");
+
+        builder.HasIndex(item => item.NormalizedCode)
+            .IsUnique()
+            .HasDatabaseName("uq_legal_representative_document_type_catalog__normalized_code");
 
         builder.HasData(LegalRepresentativeDocumentTypeCatalog.Items.Select(static item => new
         {
             Id = item.Id,
+            PublicId = LegalRepresentativeDocumentTypeCatalogItem.Create(item).PublicId,
             Code = item.Code,
+            NormalizedCode = item.Code,
             Name = item.Name,
             SortOrder = item.SortOrder,
             IsActive = true,

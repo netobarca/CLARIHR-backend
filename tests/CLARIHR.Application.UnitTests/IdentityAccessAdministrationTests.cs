@@ -781,6 +781,16 @@ public sealed class IdentityAccessAdministrationTests
         public Task<IamUser?> FindUserByPublicIdAsync(Guid userId, bool includeRoles, CancellationToken cancellationToken) =>
             Task.FromResult(BindUserResult(_users.SingleOrDefault(user => user.PublicId == userId), includeRoles));
 
+        public Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(
+            Guid tenantId,
+            Guid linkedUserPublicId,
+            bool includeRoles,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(
+                BindUserResult(
+                    _users.SingleOrDefault(user => user.TenantId == tenantId && user.LinkedUserPublicId == linkedUserPublicId),
+                    includeRoles));
+
         public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) =>
             Task.FromResult(BindRoleResult(_roles.SingleOrDefault(role => role.PublicId == roleId), includePermissions));
 

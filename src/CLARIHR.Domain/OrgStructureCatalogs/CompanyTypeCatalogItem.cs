@@ -36,8 +36,6 @@ public sealed class CompanyTypeCatalogItem : AuditableEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public Guid OwnerUserPublicId { get; private set; }
 
     public string Code { get; private set; } = string.Empty;
@@ -96,8 +94,8 @@ public sealed class CompanyTypeCatalogItem : AuditableEntity
 
     private void SetCode(string code)
     {
-        Code = OrgStructureCatalogNormalization.Clean(code, nameof(code));
-        NormalizedCode = OrgStructureCatalogNormalization.NormalizeCode(code);
+        Code = OrgStructureCatalogNormalization.NormalizeCode(code);
+        NormalizedCode = Code;
     }
 
     private void SetName(string name)

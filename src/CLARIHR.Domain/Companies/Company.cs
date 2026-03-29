@@ -31,8 +31,6 @@ public sealed class Company : AuditableEntity
         SetCompanyType(companyTypeCatalogItemId);
     }
 
-    public Guid PublicId { get; private set; }
-
     public string Name { get; private set; } = string.Empty;
 
     public string Slug { get; private set; } = string.Empty;

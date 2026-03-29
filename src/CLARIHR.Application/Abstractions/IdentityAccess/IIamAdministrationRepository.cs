@@ -30,6 +30,12 @@ public interface IIamAdministrationRepository
 
     Task<IamUser?> FindUserByPublicIdAsync(Guid userId, bool includeRoles, CancellationToken cancellationToken);
 
+    Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(
+        Guid tenantId,
+        Guid linkedUserPublicId,
+        bool includeRoles,
+        CancellationToken cancellationToken);
+
     Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken);
 
     Task<IamPermission?> FindPermissionByPublicIdAsync(Guid permissionId, CancellationToken cancellationToken);

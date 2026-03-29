@@ -59,6 +59,28 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
         return query.SingleOrDefaultAsync(user => user.PublicId == userId, cancellationToken);
     }
 
+    public Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(
+        Guid tenantId,
+        Guid linkedUserPublicId,
+        bool includeRoles,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<IamUser> query = dbContext.IamUsers
+            .IgnoreQueryFilters()
+            .Where(user => user.TenantId == tenantId);
+
+        if (includeRoles)
+        {
+            query = query
+                .Include(user => user.RoleAssignments)
+                .ThenInclude(assignment => assignment.Role)
+                .ThenInclude(role => role.PermissionAssignments)
+                .ThenInclude(assignment => assignment.Permission);
+        }
+
+        return query.SingleOrDefaultAsync(user => user.LinkedUserPublicId == linkedUserPublicId, cancellationToken);
+    }
+
     public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken)
     {
         IQueryable<IamRole> query = dbContext.IamRoles;

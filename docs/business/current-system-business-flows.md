@@ -87,8 +87,9 @@ El provisioning actual deja creada la base operativa minima del tenant:
 
 ### 6.1 Catalogos base
 
-1. El tenant administra catalogos de tipos de unidad, areas funcionales, tipos de empresa y catalogos de descripcion de puestos.
-2. Estos catalogos sirven como base para crear estructura, perfiles y posiciones.
+1. La cuenta autenticada mantiene el catalogo account-scoped de tipos de empresa, y el backend asegura un set base inicial cuando el usuario se registra o consulta por primera vez ese catalogo.
+2. El tenant administra catalogos de tipos de unidad, areas funcionales y catalogos de descripcion de puestos.
+3. Estos catalogos sirven como base para crear estructura, perfiles, posiciones y para clasificar companias.
 
 ### 6.2 Locations y work centers
 

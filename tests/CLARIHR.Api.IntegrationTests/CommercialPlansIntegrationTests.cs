@@ -9,15 +9,7 @@ namespace CLARIHR.Api.IntegrationTests;
 public sealed class CommercialPlansIntegrationTests(IntegrationTestWebApplicationFactory factory)
     : IClassFixture<IntegrationTestWebApplicationFactory>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
-    static CommercialPlansIntegrationTests()
-    {
-        JsonOptions.Converters.Add(new JsonStringEnumConverter());
-    }
+    private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
 
     [Fact]
     public async Task CommercialPlans_Search_WithoutAuthentication_ShouldReturnUnauthorized()
@@ -54,7 +46,7 @@ public sealed class CommercialPlansIntegrationTests(IntegrationTestWebApplicatio
         Assert.NotNull(initialList);
         Assert.Contains(initialList!.Items, static item => item.Code == "FREE" && item.IsSystemPlan);
 
-        var createResponse = await client.PostAsJsonAsync("/api/account/commercial-plans", new
+        var createResponse = await client.PostJsonAsync("/api/account/commercial-plans", new
         {
             code = "PRO",
             name = "Professional",
@@ -85,7 +77,7 @@ public sealed class CommercialPlansIntegrationTests(IntegrationTestWebApplicatio
         Assert.NotNull(fetched);
         Assert.Equal(created.Id, fetched!.Id);
 
-        var updateResponse = await client.PutAsJsonAsync($"/api/account/commercial-plans/{created.Id}", new
+        var updateResponse = await client.PutJsonAsync($"/api/account/commercial-plans/{created.Id}", new
         {
             code = "PRO",
             name = "Professional Plus",

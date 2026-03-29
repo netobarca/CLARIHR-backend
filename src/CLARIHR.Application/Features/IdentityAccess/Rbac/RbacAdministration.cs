@@ -203,7 +203,7 @@ internal sealed class GetPermissionAuditQueryHandler(
                 var after = RbacPermissionChangeTracker.Deserialize(entry.AfterJson);
 
                 return new RbacPermissionAuditEntryResponse(
-                    entry.Id,
+                    entry.PublicId,
                     entry.TenantId,
                     entry.RolePublicId,
                     entry.ResourceKey,

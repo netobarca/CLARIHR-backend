@@ -43,7 +43,7 @@ public sealed class PersonnelFileProfileController(
                 request.BirthDepartment,
                 request.BirthMunicipality,
                 request.PhotoUrl,
-                request.OrgUnitId,
+                request.OrgUnitPublicId,
                 request.CustomDataJson,
                 request.ConcurrencyToken),
             cancellationToken);

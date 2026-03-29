@@ -243,7 +243,7 @@ public sealed class CostCentersController(
     {
         var lines = new List<string>
         {
-            "Id,Code,Name,Type,PayrollExpenseAccountCode,EmployerContributionAccountCode,ProvisionAccountCode,Description,IsActive,CreatedAtUtc,ModifiedAtUtc"
+            "PublicId,Code,Name,Type,PayrollExpenseAccountCode,EmployerContributionAccountCode,ProvisionAccountCode,Description,IsActive,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
@@ -269,7 +269,7 @@ public sealed class CostCentersController(
 
         var headers = new[]
         {
-            "Id",
+            "PublicId",
             "Code",
             "Name",
             "Type",

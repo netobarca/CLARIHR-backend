@@ -256,7 +256,7 @@ public sealed class PersonnelFileReportingController(
     {
         var lines = new List<string>
         {
-            "Id,RecordType,FirstName,LastName,FullName,BirthDate,Age,MaritalStatus,Profession,Nationality,PersonalEmail,InstitutionalEmail,PersonalPhone,InstitutionalPhone,OrgUnitId,IsActive,CreatedAtUtc,ModifiedAtUtc"
+            "PublicId,RecordType,FirstName,LastName,FullName,BirthDate,Age,MaritalStatus,Profession,Nationality,PersonalEmail,InstitutionalEmail,PersonalPhone,InstitutionalPhone,OrgUnitPublicId,IsActive,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
@@ -289,7 +289,7 @@ public sealed class PersonnelFileReportingController(
 
         var headers = new[]
         {
-            "Id",
+            "PublicId",
             "RecordType",
             "FirstName",
             "LastName",
@@ -303,7 +303,7 @@ public sealed class PersonnelFileReportingController(
             "InstitutionalEmail",
             "PersonalPhone",
             "InstitutionalPhone",
-            "OrgUnitId",
+            "OrgUnitPublicId",
             "IsActive",
             "CreatedAtUtc",
             "ModifiedAtUtc"

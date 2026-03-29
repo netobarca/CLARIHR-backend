@@ -44,8 +44,6 @@ public sealed class SalaryTabulatorChangeRequest : TenantEntity
         _items.AddRange(items);
     }
 
-    public Guid PublicId { get; private set; }
-
     public string RequestNumber { get; private set; } = string.Empty;
 
     public string Reason { get; private set; } = string.Empty;

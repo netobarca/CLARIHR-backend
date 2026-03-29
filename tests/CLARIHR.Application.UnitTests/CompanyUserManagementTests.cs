@@ -1208,6 +1208,16 @@ public sealed class CompanyUserManagementTests
         public Task<IamUser?> FindUserByPublicIdAsync(Guid userId, bool includeRoles, CancellationToken cancellationToken) =>
             Task.FromResult(Users.SingleOrDefault(user => user.PublicId == userId));
 
+        public Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(
+            Guid tenantId,
+            Guid linkedUserPublicId,
+            bool includeRoles,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(
+                Users.SingleOrDefault(user =>
+                    user.TenantId == tenantId &&
+                    user.LinkedUserPublicId == linkedUserPublicId));
+
         public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) =>
             Task.FromResult(Roles.SingleOrDefault(role => role.PublicId == roleId));
 

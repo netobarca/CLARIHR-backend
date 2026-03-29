@@ -35,8 +35,6 @@ public sealed class LocationLevel : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public int LevelOrder { get; private set; }
 
     public string DisplayName { get; private set; } = string.Empty;

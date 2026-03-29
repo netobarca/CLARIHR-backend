@@ -18,7 +18,7 @@ internal sealed class GetApiStatusQueryHandler(
             ApplicationName: "CLARIHR API",
             UtcNow: dateTimeProvider.UtcNow,
             TenantId: tenantContext.TenantId,
-            UserId: currentUserService.UserId,
+            UserPublicId: currentUserService.UserId,
             IsAuthenticated: currentUserService.IsAuthenticated);
 
         return Task.FromResult(Result<ApiStatusResponse>.Success(response));

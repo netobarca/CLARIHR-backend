@@ -57,8 +57,6 @@ public sealed class PersonnelFileEmployeeProfile : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string EmployeeCode { get; private set; } = string.Empty;
 
     public string NormalizedEmployeeCode { get; private set; } = string.Empty;
@@ -224,8 +222,6 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string AssignmentTypeCode { get; private set; } = string.Empty;
 
     public Guid? PositionSlotPublicId { get; private set; }
@@ -297,8 +293,6 @@ public sealed class PersonnelFileContractHistory : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string ContractTypeCode { get; private set; } = string.Empty;
 
     public DateTime ContractDate { get; private set; }
@@ -350,8 +344,6 @@ public sealed class PersonnelFileSalaryItem : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string IncomeTypeCode { get; private set; } = string.Empty;
 
@@ -408,8 +400,6 @@ public sealed class PersonnelFileAdditionalBenefit : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string BenefitTypeCode { get; private set; } = string.Empty;
 
     public DateTime? StartDate { get; private set; }
@@ -459,8 +449,6 @@ public sealed class PersonnelFilePaymentMethod : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string PaymentMethodCode { get; private set; } = string.Empty;
 
@@ -517,8 +505,6 @@ public sealed class PersonnelFileAuthorizationSubstitution : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string SubstitutionTypeCode { get; private set; } = string.Empty;
 
@@ -581,8 +567,6 @@ public sealed class PersonnelFilePersonnelAction : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string ActionTypeCode { get; private set; } = string.Empty;
 
@@ -654,8 +638,6 @@ public sealed class PersonnelFilePayrollTransaction : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string TransactionTypeCode { get; private set; } = string.Empty;
 
@@ -736,8 +718,6 @@ public sealed class PersonnelFileAssetAccess : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string AssetTypeCode { get; private set; } = string.Empty;
 
     public string AssetOrAccessName { get; private set; } = string.Empty;
@@ -816,8 +796,6 @@ public sealed class PersonnelFileInsurance : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string InsuranceCode { get; private set; } = string.Empty;
 
@@ -901,8 +879,6 @@ public sealed class PersonnelFileInsuranceBeneficiary : TenantEntity
 
     public PersonnelFileInsurance Insurance { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string FullName { get; private set; } = string.Empty;
 
     public string? DocumentNumber { get; private set; }
@@ -963,8 +939,6 @@ public sealed class PersonnelFileMedicalClaim : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public Guid? InsurancePublicId { get; private set; }
 
@@ -1055,8 +1029,6 @@ public sealed class PersonnelFilePerformanceEvaluation : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string EvaluatorName { get; private set; } = string.Empty;
 
     public DateTime EvaluationDateUtc { get; private set; }
@@ -1127,8 +1099,6 @@ public sealed class PersonnelFilePositionCompetencyResult : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string CompetencyCode { get; private set; } = string.Empty;
 
@@ -1203,8 +1173,6 @@ public sealed class PersonnelFileSelectionContest : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string ContestCode { get; private set; } = string.Empty;
 
     public string ContestName { get; private set; } = string.Empty;
@@ -1267,8 +1235,6 @@ public sealed class PersonnelFileCurricularCompetency : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string RequirementTypeCode { get; private set; } = string.Empty;
 

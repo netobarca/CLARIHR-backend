@@ -121,7 +121,11 @@ internal sealed class CreateCompanyUserCommandHandler(
             isPrimary: !await userCompanyRepository.HasAnyMembershipAsync(user.Id, cancellationToken));
         userCompanyRepository.Add(membership);
 
-        var iamUser = await iamRepository.FindUserByPublicIdAsync(user.PublicId, includeRoles: true, cancellationToken);
+        var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
+            companyPublicId,
+            user.PublicId,
+            includeRoles: true,
+            cancellationToken);
         if (iamUser is null)
         {
             iamUser = IamUser.CreateLinked(

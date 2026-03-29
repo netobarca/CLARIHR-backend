@@ -68,7 +68,7 @@ public sealed class AccountCompanyAdministrationTests
         Assert.False(provisioningService.LastRequest.MakePrimary);
         Assert.Single(auditService.Entries);
         Assert.Equal(AuditEventTypes.CompanyCreated, auditService.Entries[0].Entry.EventType);
-        Assert.Equal(result.Value.CompanyId, auditService.Entries[0].TenantId);
+        Assert.Equal(result.Value.PublicId, auditService.Entries[0].TenantId);
     }
 
     [Fact]
@@ -263,7 +263,7 @@ public sealed class AccountCompanyAdministrationTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(companyB.PublicId, tokenService.LastTenantId);
-        Assert.Equal(companyB.PublicId, result.Value.ActiveCompany.CompanyId);
+        Assert.Equal(companyB.PublicId, result.Value.ActiveCompany.PublicId);
         Assert.Contains(membershipRepository.Items, item => item.CompanyId == companyB.Id && item.IsPrimary);
         Assert.DoesNotContain(membershipRepository.Items, item => item.CompanyId == companyA.Id && item.IsPrimary);
         Assert.Equal(AuditEventTypes.ActiveCompanySwitched, Assert.Single(auditService.Entries).Entry.EventType);

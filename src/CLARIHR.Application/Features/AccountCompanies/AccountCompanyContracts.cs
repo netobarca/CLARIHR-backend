@@ -8,7 +8,7 @@ using FluentValidation;
 namespace CLARIHR.Application.Features.AccountCompanies;
 
 public sealed record AccountCompanySummaryResponse(
-    Guid CompanyId,
+    Guid PublicId,
     string Name,
     string Slug,
     string CountryCode,
@@ -20,7 +20,7 @@ public sealed record AccountCompanySummaryResponse(
     CompanyTypeMetadataResponse? CompanyType);
 
 public sealed record AccountCompanyDetailResponse(
-    Guid CompanyId,
+    Guid PublicId,
     string Name,
     string Slug,
     string CountryCode,
@@ -47,7 +47,7 @@ public sealed record ActiveLegalRepresentativeSummaryResponse(
     bool? IsPrimary);
 
 public sealed record ActiveCompanyDto(
-    Guid CompanyId,
+    Guid PublicId,
     string Name,
     string Slug,
     string CountryCode,

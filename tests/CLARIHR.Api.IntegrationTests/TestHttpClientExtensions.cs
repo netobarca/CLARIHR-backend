@@ -1,9 +1,13 @@
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace CLARIHR.Api.IntegrationTests;
 
 internal static class TestHttpClientExtensions
 {
+    private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
+
     public static HttpClient CreateClientFor(this IntegrationTestWebApplicationFactory factory, TestUserContext user)
     {
         var client = factory.CreateClient();
@@ -27,6 +31,12 @@ internal static class TestHttpClientExtensions
 
         return client;
     }
+
+    public static Task<HttpResponseMessage> PostJsonAsync(this HttpClient client, string? requestUri, object? value, CancellationToken cancellationToken = default) =>
+        client.PostAsJsonAsync(requestUri, value, JsonOptions, cancellationToken);
+
+    public static Task<HttpResponseMessage> PutJsonAsync(this HttpClient client, string? requestUri, object? value, CancellationToken cancellationToken = default) =>
+        client.PutAsJsonAsync(requestUri, value, JsonOptions, cancellationToken);
 }
 
 internal sealed record TestUserContext(

@@ -72,7 +72,11 @@ internal sealed class ReactivateCompanyUserCommandHandler(
         user.Reactivate();
         membership.Reactivate();
 
-        var iamUser = await iamRepository.FindUserByPublicIdAsync(command.UserId, includeRoles: false, cancellationToken);
+        var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
+            companyPublicId,
+            user.PublicId,
+            includeRoles: false,
+            cancellationToken);
         iamUser?.SetActive(user.Status == UserStatus.Active);
 
         await auditService.LogAsync(

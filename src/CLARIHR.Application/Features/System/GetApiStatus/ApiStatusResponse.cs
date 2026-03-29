@@ -4,5 +4,5 @@ public sealed record ApiStatusResponse(
     string ApplicationName,
     DateTime UtcNow,
     Guid? TenantId,
-    string? UserId,
+    string? UserPublicId,
     bool IsAuthenticated);

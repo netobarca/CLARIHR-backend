@@ -75,7 +75,7 @@ public sealed class CommercialPlansController(
             return this.ToActionResult(Result<CommercialPlanResponse>.Failure(result.Error));
         }
 
-        return CreatedAtAction(nameof(GetById), new { id = result.Value.Id }, result.Value);
+        return CreatedAtAction(nameof(GetById), new { publicId = result.Value.Id }, result.Value);
     }
 
     [HttpPut("{id:guid}")]

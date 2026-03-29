@@ -10,15 +10,16 @@ internal sealed class RbacResourceConfiguration : IEntityTypeConfiguration<RbacR
     public void Configure(EntityTypeBuilder<RbacResource> builder)
     {
         builder.ToTable("rbac_resource_catalog");
-        builder.Ignore(resource => resource.Id);
 
-        builder.HasKey(resource => resource.ResourceKey)
+        builder.HasKey(resource => resource.Id)
             .HasName("pk_rbac_resource_catalog");
+
+        builder.Property(resource => resource.Id)
+            .HasColumnName("id");
 
         builder.Property(resource => resource.ResourceKey)
             .HasColumnName("resource_key")
-            .HasMaxLength(100)
-            .ValueGeneratedNever();
+            .HasMaxLength(100);
 
         builder.Property(resource => resource.NormalizedResourceKey)
             .HasColumnName("normalized_resource_key")
@@ -40,6 +41,10 @@ internal sealed class RbacResourceConfiguration : IEntityTypeConfiguration<RbacR
         builder.HasIndex(resource => resource.NormalizedResourceKey)
             .IsUnique()
             .HasDatabaseName("uq_rbac_resource_catalog__normalized_resource_key");
+
+        builder.HasIndex(resource => resource.ResourceKey)
+            .IsUnique()
+            .HasDatabaseName("uq_rbac_resource_catalog__resource_key");
 
         builder.HasData(GlobalCatalogSeedData.GetRbacResources());
     }

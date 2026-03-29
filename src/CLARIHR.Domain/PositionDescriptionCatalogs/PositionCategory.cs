@@ -36,8 +36,6 @@ public sealed class PositionCategory : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public string Code { get; private set; } = string.Empty;
 
     public string NormalizedCode { get; private set; } = string.Empty;
@@ -103,8 +101,8 @@ public sealed class PositionCategory : TenantEntity
 
     private void SetCode(string code)
     {
-        Code = PositionDescriptionCatalogNormalization.Clean(code, nameof(code));
-        NormalizedCode = PositionDescriptionCatalogNormalization.NormalizeCode(code);
+        Code = PositionDescriptionCatalogNormalization.NormalizeCode(code);
+        NormalizedCode = Code;
     }
 
     private void SetName(string name)

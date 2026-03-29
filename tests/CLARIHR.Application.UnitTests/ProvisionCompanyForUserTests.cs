@@ -618,6 +618,8 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task<bool> RolePublicIdExistsAsync(Guid roleId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> PermissionPublicIdExistsAsync(Guid permissionId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<IamUser?> FindUserByPublicIdAsync(Guid userId, bool includeRoles, CancellationToken cancellationToken) => Task.FromResult<IamUser?>(null);
+        public Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(Guid tenantId, Guid linkedUserPublicId, bool includeRoles, CancellationToken cancellationToken) =>
+            Task.FromResult<IamUser?>(Users.SingleOrDefault(user => user.TenantId == tenantId && user.LinkedUserPublicId == linkedUserPublicId));
         public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) => Task.FromResult<IamRole?>(null);
         public Task<IamPermission?> FindPermissionByPublicIdAsync(Guid permissionId, CancellationToken cancellationToken) => Task.FromResult<IamPermission?>(null);
         public Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<IamRole>>([]);

@@ -21,8 +21,6 @@ public sealed class LocationHierarchyConfig : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public bool IsMultiLevel { get; private set; }
 
     public string DefaultGroupCode { get; private set; } = string.Empty;

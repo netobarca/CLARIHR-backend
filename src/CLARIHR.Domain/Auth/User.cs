@@ -48,8 +48,6 @@ public sealed class User : AuditableEntity
         Status = status;
     }
 
-    public Guid PublicId { get; private set; }
-
     public string FirstName { get; private set; } = string.Empty;
 
     public string LastName { get; private set; } = string.Empty;

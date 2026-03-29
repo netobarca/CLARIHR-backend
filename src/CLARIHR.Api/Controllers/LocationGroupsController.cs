@@ -65,7 +65,7 @@ public sealed class LocationGroupsController(
                 request.LevelOrder,
                 request.Code,
                 request.Name,
-                request.ParentId,
+                request.ParentPublicId,
                 request.Description),
             cancellationToken);
 
@@ -111,7 +111,7 @@ public sealed class LocationGroupsController(
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new MoveLocationGroupCommand(id, request.ParentId, request.ConcurrencyToken),
+            new MoveLocationGroupCommand(id, request.ParentPublicId, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -159,7 +159,7 @@ public sealed class LocationGroupsController(
         int LevelOrder,
         string Code,
         string Name,
-        Guid? ParentId,
+        Guid? ParentPublicId,
         string? Description);
 
     public sealed record UpdateLocationGroupRequest(
@@ -168,7 +168,7 @@ public sealed class LocationGroupsController(
         string? Description,
         Guid ConcurrencyToken);
 
-    public sealed record MoveLocationGroupRequest(Guid? ParentId, Guid ConcurrencyToken);
+    public sealed record MoveLocationGroupRequest(Guid? ParentPublicId, Guid ConcurrencyToken);
 
     public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
 }

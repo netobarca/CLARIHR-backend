@@ -71,7 +71,7 @@ internal sealed class RbacAuthorizationService(
 
         var grantedCodes = await dbContext.IamUsers
             .AsNoTracking()
-            .Where(user => user.PublicId == userPublicId && user.IsActive)
+            .Where(user => user.LinkedUserPublicId == userPublicId && user.IsActive)
             .SelectMany(user => user.RoleAssignments)
             .SelectMany(assignment => assignment.Role.PermissionAssignments)
             .Select(assignment => assignment.Permission.NormalizedCode)

@@ -19,6 +19,9 @@ internal sealed class IamUserConfiguration : IEntityTypeConfiguration<IamUser>
         builder.Property(user => user.PublicId)
             .HasColumnName("public_id");
 
+        builder.Property(user => user.LinkedUserPublicId)
+            .HasColumnName("linked_user_public_id");
+
         builder.Property(user => user.TenantId)
             .HasColumnName("tenant_id");
 
@@ -50,6 +53,10 @@ internal sealed class IamUserConfiguration : IEntityTypeConfiguration<IamUser>
         builder.HasIndex(user => new { user.TenantId, user.NormalizedEmail })
             .IsUnique()
             .HasDatabaseName("uq_iam_users__tenant_email");
+
+        builder.HasIndex(user => new { user.TenantId, user.LinkedUserPublicId })
+            .IsUnique()
+            .HasDatabaseName("uq_iam_users__tenant_linked_user_public_id");
 
         builder.HasIndex(user => new { user.TenantId, user.LastName, user.FirstName })
             .HasDatabaseName("ix_iam_users__tenant_name");

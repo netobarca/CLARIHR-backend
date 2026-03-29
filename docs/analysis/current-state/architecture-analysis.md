@@ -2,160 +2,120 @@
 
 ## 1. Proposito
 
-Este documento describe el estado actual de la arquitectura del backend CLARIHR a partir del codigo vigente del repositorio.
+Este documento describe el estado actual de la arquitectura del backend CLARIHR a partir del codigo vigente del repositorio y queda alineado con la reevaluacion profunda de auditoria del **28 de marzo de 2026**.
 
 ## 2. Resumen ejecutivo
 
-El backend implementa una arquitectura limpia con cuatro capas principales:
+La base arquitectonica sigue siendo coherente con el foundation document:
 
 - `CLARIHR.Domain`
 - `CLARIHR.Application`
 - `CLARIHR.Infrastructure`
 - `CLARIHR.Api`
 
-La aplicacion usa CQRS con dispatchers propios, EF Core sobre PostgreSQL, autenticacion JWT, RBAC, auditoria y diseno tenant-scoped por defecto.
+Tambien se mantiene una disciplina CQRS visible, validacion centralizada, RBAC por modulo, auditoria transversal y una intencion clara de `tenant-scoped by default`.
 
-## 3. Estructura actual del repositorio
+Sin embargo, la reevaluacion confirma que la arquitectura actual ya no puede describirse de forma tan optimista como antes. El sistema conserva buen esqueleto, pero tiene tensiones reales en cuatro frentes:
 
-### 3.1 Domain
+- filtro tenant global `fail-open`
+- controllers que mezclan HTTP con auditoria, `SaveChangesAsync` y generacion de archivos
+- alta dependencia de disciplina manual por la cantidad de endpoints administrativos
+- gobernanza documental y contractual claramente por detras de la superficie real de la API
 
-Contiene agregados, entidades y reglas de negocio puras por modulo:
+## 3. Estado actual verificado
 
-- Companies
-- IdentityAccess
-- Locations
-- OrgUnits
-- JobProfiles
-- PositionSlots
-- PersonnelFiles
-- SalaryTabulator
-- CompetencyFramework
-- LegalRepresentatives
+Snapshot de esta reevaluacion:
 
-### 3.2 Application
+- `34` controllers
+- `324` acciones HTTP en `src/CLARIHR.Api/Controllers`
+- build limpio
+- test suite verde
 
-Contiene:
+La arquitectura observable de una request sigue siendo:
 
-- commands y queries
-- handlers
-- validadores FluentValidation
-- contratos de respuesta
-- servicios de autorizacion abstractos
-- dispatchers CQRS
+1. ASP.NET Core recibe la request.
+2. Los middleware aplican correlacion, request logging, headers y manejo de excepciones.
+3. El controller traduce a command o query.
+4. `ICommandDispatcher` o `IQueryDispatcher` resuelven el handler.
+5. FluentValidation valida.
+6. Application aplica autorizacion, tenant, reglas y persistencia via contratos.
+7. Infrastructure ejecuta EF Core, auth, auditoria y servicios auxiliares.
 
-El registro de handlers y validadores es automatico por ensamblado en [DependencyInjection.cs](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/DependencyInjection.cs#L9).
+## 4. Decisiones arquitectonicas vigentes
 
-### 3.3 Infrastructure
+### 4.1 CQRS explicito
 
-Contiene:
+La separacion entre lectura y escritura sigue siendo visible y util. Hay handlers claros por caso de uso y DTOs de lectura en la mayoria de modulos.
 
-- implementaciones de repositorio
-- `ApplicationDbContext`
-- servicios de autenticacion
-- resolucion de tenant y usuario actual
+### 4.2 Multi-tenant por defecto, pero no fail-closed
+
+El sistema sigue orientado a tenant isolation, pero [ApplicationDbContext.cs#L287](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/Persistence/ApplicationDbContext.cs#L287) deja el filtro global en modo `fail-open`. Arquitectonicamente eso significa que la garantia tenant-scoped no depende solo del modelo, sino de que todos los flujos mantengan contexto y filtros adicionales de forma impecable.
+
+### 4.3 Catalogos globales fuera de tenant
+
+`CommercialPlan` introduce un agregado global administrado por `platform_admin` y fuera del tenant. Eso es valido como decision funcional, pero obliga a tener una estrategia propia de permisos, auditoria y trazabilidad de plataforma.
+
+### 4.4 Controllers con superficie mixta
+
+La arquitectura ya no puede afirmar que todos los controllers sean delgados. Ejemplos concretos:
+
+- [PersonnelFileReportingController.cs#L151](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/PersonnelFileReportingController.cs#L151) audita exports, ejecuta `SaveChangesAsync()` y construye CSV/XLSX.
+- [PersonnelFileCompensationController.cs#L226](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/PersonnelFileCompensationController.cs#L226) mezcla auditoria, persistencia y generacion de archivo en la capa API.
+
+No es una ruptura total de Clean Architecture, pero si una erosion clara de responsabilidades.
+
+### 4.5 Contratos publicos con guardrails centralizados
+
+Desde marzo de 2026 el backend endurecio la gobernanza contractual con una convencion transversal:
+
+- toda entidad persistida hereda `PublicId` y lo persiste como `public_id`
+- la API publica expone `publicId` o `<Entidad>PublicId`, nunca `id` ni `internalId`
+- cuando existe codigo de negocio, la superficie publica y persistida usa `code` y `normalizedCode` en `UPPERCASE`
+- `IamUser` separa el `PublicId` de la fila tenant-scoped del `LinkedUserPublicId` que referencia al usuario autenticado global, evitando colisiones entre tenants
+
+La garantia ya no depende solo de disciplina manual: hay convenciones de modelo, transformacion central de contratos y pruebas de guardrail sobre Swagger y `ApplicationDbContext`.
+
+## 5. Tensiones confirmadas por la reevaluacion
+
+### 5.1 Gobernanza dificil por amplitud de superficie
+
+La cantidad de endpoints administrativos vuelve costoso mantener consistencia de:
+
+- permisos
+- tenant scope
 - auditoria
-- politicas RBAC y de acciones permitidas
-- caching de permisos por campo
+- documentacion de contratos
+- pruebas de alto riesgo
 
-El wiring principal esta en [DependencyInjection.cs](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/DependencyInjection.cs#L1).
+### 5.2 Uso extensivo de `IgnoreQueryFilters()`
 
-### 3.4 API
+La reevaluacion encontro uso amplio de `IgnoreQueryFilters()` en repositorios de companies, org units, personnel files, salary tabulator, IAM, audit, competency framework, locations y otros. No todos los usos son incorrectos, pero el patron ya es suficientemente extendido como para requerir una matriz de gobernanza y pruebas dedicadas.
 
-Contiene:
+### 5.3 Documentacion arquitectonica desactualizada
 
-- `34` controladores
-- `308` endpoints HTTP
-- middleware de correlacion, logging, security headers y manejo global de excepciones
-- configuracion de Swagger solo para `Development`
+El documento previo ya no representaba fielmente el sistema:
 
-## 4. Flujo tecnico de una request
+- reportaba `308` endpoints cuando la superficie actual medida es `324`
+- afirmaba controllers universalmente delgados cuando ya hay excepciones visibles
 
-1. La request entra por ASP.NET Core Web API.
-2. Los middleware aplican correlacion, logging, headers y manejo de excepciones.
-3. El controller traduce request HTTP a command o query.
-4. `ICommandDispatcher` o `IQueryDispatcher` resuelven el handler correspondiente.
-5. FluentValidation valida la entrada.
-6. El handler aplica autorizacion, tenant scope, reglas y persistencia.
-7. Infrastructure ejecuta EF Core, auditoria y politicas auxiliares.
-8. API convierte `Result` a `ProblemDetails` o a la respuesta DTO.
+### 5.4 Matriz resumida de `IgnoreQueryFilters()`
 
-## 5. Modularidad funcional actual
+La reevaluacion encontro el siguiente patron resumido:
 
-La API esta organizada por modulos funcionales grandes:
+| Repositorio o servicio | Motivo visible | Filtro alterno o control compensatorio | Cobertura visible | Lectura de riesgo |
+|---|---|---|---|---|
+| `LocationHierarchyRepository`, `WorkCenterRepository`, `WorkCenterTypeRepository`, `LegalRepresentativeRepository`, `JobProfileRepository`, `JobCatalogRepository`, `OrgStructureCatalogRepository`, `PositionDescriptionCatalogRepository`, `CostCenterRepository`, `PositionSlotRepository`, `OrgUnitRepository`, `SalaryTabulatorRepository`, `CompetencyFrameworkRepository`, `AuditLogRepository` | `ExistsOutsideTenantAsync` o equivalentes para distinguir `not found` vs `tenant mismatch` | el acceso normal sigue tenant-scoped; el bypass se usa como verificacion de existencia | parcial, por modulo | uso plausible, pero requiere disciplina constante |
+| `PersonnelFileRepository` | `ExistsOutsideTenantAsync`, `DocumentExistsOutsideTenantAsync` y unicidad de identificacion | el check de identificacion compensa con `TenantId == tenantId` explicito; los otros se usan para mismatch | parcial | uso justificado, pero sensible por volumen de PII |
+| `FieldPermissionService.Read` y `FieldPermissionService.Write` | diferenciar `RoleNotFound` de `TenantMismatch` | el query principal sigue tenant-scoped y el bypass solo decide el error | parcial | uso razonable, pero de alta sensibilidad IAM |
+| `UserCompanyRepository` | resolver rol tenant-scoped uniendo contra `IamRoles` sin filtro | la membresia y compania si van filtradas antes del join | parcial | revisar cuidadosamente para no normalizar bypasses innecesarios |
+| `LocationGroupRepository.GetByIdIgnoreFiltersAsync` | obtener entidad completa ignorando filtros | no se observa compensacion estructural en el nombre del metodo; requiere auditoria puntual de usos | no visible en esta reevaluacion | mayor prioridad de revision entre los bypasses encontrados |
 
-- acceso y companias de cuenta
-- IAM y RBAC
-- locations y work centers
-- org units y cost centers
-- job profiles, competency framework y position slots
-- personnel files
-- salary tabulator
-- audit y report capabilities
+## 6. Conclusiones
 
-Dentro de `PersonnelFiles`, la modularidad mejoro con la separacion por capacidad:
+La prioridad arquitectonica del proyecto no es redisenar desde cero. La base sigue siendo rescatable y, en muchos modulos, sana. La prioridad correcta es endurecer las garantias que hoy dependen demasiado de disciplina manual:
 
-- core
-- profile
-- employment
-- compensation
-- talent
-- documents
-- administration
-- reporting
-
-## 6. Decisiones arquitectonicas visibles en codigo
-
-### 6.1 CQRS explicito
-
-Las operaciones de lectura y escritura se separan por tipo, contratos y handlers. Esto simplifica validacion, autorizacion y testing por caso de uso.
-
-### 6.2 Tenant-scoped by default
-
-La mayoria de handlers leen `ITenantContext` o reciben `companyId` y luego validan coincidencia de tenant antes de leer o mutar datos.
-
-### 6.2A Catalogos globales fuera de tenant
-
-El agregado `CommercialPlan` vive dentro del dominio `Companies`, pero no es `TenantEntity`. Se administra por CQRS dedicado y expone endpoints `/api/account/commercial-plans` protegidos por rol global `platform_admin`, sin depender de `tenantId`.
-
-### 6.3 Autorizacion por servicio de dominio aplicativo
-
-Cada modulo relevante tiene su propio `AuthorizationService`, por ejemplo para personnel files, org units, locations o salary tabulator. Esto evita dejar la seguridad solo en atributos HTTP.
-
-### 6.4 Auditoria transversal
-
-Los cambios importantes registran auditoria con before/after, usuario actor, tenant y metadatos de request.
-
-### 6.5 Controllers delgados
-
-Los controllers se limitan a mapping HTTP y despacho. La logica funcional permanece en Application y Domain.
-
-### 6.6 Compatibilidad transicional de suscripciones
-
-El nuevo catalogo comercial convive con referencias string existentes en `CompanySubscription` y `PlanEntitlement` mediante `planCode`. El sistema siembra y protege `FREE` para mantener coherencia funcional mientras la relacion formal entre suscripciones y catalogo comercial se implementa en historias futuras.
-
-## 7. Fortalezas actuales
-
-- separacion clara de capas
-- CQRS consistente en modulos principales
-- autorizacion y tenant scope aplicados dentro del caso de uso
-- validacion centralizada con FluentValidation
-- auditoria amplia en operaciones sensibles
-- creciente modularidad de controllers en dominios grandes
-- runtime API documentable con Swagger
-
-## 8. Riesgos y tensiones actuales
-
-- hay modulos con mucha superficie HTTP y contratos extensos; el costo de documentacion y mantenimiento es alto
-- algunos reportes y exportes se generan en request path y en memoria
-- el contrato OpenAPI versionado no esta automatizado en el repositorio
-- la estrategia documental iba retrasada respecto al crecimiento del codigo
-- existen muchos endpoints administrativos, lo que eleva el costo de gobernanza de permisos y pruebas
-
-## 9. Conclusiones
-
-La base arquitectonica actual es coherente con el foundation document y ya muestra decisiones maduras en seguridad, multi-tenant y separacion de responsabilidades. La prioridad no es redisenar la arquitectura, sino fortalecer:
-
-- automatizacion documental
-- gobernanza de contratos API
-- observabilidad operativa
-- manejo de procesos pesados fuera del request path cuando el volumen lo exija
+1. tenant isolation con `fail-closed`
+2. controllers realmente delgados en exports y reportes
+3. gobernanza de bypasses como `IgnoreQueryFilters()`
+4. separacion clara entre auditoria tenant-scoped y auditoria global de plataforma
+5. contratos y analisis vivos alineados con la superficie real del backend

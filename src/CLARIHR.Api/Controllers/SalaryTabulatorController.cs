@@ -328,7 +328,7 @@ public sealed class SalaryTabulatorController(
 
     private static IReadOnlyCollection<SalaryTabulatorChangeRequestItemInput> MapItems(IReadOnlyCollection<SalaryTabulatorChangeRequestItemRequest> items) =>
         items.Select(item => new SalaryTabulatorChangeRequestItemInput(
-                item.SalaryClassId,
+                item.SalaryClassPublicId,
                 item.SalaryScaleCode,
                 item.CurrencyCode,
                 item.ChangeType,
@@ -342,7 +342,7 @@ public sealed class SalaryTabulatorController(
     {
         var lines = new List<string>
         {
-            "Id,SalaryClassId,SalaryScaleCode,CurrencyCode,BaseAmount,MinAmount,MaxAmount,EffectiveFromUtc,EffectiveToUtc,IsActive,Version,Notes,CreatedAtUtc,ModifiedAtUtc"
+            "PublicId,SalaryClassPublicId,SalaryScaleCode,CurrencyCode,BaseAmount,MinAmount,MaxAmount,EffectiveFromUtc,EffectiveToUtc,IsActive,Version,Notes,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
@@ -371,8 +371,8 @@ public sealed class SalaryTabulatorController(
 
         var headers = new[]
         {
-            "Id",
-            "SalaryClassId",
+            "PublicId",
+            "SalaryClassPublicId",
             "SalaryScaleCode",
             "CurrencyCode",
             "BaseAmount",
@@ -519,7 +519,7 @@ public sealed class SalaryTabulatorController(
         Guid ConcurrencyToken);
 
     public sealed record SalaryTabulatorChangeRequestItemRequest(
-        Guid SalaryClassId,
+        Guid SalaryClassPublicId,
         string SalaryScaleCode,
         string CurrencyCode,
         SalaryTabulatorChangeType ChangeType,

@@ -380,6 +380,7 @@ internal sealed class InactivateFunctionalAreaCommandValidator : AbstractValidat
 
 internal sealed class SearchCompanyTypesQueryHandler(
     IOrgStructureCatalogAuthorizationService authorizationService,
+    ICompanyTypeCatalogSeedService companyTypeCatalogSeedService,
     IOrgStructureCatalogRepository repository)
     : IQueryHandler<SearchCompanyTypesQuery, PagedResponse<CompanyTypeCatalogItemResponse>>
 {
@@ -392,6 +393,8 @@ internal sealed class SearchCompanyTypesQueryHandler(
         {
             return Result<PagedResponse<CompanyTypeCatalogItemResponse>>.Failure(authResult.Error);
         }
+
+        await companyTypeCatalogSeedService.EnsureSeededAsync(authResult.Value, cancellationToken);
 
         var response = await repository.SearchCompanyTypesAsync(
             authResult.Value,

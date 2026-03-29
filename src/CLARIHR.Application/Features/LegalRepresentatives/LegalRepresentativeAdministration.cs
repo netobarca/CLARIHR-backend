@@ -71,19 +71,19 @@ public sealed record LegalRepresentativeUsageResponse(
     bool CanInactivate);
 
 public sealed record LegalRepresentativeDocumentTypeCatalogItemResponse(
-    int Id,
+    Guid Id,
     string Code,
     string Name,
     int SortOrder);
 
 public sealed record LegalRepresentativePositionTitleCatalogItemResponse(
-    int Id,
+    Guid Id,
     string Code,
     string Name,
     int SortOrder);
 
 public sealed record LegalRepresentativeRepresentationTypeCatalogItemResponse(
-    int Id,
+    Guid Id,
     string Code,
     string Name,
     int SortOrder);

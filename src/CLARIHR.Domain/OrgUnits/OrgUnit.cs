@@ -49,8 +49,6 @@ public sealed class OrgUnit : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public string Code { get; private set; } = string.Empty;
 
     public string NormalizedCode { get; private set; } = string.Empty;
@@ -161,8 +159,8 @@ public sealed class OrgUnit : TenantEntity
 
     private void SetCode(string code)
     {
-        Code = OrgUnitNormalization.Clean(code, nameof(code));
-        NormalizedCode = OrgUnitNormalization.NormalizeCode(code);
+        Code = OrgUnitNormalization.NormalizeCode(code);
+        NormalizedCode = Code;
     }
 
     private void SetName(string name)

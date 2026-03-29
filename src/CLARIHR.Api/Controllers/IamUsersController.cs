@@ -25,16 +25,23 @@ public sealed class IamUsersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<IamUserResponse>> Create(
-        [FromBody] CreateIamUserCommand command,
+        [FromBody] CreateIamUserRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await commandDispatcher.SendAsync(command, cancellationToken);
+        var result = await commandDispatcher.SendAsync(
+            new CreateIamUserCommand(
+                request.FirstName,
+                request.LastName,
+                request.Email,
+                request.IsActive,
+                request.RolePublicIds),
+            cancellationToken);
         if (result.IsFailure)
         {
             return this.ToActionResult(result);
         }
 
-        return CreatedAtAction(nameof(GetById), new { userId = result.Value.Id }, result.Value);
+        return CreatedAtAction(nameof(GetById), new { userPublicId = result.Value.Id }, result.Value);
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Read)]
@@ -80,11 +87,18 @@ public sealed class IamUsersController(
         CancellationToken cancellationToken)
     {
         var result = await commandDispatcher.SendAsync(
-            new SyncIamUserRolesCommand(userId, request.RoleIds),
+            new SyncIamUserRolesCommand(userId, request.RolePublicIds),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
-    public sealed record SyncIamUserRolesRequest(IReadOnlyCollection<Guid> RoleIds);
+    public sealed record CreateIamUserRequest(
+        string FirstName,
+        string LastName,
+        string Email,
+        bool IsActive = true,
+        IReadOnlyCollection<Guid>? RolePublicIds = null);
+
+    public sealed record SyncIamUserRolesRequest(IReadOnlyCollection<Guid> RolePublicIds);
 }
