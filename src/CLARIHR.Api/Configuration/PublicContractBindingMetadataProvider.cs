@@ -1,4 +1,5 @@
 using CLARIHR.Application.Common.Contracts;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 
 namespace CLARIHR.Api.Configuration;
@@ -8,6 +9,7 @@ public sealed class PublicContractBindingMetadataProvider : IBindingMetadataProv
     public void CreateBindingMetadata(BindingMetadataProviderContext context)
     {
         if (!string.IsNullOrWhiteSpace(context.BindingMetadata.BinderModelName) ||
+            context.BindingMetadata.BindingSource == BindingSource.Path ||
             string.IsNullOrWhiteSpace(context.Key.Name))
         {
             return;

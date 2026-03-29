@@ -20,8 +20,11 @@ public sealed class PublicContractOperationFilter : IOperationFilter
                 .FirstOrDefault(candidate => candidate.Name.Equals(parameter.Name, StringComparison.Ordinal));
 
             var modelType = description?.Type ?? description?.ModelMetadata?.ModelType;
+            var routeTemplate = parameter.In == ParameterLocation.Path || description?.Source == BindingSource.Path
+                ? context.ApiDescription.RelativePath
+                : null;
             var renamed = parameter.In == ParameterLocation.Path || description?.Source == BindingSource.Path
-                ? PublicContractNaming.GetExternalRouteIdentifierName(parameter.Name, modelType)
+                ? PublicContractNaming.GetExternalRouteIdentifierName(parameter.Name, modelType, routeTemplate)
                 : PublicContractNaming.GetExternalIdentifierName(parameter.Name, modelType);
 
             if (!string.IsNullOrWhiteSpace(renamed) && renamed != parameter.Name)
