@@ -9,6 +9,7 @@ using CLARIHR.Domain.LegalRepresentatives;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 
 namespace CLARIHR.Api.IntegrationTests;
@@ -18,9 +19,13 @@ internal static class IntegrationTestSeeder
     public static async Task<IntegrationTestScenario> SeedAsync(ApplicationDbContext dbContext)
     {
         var actorUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var countryCatalogItemId = await dbContext.CountryCatalogItems
+            .Where(item => item.NormalizedCode == "SV")
+            .Select(item => item.Id)
+            .SingleAsync();
 
-        var companyA = Company.Create("Acme One", "acme-one", actorUserId, "SV");
-        var companyB = Company.Create("Acme Two", "acme-two", actorUserId, "SV");
+        var companyA = Company.Create("Acme One", "acme-one", actorUserId, "SV", countryCatalogItemId);
+        var companyB = Company.Create("Acme Two", "acme-two", actorUserId, "SV", countryCatalogItemId);
         dbContext.Companies.AddRange(companyA, companyB);
         await dbContext.SaveChangesAsync();
 

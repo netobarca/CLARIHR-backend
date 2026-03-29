@@ -271,6 +271,31 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task AccountCompanies_GetCountries_ShouldRequireAuthentication()
+    {
+        var response = await factory.CreateClient().GetAsync("/api/account/companies/countries");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_GetCountries_ShouldReturnActiveCountryCatalog()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync("/api/account/companies/countries");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<List<CountryCatalogItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.NotEmpty(payload);
+        Assert.Contains(payload!, item => item.Code == "SV" && item.Name == "El Salvador");
+        Assert.Contains(payload, item => item.Code == "GT" && item.Name == "Guatemala");
+    }
+
+    [Fact]
     public async Task AccountCompanies_GetLegalRepresentativeDocumentTypes_ShouldReturnSeededCatalog()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -587,6 +612,51 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task AccountCompanies_Create_WithDifferentCountry_ShouldSeedGenericDefaultLocations()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            var companyToArchive = dbContext.Companies.Single(company => company.Slug == "acme-two");
+            companyToArchive.Archive();
+            await dbContext.SaveChangesAsync();
+        });
+
+        using var accountClient = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var createResponse = await accountClient.PostJsonAsync("/api/account/companies", new
+        {
+            name = "Acme Guatemala",
+            countryCode = "GT",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var company = await createResponse.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(company);
+        Assert.Equal("GT", company!.CountryCode);
+
+        using var locationClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, company.PublicId, LocationPermissionCodes.Read));
+
+        var hierarchyResponse = await locationClient.GetAsync($"/api/v1/companies/{company.PublicId}/location-hierarchy");
+        hierarchyResponse.EnsureSuccessStatusCode();
+
+        var hierarchy = await hierarchyResponse.Content.ReadFromJsonAsync<LocationHierarchyItem>(JsonOptions);
+        Assert.NotNull(hierarchy);
+        Assert.False(hierarchy!.IsMultiLevel);
+
+        var levelsResponse = await locationClient.GetAsync($"/api/v1/companies/{company.PublicId}/location-levels");
+        levelsResponse.EnsureSuccessStatusCode();
+
+        var levels = await levelsResponse.Content.ReadFromJsonAsync<List<LocationLevelItem>>(JsonOptions);
+        var level = Assert.Single(levels!);
+        Assert.Equal(1, level.LevelOrder);
+        Assert.True(level.AllowsWorkCenters);
+        Assert.Equal("Pais", level.DisplayName);
+    }
+
+    [Fact]
     public async Task AccountCompanies_Create_WhenLimitReached_ShouldReturn409()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -683,11 +753,17 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid foreignCompanyId = Guid.Empty;
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
+            var countryCatalogItemId = await dbContext.CountryCatalogItems
+                .Where(item => item.NormalizedCode == "SV")
+                .Select(item => item.Id)
+                .SingleAsync();
+
             var foreignCompany = Company.Create(
                 "Foreign Company",
                 "foreign-company",
                 Guid.Parse("99999999-9999-9999-9999-999999999999"),
-                "SV");
+                "SV",
+                countryCatalogItemId);
             dbContext.Companies.Add(foreignCompany);
             await dbContext.SaveChangesAsync();
             foreignCompanyId = foreignCompany.PublicId;
@@ -5184,6 +5260,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string Slug,
         string CountryCode,
         string Status);
+
+    private sealed record CountryCatalogItem(
+        Guid Id,
+        string Code,
+        string Name,
+        int SortOrder);
 
     private sealed record SwitchActiveCompanyItem(
         string AccessToken,

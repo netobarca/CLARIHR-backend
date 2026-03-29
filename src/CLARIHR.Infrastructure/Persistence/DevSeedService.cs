@@ -81,7 +81,12 @@ internal sealed class DevSeedService(
 
     private async Task<Company> SeedCompanyAsync(User user, CancellationToken cancellationToken)
     {
-        var company = Company.Create("CLARIHR Dev", "clarihr-dev", user.PublicId, DevCountry);
+        var countryCatalogItemId = await dbContext.CountryCatalogItems
+            .Where(item => item.NormalizedCode == DevCountry)
+            .Select(item => item.Id)
+            .SingleAsync(cancellationToken);
+
+        var company = Company.Create("CLARIHR Dev", "clarihr-dev", user.PublicId, DevCountry, countryCatalogItemId);
         dbContext.Companies.Add(company);
         await dbContext.SaveChangesAsync(cancellationToken);
 

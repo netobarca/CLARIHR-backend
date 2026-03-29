@@ -56,9 +56,10 @@ El estado actual del sistema cubre estos dominios funcionales:
 
 ### 5.1 Creacion de la primera compania
 
-1. Un usuario autenticado sin contexto tenant crea una compania desde `api/account/companies`.
-2. El sistema registra la compania y un representante legal inicial.
-3. Durante el provisioning, el backend siembra la configuracion inicial dependiente del pais.
+1. Un usuario autenticado sin contexto tenant consulta el catalogo global de paises desde `api/account/companies/countries`.
+2. Con el `countryCode` seleccionado y los catalogos auxiliares del representante legal, crea una compania desde `api/account/companies`.
+3. El sistema registra la compania, la relaciona con el pais seleccionado y crea un representante legal inicial.
+4. Durante el provisioning, el backend siembra la configuracion inicial dependiente del pais.
 
 ### 5.2 Provisioning inicial
 
@@ -66,7 +67,7 @@ El provisioning actual deja creada la base operativa minima del tenant:
 
 - jerarquia de locations
 - niveles de location
-- grupos de locations por plantilla de pais
+- grupos de locations por plantilla de pais cuando existe una plantilla detallada, o un nivel generico minimo cuando el pais solo requiere bootstrap basico
 - metadatos iniciales requeridos para operar la estructura
 
 ### 5.3 Cambio de compania activa

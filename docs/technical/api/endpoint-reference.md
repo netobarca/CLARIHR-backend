@@ -798,7 +798,7 @@ Este modulo es el puente entre `Auth` y `api/v1`. Primero autentica la cuenta, l
 - `ACTIVE_COMPANY_ARCHIVE_FORBIDDEN`: `409`, primero debe cambiarse la compania activa/primaria antes de archivar.
 - `ACTIVE_COMPANY_SWITCH_FORBIDDEN`: `409`, la compania no puede convertirse en contexto activo.
 - `COMPANY_TYPE_NOT_FOUND`: `404`, el tipo de compania seleccionado no existe o esta inactivo.
-- `provisioning.country_not_supported`: `400`, el pais no tiene template de locations soportado para provisionamiento.
+- `provisioning.country_not_found`: `400`, el `countryCode` enviado no existe en el catalogo global activo de paises.
 
 #### 5.3.5 `AccountCompaniesController`
 
@@ -809,10 +809,18 @@ Contratos principales:
 - `AccountCompanySummaryResponse`: `companyPublicId`, `name`, `slug`, `countryCode`, `status`, `planCode`, `isActiveContext`, `isOwnedByCurrentUser`, `createdAtUtc`, `companyType`
 - `AccountCompanyDetailResponse`: agrega `modifiedAtUtc`, `activeLegalRepresentatives` y metadata completa del tipo de compania
 - `SwitchActiveCompanyResponse`: `accessToken`, `refreshToken`, `expiresIn`, `activeCompany`
+- `CountryCatalogItemResponse`: `id`, `code`, `name`, `sortOrder`
 - `LegalRepresentativeDocumentTypeCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
 - `LegalRepresentativePositionTitleCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
 - `LegalRepresentativeRepresentationTypeCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
 - `CreateAccountCompanyRequest`: `name`, `countryCode`, `companyTypePublicId`, `initialLegalRepresentative`
+
+##### `GET /api/account/companies/countries`
+
+- Proposito: obtener el catalogo global activo de paises para el onboarding de companias.
+- Autenticacion: `Bearer` requerido.
+- Response: `IReadOnlyCollection<CountryCatalogItemResponse>`.
+- Observaciones: devuelve items globales, ordenados por `sortOrder`; el frontend debe usar `code` como valor estable para `countryCode` al crear la compania y puede usar `name` solo para display.
 
 ##### `GET /api/account/companies/legal-representative-document-types`
 
@@ -857,11 +865,11 @@ Contratos principales:
 - Proposito: crear una nueva compania para la cuenta autenticada.
 - Autenticacion: `Bearer` requerido.
 - Request body: `name`, `countryCode`, `companyTypePublicId`, `initialLegalRepresentative`.
-- Validaciones base: `name` obligatorio maximo `150`; `countryCode` de `2` o `3` letras; `companyTypePublicId` no puede ser `Guid.Empty`.
+- Validaciones base: `name` obligatorio maximo `150`; `countryCode` de `2` o `3` letras y existente en el catalogo global activo de paises; `companyTypePublicId` no puede ser `Guid.Empty`.
 - Validaciones del representante inicial: `firstName`, `lastName`, `documentNumber`, `positionTitle`, `effectiveFromUtc`; `effectiveToUtc >= effectiveFromUtc`; `email` opcional maximo `320`; `phone` opcional maximo `40`; `isPrimary` es opcional.
 - Response: `201 Created` con `AccountCompanyDetailResponse`.
-- Errores relevantes: `COMPANY_LIMIT_REACHED`, `COMPANY_TYPE_NOT_FOUND`, `provisioning.country_not_supported`.
-- Observaciones: provisiona plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estándar`, vincula al owner como admin, siembra locations por pais y deja la nueva compania sin hacer auto-switch. Para `initialLegalRepresentative.documentType` y `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por sus endpoints de catalogo respectivos. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. Si `initialLegalRepresentative.isPrimary` se omite o se envia `null`, el registro se persiste con `isPrimary = null`.
+- Errores relevantes: `COMPANY_LIMIT_REACHED`, `COMPANY_TYPE_NOT_FOUND`, `provisioning.country_not_found`.
+- Observaciones: provisiona plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estándar`, vincula al owner como admin, siembra locations segun el pais y deja la nueva compania sin hacer auto-switch. `SV` conserva una plantilla estructurada de locations; el resto de paises recibe una jerarquia minima generica de un solo nivel para permitir el arranque del tenant. Para `countryCode`, el frontend debe usar el `code` devuelto por `GET /api/account/companies/countries`. Para `initialLegalRepresentative.documentType` y `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por sus endpoints de catalogo respectivos. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. Si `initialLegalRepresentative.isPrimary` se omite o se envia `null`, el registro se persiste con `isPrimary = null`.
 
 ##### `PUT /api/account/companies/{companyPublicId}`
 
@@ -900,6 +908,7 @@ Contratos principales:
 #### 5.3.6 Relacion con `Auth` y onboarding
 
 - `POST /api/auth/register` crea la cuenta y devuelve identidad autenticada, normalmente aun sin tenant.
+- `GET /api/account/companies/countries` resuelve el catalogo global de paises requerido por el formulario.
 - `GET /api/account/companies/legal-representative-document-types` resuelve el catalogo de tipos documentales requerido por el formulario.
 - `GET /api/account/companies/legal-representative-position-titles` resuelve el catalogo de cargos requerido por el formulario.
 - `POST /api/account/companies` crea la primera o siguiente compania propiedad de esa cuenta.

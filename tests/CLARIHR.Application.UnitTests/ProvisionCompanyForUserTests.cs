@@ -12,6 +12,7 @@ using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Application.Features.LegalRepresentatives;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
+using CLARIHR.Application.Features.Locations.Countries;
 using CLARIHR.Application.Features.Provisioning;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
@@ -79,7 +80,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
                 permission => permission.TenantId == companyRepository.Items[0].PublicId &&
                               permission.NormalizedCode == code.ToUpperInvariant()));
         Assert.Single(iamRepository.Users);
-        Assert.Equal(user.PublicId, iamRepository.Users[0].PublicId);
+        Assert.Equal(user.PublicId, iamRepository.Users[0].LinkedUserPublicId);
         Assert.Single(userCompanyRepository.Items);
         Assert.True(userCompanyRepository.Items[0].IsPrimary);
         Assert.True(unitOfWork.Transaction.CommitCalled);
@@ -100,7 +101,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         var user = CreatePersistedUser("ana@company.com");
         userRepository.Seed(user);
 
-        var company = Company.Create("Acme HR", "acme-hr", user.PublicId, "SV");
+        var company = Company.Create("Acme HR", "acme-hr", user.PublicId, "SV", 1);
         companyRepository.Add(company);
         userCompanyRepository.Add(UserCompanyMembership.Create(user.Id, company.Id, roleId: 10, isPrimary: true));
 
@@ -192,7 +193,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenCountryTemplateIsNotSupported_ShouldReturnValidationError()
+    public async Task Handle_WhenCountryExistsInCatalog_ShouldProvisionUsingGenericLocationSeed()
     {
         var userRepository = new TestUserRepository();
         var companyRepository = new TestCompanyRepository();
@@ -218,8 +219,41 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", "GT", CreateInitialLegalRepresentative()),
             CancellationToken.None);
 
+        Assert.True(result.IsSuccess);
+        Assert.Single(companyRepository.Items);
+        Assert.Equal("GT", companyRepository.Items[0].CountryCode);
+        Assert.True(unitOfWork.Transaction.CommitCalled);
+    }
+
+    [Fact]
+    public async Task Handle_WhenCountryDoesNotExistInCatalog_ShouldReturnValidationError()
+    {
+        var userRepository = new TestUserRepository();
+        var companyRepository = new TestCompanyRepository();
+        var subscriptionRepository = new TestCompanySubscriptionRepository(companyRepository);
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository);
+        var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
+        var unitOfWork = new TestUnitOfWork();
+        var user = CreatePersistedUser("ana@company.com");
+        userRepository.Seed(user);
+
+        var handler = CreateHandler(
+            userRepository,
+            companyRepository,
+            subscriptionRepository,
+            userCompanyRepository,
+            iamRepository,
+            legalRepresentativeRepository,
+            new TestPlanEntitlementService(),
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new ProvisionCompanyForUserCommand(user.PublicId, "Acme HR", "ZZ", CreateInitialLegalRepresentative()),
+            CancellationToken.None);
+
         Assert.True(result.IsFailure);
-        Assert.Equal("provisioning.country_not_supported", result.Error.Code);
+        Assert.Equal("provisioning.country_not_found", result.Error.Code);
         Assert.Empty(companyRepository.Items);
         Assert.True(unitOfWork.Transaction.RollbackCalled);
     }
@@ -267,7 +301,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
         var user = CreatePersistedUser("ana@company.com");
         userRepository.Seed(user);
-        companyRepository.Add(Company.Create("Acme HR", "acme-hr", user.PublicId, "SV"));
+        companyRepository.Add(Company.Create("Acme HR", "acme-hr", user.PublicId, "SV", 1));
 
         var handler = CreateHandler(
             userRepository,
@@ -304,6 +338,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             userCompanyRepository,
             iamRepository,
             legalRepresentativeRepository,
+            new TestCountryCatalogRepository(),
             new TestLocationSeedService(),
             planEntitlementService,
             unitOfWork,
@@ -363,7 +398,34 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
 
     private sealed class TestLocationSeedService : ILocationSeedService
     {
-        public Task InitializeDefaultsAsync(Guid tenantId, string countryCode, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task InitializeDefaultsAsync(
+            Guid tenantId,
+            string countryCode,
+            string countryName,
+            CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class TestCountryCatalogRepository : ICountryCatalogRepository
+    {
+        public Task<IReadOnlyCollection<CountryCatalogItemResponse>> GetActiveItemsAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<CountryCatalogItemResponse>>(
+            [
+                new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", 1),
+                new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"), "GT", "Guatemala", 2)
+            ]);
+
+        public Task<CountryCatalogLookup?> GetActiveByCodeAsync(string countryCode, CancellationToken cancellationToken)
+        {
+            var normalizedCode = countryCode.Trim().ToUpperInvariant();
+
+            return Task.FromResult<CountryCatalogLookup?>(
+                normalizedCode switch
+                {
+                    "SV" => new CountryCatalogLookup(1, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", true),
+                    "GT" => new CountryCatalogLookup(2, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"), "GT", "Guatemala", true),
+                    _ => null
+                });
+        }
     }
 
     private sealed class TestUserRepository : IUserRepository

@@ -13,6 +13,7 @@ public sealed class Company : AuditableEntity
         string name,
         string slug,
         string countryCode,
+        long countryCatalogItemId,
         CompanyStatus status,
         Guid createdByUserPublicId,
         long? companyTypeCatalogItemId)
@@ -25,7 +26,7 @@ public sealed class Company : AuditableEntity
         PublicId = publicId;
         Name = CompanyNormalization.Clean(name, nameof(name));
         Slug = CompanyNormalization.NormalizeSlug(slug);
-        CountryCode = CompanyNormalization.NormalizeCountryCode(countryCode);
+        SetCountry(countryCatalogItemId, countryCode);
         Status = status;
         CreatedByUserPublicId = createdByUserPublicId;
         SetCompanyType(companyTypeCatalogItemId);
@@ -36,6 +37,8 @@ public sealed class Company : AuditableEntity
     public string Slug { get; private set; } = string.Empty;
 
     public string CountryCode { get; private set; } = string.Empty;
+
+    public long CountryCatalogItemId { get; private set; }
 
     public CompanyStatus Status { get; private set; }
 
@@ -48,15 +51,28 @@ public sealed class Company : AuditableEntity
         string slug,
         Guid createdByUserPublicId,
         string countryCode,
+        long countryCatalogItemId,
         long? companyTypeCatalogItemId = null) =>
         new(
             Guid.NewGuid(),
             name,
             slug,
             countryCode,
+            countryCatalogItemId,
             CompanyStatus.Active,
             createdByUserPublicId,
             companyTypeCatalogItemId);
+
+    private void SetCountry(long countryCatalogItemId, string countryCode)
+    {
+        if (countryCatalogItemId == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(countryCatalogItemId), "Country catalog id cannot be zero.");
+        }
+
+        CountryCatalogItemId = countryCatalogItemId;
+        CountryCode = CompanyNormalization.NormalizeCountryCode(countryCode);
+    }
 
     public void Rename(string name)
     {

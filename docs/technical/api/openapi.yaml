@@ -23,6 +23,31 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    CountryCatalogItemResponse:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - sortOrder
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable public identifier for the active country catalog item.
+        code:
+          type: string
+          maxLength: 2
+          description: ISO-style country code that must be sent in CreateAccountCompanyRequest.countryCode.
+          example: SV
+        name:
+          type: string
+          description: Human-readable country name for display in the client.
+          example: El Salvador
+        sortOrder:
+          type: integer
+          format: int32
+          example: 69
     LegalRepresentativeDocumentTypeCatalogItemResponse:
       type: object
       required:
@@ -282,6 +307,7 @@ components:
         countryCode:
           type: string
           maxLength: 3
+          description: Country code selected from the authenticated country catalog endpoint.
           example: SV
         companyTypePublicId:
           type: string
@@ -629,13 +655,37 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/countries:
+    get:
+      tags:
+        - account-companies
+      operationId: GetAccountCompanyCountries
+      summary: List active country catalog items
+      description: Returns the authenticated global country catalog used by the account company creation flow.
+      security:
+        - Bearer: []
+      responses:
+        '200':
+          description: Active country catalog returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CountryCatalogItemResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/account/companies:
     post:
       tags:
         - account-companies
       operationId: CreateAccountCompany
       summary: Create a company for the authenticated account
-      description: Creates a new company, provisions the initial tenant data, and accepts an initial legal representative whose primary flag is optional.
+      description: Creates a new company, links it to an active country catalog item, provisions the initial tenant data, and accepts an initial legal representative whose primary flag is optional.
       security:
         - Bearer: []
       requestBody:
@@ -652,7 +702,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AccountCompanyDetailResponse'
         '400':
-          description: Validation error.
+          description: Validation error, including country codes not found in the active catalog.
           content:
             application/problem+json:
               schema:

@@ -1,4 +1,5 @@
 using CLARIHR.Domain.Companies;
+using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.OrgStructureCatalogs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -32,6 +33,9 @@ internal sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
             .HasColumnName("country_code")
             .HasMaxLength(3);
 
+        builder.Property(company => company.CountryCatalogItemId)
+            .HasColumnName("country_catalog_item_id");
+
         builder.Property(company => company.Status)
             .HasColumnName("status")
             .HasConversion<string>()
@@ -59,6 +63,15 @@ internal sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
 
         builder.HasIndex(company => company.CompanyTypeCatalogItemId)
             .HasDatabaseName("ix_companies__company_type_catalog_item");
+
+        builder.HasIndex(company => company.CountryCatalogItemId)
+            .HasDatabaseName("ix_companies__country_catalog_item");
+
+        builder.HasOne<CountryCatalogItem>()
+            .WithMany()
+            .HasForeignKey(company => company.CountryCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_companies__country_catalog_item");
 
         builder.HasOne<CompanyTypeCatalogItem>()
             .WithMany()

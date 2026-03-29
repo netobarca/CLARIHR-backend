@@ -279,7 +279,7 @@ public sealed class AccountCompanyAdministrationTests
 
     private static Company CreateCompany(Guid ownerUserPublicId, string name, string slug, Guid? publicId = null, string countryCode = "SV")
     {
-        var company = Company.Create(name, slug, ownerUserPublicId, countryCode);
+        var company = Company.Create(name, slug, ownerUserPublicId, countryCode, 1);
         SetEntityId(company, Random.Shared.NextInt64(1, 1000));
         if (publicId.HasValue)
         {
