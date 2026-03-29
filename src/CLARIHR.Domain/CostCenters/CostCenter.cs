@@ -30,8 +30,6 @@ public sealed class CostCenter : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public string Code { get; private set; } = string.Empty;
 
     public string NormalizedCode { get; private set; } = string.Empty;
@@ -105,8 +103,8 @@ public sealed class CostCenter : TenantEntity
 
     private void SetCode(string code)
     {
-        Code = CostCenterNormalization.Clean(code, nameof(code));
-        NormalizedCode = CostCenterNormalization.NormalizeCode(code);
+        Code = CostCenterNormalization.NormalizeCode(code);
+        NormalizedCode = Code;
     }
 
     private void SetName(string name)

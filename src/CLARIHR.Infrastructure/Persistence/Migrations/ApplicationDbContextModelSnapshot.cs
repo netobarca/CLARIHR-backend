@@ -158,6 +158,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_utc");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<string>("ReplacedByTokenHash")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
@@ -184,6 +188,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_auth_refresh_tokens");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_auth_refresh_tokens__public_id");
 
                     b.HasIndex("TokenHash")
                         .IsUnique()
@@ -432,6 +440,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(80)")
                         .HasColumnName("normalized_limit_code");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<decimal>("Value")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -439,6 +451,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_commercial_plan_limits");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_commercial_plan_limits__public_id");
 
                     b.HasIndex("CommercialPlanId", "NormalizedLimitCode")
                         .IsUnique()
@@ -548,6 +564,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("plan_code");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<DateTime>("StartDateUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("start_date_utc");
@@ -560,6 +580,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_company_subscriptions");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_subscriptions__public_id");
 
                     b.HasIndex("CompanyId", "Status")
                         .IsUnique()
@@ -598,6 +622,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_utc");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<DateTime?>("RevokedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("revoked_utc");
@@ -616,6 +644,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasName("pk_company_invitation_tokens");
 
                     b.HasIndex("CompanyId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_invitation_tokens__public_id");
 
                     b.HasIndex("TokenHash")
                         .IsUnique()
@@ -660,8 +692,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("plan_code");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.HasKey("Id")
                         .HasName("pk_plan_entitlements");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_plan_entitlements__public_id");
 
                     b.HasIndex("PlanCode", "ModuleKey")
                         .IsUnique()
@@ -677,7 +717,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             IsEnabled = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             ModuleKey = "RBAC",
-                            PlanCode = "FREE"
+                            PlanCode = "FREE",
+                            PublicId = new Guid("cf3f6862-a265-9d0a-0887-8b4df6b9846f")
                         },
                         new
                         {
@@ -686,7 +727,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             IsEnabled = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             ModuleKey = "USERS",
-                            PlanCode = "FREE"
+                            PlanCode = "FREE",
+                            PublicId = new Guid("56c7165e-db4e-49ae-34da-5ce197c6e65d")
                         },
                         new
                         {
@@ -695,7 +737,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             IsEnabled = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             ModuleKey = "ORG_STRUCTURE_CATALOGS",
-                            PlanCode = "FREE"
+                            PlanCode = "FREE",
+                            PublicId = new Guid("0de9b273-f61d-0f2b-084b-0e28cf98f2a3")
                         });
                 });
 
@@ -724,6 +767,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_utc");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<long>("RoleId")
                         .HasColumnType("bigint")
                         .HasColumnName("role_id");
@@ -740,6 +787,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_user_companies");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_user_companies__public_id");
 
                     b.HasIndex("RoleId");
 
@@ -876,6 +927,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("notes");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -890,6 +945,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("BehaviorCatalogItemId");
 
                     b.HasIndex("CompetencyConductId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_competency_conduct_behaviors__public_id");
 
                     b.HasIndex("TenantId", "CompetencyConductId", "BehaviorCatalogItemId")
                         .IsUnique()
@@ -1012,6 +1071,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_utc");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -1026,6 +1089,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("CompetencyConductId");
 
                     b.HasIndex("JobProfileCompetencyExpectationId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_competency_expectation_conducts__public_id");
 
                     b.HasIndex("TenantId", "JobProfileCompetencyExpectationId", "CompetencyConductId")
                         .IsUnique()
@@ -1299,6 +1366,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("property_name");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<string>("ResourceKey")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1311,6 +1382,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("NormalizedFieldKey")
                         .IsUnique()
                         .HasDatabaseName("uq_field_catalog__normalized_field_key");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_field_catalog__public_id");
 
                     b.HasIndex("NormalizedResourceKey", "IsConfigurable")
                         .HasDatabaseName("ix_field_catalog__resource_configurable");
@@ -1332,6 +1407,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedPropertyName = "ID",
                             NormalizedResourceKey = "RBAC_USERS",
                             PropertyName = "Id",
+                            PublicId = new Guid("02c89b42-3b79-73a1-c892-7b460e3d8bbb"),
                             ResourceKey = "RBAC_USERS"
                         },
                         new
@@ -1348,6 +1424,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedPropertyName = "EMAIL",
                             NormalizedResourceKey = "RBAC_USERS",
                             PropertyName = "Email",
+                            PublicId = new Guid("15738a62-f6ae-5413-1617-5ee27cbc3e3f"),
                             ResourceKey = "RBAC_USERS"
                         },
                         new
@@ -1364,6 +1441,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedPropertyName = "FIRSTNAME",
                             NormalizedResourceKey = "RBAC_USERS",
                             PropertyName = "FirstName",
+                            PublicId = new Guid("7304e673-22e5-0015-01c2-10c87345aeba"),
                             ResourceKey = "RBAC_USERS"
                         },
                         new
@@ -1380,6 +1458,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedPropertyName = "LASTNAME",
                             NormalizedResourceKey = "RBAC_USERS",
                             PropertyName = "LastName",
+                            PublicId = new Guid("c5e8f1bc-cb9a-bb5d-a00b-36c184478cd9"),
                             ResourceKey = "RBAC_USERS"
                         },
                         new
@@ -1396,6 +1475,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedPropertyName = "ROLE",
                             NormalizedResourceKey = "RBAC_USERS",
                             PropertyName = "Role",
+                            PublicId = new Guid("e1acf680-98cf-d7c5-ac64-3e7cf80ba54f"),
                             ResourceKey = "RBAC_USERS"
                         },
                         new
@@ -1412,6 +1492,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedPropertyName = "STATUS",
                             NormalizedResourceKey = "RBAC_USERS",
                             PropertyName = "Status",
+                            PublicId = new Guid("d9fce2a1-ccba-1839-d33e-01708142d245"),
                             ResourceKey = "RBAC_USERS"
                         });
                 });
@@ -1462,6 +1543,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(150)")
                         .HasColumnName("normalized_field_key");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<Guid>("RolePublicId")
                         .HasColumnType("uuid")
                         .HasColumnName("role_public_id");
@@ -1472,6 +1557,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_field_permission_audit_logs");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_field_permission_audit_logs__public_id");
 
                     b.HasIndex("TenantId", "NormalizedFieldKey", "ChangedAtUtc")
                         .HasDatabaseName("ix_field_permission_audit_logs__tenant_field_changed_at");
@@ -1588,6 +1677,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_iam_permissions");
 
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_iam_permissions__public_id");
+
                     b.HasIndex("TenantId", "NormalizedCode")
                         .IsUnique()
                         .HasDatabaseName("uq_iam_permissions__tenant_code");
@@ -1647,6 +1740,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_iam_roles");
 
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_iam_roles__public_id");
+
                     b.HasIndex("TenantId", "Name")
                         .HasDatabaseName("ix_iam_roles__tenant_name");
 
@@ -1678,6 +1775,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("permission_id");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<long>("RoleId")
                         .HasColumnType("bigint")
                         .HasColumnName("role_id");
@@ -1690,6 +1791,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasName("pk_iam_role_permission_assignments");
 
                     b.HasIndex("PermissionId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_iam_role_permission_assignments__public_id");
 
                     b.HasIndex("RoleId");
 
@@ -1745,6 +1850,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(320)")
                         .HasColumnName("normalized_email");
 
+                    b.Property<Guid?>("LinkedUserPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("linked_user_public_id");
+
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid")
                         .HasColumnName("public_id");
@@ -1756,9 +1865,17 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_iam_users");
 
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_iam_users__public_id");
+
                     b.HasIndex("TenantId", "NormalizedEmail")
                         .IsUnique()
                         .HasDatabaseName("uq_iam_users__tenant_email");
+
+                    b.HasIndex("TenantId", "LinkedUserPublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_iam_users__tenant_linked_user_public_id");
 
                     b.HasIndex("TenantId", "LastName", "FirstName")
                         .HasDatabaseName("ix_iam_users__tenant_name");
@@ -1783,6 +1900,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_utc");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<long>("RoleId")
                         .HasColumnType("bigint")
                         .HasColumnName("role_id");
@@ -1797,6 +1918,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_iam_user_role_assignments");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_iam_user_role_assignments__public_id");
 
                     b.HasIndex("RoleId");
 
@@ -1856,6 +1981,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("normalized_resource_key");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<string>("ResourceKey")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1873,6 +2002,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_rbac_permission_audit_logs");
 
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_rbac_permission_audit_logs__public_id");
+
                     b.HasIndex("TenantId", "NormalizedResourceKey", "ChangedAtUtc")
                         .HasDatabaseName("ix_rbac_permission_audit_logs__tenant_resource_changed_at");
 
@@ -1884,10 +2017,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CLARIHR.Domain.IdentityAccess.RbacResource", b =>
                 {
-                    b.Property<string>("ResourceKey")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("resource_key");
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -1913,51 +2048,77 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("normalized_resource_key");
 
-                    b.HasKey("ResourceKey")
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("ResourceKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("resource_key");
+
+                    b.HasKey("Id")
                         .HasName("pk_rbac_resource_catalog");
 
                     b.HasIndex("NormalizedResourceKey")
                         .IsUnique()
                         .HasDatabaseName("uq_rbac_resource_catalog__normalized_resource_key");
 
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_rbac_resource_catalog__public_id");
+
+                    b.HasIndex("ResourceKey")
+                        .IsUnique()
+                        .HasDatabaseName("uq_rbac_resource_catalog__resource_key");
+
                     b.ToTable("rbac_resource_catalog", (string)null);
 
                     b.HasData(
                         new
                         {
-                            ResourceKey = "RBAC_USERS",
+                            Id = -4000L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Users",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedResourceKey = "RBAC_USERS"
+                            NormalizedResourceKey = "RBAC_USERS",
+                            PublicId = new Guid("5d74f73d-1f26-3217-c60d-c292d161afc9"),
+                            ResourceKey = "RBAC_USERS"
                         },
                         new
                         {
-                            ResourceKey = "RBAC_ROLES",
+                            Id = -4001L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Roles",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedResourceKey = "RBAC_ROLES"
+                            NormalizedResourceKey = "RBAC_ROLES",
+                            PublicId = new Guid("9c0d9736-80f9-4fbb-cbbb-69fd92622fd8"),
+                            ResourceKey = "RBAC_ROLES"
                         },
                         new
                         {
-                            ResourceKey = "RBAC_PERMISSIONS",
+                            Id = -4002L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Permissions",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedResourceKey = "RBAC_PERMISSIONS"
+                            NormalizedResourceKey = "RBAC_PERMISSIONS",
+                            PublicId = new Guid("e605fc76-88fc-769c-73d3-16265ab8f1d9"),
+                            ResourceKey = "RBAC_PERMISSIONS"
                         },
                         new
                         {
-                            ResourceKey = "AUDIT_LOGS",
+                            Id = -4003L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Audit Logs",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedResourceKey = "AUDIT_LOGS"
+                            NormalizedResourceKey = "AUDIT_LOGS",
+                            PublicId = new Guid("1e3ad680-bc6e-d527-7260-489be62dc118"),
+                            ResourceKey = "AUDIT_LOGS"
                         });
                 });
 
@@ -2006,6 +2167,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(150)")
                         .HasColumnName("normalized_field_key");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<long>("RoleId")
                         .HasColumnType("bigint")
                         .HasColumnName("role_id");
@@ -2024,6 +2189,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_role_field_permissions");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_role_field_permissions__public_id");
 
                     b.HasIndex("TenantId", "RoleId")
                         .HasDatabaseName("ix_role_field_permissions__tenant_role");
@@ -2337,6 +2506,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("notes");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -2351,6 +2524,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("CatalogItemId");
 
                     b.HasIndex("JobProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_benefits__public_id");
 
                     b.HasIndex("TenantId", "JobProfileId", "SortOrder")
                         .HasDatabaseName("ix_job_profile_benefits__tenant_profile_sort");
@@ -2398,6 +2575,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_utc");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<long?>("SalaryClassCatalogItemId")
                         .HasColumnType("bigint")
                         .HasColumnName("salary_class_catalog_item_id");
@@ -2420,6 +2601,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasName("pk_job_profile_compensations");
 
                     b.HasIndex("JobProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_compensations__public_id");
 
                     b.HasIndex("SalaryClassCatalogItemId");
 
@@ -2470,6 +2655,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("notes");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -2484,6 +2673,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("CatalogItemId");
 
                     b.HasIndex("JobProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_competencies__public_id");
 
                     b.HasIndex("TenantId", "JobProfileId", "SortOrder")
                         .HasDatabaseName("ix_job_profile_competencies__tenant_profile_sort");
@@ -2521,6 +2714,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("notes");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<int>("Quantity")
                         .HasColumnType("integer")
                         .HasColumnName("quantity");
@@ -2535,6 +2732,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("DependentJobProfileId");
 
                     b.HasIndex("JobProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_dependent_positions__public_id");
 
                     b.HasIndex("TenantId", "JobProfileId", "DependentJobProfileId")
                         .HasDatabaseName("ix_job_profile_dependent_positions__tenant_profile_dep");
@@ -2579,6 +2780,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_utc");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -2593,6 +2798,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("FrequencyCatalogItemId");
 
                     b.HasIndex("JobProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_functions__public_id");
 
                     b.HasIndex("TenantId", "JobProfileId", "SortOrder")
                         .HasDatabaseName("ix_job_profile_functions__tenant_profile_sort");
@@ -2636,6 +2845,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("notes");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<string>("RelationType")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -2656,6 +2869,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("CatalogItemId");
 
                     b.HasIndex("JobProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_relations__public_id");
 
                     b.HasIndex("TenantId", "JobProfileId", "SortOrder")
                         .HasDatabaseName("ix_job_profile_relations__tenant_profile_sort");
@@ -2694,6 +2911,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_utc");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<string>("RequirementType")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -2718,6 +2939,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("CatalogItemId");
 
                     b.HasIndex("JobProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_requirements__public_id");
 
                     b.HasIndex("RequirementTypeCatalogItemId");
 
@@ -2763,6 +2988,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("notes");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -2777,6 +3006,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("CatalogItemId");
 
                     b.HasIndex("JobProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_trainings__public_id");
 
                     b.HasIndex("TenantId", "JobProfileId", "SortOrder")
                         .HasDatabaseName("ix_job_profile_trainings__tenant_profile_sort");
@@ -2820,6 +3053,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("notes");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -2838,6 +3075,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("CatalogItemId");
 
                     b.HasIndex("JobProfileId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_working_conditions__public_id");
 
                     b.HasIndex("WorkConditionTypeCatalogItemId");
 
@@ -3030,6 +3271,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(150)")
                         .HasColumnName("name");
 
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -3037,9 +3288,13 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_legal_representative_document_type_catalog");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_legal_representative_document_type_catalog__code");
+                        .HasDatabaseName("uq_legal_representative_document_type_catalog__normalized_code");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_legal_representative_document_type_catalog__public_id");
 
                     b.ToTable("legal_representative_document_type_catalog", (string)null);
 
@@ -3047,33 +3302,41 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = 1L,
-                            Code = "NationalId",
+                            Code = "NATIONALID",
                             IsActive = true,
                             Name = "National ID",
+                            NormalizedCode = "NATIONALID",
+                            PublicId = new Guid("fedf12e0-eaf7-5b63-23f2-3dbd66dfca00"),
                             SortOrder = 1
                         },
                         new
                         {
                             Id = 2L,
-                            Code = "Passport",
+                            Code = "PASSPORT",
                             IsActive = true,
                             Name = "Passport",
+                            NormalizedCode = "PASSPORT",
+                            PublicId = new Guid("c3b0ed20-3b2e-e0a3-4a80-4b2677409133"),
                             SortOrder = 2
                         },
                         new
                         {
                             Id = 3L,
-                            Code = "TaxId",
+                            Code = "TAXID",
                             IsActive = true,
                             Name = "Tax ID",
+                            NormalizedCode = "TAXID",
+                            PublicId = new Guid("b3f3e7aa-8d30-154d-94eb-eab837c8a1db"),
                             SortOrder = 3
                         },
                         new
                         {
                             Id = 4L,
-                            Code = "Other",
+                            Code = "OTHER",
                             IsActive = true,
                             Name = "Other",
+                            NormalizedCode = "OTHER",
+                            PublicId = new Guid("8c070836-b6b1-5393-ed1c-648de59d3653"),
                             SortOrder = 4
                         });
                 });
@@ -3100,6 +3363,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(150)")
                         .HasColumnName("name");
 
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -3107,9 +3380,13 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_legal_representative_position_title_catalog");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_legal_representative_position_title_catalog__code");
+                        .HasDatabaseName("uq_legal_representative_position_title_catalog__normalized_code");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_legal_representative_position_title_catalog__public_id");
 
                     b.ToTable("legal_representative_position_title_catalog", (string)null);
 
@@ -3120,6 +3397,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "OWNER",
                             IsActive = true,
                             Name = "OWNER",
+                            NormalizedCode = "OWNER",
+                            PublicId = new Guid("0ef310ac-b7ff-c89a-aec7-9c2c03678981"),
                             SortOrder = 1
                         },
                         new
@@ -3128,6 +3407,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "CEO",
                             IsActive = true,
                             Name = "CEO",
+                            NormalizedCode = "CEO",
+                            PublicId = new Guid("84ba6abe-edc9-f364-7141-a54f67419938"),
                             SortOrder = 2
                         },
                         new
@@ -3136,6 +3417,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "EXECUTIVE_MANAGEMENT",
                             IsActive = true,
                             Name = "Executive Management",
+                            NormalizedCode = "EXECUTIVE_MANAGEMENT",
+                            PublicId = new Guid("f83e1ed4-e95a-a367-0204-ab3c6f0f6cce"),
                             SortOrder = 3
                         },
                         new
@@ -3144,6 +3427,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "HUMAN_RESOURCES",
                             IsActive = true,
                             Name = "Human Resources",
+                            NormalizedCode = "HUMAN_RESOURCES",
+                            PublicId = new Guid("b0fccf41-39a5-7933-7678-69cdbcfbf154"),
                             SortOrder = 4
                         },
                         new
@@ -3152,6 +3437,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "FINANCE",
                             IsActive = true,
                             Name = "Finance",
+                            NormalizedCode = "FINANCE",
+                            PublicId = new Guid("91fb9fb2-07aa-fff8-ed96-326fe9edebec"),
                             SortOrder = 5
                         },
                         new
@@ -3160,6 +3447,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "ACCOUNTING",
                             IsActive = true,
                             Name = "Accounting",
+                            NormalizedCode = "ACCOUNTING",
+                            PublicId = new Guid("8b2df04d-d57c-1767-7971-841b114df552"),
                             SortOrder = 6
                         },
                         new
@@ -3168,6 +3457,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "OPERATIONS",
                             IsActive = true,
                             Name = "Operations",
+                            NormalizedCode = "OPERATIONS",
+                            PublicId = new Guid("6aa22f66-30bc-76d6-c0e8-bd5d2db06ca4"),
                             SortOrder = 7
                         },
                         new
@@ -3176,6 +3467,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "PROCUREMENT",
                             IsActive = true,
                             Name = "Procurement",
+                            NormalizedCode = "PROCUREMENT",
+                            PublicId = new Guid("c21b0284-f48b-9c94-9bf2-43ab39f2ef91"),
                             SortOrder = 8
                         },
                         new
@@ -3184,6 +3477,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "SALES",
                             IsActive = true,
                             Name = "Sales",
+                            NormalizedCode = "SALES",
+                            PublicId = new Guid("beeaa4e2-8044-e91c-a4d8-859c8cf8eaab"),
                             SortOrder = 9
                         },
                         new
@@ -3192,6 +3487,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "MARKETING",
                             IsActive = true,
                             Name = "Marketing",
+                            NormalizedCode = "MARKETING",
+                            PublicId = new Guid("cd8738ec-d87f-57a3-8780-2f8b1f99329a"),
                             SortOrder = 10
                         },
                         new
@@ -3200,6 +3497,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "CUSTOMER_SERVICE",
                             IsActive = true,
                             Name = "Customer Service",
+                            NormalizedCode = "CUSTOMER_SERVICE",
+                            PublicId = new Guid("1ad62c2f-b983-6ef1-ebca-414eb1d39d39"),
                             SortOrder = 11
                         },
                         new
@@ -3208,6 +3507,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "INFORMATION_TECHNOLOGY",
                             IsActive = true,
                             Name = "Information Technology",
+                            NormalizedCode = "INFORMATION_TECHNOLOGY",
+                            PublicId = new Guid("b1fad938-a892-43f7-aff4-425b4fe28594"),
                             SortOrder = 12
                         },
                         new
@@ -3216,6 +3517,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "SOFTWARE_DEVELOPMENT",
                             IsActive = true,
                             Name = "Software Development",
+                            NormalizedCode = "SOFTWARE_DEVELOPMENT",
+                            PublicId = new Guid("a63b76cf-822f-f56a-ea0b-e84bc3ba050e"),
                             SortOrder = 13
                         },
                         new
@@ -3224,6 +3527,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "INFRASTRUCTURE_DEVOPS",
                             IsActive = true,
                             Name = "Infrastructure / DevOps",
+                            NormalizedCode = "INFRASTRUCTURE_DEVOPS",
+                            PublicId = new Guid("d4bbe59d-4864-d1f2-3e5e-99c6202050c7"),
                             SortOrder = 14
                         },
                         new
@@ -3232,6 +3537,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "DATA_ANALYTICS",
                             IsActive = true,
                             Name = "Data & Analytics",
+                            NormalizedCode = "DATA_ANALYTICS",
+                            PublicId = new Guid("d47b9164-cdb9-43c8-0643-64b8474f176e"),
                             SortOrder = 15
                         },
                         new
@@ -3240,6 +3547,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "LEGAL",
                             IsActive = true,
                             Name = "Legal",
+                            NormalizedCode = "LEGAL",
+                            PublicId = new Guid("49cd1563-df08-7f86-5e8b-990b38d6cbb4"),
                             SortOrder = 16
                         },
                         new
@@ -3248,6 +3557,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "ADMINISTRATION",
                             IsActive = true,
                             Name = "Administration",
+                            NormalizedCode = "ADMINISTRATION",
+                            PublicId = new Guid("7560e5ba-619e-8b09-0fc6-98728793bf9f"),
                             SortOrder = 17
                         },
                         new
@@ -3256,6 +3567,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "LOGISTICS",
                             IsActive = true,
                             Name = "Logistics",
+                            NormalizedCode = "LOGISTICS",
+                            PublicId = new Guid("e5648d21-1f5a-db49-7979-a69836b809a2"),
                             SortOrder = 18
                         },
                         new
@@ -3264,6 +3577,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "MAINTENANCE",
                             IsActive = true,
                             Name = "Maintenance",
+                            NormalizedCode = "MAINTENANCE",
+                            PublicId = new Guid("d7281db7-26ca-1868-691b-24a49d576690"),
                             SortOrder = 19
                         },
                         new
@@ -3272,6 +3587,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "SECURITY",
                             IsActive = true,
                             Name = "Security",
+                            NormalizedCode = "SECURITY",
+                            PublicId = new Guid("23e24f56-f387-32f9-4a27-f48ad594f919"),
                             SortOrder = 20
                         });
                 });
@@ -3298,6 +3615,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(150)")
                         .HasColumnName("name");
 
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
@@ -3305,9 +3632,13 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_legal_representative_representation_type_catalog");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_legal_representative_representation_type_catalog__code");
+                        .HasDatabaseName("uq_legal_representative_representation_type_catalog__normalized_code");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_legal_representative_representation_type_catalog__public_id");
 
                     b.ToTable("legal_representative_representation_type_catalog", (string)null);
 
@@ -3315,25 +3646,31 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = 1L,
-                            Code = "PrimaryLegalRepresentative",
+                            Code = "PRIMARYLEGALREPRESENTATIVE",
                             IsActive = true,
                             Name = "Primary Legal Representative",
+                            NormalizedCode = "PRIMARYLEGALREPRESENTATIVE",
+                            PublicId = new Guid("f116b8b0-fbec-26f9-e0d6-bef155566cb7"),
                             SortOrder = 1
                         },
                         new
                         {
                             Id = 2L,
-                            Code = "AlternateLegalRepresentative",
+                            Code = "ALTERNATELEGALREPRESENTATIVE",
                             IsActive = true,
                             Name = "Alternate Legal Representative",
+                            NormalizedCode = "ALTERNATELEGALREPRESENTATIVE",
+                            PublicId = new Guid("6d1b562e-7aa2-3cfd-1d9e-03cf11122280"),
                             SortOrder = 2
                         },
                         new
                         {
                             Id = 3L,
-                            Code = "AttorneyInFact",
+                            Code = "ATTORNEYINFACT",
                             IsActive = true,
                             Name = "Attorney in Fact",
+                            NormalizedCode = "ATTORNEYINFACT",
+                            PublicId = new Guid("a5debeb2-9e02-76b8-4a0c-02c1d3e4881f"),
                             SortOrder = 3
                         });
                 });
@@ -7951,6 +8288,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("proposed_min_amount");
 
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
                     b.Property<string>("SalaryClassCode")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -7973,6 +8314,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_salary_tabulator_change_request_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_salary_tabulator_change_request_items__public_id");
 
                     b.HasIndex("SalaryTabulatorChangeRequestId")
                         .HasDatabaseName("ix_salary_tabulator_items__request");

@@ -1,5 +1,6 @@
 using System.Reflection;
 using CLARIHR.Application.Abstractions.Auth;
+using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.External;
@@ -15,10 +16,12 @@ public sealed class RegisterExternalUserCommandHandlerTests
     public async Task Handle_WhenTokenIsInvalid_ShouldReturnUnauthorized()
     {
         var unitOfWork = new TestUnitOfWork();
+        var companyTypeCatalogSeedService = new TestCompanyTypeCatalogSeedService();
         var handler = new RegisterExternalUserCommandHandler(
             new TestUserRepository(),
             new FailingExternalAuthProviderService(AuthErrors.ExternalTokenInvalid),
             new TestTokenService(),
+            companyTypeCatalogSeedService,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
@@ -30,12 +33,14 @@ public sealed class RegisterExternalUserCommandHandlerTests
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorType.Unauthorized, result.Error.Type);
         Assert.Equal(AuthErrors.ExternalTokenInvalid.Code, result.Error.Code);
+        Assert.Empty(companyTypeCatalogSeedService.SeededOwnerUserIds);
     }
 
     [Fact]
     public async Task Handle_WhenValidatedTokenHasNoEmail_ShouldReturnUnprocessableEntity()
     {
         var unitOfWork = new TestUnitOfWork();
+        var companyTypeCatalogSeedService = new TestCompanyTypeCatalogSeedService();
         var handler = new RegisterExternalUserCommandHandler(
             new TestUserRepository(),
             new SuccessfulExternalAuthProviderService(new ExternalAuthValidationResult(
@@ -46,6 +51,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: false)),
             new TestTokenService(),
+            companyTypeCatalogSeedService,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
@@ -57,6 +63,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorType.UnprocessableEntity, result.Error.Type);
         Assert.Equal(AuthErrors.ExternalEmailMissing.Code, result.Error.Code);
+        Assert.Empty(companyTypeCatalogSeedService.SeededOwnerUserIds);
     }
 
     [Fact]
@@ -64,6 +71,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
     {
         var repository = new TestUserRepository();
         var unitOfWork = new TestUnitOfWork();
+        var companyTypeCatalogSeedService = new TestCompanyTypeCatalogSeedService();
         var handler = new RegisterExternalUserCommandHandler(
             repository,
             new SuccessfulExternalAuthProviderService(new ExternalAuthValidationResult(
@@ -74,6 +82,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: true)),
             new TestTokenService(),
+            companyTypeCatalogSeedService,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
@@ -89,6 +98,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
         Assert.Equal("google-123", repository.AddedUser.ProviderUserId);
         Assert.Equal(AuthProvider.Google, repository.AddedUser.AuthProvider);
         Assert.Equal("refresh-token", result.Value.Response.RefreshToken);
+        Assert.Equal([repository.AddedUser.PublicId], companyTypeCatalogSeedService.SeededOwnerUserIds);
         Assert.True(unitOfWork.Transaction.CommitCalled);
     }
 
@@ -97,6 +107,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
     {
         var repository = new TestUserRepository();
         var unitOfWork = new TestUnitOfWork();
+        var companyTypeCatalogSeedService = new TestCompanyTypeCatalogSeedService();
         repository.Seed(User.RegisterLocal(
             "Carla",
             "Lopez",
@@ -115,6 +126,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: true)),
             new TestTokenService(),
+            companyTypeCatalogSeedService,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
@@ -129,6 +141,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
         Assert.Equal("google-456", repository.LastSavedUser!.ProviderUserId);
         Assert.Equal(AuthProvider.Google, repository.LastSavedUser.AuthProvider);
         Assert.Equal("refresh-token", result.Value.Response.RefreshToken);
+        Assert.Empty(companyTypeCatalogSeedService.SeededOwnerUserIds);
         Assert.True(unitOfWork.Transaction.CommitCalled);
     }
 
@@ -137,6 +150,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
     {
         var repository = new TestUserRepository();
         var unitOfWork = new TestUnitOfWork();
+        var companyTypeCatalogSeedService = new TestCompanyTypeCatalogSeedService();
         repository.Seed(User.RegisterLocal(
             "Luisa",
             "Martinez",
@@ -155,6 +169,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: false)),
             new TestTokenService(),
+            companyTypeCatalogSeedService,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
@@ -167,6 +182,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
         Assert.Equal(ErrorType.Conflict, result.Error.Type);
         Assert.Equal(AuthErrors.ExternalEmailLinkNotAllowed.Code, result.Error.Code);
         Assert.True(unitOfWork.Transaction.RollbackCalled);
+        Assert.Empty(companyTypeCatalogSeedService.SeededOwnerUserIds);
     }
 
     [Fact]
@@ -174,6 +190,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
     {
         var repository = new TestUserRepository();
         var unitOfWork = new TestUnitOfWork();
+        var companyTypeCatalogSeedService = new TestCompanyTypeCatalogSeedService();
         var tokenService = new FailingTestTokenService(AuthErrors.TokenConfigurationInvalid);
 
         var handler = new RegisterExternalUserCommandHandler(
@@ -186,6 +203,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
                 Provider: AuthProvider.Google,
                 CanAutoLinkByEmail: true)),
             tokenService,
+            companyTypeCatalogSeedService,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterExternalUserCommand(
@@ -197,6 +215,18 @@ public sealed class RegisterExternalUserCommandHandlerTests
         Assert.True(result.IsFailure);
         Assert.Equal(AuthErrors.TokenConfigurationInvalid.Code, result.Error.Code);
         Assert.True(unitOfWork.Transaction.RollbackCalled);
+        Assert.Single(companyTypeCatalogSeedService.SeededOwnerUserIds);
+    }
+
+    private sealed class TestCompanyTypeCatalogSeedService : ICompanyTypeCatalogSeedService
+    {
+        public List<Guid> SeededOwnerUserIds { get; } = [];
+
+        public Task EnsureSeededAsync(Guid ownerUserPublicId, CancellationToken cancellationToken)
+        {
+            SeededOwnerUserIds.Add(ownerUserPublicId);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class TestUserRepository : IUserRepository

@@ -49,8 +49,6 @@ public sealed class CompetencyConduct : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public long CompetencyCatalogItemId { get; private set; }
 
     public long CompetencyTypeCatalogItemId { get; private set; }

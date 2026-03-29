@@ -13,7 +13,7 @@ public sealed class AuthRegistrationSecurityTests(IntegrationTestWebApplicationF
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/register", new
+        var response = await client.PostJsonAsync("/api/auth/register", new
         {
             firstName = "Ana",
             lastName = "Mendoza",

@@ -66,8 +66,8 @@ public sealed class WorkCentersController(
                 companyId,
                 request.Code,
                 request.Name,
-                request.WorkCenterTypeId,
-                request.LocationGroupId,
+                request.WorkCenterTypePublicId,
+                request.LocationGroupPublicId,
                 request.Address,
                 request.GeoLat,
                 request.GeoLong,
@@ -98,8 +98,8 @@ public sealed class WorkCentersController(
                 id,
                 request.Code,
                 request.Name,
-                request.WorkCenterTypeId,
-                request.LocationGroupId,
+                request.WorkCenterTypePublicId,
+                request.LocationGroupPublicId,
                 request.Address,
                 request.GeoLat,
                 request.GeoLong,
@@ -125,7 +125,7 @@ public sealed class WorkCentersController(
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ReassignWorkCenterGroupCommand(id, request.LocationGroupId, request.ConcurrencyToken),
+            new ReassignWorkCenterGroupCommand(id, request.LocationGroupPublicId, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -172,8 +172,8 @@ public sealed class WorkCentersController(
     public sealed record CreateWorkCenterRequest(
         string Code,
         string Name,
-        Guid WorkCenterTypeId,
-        Guid LocationGroupId,
+        Guid WorkCenterTypePublicId,
+        Guid LocationGroupPublicId,
         string? Address,
         decimal? GeoLat,
         decimal? GeoLong,
@@ -184,8 +184,8 @@ public sealed class WorkCentersController(
     public sealed record UpdateWorkCenterRequest(
         string Code,
         string Name,
-        Guid WorkCenterTypeId,
-        Guid LocationGroupId,
+        Guid WorkCenterTypePublicId,
+        Guid LocationGroupPublicId,
         string? Address,
         decimal? GeoLat,
         decimal? GeoLong,
@@ -194,7 +194,7 @@ public sealed class WorkCentersController(
         string? Notes,
         Guid ConcurrencyToken);
 
-    public sealed record ReassignWorkCenterGroupRequest(Guid LocationGroupId, Guid ConcurrencyToken);
+    public sealed record ReassignWorkCenterGroupRequest(Guid LocationGroupPublicId, Guid ConcurrencyToken);
 
     public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
 }

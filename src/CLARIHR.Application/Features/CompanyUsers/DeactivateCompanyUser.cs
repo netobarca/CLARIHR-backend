@@ -80,7 +80,11 @@ internal sealed class DeactivateCompanyUserCommandHandler(
         user.Deactivate();
         membership.Deactivate();
 
-        var iamUser = await iamRepository.FindUserByPublicIdAsync(command.UserId, includeRoles: false, cancellationToken);
+        var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
+            companyPublicId,
+            user.PublicId,
+            includeRoles: false,
+            cancellationToken);
         iamUser?.SetActive(false);
 
         await refreshTokenRepository.RevokeUserTokensAsync(

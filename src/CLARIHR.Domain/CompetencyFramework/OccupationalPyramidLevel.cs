@@ -24,8 +24,6 @@ public sealed class OccupationalPyramidLevel : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public string Code { get; private set; } = string.Empty;
 
     public string NormalizedCode { get; private set; } = string.Empty;
@@ -73,8 +71,8 @@ public sealed class OccupationalPyramidLevel : TenantEntity
 
     private void SetCode(string code)
     {
-        Code = CompetencyFrameworkNormalization.Clean(code, nameof(code));
-        NormalizedCode = CompetencyFrameworkNormalization.NormalizeCode(code);
+        Code = CompetencyFrameworkNormalization.NormalizeCode(code);
+        NormalizedCode = Code;
     }
 
     private void SetName(string name)

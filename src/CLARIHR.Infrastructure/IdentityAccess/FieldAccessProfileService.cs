@@ -52,7 +52,7 @@ internal sealed class FieldAccessProfileService(
             .ThenInclude(assignment => assignment.Role)
             .ThenInclude(role => role.PermissionAssignments)
             .ThenInclude(assignment => assignment.Permission)
-            .SingleOrDefaultAsync(user => user.PublicId == actorUserId.Value && user.IsActive, cancellationToken);
+            .SingleOrDefaultAsync(user => user.LinkedUserPublicId == actorUserId.Value && user.IsActive, cancellationToken);
         if (actor is null || actor.RoleAssignments.Count == 0)
         {
             var claimBasedProfile = FieldPermissionEvaluator.BuildProfile(

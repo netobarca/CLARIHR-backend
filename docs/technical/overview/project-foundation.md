@@ -284,15 +284,20 @@ Mapeo base:
 - `500` error inesperado
 
 ## 10.3 IDs
-Como principio general:
-- Para tablas altamente transaccionales se favorece **BIGINT interno** por rendimiento.
-- Para exposición pública puede utilizarse **UUID / PublicId** según la necesidad del módulo.
-- La estrategia concreta debe definirse por módulo sin sacrificar rendimiento ni trazabilidad.
+Estándar obligatorio del proyecto:
+- Toda entidad persistida debe conservar `Id` interno (`BIGINT`) para PK, FK, joins, EF Core e índices.
+- Toda entidad persistida debe exponer también `PublicId` persistido (`public_id`) para identificación externa.
+- Ningún request, response, exportación o contrato público puede exponer `id` ni `internalId`.
+- Hacia afuera el nombre oficial es siempre `publicId` o `<Entidad>PublicId`.
+- Los módulos deben resolver recursos públicos por `PublicId` y traducir a `Id` interno solo dentro de Application/Infrastructure.
+- Los seeds y catálogos globales deben usar `public_id` determinístico cuando la estabilidad entre ambientes importe.
 
 ## 10.4 Convenciones de salida
 - No exponer entidades EF directamente
 - No exponer información sensible innecesaria
 - Mantener DTOs explícitos por endpoint o caso de uso cuando el dominio lo requiera
+- Si un recurso tiene código de negocio, el contrato público debe incluir `code` y `normalizedCode`
+- `code` y `normalizedCode` deben publicarse en `UPPERCASE`
 
 ---
 

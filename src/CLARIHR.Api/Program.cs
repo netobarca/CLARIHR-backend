@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using CLARIHR.Api.Configuration;
 using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
@@ -21,16 +22,25 @@ builder.Logging.AddSerilog(Log.Logger);
 
 builder.Services.AddProblemDetails();
 builder.Services
-    .AddControllers()
+    .AddControllers(options =>
+    {
+        options.ModelMetadataDetailsProviders.Add(new PublicContractBindingMetadataProvider());
+        options.Conventions.Add(new PublicContractRouteConvention());
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.TypeInfoResolver = JsonTypeInfoResolver.Combine(
+            new PublicContractJsonTypeInfoResolver(),
+            options.JsonSerializerOptions.TypeInfoResolver);
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.CustomSchemaIds(type =>
         (type.FullName ?? type.Name).Replace('+', '.'));
+    options.SchemaFilter<PublicContractSchemaFilter>();
+    options.OperationFilter<PublicContractOperationFilter>();
 
     options.SwaggerDoc("v1", new OpenApiInfo
     {

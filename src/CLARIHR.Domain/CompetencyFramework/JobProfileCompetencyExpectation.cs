@@ -61,8 +61,6 @@ public sealed class JobProfileCompetencyExpectation : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public long JobProfileId { get; private set; }
 
     public long OccupationalPyramidLevelId { get; private set; }

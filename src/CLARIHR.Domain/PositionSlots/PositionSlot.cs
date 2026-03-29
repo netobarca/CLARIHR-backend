@@ -57,8 +57,6 @@ public sealed class PositionSlot : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public string Code { get; private set; } = string.Empty;
 
     public string NormalizedCode { get; private set; } = string.Empty;
@@ -225,8 +223,8 @@ public sealed class PositionSlot : TenantEntity
 
     private void SetCode(string code)
     {
-        Code = PositionSlotNormalization.Clean(code, nameof(code));
-        NormalizedCode = PositionSlotNormalization.NormalizeCode(code);
+        Code = PositionSlotNormalization.NormalizeCode(code);
+        NormalizedCode = Code;
     }
 
     private static void EnsurePositiveId(long id, string parameterName)

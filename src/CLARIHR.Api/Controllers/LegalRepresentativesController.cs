@@ -289,7 +289,7 @@ public sealed class LegalRepresentativesController(
     {
         var lines = new List<string>
         {
-            "Id,FirstName,LastName,FullName,DocumentType,DocumentNumber,PositionTitle,RepresentationType,AuthorityDescription,AppointmentInstrument,AppointmentDateUtc,EffectiveFromUtc,EffectiveToUtc,Email,Phone,IsPrimary,IsActive,CreatedAtUtc,ModifiedAtUtc"
+            "PublicId,FirstName,LastName,FullName,DocumentType,DocumentNumber,PositionTitle,RepresentationType,AuthorityDescription,AppointmentInstrument,AppointmentDateUtc,EffectiveFromUtc,EffectiveToUtc,Email,Phone,IsPrimary,IsActive,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
@@ -323,7 +323,7 @@ public sealed class LegalRepresentativesController(
 
         var headers = new[]
         {
-            "Id",
+            "PublicId",
             "FirstName",
             "LastName",
             "FullName",

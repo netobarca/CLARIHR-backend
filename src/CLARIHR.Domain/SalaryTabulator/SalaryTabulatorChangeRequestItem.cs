@@ -100,14 +100,14 @@ public sealed class SalaryTabulatorChangeRequestItem : TenantEntity
 
     private void SetSalaryClassCode(string value)
     {
-        SalaryClassCode = SalaryTabulatorNormalization.Clean(value, nameof(value));
-        NormalizedSalaryClassCode = SalaryTabulatorNormalization.NormalizeCode(value);
+        SalaryClassCode = SalaryTabulatorNormalization.NormalizeCode(value);
+        NormalizedSalaryClassCode = SalaryClassCode;
     }
 
     private void SetSalaryScaleCode(string value)
     {
-        SalaryScaleCode = SalaryTabulatorNormalization.Clean(value, nameof(value));
-        NormalizedSalaryScaleCode = SalaryTabulatorNormalization.NormalizeCode(value);
+        SalaryScaleCode = SalaryTabulatorNormalization.NormalizeCode(value);
+        NormalizedSalaryScaleCode = SalaryScaleCode;
     }
 
     private void SetCurrencyCode(string value)

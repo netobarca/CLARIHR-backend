@@ -166,7 +166,7 @@ public sealed record RbacPermissionAuditStateResponse(
     bool CanDelete);
 
 public sealed record RbacPermissionAuditEntryResponse(
-    long Id,
+    Guid Id,
     Guid CompanyId,
     Guid RoleId,
     string ResourceKey,

@@ -25,13 +25,17 @@ public sealed class LegalRepresentativePositionTitleCatalogItem : Entity
         }
 
         Id = id;
-        Code = Clean(code, nameof(code), 80);
+        PublicId = CreateDeterministicPublicId($"legal-representative-position-title:{Id}");
+        Code = Clean(code, nameof(code), 80).ToUpperInvariant();
+        NormalizedCode = Code;
         Name = Clean(name, nameof(name), 150);
         SortOrder = sortOrder;
         IsActive = true;
     }
 
     public string Code { get; private set; } = string.Empty;
+
+    public string NormalizedCode { get; private set; } = string.Empty;
 
     public string Name { get; private set; } = string.Empty;
 

@@ -32,16 +32,27 @@ Las rutas `/api/account/*` operan sobre la cuenta autenticada y el contexto de c
 
 La mayoria de modulos funcionales usan:
 
-- `/api/v1/companies/{companyId:guid}/...` para operaciones tenant-scoped de coleccion o listado
-- `/api/v1/{resource}/{id:guid}` para operar recursos directos una vez establecido el contexto tenant
+- `/api/v1/companies/{companyPublicId:guid}/...` para operaciones tenant-scoped de coleccion o listado
+- `/api/v1/{resource}/{publicId:guid}` para operar recursos directos una vez establecido el contexto tenant
 
-### 2.4 Flujo de activacion de compania
+### 2.4 Estandar de identificadores y codigos
+
+Convencion obligatoria de la API publica:
+
+- la superficie externa usa `publicId` o `<Entidad>PublicId`
+- `id` e `internalId` quedan reservados para persistencia y logica interna
+- cuando un recurso tiene codigo de negocio, la API expone `code` y `normalizedCode`
+- `code` y `normalizedCode` se publican en `UPPERCASE`
+
+Swagger runtime es la referencia canonica del contrato. Las secciones narrativas de este documento ya siguen este estandar aunque algunos nombres historicos puedan aparecer en explicaciones de negocio.
+
+### 2.5 Flujo de activacion de compania
 
 La secuencia actual de onboarding es:
 
 1. `POST /api/auth/register`
 2. `POST /api/account/companies`
-3. `POST /api/account/companies/{companyId}/switch`
+3. `POST /api/account/companies/{companyPublicId}/switch`
 
 Despues del `switch`, el `access token` devuelto incluye contexto tenant y habilita los modulos `api/v1`.
 
@@ -58,14 +69,14 @@ Despues del `switch`, el `access token` devuelto incluye contexto tenant y habil
 | IAM roles | `IamRolesController` | `/api/iam/roles*` | CRUD de roles, clonacion, matrices y asignaciones |
 | IAM permissions / RBAC | `IamPermissionsController`, `RbacController` | `/api/iam/permissions*`, `/api/rbac*` | catalogo de permisos, matrices, permisos por campo y auditoria RBAC |
 | Audit | `AuditController` | `/api/audit*` | consulta y detalle de logs de auditoria |
-| Org structure catalogs | `OrgStructureCatalogsController` | `/api/account/org-structure-catalogs/*`, `/api/v1/companies/{companyId}/org-structure-catalogs/*` | tipos de compania, tipos de unidad y areas funcionales |
-| Locations | `LocationHierarchyController`, `LocationLevelsController`, `LocationGroupsController`, `WorkCenterTypesController`, `WorkCentersController` | `/api/v1/companies/{companyId}/location-*`, `/api/v1/companies/{companyId}/work-*` | modelo geografico del tenant, grupos y work centers |
-| Org units and cost centers | `OrgUnitsController`, `CostCentersController` | `/api/v1/companies/{companyId}/org-units*`, `/api/v1/companies/{companyId}/cost-centers*` | arbol organizacional, grafos, exportes y centros de costo |
-| Legal representatives | `LegalRepresentativesController` | `/api/v1/companies/{companyId}/legal-representatives*` | ciclo de vida y uso de representantes legales |
-| Job and competency design | `JobCatalogsController`, `JobProfilesController`, `CompetencyFrameworkController`, `PositionDescriptionCatalogsController`, `PositionSlotsController` | `/api/v1/companies/{companyId}/job-*`, `/api/v1/companies/{companyId}/occupational-*`, `/api/v1/companies/{companyId}/position-*` | diseno de puestos, competencias, catalogos y posiciones |
-| Personnel files | `PersonnelFilesController`, `PersonnelFileProfileController`, `PersonnelFileEmploymentController`, `PersonnelFileCompensationController`, `PersonnelFileTalentController`, `PersonnelFileDocumentsController`, `PersonnelFileAdministrationController`, `PersonnelFileReportingController` | `/api/v1/companies/{companyId}/personnel-files*`, `/api/v1/personnel-files/*`, `/api/v1/personnel-custom-field-definitions*` | ciclo de vida del expediente, perfil, empleo, compensacion, talento, documentos y reporting |
-| Salary governance | `SalaryTabulatorController` | `/api/v1/companies/{companyId}/salary-tabulator*` | lineas salariales, exportes y change requests |
-| Report capabilities | `ReportsController` | `/api/v1/companies/{companyId}/reports/capabilities` | descubrimiento de capacidades de reporte para frontend |
+| Org structure catalogs | `OrgStructureCatalogsController` | `/api/account/org-structure-catalogs/*`, `/api/v1/companies/{companyPublicId}/org-structure-catalogs/*` | tipos de compania, tipos de unidad y areas funcionales |
+| Locations | `LocationHierarchyController`, `LocationLevelsController`, `LocationGroupsController`, `WorkCenterTypesController`, `WorkCentersController` | `/api/v1/companies/{companyPublicId}/location-*`, `/api/v1/companies/{companyPublicId}/work-*` | modelo geografico del tenant, grupos y work centers |
+| Org units and cost centers | `OrgUnitsController`, `CostCentersController` | `/api/v1/companies/{companyPublicId}/org-units*`, `/api/v1/companies/{companyPublicId}/cost-centers*` | arbol organizacional, grafos, exportes y centros de costo |
+| Legal representatives | `LegalRepresentativesController` | `/api/v1/companies/{companyPublicId}/legal-representatives*` | ciclo de vida y uso de representantes legales |
+| Job and competency design | `JobCatalogsController`, `JobProfilesController`, `CompetencyFrameworkController`, `PositionDescriptionCatalogsController`, `PositionSlotsController` | `/api/v1/companies/{companyPublicId}/job-*`, `/api/v1/companies/{companyPublicId}/occupational-*`, `/api/v1/companies/{companyPublicId}/position-*` | diseno de puestos, competencias, catalogos y posiciones |
+| Personnel files | `PersonnelFilesController`, `PersonnelFileProfileController`, `PersonnelFileEmploymentController`, `PersonnelFileCompensationController`, `PersonnelFileTalentController`, `PersonnelFileDocumentsController`, `PersonnelFileAdministrationController`, `PersonnelFileReportingController` | `/api/v1/companies/{companyPublicId}/personnel-files*`, `/api/v1/personnel-files/*`, `/api/v1/personnel-custom-field-definitions*` | ciclo de vida del expediente, perfil, empleo, compensacion, talento, documentos y reporting |
+| Salary governance | `SalaryTabulatorController` | `/api/v1/companies/{companyPublicId}/salary-tabulator*` | lineas salariales, exportes y change requests |
+| Report capabilities | `ReportsController` | `/api/v1/companies/{companyPublicId}/reports/capabilities` | descubrimiento de capacidades de reporte para frontend |
 
 ## 4. Flujos criticos y endpoints representativos
 
@@ -82,7 +93,7 @@ Despues del `switch`, el `access token` devuelto incluye contexto tenant y habil
 - `GET /api/account/companies/legal-representative-document-types`
 - `GET /api/account/companies`
 - `POST /api/account/companies`
-- `POST /api/account/companies/{companyId}/switch`
+- `POST /api/account/companies/{companyPublicId}/switch`
 
 Comportamiento observable:
 
@@ -93,11 +104,11 @@ Comportamiento observable:
 ### 4.3 Catalogo comercial de planes
 
 - `GET /api/account/commercial-plans`
-- `GET /api/account/commercial-plans/{id}`
+- `GET /api/account/commercial-plans/{publicId}`
 - `POST /api/account/commercial-plans`
-- `PUT /api/account/commercial-plans/{id}`
-- `PATCH /api/account/commercial-plans/{id}/activate`
-- `PATCH /api/account/commercial-plans/{id}/inactivate`
+- `PUT /api/account/commercial-plans/{publicId}`
+- `PATCH /api/account/commercial-plans/{publicId}/activate`
+- `PATCH /api/account/commercial-plans/{publicId}/inactivate`
 
 Comportamiento observable:
 
@@ -111,19 +122,19 @@ Comportamiento observable:
 
 Endpoints representativos de lectura:
 
-- `GET /api/v1/companies/{companyId}/location-hierarchy`
-- `GET /api/v1/companies/{companyId}/location-levels`
-- `GET /api/v1/companies/{companyId}/location-groups/tree`
-- `GET /api/v1/companies/{companyId}/org-units/tree`
-- `GET /api/v1/companies/{companyId}/org-units/graph`
-- `GET /api/v1/companies/{companyId}/cost-centers/export`
+- `GET /api/v1/companies/{companyPublicId}/location-hierarchy`
+- `GET /api/v1/companies/{companyPublicId}/location-levels`
+- `GET /api/v1/companies/{companyPublicId}/location-groups/tree`
+- `GET /api/v1/companies/{companyPublicId}/org-units/tree`
+- `GET /api/v1/companies/{companyPublicId}/org-units/graph`
+- `GET /api/v1/companies/{companyPublicId}/cost-centers/export`
 
 Endpoints representativos de escritura:
 
-- `POST /api/v1/companies/{companyId}/location-groups`
-- `POST /api/v1/companies/{companyId}/work-centers`
-- `POST /api/v1/companies/{companyId}/org-units`
-- `PATCH /api/v1/org-units/{id}/move`
+- `POST /api/v1/companies/{companyPublicId}/location-groups`
+- `POST /api/v1/companies/{companyPublicId}/work-centers`
+- `POST /api/v1/companies/{companyPublicId}/org-units`
+- `PATCH /api/v1/org-units/{publicId}/move`
 
 ### 4.5 IAM y permisos por campo
 
@@ -131,10 +142,10 @@ Endpoints representativos:
 
 - `GET /api/iam/roles`
 - `POST /api/iam/roles`
-- `PUT /api/iam/roles/{roleId}/permission-matrix`
+- `PUT /api/iam/roles/{rolePublicId}/permission-matrix`
 - `GET /api/rbac/resources`
-- `GET /api/rbac/roles/{roleId}/field-permissions`
-- `PUT /api/rbac/roles/{roleId}/field-permissions`
+- `GET /api/rbac/roles/{rolePublicId}/field-permissions`
+- `PUT /api/rbac/roles/{rolePublicId}/field-permissions`
 - `GET /api/rbac/audit`
 
 Comportamiento observable:
@@ -146,42 +157,42 @@ Comportamiento observable:
 
 Core:
 
-- `POST /api/v1/companies/{companyId}/personnel-files`
-- `GET /api/v1/companies/{companyId}/personnel-files`
-- `GET /api/v1/personnel-files/{id}`
-- `PATCH /api/v1/personnel-files/{id}/activate`
-- `PATCH /api/v1/personnel-files/{id}/inactivate`
+- `POST /api/v1/companies/{companyPublicId}/personnel-files`
+- `GET /api/v1/companies/{companyPublicId}/personnel-files`
+- `GET /api/v1/personnel-files/{publicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/activate`
+- `PATCH /api/v1/personnel-files/{publicId}/inactivate`
 
 Profile:
 
-- `PUT /api/v1/personnel-files/{id}/personal-info`
-- `PUT /api/v1/personnel-files/{id}/identifications`
-- `PUT /api/v1/personnel-files/{id}/family-members`
-- `PUT /api/v1/personnel-files/{id}/educations`
+- `PUT /api/v1/personnel-files/{publicId}/personal-info`
+- `PUT /api/v1/personnel-files/{publicId}/identifications`
+- `PUT /api/v1/personnel-files/{publicId}/family-members`
+- `PUT /api/v1/personnel-files/{publicId}/educations`
 
 Employment:
 
-- `POST /api/v1/personnel-files/{id}/hire`
-- `PUT /api/v1/personnel-files/{id}/employee-profile`
-- `GET /api/v1/personnel-files/{id}/personnel-actions`
+- `POST /api/v1/personnel-files/{publicId}/hire`
+- `PUT /api/v1/personnel-files/{publicId}/employee-profile`
+- `GET /api/v1/personnel-files/{publicId}/personnel-actions`
 
 Compensation:
 
-- `PUT /api/v1/personnel-files/{id}/salary-items`
-- `GET /api/v1/personnel-files/{id}/payroll-transactions/export`
-- `PUT /api/v1/personnel-files/{id}/bank-accounts`
+- `PUT /api/v1/personnel-files/{publicId}/salary-items`
+- `GET /api/v1/personnel-files/{publicId}/payroll-transactions/export`
+- `PUT /api/v1/personnel-files/{publicId}/bank-accounts`
 
 Talent:
 
-- `PUT /api/v1/personnel-files/{id}/evaluations`
-- `GET /api/v1/personnel-files/{id}/position-competencies`
+- `PUT /api/v1/personnel-files/{publicId}/evaluations`
+- `GET /api/v1/personnel-files/{publicId}/position-competencies`
 
 Documents and reporting:
 
-- `POST /api/v1/personnel-files/{id}/documents`
-- `GET /api/v1/personnel-file-documents/{documentId}/download`
-- `GET /api/v1/personnel-files/{id}/print`
-- `POST /api/v1/companies/{companyId}/personnel-files/dynamic-query`
+- `POST /api/v1/personnel-files/{publicId}/documents`
+- `GET /api/v1/personnel-file-documents/{documentPublicId}/download`
+- `GET /api/v1/personnel-files/{publicId}/print`
+- `POST /api/v1/companies/{companyPublicId}/personnel-files/dynamic-query`
 
 Comportamiento observable:
 
@@ -194,11 +205,11 @@ Comportamiento observable:
 
 Endpoints representativos:
 
-- `GET /api/v1/companies/{companyId}/salary-tabulator`
-- `GET /api/v1/companies/{companyId}/salary-tabulator/export`
-- `GET /api/v1/companies/{companyId}/salary-tabulator/change-requests`
-- `POST /api/v1/companies/{companyId}/salary-tabulator/change-requests`
-- `PATCH /api/v1/salary-tabulator/change-requests/{id}/approve`
+- `GET /api/v1/companies/{companyPublicId}/salary-tabulator`
+- `GET /api/v1/companies/{companyPublicId}/salary-tabulator/export`
+- `GET /api/v1/companies/{companyPublicId}/salary-tabulator/change-requests`
+- `POST /api/v1/companies/{companyPublicId}/salary-tabulator/change-requests`
+- `PATCH /api/v1/salary-tabulator/change-requests/{publicId}/approve`
 
 Comportamiento observable:
 
@@ -489,7 +500,7 @@ Este controlador administra el catalogo de permisos disponibles en el tenant. Es
 
 Contrato principal:
 
-- `IamPermissionSummaryResponse` e `IamPermissionResponse`: `id`, `code`, `name`, `description`, `module`, `screen`, `kind`, `action`, `fieldName`, `fieldAccess`
+- `IamPermissionSummaryResponse` e `IamPermissionResponse`: `publicId`, `code`, `normalizedCode`, `name`, `description`, `module`, `screen`, `kind`, `action`, `fieldName`, `fieldAccess`
 
 Reglas comunes:
 
@@ -514,7 +525,7 @@ Reglas comunes:
 - Query: `pageNumber`, `pageSize`, `search`.
 - Response: `PagedResponse<IamPermissionSummaryResponse>`.
 
-##### `GET /api/iam/permissions/{permissionId}`
+##### `GET /api/iam/permissions/{permissionPublicId}`
 
 - Proposito: obtener el detalle de un permiso IAM.
 - Autorizacion: `RBAC_PERMISSIONS:Read`.
@@ -795,13 +806,13 @@ Base route: `/api/account/companies`
 
 Contratos principales:
 
-- `AccountCompanySummaryResponse`: `companyId`, `name`, `slug`, `countryCode`, `status`, `planCode`, `isActiveContext`, `isOwnedByCurrentUser`, `createdAtUtc`, `companyType`
+- `AccountCompanySummaryResponse`: `companyPublicId`, `name`, `slug`, `countryCode`, `status`, `planCode`, `isActiveContext`, `isOwnedByCurrentUser`, `createdAtUtc`, `companyType`
 - `AccountCompanyDetailResponse`: agrega `modifiedAtUtc`, `activeLegalRepresentatives` y metadata completa del tipo de compania
 - `SwitchActiveCompanyResponse`: `accessToken`, `refreshToken`, `expiresIn`, `activeCompany`
-- `LegalRepresentativeDocumentTypeCatalogItemResponse`: `id`, `code`, `name`, `sortOrder`
-- `LegalRepresentativePositionTitleCatalogItemResponse`: `id`, `code`, `name`, `sortOrder`
-- `LegalRepresentativeRepresentationTypeCatalogItemResponse`: `id`, `code`, `name`, `sortOrder`
-- `CreateAccountCompanyRequest`: `name`, `countryCode`, `companyTypeId`, `initialLegalRepresentative`
+- `LegalRepresentativeDocumentTypeCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
+- `LegalRepresentativePositionTitleCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
+- `LegalRepresentativeRepresentationTypeCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
+- `CreateAccountCompanyRequest`: `name`, `countryCode`, `companyTypePublicId`, `initialLegalRepresentative`
 
 ##### `GET /api/account/companies/legal-representative-document-types`
 
@@ -831,9 +842,9 @@ Contratos principales:
 - Query: `status`, `page`, `pageSize`.
 - Validaciones: `page > 0`, `pageSize` entre `1` y `100`.
 - Response: `PagedResponse<AccountCompanySummaryResponse>`.
-- Observaciones: no tiene busqueda libre; la lista se ordena por `name` y luego `companyId`, y marca con `isActiveContext` la compania alineada al tenant del token actual.
+- Observaciones: no tiene busqueda libre; la lista se ordena por `name` y luego `companyPublicId`, y marca con `isActiveContext` la compania alineada al tenant del token actual.
 
-##### `GET /api/account/companies/{companyId}`
+##### `GET /api/account/companies/{companyPublicId}`
 
 - Proposito: obtener el detalle de una compania propia.
 - Autenticacion: `Bearer` requerido.
@@ -845,23 +856,23 @@ Contratos principales:
 
 - Proposito: crear una nueva compania para la cuenta autenticada.
 - Autenticacion: `Bearer` requerido.
-- Request body: `name`, `countryCode`, `companyTypeId`, `initialLegalRepresentative`.
-- Validaciones base: `name` obligatorio maximo `150`; `countryCode` de `2` o `3` letras; `companyTypeId` no puede ser `Guid.Empty`.
+- Request body: `name`, `countryCode`, `companyTypePublicId`, `initialLegalRepresentative`.
+- Validaciones base: `name` obligatorio maximo `150`; `countryCode` de `2` o `3` letras; `companyTypePublicId` no puede ser `Guid.Empty`.
 - Validaciones del representante inicial: `firstName`, `lastName`, `documentNumber`, `positionTitle`, `effectiveFromUtc`; `effectiveToUtc >= effectiveFromUtc`; `email` opcional maximo `320`; `phone` opcional maximo `40`; `isPrimary` es opcional.
 - Response: `201 Created` con `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_LIMIT_REACHED`, `COMPANY_TYPE_NOT_FOUND`, `provisioning.country_not_supported`.
 - Observaciones: provisiona plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estándar`, vincula al owner como admin, siembra locations por pais y deja la nueva compania sin hacer auto-switch. Para `initialLegalRepresentative.documentType` y `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por sus endpoints de catalogo respectivos. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. Si `initialLegalRepresentative.isPrimary` se omite o se envia `null`, el registro se persiste con `isPrimary = null`.
 
-##### `PUT /api/account/companies/{companyId}`
+##### `PUT /api/account/companies/{companyPublicId}`
 
 - Proposito: actualizar nombre y tipo de compania de una compania propia.
 - Autenticacion: `Bearer` requerido.
-- Request body: `name`, `companyTypeId`.
+- Request body: `name`, `companyTypePublicId`.
 - Response: `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `COMPANY_TYPE_NOT_FOUND`.
 - Observaciones: no cambia pais, plan ni representantes legales; solo metadata basica.
 
-##### `PATCH /api/account/companies/{companyId}/archive`
+##### `PATCH /api/account/companies/{companyPublicId}/archive`
 
 - Proposito: archivar una compania propia.
 - Autenticacion: `Bearer` requerido.
@@ -869,7 +880,7 @@ Contratos principales:
 - Errores relevantes: `COMPANY_ALREADY_ARCHIVED`, `ACTIVE_COMPANY_ARCHIVE_FORBIDDEN`, `COMPANY_OWNERSHIP_FORBIDDEN`.
 - Observaciones: no puede archivarse si la compania coincide con el `tenantId` actual del token o con la compania primaria actual del usuario.
 
-##### `PATCH /api/account/companies/{companyId}/reactivate`
+##### `PATCH /api/account/companies/{companyPublicId}/reactivate`
 
 - Proposito: reactivar una compania propia archivada.
 - Autenticacion: `Bearer` requerido.
@@ -877,14 +888,14 @@ Contratos principales:
 - Errores relevantes: `COMPANY_ALREADY_ACTIVE`, `COMPANY_REACTIVATION_LIMIT_REACHED`, `COMPANY_OWNERSHIP_FORBIDDEN`.
 - Observaciones: la reactivacion vuelve a estado `Active`, pero no cambia automaticamente el tenant activo del usuario.
 
-##### `POST /api/account/companies/{companyId}/switch`
+##### `POST /api/account/companies/{companyPublicId}/switch`
 
 - Proposito: cambiar la compania activa del usuario autenticado.
 - Autenticacion: `Bearer` requerido.
 - Request body: ninguno.
 - Response: `200 OK` con `SwitchActiveCompanyResponse`.
 - Errores relevantes: `ACTIVE_COMPANY_SWITCH_FORBIDDEN`, `COMPANY_OWNERSHIP_FORBIDDEN`, `COMPANY_NOT_FOUND`.
-- Observaciones: solo funciona si la compania destino esta `Active` y el usuario tiene membresia activa en ella; marca esa membresia como primaria, emite un nuevo token con `tid` de la compania destino y el claim `role` correspondiente a esa membresia, y devuelve `activeCompany` con `companyId`, `name`, `slug`, `countryCode` y `status`.
+- Observaciones: solo funciona si la compania destino esta `Active` y el usuario tiene membresia activa en ella; marca esa membresia como primaria, emite un nuevo token con `tid` de la compania destino y el claim `role` correspondiente a esa membresia, y devuelve `activeCompany` con `companyPublicId`, `name`, `slug`, `countryCode` y `status`.
 
 #### 5.3.6 Relacion con `Auth` y onboarding
 
@@ -892,7 +903,7 @@ Contratos principales:
 - `GET /api/account/companies/legal-representative-document-types` resuelve el catalogo de tipos documentales requerido por el formulario.
 - `GET /api/account/companies/legal-representative-position-titles` resuelve el catalogo de cargos requerido por el formulario.
 - `POST /api/account/companies` crea la primera o siguiente compania propiedad de esa cuenta.
-- `POST /api/account/companies/{companyId}/switch` emite el token ya tenant-scoped para operar `api/v1`.
+- `POST /api/account/companies/{companyPublicId}/switch` emite el token ya tenant-scoped para operar `api/v1`.
 
 Esa secuencia explica por que `Account companies` no usa `/api/v1`: todavia esta resolviendo el paso previo al contexto tenant estable del resto del sistema.
 
@@ -905,11 +916,11 @@ Este bloque cubre la administracion global del catalogo comercial mediante `Comm
 Incluye:
 
 - `GET /api/account/commercial-plans`
-- `GET /api/account/commercial-plans/{id}`
+- `GET /api/account/commercial-plans/{publicId}`
 - `POST /api/account/commercial-plans`
-- `PUT /api/account/commercial-plans/{id}`
-- `PATCH /api/account/commercial-plans/{id}/activate`
-- `PATCH /api/account/commercial-plans/{id}/inactivate`
+- `PUT /api/account/commercial-plans/{publicId}`
+- `PATCH /api/account/commercial-plans/{publicId}/activate`
+- `PATCH /api/account/commercial-plans/{publicId}/inactivate`
 
 #### 5.3A.2 Proposito funcional en CLARIHR
 
@@ -954,10 +965,10 @@ Base route: `/api/account/commercial-plans`
 
 Contratos principales:
 
-- `CommercialPlanSummaryResponse`: `id`, `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `isSystemPlan`, `createdAtUtc`, `modifiedAtUtc`
+- `CommercialPlanSummaryResponse`: `publicId`, `code`, `normalizedCode`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `isSystemPlan`, `createdAtUtc`, `modifiedAtUtc`
 - `CommercialPlanResponse`: agrega `concurrencyToken` y `limits`
 - `CommercialPlanLimitInput`: `code`, `value`
-- `CommercialPlanLimitResponse`: `code`, `value`
+- `CommercialPlanLimitResponse`: `code`, `normalizedCode`, `value`
 
 ##### `GET /api/account/commercial-plans`
 
@@ -968,7 +979,7 @@ Contratos principales:
 - Response: `PagedResponse<CommercialPlanSummaryResponse>`.
 - Observaciones: no exige tenant activo; ordena por `name` y luego `code`.
 
-##### `GET /api/account/commercial-plans/{id}`
+##### `GET /api/account/commercial-plans/{publicId}`
 
 - Proposito: obtener el detalle de un plan comercial global.
 - Autenticacion: `Bearer` requerido con rol `platform_admin`.
@@ -986,7 +997,7 @@ Contratos principales:
 - Errores relevantes: `COMMERCIAL_PLAN_CODE_CONFLICT`.
 - Observaciones: `limits` puede venir vacio; el `status` inicial puede registrarse como `Draft`, `Active` o `Inactive`.
 
-##### `PUT /api/account/commercial-plans/{id}`
+##### `PUT /api/account/commercial-plans/{publicId}`
 
 - Proposito: actualizar datos base de un plan comercial existente.
 - Autenticacion: `Bearer` requerido con rol `platform_admin`.
@@ -995,7 +1006,7 @@ Contratos principales:
 - Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `COMMERCIAL_PLAN_CODE_CONFLICT`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_SYSTEM_RENAME_FORBIDDEN`.
 - Observaciones: la coleccion `limits` reemplaza completamente la configuracion anterior y `status` no se modifica por esta ruta.
 
-##### `PATCH /api/account/commercial-plans/{id}/activate`
+##### `PATCH /api/account/commercial-plans/{publicId}/activate`
 
 - Proposito: activar un plan comercial existente.
 - Autenticacion: `Bearer` requerido con rol `platform_admin`.
@@ -1004,7 +1015,7 @@ Contratos principales:
 - Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_ALREADY_ACTIVE`.
 - Observaciones: no existe ruta para volver un plan a `Draft`.
 
-##### `PATCH /api/account/commercial-plans/{id}/inactivate`
+##### `PATCH /api/account/commercial-plans/{publicId}/inactivate`
 
 - Proposito: inactivar un plan comercial existente.
 - Autenticacion: `Bearer` requerido con rol `platform_admin`.
@@ -1032,10 +1043,10 @@ Este bloque cubre `OrgStructureCatalogsController` y hoy expone tres familias de
 Familias de rutas:
 
 - `/api/account/org-structure-catalogs/company-types`
-- `/api/v1/companies/{companyId}/org-structure-catalogs/unit-types`
-- `/api/v1/org-structure-catalogs/unit-types/{id}`
-- `/api/v1/companies/{companyId}/org-structure-catalogs/functional-areas`
-- `/api/v1/org-structure-catalogs/functional-areas/{id}`
+- `/api/v1/companies/{companyPublicId}/org-structure-catalogs/unit-types`
+- `/api/v1/org-structure-catalogs/unit-types/{publicId}`
+- `/api/v1/companies/{companyPublicId}/org-structure-catalogs/functional-areas`
+- `/api/v1/org-structure-catalogs/functional-areas/{publicId}`
 
 #### 5.4.2 Proposito funcional en CLARIHR
 
@@ -1053,9 +1064,9 @@ Es un modulo fundacional: no modela organigramas ni companias completas, sino lo
 - Este modulo mezcla dos scopes distintos: `company-types` es account-scoped, mientras `unit-types` y `functional-areas` son tenant-scoped.
 - `company-types` no depende del `tenantId` para autorizar; se resuelve por usuario autenticado y ownership del catalogo.
 - `unit-types` y `functional-areas` si dependen del `tenantId` y de claims tenant-scoped.
-- En `unit-types` y `functional-areas`, `search/create` usan `companyId` en la ruta y exigen que coincida con el tenant del token.
-- En `unit-types` y `functional-areas`, `get/update/activate/inactivate` usan solo `{id}` y resuelven el tenant desde el token actual. Si el item existe en otro tenant, la API devuelve `TENANT_MISMATCH` en vez de `404` plano.
-- Los tres catalogos comparten el mismo shape observable: `id`, `code`, `name`, `description`, `sortOrder`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc`.
+- En `unit-types` y `functional-areas`, `search/create` usan `companyPublicId` en la ruta y exigen que coincida con el tenant del token.
+- En `unit-types` y `functional-areas`, `get/update/activate/inactivate` usan solo `{publicId}` y resuelven el tenant desde el token actual. Si el item existe en otro tenant, la API devuelve `TENANT_MISMATCH` en vez de `404` plano.
+- Los tres catalogos comparten el mismo shape observable: `publicId`, `code`, `normalizedCode`, `name`, `description`, `sortOrder`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc`.
 - Todas las escrituras validan `code` con regex alfanumerica mas `_` o `-`, longitud maxima `50`, `name` maximo `150`, `description` maximo `500` y `sortOrder >= 0`.
 - Los endpoints de `update`, `activate` e `inactivate` usan concurrencia optimista con `ConcurrencyToken`.
 - Los endpoints de busqueda usan `isActive`, `q`, `page` y `pageSize`; el `pageSize` maximo es `100` y el default es `20`.
@@ -1066,7 +1077,7 @@ Es un modulo fundacional: no modela organigramas ni companias completas, sino lo
 - `company-types` exige autenticacion valida de cuenta; no aplica RBAC tenant para consultar o administrar.
 - `unit-types` y `functional-areas` en lectura aceptan alguno de estos permisos: `OrgStructureCatalogs.Read`, `OrgStructureCatalogs.Admin`, `OrgUnits.Read`, `OrgUnits.Admin`, `iam.administration.manage` o `platform_admin`.
 - `unit-types` y `functional-areas` en escritura exigen alguno de estos permisos: `OrgStructureCatalogs.Admin`, `OrgUnits.Admin`, `iam.administration.manage` o `platform_admin`.
-- Si el `companyId` de la ruta no coincide con el tenant actual, la respuesta observable es `TENANT_MISMATCH`.
+- Si el `companyPublicId` de la ruta no coincide con el tenant actual, la respuesta observable es `TENANT_MISMATCH`.
 - Si el usuario esta autenticado pero no cumple permisos tenant-scoped, la respuesta observable es `ORG_STRUCTURE_CATALOG_FORBIDDEN`.
 
 #### 5.4.5 Errores observables relevantes en Org structure catalogs
@@ -1085,11 +1096,11 @@ Es un modulo fundacional: no modela organigramas ni companias completas, sino lo
 Route family:
 
 - `GET /api/account/org-structure-catalogs/company-types`
-- `GET /api/account/org-structure-catalogs/company-types/{id}`
+- `GET /api/account/org-structure-catalogs/company-types/{publicId}`
 - `POST /api/account/org-structure-catalogs/company-types`
-- `PUT /api/account/org-structure-catalogs/company-types/{id}`
-- `PATCH /api/account/org-structure-catalogs/company-types/{id}/activate`
-- `PATCH /api/account/org-structure-catalogs/company-types/{id}/inactivate`
+- `PUT /api/account/org-structure-catalogs/company-types/{publicId}`
+- `PATCH /api/account/org-structure-catalogs/company-types/{publicId}/activate`
+- `PATCH /api/account/org-structure-catalogs/company-types/{publicId}/inactivate`
 
 Uso principal:
 
@@ -1099,6 +1110,8 @@ Uso principal:
 Observaciones funcionales:
 
 - `search` permite `isActive`, `q`, `page`, `pageSize`.
+- El backend asegura de forma idempotente un catalogo base por owner durante el registro de nuevas cuentas y antes de responder `search`; si faltan seeds, inserta solo los faltantes sin duplicar codigos existentes.
+- El set base inicial cubre `SA_DE_CV`, `LIMITED_LIABILITY`, `INDIVIDUAL_ENTERPRISE`, `BRANCH_OFFICE`, `COOPERATIVE`, `ASSOCIATION`, `FOUNDATION` y `PUBLIC_INSTITUTION`.
 - `get by id` solo devuelve items cuyo `OwnerUserPublicId` coincide con la cuenta autenticada; si existe pero pertenece a otra cuenta, responde `ORG_STRUCTURE_CATALOG_NOT_FOUND`.
 - `create` valida unicidad de `code` por owner.
 - `update` exige `ConcurrencyToken` y conserva el mismo scope account-scoped.
@@ -1110,12 +1123,12 @@ Observaciones funcionales:
 
 Route family:
 
-- `GET /api/v1/companies/{companyId}/org-structure-catalogs/unit-types`
-- `GET /api/v1/org-structure-catalogs/unit-types/{id}`
-- `POST /api/v1/companies/{companyId}/org-structure-catalogs/unit-types`
-- `PUT /api/v1/org-structure-catalogs/unit-types/{id}`
-- `PATCH /api/v1/org-structure-catalogs/unit-types/{id}/activate`
-- `PATCH /api/v1/org-structure-catalogs/unit-types/{id}/inactivate`
+- `GET /api/v1/companies/{companyPublicId}/org-structure-catalogs/unit-types`
+- `GET /api/v1/org-structure-catalogs/unit-types/{publicId}`
+- `POST /api/v1/companies/{companyPublicId}/org-structure-catalogs/unit-types`
+- `PUT /api/v1/org-structure-catalogs/unit-types/{publicId}`
+- `PATCH /api/v1/org-structure-catalogs/unit-types/{publicId}/activate`
+- `PATCH /api/v1/org-structure-catalogs/unit-types/{publicId}/inactivate`
 
 Uso principal:
 
@@ -1124,10 +1137,10 @@ Uso principal:
 
 Observaciones funcionales:
 
-- `search` y `create` usan `companyId` en la ruta y exigen que coincida con el tenant del token.
-- `get/update/activate/inactivate` usan el `tenantId` del token actual y el `id` del item.
+- `search` y `create` usan `companyPublicId` en la ruta y exigen que coincida con el tenant del token.
+- `get/update/activate/inactivate` usan el `tenantId` del token actual y el `publicId` del item.
 - Si el item existe pero pertenece a otro tenant, la API devuelve `TENANT_MISMATCH`.
-- `create` asigna `TenantId = companyId` al nuevo item.
+- `create` asigna `TenantId = companyPublicId` al nuevo item.
 - `update`, `activate` e `inactivate` exigen `ConcurrencyToken`.
 - `inactivate` falla con `ORG_STRUCTURE_CATALOG_IN_USE` si el item esta siendo usado por org units o por position category classifications.
 - Todas las escrituras generan auditoria de tenant.
@@ -1136,12 +1149,12 @@ Observaciones funcionales:
 
 Route family:
 
-- `GET /api/v1/companies/{companyId}/org-structure-catalogs/functional-areas`
-- `GET /api/v1/org-structure-catalogs/functional-areas/{id}`
-- `POST /api/v1/companies/{companyId}/org-structure-catalogs/functional-areas`
-- `PUT /api/v1/org-structure-catalogs/functional-areas/{id}`
-- `PATCH /api/v1/org-structure-catalogs/functional-areas/{id}/activate`
-- `PATCH /api/v1/org-structure-catalogs/functional-areas/{id}/inactivate`
+- `GET /api/v1/companies/{companyPublicId}/org-structure-catalogs/functional-areas`
+- `GET /api/v1/org-structure-catalogs/functional-areas/{publicId}`
+- `POST /api/v1/companies/{companyPublicId}/org-structure-catalogs/functional-areas`
+- `PUT /api/v1/org-structure-catalogs/functional-areas/{publicId}`
+- `PATCH /api/v1/org-structure-catalogs/functional-areas/{publicId}/activate`
+- `PATCH /api/v1/org-structure-catalogs/functional-areas/{publicId}/inactivate`
 
 Uso principal:
 
@@ -1150,8 +1163,8 @@ Uso principal:
 Observaciones funcionales:
 
 - comparte el mismo patron de autorizacion y scoping que `unit-types`.
-- `search` y `create` trabajan con `companyId` en la ruta; `get/update/activate/inactivate` operan por `id` usando el tenant actual del token.
-- `create` asigna `TenantId = companyId`.
+- `search` y `create` trabajan con `companyPublicId` en la ruta; `get/update/activate/inactivate` operan por `publicId` usando el tenant actual del token.
+- `create` asigna `TenantId = companyPublicId`.
 - `update`, `activate` e `inactivate` exigen `ConcurrencyToken`.
 - `inactivate` falla con `ORG_STRUCTURE_CATALOG_IN_USE` si alguna org unit sigue usando el area funcional.
 - Todas las escrituras generan auditoria de tenant.
@@ -1172,15 +1185,15 @@ Este bloque cubre `OrgUnitsController` y expone la administracion operativa de u
 
 Familias de rutas:
 
-- `/api/v1/companies/{companyId}/org-units`
-- `/api/v1/org-units/{id}`
-- `/api/v1/companies/{companyId}/org-units/tree`
-- `/api/v1/companies/{companyId}/org-units/graph`
-- `/api/v1/companies/{companyId}/org-units/export`
-- `/api/v1/companies/{companyId}/org-units/diagram-export`
-- `/api/v1/org-units/{id}/move`
-- `/api/v1/org-units/{id}/activate`
-- `/api/v1/org-units/{id}/inactivate`
+- `/api/v1/companies/{companyPublicId}/org-units`
+- `/api/v1/org-units/{publicId}`
+- `/api/v1/companies/{companyPublicId}/org-units/tree`
+- `/api/v1/companies/{companyPublicId}/org-units/graph`
+- `/api/v1/companies/{companyPublicId}/org-units/export`
+- `/api/v1/companies/{companyPublicId}/org-units/diagram-export`
+- `/api/v1/org-units/{publicId}/move`
+- `/api/v1/org-units/{publicId}/activate`
+- `/api/v1/org-units/{publicId}/inactivate`
 
 #### 5.5.2 Proposito funcional en CLARIHR
 
@@ -1191,11 +1204,11 @@ No es un catalogo base como `Org structure catalogs`; aqui ya se administran nod
 #### 5.5.3 Modelo operativo y reglas transversales del modulo
 
 - Todas las rutas requieren autenticacion.
-- El modulo es tenant-scoped por defecto. En rutas con `companyId`, ese valor debe coincidir con el tenant activo del token.
-- `search`, `tree`, `graph`, `export`, `diagram-export` y `create` usan `companyId` en la ruta.
-- `get by id`, `update`, `move`, `activate` e `inactivate` usan solo `{id}` y resuelven el tenant desde el token actual.
+- El modulo es tenant-scoped por defecto. En rutas con `companyPublicId`, ese valor debe coincidir con el tenant activo del token.
+- `search`, `tree`, `graph`, `export`, `diagram-export` y `create` usan `companyPublicId` en la ruta.
+- `get by id`, `update`, `move`, `activate` e `inactivate` usan solo `{publicId}` y resuelven el tenant desde el token actual.
 - Si una org unit existe pero pertenece a otro tenant, la API responde `TENANT_MISMATCH` en vez de devolver un `404` plano.
-- El shape principal de lectura es `OrgUnitResponse`: `id`, `code`, `name`, `orgUnitType`, `functionalArea`, `parentId`, `sortOrder`, `description`, `costCenterCode`, `managerEmployeeId`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y opcionalmente `allowedActions`.
+- El shape principal de lectura es `OrgUnitResponse`: `publicId`, `code`, `normalizedCode`, `name`, `orgUnitType`, `functionalArea`, `parentPublicId`, `sortOrder`, `description`, `costCenterCode`, `managerEmployeePublicId`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y opcionalmente `allowedActions`.
 - `code` es obligatorio, maximo `50`, y debe cumplir regex alfanumerica con `_` o `-`.
 - `name` es obligatorio y maximo `150`.
 - `description` acepta hasta `500` caracteres.
@@ -1210,7 +1223,7 @@ No es un catalogo base como `Org structure catalogs`; aqui ya se administran nod
 - Lectura acepta alguno de estos permisos: `OrgUnits.Read`, `OrgUnits.Admin`, `iam.administration.manage` o `platform_admin`.
 - Escritura acepta alguno de estos permisos: `OrgUnits.Admin`, `iam.administration.manage` o `platform_admin`.
 - Si el usuario no esta autenticado o no tiene tenant valido, la API responde `UNAUTHENTICATED`.
-- Si el `companyId` de la ruta no coincide con el tenant activo, la API responde `TENANT_MISMATCH`.
+- Si el `companyPublicId` de la ruta no coincide con el tenant activo, la API responde `TENANT_MISMATCH`.
 - Si el usuario esta autenticado dentro del tenant correcto pero no cumple permisos, la API responde `ORG_UNITS_FORBIDDEN`.
 
 #### 5.5.5 Errores observables relevantes en OrgUnits
@@ -1219,9 +1232,9 @@ No es un catalogo base como `Org structure catalogs`; aqui ya se administran nod
 - `ORG_UNITS_FORBIDDEN`: `403`, el usuario no tiene permisos sobre administracion de org units.
 - `TENANT_MISMATCH`: `403`, el recurso existe o se intenta operar otro tenant distinto al activo.
 - `ORG_UNIT_NOT_FOUND`: `404`, la org unit o `rootId` solicitado no existe en el scope correcto.
-- `ORG_UNIT_PARENT_NOT_FOUND`: `404`, el `parentId` o `newParentId` solicitado no existe en el tenant correcto.
-- `ORG_UNIT_TYPE_NOT_FOUND`: `404`, el `orgUnitTypeId` no existe o esta inactivo en los catalogos del tenant correcto.
-- `FUNCTIONAL_AREA_NOT_FOUND`: `404`, el `functionalAreaId` no existe o esta inactivo en los catalogos del tenant correcto.
+- `ORG_UNIT_PARENT_NOT_FOUND`: `404`, el `parentPublicId` o `newParentPublicId` solicitado no existe en el tenant correcto.
+- `ORG_UNIT_TYPE_NOT_FOUND`: `404`, el `orgUnitTypePublicId` no existe o esta inactivo en los catalogos del tenant correcto.
+- `FUNCTIONAL_AREA_NOT_FOUND`: `404`, el `functionalAreaPublicId` no existe o esta inactivo en los catalogos del tenant correcto.
 - `ORG_UNIT_CODE_CONFLICT`: `409`, otra org unit del mismo tenant ya usa ese `code`.
 - `ORG_UNIT_CYCLE_DETECTED`: `409`, el movimiento solicitado crearia un ciclo en la jerarquia.
 - `ORG_UNIT_DEPTH_LIMIT_EXCEEDED`: `409`, la nueva ubicacion excede los `15` niveles soportados.
@@ -1235,8 +1248,8 @@ No es un catalogo base como `Org structure catalogs`; aqui ya se administran nod
 
 Route family:
 
-- `GET /api/v1/companies/{companyId}/org-units`
-- `GET /api/v1/org-units/{id}`
+- `GET /api/v1/companies/{companyPublicId}/org-units`
+- `GET /api/v1/org-units/{publicId}`
 
 Uso principal:
 
@@ -1245,7 +1258,7 @@ Uso principal:
 
 Observaciones funcionales:
 
-- `search` soporta filtros `isActive`, `orgUnitTypeId`, `functionalAreaId`, `parentId`, `q`, `page`, `pageSize` e `includeAllowedActions`.
+- `search` soporta filtros `isActive`, `orgUnitTypePublicId`, `functionalAreaPublicId`, `parentPublicId`, `q`, `page`, `pageSize` e `includeAllowedActions`.
 - `q` busca por `code`, `name`, tipo de unidad, area funcional y nombre del padre.
 - el orden observable del listado es `sortOrder`, luego `name`, luego `code`.
 - `search` devuelve `PagedResponse<OrgUnitResponse>`.
@@ -1257,8 +1270,8 @@ Observaciones funcionales:
 
 Route family:
 
-- `GET /api/v1/companies/{companyId}/org-units/tree`
-- `GET /api/v1/companies/{companyId}/org-units/graph`
+- `GET /api/v1/companies/{companyPublicId}/org-units/tree`
+- `GET /api/v1/companies/{companyPublicId}/org-units/graph`
 
 Uso principal:
 
@@ -1267,22 +1280,22 @@ Uso principal:
 
 Observaciones funcionales:
 
-- ambos endpoints aceptan `rootId` opcional y `depth` opcional.
-- si no se envian `rootId` ni `depth`, el resultado cubre toda la jerarquia del tenant.
-- si se envia `rootId`, la respuesta se acota a ese subarbol.
+- ambos endpoints aceptan `rootPublicId` opcional y `depth` opcional.
+- si no se envian `rootPublicId` ni `depth`, el resultado cubre toda la jerarquia del tenant.
+- si se envia `rootPublicId`, la respuesta se acota a ese subarbol.
 - `depth` debe estar entre `1` y `15`.
 - `tree` devuelve nodos anidados con `children`.
 - `graph` devuelve `nodes` y `edges`.
-- en `graph`, cada edge va de `parentId` a `childId`.
+- en `graph`, cada edge va de `parentPublicId` a `childPublicId`.
 - el orden observable de nodos y ramas sigue `sortOrder`, luego `name`, luego `code`.
-- si `rootId` existe en otro tenant, la API devuelve `TENANT_MISMATCH`; si no existe, devuelve `ORG_UNIT_NOT_FOUND`.
+- si `rootPublicId` existe en otro tenant, la API devuelve `TENANT_MISMATCH`; si no existe, devuelve `ORG_UNIT_NOT_FOUND`.
 
 #### 5.5.8 Exportes
 
 Route family:
 
-- `GET /api/v1/companies/{companyId}/org-units/export`
-- `GET /api/v1/companies/{companyId}/org-units/diagram-export`
+- `GET /api/v1/companies/{companyPublicId}/org-units/export`
+- `GET /api/v1/companies/{companyPublicId}/org-units/diagram-export`
 
 Uso principal:
 
@@ -1293,7 +1306,7 @@ Observaciones funcionales:
 - `export` soporta `format=csv|xlsx` y reutiliza los mismos filtros de busqueda operativa, salvo paginacion.
 - `export` devuelve filas planas con columnas de tipo de unidad, area funcional, padre, centro de costo, responsable y timestamps.
 - `diagram-export` soporta `format=graphml|json|dot`.
-- `diagram-export` reutiliza `rootId` y `depth` del endpoint `graph`.
+- `diagram-export` reutiliza `rootPublicId` y `depth` del endpoint `graph`.
 - ambos endpoints generan auditoria de tipo `ReportExported`.
 - si `format` no es soportado, la respuesta observable es `REPORT_FORMAT_NOT_SUPPORTED`.
 
@@ -1301,11 +1314,11 @@ Observaciones funcionales:
 
 Route family:
 
-- `POST /api/v1/companies/{companyId}/org-units`
-- `PUT /api/v1/org-units/{id}`
-- `PATCH /api/v1/org-units/{id}/move`
-- `PATCH /api/v1/org-units/{id}/activate`
-- `PATCH /api/v1/org-units/{id}/inactivate`
+- `POST /api/v1/companies/{companyPublicId}/org-units`
+- `PUT /api/v1/org-units/{publicId}`
+- `PATCH /api/v1/org-units/{publicId}/move`
+- `PATCH /api/v1/org-units/{publicId}/activate`
+- `PATCH /api/v1/org-units/{publicId}/inactivate`
 
 Uso principal:
 
@@ -1317,14 +1330,14 @@ Uso principal:
 Observaciones funcionales:
 
 - `create` devuelve `201 Created` con la `OrgUnitResponse` creada.
-- `create` exige `code`, `name`, `orgUnitTypeId` y valida opcionalmente `functionalAreaId`, `parentId`, `sortOrder`, `description`, `costCenterCode` y `managerEmployeeId`.
-- `create` exige que `orgUnitTypeId` y `functionalAreaId` apunten a catalogos activos del tenant.
+- `create` exige `code`, `name`, `orgUnitTypePublicId` y valida opcionalmente `functionalAreaPublicId`, `parentPublicId`, `sortOrder`, `description`, `costCenterCode` y `managerEmployeePublicId`.
+- `create` exige que `orgUnitTypePublicId` y `functionalAreaPublicId` apunten a catalogos activos del tenant.
 - `create` valida unicidad de `code` por tenant.
 - `create` valida que `costCenterCode`, si se envia, exista y este activo en la compania.
-- `create` valida `parentId` dentro del tenant correcto y rechaza profundidades mayores a `15`.
+- `create` valida `parentPublicId` dentro del tenant correcto y rechaza profundidades mayores a `15`.
 - `update` modifica datos escalares de la org unit, pero no cambia el padre; para eso existe `move`.
 - `update` exige `ConcurrencyToken`.
-- `move` permite cambiar `newParentId` y opcionalmente `sortOrder`.
+- `move` permite cambiar `newParentPublicId` y opcionalmente `sortOrder`.
 - `move` exige `ConcurrencyToken`, rechaza mover una unidad bajo si misma y rechaza ciclos indirectos.
 - `move` tambien valida que la nueva ubicacion no exceda la profundidad maxima soportada.
 - `activate` exige `ConcurrencyToken` y reactiva la org unit.

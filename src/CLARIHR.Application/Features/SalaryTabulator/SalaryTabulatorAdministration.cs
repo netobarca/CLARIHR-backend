@@ -71,7 +71,7 @@ public sealed record SalaryTabulatorLineExportRow(
     DateTime? ModifiedAtUtc);
 
 public sealed record SalaryTabulatorChangeRequestItemResponse(
-    long Id,
+    Guid Id,
     Guid? SalaryClassId,
     string SalaryScaleCode,
     string CurrencyCode,
@@ -118,7 +118,7 @@ public sealed record SalaryTabulatorChangeRequestListItemResponse(
     AllowedActionsResponse? AllowedActions = null);
 
 public sealed record SalaryTabulatorChangeRequestImpactItemResponse(
-    long ItemId,
+    Guid ItemId,
     Guid? SalaryClassId,
     string SalaryScaleCode,
     SalaryTabulatorChangeType ChangeType,

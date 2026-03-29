@@ -8,10 +8,7 @@ namespace CLARIHR.Api.IntegrationTests;
 public sealed class PlatformAdminAuthenticationIntegrationTests(IntegrationTestWebApplicationFactory factory)
     : IClassFixture<IntegrationTestWebApplicationFactory>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        PropertyNameCaseInsensitive = true
-    };
+    private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
 
     [Fact]
     public async Task Login_WithConfiguredPlatformAdminEmail_ShouldEmitPlatformAdminClaim()
@@ -19,7 +16,7 @@ public sealed class PlatformAdminAuthenticationIntegrationTests(IntegrationTestW
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
 
-        var registerResponse = await client.PostAsJsonAsync("/api/auth/register", new
+        var registerResponse = await client.PostJsonAsync("/api/auth/register", new
         {
             firstName = "Dev",
             lastName = "Platform",
@@ -30,7 +27,7 @@ public sealed class PlatformAdminAuthenticationIntegrationTests(IntegrationTestW
         });
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
 
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
+        var loginResponse = await client.PostJsonAsync("/api/auth/login", new
         {
             email = "dev@clarihr.local",
             password = "StrongPass123!"

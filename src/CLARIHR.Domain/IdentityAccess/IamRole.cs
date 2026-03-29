@@ -20,8 +20,6 @@ public sealed class IamRole : TenantEntity
         IsSystemRole = isSystemRole;
     }
 
-    public Guid PublicId { get; private set; }
-
     public string Name { get; private set; } = string.Empty;
 
     public string NormalizedName { get; private set; } = string.Empty;

@@ -318,7 +318,7 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
                 };
 
                 return new SalaryTabulatorChangeRequestImpactItemResponse(
-                    item.Id,
+                    item.PublicId,
                     salaryClassLookup.TryGetValue(item.NormalizedSalaryClassCode, out var salaryClassId)
                         ? salaryClassId
                         : null,
@@ -409,7 +409,7 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
             .ThenBy(item => item.SalaryScaleCode)
             .ThenBy(item => item.Id)
             .Select(item => new SalaryTabulatorChangeRequestItemResponse(
-                item.Id,
+                item.PublicId,
                 salaryClassLookup.TryGetValue(item.NormalizedSalaryClassCode, out var salaryClassId)
                     ? salaryClassId
                     : null,

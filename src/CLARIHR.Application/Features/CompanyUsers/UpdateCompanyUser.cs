@@ -110,7 +110,11 @@ internal sealed class UpdateCompanyUserCommandHandler(
         user.UpdateProfile(command.FirstName, command.LastName);
         membership.ChangeRole(role.Id);
 
-        var iamUser = await iamRepository.FindUserByPublicIdAsync(command.UserId, includeRoles: true, cancellationToken);
+        var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
+            companyPublicId,
+            user.PublicId,
+            includeRoles: true,
+            cancellationToken);
         if (iamUser is null)
         {
             iamUser = IamUser.CreateLinked(

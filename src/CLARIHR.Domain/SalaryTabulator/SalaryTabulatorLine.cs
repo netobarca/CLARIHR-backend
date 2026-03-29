@@ -38,8 +38,6 @@ public sealed class SalaryTabulatorLine : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public string SalaryClassCode { get; private set; } = string.Empty;
 
     public string NormalizedSalaryClassCode { get; private set; } = string.Empty;
@@ -141,14 +139,14 @@ public sealed class SalaryTabulatorLine : TenantEntity
 
     private void SetSalaryClassCode(string code)
     {
-        SalaryClassCode = SalaryTabulatorNormalization.Clean(code, nameof(code));
-        NormalizedSalaryClassCode = SalaryTabulatorNormalization.NormalizeCode(code);
+        SalaryClassCode = SalaryTabulatorNormalization.NormalizeCode(code);
+        NormalizedSalaryClassCode = SalaryClassCode;
     }
 
     private void SetSalaryScaleCode(string code)
     {
-        SalaryScaleCode = SalaryTabulatorNormalization.Clean(code, nameof(code));
-        NormalizedSalaryScaleCode = SalaryTabulatorNormalization.NormalizeCode(code);
+        SalaryScaleCode = SalaryTabulatorNormalization.NormalizeCode(code);
+        NormalizedSalaryScaleCode = SalaryScaleCode;
     }
 
     private void SetCurrencyCode(string code)

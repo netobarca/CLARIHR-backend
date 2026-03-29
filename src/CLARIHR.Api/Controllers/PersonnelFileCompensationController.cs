@@ -104,7 +104,7 @@ public sealed class PersonnelFileCompensationController(
                 id,
                 request.Items.Select(item => new PaymentMethodInput(
                     item.PaymentMethodCode,
-                    item.BankAccountId,
+                    item.BankAccountPublicId,
                     item.IsPrimary,
                     item.IsActive,
                     item.EffectiveFromUtc,
@@ -330,7 +330,7 @@ public sealed class PersonnelFileCompensationController(
             new ReplacePersonnelFileMedicalClaimsCommand(
                 id,
                 request.Items.Select(item => new MedicalClaimInput(
-                    item.InsuranceId,
+                    item.InsurancePublicId,
                     item.AccountNumber,
                     item.ClaimTypeCode,
                     item.Diagnosis,
@@ -380,7 +380,7 @@ public sealed class PersonnelFileCompensationController(
     {
         var lines = new List<string>
         {
-            "Id,TransactionTypeCode,TransactionDateUtc,PayrollPeriodCode,Description,Amount,CurrencyCode,IsDebit,SourceSystem,SourceReference,SourceSyncedUtc,CreatedAtUtc,ModifiedAtUtc"
+            "PublicId,TransactionTypeCode,TransactionDateUtc,PayrollPeriodCode,Description,Amount,CurrencyCode,IsDebit,SourceSystem,SourceReference,SourceSyncedUtc,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
@@ -405,7 +405,7 @@ public sealed class PersonnelFileCompensationController(
         BuildSimpleXlsx(
             "PayrollTransactions",
             [
-                "Id",
+                "PublicId",
                 "TransactionTypeCode",
                 "TransactionDateUtc",
                 "PayrollPeriodCode",

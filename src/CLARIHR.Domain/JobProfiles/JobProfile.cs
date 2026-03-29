@@ -29,8 +29,6 @@ public sealed class JobProfile : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public string Code { get; private set; } = string.Empty;
 
     public string NormalizedCode { get; private set; } = string.Empty;
@@ -269,8 +267,8 @@ public sealed class JobProfile : TenantEntity
 
     private void SetCode(string code)
     {
-        Code = JobProfileNormalization.Clean(code, nameof(code));
-        NormalizedCode = JobProfileNormalization.NormalizeCode(code);
+        Code = JobProfileNormalization.NormalizeCode(code);
+        NormalizedCode = Code;
     }
 
     private void SetTitle(string title)

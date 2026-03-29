@@ -8,6 +8,10 @@ info:
 
     The exhaustive contract is still generated at runtime by Swagger in Development
     at /swagger/v1/swagger.json.
+
+    Public API contracts expose `publicId` or `<entity>PublicId`; internal `id` and
+    `internalId` never leave the backend. When a resource has business codes, the
+    public contract exposes `code` and `normalizedCode`, both normalized to uppercase.
 servers:
   - url: /
 security:
@@ -22,24 +26,28 @@ components:
     LegalRepresentativeDocumentTypeCatalogItemResponse:
       type: object
       required:
-        - id
+        - publicId
         - code
+        - normalizedCode
         - name
         - sortOrder
       properties:
-        id:
-          type: integer
-          format: int32
-          description: Numeric value aligned with the current LegalRepresentativeDocumentType enum.
-          example: 1
+        publicId:
+          type: string
+          format: uuid
+          description: Stable public identifier for the seeded legal representative document type.
         code:
           type: string
           description: String enum value that must be sent in initialLegalRepresentative.documentType.
-          example: NationalId
+          example: TAXID
+        normalizedCode:
+          type: string
+          description: Uppercase normalized code used for searches and uniqueness.
+          example: TAXID
         name:
           type: string
           description: Human-readable label for display in the client.
-          example: National ID
+          example: Tax ID
         sortOrder:
           type: integer
           format: int32
@@ -47,19 +55,23 @@ components:
     LegalRepresentativePositionTitleCatalogItemResponse:
       type: object
       required:
-        - id
+        - publicId
         - code
+        - normalizedCode
         - name
         - sortOrder
       properties:
-        id:
-          type: integer
-          format: int32
-          description: Stable numeric identifier for the seeded legal representative position title.
-          example: 14
+        publicId:
+          type: string
+          format: uuid
+          description: Stable public identifier for the seeded legal representative position title.
         code:
           type: string
           description: Stable frontend key for the seeded position title.
+          example: INFRASTRUCTURE_DEVOPS
+        normalizedCode:
+          type: string
+          description: Uppercase normalized code used for searches and uniqueness.
           example: INFRASTRUCTURE_DEVOPS
         name:
           type: string
@@ -72,20 +84,24 @@ components:
     LegalRepresentativeRepresentationTypeCatalogItemResponse:
       type: object
       required:
-        - id
+        - publicId
         - code
+        - normalizedCode
         - name
         - sortOrder
       properties:
-        id:
-          type: integer
-          format: int32
-          description: Numeric value aligned with the current LegalRepresentativeRepresentationType enum.
-          example: 1
+        publicId:
+          type: string
+          format: uuid
+          description: Stable public identifier for the seeded legal representative representation type.
         code:
           type: string
           description: String enum value that must be sent in initialLegalRepresentative.representationType.
-          example: PrimaryLegalRepresentative
+          example: PRIMARYLEGALREPRESENTATIVE
+        normalizedCode:
+          type: string
+          description: Uppercase normalized code used for searches and uniqueness.
+          example: PRIMARYLEGALREPRESENTATIVE
         name:
           type: string
           description: Human-readable label for display in the client.
@@ -115,7 +131,7 @@ components:
           example: Mendoza
         documentType:
           type: string
-          example: TaxId
+          example: TAXID
         documentNumber:
           type: string
           maxLength: 80
@@ -126,7 +142,7 @@ components:
           example: Representante Legal
         representationType:
           type: string
-          example: PrimaryLegalRepresentative
+          example: PRIMARYLEGALREPRESENTATIVE
         authorityDescription:
           type: string
           nullable: true
@@ -163,16 +179,21 @@ components:
     CompanyTypeMetadataResponse:
       type: object
       required:
-        - id
+        - publicId
         - code
+        - normalizedCode
         - name
         - isActive
       properties:
-        id:
+        publicId:
           type: string
           format: uuid
         code:
           type: string
+          example: PRIVATE
+        normalizedCode:
+          type: string
+          example: PRIVATE
         name:
           type: string
         isActive:
@@ -180,19 +201,19 @@ components:
     ActiveLegalRepresentativeSummaryResponse:
       type: object
       required:
-        - id
+        - publicId
         - fullName
         - representationType
         - positionTitle
       properties:
-        id:
+        publicId:
           type: string
           format: uuid
         fullName:
           type: string
         representationType:
           type: string
-          example: PrimaryLegalRepresentative
+          example: PRIMARYLEGALREPRESENTATIVE
         positionTitle:
           type: string
         isPrimary:
@@ -202,7 +223,7 @@ components:
     AccountCompanyDetailResponse:
       type: object
       required:
-        - companyId
+        - companyPublicId
         - name
         - slug
         - countryCode
@@ -213,7 +234,7 @@ components:
         - createdAtUtc
         - activeLegalRepresentatives
       properties:
-        companyId:
+        companyPublicId:
           type: string
           format: uuid
         name:
@@ -262,7 +283,7 @@ components:
           type: string
           maxLength: 3
           example: SV
-        companyTypeId:
+        companyTypePublicId:
           type: string
           format: uuid
           nullable: true
@@ -283,7 +304,7 @@ components:
         code:
           type: string
           maxLength: 80
-          example: employees
+          example: EMPLOYEES
         value:
           type: number
           format: decimal
@@ -292,9 +313,13 @@ components:
       type: object
       required:
         - code
+        - normalizedCode
         - value
       properties:
         code:
+          type: string
+          example: EMPLOYEES
+        normalizedCode:
           type: string
           example: EMPLOYEES
         value:
@@ -304,8 +329,9 @@ components:
     CommercialPlanSummaryResponse:
       type: object
       required:
-        - id
+        - publicId
         - code
+        - normalizedCode
         - name
         - baseMonthlyFee
         - pricePerActiveEmployee
@@ -313,10 +339,13 @@ components:
         - isSystemPlan
         - createdAtUtc
       properties:
-        id:
+        publicId:
           type: string
           format: uuid
         code:
+          type: string
+          example: PRO
+        normalizedCode:
           type: string
           example: PRO
         name:
@@ -347,8 +376,9 @@ components:
     CommercialPlanResponse:
       type: object
       required:
-        - id
+        - publicId
         - code
+        - normalizedCode
         - name
         - baseMonthlyFee
         - pricePerActiveEmployee
@@ -358,10 +388,13 @@ components:
         - createdAtUtc
         - limits
       properties:
-        id:
+        publicId:
           type: string
           format: uuid
         code:
+          type: string
+          example: PRO
+        normalizedCode:
           type: string
           example: PRO
         name:
@@ -744,16 +777,16 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/commercial-plans/{id}:
+  /api/account/commercial-plans/{publicId}:
     get:
       tags:
         - commercial-plans
       operationId: GetCommercialPlanById
-      summary: Get a global commercial plan by id
+      summary: Get a global commercial plan by public id
       security:
         - Bearer: []
       parameters:
-        - name: id
+        - name: publicId
           in: path
           required: true
           schema:
@@ -792,7 +825,7 @@ paths:
       security:
         - Bearer: []
       parameters:
-        - name: id
+        - name: publicId
           in: path
           required: true
           schema:
@@ -841,7 +874,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/commercial-plans/{id}/activate:
+  /api/account/commercial-plans/{publicId}/activate:
     patch:
       tags:
         - commercial-plans
@@ -850,7 +883,7 @@ paths:
       security:
         - Bearer: []
       parameters:
-        - name: id
+        - name: publicId
           in: path
           required: true
           schema:
@@ -899,7 +932,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/commercial-plans/{id}/inactivate:
+  /api/account/commercial-plans/{publicId}/inactivate:
     patch:
       tags:
         - commercial-plans
@@ -908,7 +941,7 @@ paths:
       security:
         - Bearer: []
       parameters:
-        - name: id
+        - name: publicId
           in: path
           required: true
           schema:

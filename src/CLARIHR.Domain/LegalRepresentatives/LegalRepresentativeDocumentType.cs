@@ -26,5 +26,5 @@ public sealed record LegalRepresentativeDocumentTypeCatalogDefinition(
 {
     public long Id => (long)DocumentType;
 
-    public string Code => DocumentType.ToString();
+    public string Code => DocumentType.ToString().ToUpperInvariant();
 }

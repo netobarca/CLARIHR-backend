@@ -34,7 +34,7 @@ public sealed class IamPermissionsController(
             return this.ToActionResult(result);
         }
 
-        return CreatedAtAction(nameof(GetById), new { permissionId = result.Value.Id }, result.Value);
+        return CreatedAtAction(nameof(GetById), new { permissionPublicId = result.Value.Id }, result.Value);
     }
 
     [AuthorizeResource("RBAC_PERMISSIONS", RbacPermissionAction.Read)]

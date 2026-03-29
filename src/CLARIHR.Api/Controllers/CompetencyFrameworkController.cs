@@ -196,9 +196,9 @@ public sealed class CompetencyFrameworkController(
         var result = await commandDispatcher.SendAsync(
             new CreateCompetencyConductCommand(
                 companyId,
-                request.CompetencyId,
-                request.CompetencyTypeId,
-                request.BehaviorLevelId,
+                request.CompetencyPublicId,
+                request.CompetencyTypePublicId,
+                request.BehaviorLevelPublicId,
                 request.Description,
                 request.SortOrder),
             cancellationToken);
@@ -223,9 +223,9 @@ public sealed class CompetencyFrameworkController(
         var result = await commandDispatcher.SendAsync(
             new UpdateCompetencyConductCommand(
                 id,
-                request.CompetencyId,
-                request.CompetencyTypeId,
-                request.BehaviorLevelId,
+                request.CompetencyPublicId,
+                request.CompetencyTypePublicId,
+                request.BehaviorLevelPublicId,
                 request.Description,
                 request.SortOrder,
                 request.ConcurrencyToken),
@@ -287,7 +287,7 @@ public sealed class CompetencyFrameworkController(
         var result = await commandDispatcher.SendAsync(
             new UpdateCompetencyConductBehaviorsCommand(
                 id,
-                request.Behaviors?.Select(item => new CompetencyConductBehaviorInput(item.BehaviorId, item.Notes, item.SortOrder)).ToArray() ?? [],
+                request.Behaviors?.Select(item => new CompetencyConductBehaviorInput(item.BehaviorPublicId, item.Notes, item.SortOrder)).ToArray() ?? [],
                 request.ConcurrencyToken),
             cancellationToken);
 
@@ -324,11 +324,11 @@ public sealed class CompetencyFrameworkController(
             new UpdateJobProfileCompetencyMatrixCommand(
                 id,
                 request.Items?.Select(item => new JobProfileCompetencyMatrixItemInput(
-                        item.OccupationalPyramidLevelId,
-                        item.CompetencyId,
-                        item.CompetencyTypeId,
-                        item.BehaviorLevelId,
-                        item.ConductIds ?? [],
+                        item.OccupationalPyramidLevelPublicId,
+                        item.CompetencyPublicId,
+                        item.CompetencyTypePublicId,
+                        item.BehaviorLevelPublicId,
+                        item.ConductPublicIds ?? [],
                         item.ExpectedEvidence,
                         item.SortOrder))
                     .ToArray() ?? [],
@@ -405,7 +405,7 @@ public sealed class CompetencyFrameworkController(
     {
         var lines = new List<string>
         {
-            "JobProfileId,JobProfileCode,JobProfileTitle,JobProfileStatus,JobProfileVersion,OccupationalPyramidLevelId,OccupationalPyramidLevelCode,OccupationalPyramidLevelName,OccupationalPyramidLevelOrder,CompetencyId,CompetencyCode,CompetencyName,CompetencyTypeId,CompetencyTypeCode,CompetencyTypeName,BehaviorLevelId,BehaviorLevelCode,BehaviorLevelName,ConductId,ConductDescription,ConductSortOrder,ExpectedEvidence,ItemSortOrder"
+            "JobProfilePublicId,JobProfileCode,JobProfileTitle,JobProfileStatus,JobProfileVersion,OccupationalPyramidLevelPublicId,OccupationalPyramidLevelCode,OccupationalPyramidLevelName,OccupationalPyramidLevelOrder,CompetencyPublicId,CompetencyCode,CompetencyName,CompetencyTypePublicId,CompetencyTypeCode,CompetencyTypeName,BehaviorLevelPublicId,BehaviorLevelCode,BehaviorLevelName,ConductPublicId,ConductDescription,ConductSortOrder,ExpectedEvidence,ItemSortOrder"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
@@ -443,25 +443,25 @@ public sealed class CompetencyFrameworkController(
 
         var headers = new[]
         {
-            "JobProfileId",
+            "JobProfilePublicId",
             "JobProfileCode",
             "JobProfileTitle",
             "JobProfileStatus",
             "JobProfileVersion",
-            "OccupationalPyramidLevelId",
+            "OccupationalPyramidLevelPublicId",
             "OccupationalPyramidLevelCode",
             "OccupationalPyramidLevelName",
             "OccupationalPyramidLevelOrder",
-            "CompetencyId",
+            "CompetencyPublicId",
             "CompetencyCode",
             "CompetencyName",
-            "CompetencyTypeId",
+            "CompetencyTypePublicId",
             "CompetencyTypeCode",
             "CompetencyTypeName",
-            "BehaviorLevelId",
+            "BehaviorLevelPublicId",
             "BehaviorLevelCode",
             "BehaviorLevelName",
-            "ConductId",
+            "ConductPublicId",
             "ConductDescription",
             "ConductSortOrder",
             "ExpectedEvidence",
@@ -591,16 +591,16 @@ public sealed class CompetencyFrameworkController(
         Guid ConcurrencyToken);
 
     public sealed record CreateCompetencyConductRequest(
-        Guid CompetencyId,
-        Guid CompetencyTypeId,
-        Guid BehaviorLevelId,
+        Guid CompetencyPublicId,
+        Guid CompetencyTypePublicId,
+        Guid BehaviorLevelPublicId,
         string Description,
         int SortOrder);
 
     public sealed record UpdateCompetencyConductRequest(
-        Guid CompetencyId,
-        Guid CompetencyTypeId,
-        Guid BehaviorLevelId,
+        Guid CompetencyPublicId,
+        Guid CompetencyTypePublicId,
+        Guid BehaviorLevelPublicId,
         string Description,
         int SortOrder,
         Guid ConcurrencyToken);
@@ -610,7 +610,7 @@ public sealed class CompetencyFrameworkController(
         Guid ConcurrencyToken);
 
     public sealed record CompetencyConductBehaviorRequest(
-        Guid BehaviorId,
+        Guid BehaviorPublicId,
         string? Notes,
         int SortOrder);
 
@@ -619,11 +619,11 @@ public sealed class CompetencyFrameworkController(
         Guid ConcurrencyToken);
 
     public sealed record JobProfileCompetencyMatrixItemRequest(
-        Guid OccupationalPyramidLevelId,
-        Guid CompetencyId,
-        Guid CompetencyTypeId,
-        Guid BehaviorLevelId,
-        IReadOnlyCollection<Guid>? ConductIds,
+        Guid OccupationalPyramidLevelPublicId,
+        Guid CompetencyPublicId,
+        Guid CompetencyTypePublicId,
+        Guid BehaviorLevelPublicId,
+        IReadOnlyCollection<Guid>? ConductPublicIds,
         string? ExpectedEvidence,
         int SortOrder);
 

@@ -33,15 +33,7 @@ namespace CLARIHR.Api.IntegrationTests;
 public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory factory)
     : IClassFixture<IntegrationTestWebApplicationFactory>
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
-    static ApiIntegrationTests()
-    {
-        JsonOptions.Converters.Add(new JsonStringEnumConverter());
-    }
+    private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
 
     [Fact]
     public async Task Register_ShouldReturnCreatedAndTokens()
@@ -49,7 +41,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/register", new
+        var response = await client.PostJsonAsync("/api/auth/register", new
         {
             firstName = "Admin",
             lastName = "Local",
@@ -74,7 +66,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/register", new
+        var response = await client.PostJsonAsync("/api/auth/register", new
         {
             firstName = "Admin",
             lastName = "Local",
@@ -94,7 +86,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var anonymousClient = factory.CreateClient();
 
         var email = $"onboarding.{Guid.NewGuid():N}@clarihr.test";
-        var registerResponse = await anonymousClient.PostAsJsonAsync("/api/auth/register", new
+        var registerResponse = await anonymousClient.PostJsonAsync("/api/auth/register", new
         {
             firstName = "Onboarding",
             lastName = "User",
@@ -116,7 +108,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var accountClient = factory.CreateClientFor(
             TestUserContext.Authenticated(registerPayload.User.Id, scenario.TenantId));
 
-        var createCompanyResponse = await accountClient.PostAsJsonAsync("/api/account/companies", new
+        var createCompanyResponse = await accountClient.PostJsonAsync("/api/account/companies", new
         {
             name = "First Access Company",
             countryCode = "SV",
@@ -128,17 +120,17 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(companyPayload);
 
         var switchResponse = await accountClient.PostAsync(
-            $"/api/account/companies/{companyPayload!.CompanyId}/switch",
+            $"/api/account/companies/{companyPayload!.PublicId}/switch",
             content: null);
         Assert.Equal(HttpStatusCode.OK, switchResponse.StatusCode);
 
         var switchPayload = await switchResponse.Content.ReadFromJsonAsync<SwitchActiveCompanyItem>(JsonOptions);
         Assert.NotNull(switchPayload);
-        Assert.Equal(companyPayload.CompanyId, switchPayload!.ActiveCompany.CompanyId);
+        Assert.Equal(companyPayload.PublicId, switchPayload!.ActiveCompany.PublicId);
 
         var switchToken = new JwtSecurityTokenHandler().ReadJwtToken(switchPayload.AccessToken);
         var tid = switchToken.Claims.Single(claim => claim.Type == "tid").Value;
-        Assert.Equal(companyPayload.CompanyId.ToString(), tid);
+        Assert.Equal(companyPayload.PublicId.ToString(), tid);
         Assert.Equal("ADMIN DE EMPRESA", switchToken.Claims.Single(claim => claim.Type == "role").Value);
     }
 
@@ -151,7 +143,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"login.user.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await client.PostAsJsonAsync("/api/auth/register", new
+        var registerResponse = await client.PostJsonAsync("/api/auth/register", new
         {
             firstName = "Login",
             lastName = "User",
@@ -162,7 +154,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
 
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
+        var loginResponse = await client.PostJsonAsync("/api/auth/login", new
         {
             email,
             password
@@ -185,7 +177,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"login.user.invalid.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await client.PostAsJsonAsync("/api/auth/register", new
+        var registerResponse = await client.PostJsonAsync("/api/auth/register", new
         {
             firstName = "Login",
             lastName = "Invalid",
@@ -196,7 +188,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
 
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
+        var loginResponse = await client.PostJsonAsync("/api/auth/login", new
         {
             email,
             password = "WrongPassword123!"
@@ -214,7 +206,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var email = $"logout.user.{Guid.NewGuid():N}@clarihr.test";
         const string password = "StrongPass123!";
 
-        var registerResponse = await anonymousClient.PostAsJsonAsync("/api/auth/register", new
+        var registerResponse = await anonymousClient.PostJsonAsync("/api/auth/register", new
         {
             firstName = "Logout",
             lastName = "User",
@@ -235,7 +227,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var logoutResponse = await authenticatedClient.PostAsync("/api/auth/logout", content: null);
         Assert.Equal(HttpStatusCode.NoContent, logoutResponse.StatusCode);
 
-        var refreshResponse = await anonymousClient.PostAsJsonAsync("/api/auth/refresh", new
+        var refreshResponse = await anonymousClient.PostJsonAsync("/api/auth/refresh", new
         {
             refreshToken = registerPayload.RefreshToken
         });
@@ -438,7 +430,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PostAsJsonAsync("/api/account/companies", new
+        var response = await client.PostJsonAsync("/api/account/companies", new
         {
             name = "Acme DevOps",
             countryCode = "SV",
@@ -453,7 +445,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var representative = await dbContext.LegalRepresentatives
             .AsNoTracking()
-            .SingleAsync(item => item.TenantId == payload!.CompanyId);
+            .SingleAsync(item => item.TenantId == payload!.PublicId);
 
         Assert.Equal("Infrastructure / DevOps", representative.PositionTitle);
     }
@@ -470,7 +462,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PostAsJsonAsync("/api/account/companies", new
+        var response = await client.PostJsonAsync("/api/account/companies", new
         {
             name = "Acme Three",
             countryCode = "SV",
@@ -499,7 +491,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PostAsJsonAsync("/api/account/companies", new
+        var response = await client.PostJsonAsync("/api/account/companies", new
         {
             name = "Acme Nullable Primary",
             countryCode = "SV",
@@ -514,11 +506,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var legalRepresentativesClient = factory.CreateClientFor(
             TestUserContext.Authenticated(
                 scenario.ActorUserId,
-                payload!.CompanyId,
+                payload!.PublicId,
                 "LegalRepresentatives.Read"));
 
         var listResponse = await legalRepresentativesClient.GetAsync(
-            $"/api/v1/companies/{payload.CompanyId}/legal-representatives?page=1&pageSize=20");
+            $"/api/v1/companies/{payload.PublicId}/legal-representatives?page=1&pageSize=20");
         listResponse.EnsureSuccessStatusCode();
 
         var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<LegalRepresentativeListItem>>(JsonOptions);
@@ -530,7 +522,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var persistedRepresentative = await dbContext.LegalRepresentatives
             .AsNoTracking()
-            .SingleAsync(item => item.TenantId == payload.CompanyId);
+            .SingleAsync(item => item.TenantId == payload.PublicId);
 
         Assert.Null(persistedRepresentative.IsPrimary);
     }
@@ -547,7 +539,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PostAsJsonAsync("/api/account/companies", new
+        var response = await client.PostJsonAsync("/api/account/companies", new
         {
             name = "Acme Three",
             countryCode = "SV"
@@ -568,7 +560,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var accountClient = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var createResponse = await accountClient.PostAsJsonAsync("/api/account/companies", new
+        var createResponse = await accountClient.PostJsonAsync("/api/account/companies", new
         {
             name = "Acme Three",
             countryCode = "SV",
@@ -581,9 +573,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(company);
 
         using var locationClient = factory.CreateClientFor(
-            TestUserContext.Authenticated(scenario.ActorUserId, company!.CompanyId, LocationPermissionCodes.Read));
+            TestUserContext.Authenticated(scenario.ActorUserId, company!.PublicId, LocationPermissionCodes.Read));
 
-        var hierarchyResponse = await locationClient.GetAsync($"/api/v1/companies/{company.CompanyId}/location-hierarchy");
+        var hierarchyResponse = await locationClient.GetAsync($"/api/v1/companies/{company.PublicId}/location-hierarchy");
 
         hierarchyResponse.EnsureSuccessStatusCode();
 
@@ -600,7 +592,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PostAsJsonAsync("/api/account/companies", new
+        var response = await client.PostJsonAsync("/api/account/companies", new
         {
             name = "Acme Three",
             countryCode = "SV",
@@ -616,7 +608,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PutAsJsonAsync($"/api/account/companies/{scenario.OtherTenantId}", new
+        var response = await client.PutJsonAsync($"/api/account/companies/{scenario.OtherTenantId}", new
         {
             name = "Acme Two Updated"
         });
@@ -637,10 +629,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var companyType = await CreateCompanyTypeAsync(client, "PRIVATE", "Private Company");
 
-        var response = await client.PutAsJsonAsync($"/api/account/companies/{scenario.OtherTenantId}", new
+        var response = await client.PutJsonAsync($"/api/account/companies/{scenario.OtherTenantId}", new
         {
             name = "Acme Two Typed",
-            companyTypeId = companyType.Id
+            companyTypePublicId = companyType.Id
         });
 
         response.EnsureSuccessStatusCode();
@@ -732,7 +724,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var payload = await response.Content.ReadFromJsonAsync<SwitchActiveCompanyItem>(JsonOptions);
         Assert.NotNull(payload);
-        Assert.Equal(scenario.OtherTenantId, payload!.ActiveCompany.CompanyId);
+        Assert.Equal(scenario.OtherTenantId, payload!.ActiveCompany.PublicId);
 
         var token = new JwtSecurityTokenHandler().ReadJwtToken(payload.AccessToken);
         var tid = token.Claims.Single(claim => claim.Type == "tid").Value;
@@ -763,7 +755,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 scenario.TenantId,
                 "LegalRepresentatives.Admin"));
 
-        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/legal-representatives", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/legal-representatives", new
         {
             firstName = "Carla",
             lastName = "Lopez",
@@ -853,7 +845,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
-        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
         {
             recordType = "Candidate",
             firstName = "Maria",
@@ -870,7 +862,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthDepartment = "San Salvador",
             birthMunicipality = "San Salvador",
             photoUrl = (string?)null,
-            orgUnitId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
             customDataJson = "{ \"shirt_size\": \"M\" }",
             identifications = new[]
             {
@@ -909,7 +901,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         async Task<HttpResponseMessage> CreateAsync(string firstName)
         {
-            return await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
+            return await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
             {
                 recordType = "Candidate",
                 firstName,
@@ -926,7 +918,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 birthDepartment = "La Libertad",
                 birthMunicipality = "Santa Tecla",
                 photoUrl = (string?)null,
-                orgUnitId = (Guid?)null,
+                orgUnitPublicId = (Guid?)null,
                 customDataJson = (string?)null,
                 identifications = new[]
                 {
@@ -989,7 +981,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Carla", "Rivas", "DUI", "05555555-5");
         var concurrencyToken = created.ConcurrencyToken;
 
-        var educationsResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/educations", new
+        var educationsResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/educations", new
         {
             educations = new[]
             {
@@ -1019,7 +1011,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Single(educationPayload!.Educations);
         concurrencyToken = educationPayload.ConcurrencyToken;
 
-        var languagesResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
+        var languagesResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
         {
             languages = new[]
             {
@@ -1040,7 +1032,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Single(languagePayload!.Languages);
         concurrencyToken = languagePayload.ConcurrencyToken;
 
-        var trainingsResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/trainings", new
+        var trainingsResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/trainings", new
         {
             trainings = new[]
             {
@@ -1072,7 +1064,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Single(trainingPayload!.Trainings);
         concurrencyToken = trainingPayload.ConcurrencyToken;
 
-        var employmentsResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/previous-employments", new
+        var employmentsResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/previous-employments", new
         {
             previousEmployments = new[]
             {
@@ -1100,7 +1092,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Single(employmentPayload!.PreviousEmployments);
         concurrencyToken = employmentPayload.ConcurrencyToken;
 
-        var referencesResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/references", new
+        var referencesResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/references", new
         {
             references = new[]
             {
@@ -1141,7 +1133,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
         var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Diana", "Flores", "DUI", "04444444-4");
-        var languageResponse = await client.PutAsJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
+        var languageResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
         {
             languages = new[]
             {
@@ -1235,7 +1227,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Marta", "Ayala", "DUI", "02020202-2", profession: "Engineer", maritalStatus: "SINGLE", nationality: "SV");
         _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Nora", "Zelaya", "DUI", "03030303-3", profession: "Designer", maritalStatus: "MARRIED", nationality: "GT");
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files/dynamic-query", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files/dynamic-query", new
         {
             filters = Array.Empty<object>(),
             groupBy = new[] { "maritalStatus", "nationality" },
@@ -1292,7 +1284,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var current = await GetLocationHierarchyAsync(client, scenario.TenantId);
 
-        var response = await client.PutAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-hierarchy", new
+        var response = await client.PutJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-hierarchy", new
         {
             isMultiLevel = true,
             concurrencyToken = current.ConcurrencyToken
@@ -1312,7 +1304,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
 
-        var response = await client.PutAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-hierarchy", new
+        var response = await client.PutJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-hierarchy", new
         {
             isMultiLevel = true,
             concurrencyToken = Guid.NewGuid()
@@ -1380,12 +1372,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/location-groups", new
         {
             levelOrder = 1,
             code = "WEST",
             name = "West",
-            parentId = (Guid?)null,
+            parentPublicId = (Guid?)null,
             description = "Western location group"
         });
 
@@ -1407,7 +1399,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var defaultGroup = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
 
-        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        var typeResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
         {
             code = "AGENCY",
             name = "Agency",
@@ -1418,12 +1410,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(HttpStatusCode.Created, typeResponse.StatusCode);
         var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
         {
             code = "CEN-001",
             name = "Centro General",
-            workCenterTypeId = workCenterType!.Id,
-            locationGroupId = defaultGroup.Id,
+            workCenterTypePublicId = workCenterType!.Id,
+            locationGroupPublicId = defaultGroup.Id,
             address = "San Salvador",
             geoLat = (decimal?)null,
             geoLong = (decimal?)null,
@@ -1450,7 +1442,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var defaultGroup = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
 
-        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        var typeResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
         {
             code = "AGENCY",
             name = "Agency",
@@ -1461,12 +1453,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         typeResponse.EnsureSuccessStatusCode();
         var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
         {
             code = "CEN-001",
             name = "Centro General",
-            workCenterTypeId = workCenterType!.Id,
-            locationGroupId = defaultGroup.Id,
+            workCenterTypePublicId = workCenterType!.Id,
+            locationGroupPublicId = defaultGroup.Id,
             address = (string?)null,
             geoLat = (decimal?)null,
             geoLong = (decimal?)null,
@@ -1485,7 +1477,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
         var group = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
 
-        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        var typeResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
         {
             code = "AGENCY",
             name = "Agency",
@@ -1496,12 +1488,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         typeResponse.EnsureSuccessStatusCode();
         var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
 
-        var createCenterResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        var createCenterResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
         {
             code = "CEN-001",
             name = "Centro Apopa",
-            workCenterTypeId = workCenterType!.Id,
-            locationGroupId = group.Id,
+            workCenterTypePublicId = workCenterType!.Id,
+            locationGroupPublicId = group.Id,
             address = "San Salvador",
             geoLat = (decimal?)null,
             geoLong = (decimal?)null,
@@ -1527,7 +1519,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var defaultGroup = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
 
-        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        var typeResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
         {
             code = "AGENCY",
             name = "Agency",
@@ -1538,12 +1530,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         typeResponse.EnsureSuccessStatusCode();
         var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
 
-        var createCenterResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        var createCenterResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
         {
             code = "CEN-001",
             name = "Centro General",
-            workCenterTypeId = workCenterType!.Id,
-            locationGroupId = defaultGroup.Id,
+            workCenterTypePublicId = workCenterType!.Id,
+            locationGroupPublicId = defaultGroup.Id,
             address = "San Salvador",
             geoLat = (decimal?)null,
             geoLong = (decimal?)null,
@@ -1569,7 +1561,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var defaultGroup = await GetDefaultLocationGroupAsync(client, scenario.TenantId);
 
-        var typeResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        var typeResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
         {
             code = "AGENCY",
             name = "Agency",
@@ -1580,12 +1572,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         typeResponse.EnsureSuccessStatusCode();
         var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
 
-        var createCenterResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        var createCenterResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
         {
             code = "CEN-001",
             name = "Centro General",
-            workCenterTypeId = workCenterType!.Id,
-            locationGroupId = defaultGroup.Id,
+            workCenterTypePublicId = workCenterType!.Id,
+            locationGroupPublicId = defaultGroup.Id,
             address = "San Salvador",
             geoLat = (decimal?)null,
             geoLong = (decimal?)null,
@@ -1615,17 +1607,17 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
         var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
         {
             code = "DIR-001",
             name = "Direccion General",
-            orgUnitTypeId = orgUnitType.Id,
-            functionalAreaId = (Guid?)null,
-            parentId = (Guid?)null,
+            orgUnitTypePublicId = orgUnitType.Id,
+            functionalAreaPublicId = (Guid?)null,
+            parentPublicId = (Guid?)null,
             sortOrder = 1,
             description = "Direccion principal",
             costCenterCode = (string?)null,
-            managerEmployeeId = (Guid?)null
+            managerEmployeePublicId = (Guid?)null
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -1647,16 +1639,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var unit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
 
-        var response = await client.PutAsJsonAsync($"/api/v1/org-units/{unit.Id}", new
+        var response = await client.PutJsonAsync($"/api/v1/org-units/{unit.Id}", new
         {
             code = "DIR-001",
             name = "Direccion Actualizada",
-            orgUnitTypeId = unit.OrgUnitType.Id,
-            functionalAreaId = unit.FunctionalArea?.Id,
+            orgUnitTypePublicId = unit.OrgUnitType.Id,
+            functionalAreaPublicId = unit.FunctionalArea?.Id,
             sortOrder = 1,
             description = "Actualizada",
             costCenterCode = "CC-01",
-            managerEmployeeId = (Guid?)null,
+            managerEmployeePublicId = (Guid?)null,
             concurrencyToken = Guid.NewGuid()
         });
 
@@ -1674,7 +1666,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var response = await client.PatchAsJsonAsync($"/api/v1/org-units/{root.Id}/move", new
         {
-            newParentId = child.Id,
+            newParentPublicId = child.Id,
             sortOrder = (int?)null,
             concurrencyToken = root.ConcurrencyToken
         });
@@ -1718,6 +1710,35 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task OrgStructureCatalogs_CompanyTypes_List_ShouldSeedDefaultCatalogWithoutDuplicates()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var firstResponse = await client.GetAsync("/api/account/org-structure-catalogs/company-types?page=1&pageSize=20");
+        firstResponse.EnsureSuccessStatusCode();
+
+        var firstPayload = await firstResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgStructureCatalogItem>>(JsonOptions);
+        Assert.NotNull(firstPayload);
+        Assert.Equal(8, firstPayload!.Items.Count);
+        Assert.Contains(firstPayload.Items, item => item.Code == "SA_DE_CV" && item.Name == "Sociedad anonima de capital variable");
+        Assert.Contains(firstPayload.Items, item => item.Code == "LIMITED_LIABILITY" && item.Name == "Sociedad de responsabilidad limitada");
+        Assert.Contains(firstPayload.Items, item => item.Code == "INDIVIDUAL_ENTERPRISE" && item.Name == "Empresa individual");
+        Assert.Contains(firstPayload.Items, item => item.Code == "BRANCH_OFFICE" && item.Name == "Sucursal");
+        Assert.Contains(firstPayload.Items, item => item.Code == "COOPERATIVE" && item.Name == "Cooperativa");
+        Assert.Contains(firstPayload.Items, item => item.Code == "ASSOCIATION" && item.Name == "Asociacion sin fines de lucro");
+        Assert.Contains(firstPayload.Items, item => item.Code == "FOUNDATION" && item.Name == "Fundacion");
+        Assert.Contains(firstPayload.Items, item => item.Code == "PUBLIC_INSTITUTION" && item.Name == "Institucion publica");
+
+        var secondResponse = await client.GetAsync("/api/account/org-structure-catalogs/company-types?page=1&pageSize=20");
+        secondResponse.EnsureSuccessStatusCode();
+
+        var secondPayload = await secondResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgStructureCatalogItem>>(JsonOptions);
+        Assert.NotNull(secondPayload);
+        Assert.Equal(firstPayload.Items.Count, secondPayload!.Items.Count);
+    }
+
+    [Fact]
     public async Task OrgStructureCatalogs_FunctionalAreas_Inactivate_WhenInUse_ShouldReturn409()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -1726,17 +1747,17 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
         var functionalArea = await EnsureFunctionalAreaAsync(client, scenario.TenantId, "ADMIN");
 
-        var createOrgUnitResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
+        var createOrgUnitResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
         {
             code = "DIR-FA-USE",
             name = "Direccion Funcional",
-            orgUnitTypeId = orgUnitType.Id,
-            functionalAreaId = functionalArea.Id,
-            parentId = (Guid?)null,
+            orgUnitTypePublicId = orgUnitType.Id,
+            functionalAreaPublicId = functionalArea.Id,
+            parentPublicId = (Guid?)null,
             sortOrder = 1,
             description = (string?)null,
             costCenterCode = (string?)null,
-            managerEmployeeId = (Guid?)null
+            managerEmployeePublicId = (Guid?)null
         });
         createOrgUnitResponse.EnsureSuccessStatusCode();
 
@@ -1970,17 +1991,17 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreateOrgUnitAdminWithAuditContext(scenario));
         var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
 
-        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
         {
             code = "DIR-001",
             name = "Direccion General",
-            orgUnitTypeId = orgUnitType.Id,
-            functionalAreaId = (Guid?)null,
-            parentId = (Guid?)null,
+            orgUnitTypePublicId = orgUnitType.Id,
+            functionalAreaPublicId = (Guid?)null,
+            parentPublicId = (Guid?)null,
             sortOrder = 1,
             description = "Direccion principal",
             costCenterCode = (string?)null,
-            managerEmployeeId = (Guid?)null
+            managerEmployeePublicId = (Guid?)null
         });
         createResponse.EnsureSuccessStatusCode();
 
@@ -1998,13 +2019,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
 
-        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
         {
             code = "JP-001",
             title = "Analista de Nomina",
             objective = "Garantizar el proceso de nomina.",
-            orgUnitId = (Guid?)null,
-            reportsToJobProfileId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo RRHH",
             responsibilities = "Ejecutar nomina mensual.",
@@ -2020,7 +2041,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     requirementType = "Experience",
-                    catalogItemId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
                     catalogCode = (string?)null,
                     catalogName = (string?)null,
                     description = "3 anios de experiencia",
@@ -2050,13 +2071,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(created);
         Assert.Equal(JobProfileStatus.Draft, created!.Status);
 
-        var updateResponse = await client.PutAsJsonAsync($"/api/v1/job-profiles/{created.Id}", new
+        var updateResponse = await client.PutJsonAsync($"/api/v1/job-profiles/{created.Id}", new
         {
             code = "JP-001",
             title = "Analista de Nomina Senior",
             objective = "Garantizar el proceso de nomina.",
-            orgUnitId = (Guid?)null,
-            reportsToJobProfileId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo RRHH",
             responsibilities = "Ejecutar nomina mensual.",
@@ -2072,7 +2093,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     requirementType = "Experience",
-                    catalogItemId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
                     catalogCode = (string?)null,
                     catalogName = (string?)null,
                     description = "3 anios de experiencia",
@@ -2166,13 +2187,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-001", "Analista");
 
-        var response = await client.PutAsJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
+        var response = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
         {
             code = "JP-001",
             title = "Analista Actualizado",
             objective = "Objetivo",
-            orgUnitId = (Guid?)null,
-            reportsToJobProfileId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
             responsibilities = "Responsabilidades",
@@ -2188,7 +2209,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     requirementType = "Experience",
-                    catalogItemId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
                     catalogCode = (string?)null,
                     catalogName = (string?)null,
                     description = "3 anios",
@@ -2225,13 +2246,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         _ = await CreateJobProfileAsync(client, scenario.TenantId, "JP-001", "Analista");
 
-        var duplicateResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
+        var duplicateResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
         {
             code = "JP-001",
             title = "Analista 2",
             objective = "Objetivo",
-            orgUnitId = (Guid?)null,
-            reportsToJobProfileId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
             responsibilities = "Responsabilidades",
@@ -2247,7 +2268,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     requirementType = "Experience",
-                    catalogItemId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
                     catalogCode = (string?)null,
                     catalogName = (string?)null,
                     description = "2 anios",
@@ -2284,13 +2305,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var profileA = await CreateJobProfileAsync(client, scenario.TenantId, "JP-A", "Perfil A");
         var profileB = await CreateJobProfileAsync(client, scenario.TenantId, "JP-B", "Perfil B");
 
-        var updateAResponse = await client.PutAsJsonAsync($"/api/v1/job-profiles/{profileA.Id}", new
+        var updateAResponse = await client.PutJsonAsync($"/api/v1/job-profiles/{profileA.Id}", new
         {
             code = profileA.Code,
             title = profileA.Title,
             objective = "Objetivo A",
-            orgUnitId = (Guid?)null,
-            reportsToJobProfileId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
             responsibilities = "Responsabilidades A",
@@ -2306,7 +2327,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     requirementType = "Experience",
-                    catalogItemId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
                     catalogCode = (string?)null,
                     catalogName = (string?)null,
                     description = "2 anios",
@@ -2330,7 +2351,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             workingConditions = Array.Empty<object>(),
             dependentPositions = new[]
             {
-                new { dependentJobProfileId = profileB.Id, quantity = 1, notes = "dep" }
+                new { dependentJobProfilePublicId = profileB.Id, quantity = 1, notes = "dep" }
             },
             concurrencyToken = profileA.ConcurrencyToken
         });
@@ -2338,13 +2359,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var updatedA = await updateAResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
         Assert.NotNull(updatedA);
 
-        var updateBResponse = await client.PutAsJsonAsync($"/api/v1/job-profiles/{profileB.Id}", new
+        var updateBResponse = await client.PutJsonAsync($"/api/v1/job-profiles/{profileB.Id}", new
         {
             code = profileB.Code,
             title = profileB.Title,
             objective = "Objetivo B",
-            orgUnitId = (Guid?)null,
-            reportsToJobProfileId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
             responsibilities = "Responsabilidades B",
@@ -2360,7 +2381,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     requirementType = "Experience",
-                    catalogItemId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
                     catalogCode = (string?)null,
                     catalogName = (string?)null,
                     description = "2 anios",
@@ -2384,7 +2405,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             workingConditions = Array.Empty<object>(),
             dependentPositions = new[]
             {
-                new { dependentJobProfileId = profileA.Id, quantity = 1, notes = "dep" }
+                new { dependentJobProfilePublicId = profileA.Id, quantity = 1, notes = "dep" }
             },
             concurrencyToken = profileB.ConcurrencyToken
         });
@@ -2420,13 +2441,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
         {
             code = "JP-001",
             title = "Analista",
             objective = "Objetivo",
-            orgUnitId = (Guid?)null,
-            reportsToJobProfileId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
             responsibilities = "Responsabilidades",
@@ -2442,7 +2463,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     requirementType = "Education",
-                    catalogItemId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
                     catalogCode = "EDU-LIC",
                     catalogName = "Licenciatura",
                     description = "Licenciatura",
@@ -2478,13 +2499,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-001", "Analista");
 
-        var updateResponse = await client.PutAsJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
+        var updateResponse = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
         {
             code = "JP-001",
             title = "Analista",
             objective = "Objetivo",
-            orgUnitId = (Guid?)null,
-            reportsToJobProfileId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
             responsibilities = "Responsabilidades",
@@ -2500,7 +2521,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     requirementType = "Education",
-                    catalogItemId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
                     catalogCode = "EDU-LIC",
                     catalogName = "Licenciatura",
                     description = "Licenciatura",
@@ -2541,13 +2562,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateJobProfileAdminWithAuditContext(scenario));
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
         {
             code = "JP-001",
             title = "Analista",
             objective = "Objetivo",
-            orgUnitId = (Guid?)null,
-            reportsToJobProfileId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
             responsibilities = "Responsabilidades",
@@ -2563,7 +2584,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     requirementType = "Experience",
-                    catalogItemId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
                     catalogCode = (string?)null,
                     catalogName = (string?)null,
                     description = "2 anios",
@@ -2609,7 +2630,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var behaviorLevel = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.BehaviorLevel, "BLEVEL-CF-001", "Estrategico");
         var behavior = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Behavior, "BEHAV-CF-001", "Comunica objetivos y resultados");
 
-        var levelResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/occupational-pyramid-levels", new
+        var levelResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/occupational-pyramid-levels", new
         {
             code = "OPL-CF-001",
             name = "Nivel Estrategico CF",
@@ -2620,11 +2641,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var level = await levelResponse.Content.ReadFromJsonAsync<OccupationalPyramidLevelItem>(JsonOptions);
         Assert.NotNull(level);
 
-        var conductResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/competency-conducts", new
+        var conductResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/competency-conducts", new
         {
-            competencyId = competency.Id,
-            competencyTypeId = competencyType.Id,
-            behaviorLevelId = behaviorLevel.Id,
+            competencyPublicId = competency.Id,
+            competencyTypePublicId = competencyType.Id,
+            behaviorLevelPublicId = behaviorLevel.Id,
             description = "Alinea decisiones con objetivos institucionales.",
             sortOrder = 1
         });
@@ -2632,13 +2653,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var conduct = await conductResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions);
         Assert.NotNull(conduct);
 
-        var conductBehaviorResponse = await client.PutAsJsonAsync($"/api/v1/competency-conducts/{conduct!.Id}/behaviors", new
+        var conductBehaviorResponse = await client.PutJsonAsync($"/api/v1/competency-conducts/{conduct!.Id}/behaviors", new
         {
             behaviors = new[]
             {
                 new
                 {
-                    behaviorId = behavior.Id,
+                    behaviorPublicId = behavior.Id,
                     notes = "Comportamiento base para pruebas.",
                     sortOrder = 0
                 }
@@ -2656,17 +2677,17 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(matrixBefore);
         Assert.Empty(matrixBefore!.Items);
 
-        var matrixUpdateResponse = await client.PutAsJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix", new
+        var matrixUpdateResponse = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix", new
         {
             items = new[]
             {
                 new
                 {
-                    occupationalPyramidLevelId = level!.Id,
-                    competencyId = competency.Id,
-                    competencyTypeId = competencyType.Id,
-                    behaviorLevelId = behaviorLevel.Id,
-                    conductIds = new[] { conductWithBehaviors.Id },
+                    occupationalPyramidLevelPublicId = level!.Id,
+                    competencyPublicId = competency.Id,
+                    competencyTypePublicId = competencyType.Id,
+                    behaviorLevelPublicId = behaviorLevel.Id,
+                    conductPublicIds = new[] { conductWithBehaviors.Id },
                     expectedEvidence = "Resultados comprobables en objetivos institucionales.",
                     sortOrder = 1
                 }
@@ -2719,7 +2740,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-STALE", "Perfil CF Stale");
 
-        var response = await client.PutAsJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix", new
+        var response = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix", new
         {
             items = Array.Empty<object>(),
             concurrencyToken = Guid.NewGuid()
@@ -2814,13 +2835,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(getPayload);
         Assert.Equal(primary.Id, getPayload!.Id);
 
-        var updateResponse = await client.PutAsJsonAsync($"/api/v1/position-slots/{primary.Id}", new
+        var updateResponse = await client.PutJsonAsync($"/api/v1/position-slots/{primary.Id}", new
         {
             code = "PS-001",
             title = "Plaza Principal Actualizada",
-            jobProfileId = profile.Id,
-            orgUnitId = orgUnit.Id,
-            workCenterId = (Guid?)null,
+            jobProfilePublicId = profile.Id,
+            orgUnitPublicId = orgUnit.Id,
+            workCenterPublicId = (Guid?)null,
             costCenterCode = (string?)null,
             maxEmployees = 3,
             effectiveFromUtc = DateTime.UtcNow.Date,
@@ -2835,8 +2856,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var dependenciesResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{primary.Id}/dependencies", new
         {
-            directDependencyPositionSlotId = dependency.Id,
-            functionalDependencyPositionSlotId = (Guid?)null,
+            directDependencyPositionSlotPublicId = dependency.Id,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
             concurrencyToken = updated.ConcurrencyToken
         });
         dependenciesResponse.EnsureSuccessStatusCode();
@@ -2911,13 +2932,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-STALE", "Perfil");
         var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-STALE", "Plaza", profile.Id, orgUnit.Id, 1);
 
-        var response = await client.PutAsJsonAsync($"/api/v1/position-slots/{slot.Id}", new
+        var response = await client.PutJsonAsync($"/api/v1/position-slots/{slot.Id}", new
         {
             code = slot.Code,
             title = "Plaza actualizada",
-            jobProfileId = profile.Id,
-            orgUnitId = orgUnit.Id,
-            workCenterId = (Guid?)null,
+            jobProfilePublicId = profile.Id,
+            orgUnitPublicId = orgUnit.Id,
+            workCenterPublicId = (Guid?)null,
             costCenterCode = (string?)null,
             maxEmployees = 1,
             effectiveFromUtc = DateTime.UtcNow.Date,
@@ -2940,16 +2961,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         _ = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-DUP", "Plaza 1", profile.Id, orgUnit.Id, 1);
 
-        var duplicateResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        var duplicateResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
         {
             code = "PS-DUP",
             title = "Plaza 2",
-            jobProfileId = profile.Id,
-            orgUnitId = orgUnit.Id,
-            workCenterId = (Guid?)null,
+            jobProfilePublicId = profile.Id,
+            orgUnitPublicId = orgUnit.Id,
+            workCenterPublicId = (Guid?)null,
             costCenterCode = (string?)null,
-            directDependencyPositionSlotId = (Guid?)null,
-            functionalDependencyPositionSlotId = (Guid?)null,
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
             status = "Vacant",
             maxEmployees = 1,
             occupiedEmployees = 0,
@@ -2975,16 +2996,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var parentUpdateResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{parent.Id}/dependencies", new
         {
-            directDependencyPositionSlotId = child.Id,
-            functionalDependencyPositionSlotId = (Guid?)null,
+            directDependencyPositionSlotPublicId = child.Id,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
             concurrencyToken = parent.ConcurrencyToken
         });
         parentUpdateResponse.EnsureSuccessStatusCode();
 
         var cycleResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{child.Id}/dependencies", new
         {
-            directDependencyPositionSlotId = parent.Id,
-            functionalDependencyPositionSlotId = (Guid?)null,
+            directDependencyPositionSlotPublicId = parent.Id,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
             concurrencyToken = child.ConcurrencyToken
         });
 
@@ -3041,16 +3062,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-AUD", "Direccion", "Direccion");
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-AUD", "Perfil");
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
         {
             code = "PS-AUD",
             title = "Plaza Audit",
-            jobProfileId = profile.Id,
-            orgUnitId = orgUnit.Id,
-            workCenterId = (Guid?)null,
+            jobProfilePublicId = profile.Id,
+            orgUnitPublicId = orgUnit.Id,
+            workCenterPublicId = (Guid?)null,
             costCenterCode = (string?)null,
-            directDependencyPositionSlotId = (Guid?)null,
-            functionalDependencyPositionSlotId = (Guid?)null,
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
             status = "Vacant",
             maxEmployees = 1,
             occupiedEmployees = 0,
@@ -3088,7 +3109,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(getPayload);
         Assert.Equal("CC-001", getPayload!.Code);
 
-        var updateResponse = await client.PutAsJsonAsync($"/api/v1/cost-centers/{created.Id}", new
+        var updateResponse = await client.PutJsonAsync($"/api/v1/cost-centers/{created.Id}", new
         {
             code = "CC-001",
             name = "Centro Principal Actualizado",
@@ -3150,7 +3171,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         _ = await CreateCostCenterAsync(client, scenario.TenantId, "CC-DUP", "Centro 1", "Mixed");
 
-        var duplicateResponse = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers", new
+        var duplicateResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers", new
         {
             code = "CC-DUP",
             name = "Centro 2",
@@ -3172,7 +3193,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var costCenter = await CreateCostCenterAsync(client, scenario.TenantId, "CC-STALE", "Centro", "Mixed");
 
-        var response = await client.PutAsJsonAsync($"/api/v1/cost-centers/{costCenter.Id}", new
+        var response = await client.PutJsonAsync($"/api/v1/cost-centers/{costCenter.Id}", new
         {
             code = "CC-STALE",
             name = "Centro Actualizado",
@@ -3239,7 +3260,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateCostCenterAdminWithAuditContext(scenario));
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/cost-centers", new
         {
             code = "CC-AUD",
             name = "Centro Audit",
@@ -3266,17 +3287,17 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
         var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "Direccion");
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/org-units", new
         {
             code = "DIR-CC-INV",
             name = "Direccion Invalida",
-            orgUnitTypeId = orgUnitType.Id,
-            functionalAreaId = (Guid?)null,
-            parentId = (Guid?)null,
+            orgUnitTypePublicId = orgUnitType.Id,
+            functionalAreaPublicId = (Guid?)null,
+            parentPublicId = (Guid?)null,
             sortOrder = 1,
             description = (string?)null,
             costCenterCode = "CC-NOT-EXISTS",
-            managerEmployeeId = (Guid?)null
+            managerEmployeePublicId = (Guid?)null
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "ORG_UNIT_COST_CENTER_INVALID");
@@ -3301,16 +3322,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var orgUnit = await CreateOrgUnitAsync(slotClient, scenario.TenantId, "DIR-PS-CC", "Direccion", "Direccion");
         var profile = await CreateJobProfileAsync(slotClient, scenario.TenantId, "JP-PS-CC", "Perfil");
 
-        var response = await slotClient.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
+        var response = await slotClient.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
         {
             code = "PS-CC-INV",
             title = "Plaza con centro inactivo",
-            jobProfileId = profile.Id,
-            orgUnitId = orgUnit.Id,
-            workCenterId = (Guid?)null,
+            jobProfilePublicId = profile.Id,
+            orgUnitPublicId = orgUnit.Id,
+            workCenterPublicId = (Guid?)null,
             costCenterCode = "CC-INACTIVE",
-            directDependencyPositionSlotId = (Guid?)null,
-            functionalDependencyPositionSlotId = (Guid?)null,
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
             status = "Vacant",
             maxEmployees = 1,
             occupiedEmployees = 0,
@@ -3329,7 +3350,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
         var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "CLS-A");
 
-        var createResponse = await requesterClient.PostAsJsonAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/change-requests", new
+        var createResponse = await requesterClient.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/change-requests", new
         {
             reason = "Ajuste anual",
             effectiveFromUtc = DateTime.UtcNow.Date,
@@ -3337,7 +3358,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             {
                 new
                 {
-                    salaryClassId = salaryClass.Id,
+                    salaryClassPublicId = salaryClass.Id,
                     salaryScaleCode = "S1",
                     currencyCode = "USD",
                     changeType = "Create",
@@ -3353,7 +3374,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(created);
         Assert.Equal(SalaryTabulatorChangeRequestStatus.Draft, created!.Status);
 
-        var updateResponse = await requesterClient.PutAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}", new
+        var updateResponse = await requesterClient.PutJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}", new
         {
             reason = "Ajuste anual actualizado",
             effectiveFromUtc = DateTime.UtcNow.Date,
@@ -3361,7 +3382,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             {
                 new
                 {
-                    salaryClassId = salaryClass.Id,
+                    salaryClassPublicId = salaryClass.Id,
                     salaryScaleCode = "S1",
                     currencyCode = "USD",
                     changeType = "Create",
@@ -3400,7 +3421,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(approved);
         Assert.Equal(SalaryTabulatorChangeRequestStatus.Approved, approved!.Status);
 
-        var listLinesResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator?salaryClassId={salaryClass.Id}&page=1&pageSize=20");
+        var listLinesResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator?salaryClassPublicId={salaryClass.Id}&page=1&pageSize=20");
         listLinesResponse.EnsureSuccessStatusCode();
         var linesPayload = await listLinesResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<SalaryTabulatorLineItem>>(JsonOptions);
         Assert.NotNull(linesPayload);
@@ -3449,7 +3470,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var created = await CreateSalaryTabulatorRequestAsync(client, scenario.TenantId, "CLS-C", "S1", 1000m);
 
-        var updateResponse = await client.PutAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}", new
+        var updateResponse = await client.PutJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}", new
         {
             reason = "stale",
             effectiveFromUtc = DateTime.UtcNow.Date,
@@ -3457,7 +3478,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             {
                 new
                 {
-                    salaryClassId = salaryClass.Id,
+                    salaryClassPublicId = salaryClass.Id,
                     salaryScaleCode = "S1",
                     currencyCode = "USD",
                     changeType = "Create",
@@ -3617,11 +3638,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
 
-        var response = await client.PutAsJsonAsync($"/api/company/users/{scenario.TargetUserId}", new
+        var response = await client.PutJsonAsync($"/api/company/users/{scenario.TargetUserId}", new
         {
             firstName = "Blocked",
             lastName = "User",
-            roleId = scenario.TargetRoleId
+            rolePublicId = scenario.TargetRoleId
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "FIELD_EDIT_FORBIDDEN");
@@ -3639,11 +3660,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
 
-        var response = await client.PutAsJsonAsync($"/api/company/users/{scenario.TargetUserId}", new
+        var response = await client.PutJsonAsync($"/api/company/users/{scenario.TargetUserId}", new
         {
             firstName = "Target",
             lastName = "Updated",
-            roleId = scenario.TargetRoleId
+            rolePublicId = scenario.TargetRoleId
         });
 
         response.EnsureSuccessStatusCode();
@@ -3947,13 +3968,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario,
             (RbacPermissionScreen.Users, RbacPermissionAction.Create)));
 
-        var response = await client.PostAsJsonAsync("/api/iam/users", new
+        var response = await client.PostJsonAsync("/api/iam/users", new
         {
             firstName = "New",
             lastName = "Operator",
             email = "new.operator@acme-one.test",
             isActive = true,
-            roleIds = new[] { scenario.TargetRoleId }
+            rolePublicIds = new[] { scenario.TargetRoleId }
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -3973,9 +3994,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario,
             (RbacPermissionScreen.Users, RbacPermissionAction.Update)));
 
-        var response = await client.PutAsJsonAsync($"/api/iam/users/{scenario.ActorUserId}/roles", new
+        var response = await client.PutJsonAsync($"/api/iam/users/{scenario.ActorUserId}/roles", new
         {
-            roleIds = new[] { scenario.TargetRoleId }
+            rolePublicIds = new[] { scenario.TargetRoleId }
         });
 
         response.EnsureSuccessStatusCode();
@@ -3995,11 +4016,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario,
             (RbacPermissionScreen.Roles, RbacPermissionAction.Create)));
 
-        var response = await client.PostAsJsonAsync("/api/iam/roles", new
+        var response = await client.PostJsonAsync("/api/iam/roles", new
         {
             name = "Payroll Reviewer",
             description = "Reviews payroll changes",
-            permissionIds = new[] { scenario.ActorPermissionId }
+            permissionPublicIds = new[] { scenario.ActorPermissionId }
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -4019,7 +4040,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario,
             (RbacPermissionScreen.Roles, RbacPermissionAction.Update)));
 
-        var response = await client.PutAsJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}", new
+        var response = await client.PutJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}", new
         {
             name = "Employee Updated",
             description = "Updated tenant role"
@@ -4041,7 +4062,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario,
             (RbacPermissionScreen.Roles, RbacPermissionAction.Create)));
 
-        var response = await client.PostAsJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}/clone", new
+        var response = await client.PostJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}/clone", new
         {
             name = "Employee Clone",
             description = "Cloned role"
@@ -4065,9 +4086,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             (RbacPermissionScreen.Roles, RbacPermissionAction.Update),
             (RbacPermissionScreen.Permissions, RbacPermissionAction.Update)));
 
-        var response = await client.PutAsJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}/permissions", new
+        var response = await client.PutJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}/permissions", new
         {
-            permissionIds = new[] { scenario.ActorPermissionId }
+            permissionPublicIds = new[] { scenario.ActorPermissionId }
         });
 
         response.EnsureSuccessStatusCode();
@@ -4086,9 +4107,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario,
             (RbacPermissionScreen.Roles, RbacPermissionAction.Update)));
 
-        var response = await client.PutAsJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}/users", new
+        var response = await client.PutJsonAsync($"/api/iam/roles/{scenario.TargetRoleId}/users", new
         {
-            userIds = new[] { scenario.ActorUserId }
+            userPublicIds = new[] { scenario.ActorUserId }
         });
 
         response.EnsureSuccessStatusCode();
@@ -4106,7 +4127,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario,
             (RbacPermissionScreen.Permissions, RbacPermissionAction.Create)));
 
-        var response = await client.PostAsJsonAsync("/api/iam/permissions", new
+        var response = await client.PostJsonAsync("/api/iam/permissions", new
         {
             name = "Export Reports",
             description = "Allows exporting reports",
@@ -4138,7 +4159,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             userId: scenario.SecurityAdminUserId,
             (RbacPermissionScreen.Permissions, RbacPermissionAction.Update)));
 
-        var response = await client.PutAsJsonAsync($"/api/rbac/roles/{scenario.TargetRoleId}/permissions", new
+        var response = await client.PutJsonAsync($"/api/rbac/roles/{scenario.TargetRoleId}/permissions", new
         {
             permissions = new[]
             {
@@ -4174,7 +4195,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             userId: scenario.SecurityAdminUserId,
             (RbacPermissionScreen.Permissions, RbacPermissionAction.Update)));
 
-        var grantResourceResponse = await client.PutAsJsonAsync($"/api/rbac/roles/{scenario.TargetRoleId}/permissions", new
+        var grantResourceResponse = await client.PutJsonAsync($"/api/rbac/roles/{scenario.TargetRoleId}/permissions", new
         {
             permissions = new[]
             {
@@ -4192,7 +4213,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         grantResourceResponse.EnsureSuccessStatusCode();
 
-        var response = await client.PutAsJsonAsync($"/api/rbac/roles/{scenario.TargetRoleId}/field-permissions", new
+        var response = await client.PutJsonAsync($"/api/rbac/roles/{scenario.TargetRoleId}/field-permissions", new
         {
             resourceKey = "RBAC_USERS",
             fields = new[]
@@ -4438,23 +4459,23 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string code,
         string name,
         string orgUnitTypeCode,
-        Guid? parentId = null,
+        Guid? parentPublicId = null,
         int? sortOrder = 1,
         string? costCenterCode = null)
     {
         var orgUnitType = await EnsureOrgUnitTypeAsync(client, companyId, orgUnitTypeCode);
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/org-units", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/org-units", new
         {
             code,
             name,
-            orgUnitTypeId = orgUnitType.Id,
-            functionalAreaId = (Guid?)null,
-            parentId,
+            orgUnitTypePublicId = orgUnitType.Id,
+            functionalAreaPublicId = (Guid?)null,
+            parentPublicId,
             sortOrder,
             description = (string?)null,
             costCenterCode,
-            managerEmployeeId = (Guid?)null
+            managerEmployeePublicId = (Guid?)null
         });
         if (!response.IsSuccessStatusCode)
         {
@@ -4481,7 +4502,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             return existing;
         }
 
-        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/unit-types", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/unit-types", new
         {
             code,
             name = code,
@@ -4509,7 +4530,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             return existing;
         }
 
-        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/functional-areas", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/functional-areas", new
         {
             code,
             name = code,
@@ -4525,7 +4546,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
     private async Task<OrgStructureCatalogItem> CreateCompanyTypeAsync(HttpClient client, string code, string name)
     {
-        var createResponse = await client.PostAsJsonAsync("/api/account/org-structure-catalogs/company-types", new
+        var createResponse = await client.PostJsonAsync("/api/account/org-structure-catalogs/company-types", new
         {
             code,
             name,
@@ -4546,7 +4567,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string name,
         string type)
     {
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/cost-centers", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/cost-centers", new
         {
             code,
             name,
@@ -4574,7 +4595,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string maritalStatus = "SINGLE",
         string nationality = "SV")
     {
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/personnel-files", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/personnel-files", new
         {
             recordType = "Candidate",
             firstName,
@@ -4591,7 +4612,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthDepartment = "San Salvador",
             birthMunicipality = "San Salvador",
             photoUrl = (string?)null,
-            orgUnitId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
             customDataJson = (string?)null,
             identifications = new[]
             {
@@ -4619,7 +4640,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string code,
         string name)
     {
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/job-catalogs/{category}", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/job-catalogs/{category}", new
         {
             code,
             name
@@ -4650,7 +4671,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             return existing;
         }
 
-        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/{routeSegment}", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/{routeSegment}", new
         {
             code,
             name = name ?? code,
@@ -4685,7 +4706,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             return existing;
         }
 
-        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/position-category-classifications", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/position-category-classifications", new
         {
             code,
             name = code,
@@ -4720,7 +4741,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             return existing;
         }
 
-        var createResponse = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/position-categories", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/position-categories", new
         {
             code,
             name = code,
@@ -4762,17 +4783,17 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var positionCategory = await EnsureDefaultPositionCategoryAsync(client, companyId);
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/job-profiles", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/job-profiles", new
         {
             code,
             title,
             objective = "Objetivo",
-            orgUnitId = (Guid?)null,
-            reportsToJobProfileId = (Guid?)null,
-            positionCategoryId = positionCategory.Id,
-            strategicObjectiveCatalogItemId = (Guid?)null,
-            assignedWorkEquipmentCatalogItemId = (Guid?)null,
-            responsibilityCatalogItemId = (Guid?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
+            positionCategoryPublicId = positionCategory.Id,
+            strategicObjectiveCatalogItemPublicId = (Guid?)null,
+            assignedWorkEquipmentCatalogItemPublicId = (Guid?)null,
+            responsibilityCatalogItemPublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
             responsibilities = "Responsabilidades",
@@ -4788,8 +4809,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     requirementType = "Experience",
-                    requirementTypeCatalogItemId = (Guid?)null,
-                    catalogItemId = (Guid?)null,
+                    requirementTypeCatalogItemPublicId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
                     catalogCode = (string?)null,
                     catalogName = (string?)null,
                     description = "2 anios",
@@ -4801,7 +4822,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 new
                 {
                     functionType = "General",
-                    frequencyCatalogItemId = (Guid?)null,
+                    frequencyCatalogItemPublicId = (Guid?)null,
                     description = "Funcion",
                     sortOrder = 1
                 }
@@ -4830,16 +4851,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid orgUnitId,
         int maxEmployees)
     {
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/position-slots", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/position-slots", new
         {
             code,
             title,
             jobProfileId,
             orgUnitId,
-            workCenterId = (Guid?)null,
+            workCenterPublicId = (Guid?)null,
             costCenterCode = (string?)null,
-            directDependencyPositionSlotId = (Guid?)null,
-            functionalDependencyPositionSlotId = (Guid?)null,
+            directDependencyPositionSlotPublicId = (Guid?)null,
+            functionalDependencyPositionSlotPublicId = (Guid?)null,
             status = "Vacant",
             maxEmployees,
             occupiedEmployees = 0,
@@ -4863,7 +4884,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var salaryClass = await EnsureSalaryClassAsync(client, companyId, salaryClassCode);
 
-        var response = await client.PostAsJsonAsync($"/api/v1/companies/{companyId}/salary-tabulator/change-requests", new
+        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/salary-tabulator/change-requests", new
         {
             reason = "Ajuste",
             effectiveFromUtc = DateTime.UtcNow.Date,
@@ -4871,7 +4892,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             {
                 new
                 {
-                    salaryClassId = salaryClass.Id,
+                    salaryClassPublicId = salaryClass.Id,
                     salaryScaleCode,
                     currencyCode = "USD",
                     changeType = "Create",
@@ -4971,7 +4992,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string? Status);
 
     private sealed record AccountCompanyItem(
-        Guid CompanyId,
+        Guid PublicId,
         string Name,
         string Slug,
         string CountryCode,
@@ -4983,7 +5004,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         CompanyTypeMetadataItem? CompanyType);
 
     private sealed record AccountCompanyDetailItem(
-        Guid CompanyId,
+        Guid PublicId,
         string Name,
         string Slug,
         string CountryCode,
@@ -5158,7 +5179,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         int PageSize);
 
     private sealed record ActiveCompanyItem(
-        Guid CompanyId,
+        Guid PublicId,
         string Name,
         string Slug,
         string CountryCode,

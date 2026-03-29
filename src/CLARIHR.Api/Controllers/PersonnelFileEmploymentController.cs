@@ -83,11 +83,11 @@ public sealed class PersonnelFileEmploymentController(
                 request.RetirementDate,
                 request.WorkdayCode,
                 request.PayrollTypeCode,
-                request.PositionSlotId,
-                request.JobProfileId,
-                request.OrgUnitId,
-                request.WorkCenterId,
-                request.CostCenterId,
+                request.PositionSlotPublicId,
+                request.JobProfilePublicId,
+                request.OrgUnitPublicId,
+                request.WorkCenterPublicId,
+                request.CostCenterPublicId,
                 request.ContractStartDate,
                 request.ContractEndDate,
                 request.VacationConfigurationJson,
@@ -115,10 +115,10 @@ public sealed class PersonnelFileEmploymentController(
                 id,
                 request.Items.Select(item => new EmploymentAssignmentInput(
                     item.AssignmentTypeCode,
-                    item.PositionSlotId,
-                    item.OrgUnitId,
-                    item.WorkCenterId,
-                    item.CostCenterId,
+                    item.PositionSlotPublicId,
+                    item.OrgUnitPublicId,
+                    item.WorkCenterPublicId,
+                    item.CostCenterPublicId,
                     item.StartDate,
                     item.EndDate,
                     item.IsPrimary,
@@ -150,7 +150,7 @@ public sealed class PersonnelFileEmploymentController(
                     item.ContractTypeCode,
                     item.ContractDate,
                     item.ContractEndDate,
-                    item.PositionSlotId,
+                    item.PositionSlotPublicId,
                     item.Notes)).ToArray(),
                 request.ConcurrencyToken),
             cancellationToken);
@@ -190,7 +190,7 @@ public sealed class PersonnelFileEmploymentController(
                 id,
                 request.Items.Select(item => new AuthorizationSubstitutionInput(
                     item.SubstitutionTypeCode,
-                    item.SubstitutePersonnelFileId,
+                    item.SubstitutePersonnelFilePublicId,
                     item.SubstitutePositionTitle,
                     item.StartDate,
                     item.EndDate,
@@ -397,7 +397,7 @@ public sealed class PersonnelFileEmploymentController(
     {
         var lines = new List<string>
         {
-            "Id,ActionTypeCode,ActionStatusCode,ActionDateUtc,EffectiveFromUtc,EffectiveToUtc,Description,Reference,Amount,CurrencyCode,IsSystemGenerated,CreatedAtUtc,ModifiedAtUtc"
+            "PublicId,ActionTypeCode,ActionStatusCode,ActionDateUtc,EffectiveFromUtc,EffectiveToUtc,Description,Reference,Amount,CurrencyCode,IsSystemGenerated,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
@@ -422,7 +422,7 @@ public sealed class PersonnelFileEmploymentController(
         BuildSimpleXlsx(
             "PersonnelActions",
             [
-                "Id",
+                "PublicId",
                 "ActionTypeCode",
                 "ActionStatusCode",
                 "ActionDateUtc",

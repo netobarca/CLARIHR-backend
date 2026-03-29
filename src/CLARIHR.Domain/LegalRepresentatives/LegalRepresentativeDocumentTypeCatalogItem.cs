@@ -24,13 +24,17 @@ public sealed class LegalRepresentativeDocumentTypeCatalogItem : Entity
         }
 
         Id = (long)documentType;
-        Code = documentType.ToString();
+        PublicId = CreateDeterministicPublicId($"legal-representative-document-type:{Id}");
+        Code = documentType.ToString().ToUpperInvariant();
+        NormalizedCode = Code;
         Name = Clean(name, nameof(name), 150);
         SortOrder = sortOrder;
         IsActive = true;
     }
 
     public string Code { get; private set; } = string.Empty;
+
+    public string NormalizedCode { get; private set; } = string.Empty;
 
     public string Name { get; private set; } = string.Empty;
 

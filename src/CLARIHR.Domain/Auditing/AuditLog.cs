@@ -40,8 +40,6 @@ public sealed class AuditLog : TenantEntity
         UserAgent = CleanOptional(userAgent, 1000);
     }
 
-    public Guid PublicId { get; private set; }
-
     public Guid ActorUserId { get; private set; }
 
     public string? ActorEmail { get; private set; }

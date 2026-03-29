@@ -103,6 +103,13 @@ Alinea la solución al foundation document y al diseño correcto del sistema, mi
 - Toda HU relevante debe dejar unit tests suficientes.
 - Como mínimo cubrir happy path, validaciones, errores esperados, permisos y tenant scope cuando aplique.
 
+## 5.7 Identificadores y codigos
+- Toda entidad persistida nueva debe conservar `id` interno para PK/FK/joins y agregar `public_id` persistido como identificador externo.
+- Ningún request, response, export o contrato público puede exponer `id` o `internalId`; hacia afuera se usa `publicId` o `<Entidad>PublicId`.
+- Si la entidad tiene código de negocio, el contrato y la persistencia deben incluir `code` y `normalizedCode`.
+- `code` y `normalizedCode` deben quedar normalizados en `UPPERCASE`; no se debe preservar mixed case.
+- Las búsquedas, unicidad e integraciones internas deben resolver por `normalizedCode` y traducir a `Id` interno solo dentro del backend.
+
 ---
 
 ## 6. Entradas mínimas esperadas
@@ -435,6 +442,9 @@ Antes de considerar la HU implementada, revisar:
 - [ ] Las validaciones están completas
 - [ ] Los errores están bien manejados
 - [ ] Existen pruebas suficientes
+- [ ] Los flujos públicos resuelven recursos por `PublicId`
+- [ ] Ningún contrato o export público expone `id` o `internalId`
+- [ ] Todo `code`/`normalizedCode` observable está en `UPPERCASE`
 - [ ] No se introdujo duplicación innecesaria
 - [ ] La HU está lista para cierre documental
 

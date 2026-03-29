@@ -113,17 +113,25 @@ internal sealed class CompanyProvisioningService(
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var iamUser = IamUser.CreateLinked(
+        var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
+            company.PublicId,
             user.PublicId,
-            user.FirstName,
-            user.LastName,
-            user.Email,
+            includeRoles: true,
+            cancellationToken);
+        if (iamUser is null)
+        {
+            iamUser = IamUser.CreateLinked(
+                user.PublicId,
+                user.FirstName,
+                user.LastName,
+                user.Email,
             isActive: true);
-        iamUser.SetTenantId(company.PublicId);
+            iamUser.SetTenantId(company.PublicId);
+            iamRepository.AddUser(iamUser);
+        }
+
         iamUser.SyncRoles([adminRole]);
         StampTenant(iamUser.RoleAssignments, company.PublicId);
-
-        iamRepository.AddUser(iamUser);
         userCompanyRepository.Add(UserCompanyMembership.Create(user.Id, company.Id, adminRole.Id, request.MakePrimary));
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);

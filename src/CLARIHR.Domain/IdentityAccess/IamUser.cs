@@ -10,17 +10,16 @@ public sealed class IamUser : TenantEntity
     {
     }
 
-    private IamUser(Guid publicId, string firstName, string lastName, string email, bool isActive)
+    private IamUser(Guid publicId, Guid? linkedUserPublicId, string firstName, string lastName, string email, bool isActive)
     {
         PublicId = publicId;
+        LinkedUserPublicId = linkedUserPublicId;
         FirstName = IdentityNormalization.Clean(firstName, nameof(firstName));
         LastName = IdentityNormalization.Clean(lastName, nameof(lastName));
         Email = IdentityNormalization.Clean(email, nameof(email));
         NormalizedEmail = IdentityNormalization.Normalize(email);
         IsActive = isActive;
     }
-
-    public Guid PublicId { get; private set; }
 
     public string FirstName { get; private set; } = string.Empty;
 
@@ -30,15 +29,17 @@ public sealed class IamUser : TenantEntity
 
     public string NormalizedEmail { get; private set; } = string.Empty;
 
+    public Guid? LinkedUserPublicId { get; private set; }
+
     public bool IsActive { get; private set; }
 
     public IReadOnlyCollection<IamUserRoleAssignment> RoleAssignments => _roleAssignments;
 
     public static IamUser Create(string firstName, string lastName, string email, bool isActive) =>
-        new(Guid.NewGuid(), firstName, lastName, email, isActive);
+        new(Guid.NewGuid(), linkedUserPublicId: null, firstName, lastName, email, isActive);
 
-    public static IamUser CreateLinked(Guid publicId, string firstName, string lastName, string email, bool isActive) =>
-        new(publicId, firstName, lastName, email, isActive);
+    public static IamUser CreateLinked(Guid linkedUserPublicId, string firstName, string lastName, string email, bool isActive) =>
+        new(Guid.NewGuid(), linkedUserPublicId, firstName, lastName, email, isActive);
 
     public void UpdateProfile(string firstName, string lastName)
     {

@@ -24,13 +24,17 @@ public sealed class LegalRepresentativeRepresentationTypeCatalogItem : Entity
         }
 
         Id = (long)representationType;
-        Code = representationType.ToString();
+        PublicId = CreateDeterministicPublicId($"legal-representative-representation-type:{Id}");
+        Code = representationType.ToString().ToUpperInvariant();
+        NormalizedCode = Code;
         Name = Clean(name, nameof(name), 150);
         SortOrder = sortOrder;
         IsActive = true;
     }
 
     public string Code { get; private set; } = string.Empty;
+
+    public string NormalizedCode { get; private set; } = string.Empty;
 
     public string Name { get; private set; } = string.Empty;
 

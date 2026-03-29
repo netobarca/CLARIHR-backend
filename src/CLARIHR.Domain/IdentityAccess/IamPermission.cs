@@ -23,8 +23,8 @@ public sealed class IamPermission : TenantEntity
         IamFieldAccessLevel? fieldAccess)
     {
         PublicId = publicId;
-        Code = IdentityNormalization.Clean(code, nameof(code));
-        NormalizedCode = IdentityNormalization.Normalize(code);
+        Code = IdentityNormalization.Normalize(code);
+        NormalizedCode = Code;
         Name = IdentityNormalization.Clean(name, nameof(name));
         Description = IdentityNormalization.CleanOptional(description);
         Module = IdentityNormalization.Clean(module, nameof(module));
@@ -38,8 +38,6 @@ public sealed class IamPermission : TenantEntity
         NormalizedFieldName = FieldName is null ? null : IdentityNormalization.Normalize(FieldName);
         FieldAccess = fieldAccess;
     }
-
-    public Guid PublicId { get; private set; }
 
     public string Code { get; private set; } = string.Empty;
 

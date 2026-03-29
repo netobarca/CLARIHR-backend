@@ -288,12 +288,12 @@ public sealed class PositionSlotsController(
                 companyId,
                 request.Code,
                 request.Title,
-                request.JobProfileId,
-                request.OrgUnitId,
-                request.WorkCenterId,
+                request.JobProfilePublicId,
+                request.OrgUnitPublicId,
+                request.WorkCenterPublicId,
                 request.CostCenterCode,
-                request.DirectDependencyPositionSlotId,
-                request.FunctionalDependencyPositionSlotId,
+                request.DirectDependencyPositionSlotPublicId,
+                request.FunctionalDependencyPositionSlotPublicId,
                 request.Status,
                 request.MaxEmployees,
                 request.OccupiedEmployees,
@@ -325,9 +325,9 @@ public sealed class PositionSlotsController(
                 id,
                 request.Code,
                 request.Title,
-                request.JobProfileId,
-                request.OrgUnitId,
-                request.WorkCenterId,
+                request.JobProfilePublicId,
+                request.OrgUnitPublicId,
+                request.WorkCenterPublicId,
                 request.CostCenterCode,
                 request.MaxEmployees,
                 request.EffectiveFromUtc,
@@ -373,8 +373,8 @@ public sealed class PositionSlotsController(
         var result = await commandDispatcher.SendAsync(
             new UpdatePositionSlotDependenciesCommand(
                 id,
-                request.DirectDependencyPositionSlotId,
-                request.FunctionalDependencyPositionSlotId,
+                request.DirectDependencyPositionSlotPublicId,
+                request.FunctionalDependencyPositionSlotPublicId,
                 request.ConcurrencyToken),
             cancellationToken);
 
@@ -405,7 +405,7 @@ public sealed class PositionSlotsController(
     {
         var lines = new List<string>
         {
-            "Id,Code,Title,Status,JobProfileCode,JobProfileTitle,OrgUnitCode,OrgUnitName,WorkCenterCode,WorkCenterName,CostCenterCode,DirectDependencyCode,FunctionalDependencyCode,ContractTypeId,ContractTypeCode,ContractTypeName,MaxEmployees,OccupiedEmployees,EffectiveFromUtc,EffectiveToUtc,IsActive,CreatedAtUtc,ModifiedAtUtc"
+            "PublicId,Code,Title,Status,JobProfileCode,JobProfileTitle,OrgUnitCode,OrgUnitName,WorkCenterCode,WorkCenterName,CostCenterCode,DirectDependencyCode,FunctionalDependencyCode,ContractTypePublicId,ContractTypeCode,ContractTypeName,MaxEmployees,OccupiedEmployees,EffectiveFromUtc,EffectiveToUtc,IsActive,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
@@ -546,7 +546,7 @@ public sealed class PositionSlotsController(
         var sheetRows = new StringBuilder();
         var headers = new[]
         {
-            "Id",
+            "PublicId",
             "Code",
             "Title",
             "Status",
@@ -559,7 +559,7 @@ public sealed class PositionSlotsController(
             "CostCenterCode",
             "DirectDependencyCode",
             "FunctionalDependencyCode",
-            "ContractTypeId",
+            "ContractTypePublicId",
             "ContractTypeCode",
             "ContractTypeName",
             "MaxEmployees",
@@ -704,12 +704,12 @@ public sealed class PositionSlotsController(
     public sealed record CreatePositionSlotRequest(
         string Code,
         string? Title,
-        Guid JobProfileId,
-        Guid OrgUnitId,
-        Guid? WorkCenterId,
+        Guid JobProfilePublicId,
+        Guid OrgUnitPublicId,
+        Guid? WorkCenterPublicId,
         string? CostCenterCode,
-        Guid? DirectDependencyPositionSlotId,
-        Guid? FunctionalDependencyPositionSlotId,
+        Guid? DirectDependencyPositionSlotPublicId,
+        Guid? FunctionalDependencyPositionSlotPublicId,
         PositionSlotStatus Status,
         int MaxEmployees,
         int OccupiedEmployees,
@@ -720,9 +720,9 @@ public sealed class PositionSlotsController(
     public sealed record UpdatePositionSlotRequest(
         string Code,
         string? Title,
-        Guid JobProfileId,
-        Guid OrgUnitId,
-        Guid? WorkCenterId,
+        Guid JobProfilePublicId,
+        Guid OrgUnitPublicId,
+        Guid? WorkCenterPublicId,
         string? CostCenterCode,
         int MaxEmployees,
         DateTime EffectiveFromUtc,
@@ -733,8 +733,8 @@ public sealed class PositionSlotsController(
     public sealed record UpdatePositionSlotStatusRequest(PositionSlotStatus Status, Guid ConcurrencyToken);
 
     public sealed record UpdatePositionSlotDependenciesRequest(
-        Guid? DirectDependencyPositionSlotId,
-        Guid? FunctionalDependencyPositionSlotId,
+        Guid? DirectDependencyPositionSlotPublicId,
+        Guid? FunctionalDependencyPositionSlotPublicId,
         Guid ConcurrencyToken);
 
     public sealed record UpdatePositionSlotOccupancyRequest(int OccupiedEmployees, Guid ConcurrencyToken);

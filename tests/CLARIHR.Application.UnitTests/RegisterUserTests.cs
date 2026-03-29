@@ -1,5 +1,6 @@
 using System.Reflection;
 using CLARIHR.Application.Abstractions.Auth;
+using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.RegisterUser;
@@ -110,6 +111,7 @@ public sealed class RegisterUserCommandHandlerTests
     public async Task Handle_WhenEmailAlreadyExists_ShouldReturnConflict()
     {
         var repository = new TestUserRepository();
+        var companyTypeCatalogSeedService = new TestCompanyTypeCatalogSeedService();
         var unitOfWork = new TestUnitOfWork();
         repository.Seed(User.RegisterLocal("Ana", "Mendoza", "ana@clarihr.test", "existing-hash", "SV", "seed"));
 
@@ -117,6 +119,7 @@ public sealed class RegisterUserCommandHandlerTests
             repository,
             new TestPasswordHasher(),
             new TestTokenService(),
+            companyTypeCatalogSeedService,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterUserCommand(
@@ -130,6 +133,7 @@ public sealed class RegisterUserCommandHandlerTests
         Assert.True(result.IsFailure);
         Assert.Equal(AuthErrors.UserAlreadyExists.Code, result.Error.Code);
         Assert.True(unitOfWork.Transaction.RollbackCalled);
+        Assert.Empty(companyTypeCatalogSeedService.SeededOwnerUserIds);
     }
 
     [Fact]
@@ -138,8 +142,14 @@ public sealed class RegisterUserCommandHandlerTests
         var repository = new TestUserRepository();
         var passwordHasher = new TestPasswordHasher();
         var tokenService = new TestTokenService();
+        var companyTypeCatalogSeedService = new TestCompanyTypeCatalogSeedService();
         var unitOfWork = new TestUnitOfWork();
-        var handler = new RegisterUserCommandHandler(repository, passwordHasher, tokenService, unitOfWork);
+        var handler = new RegisterUserCommandHandler(
+            repository,
+            passwordHasher,
+            tokenService,
+            companyTypeCatalogSeedService,
+            unitOfWork);
 
         var result = await handler.Handle(new RegisterUserCommand(
             "Carla",
@@ -157,6 +167,7 @@ public sealed class RegisterUserCommandHandlerTests
         Assert.Equal(900, result.Value.ExpiresIn);
         Assert.Equal("carla@clarihr.test", result.Value.User.Email);
         Assert.Equal(AuthProvider.Local, result.Value.User.AuthProvider);
+        Assert.Equal([repository.AddedUser.PublicId], companyTypeCatalogSeedService.SeededOwnerUserIds);
         Assert.True(unitOfWork.Transaction.CommitCalled);
     }
 
@@ -164,6 +175,7 @@ public sealed class RegisterUserCommandHandlerTests
     public async Task Handle_WhenTokenGenerationFails_ShouldReturnTokenErrorAndRollback()
     {
         var repository = new TestUserRepository();
+        var companyTypeCatalogSeedService = new TestCompanyTypeCatalogSeedService();
         var unitOfWork = new TestUnitOfWork();
         var tokenService = new FailingTestTokenService(AuthErrors.TokenConfigurationInvalid);
 
@@ -171,6 +183,7 @@ public sealed class RegisterUserCommandHandlerTests
             repository,
             new TestPasswordHasher(),
             tokenService,
+            companyTypeCatalogSeedService,
             unitOfWork);
 
         var result = await handler.Handle(new RegisterUserCommand(
@@ -184,6 +197,18 @@ public sealed class RegisterUserCommandHandlerTests
         Assert.True(result.IsFailure);
         Assert.Equal(AuthErrors.TokenConfigurationInvalid.Code, result.Error.Code);
         Assert.True(unitOfWork.Transaction.RollbackCalled);
+        Assert.Equal([repository.AddedUser!.PublicId], companyTypeCatalogSeedService.SeededOwnerUserIds);
+    }
+
+    private sealed class TestCompanyTypeCatalogSeedService : ICompanyTypeCatalogSeedService
+    {
+        public List<Guid> SeededOwnerUserIds { get; } = [];
+
+        public Task EnsureSeededAsync(Guid ownerUserPublicId, CancellationToken cancellationToken)
+        {
+            SeededOwnerUserIds.Add(ownerUserPublicId);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class TestUserRepository : IUserRepository

@@ -296,13 +296,13 @@ public sealed class OrgUnitsController(
                 companyId,
                 request.Code,
                 request.Name,
-                request.OrgUnitTypeId,
-                request.FunctionalAreaId,
-                request.ParentId,
+                request.OrgUnitTypePublicId,
+                request.FunctionalAreaPublicId,
+                request.ParentPublicId,
                 request.SortOrder,
                 request.Description,
                 request.CostCenterCode,
-                request.ManagerEmployeeId),
+                request.ManagerEmployeePublicId),
             cancellationToken);
 
         return result.IsFailure
@@ -328,12 +328,12 @@ public sealed class OrgUnitsController(
                 id,
                 request.Code,
                 request.Name,
-                request.OrgUnitTypeId,
-                request.FunctionalAreaId,
+                request.OrgUnitTypePublicId,
+                request.FunctionalAreaPublicId,
                 request.SortOrder,
                 request.Description,
                 request.CostCenterCode,
-                request.ManagerEmployeeId,
+                request.ManagerEmployeePublicId,
                 request.ConcurrencyToken),
             cancellationToken);
 
@@ -353,7 +353,7 @@ public sealed class OrgUnitsController(
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new MoveOrgUnitCommand(id, request.NewParentId, request.SortOrder, request.ConcurrencyToken),
+            new MoveOrgUnitCommand(id, request.NewParentPublicId, request.SortOrder, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -401,7 +401,7 @@ public sealed class OrgUnitsController(
     {
         var lines = new List<string>
         {
-            "Id,Code,Name,OrgUnitTypeId,OrgUnitTypeCode,OrgUnitTypeName,FunctionalAreaId,FunctionalAreaCode,FunctionalAreaName,ParentCode,ParentName,SortOrder,Description,CostCenterCode,ManagerEmployeeId,IsActive,CreatedAtUtc,ModifiedAtUtc"
+            "PublicId,Code,Name,OrgUnitTypePublicId,OrgUnitTypeCode,OrgUnitTypeName,FunctionalAreaPublicId,FunctionalAreaCode,FunctionalAreaName,ParentCode,ParentName,SortOrder,Description,CostCenterCode,ManagerEmployeePublicId,IsActive,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
@@ -434,13 +434,13 @@ public sealed class OrgUnitsController(
 
         var headers = new[]
         {
-            "Id",
+            "PublicId",
             "Code",
             "Name",
-            "OrgUnitTypeId",
+            "OrgUnitTypePublicId",
             "OrgUnitTypeCode",
             "OrgUnitTypeName",
-            "FunctionalAreaId",
+            "FunctionalAreaPublicId",
             "FunctionalAreaCode",
             "FunctionalAreaName",
             "ParentCode",
@@ -448,7 +448,7 @@ public sealed class OrgUnitsController(
             "SortOrder",
             "Description",
             "CostCenterCode",
-            "ManagerEmployeeId",
+            "ManagerEmployeePublicId",
             "IsActive",
             "CreatedAtUtc",
             "ModifiedAtUtc"
@@ -687,26 +687,26 @@ public sealed class OrgUnitsController(
     public sealed record CreateOrgUnitRequest(
         string Code,
         string Name,
-        Guid OrgUnitTypeId,
-        Guid? FunctionalAreaId,
-        Guid? ParentId,
+        Guid OrgUnitTypePublicId,
+        Guid? FunctionalAreaPublicId,
+        Guid? ParentPublicId,
         int? SortOrder,
         string? Description,
         string? CostCenterCode,
-        Guid? ManagerEmployeeId);
+        Guid? ManagerEmployeePublicId);
 
     public sealed record UpdateOrgUnitRequest(
         string Code,
         string Name,
-        Guid OrgUnitTypeId,
-        Guid? FunctionalAreaId,
+        Guid OrgUnitTypePublicId,
+        Guid? FunctionalAreaPublicId,
         int? SortOrder,
         string? Description,
         string? CostCenterCode,
-        Guid? ManagerEmployeeId,
+        Guid? ManagerEmployeePublicId,
         Guid ConcurrencyToken);
 
-    public sealed record MoveOrgUnitRequest(Guid? NewParentId, int? SortOrder, Guid ConcurrencyToken);
+    public sealed record MoveOrgUnitRequest(Guid? NewParentPublicId, int? SortOrder, Guid ConcurrencyToken);
 
     public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
 }

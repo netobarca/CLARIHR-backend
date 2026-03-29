@@ -24,5 +24,5 @@ public sealed record LegalRepresentativeRepresentationTypeCatalogDefinition(
 {
     public long Id => (long)RepresentationType;
 
-    public string Code => RepresentationType.ToString();
+    public string Code => RepresentationType.ToString().ToUpperInvariant();
 }

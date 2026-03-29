@@ -65,8 +65,6 @@ public sealed class PersonnelFile : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public PersonnelFileRecordType RecordType { get; private set; }
 
     public string FirstName { get; private set; } = string.Empty;
@@ -451,8 +449,6 @@ public sealed class PersonnelFileIdentification : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string IdentificationType { get; private set; } = string.Empty;
 
     public string IdentificationNumber { get; private set; } = string.Empty;
@@ -504,8 +500,6 @@ public sealed class PersonnelFileAddress : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string AddressLine { get; private set; } = string.Empty;
 
     public string? Country { get; private set; }
@@ -552,8 +546,6 @@ public sealed class PersonnelFileEmergencyContact : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string Name { get; private set; } = string.Empty;
 
@@ -650,8 +642,6 @@ public sealed class PersonnelFileFamilyMember : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string FirstName { get; private set; } = string.Empty;
 
@@ -763,8 +753,6 @@ public sealed class PersonnelFileHobby : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string HobbyName { get; private set; } = string.Empty;
 
     public static PersonnelFileHobby Create(string hobbyName) =>
@@ -787,8 +775,6 @@ public sealed class PersonnelFileEmployeeRelation : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string RelatedEmployeeName { get; private set; } = string.Empty;
 
@@ -823,8 +809,6 @@ public sealed class PersonnelFileBankAccount : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string BankCode { get; private set; } = string.Empty;
 
@@ -876,8 +860,6 @@ public sealed class PersonnelFileAssociation : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string AssociationName { get; private set; } = string.Empty;
 
@@ -965,8 +947,6 @@ public sealed class PersonnelFileEducation : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string StatusCode { get; private set; } = string.Empty;
 
@@ -1058,8 +1038,6 @@ public sealed class PersonnelFileLanguage : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string LanguageCode { get; private set; } = string.Empty;
 
     public string LevelCode { get; private set; } = string.Empty;
@@ -1145,8 +1123,6 @@ public sealed class PersonnelFileTraining : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string TrainingName { get; private set; } = string.Empty;
 
@@ -1275,8 +1251,6 @@ public sealed class PersonnelFilePreviousEmployment : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string Institution { get; private set; } = string.Empty;
 
     public string? Place { get; private set; }
@@ -1365,8 +1339,6 @@ public sealed class PersonnelFileReference : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public string PersonName { get; private set; } = string.Empty;
 
     public string? Address { get; private set; }
@@ -1436,8 +1408,6 @@ public sealed class PersonnelFileDocument : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
-
-    public Guid PublicId { get; private set; }
 
     public string DocumentType { get; private set; } = string.Empty;
 
@@ -1516,8 +1486,6 @@ public sealed class PersonnelFileCustomFieldDefinition : TenantEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid PublicId { get; private set; }
-
     public string Key { get; private set; } = string.Empty;
 
     public string NormalizedKey { get; private set; } = string.Empty;
@@ -1589,8 +1557,6 @@ public sealed class PersonnelFileObservation : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public Guid PublicId { get; private set; }
-
     public Guid AuthorUserPublicId { get; private set; }
 
     public string Note { get; private set; } = string.Empty;
@@ -1621,8 +1587,8 @@ public sealed class PersonnelCatalogItem : TenantEntity
 
         PublicId = publicId;
         Category = PersonnelFileNormalization.Clean(category, nameof(category));
-        Code = PersonnelFileNormalization.Clean(code, nameof(code));
-        NormalizedCode = PersonnelFileNormalization.NormalizeCode(code);
+        Code = PersonnelFileNormalization.NormalizeCode(code);
+        NormalizedCode = Code;
         Name = PersonnelFileNormalization.Clean(name, nameof(name));
         NormalizedName = PersonnelFileNormalization.NormalizeName(name);
         IsSystem = isSystem;
@@ -1630,8 +1596,6 @@ public sealed class PersonnelCatalogItem : TenantEntity
         SortOrder = sortOrder;
         ConcurrencyToken = Guid.NewGuid();
     }
-
-    public Guid PublicId { get; private set; }
 
     public string Category { get; private set; } = string.Empty;
 

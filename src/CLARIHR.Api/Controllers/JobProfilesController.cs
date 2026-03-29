@@ -193,12 +193,12 @@ public sealed class JobProfilesController(
                 request.Code,
                 request.Title,
                 request.Objective,
-                request.OrgUnitId,
-                request.ReportsToJobProfileId,
-                request.PositionCategoryId,
-                request.StrategicObjectiveCatalogItemId,
-                request.AssignedWorkEquipmentCatalogItemId,
-                request.ResponsibilityCatalogItemId,
+                request.OrgUnitPublicId,
+                request.ReportsToJobProfilePublicId,
+                request.PositionCategoryPublicId,
+                request.StrategicObjectiveCatalogItemPublicId,
+                request.AssignedWorkEquipmentCatalogItemPublicId,
+                request.ResponsibilityCatalogItemPublicId,
                 request.DecisionScope,
                 request.AssignedResources,
                 request.Responsibilities,
@@ -244,12 +244,12 @@ public sealed class JobProfilesController(
                 request.Code,
                 request.Title,
                 request.Objective,
-                request.OrgUnitId,
-                request.ReportsToJobProfileId,
-                request.PositionCategoryId,
-                request.StrategicObjectiveCatalogItemId,
-                request.AssignedWorkEquipmentCatalogItemId,
-                request.ResponsibilityCatalogItemId,
+                request.OrgUnitPublicId,
+                request.ReportsToJobProfilePublicId,
+                request.PositionCategoryPublicId,
+                request.StrategicObjectiveCatalogItemPublicId,
+                request.AssignedWorkEquipmentCatalogItemPublicId,
+                request.ResponsibilityCatalogItemPublicId,
                 request.DecisionScope,
                 request.AssignedResources,
                 request.Responsibilities,
@@ -317,8 +317,8 @@ public sealed class JobProfilesController(
     private static IReadOnlyCollection<JobProfileRequirementInput> MapRequirements(IReadOnlyCollection<JobProfileRequirementRequest>? values) =>
         values?.Select(value => new JobProfileRequirementInput(
                 value.RequirementType,
-                value.RequirementTypeCatalogItemId,
-                value.CatalogItemId,
+                value.RequirementTypeCatalogItemPublicId,
+                value.CatalogItemPublicId,
                 value.CatalogCode,
                 value.CatalogName,
                 value.Description,
@@ -328,7 +328,7 @@ public sealed class JobProfilesController(
     private static IReadOnlyCollection<JobProfileFunctionInput> MapFunctions(IReadOnlyCollection<JobProfileFunctionRequest>? values) =>
         values?.Select(value => new JobProfileFunctionInput(
                 value.FunctionType,
-                value.FrequencyCatalogItemId,
+                value.FrequencyCatalogItemPublicId,
                 value.Description,
                 value.SortOrder))
             .ToArray() ?? [];
@@ -336,7 +336,7 @@ public sealed class JobProfilesController(
     private static IReadOnlyCollection<JobProfileRelationInput> MapRelations(IReadOnlyCollection<JobProfileRelationRequest>? values) =>
         values?.Select(value => new JobProfileRelationInput(
                 value.RelationType,
-                value.CatalogItemId,
+                value.CatalogItemPublicId,
                 value.CatalogCode,
                 value.CatalogName,
                 value.Counterpart,
@@ -346,7 +346,7 @@ public sealed class JobProfilesController(
 
     private static IReadOnlyCollection<JobProfileCompetencyInput> MapCompetencies(IReadOnlyCollection<JobProfileCompetencyRequest>? values) =>
         values?.Select(value => new JobProfileCompetencyInput(
-                value.CatalogItemId,
+                value.CatalogItemPublicId,
                 value.CatalogCode,
                 value.CatalogName,
                 value.Name,
@@ -357,7 +357,7 @@ public sealed class JobProfilesController(
 
     private static IReadOnlyCollection<JobProfileTrainingInput> MapTrainings(IReadOnlyCollection<JobProfileTrainingRequest>? values) =>
         values?.Select(value => new JobProfileTrainingInput(
-                value.CatalogItemId,
+                value.CatalogItemPublicId,
                 value.CatalogCode,
                 value.CatalogName,
                 value.Name,
@@ -367,7 +367,7 @@ public sealed class JobProfilesController(
 
     private static IReadOnlyCollection<JobProfileCompensationInput> MapCompensations(IReadOnlyCollection<JobProfileCompensationRequest>? values) =>
         values?.Select(value => new JobProfileCompensationInput(
-                value.SalaryClassId,
+                value.SalaryClassPublicId,
                 value.SalaryClassCode,
                 value.SalaryClassName,
                 value.MinSalary,
@@ -379,7 +379,7 @@ public sealed class JobProfilesController(
 
     private static IReadOnlyCollection<JobProfileBenefitInput> MapBenefits(IReadOnlyCollection<JobProfileBenefitRequest>? values) =>
         values?.Select(value => new JobProfileBenefitInput(
-                value.CatalogItemId,
+                value.CatalogItemPublicId,
                 value.CatalogCode,
                 value.CatalogName,
                 value.Name,
@@ -389,8 +389,8 @@ public sealed class JobProfilesController(
 
     private static IReadOnlyCollection<JobProfileWorkingConditionInput> MapWorkingConditions(IReadOnlyCollection<JobProfileWorkingConditionRequest>? values) =>
         values?.Select(value => new JobProfileWorkingConditionInput(
-                value.WorkConditionTypeCatalogItemId,
-                value.CatalogItemId,
+                value.WorkConditionTypeCatalogItemPublicId,
+                value.CatalogItemPublicId,
                 value.CatalogCode,
                 value.CatalogName,
                 value.Name,
@@ -399,7 +399,7 @@ public sealed class JobProfilesController(
             .ToArray() ?? [];
 
     private static IReadOnlyCollection<JobProfileDependentPositionInput> MapDependentPositions(IReadOnlyCollection<JobProfileDependentPositionRequest>? values) =>
-        values?.Select(value => new JobProfileDependentPositionInput(value.DependentJobProfileId, value.Quantity, value.Notes)).ToArray() ?? [];
+        values?.Select(value => new JobProfileDependentPositionInput(value.DependentJobProfilePublicId, value.Quantity, value.Notes)).ToArray() ?? [];
 
     private static string ExportCsv(JobProfilePrintResponse payload)
     {
@@ -407,7 +407,7 @@ public sealed class JobProfilesController(
         var lines = new List<string>
         {
             "Field,Value",
-            $"Id,{Escape(profile.Id.ToString())}",
+            $"PublicId,{Escape(profile.Id.ToString())}",
             $"Code,{Escape(profile.Code)}",
             $"Title,{Escape(profile.Title)}",
             $"Status,{Escape(profile.Status.ToString())}",
@@ -436,12 +436,12 @@ public sealed class JobProfilesController(
         string Code,
         string Title,
         string? Objective,
-        Guid? OrgUnitId,
-        Guid? ReportsToJobProfileId,
-        Guid? PositionCategoryId,
-        Guid? StrategicObjectiveCatalogItemId,
-        Guid? AssignedWorkEquipmentCatalogItemId,
-        Guid? ResponsibilityCatalogItemId,
+        Guid? OrgUnitPublicId,
+        Guid? ReportsToJobProfilePublicId,
+        Guid? PositionCategoryPublicId,
+        Guid? StrategicObjectiveCatalogItemPublicId,
+        Guid? AssignedWorkEquipmentCatalogItemPublicId,
+        Guid? ResponsibilityCatalogItemPublicId,
         string? DecisionScope,
         string? AssignedResources,
         string? Responsibilities,
@@ -466,12 +466,12 @@ public sealed class JobProfilesController(
         string Code,
         string Title,
         string? Objective,
-        Guid? OrgUnitId,
-        Guid? ReportsToJobProfileId,
-        Guid? PositionCategoryId,
-        Guid? StrategicObjectiveCatalogItemId,
-        Guid? AssignedWorkEquipmentCatalogItemId,
-        Guid? ResponsibilityCatalogItemId,
+        Guid? OrgUnitPublicId,
+        Guid? ReportsToJobProfilePublicId,
+        Guid? PositionCategoryPublicId,
+        Guid? StrategicObjectiveCatalogItemPublicId,
+        Guid? AssignedWorkEquipmentCatalogItemPublicId,
+        Guid? ResponsibilityCatalogItemPublicId,
         string? DecisionScope,
         string? AssignedResources,
         string? Responsibilities,
@@ -495,8 +495,8 @@ public sealed class JobProfilesController(
 
     public sealed record JobProfileRequirementRequest(
         JobRequirementType RequirementType,
-        Guid? RequirementTypeCatalogItemId,
-        Guid? CatalogItemId,
+        Guid? RequirementTypeCatalogItemPublicId,
+        Guid? CatalogItemPublicId,
         string? CatalogCode,
         string? CatalogName,
         string Description,
@@ -504,13 +504,13 @@ public sealed class JobProfilesController(
 
     public sealed record JobProfileFunctionRequest(
         JobFunctionType FunctionType,
-        Guid? FrequencyCatalogItemId,
+        Guid? FrequencyCatalogItemPublicId,
         string Description,
         int SortOrder);
 
     public sealed record JobProfileRelationRequest(
         JobRelationType RelationType,
-        Guid? CatalogItemId,
+        Guid? CatalogItemPublicId,
         string? CatalogCode,
         string? CatalogName,
         string Counterpart,
@@ -518,7 +518,7 @@ public sealed class JobProfilesController(
         int SortOrder);
 
     public sealed record JobProfileCompetencyRequest(
-        Guid? CatalogItemId,
+        Guid? CatalogItemPublicId,
         string? CatalogCode,
         string? CatalogName,
         string Name,
@@ -527,7 +527,7 @@ public sealed class JobProfilesController(
         int SortOrder);
 
     public sealed record JobProfileTrainingRequest(
-        Guid? CatalogItemId,
+        Guid? CatalogItemPublicId,
         string? CatalogCode,
         string? CatalogName,
         string Name,
@@ -535,7 +535,7 @@ public sealed class JobProfilesController(
         int SortOrder);
 
     public sealed record JobProfileCompensationRequest(
-        Guid? SalaryClassId,
+        Guid? SalaryClassPublicId,
         string? SalaryClassCode,
         string? SalaryClassName,
         decimal? MinSalary,
@@ -545,7 +545,7 @@ public sealed class JobProfilesController(
         bool IsPrimary);
 
     public sealed record JobProfileBenefitRequest(
-        Guid? CatalogItemId,
+        Guid? CatalogItemPublicId,
         string? CatalogCode,
         string? CatalogName,
         string Name,
@@ -553,8 +553,8 @@ public sealed class JobProfilesController(
         int SortOrder);
 
     public sealed record JobProfileWorkingConditionRequest(
-        Guid? WorkConditionTypeCatalogItemId,
-        Guid? CatalogItemId,
+        Guid? WorkConditionTypeCatalogItemPublicId,
+        Guid? CatalogItemPublicId,
         string? CatalogCode,
         string? CatalogName,
         string Name,
@@ -562,7 +562,7 @@ public sealed class JobProfilesController(
         int SortOrder);
 
     public sealed record JobProfileDependentPositionRequest(
-        Guid DependentJobProfileId,
+        Guid DependentJobProfilePublicId,
         int Quantity,
         string? Notes);
 

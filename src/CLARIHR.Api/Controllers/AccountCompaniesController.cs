@@ -92,7 +92,7 @@ public sealed class AccountCompaniesController(
             new CreateAccountCompanyCommand(
                 request.Name,
                 request.CountryCode,
-                request.CompanyTypeId,
+                request.CompanyTypePublicId,
                 new InitialLegalRepresentativeInput(
                     request.InitialLegalRepresentative.FirstName,
                     request.InitialLegalRepresentative.LastName,
@@ -114,7 +114,7 @@ public sealed class AccountCompaniesController(
             return this.ToActionResult(Result<AccountCompanyDetailResponse>.Failure(result.Error));
         }
 
-        return CreatedAtAction(nameof(GetById), new { companyId = result.Value.CompanyId }, result.Value);
+        return CreatedAtAction(nameof(GetById), new { companyPublicId = result.Value.PublicId }, result.Value);
     }
 
     [HttpPut("{companyId:guid}")]
@@ -130,7 +130,7 @@ public sealed class AccountCompaniesController(
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new UpdateAccountCompanyCommand(companyId, request.Name, request.CompanyTypeId),
+            new UpdateAccountCompanyCommand(companyId, request.Name, request.CompanyTypePublicId),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -181,7 +181,7 @@ public sealed class AccountCompaniesController(
     public sealed record CreateAccountCompanyRequest(
         string Name,
         string CountryCode,
-        Guid? CompanyTypeId,
+        Guid? CompanyTypePublicId,
         InitialLegalRepresentativeRequest InitialLegalRepresentative);
 
     public sealed record InitialLegalRepresentativeRequest(
@@ -200,5 +200,5 @@ public sealed class AccountCompaniesController(
         string? Phone,
         bool? IsPrimary = null);
 
-    public sealed record UpdateAccountCompanyRequest(string Name, Guid? CompanyTypeId);
+    public sealed record UpdateAccountCompanyRequest(string Name, Guid? CompanyTypePublicId);
 }

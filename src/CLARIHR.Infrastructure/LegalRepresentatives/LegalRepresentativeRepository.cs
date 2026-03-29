@@ -168,7 +168,7 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Id)
             .Select(item => new LegalRepresentativeDocumentTypeCatalogItemResponse(
-                (int)item.Id,
+                item.PublicId,
                 item.Code,
                 item.Name,
                 item.SortOrder))
@@ -184,7 +184,7 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Id)
             .Select(item => new LegalRepresentativePositionTitleCatalogItemResponse(
-                (int)item.Id,
+                item.PublicId,
                 item.Code,
                 item.Name,
                 item.SortOrder))
@@ -200,7 +200,7 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Id)
             .Select(item => new LegalRepresentativeRepresentationTypeCatalogItemResponse(
-                (int)item.Id,
+                item.PublicId,
                 item.Code,
                 item.Name,
                 item.SortOrder))

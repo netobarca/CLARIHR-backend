@@ -2,96 +2,132 @@
 
 ## 1. Resumen ejecutivo
 
-La estrategia de pruebas actual esta centrada en dos capas:
+La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La reevaluacion del **28 de marzo de 2026** verifico:
 
-- unit tests sobre Domain, Application, validadores, autorizacion y servicios puros
-- integration tests HTTP sobre la API completa con base PostgreSQL efimera
+- `188` unit tests aprobados
+- `134` integration tests aprobados
+- `322` pruebas en total aprobadas
+- `dotnet build` limpio con `0 warnings`
 
-No hay evidencia en el repositorio de pruebas de carga, pruebas E2E de interfaz ni snapshots automatizados del contrato OpenAPI.
+La base actual de testing es saludable para evolucion diaria del backend, pero sigue teniendo huecos justamente en las zonas de riesgo mas alto detectadas por la auditoria revisada.
 
 ## 2. Estado validado
 
-Snapshot validado el **18 de marzo de 2026**:
-
-- `168` unit tests aprobados
-- `123` integration tests aprobados
-- `291` tests en total detectados en el repositorio
-
-## 3. Estructura de pruebas actual
-
-### 3.1 Unit tests
+### 2.1 Unit tests
 
 Proyecto: `tests/CLARIHR.Application.UnitTests`
 
 Cobertura visible sobre:
 
-- auth y provisionamiento
+- auth local y externa
+- refresh tokens
+- provisionamiento
 - dispatchers y dependency injection
 - tenancy
 - autorizacion RBAC
 - permisos por campo
-- modulos de locations
-- org units
-- job profiles
-- position slots
 - personnel files
 - salary tabulator
-- competency framework
-- cost centers
+- org units, locations, cost centers
+- job profiles, position slots y competency framework
+- catalogo global `CommercialPlan`
 
-### 3.2 Integration tests
+### 2.2 Integration tests
 
 Proyecto: `tests/CLARIHR.Api.IntegrationTests`
 
-El harness usa:
+El harness actual usa:
 
 - `WebApplicationFactory<Program>`
 - autenticacion de prueba via `TestAuthenticationHandler`
 - base PostgreSQL efimera
-- `EnsureDeletedAsync()` y `EnsureCreatedAsync()` por escenario
+- `EnsureDeletedAsync()` seguido de `MigrateAsync()`
 - seeding controlado por `IntegrationTestSeeder`
 
-## 4. Fortalezas actuales
+Evidencia:
 
-- existen pruebas reales de API, no solo unit tests
-- los tests integrados ejercitan wiring de ASP.NET Core, EF Core y seguridad
-- la estrategia prueba escenarios funcionales de onboarding, auth y modulos administrativos
-- hay buena cobertura de reglas de dominio y validadores
-- tenant context y autorizacion tienen pruebas dedicadas
+- [IntegrationTestWebApplicationFactory.cs#L89](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/IntegrationTestWebApplicationFactory.cs#L89) aplica migraciones reales en tests
 
-## 5. Huecos actuales
+## 3. Fortalezas actuales
 
-### 5.1 Sin pruebas de contrato versionado
+### 3.1 Auth y tokens mejor cubiertos de lo esperado
 
-La API tiene Swagger runtime, pero no hay snapshot versionado o validacion automatica de `openapi.yaml`.
+Hay cobertura para:
 
-### 5.2 Sin pruebas de performance
+- emision del claim `platform_admin`
+- rotacion de refresh token
+- deteccion de reuse en la familia de refresh tokens
 
-No hay pruebas de carga, smoke de rendimiento ni validacion automatica de rutas pesadas.
+### 3.2 Tenant y permisos si tienen pruebas visibles
 
-### 5.3 Sin UI E2E
+Hay pruebas de tenant mismatch y permisos en modulos sensibles, incluyendo auditoria y surface global de `CommercialPlan`.
 
-El repositorio backend no contiene pruebas de interfaz o flujos de punta a punta con frontend.
+### 3.3 El flujo global de plataforma si esta ejercitado
 
-### 5.4 Integracion sin migraciones
+[CommercialPlansIntegrationTests.cs#L45](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/CommercialPlansIntegrationTests.cs#L45) valida que el CRUD de planes comerciales funciona sin tenant y con `platform_admin`.
 
-Los integration tests recrean base con `EnsureCreatedAsync()`, lo cual sirve para validacion funcional rapida, pero no prueba el pipeline real de migraciones.
+## 4. Hallazgos relevantes sobre cobertura
 
-## 6. Criterio recomendado para nuevas historias
+### 4.1 La documentacion previa de testing estaba desactualizada
 
-Toda HU o requerimiento backend relevante deberia seguir esta expectativa minima:
+La version anterior de este analisis ya no representaba el codigo real:
 
-- unit tests del handler o regla critica
-- pruebas de validacion
-- pruebas de permisos
-- pruebas de tenant isolation
-- integration test cuando el comportamiento HTTP o el wiring sean importantes
+- reportaba `291` tests cuando el snapshot actual es `322`
+- afirmaba `EnsureCreatedAsync()` como estrategia principal, pero el harness actual usa `MigrateAsync()`
 
-## 7. Conclusiones
+Esto no empeora la calidad de las pruebas, pero si la confiabilidad de la documentacion viva.
 
-La base de testing actual es buena para evolucion diaria del backend y ya supera un nivel minimo saludable. Las siguientes mejoras naturales son:
+### 4.2 Cobertura de auditoria insuficiente para PII real de RRHH
 
-1. automatizar contrato API
-2. agregar pruebas dirigidas a endpoints de alto riesgo
-3. definir cuando un cambio requiere integration test obligatorio
-4. incorporar validaciones de migraciones y, mas adelante, pruebas de carga
+[AuditAdministrationTests.cs#L18](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/AuditAdministrationTests.cs#L18) valida remocion de secretos y tokens, pero tambien confirma que `Email` permanece en el JSON auditado.
+
+No hay pruebas visibles para:
+
+- cuentas bancarias
+- salarios
+- beneficiarios
+- `customData`
+- payloads completos de expedientes o secciones de empleado
+
+### 4.3 No hay pruebas para controles anti abuso
+
+No se observa cobertura para:
+
+- rate limiting
+- lockout
+- throttling por IP o identidad
+- abuso del flujo de `refresh`
+
+### 4.4 No hay pruebas para confianza de `X-Forwarded-*`
+
+No existen pruebas que validen proxies confiables, spoofing de IP o consistencia entre forwarded headers y auditoria.
+
+### 4.5 No hay pruebas que exijan auditoria durable de plataforma
+
+Hay pruebas funcionales del CRUD global de `CommercialPlan`, pero no pruebas que fallen si esas mutaciones no dejan un rastro persistente de auditoria.
+
+### 4.6 No hay pruebas de contrato versionado
+
+La API sigue sin snapshots o validacion automatica de `openapi.yaml` contra Swagger runtime o contra la superficie real de controllers.
+
+## 5. Huecos actuales priorizados
+
+1. Redaccion de PII de RRHH en auditoria.
+2. Controles anti abuso en auth.
+3. `X-Forwarded-*` y confianza de proxy.
+4. Auditoria persistente de writes globales de plataforma.
+5. Contrato API versionado y validado automaticamente.
+
+## 6. Conclusiones
+
+La suite actual sirve bien para detectar regresiones funcionales y de wiring. No es correcto decir que el proyecto "no tiene pruebas"; si las tiene y cubren bastante. El problema real es mas especifico: los huecos de prueba estan concentrados justo en riesgos de seguridad operativa, trazabilidad y gobernanza contractual.
+
+## 7. Criterio recomendado para nuevas remediaciones
+
+Toda correccion derivada de esta auditoria deberia agregar, como minimo, una de estas coberturas segun corresponda:
+
+- prueba unitaria de redaccion de auditoria con DTOs reales de RRHH
+- integration test de anti abuso para auth
+- prueba de configuracion o integracion para forwarded headers
+- prueba de auditoria global para `CommercialPlan`
+- snapshot o validacion automatica de OpenAPI

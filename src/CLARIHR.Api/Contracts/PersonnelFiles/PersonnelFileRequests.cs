@@ -21,7 +21,7 @@ public sealed record CreatePersonnelFileRequest(
     string? BirthDepartment,
     string? BirthMunicipality,
     string? PhotoUrl,
-    Guid? OrgUnitId,
+    Guid? OrgUnitPublicId,
     string? CustomDataJson,
     IReadOnlyCollection<IdentificationItemRequest> Identifications);
 
@@ -41,7 +41,7 @@ public sealed record UpdatePersonnelFilePersonalInfoRequest(
     string? BirthDepartment,
     string? BirthMunicipality,
     string? PhotoUrl,
-    Guid? OrgUnitId,
+    Guid? OrgUnitPublicId,
     string? CustomDataJson,
     Guid ConcurrencyToken);
 
@@ -67,11 +67,11 @@ public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     DateTime? RetirementDate,
     string? WorkdayCode,
     string? PayrollTypeCode,
-    Guid? PositionSlotId,
-    Guid? JobProfileId,
-    Guid? OrgUnitId,
-    Guid? WorkCenterId,
-    Guid? CostCenterId,
+    Guid? PositionSlotPublicId,
+    Guid? JobProfilePublicId,
+    Guid? OrgUnitPublicId,
+    Guid? WorkCenterPublicId,
+    Guid? CostCenterPublicId,
     DateTime? ContractStartDate,
     DateTime? ContractEndDate,
     string? VacationConfigurationJson,
@@ -79,10 +79,10 @@ public sealed record UpdatePersonnelFileEmployeeProfileRequest(
 
 public sealed record EmploymentAssignmentItemRequest(
     string AssignmentTypeCode,
-    Guid? PositionSlotId,
-    Guid? OrgUnitId,
-    Guid? WorkCenterId,
-    Guid? CostCenterId,
+    Guid? PositionSlotPublicId,
+    Guid? OrgUnitPublicId,
+    Guid? WorkCenterPublicId,
+    Guid? CostCenterPublicId,
     DateTime StartDate,
     DateTime? EndDate,
     bool IsPrimary,
@@ -95,7 +95,7 @@ public sealed record ContractHistoryItemRequest(
     string ContractTypeCode,
     DateTime ContractDate,
     DateTime? ContractEndDate,
-    Guid? PositionSlotId,
+    Guid? PositionSlotPublicId,
     string? Notes);
 
 public sealed record ReplaceContractHistoryRequest(IReadOnlyCollection<ContractHistoryItemRequest> Items, Guid ConcurrencyToken);
@@ -123,7 +123,7 @@ public sealed record ReplaceAdditionalBenefitsRequest(IReadOnlyCollection<Additi
 
 public sealed record PaymentMethodItemRequest(
     string PaymentMethodCode,
-    Guid? BankAccountId,
+    Guid? BankAccountPublicId,
     bool IsPrimary,
     bool IsActive,
     DateTime EffectiveFromUtc,
@@ -134,7 +134,7 @@ public sealed record ReplacePaymentMethodsRequest(IReadOnlyCollection<PaymentMet
 
 public sealed record AuthorizationSubstitutionItemRequest(
     string SubstitutionTypeCode,
-    Guid SubstitutePersonnelFileId,
+    Guid SubstitutePersonnelFilePublicId,
     string? SubstitutePositionTitle,
     DateTime StartDate,
     DateTime? EndDate,
@@ -206,7 +206,7 @@ public sealed record InsuranceItemRequest(
 public sealed record ReplaceInsurancesRequest(IReadOnlyCollection<InsuranceItemRequest> Items, Guid ConcurrencyToken);
 
 public sealed record MedicalClaimItemRequest(
-    Guid? InsuranceId,
+    Guid? InsurancePublicId,
     string? AccountNumber,
     string ClaimTypeCode,
     string? Diagnosis,

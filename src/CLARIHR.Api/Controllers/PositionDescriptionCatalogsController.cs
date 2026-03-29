@@ -718,9 +718,9 @@ public sealed class PositionDescriptionCatalogsController(
                 request.Code,
                 request.Name,
                 request.Description,
-                request.PositionFunctionTypeId,
-                request.PositionContractTypeId,
-                request.OrgUnitTypeId,
+                request.PositionFunctionTypePublicId,
+                request.PositionContractTypePublicId,
+                request.OrgUnitTypePublicId,
                 request.SortOrder),
             cancellationToken);
 
@@ -742,9 +742,9 @@ public sealed class PositionDescriptionCatalogsController(
                 request.Code,
                 request.Name,
                 request.Description,
-                request.PositionFunctionTypeId,
-                request.PositionContractTypeId,
-                request.OrgUnitTypeId,
+                request.PositionFunctionTypePublicId,
+                request.PositionContractTypePublicId,
+                request.OrgUnitTypePublicId,
                 request.SortOrder,
                 request.ConcurrencyToken),
             cancellationToken);
@@ -821,7 +821,7 @@ public sealed class PositionDescriptionCatalogsController(
                 request.Code,
                 request.Name,
                 request.Description,
-                request.ClassificationId,
+                request.ClassificationPublicId,
                 request.SortOrder),
             cancellationToken);
 
@@ -843,7 +843,7 @@ public sealed class PositionDescriptionCatalogsController(
                 request.Code,
                 request.Name,
                 request.Description,
-                request.ClassificationId,
+                request.ClassificationPublicId,
                 request.SortOrder,
                 request.ConcurrencyToken),
             cancellationToken);
@@ -983,18 +983,18 @@ public sealed class PositionDescriptionCatalogsController(
         string Code,
         string Name,
         string? Description,
-        Guid PositionFunctionTypeId,
-        Guid PositionContractTypeId,
-        Guid OrgUnitTypeId,
+        Guid PositionFunctionTypePublicId,
+        Guid PositionContractTypePublicId,
+        Guid OrgUnitTypePublicId,
         int SortOrder);
 
     public sealed record UpdatePositionCategoryClassificationRequest(
         string Code,
         string Name,
         string? Description,
-        Guid PositionFunctionTypeId,
-        Guid PositionContractTypeId,
-        Guid OrgUnitTypeId,
+        Guid PositionFunctionTypePublicId,
+        Guid PositionContractTypePublicId,
+        Guid OrgUnitTypePublicId,
         int SortOrder,
         Guid ConcurrencyToken);
 
@@ -1002,14 +1002,14 @@ public sealed class PositionDescriptionCatalogsController(
         string Code,
         string Name,
         string? Description,
-        Guid ClassificationId,
+        Guid ClassificationPublicId,
         int SortOrder);
 
     public sealed record UpdatePositionCategoryRequest(
         string Code,
         string Name,
         string? Description,
-        Guid ClassificationId,
+        Guid ClassificationPublicId,
         int SortOrder,
         Guid ConcurrencyToken);
 
