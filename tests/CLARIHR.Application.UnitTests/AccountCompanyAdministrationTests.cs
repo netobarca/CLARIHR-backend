@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.Pagination;
@@ -12,6 +13,7 @@ using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
+using CLARIHR.Application.Features.Locations.Countries;
 using CLARIHR.Application.Features.OrgStructureCatalogs;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
@@ -49,6 +51,7 @@ public sealed class AccountCompanyAdministrationTests
             userRepository,
             new TestCompanyOwnershipPolicy(hasCapacity: true),
             provisioningService,
+            new TestCountryCatalogRepository(),
             new TestOrgStructureCatalogRepository(),
             companyRepository,
             auditService,
@@ -83,6 +86,7 @@ public sealed class AccountCompanyAdministrationTests
             userRepository,
             new TestCompanyOwnershipPolicy(hasCapacity: false),
             new TestCompanyProvisioningService(companyRepository, null),
+            new TestCountryCatalogRepository(),
             new TestOrgStructureCatalogRepository(),
             companyRepository,
             new TestAuditService(),
@@ -449,6 +453,22 @@ public sealed class AccountCompanyAdministrationTests
                 filter.Statuses.Contains(item.Status)));
     }
 
+    private sealed class TestCountryCatalogRepository : ICountryCatalogRepository
+    {
+        public Task<IReadOnlyCollection<CountryCatalogItemResponse>> GetActiveItemsAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<CountryCatalogItemResponse>>(
+                [new CountryCatalogItemResponse(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", 10)]);
+
+        public Task<CountryCatalogLookup?> GetActiveByCodeAsync(string countryCode, CancellationToken cancellationToken)
+        {
+            var normalizedCode = countryCode.Trim().ToUpperInvariant();
+            return Task.FromResult<CountryCatalogLookup?>(
+                normalizedCode == "SV"
+                    ? new CountryCatalogLookup(-7001, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", true)
+                    : null);
+        }
+    }
+
     private sealed class TestUserCompanyRepository(TestCompanyRepository companyRepository) : IUserCompanyRepository
     {
         public List<UserCompanyMembership> Items { get; } = [];
@@ -581,17 +601,11 @@ public sealed class AccountCompanyAdministrationTests
 
     private sealed class TestOrgStructureCatalogRepository : IOrgStructureCatalogRepository
     {
-        public void AddCompanyType(CLARIHR.Domain.OrgStructureCatalogs.CompanyTypeCatalogItem item) =>
-            throw new NotSupportedException();
-
         public void AddOrgUnitType(CLARIHR.Domain.OrgStructureCatalogs.OrgUnitTypeCatalogItem item) =>
             throw new NotSupportedException();
 
         public void AddFunctionalArea(CLARIHR.Domain.OrgStructureCatalogs.FunctionalAreaCatalogItem item) =>
             throw new NotSupportedException();
-
-        public Task<CLARIHR.Domain.OrgStructureCatalogs.CompanyTypeCatalogItem?> GetCompanyTypeByIdAsync(Guid companyTypeId, CancellationToken cancellationToken) =>
-            Task.FromResult<CLARIHR.Domain.OrgStructureCatalogs.CompanyTypeCatalogItem?>(null);
 
         public Task<CLARIHR.Domain.OrgStructureCatalogs.OrgUnitTypeCatalogItem?> GetOrgUnitTypeByIdAsync(Guid orgUnitTypeId, CancellationToken cancellationToken) =>
             Task.FromResult<CLARIHR.Domain.OrgStructureCatalogs.OrgUnitTypeCatalogItem?>(null);
@@ -605,17 +619,11 @@ public sealed class AccountCompanyAdministrationTests
         public Task<bool> ExistsFunctionalAreaOutsideTenantAsync(Guid functionalAreaId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
-        public Task<bool> CompanyTypeCodeExistsAsync(Guid ownerUserPublicId, string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
-            Task.FromResult(false);
-
         public Task<bool> OrgUnitTypeCodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
         public Task<bool> FunctionalAreaCodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
-
-        public Task<PagedResponse<CompanyTypeCatalogItemResponse>> SearchCompanyTypesAsync(Guid ownerUserPublicId, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) =>
-            Task.FromResult(new PagedResponse<CompanyTypeCatalogItemResponse>([], pageNumber, pageSize, 0));
 
         public Task<PagedResponse<OrgUnitTypeCatalogItemResponse>> SearchOrgUnitTypesAsync(Guid tenantId, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) =>
             Task.FromResult(new PagedResponse<OrgUnitTypeCatalogItemResponse>([], pageNumber, pageSize, 0));
@@ -623,17 +631,14 @@ public sealed class AccountCompanyAdministrationTests
         public Task<PagedResponse<FunctionalAreaCatalogItemResponse>> SearchFunctionalAreasAsync(Guid tenantId, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) =>
             Task.FromResult(new PagedResponse<FunctionalAreaCatalogItemResponse>([], pageNumber, pageSize, 0));
 
-        public Task<CompanyTypeCatalogItemResponse?> GetCompanyTypeResponseByIdAsync(Guid companyTypeId, CancellationToken cancellationToken) =>
-            Task.FromResult<CompanyTypeCatalogItemResponse?>(null);
+        public Task<IReadOnlyCollection<CompanyTypeCatalogItemResponse>> GetActiveCompanyTypesByCountryCodeAsync(string countryCode, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<CompanyTypeCatalogItemResponse>>([]);
 
         public Task<OrgUnitTypeCatalogItemResponse?> GetOrgUnitTypeResponseByIdAsync(Guid orgUnitTypeId, CancellationToken cancellationToken) =>
             Task.FromResult<OrgUnitTypeCatalogItemResponse?>(null);
 
         public Task<FunctionalAreaCatalogItemResponse?> GetFunctionalAreaResponseByIdAsync(Guid functionalAreaId, CancellationToken cancellationToken) =>
             Task.FromResult<FunctionalAreaCatalogItemResponse?>(null);
-
-        public Task<bool> HasCompaniesUsingCompanyTypeAsync(long companyTypeCatalogItemId, CancellationToken cancellationToken) =>
-            Task.FromResult(false);
 
         public Task<bool> HasOrgUnitsUsingOrgUnitTypeAsync(long orgUnitTypeCatalogItemId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
@@ -644,7 +649,7 @@ public sealed class AccountCompanyAdministrationTests
         public Task<bool> HasOrgUnitsUsingFunctionalAreaAsync(long functionalAreaCatalogItemId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 
-        public Task<CatalogReferenceLookup?> GetActiveCompanyTypeLookupAsync(Guid ownerUserPublicId, Guid companyTypeId, CancellationToken cancellationToken) =>
+        public Task<CatalogReferenceLookup?> GetActiveCompanyTypeLookupAsync(long countryCatalogItemId, Guid companyTypeId, CancellationToken cancellationToken) =>
             Task.FromResult<CatalogReferenceLookup?>(null);
 
         public Task<CatalogReferenceLookup?> GetActiveOrgUnitTypeLookupAsync(Guid tenantId, Guid orgUnitTypeId, CancellationToken cancellationToken) =>

@@ -57,9 +57,10 @@ El estado actual del sistema cubre estos dominios funcionales:
 ### 5.1 Creacion de la primera compania
 
 1. Un usuario autenticado sin contexto tenant consulta el catalogo global de paises desde `api/account/companies/countries`.
-2. Con el `countryCode` seleccionado y los catalogos auxiliares del representante legal, crea una compania desde `api/account/companies`.
-3. El sistema registra la compania, la relaciona con el pais seleccionado y crea un representante legal inicial.
-4. Durante el provisioning, el backend siembra la configuracion inicial dependiente del pais.
+2. Con el `countryCode` seleccionado, consulta el catalogo global de tipos de compania permitido para ese pais desde `api/account/companies/company-types`.
+3. Con el `countryCode`, el tipo de compania del pais y los catalogos auxiliares del representante legal, crea una compania desde `api/account/companies`.
+4. El sistema registra la compania, la relaciona con el pais seleccionado y crea un representante legal inicial.
+5. Durante el provisioning, el backend siembra la configuracion inicial dependiente del pais.
 
 ### 5.2 Provisioning inicial
 
@@ -88,7 +89,7 @@ El provisioning actual deja creada la base operativa minima del tenant:
 
 ### 6.1 Catalogos base
 
-1. La cuenta autenticada mantiene el catalogo account-scoped de tipos de empresa, y el backend asegura un set base inicial cuando el usuario se registra o consulta por primera vez ese catalogo.
+1. La cuenta autenticada consulta un catalogo global de tipos de empresa filtrado por pais; ese catalogo ya no depende del owner ni del tenant activo.
 2. El tenant administra catalogos de tipos de unidad, areas funcionales y catalogos de descripcion de puestos.
 3. Estos catalogos sirven como base para crear estructura, perfiles, posiciones y para clasificar companias.
 

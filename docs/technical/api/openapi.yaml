@@ -204,25 +204,62 @@ components:
     CompanyTypeMetadataResponse:
       type: object
       required:
-        - publicId
+        - id
         - code
-        - normalizedCode
         - name
         - isActive
       properties:
-        publicId:
+        id:
           type: string
           format: uuid
         code:
           type: string
-          example: PRIVATE
-        normalizedCode:
-          type: string
-          example: PRIVATE
+          example: SA_DE_CV
         name:
           type: string
+          example: Sociedad Anonima de Capital Variable
         isActive:
           type: boolean
+    CompanyTypeCatalogItemResponse:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - sortOrder
+        - isActive
+        - concurrencyToken
+        - createdAtUtc
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Stable public identifier for the active company type catalog item.
+        code:
+          type: string
+          example: SA_DE_CV
+        name:
+          type: string
+          example: Sociedad Anonima de Capital Variable
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          example: 10
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
     ActiveLegalRepresentativeSummaryResponse:
       type: object
       required:
@@ -313,6 +350,7 @@ components:
           type: string
           format: uuid
           nullable: true
+          description: Optional company type selected from the authenticated country-specific company type catalog endpoint.
         initialLegalRepresentative:
           $ref: '#/components/schemas/InitialLegalRepresentativeRequest'
     CommercialPlanStatus:
@@ -673,6 +711,44 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CountryCatalogItemResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/company-types:
+    get:
+      tags:
+        - account-companies
+      operationId: GetAccountCompanyTypes
+      summary: List active company types for a selected country
+      description: Returns the authenticated global company type catalog filtered by the selected country code.
+      security:
+        - Bearer: []
+      parameters:
+        - name: countryCode
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 3
+            example: SV
+      responses:
+        '200':
+          description: Active company type catalog returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CompanyTypeCatalogItemResponse'
+        '400':
+          description: Validation error for the requested country code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '401':
           description: Authentication is required.
           content:

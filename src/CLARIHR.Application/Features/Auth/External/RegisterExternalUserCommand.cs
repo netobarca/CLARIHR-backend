@@ -1,5 +1,4 @@
 using CLARIHR.Application.Abstractions.Auth;
-using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -46,7 +45,6 @@ internal sealed class RegisterExternalUserCommandHandler(
     IUserRepository userRepository,
     IExternalAuthProviderService externalAuthProviderService,
     ITokenService tokenService,
-    ICompanyTypeCatalogSeedService companyTypeCatalogSeedService,
     IUnitOfWork unitOfWork) : ICommandHandler<RegisterExternalUserCommand, ExternalAuthCommandResult>
 {
     public async Task<Result<ExternalAuthCommandResult>> Handle(
@@ -124,10 +122,6 @@ internal sealed class RegisterExternalUserCommandHandler(
         }
 
         await userRepository.SaveChangesAsync(cancellationToken);
-        if (wasCreated)
-        {
-            await companyTypeCatalogSeedService.EnsureSeededAsync(user.PublicId, cancellationToken);
-        }
 
         var tokenResult = await tokenService.GenerateAsync(user, cancellationToken);
         if (tokenResult.IsFailure)

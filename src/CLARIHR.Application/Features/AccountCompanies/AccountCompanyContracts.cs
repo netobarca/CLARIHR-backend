@@ -1,6 +1,7 @@
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
+using CLARIHR.Application.Features.OrgStructureCatalogs;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.LegalRepresentatives;
 using FluentValidation;
@@ -73,6 +74,9 @@ public sealed record GetOwnedCompaniesQuery(
     int PageNumber = 1,
     int PageSize = 20) : IQuery<PagedResponse<AccountCompanySummaryResponse>>;
 
+public sealed record GetAvailableCompanyTypesQuery(string CountryCode)
+    : IQuery<IReadOnlyCollection<CompanyTypeCatalogItemResponse>>;
+
 public sealed record GetOwnedCompanyByIdQuery(Guid CompanyId) : IQuery<AccountCompanyDetailResponse>;
 
 public sealed record CreateAccountCompanyCommand(
@@ -95,6 +99,18 @@ internal sealed class GetOwnedCompaniesQueryValidator : AbstractValidator<GetOwn
     {
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, 100);
+    }
+}
+
+internal sealed class GetAvailableCompanyTypesQueryValidator : AbstractValidator<GetAvailableCompanyTypesQuery>
+{
+    public GetAvailableCompanyTypesQueryValidator()
+    {
+        RuleFor(query => query.CountryCode)
+            .NotEmpty()
+            .MaximumLength(3)
+            .Matches("^[A-Za-z]{2,3}$")
+            .WithMessage("Country code must be a 2 or 3 letter ISO-style code.");
     }
 }
 

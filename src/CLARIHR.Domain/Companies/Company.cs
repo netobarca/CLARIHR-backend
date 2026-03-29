@@ -81,9 +81,9 @@ public sealed class Company : AuditableEntity
 
     public void SetCompanyType(long? companyTypeCatalogItemId)
     {
-        if (companyTypeCatalogItemId.HasValue && companyTypeCatalogItemId.Value <= 0)
+        if (companyTypeCatalogItemId.HasValue && companyTypeCatalogItemId.Value == 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(companyTypeCatalogItemId), "Company type catalog id must be greater than zero.");
+            throw new ArgumentOutOfRangeException(nameof(companyTypeCatalogItemId), "Company type catalog id cannot be zero.");
         }
 
         CompanyTypeCatalogItemId = companyTypeCatalogItemId;

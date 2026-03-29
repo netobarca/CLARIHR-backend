@@ -10,15 +10,15 @@ public sealed class CompanyTypeCatalogItem : AuditableEntity
 
     private CompanyTypeCatalogItem(
         Guid publicId,
-        Guid ownerUserPublicId,
+        long countryCatalogItemId,
         string code,
         string name,
         string? description,
         int sortOrder)
     {
-        if (ownerUserPublicId == Guid.Empty)
+        if (countryCatalogItemId == 0)
         {
-            throw new ArgumentException("Owner user id cannot be empty.", nameof(ownerUserPublicId));
+            throw new ArgumentOutOfRangeException(nameof(countryCatalogItemId), "Country catalog item id cannot be zero.");
         }
 
         if (sortOrder < 0)
@@ -27,7 +27,7 @@ public sealed class CompanyTypeCatalogItem : AuditableEntity
         }
 
         PublicId = publicId;
-        OwnerUserPublicId = ownerUserPublicId;
+        CountryCatalogItemId = countryCatalogItemId;
         SetCode(code);
         SetName(name);
         Description = OrgStructureCatalogNormalization.CleanOptional(description);
@@ -36,7 +36,7 @@ public sealed class CompanyTypeCatalogItem : AuditableEntity
         ConcurrencyToken = Guid.NewGuid();
     }
 
-    public Guid OwnerUserPublicId { get; private set; }
+    public long CountryCatalogItemId { get; private set; }
 
     public string Code { get; private set; } = string.Empty;
 
@@ -55,12 +55,12 @@ public sealed class CompanyTypeCatalogItem : AuditableEntity
     public Guid ConcurrencyToken { get; private set; }
 
     public static CompanyTypeCatalogItem Create(
-        Guid ownerUserPublicId,
+        long countryCatalogItemId,
         string code,
         string name,
         string? description,
         int sortOrder) =>
-        new(Guid.NewGuid(), ownerUserPublicId, code, name, description, sortOrder);
+        new(Guid.NewGuid(), countryCatalogItemId, code, name, description, sortOrder);
 
     public void Update(
         string code,

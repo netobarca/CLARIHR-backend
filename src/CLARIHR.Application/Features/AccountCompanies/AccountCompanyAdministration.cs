@@ -2,6 +2,7 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
@@ -85,11 +86,25 @@ internal sealed class GetOwnedCompanyByIdQueryHandler(
     }
 }
 
+internal sealed class GetAvailableCompanyTypesQueryHandler(
+    IOrgStructureCatalogRepository orgStructureCatalogRepository)
+    : IQueryHandler<GetAvailableCompanyTypesQuery, IReadOnlyCollection<CompanyTypeCatalogItemResponse>>
+{
+    public async Task<Result<IReadOnlyCollection<CompanyTypeCatalogItemResponse>>> Handle(
+        GetAvailableCompanyTypesQuery query,
+        CancellationToken cancellationToken)
+    {
+        var items = await orgStructureCatalogRepository.GetActiveCompanyTypesByCountryCodeAsync(query.CountryCode, cancellationToken);
+        return Result<IReadOnlyCollection<CompanyTypeCatalogItemResponse>>.Success(items);
+    }
+}
+
 internal sealed class CreateAccountCompanyCommandHandler(
     ICurrentUserService currentUserService,
     IUserRepository userRepository,
     ICompanyOwnershipPolicy companyOwnershipPolicy,
     ICompanyProvisioningService companyProvisioningService,
+    ICountryCatalogRepository countryCatalogRepository,
     IOrgStructureCatalogRepository orgStructureCatalogRepository,
     ICompanyRepository companyRepository,
     IAuditService auditService,
@@ -119,8 +134,14 @@ internal sealed class CreateAccountCompanyCommandHandler(
         CatalogReferenceLookup? companyType = null;
         if (command.CompanyTypeId.HasValue)
         {
+            var country = await countryCatalogRepository.GetActiveByCodeAsync(command.CountryCode, cancellationToken);
+            if (country is null)
+            {
+                return Result<AccountCompanyDetailResponse>.Failure(ProvisioningErrors.CountryNotFound(command.CountryCode));
+            }
+
             companyType = await orgStructureCatalogRepository.GetActiveCompanyTypeLookupAsync(
-                currentUserResult.Value.PublicId,
+                country.InternalId,
                 command.CompanyTypeId.Value,
                 cancellationToken);
             if (companyType is null)
@@ -225,7 +246,7 @@ internal sealed class UpdateAccountCompanyCommandHandler(
         if (command.CompanyTypeId.HasValue)
         {
             companyType = await orgStructureCatalogRepository.GetActiveCompanyTypeLookupAsync(
-                currentUserResult.Value.PublicId,
+                company.CountryCatalogItemId,
                 command.CompanyTypeId.Value,
                 cancellationToken);
             if (companyType is null)
