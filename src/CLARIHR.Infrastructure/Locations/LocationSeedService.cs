@@ -10,18 +10,31 @@ internal sealed class LocationSeedService(
     ILocationGroupRepository groupRepository,
     IUnitOfWork unitOfWork) : ILocationSeedService
 {
-    public async Task InitializeDefaultsAsync(Guid tenantId, string countryCode, CancellationToken cancellationToken)
+    public async Task InitializeDefaultsAsync(
+        Guid tenantId,
+        string countryCode,
+        string countryName,
+        CancellationToken cancellationToken)
     {
         if (await hierarchyRepository.GetConfigAsync(tenantId, cancellationToken) is not null)
         {
             return;
         }
 
-        if (!CountryLocationTemplateRegistry.TryGet(countryCode, out var template))
+        if (CountryLocationTemplateRegistry.TryGet(countryCode, out var template))
         {
-            throw new InvalidOperationException($"Unsupported location template country code '{countryCode}'.");
+            await InitializeStructuredTemplateAsync(tenantId, template, cancellationToken);
+            return;
         }
 
+        await InitializeGenericTemplateAsync(tenantId, countryCode, countryName, cancellationToken);
+    }
+
+    private async Task InitializeStructuredTemplateAsync(
+        Guid tenantId,
+        CountryLocationTemplate template,
+        CancellationToken cancellationToken)
+    {
         var config = LocationHierarchyConfig.Create(
             isMultiLevel: true,
             LocationValidationRules.DefaultGroupCode,
@@ -58,6 +71,42 @@ internal sealed class LocationSeedService(
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
         await CreateGroupsAsync(template.Root, tenantId, parentId: null, levelOrder: 1, cancellationToken);
+    }
+
+    private async Task InitializeGenericTemplateAsync(
+        Guid tenantId,
+        string countryCode,
+        string countryName,
+        CancellationToken cancellationToken)
+    {
+        var config = LocationHierarchyConfig.Create(
+            isMultiLevel: false,
+            LocationValidationRules.DefaultGroupCode,
+            LocationValidationRules.DefaultGroupName);
+        config.SetTenantId(tenantId);
+        hierarchyRepository.AddConfig(config);
+
+        var countryLevel = LocationLevel.Create(
+            levelOrder: 1,
+            LocationValidationRules.CountryLevelDisplayName,
+            isActive: true,
+            isRequired: true,
+            allowsWorkCenters: true);
+        countryLevel.SetTenantId(tenantId);
+        hierarchyRepository.AddLevel(countryLevel);
+
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var countryGroup = LocationGroup.Create(
+            levelOrder: 1,
+            LocationValidationRules.NormalizeCountryCode(countryCode),
+            countryName,
+            parentId: null,
+            description: "Pais",
+            isDefault: false);
+        countryGroup.SetTenantId(tenantId);
+        groupRepository.Add(countryGroup);
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     private async Task CreateGroupsAsync(

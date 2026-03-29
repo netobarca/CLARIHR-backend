@@ -24,6 +24,7 @@ internal sealed class CompanyProvisioningService(
     IUserCompanyRepository userCompanyRepository,
     IIamAdministrationRepository iamRepository,
     ILegalRepresentativeRepository legalRepresentativeRepository,
+    ICountryCatalogRepository countryCatalogRepository,
     ILocationSeedService locationSeedService,
     IPlanEntitlementService planEntitlementService,
     IUnitOfWork unitOfWork,
@@ -41,9 +42,10 @@ internal sealed class CompanyProvisioningService(
 
         await planEntitlementService.EnsureFreePlanDefaultsAsync(cancellationToken);
 
-        if (!LocationValidationRules.SupportsSeedCountry(request.CountryCode))
+        var country = await countryCatalogRepository.GetActiveByCodeAsync(request.CountryCode, cancellationToken);
+        if (country is null)
         {
-            return Result<ProvisionedCompanyResult>.Failure(ProvisioningErrors.CountryNotSupported(request.CountryCode));
+            return Result<ProvisionedCompanyResult>.Failure(ProvisioningErrors.CountryNotFound(request.CountryCode));
         }
 
         var companyName = request.ProvisionAsInitialCompany
@@ -54,7 +56,8 @@ internal sealed class CompanyProvisioningService(
             companyName,
             await GenerateUniqueSlugAsync(companyName, cancellationToken),
             user.PublicId,
-            request.CountryCode,
+            country.Code,
+            country.InternalId,
             request.CompanyTypeCatalogItemId);
         companyRepository.Add(company);
 
@@ -135,7 +138,7 @@ internal sealed class CompanyProvisioningService(
         userCompanyRepository.Add(UserCompanyMembership.Create(user.Id, company.Id, adminRole.Id, request.MakePrimary));
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-        await locationSeedService.InitializeDefaultsAsync(company.PublicId, request.CountryCode, cancellationToken);
+        await locationSeedService.InitializeDefaultsAsync(company.PublicId, country.Code, country.Name, cancellationToken);
 
         return Result<ProvisionedCompanyResult>.Success(new ProvisionedCompanyResult(
             company.PublicId,

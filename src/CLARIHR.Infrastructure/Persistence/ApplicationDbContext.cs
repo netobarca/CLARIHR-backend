@@ -80,6 +80,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<LocationGroup> LocationGroups => Set<LocationGroup>();
 
+    public DbSet<CountryCatalogItem> CountryCatalogItems => Set<CountryCatalogItem>();
+
     public DbSet<WorkCenterType> WorkCenterTypes => Set<WorkCenterType>();
 
     public DbSet<WorkCenter> WorkCenters => Set<WorkCenter>();

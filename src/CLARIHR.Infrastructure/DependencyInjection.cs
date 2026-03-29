@@ -81,6 +81,7 @@ public static class DependencyInjection
         services.AddScoped<ICompanyUserAuthorizationService, CompanyUserAuthorizationService>();
         services.AddScoped<ICommercialPlanAuthorizationService, CommercialPlanAuthorizationService>();
         services.AddScoped<IPlanEntitlementService, PlanEntitlementService>();
+        services.AddScoped<ICountryCatalogRepository, CountryCatalogRepository>();
         services.AddScoped<ILocationHierarchyRepository, LocationHierarchyRepository>();
         services.AddScoped<ILocationGroupRepository, LocationGroupRepository>();
         services.AddScoped<IWorkCenterTypeRepository, WorkCenterTypeRepository>();
