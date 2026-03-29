@@ -8,16 +8,14 @@ public sealed class OrgStructureCatalogDomainTests
     [Fact]
     public void CompanyTypeCatalogItem_Create_ShouldNormalizeCodeAndName()
     {
-        var ownerId = Guid.NewGuid();
-
         var item = CompanyTypeCatalogItem.Create(
-            ownerId,
+            -7001,
             "  private  ",
             "  Private Company  ",
             "  Seed  ",
             sortOrder: 10);
 
-        Assert.Equal("private", item.Code);
+        Assert.Equal("PRIVATE", item.Code);
         Assert.Equal("PRIVATE", item.NormalizedCode);
         Assert.Equal("Private Company", item.Name);
         Assert.Equal("PRIVATE COMPANY", item.NormalizedName);
@@ -54,6 +52,9 @@ public sealed class OrgStructureCatalogDomainTests
         var company = Company.Create("Acme", "acme", Guid.NewGuid(), "SV", 1);
         company.SetCompanyType(100);
         Assert.Equal(100, company.CompanyTypeCatalogItemId);
+
+        company.SetCompanyType(-200);
+        Assert.Equal(-200, company.CompanyTypeCatalogItemId);
 
         company.SetCompanyType(null);
         Assert.Null(company.CompanyTypeCatalogItemId);

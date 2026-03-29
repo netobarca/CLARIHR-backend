@@ -1,4 +1,6 @@
+using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.OrgStructureCatalogs;
+using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -19,8 +21,8 @@ internal sealed class CompanyTypeCatalogItemConfiguration : IEntityTypeConfigura
         builder.Property(item => item.PublicId)
             .HasColumnName("public_id");
 
-        builder.Property(item => item.OwnerUserPublicId)
-            .HasColumnName("owner_user_public_id");
+        builder.Property(item => item.CountryCatalogItemId)
+            .HasColumnName("country_catalog_item_id");
 
         builder.Property(item => item.Code)
             .HasColumnName("code")
@@ -58,19 +60,41 @@ internal sealed class CompanyTypeCatalogItemConfiguration : IEntityTypeConfigura
         builder.Property(item => item.ModifiedUtc)
             .HasColumnName("modified_utc");
 
+        builder.HasOne<CountryCatalogItem>()
+            .WithMany()
+            .HasForeignKey(item => item.CountryCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(item => item.PublicId)
             .IsUnique()
             .HasDatabaseName("uq_company_type_catalog_items__public_id");
 
-        builder.HasIndex(item => new { item.OwnerUserPublicId, item.NormalizedCode })
+        builder.HasIndex(item => new { item.CountryCatalogItemId, item.NormalizedCode })
             .IsUnique()
-            .HasDatabaseName("uq_company_type_catalog_items__owner_code");
+            .HasDatabaseName("uq_company_type_catalog_items__country_code");
 
-        builder.HasIndex(item => new { item.OwnerUserPublicId, item.NormalizedName })
-            .HasDatabaseName("ix_company_type_catalog_items__owner_name");
+        builder.HasIndex(item => new { item.CountryCatalogItemId, item.NormalizedName })
+            .HasDatabaseName("ix_company_type_catalog_items__country_name");
 
-        builder.HasIndex(item => new { item.OwnerUserPublicId, item.IsActive })
-            .HasDatabaseName("ix_company_type_catalog_items__owner_active");
+        builder.HasIndex(item => new { item.CountryCatalogItemId, item.IsActive })
+            .HasDatabaseName("ix_company_type_catalog_items__country_active");
+
+        builder.HasData(CompanyTypeCatalog.Items.Select(static item => new
+        {
+            Id = item.Id,
+            PublicId = GlobalCatalogSeedData.CreateSeedPublicId("COMPANY_TYPE", $"{item.CountryCode}:{item.Code}"),
+            CountryCatalogItemId = item.CountryCatalogItemId,
+            Code = item.Code,
+            NormalizedCode = item.Code.ToUpperInvariant(),
+            Name = item.Name,
+            NormalizedName = item.Name.Trim().ToUpperInvariant(),
+            Description = item.Description,
+            SortOrder = item.SortOrder,
+            IsActive = true,
+            ConcurrencyToken = GlobalCatalogSeedData.CreateSeedPublicId("COMPANY_TYPE_TOKEN", $"{item.CountryCode}:{item.Code}"),
+            CreatedUtc = GlobalCatalogSeedData.SeededAtUtc,
+            ModifiedUtc = (DateTime?)GlobalCatalogSeedData.SeededAtUtc
+        }));
     }
 }
 

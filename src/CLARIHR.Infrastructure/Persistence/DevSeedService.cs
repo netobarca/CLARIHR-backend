@@ -266,14 +266,6 @@ internal sealed class DevSeedService(
         Guid tenantId,
         CancellationToken cancellationToken)
     {
-        var companyTypes = new[]
-        {
-            CompanyTypeCatalogItem.Create(ownerUserPublicId, "SA_DE_CV", "Sociedad Anonima de C.V.", null, 10),
-            CompanyTypeCatalogItem.Create(ownerUserPublicId, "COOPERATIVE", "Cooperativa", null, 20),
-            CompanyTypeCatalogItem.Create(ownerUserPublicId, "ASSOCIATION", "Asociacion sin fines de lucro", null, 30),
-        };
-        dbContext.CompanyTypeCatalogItems.AddRange(companyTypes);
-
         var orgUnitTypes = new[]
         {
             OrgUnitTypeCatalogItem.Create("GERENCIA", "Gerencia", null, 10),

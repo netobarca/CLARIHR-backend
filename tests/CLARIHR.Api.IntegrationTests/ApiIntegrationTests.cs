@@ -296,6 +296,32 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task AccountCompanies_GetCompanyTypes_ShouldRequireAuthentication()
+    {
+        var response = await factory.CreateClient().GetAsync("/api/account/companies/company-types?countryCode=SV");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_GetCompanyTypes_ShouldReturnCountryScopedCatalog()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var svTypes = await GetAccountCompanyTypesAsync(client, "SV");
+        var usTypes = await GetAccountCompanyTypesAsync(client, "US");
+
+        Assert.NotEmpty(svTypes);
+        Assert.Contains(svTypes, item => item.Code == "SA_DE_CV" && item.Name == "Sociedad Anonima de Capital Variable");
+        Assert.DoesNotContain(svTypes, item => item.Code == "LLC");
+
+        Assert.NotEmpty(usTypes);
+        Assert.Contains(usTypes, item => item.Code == "LLC" && item.Name == "Limited Liability Company");
+        Assert.DoesNotContain(usTypes, item => item.Code == "SA_DE_CV");
+    }
+
+    [Fact]
     public async Task AccountCompanies_GetLegalRepresentativeDocumentTypes_ShouldReturnSeededCatalog()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -697,7 +723,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var companyType = await CreateCompanyTypeAsync(client, "PRIVATE", "Private Company");
+        var companyType = (await GetAccountCompanyTypesAsync(client, "SV"))
+            .Single(item => item.Code == "SA_DE_CV");
 
         var response = await client.PutJsonAsync($"/api/account/companies/{scenario.OtherTenantId}", new
         {
@@ -711,7 +738,25 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(payload);
         Assert.NotNull(payload!.CompanyType);
         Assert.Equal(companyType.Id, payload.CompanyType!.Id);
-        Assert.Equal("PRIVATE", payload.CompanyType.Code);
+        Assert.Equal("SA_DE_CV", payload.CompanyType.Code);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Update_WithCompanyTypeFromDifferentCountry_ShouldReturn404()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var usCompanyType = (await GetAccountCompanyTypesAsync(client, "US"))
+            .Single(item => item.Code == "LLC");
+
+        var response = await client.PutJsonAsync($"/api/account/companies/{scenario.OtherTenantId}", new
+        {
+            name = "Acme Two Typed",
+            companyTypePublicId = usCompanyType.Id
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.NotFound, "COMPANY_TYPE_NOT_FOUND");
     }
 
     [Fact]
@@ -1786,32 +1831,21 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task OrgStructureCatalogs_CompanyTypes_List_ShouldSeedDefaultCatalogWithoutDuplicates()
+    public async Task AccountCompanies_GetCompanyTypes_ShouldReturnStableSeededCatalogWithoutDuplicates()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var firstResponse = await client.GetAsync("/api/account/org-structure-catalogs/company-types?page=1&pageSize=20");
-        firstResponse.EnsureSuccessStatusCode();
+        var firstPayload = await GetAccountCompanyTypesAsync(client, "MX");
+        var secondPayload = await GetAccountCompanyTypesAsync(client, "MX");
 
-        var firstPayload = await firstResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgStructureCatalogItem>>(JsonOptions);
-        Assert.NotNull(firstPayload);
-        Assert.Equal(8, firstPayload!.Items.Count);
-        Assert.Contains(firstPayload.Items, item => item.Code == "SA_DE_CV" && item.Name == "Sociedad anonima de capital variable");
-        Assert.Contains(firstPayload.Items, item => item.Code == "LIMITED_LIABILITY" && item.Name == "Sociedad de responsabilidad limitada");
-        Assert.Contains(firstPayload.Items, item => item.Code == "INDIVIDUAL_ENTERPRISE" && item.Name == "Empresa individual");
-        Assert.Contains(firstPayload.Items, item => item.Code == "BRANCH_OFFICE" && item.Name == "Sucursal");
-        Assert.Contains(firstPayload.Items, item => item.Code == "COOPERATIVE" && item.Name == "Cooperativa");
-        Assert.Contains(firstPayload.Items, item => item.Code == "ASSOCIATION" && item.Name == "Asociacion sin fines de lucro");
-        Assert.Contains(firstPayload.Items, item => item.Code == "FOUNDATION" && item.Name == "Fundacion");
-        Assert.Contains(firstPayload.Items, item => item.Code == "PUBLIC_INSTITUTION" && item.Name == "Institucion publica");
-
-        var secondResponse = await client.GetAsync("/api/account/org-structure-catalogs/company-types?page=1&pageSize=20");
-        secondResponse.EnsureSuccessStatusCode();
-
-        var secondPayload = await secondResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgStructureCatalogItem>>(JsonOptions);
-        Assert.NotNull(secondPayload);
-        Assert.Equal(firstPayload.Items.Count, secondPayload!.Items.Count);
+        Assert.Equal(5, firstPayload.Count);
+        Assert.Contains(firstPayload, item => item.Code == "SA_DE_CV" && item.Name == "Sociedad Anonima de Capital Variable");
+        Assert.Contains(firstPayload, item => item.Code == "S_DE_RL_DE_CV" && item.Name == "Sociedad de Responsabilidad Limitada de Capital Variable");
+        Assert.Contains(firstPayload, item => item.Code == "SAS" && item.Name == "Sociedad por Acciones Simplificada");
+        Assert.Contains(firstPayload, item => item.Code == "BRANCH_OFFICE" && item.Name == "Sucursal");
+        Assert.Contains(firstPayload, item => item.Code == "AC" && item.Name == "Asociacion Civil");
+        Assert.Equal(firstPayload.Count, secondPayload.Count);
     }
 
     [Fact]
@@ -4620,20 +4654,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return created!;
     }
 
-    private async Task<OrgStructureCatalogItem> CreateCompanyTypeAsync(HttpClient client, string code, string name)
+    private async Task<List<OrgStructureCatalogItem>> GetAccountCompanyTypesAsync(HttpClient client, string countryCode)
     {
-        var createResponse = await client.PostJsonAsync("/api/account/org-structure-catalogs/company-types", new
-        {
-            code,
-            name,
-            description = (string?)null,
-            sortOrder = 10
-        });
-        createResponse.EnsureSuccessStatusCode();
+        var response = await client.GetAsync($"/api/account/companies/company-types?countryCode={countryCode}");
+        response.EnsureSuccessStatusCode();
 
-        var created = await createResponse.Content.ReadFromJsonAsync<OrgStructureCatalogItem>(JsonOptions);
-        Assert.NotNull(created);
-        return created!;
+        var payload = await response.Content.ReadFromJsonAsync<List<OrgStructureCatalogItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        return payload!;
     }
 
     private async Task<CostCenterItem> CreateCostCenterAsync(

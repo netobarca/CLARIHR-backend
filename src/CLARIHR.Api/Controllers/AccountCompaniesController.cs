@@ -6,6 +6,7 @@ using CLARIHR.Application.Features.AccountCompanies;
 using CLARIHR.Application.Features.LegalRepresentatives;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Countries;
+using CLARIHR.Application.Features.OrgStructureCatalogs;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.LegalRepresentatives;
 using Microsoft.AspNetCore.Authorization;
@@ -57,6 +58,18 @@ public sealed class AccountCompaniesController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetCountryCatalogItemsQuery(), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("company-types")]
+    [ProducesResponseType<IReadOnlyCollection<CompanyTypeCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<IReadOnlyCollection<CompanyTypeCatalogItemResponse>>> GetCompanyTypes(
+        [FromQuery] string countryCode,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetAvailableCompanyTypesQuery(countryCode), cancellationToken);
         return this.ToActionResult(result);
     }
 

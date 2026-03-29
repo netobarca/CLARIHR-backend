@@ -748,6 +748,7 @@ Este bloque cubre la administracion de companias propias del usuario autenticado
 
 Incluye:
 
+- `GET /api/account/companies/company-types`
 - `GET /api/account/companies/legal-representative-document-types`
 - `GET /api/account/companies/legal-representative-representation-types`
 - `GET /api/account/companies`
@@ -810,6 +811,7 @@ Contratos principales:
 - `AccountCompanyDetailResponse`: agrega `modifiedAtUtc`, `activeLegalRepresentatives` y metadata completa del tipo de compania
 - `SwitchActiveCompanyResponse`: `accessToken`, `refreshToken`, `expiresIn`, `activeCompany`
 - `CountryCatalogItemResponse`: `id`, `code`, `name`, `sortOrder`
+- `CompanyTypeCatalogItemResponse`: `id`, `code`, `name`, `description`, `sortOrder`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc`
 - `LegalRepresentativeDocumentTypeCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
 - `LegalRepresentativePositionTitleCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
 - `LegalRepresentativeRepresentationTypeCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
@@ -821,6 +823,15 @@ Contratos principales:
 - Autenticacion: `Bearer` requerido.
 - Response: `IReadOnlyCollection<CountryCatalogItemResponse>`.
 - Observaciones: devuelve items globales, ordenados por `sortOrder`; el frontend debe usar `code` como valor estable para `countryCode` al crear la compania y puede usar `name` solo para display.
+
+##### `GET /api/account/companies/company-types`
+
+- Proposito: obtener el catalogo global activo de tipos de compania permitido para el pais seleccionado durante el onboarding o la edicion basica de companias.
+- Autenticacion: `Bearer` requerido.
+- Query: `countryCode`.
+- Validaciones: `countryCode` obligatorio, de `2` o `3` letras.
+- Response: `IReadOnlyCollection<CompanyTypeCatalogItemResponse>`.
+- Observaciones: devuelve solo items activos del pais solicitado; el catalogo es global por pais, no por tenant ni por owner. El frontend debe obtener primero `countryCode` desde `GET /api/account/companies/countries` y luego usar el `id` de este endpoint como `companyTypePublicId`.
 
 ##### `GET /api/account/companies/legal-representative-document-types`
 
@@ -865,7 +876,7 @@ Contratos principales:
 - Proposito: crear una nueva compania para la cuenta autenticada.
 - Autenticacion: `Bearer` requerido.
 - Request body: `name`, `countryCode`, `companyTypePublicId`, `initialLegalRepresentative`.
-- Validaciones base: `name` obligatorio maximo `150`; `countryCode` de `2` o `3` letras y existente en el catalogo global activo de paises; `companyTypePublicId` no puede ser `Guid.Empty`.
+- Validaciones base: `name` obligatorio maximo `150`; `countryCode` de `2` o `3` letras y existente en el catalogo global activo de paises; `companyTypePublicId` no puede ser `Guid.Empty` y, si se envia, debe pertenecer al catalogo global activo del pais seleccionado.
 - Validaciones del representante inicial: `firstName`, `lastName`, `documentNumber`, `positionTitle`, `effectiveFromUtc`; `effectiveToUtc >= effectiveFromUtc`; `email` opcional maximo `320`; `phone` opcional maximo `40`; `isPrimary` es opcional.
 - Response: `201 Created` con `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_LIMIT_REACHED`, `COMPANY_TYPE_NOT_FOUND`, `provisioning.country_not_found`.
@@ -878,7 +889,7 @@ Contratos principales:
 - Request body: `name`, `companyTypePublicId`.
 - Response: `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `COMPANY_TYPE_NOT_FOUND`.
-- Observaciones: no cambia pais, plan ni representantes legales; solo metadata basica.
+- Observaciones: no cambia pais, plan ni representantes legales; solo metadata basica. Si se envia `companyTypePublicId`, debe pertenecer al catalogo global activo del pais ya asociado a la compania.
 
 ##### `PATCH /api/account/companies/{companyPublicId}/archive`
 
@@ -909,6 +920,7 @@ Contratos principales:
 
 - `POST /api/auth/register` crea la cuenta y devuelve identidad autenticada, normalmente aun sin tenant.
 - `GET /api/account/companies/countries` resuelve el catalogo global de paises requerido por el formulario.
+- `GET /api/account/companies/company-types` resuelve el catalogo global de tipos de compania filtrado por pais.
 - `GET /api/account/companies/legal-representative-document-types` resuelve el catalogo de tipos documentales requerido por el formulario.
 - `GET /api/account/companies/legal-representative-position-titles` resuelve el catalogo de cargos requerido por el formulario.
 - `POST /api/account/companies` crea la primera o siguiente compania propiedad de esa cuenta.
@@ -1045,13 +1057,11 @@ Contratos principales:
 
 Este bloque cubre `OrgStructureCatalogsController` y hoy expone tres familias de catalogos:
 
-- `company-types` a nivel de cuenta
 - `unit-types` a nivel tenant
 - `functional-areas` a nivel tenant
 
 Familias de rutas:
 
-- `/api/account/org-structure-catalogs/company-types`
 - `/api/v1/companies/{companyPublicId}/org-structure-catalogs/unit-types`
 - `/api/v1/org-structure-catalogs/unit-types/{publicId}`
 - `/api/v1/companies/{companyPublicId}/org-structure-catalogs/functional-areas`
@@ -1061,7 +1071,6 @@ Familias de rutas:
 
 El modulo `Org structure catalogs` sirve para mantener catalogos base que luego usan otros modulos:
 
-- `company-types` alimenta creacion y edicion de companias en `Account companies`
 - `unit-types` alimenta la estructura organizativa y clasificaciones relacionadas
 - `functional-areas` alimenta org units y otras definiciones organizativas
 
@@ -1070,12 +1079,10 @@ Es un modulo fundacional: no modela organigramas ni companias completas, sino lo
 #### 5.4.3 Modelo operativo y reglas transversales del modulo
 
 - Todas las rutas requieren autenticacion.
-- Este modulo mezcla dos scopes distintos: `company-types` es account-scoped, mientras `unit-types` y `functional-areas` son tenant-scoped.
-- `company-types` no depende del `tenantId` para autorizar; se resuelve por usuario autenticado y ownership del catalogo.
-- `unit-types` y `functional-areas` si dependen del `tenantId` y de claims tenant-scoped.
+- `unit-types` y `functional-areas` dependen del `tenantId` y de claims tenant-scoped.
 - En `unit-types` y `functional-areas`, `search/create` usan `companyPublicId` en la ruta y exigen que coincida con el tenant del token.
 - En `unit-types` y `functional-areas`, `get/update/activate/inactivate` usan solo `{publicId}` y resuelven el tenant desde el token actual. Si el item existe en otro tenant, la API devuelve `TENANT_MISMATCH` en vez de `404` plano.
-- Los tres catalogos comparten el mismo shape observable: `publicId`, `code`, `normalizedCode`, `name`, `description`, `sortOrder`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc`.
+- Ambos catalogos comparten el mismo shape observable: `publicId`, `code`, `normalizedCode`, `name`, `description`, `sortOrder`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc`.
 - Todas las escrituras validan `code` con regex alfanumerica mas `_` o `-`, longitud maxima `50`, `name` maximo `150`, `description` maximo `500` y `sortOrder >= 0`.
 - Los endpoints de `update`, `activate` e `inactivate` usan concurrencia optimista con `ConcurrencyToken`.
 - Los endpoints de busqueda usan `isActive`, `q`, `page` y `pageSize`; el `pageSize` maximo es `100` y el default es `20`.
@@ -1083,7 +1090,6 @@ Es un modulo fundacional: no modela organigramas ni companias completas, sino lo
 
 #### 5.4.4 Autorizacion observable
 
-- `company-types` exige autenticacion valida de cuenta; no aplica RBAC tenant para consultar o administrar.
 - `unit-types` y `functional-areas` en lectura aceptan alguno de estos permisos: `OrgStructureCatalogs.Read`, `OrgStructureCatalogs.Admin`, `OrgUnits.Read`, `OrgUnits.Admin`, `iam.administration.manage` o `platform_admin`.
 - `unit-types` y `functional-areas` en escritura exigen alguno de estos permisos: `OrgStructureCatalogs.Admin`, `OrgUnits.Admin`, `iam.administration.manage` o `platform_admin`.
 - Si el `companyPublicId` de la ruta no coincide con el tenant actual, la respuesta observable es `TENANT_MISMATCH`.
@@ -1100,35 +1106,7 @@ Es un modulo fundacional: no modela organigramas ni companias completas, sino lo
 - `CONCURRENCY_CONFLICT`: `409`, el `concurrencyToken` ya no coincide con la version actual.
 - `400` de validacion: `page/pageSize` invalidos, `code` invalido, campos obligatorios vacios o `ConcurrencyToken` ausente.
 
-#### 5.4.6 `company-types` - catalogo account-scoped
-
-Route family:
-
-- `GET /api/account/org-structure-catalogs/company-types`
-- `GET /api/account/org-structure-catalogs/company-types/{publicId}`
-- `POST /api/account/org-structure-catalogs/company-types`
-- `PUT /api/account/org-structure-catalogs/company-types/{publicId}`
-- `PATCH /api/account/org-structure-catalogs/company-types/{publicId}/activate`
-- `PATCH /api/account/org-structure-catalogs/company-types/{publicId}/inactivate`
-
-Uso principal:
-
-- clasificar companias al crearlas o actualizarlas desde `Account companies`
-- mantener un catalogo propio del usuario/owner, no del tenant activo
-
-Observaciones funcionales:
-
-- `search` permite `isActive`, `q`, `page`, `pageSize`.
-- El backend asegura de forma idempotente un catalogo base por owner durante el registro de nuevas cuentas y antes de responder `search`; si faltan seeds, inserta solo los faltantes sin duplicar codigos existentes.
-- El set base inicial cubre `SA_DE_CV`, `LIMITED_LIABILITY`, `INDIVIDUAL_ENTERPRISE`, `BRANCH_OFFICE`, `COOPERATIVE`, `ASSOCIATION`, `FOUNDATION` y `PUBLIC_INSTITUTION`.
-- `get by id` solo devuelve items cuyo `OwnerUserPublicId` coincide con la cuenta autenticada; si existe pero pertenece a otra cuenta, responde `ORG_STRUCTURE_CATALOG_NOT_FOUND`.
-- `create` valida unicidad de `code` por owner.
-- `update` exige `ConcurrencyToken` y conserva el mismo scope account-scoped.
-- `activate` y `inactivate` tambien exigen `ConcurrencyToken`.
-- `inactivate` falla con `ORG_STRUCTURE_CATALOG_IN_USE` si alguna compania ya usa ese tipo.
-- Cuando existe `tenantId` activo, las escrituras tambien dejan auditoria tenant-scoped; cuando no existe, la operacion sigue siendo valida por tratarse de catalogo de cuenta.
-
-#### 5.4.7 `unit-types` - catalogo tenant-scoped
+#### 5.4.6 `unit-types` - catalogo tenant-scoped
 
 Route family:
 
@@ -1154,7 +1132,7 @@ Observaciones funcionales:
 - `inactivate` falla con `ORG_STRUCTURE_CATALOG_IN_USE` si el item esta siendo usado por org units o por position category classifications.
 - Todas las escrituras generan auditoria de tenant.
 
-#### 5.4.8 `functional-areas` - catalogo tenant-scoped
+#### 5.4.7 `functional-areas` - catalogo tenant-scoped
 
 Route family:
 
@@ -1180,7 +1158,6 @@ Observaciones funcionales:
 
 #### 5.4.9 Relacion con otros modulos
 
-- `Account companies` consume `company-types` para clasificar companias.
 - `OrgUnits` consume `unit-types` y `functional-areas`.
 - Modulos posteriores de diseno organizativo y de puestos dependen indirectamente de estos catalogos.
 

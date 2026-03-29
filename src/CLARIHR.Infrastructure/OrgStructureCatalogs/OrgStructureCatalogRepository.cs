@@ -10,14 +10,9 @@ namespace CLARIHR.Infrastructure.OrgStructureCatalogs;
 
 internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbContext) : IOrgStructureCatalogRepository
 {
-    public void AddCompanyType(CompanyTypeCatalogItem item) => dbContext.CompanyTypeCatalogItems.Add(item);
-
     public void AddOrgUnitType(OrgUnitTypeCatalogItem item) => dbContext.OrgUnitTypeCatalogItems.Add(item);
 
     public void AddFunctionalArea(FunctionalAreaCatalogItem item) => dbContext.FunctionalAreaCatalogItems.Add(item);
-
-    public Task<CompanyTypeCatalogItem?> GetCompanyTypeByIdAsync(Guid companyTypeId, CancellationToken cancellationToken) =>
-        dbContext.CompanyTypeCatalogItems.SingleOrDefaultAsync(item => item.PublicId == companyTypeId, cancellationToken);
 
     public Task<OrgUnitTypeCatalogItem?> GetOrgUnitTypeByIdAsync(Guid orgUnitTypeId, CancellationToken cancellationToken) =>
         dbContext.OrgUnitTypeCatalogItems.SingleOrDefaultAsync(item => item.PublicId == orgUnitTypeId, cancellationToken);
@@ -34,17 +29,6 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
         dbContext.FunctionalAreaCatalogItems
             .IgnoreQueryFilters()
             .AnyAsync(item => item.PublicId == functionalAreaId, cancellationToken);
-
-    public Task<bool> CompanyTypeCodeExistsAsync(
-        Guid ownerUserPublicId,
-        string normalizedCode,
-        long? excludingId,
-        CancellationToken cancellationToken) =>
-        dbContext.CompanyTypeCatalogItems.AnyAsync(
-            item => item.OwnerUserPublicId == ownerUserPublicId &&
-                    item.NormalizedCode == normalizedCode &&
-                    (!excludingId.HasValue || item.Id != excludingId.Value),
-            cancellationToken);
 
     public Task<bool> OrgUnitTypeCodeExistsAsync(
         Guid tenantId,
@@ -68,38 +52,23 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
                     (!excludingId.HasValue || item.Id != excludingId.Value),
             cancellationToken);
 
-    public async Task<PagedResponse<CompanyTypeCatalogItemResponse>> SearchCompanyTypesAsync(
-        Guid ownerUserPublicId,
-        bool? isActive,
-        string? search,
-        int pageNumber,
-        int pageSize,
+    public async Task<IReadOnlyCollection<CompanyTypeCatalogItemResponse>> GetActiveCompanyTypesByCountryCodeAsync(
+        string countryCode,
         CancellationToken cancellationToken)
     {
-        var query = dbContext.CompanyTypeCatalogItems
+        var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();
+
+        var items = await dbContext.CompanyTypeCatalogItems
             .AsNoTracking()
-            .Where(item => item.OwnerUserPublicId == ownerUserPublicId);
-
-        if (isActive.HasValue)
-        {
-            query = query.Where(item => item.IsActive == isActive.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
-            query = query.Where(item =>
-                item.NormalizedCode.Contains(normalizedSearch) ||
-                item.NormalizedName.Contains(normalizedSearch));
-        }
-
-        var totalCount = await query.CountAsync(cancellationToken);
-        var items = await query
+            .Where(item =>
+                item.IsActive &&
+                dbContext.CountryCatalogItems.Any(country =>
+                    country.Id == item.CountryCatalogItemId &&
+                    country.IsActive &&
+                    country.NormalizedCode == normalizedCountryCode))
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Name)
             .ThenBy(item => item.Code)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
             .Select(item => new CompanyTypeCatalogItemResponse(
                 item.PublicId,
                 item.Code,
@@ -112,7 +81,7 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
                 item.ModifiedUtc))
             .ToListAsync(cancellationToken);
 
-        return new PagedResponse<CompanyTypeCatalogItemResponse>(items, pageNumber, pageSize, totalCount);
+        return items;
     }
 
     public async Task<PagedResponse<OrgUnitTypeCatalogItemResponse>> SearchOrgUnitTypesAsync(
@@ -209,22 +178,6 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
         return new PagedResponse<FunctionalAreaCatalogItemResponse>(items, pageNumber, pageSize, totalCount);
     }
 
-    public Task<CompanyTypeCatalogItemResponse?> GetCompanyTypeResponseByIdAsync(Guid companyTypeId, CancellationToken cancellationToken) =>
-        dbContext.CompanyTypeCatalogItems
-            .AsNoTracking()
-            .Where(item => item.PublicId == companyTypeId)
-            .Select(item => new CompanyTypeCatalogItemResponse(
-                item.PublicId,
-                item.Code,
-                item.Name,
-                item.Description,
-                item.SortOrder,
-                item.IsActive,
-                item.ConcurrencyToken,
-                item.CreatedUtc,
-                item.ModifiedUtc))
-            .SingleOrDefaultAsync(cancellationToken);
-
     public Task<OrgUnitTypeCatalogItemResponse?> GetOrgUnitTypeResponseByIdAsync(Guid orgUnitTypeId, CancellationToken cancellationToken) =>
         dbContext.OrgUnitTypeCatalogItems
             .AsNoTracking()
@@ -257,11 +210,6 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
                 item.ModifiedUtc))
             .SingleOrDefaultAsync(cancellationToken);
 
-    public Task<bool> HasCompaniesUsingCompanyTypeAsync(long companyTypeCatalogItemId, CancellationToken cancellationToken) =>
-        dbContext.Companies.AnyAsync(
-            company => company.CompanyTypeCatalogItemId == companyTypeCatalogItemId && company.Status == CompanyStatus.Active,
-            cancellationToken);
-
     public Task<bool> HasOrgUnitsUsingOrgUnitTypeAsync(long orgUnitTypeCatalogItemId, CancellationToken cancellationToken) =>
         dbContext.OrgUnits.AnyAsync(
             orgUnit => orgUnit.OrgUnitTypeCatalogItemId == orgUnitTypeCatalogItemId && orgUnit.IsActive,
@@ -278,12 +226,12 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
             cancellationToken);
 
     public Task<CatalogReferenceLookup?> GetActiveCompanyTypeLookupAsync(
-        Guid ownerUserPublicId,
+        long countryCatalogItemId,
         Guid companyTypeId,
         CancellationToken cancellationToken) =>
         dbContext.CompanyTypeCatalogItems
             .AsNoTracking()
-            .Where(item => item.OwnerUserPublicId == ownerUserPublicId && item.PublicId == companyTypeId && item.IsActive)
+            .Where(item => item.CountryCatalogItemId == countryCatalogItemId && item.PublicId == companyTypeId && item.IsActive)
             .Select(item => new CatalogReferenceLookup(item.Id, item.PublicId, item.Code, item.Name, item.IsActive))
             .SingleOrDefaultAsync(cancellationToken);
 
