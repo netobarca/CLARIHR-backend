@@ -36,7 +36,6 @@ public static class LocationPermissionCodes
     public const string Admin = "Locations.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "LOCATIONS";
-    public const string PlatformAdminRole = "platform_admin";
 }
 
 public static class LocationErrors

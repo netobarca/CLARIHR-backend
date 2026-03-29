@@ -23,7 +23,6 @@ public static class JobProfilePermissionCodes
     public const string CatalogAdmin = "JobCatalogs.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "JOB_PROFILES";
-    public const string PlatformAdminRole = "platform_admin";
 }
 
 public static class JobProfileErrors

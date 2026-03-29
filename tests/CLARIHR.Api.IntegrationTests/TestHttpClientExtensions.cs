@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using CLARIHR.Domain.Auth;
+using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace CLARIHR.Api.IntegrationTests;
 
@@ -8,11 +10,13 @@ internal static class TestHttpClientExtensions
 {
     private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
 
-    public static HttpClient CreateClientFor(this IntegrationTestWebApplicationFactory factory, TestUserContext user)
+    public static HttpClient CreateClientFor<TEntryPoint>(this WebApplicationFactory<TEntryPoint> factory, TestUserContext user)
+        where TEntryPoint : class
     {
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthenticationHandler.SchemeName);
         client.DefaultRequestHeaders.Add(TestAuthenticationHandler.UserIdHeader, user.UserId.ToString());
+        client.DefaultRequestHeaders.Add(TestAuthenticationHandler.ClientTypeHeader, user.ClientType.ToClaimValue());
 
         if (user.TenantId.HasValue)
         {
@@ -42,15 +46,19 @@ internal static class TestHttpClientExtensions
 internal sealed record TestUserContext(
     Guid UserId,
     Guid? TenantId,
+    AuthClientType ClientType,
     IReadOnlyCollection<string> Roles,
     IReadOnlyCollection<string> Permissions)
 {
     public static TestUserContext Authenticated(Guid userId, Guid tenantId, params string[] permissions) =>
-        new(userId, tenantId, [], permissions);
+        new(userId, tenantId, AuthClientType.Core, [], permissions);
 
     public static TestUserContext AuthenticatedWithoutTenant(Guid userId, params string[] roles) =>
-        new(userId, null, roles, []);
+        new(userId, null, AuthClientType.Core, roles, []);
+
+    public static TestUserContext PlatformAuthenticatedWithoutTenant(Guid userId, params string[] roles) =>
+        new(userId, null, AuthClientType.Platform, roles, []);
 
     public static TestUserContext PlatformAdmin(Guid userId) =>
-        new(userId, null, ["platform_admin"], []);
+        PlatformAuthenticatedWithoutTenant(userId);
 }

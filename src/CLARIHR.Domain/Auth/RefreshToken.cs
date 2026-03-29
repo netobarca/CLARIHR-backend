@@ -11,6 +11,7 @@ public sealed class RefreshToken : AuditableEntity
     private RefreshToken(
         Guid familyId,
         long userId,
+        AuthClientType clientType,
         string tokenHash,
         DateTime expiresUtc)
     {
@@ -21,6 +22,7 @@ public sealed class RefreshToken : AuditableEntity
 
         FamilyId = familyId == Guid.Empty ? throw new ArgumentException("Family id cannot be empty.", nameof(familyId)) : familyId;
         UserId = userId;
+        ClientType = clientType;
         TokenHash = AuthNormalization.Clean(tokenHash, nameof(tokenHash));
         ExpiresUtc = expiresUtc;
     }
@@ -28,6 +30,8 @@ public sealed class RefreshToken : AuditableEntity
     public Guid FamilyId { get; private set; }
 
     public long UserId { get; private set; }
+
+    public AuthClientType ClientType { get; private set; }
 
     public string TokenHash { get; private set; } = string.Empty;
 
@@ -41,12 +45,14 @@ public sealed class RefreshToken : AuditableEntity
 
     public static RefreshToken Issue(
         long userId,
+        AuthClientType clientType,
         string tokenHash,
         DateTime expiresUtc,
         Guid? familyId = null) =>
         new(
             familyId ?? Guid.NewGuid(),
             userId,
+            clientType,
             tokenHash,
             expiresUtc);
 
@@ -63,7 +69,7 @@ public sealed class RefreshToken : AuditableEntity
     {
         Revoke(revokedUtc, "rotated", newTokenHash);
 
-        return Issue(UserId, newTokenHash, newExpiresUtc, FamilyId);
+        return Issue(UserId, ClientType, newTokenHash, newExpiresUtc, FamilyId);
     }
 
     public void Revoke(DateTime revokedUtc, string reason, string? replacedByTokenHash = null)

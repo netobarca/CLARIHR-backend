@@ -13,6 +13,8 @@ using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Application.Features.LegalRepresentatives;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Countries;
+using CLARIHR.Application.Features.CommercialPlans;
+using CLARIHR.Application.Features.PlatformSubscriptions;
 using CLARIHR.Application.Features.Provisioning;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
@@ -331,9 +333,12 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         IPlanEntitlementService planEntitlementService,
         TestUnitOfWork unitOfWork)
     {
+        var commercialPlanRepository = new TestCommercialPlanRepository();
+
         var provisioningService = new CompanyProvisioningService(
             userRepository,
             companyRepository,
+            commercialPlanRepository,
             subscriptionRepository,
             userCompanyRepository,
             iamRepository,
@@ -532,6 +537,68 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
 
             return Task.FromResult(activePlan);
         }
+
+        public Task<CompanySubscription?> GetActiveByCompanyIdAsync(long companyId, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.SingleOrDefault(subscription =>
+                subscription.CompanyId == companyId &&
+                subscription.Status == SubscriptionStatus.Active));
+
+        public Task<CompanySubscription?> GetActiveByCompanyPublicIdAsync(Guid companyPublicId, CancellationToken cancellationToken)
+        {
+            var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
+            return Task.FromResult(Items.SingleOrDefault(subscription =>
+                subscription.CompanyId == company?.Id &&
+                subscription.Status == SubscriptionStatus.Active));
+        }
+
+        public Task<PlatformCompanySubscriptionResponse?> GetCurrentByCompanyPublicIdAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult<PlatformCompanySubscriptionResponse?>(null);
+
+        public Task<PagedResponse<PlatformCompanySubscriptionResponse>> SearchByCompanyPublicIdAsync(
+            Guid companyPublicId,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PagedResponse<PlatformCompanySubscriptionResponse>([], pageNumber, pageSize, 0));
+    }
+
+    private sealed class TestCommercialPlanRepository : ICommercialPlanRepository
+    {
+        private readonly CommercialPlan _freePlan;
+
+        public TestCommercialPlanRepository()
+        {
+            _freePlan = CommercialPlan.Create(
+                ProvisioningConstants.FreePlanCode,
+                "Free",
+                "Free plan",
+                0m,
+                0m,
+                CommercialPlanStatus.Active,
+                isSystemPlan: true,
+                []);
+            SetEntityId(_freePlan, 900);
+        }
+
+        public void Add(CommercialPlan plan) => throw new NotSupportedException();
+
+        public Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken) =>
+            Task.FromResult(_freePlan.PublicId == commercialPlanId ? _freePlan : null);
+
+        public Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken) =>
+            Task.FromResult(_freePlan.NormalizedCode == normalizedCode ? _freePlan : null);
+
+        public Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
+            Task.FromResult(_freePlan.NormalizedCode == normalizedCode &&
+                            (!excludingId.HasValue || _freePlan.Id != excludingId.Value));
+
+        public Task<PagedResponse<CommercialPlanSummaryResponse>> SearchAsync(
+            CommercialPlanStatus? status,
+            string? search,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class TestUserCompanyRepository(TestCompanyRepository companyRepository) : IUserCompanyRepository

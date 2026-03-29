@@ -20,6 +20,7 @@ namespace CLARIHR.Application.Features.Provisioning;
 internal sealed class CompanyProvisioningService(
     IUserRepository userRepository,
     ICompanyRepository companyRepository,
+    ICommercialPlanRepository commercialPlanRepository,
     ICompanySubscriptionRepository subscriptionRepository,
     IUserCompanyRepository userCompanyRepository,
     IIamAdministrationRepository iamRepository,
@@ -41,6 +42,14 @@ internal sealed class CompanyProvisioningService(
         }
 
         await planEntitlementService.EnsureFreePlanDefaultsAsync(cancellationToken);
+
+        var freePlan = await commercialPlanRepository.GetByNormalizedCodeAsync(
+            ProvisioningConstants.FreePlanCode.ToUpperInvariant(),
+            cancellationToken);
+        if (freePlan is null || freePlan.Status != CommercialPlanStatus.Active)
+        {
+            return Result<ProvisionedCompanyResult>.Failure(ProvisioningErrors.DefaultPlanUnavailable);
+        }
 
         var country = await countryCatalogRepository.GetActiveByCodeAsync(request.CountryCode, cancellationToken);
         if (country is null)
@@ -84,7 +93,7 @@ internal sealed class CompanyProvisioningService(
 
         subscriptionRepository.Add(CompanySubscription.Activate(
             company.Id,
-            request.PlanCode,
+            freePlan,
             dateTimeProvider.UtcNow));
 
         var adminPermissions = CreateAdminPermissions(company.PublicId);
@@ -144,7 +153,7 @@ internal sealed class CompanyProvisioningService(
             company.PublicId,
             company.Name,
             company.Slug,
-            request.PlanCode,
+            freePlan.Code,
             company.CreatedUtc));
     }
 

@@ -16,6 +16,11 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
             .Include(plan => plan.Limits)
             .SingleOrDefaultAsync(plan => plan.PublicId == commercialPlanId, cancellationToken);
 
+    public Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken) =>
+        dbContext.CommercialPlans
+            .Include(plan => plan.Limits)
+            .SingleOrDefaultAsync(plan => plan.NormalizedCode == normalizedCode, cancellationToken);
+
     public Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
         dbContext.CommercialPlans.AnyAsync(
             plan => plan.NormalizedCode == normalizedCode &&

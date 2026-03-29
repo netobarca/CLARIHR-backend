@@ -38,11 +38,6 @@ internal sealed class SalaryTabulatorAuthorizationService(
             return Result.Failure(SalaryTabulatorErrors.TenantMismatch(mode == PermissionMode.Read ? RbacPermissionAction.Read : RbacPermissionAction.Update));
         }
 
-        if (currentUserService.Roles.Contains(SalaryTabulatorPermissionCodes.PlatformAdminRole, StringComparer.OrdinalIgnoreCase))
-        {
-            return Result.Success();
-        }
-
         var normalizedClaims = currentUserService.Permissions
             .Select(static permission => permission.Trim().ToUpperInvariant())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);

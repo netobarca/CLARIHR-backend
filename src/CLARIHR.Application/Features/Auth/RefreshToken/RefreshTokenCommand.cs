@@ -2,6 +2,7 @@ using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.RegisterUser;
+using CLARIHR.Domain.Auth;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.Auth.RefreshToken;
@@ -25,7 +26,7 @@ internal sealed class RefreshTokenCommandHandler(
 {
     public async Task<Result<AuthResponse>> Handle(RefreshTokenCommand command, CancellationToken cancellationToken)
     {
-        var tokenResult = await tokenService.RefreshAsync(command.RefreshToken, cancellationToken);
+        var tokenResult = await tokenService.RefreshAsync(command.RefreshToken, AuthClientType.Core, cancellationToken);
         if (tokenResult.IsFailure)
         {
             return Result<AuthResponse>.Failure(tokenResult.Error);

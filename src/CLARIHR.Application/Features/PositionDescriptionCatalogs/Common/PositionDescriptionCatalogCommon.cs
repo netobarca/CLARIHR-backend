@@ -23,7 +23,6 @@ public static class PositionDescriptionCatalogPermissionCodes
     public const string Admin = "PositionDescriptionCatalogs.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "POSITION_DESCRIPTION_CATALOGS";
-    public const string PlatformAdminRole = "platform_admin";
 }
 
 public static class PositionDescriptionCatalogErrors

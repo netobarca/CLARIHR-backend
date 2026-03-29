@@ -22,6 +22,11 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
         builder.Property(refreshToken => refreshToken.UserId)
             .HasColumnName("user_id");
 
+        builder.Property(refreshToken => refreshToken.ClientType)
+            .HasColumnName("client_type")
+            .HasConversion<string>()
+            .HasMaxLength(30);
+
         builder.Property(refreshToken => refreshToken.TokenHash)
             .HasColumnName("token_hash")
             .HasMaxLength(128);
@@ -52,6 +57,9 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
 
         builder.HasIndex(refreshToken => new { refreshToken.FamilyId, refreshToken.UserId })
             .HasDatabaseName("ix_auth_refresh_tokens__family_user");
+
+        builder.HasIndex(refreshToken => new { refreshToken.UserId, refreshToken.ClientType, refreshToken.RevokedUtc })
+            .HasDatabaseName("ix_auth_refresh_tokens__user_client_revoked");
 
         builder.HasOne<User>()
             .WithMany()

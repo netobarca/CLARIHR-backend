@@ -295,7 +295,13 @@ public sealed class RegisterExternalUserCommandHandlerTests
         public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
             GenerateAsync(user, cancellationToken);
 
-        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
+        public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
+            GenerateAsync(user, cancellationToken);
+
+        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(
+            string refreshToken,
+            AuthClientType clientType,
+            CancellationToken cancellationToken) =>
             Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
     }
 
@@ -307,7 +313,13 @@ public sealed class RegisterExternalUserCommandHandlerTests
         public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
             Task.FromResult(Result<AuthTokenResult>.Failure(error));
 
-        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
+        public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
+            Task.FromResult(Result<AuthTokenResult>.Failure(error));
+
+        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(
+            string refreshToken,
+            AuthClientType clientType,
+            CancellationToken cancellationToken) =>
             Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
     }
 }

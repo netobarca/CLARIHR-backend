@@ -89,6 +89,7 @@ internal sealed class DeactivateCompanyUserCommandHandler(
 
         await refreshTokenRepository.RevokeUserTokensAsync(
             user.Id,
+            AuthClientType.Core,
             dateTimeProvider.UtcNow,
             "company-user-deactivated",
             cancellationToken);

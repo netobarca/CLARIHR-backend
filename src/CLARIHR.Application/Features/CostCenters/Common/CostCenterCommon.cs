@@ -28,7 +28,6 @@ public static class CostCenterPermissionCodes
     public const string Admin = "CostCenters.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "COST_CENTERS";
-    public const string PlatformAdminRole = "platform_admin";
 }
 
 public static class CostCenterErrors

@@ -138,7 +138,6 @@ public static class PersonnelFilePermissionCodes
     public const string Admin = "PersonnelFiles.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "PERSONNEL_FILES";
-    public const string PlatformAdminRole = "platform_admin";
 }
 
 public static class PersonnelFileErrors

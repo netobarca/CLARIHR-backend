@@ -1,15 +1,18 @@
-using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using CLARIHR.Api.Configuration;
 using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
+using CLARIHR.Domain.Auth;
 using CLARIHR.Infrastructure;
+using CLARIHR.Infrastructure.Configuration;
 using CLARIHR.Infrastructure.Logging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.Options;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -56,7 +59,7 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "JWT Bearer token. Example: Bearer {token}"
+        Description = "Paste only the raw accessToken JWT value. Do not include the word Bearer, quotes, commas, or any other JSON characters."
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -75,9 +78,18 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    var policy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .RequireClaim("client_type", AuthClientType.Core.ToClaimValue())
+        .Build();
 
-ConfigureAuthentication(builder.Services, builder.Configuration);
+    options.DefaultPolicy = policy;
+    options.FallbackPolicy = policy;
+});
+
+ConfigureAuthentication(builder.Services);
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -87,6 +99,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 var app = builder.Build();
+
+LogJwtConfiguration(app.Logger, app.Configuration);
 
 await app.Services.InitializeInfrastructureAsync(app.Logger, app.Environment.IsDevelopment());
 
@@ -118,21 +132,56 @@ app.Run();
 
 return;
 
-static void ConfigureAuthentication(IServiceCollection services, IConfiguration configuration)
+static void ConfigureAuthentication(IServiceCollection services)
 {
-    var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>();
-    if (jwtOptions is not { IsConfigured: true })
-    {
-        services.AddAuthentication();
-        return;
-    }
-
     services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(options =>
+        .AddJwtBearer();
+
+    services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+        .Configure<IOptions<JwtTokenOptions>>((options, jwtTokenOptionsAccessor) =>
         {
+            var jwtOptions = jwtTokenOptionsAccessor.Value;
+            if (!jwtOptions.IsConfigured)
+            {
+                throw new InvalidOperationException(
+                    $"JWT authentication is not fully configured. Section '{JwtTokenOptions.SectionName}' must provide issuer, audience, platform audience, and signing key.");
+            }
+
             options.RequireHttpsMetadata = true;
             options.SaveToken = false;
+            options.Events = new JwtBearerEvents
+            {
+                OnAuthenticationFailed = context =>
+                {
+                    var loggerFactory = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>();
+                    var logger = loggerFactory.CreateLogger("JwtAuthentication");
+                    var configuredOptions = context.HttpContext.RequestServices
+                        .GetRequiredService<IOptions<JwtTokenOptions>>()
+                        .Value;
+                    var rawAuthorization = context.Request.Headers.Authorization.ToString();
+                    var rawToken = rawAuthorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                        ? rawAuthorization["Bearer ".Length..].Trim()
+                        : rawAuthorization;
+                    var tokenSummary = JwtConfigurationDiagnostics.TryReadSummary(rawToken);
+
+                    logger.LogWarning(
+                        context.Exception,
+                        "JWT authentication failed for {Method} {Path}. Token issuer {TokenIssuer}, token audience {TokenAudience}, token client type {TokenClientType}, token valid from {TokenValidFromUtc}, token expires at {TokenExpiresAtUtc}, configured issuer {ConfiguredIssuer}, configured audience {ConfiguredAudience}, key fingerprint {KeyFingerprint}.",
+                        context.Request.Method,
+                        context.Request.Path,
+                        tokenSummary?.Issuer,
+                        tokenSummary?.Audience,
+                        tokenSummary?.ClientType,
+                        tokenSummary?.ValidFromUtc,
+                        tokenSummary?.ExpiresAtUtc,
+                        configuredOptions.Issuer,
+                        configuredOptions.Audience,
+                        JwtConfigurationDiagnostics.ComputeSigningKeyFingerprint(configuredOptions.SigningKey));
+
+                    return Task.CompletedTask;
+                }
+            };
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
@@ -141,10 +190,34 @@ static void ConfigureAuthentication(IServiceCollection services, IConfiguration 
                 ValidateLifetime = true,
                 ValidIssuer = jwtOptions.Issuer,
                 ValidAudience = jwtOptions.Audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey!)),
+                IssuerSigningKey = JwtConfigurationDiagnostics.CreateSigningKey(jwtOptions.SigningKey!),
                 ClockSkew = TimeSpan.Zero
             };
         });
+}
+
+static void LogJwtConfiguration(Microsoft.Extensions.Logging.ILogger logger, IConfiguration configuration)
+{
+    var jwtOptions = configuration.GetSection(JwtTokenOptions.SectionName).Get<JwtTokenOptions>();
+    var keyFingerprint = JwtConfigurationDiagnostics.ComputeSigningKeyFingerprint(jwtOptions?.SigningKey);
+
+    if (jwtOptions is not { IsConfigured: true })
+    {
+        logger.LogWarning(
+            "JWT authentication is not fully configured for the core API. Issuer {Issuer}, audience {Audience}, platform audience {PlatformAudience}, key fingerprint {KeyFingerprint}.",
+            jwtOptions?.Issuer,
+            jwtOptions?.Audience,
+            jwtOptions?.PlatformAudience,
+            keyFingerprint);
+        return;
+    }
+
+    logger.LogInformation(
+        "Configured JWT authentication for the core API. Issuer {Issuer}, valid audience {Audience}, platform audience {PlatformAudience}, key fingerprint {KeyFingerprint}.",
+        jwtOptions.Issuer,
+        jwtOptions.Audience,
+        jwtOptions.PlatformAudience,
+        keyFingerprint);
 }
 
 public partial class Program;

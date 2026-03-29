@@ -23,6 +23,8 @@ internal static class IntegrationTestSeeder
             .Where(item => item.NormalizedCode == "SV")
             .Select(item => item.Id)
             .SingleAsync();
+        var freePlan = await dbContext.CommercialPlans
+            .SingleAsync(plan => plan.NormalizedCode == ProvisioningConstants.FreePlanCode);
 
         var companyA = Company.Create("Acme One", "acme-one", actorUserId, "SV", countryCatalogItemId);
         var companyB = Company.Create("Acme Two", "acme-two", actorUserId, "SV", countryCatalogItemId);
@@ -48,8 +50,8 @@ internal static class IntegrationTestSeeder
         await dbContext.SaveChangesAsync();
 
         dbContext.CompanySubscriptions.AddRange(
-            CompanySubscription.Activate(companyA.Id, ProvisioningConstants.FreePlanCode, DateTime.UtcNow.Date),
-            CompanySubscription.Activate(companyB.Id, ProvisioningConstants.FreePlanCode, DateTime.UtcNow.Date));
+            CompanySubscription.Activate(companyA.Id, freePlan, DateTime.UtcNow.Date),
+            CompanySubscription.Activate(companyB.Id, freePlan, DateTime.UtcNow.Date));
         await dbContext.SaveChangesAsync();
 
         SeedDefaultLocations(dbContext, tenantA);

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using CLARIHR.Domain.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -17,6 +18,7 @@ internal sealed class TestAuthenticationHandler(
     public const string TenantIdHeader = "X-Test-TenantId";
     public const string RolesHeader = "X-Test-Roles";
     public const string PermissionsHeader = "X-Test-Permissions";
+    public const string ClientTypeHeader = "X-Test-ClientType";
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -29,7 +31,8 @@ internal sealed class TestAuthenticationHandler(
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, userIdValues.ToString()),
-            new("sub", userIdValues.ToString())
+            new("sub", userIdValues.ToString()),
+            new("client_type", ResolveClientType())
         };
 
         if (Request.Headers.TryGetValue(TenantIdHeader, out var tenantIdValues) &&
@@ -54,6 +57,17 @@ internal sealed class TestAuthenticationHandler(
         var ticket = new AuthenticationTicket(principal, SchemeName);
 
         return Task.FromResult(AuthenticateResult.Success(ticket));
+    }
+
+    private string ResolveClientType()
+    {
+        if (!Request.Headers.TryGetValue(ClientTypeHeader, out var values) ||
+            string.IsNullOrWhiteSpace(values.ToString()))
+        {
+            return AuthClientType.Core.ToClaimValue();
+        }
+
+        return values.ToString();
     }
 
     private IEnumerable<string> SplitHeaderValues(string headerName)

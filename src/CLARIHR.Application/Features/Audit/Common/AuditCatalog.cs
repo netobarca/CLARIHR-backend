@@ -18,6 +18,11 @@ public static class AuditEventTypes
     public const string CompanyArchived = "COMPANY_ARCHIVED";
     public const string CompanyReactivated = "COMPANY_REACTIVATED";
     public const string ActiveCompanySwitched = "ACTIVE_COMPANY_SWITCHED";
+    public const string CommercialPlanCreated = "COMMERCIAL_PLAN_CREATED";
+    public const string CommercialPlanUpdated = "COMMERCIAL_PLAN_UPDATED";
+    public const string CommercialPlanActivated = "COMMERCIAL_PLAN_ACTIVATED";
+    public const string CommercialPlanInactivated = "COMMERCIAL_PLAN_INACTIVATED";
+    public const string CompanySubscriptionReplaced = "COMPANY_SUBSCRIPTION_REPLACED";
     public const string CompanyTypeCatalogItemCreated = "COMPANY_TYPE_CATALOG_ITEM_CREATED";
     public const string CompanyTypeCatalogItemUpdated = "COMPANY_TYPE_CATALOG_ITEM_UPDATED";
     public const string CompanyTypeCatalogItemActivated = "COMPANY_TYPE_CATALOG_ITEM_ACTIVATED";
@@ -115,6 +120,11 @@ public static class AuditEventTypes
         CompanyArchived,
         CompanyReactivated,
         ActiveCompanySwitched,
+        CommercialPlanCreated,
+        CommercialPlanUpdated,
+        CommercialPlanActivated,
+        CommercialPlanInactivated,
+        CompanySubscriptionReplaced,
         CompanyTypeCatalogItemCreated,
         CompanyTypeCatalogItemUpdated,
         CompanyTypeCatalogItemActivated,
@@ -214,6 +224,8 @@ public static class AuditEntityTypes
     public const string Role = "Role";
     public const string Permission = "Permission";
     public const string Company = "Company";
+    public const string CommercialPlan = "CommercialPlan";
+    public const string CompanySubscription = "CompanySubscription";
     public const string CompanyTypeCatalogItem = "CompanyTypeCatalogItem";
     public const string OrgUnit = "OrgUnit";
     public const string OrgUnitTypeCatalogItem = "OrgUnitTypeCatalogItem";
@@ -239,6 +251,8 @@ public static class AuditEntityTypes
         Role,
         Permission,
         Company,
+        CommercialPlan,
+        CompanySubscription,
         CompanyTypeCatalogItem,
         OrgUnit,
         OrgUnitTypeCatalogItem,

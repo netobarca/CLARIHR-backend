@@ -12,13 +12,13 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
     {
         var normalizedPlanCode = ProvisioningConstants.FreePlanCode.ToUpperInvariant();
 
-        var commercialPlanExists = await dbContext.CommercialPlans.AnyAsync(
+        var commercialPlan = await dbContext.CommercialPlans.SingleOrDefaultAsync(
             plan => plan.NormalizedCode == normalizedPlanCode,
             cancellationToken);
 
-        if (!commercialPlanExists)
+        if (commercialPlan is null)
         {
-            dbContext.CommercialPlans.Add(CommercialPlan.Create(
+            commercialPlan = CommercialPlan.Create(
                 ProvisioningConstants.FreePlanCode,
                 "Free",
                 "Canonical free commercial plan used during provisioning.",
@@ -26,7 +26,9 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
                 pricePerActiveEmployee: 0m,
                 CommercialPlanStatus.Active,
                 isSystemPlan: true,
-                limits: []));
+                limits: []);
+            dbContext.CommercialPlans.Add(commercialPlan);
+            _ = await dbContext.SaveChangesAsync(cancellationToken);
         }
 
         foreach (var moduleKey in ProvisioningConstants.FreePlanEnabledModules)
@@ -35,7 +37,7 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
 
             var exists = await dbContext.PlanEntitlements.AnyAsync(
                 entitlement =>
-                    entitlement.PlanCode == normalizedPlanCode &&
+                    entitlement.CommercialPlanId == commercialPlan.Id &&
                     entitlement.ModuleKey == normalizedModuleKey,
                 cancellationToken);
 
@@ -44,7 +46,7 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
                 continue;
             }
 
-            dbContext.PlanEntitlements.Add(PlanEntitlement.Create(ProvisioningConstants.FreePlanCode, moduleKey, isEnabled: true));
+            dbContext.PlanEntitlements.Add(PlanEntitlement.Create(commercialPlan.Id, commercialPlan.Code, moduleKey, isEnabled: true));
         }
 
         _ = await dbContext.SaveChangesAsync(cancellationToken);
@@ -60,11 +62,11 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
                 dbContext.Companies.Where(company => company.PublicId == companyPublicId),
                 subscription => subscription.CompanyId,
                 company => company.Id,
-                (subscription, _) => subscription.PlanCode)
+                (subscription, _) => subscription.CommercialPlanId)
             .Join(
                 dbContext.PlanEntitlements.Where(entitlement => entitlement.IsEnabled),
-                planCode => new { PlanCode = planCode, ModuleKey = normalizedModuleKey },
-                entitlement => new { entitlement.PlanCode, entitlement.ModuleKey },
+                commercialPlanId => new { CommercialPlanId = commercialPlanId, ModuleKey = normalizedModuleKey },
+                entitlement => new { entitlement.CommercialPlanId, entitlement.ModuleKey },
                 (_, _) => true)
             .AnyAsync(cancellationToken);
     }

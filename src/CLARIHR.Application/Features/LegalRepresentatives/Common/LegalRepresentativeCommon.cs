@@ -52,7 +52,6 @@ public static class LegalRepresentativePermissionCodes
     public const string Admin = "LegalRepresentatives.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "LEGAL_REPRESENTATIVES";
-    public const string PlatformAdminRole = "platform_admin";
 }
 
 public static class LegalRepresentativeErrors

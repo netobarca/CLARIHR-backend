@@ -1,9 +1,12 @@
+using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Platform;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CommercialPlans.Common;
 using CLARIHR.Domain.Companies;
 using Microsoft.Extensions.Logging;
@@ -11,7 +14,7 @@ using Microsoft.Extensions.Logging;
 namespace CLARIHR.Application.Features.CommercialPlans;
 
 internal sealed class SearchCommercialPlansQueryHandler(
-    ICommercialPlanAuthorizationService authorizationService,
+    IPlatformAuthorizationService authorizationService,
     ICommercialPlanRepository repository)
     : IQueryHandler<SearchCommercialPlansQuery, PagedResponse<CommercialPlanSummaryResponse>>
 {
@@ -19,7 +22,7 @@ internal sealed class SearchCommercialPlansQueryHandler(
         SearchCommercialPlansQuery query,
         CancellationToken cancellationToken)
     {
-        var authorizationResult = await authorizationService.EnsurePlatformAdministrationAsync(cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<PagedResponse<CommercialPlanSummaryResponse>>.Failure(authorizationResult.Error);
@@ -37,7 +40,7 @@ internal sealed class SearchCommercialPlansQueryHandler(
 }
 
 internal sealed class GetCommercialPlanByIdQueryHandler(
-    ICommercialPlanAuthorizationService authorizationService,
+    IPlatformAuthorizationService authorizationService,
     ICommercialPlanRepository repository)
     : IQueryHandler<GetCommercialPlanByIdQuery, CommercialPlanResponse>
 {
@@ -45,7 +48,7 @@ internal sealed class GetCommercialPlanByIdQueryHandler(
         GetCommercialPlanByIdQuery query,
         CancellationToken cancellationToken)
     {
-        var authorizationResult = await authorizationService.EnsurePlatformAdministrationAsync(cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<CommercialPlanResponse>.Failure(authorizationResult.Error);
@@ -59,8 +62,9 @@ internal sealed class GetCommercialPlanByIdQueryHandler(
 }
 
 internal sealed class CreateCommercialPlanCommandHandler(
-    ICommercialPlanAuthorizationService authorizationService,
+    IPlatformAuthorizationService authorizationService,
     ICommercialPlanRepository repository,
+    IPlatformAuditService platformAuditService,
     ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork,
     ILogger<CreateCommercialPlanCommandHandler> logger)
@@ -70,7 +74,7 @@ internal sealed class CreateCommercialPlanCommandHandler(
         CreateCommercialPlanCommand command,
         CancellationToken cancellationToken)
     {
-        var authorizationResult = await authorizationService.EnsurePlatformAdministrationAsync(cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<CommercialPlanResponse>.Failure(authorizationResult.Error);
@@ -95,6 +99,17 @@ internal sealed class CreateCommercialPlanCommandHandler(
         try
         {
             repository.Add(plan);
+            var response = CommercialPlanMapper.Map(plan);
+            await platformAuditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.CommercialPlanCreated,
+                    AuditEntityTypes.CommercialPlan,
+                    plan.PublicId,
+                    plan.Code,
+                    AuditActions.Create,
+                    $"Created commercial plan {plan.Code}.",
+                    After: response),
+                cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
@@ -103,7 +118,7 @@ internal sealed class CreateCommercialPlanCommandHandler(
                 plan.Code,
                 currentUserService.UserId);
 
-            return Result<CommercialPlanResponse>.Success(CommercialPlanMapper.Map(plan));
+            return Result<CommercialPlanResponse>.Success(response);
         }
         catch
         {
@@ -114,8 +129,9 @@ internal sealed class CreateCommercialPlanCommandHandler(
 }
 
 internal sealed class UpdateCommercialPlanCommandHandler(
-    ICommercialPlanAuthorizationService authorizationService,
+    IPlatformAuthorizationService authorizationService,
     ICommercialPlanRepository repository,
+    IPlatformAuditService platformAuditService,
     ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork,
     ILogger<UpdateCommercialPlanCommandHandler> logger)
@@ -125,7 +141,7 @@ internal sealed class UpdateCommercialPlanCommandHandler(
         UpdateCommercialPlanCommand command,
         CancellationToken cancellationToken)
     {
-        var authorizationResult = await authorizationService.EnsurePlatformAdministrationAsync(cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<CommercialPlanResponse>.Failure(authorizationResult.Error);
@@ -158,6 +174,7 @@ internal sealed class UpdateCommercialPlanCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            var before = CommercialPlanMapper.Map(plan);
             plan.Update(
                 command.Code,
                 command.Name,
@@ -166,6 +183,18 @@ internal sealed class UpdateCommercialPlanCommandHandler(
                 command.PricePerActiveEmployee,
                 CommercialPlanMapper.ToLimitData(command.Limits));
 
+            var after = CommercialPlanMapper.Map(plan);
+            await platformAuditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.CommercialPlanUpdated,
+                    AuditEntityTypes.CommercialPlan,
+                    plan.PublicId,
+                    plan.Code,
+                    AuditActions.Update,
+                    $"Updated commercial plan {plan.Code}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
@@ -174,7 +203,7 @@ internal sealed class UpdateCommercialPlanCommandHandler(
                 plan.Code,
                 currentUserService.UserId);
 
-            return Result<CommercialPlanResponse>.Success(CommercialPlanMapper.Map(plan));
+            return Result<CommercialPlanResponse>.Success(after);
         }
         catch
         {
@@ -185,8 +214,9 @@ internal sealed class UpdateCommercialPlanCommandHandler(
 }
 
 internal sealed class ActivateCommercialPlanCommandHandler(
-    ICommercialPlanAuthorizationService authorizationService,
+    IPlatformAuthorizationService authorizationService,
     ICommercialPlanRepository repository,
+    IPlatformAuditService platformAuditService,
     ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork,
     ILogger<ActivateCommercialPlanCommandHandler> logger)
@@ -196,7 +226,7 @@ internal sealed class ActivateCommercialPlanCommandHandler(
         ActivateCommercialPlanCommand command,
         CancellationToken cancellationToken)
     {
-        var authorizationResult = await authorizationService.EnsurePlatformAdministrationAsync(cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<CommercialPlanResponse>.Failure(authorizationResult.Error);
@@ -221,7 +251,20 @@ internal sealed class ActivateCommercialPlanCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            var before = CommercialPlanMapper.Map(plan);
             plan.Activate();
+            var after = CommercialPlanMapper.Map(plan);
+            await platformAuditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.CommercialPlanActivated,
+                    AuditEntityTypes.CommercialPlan,
+                    plan.PublicId,
+                    plan.Code,
+                    AuditActions.Reactivate,
+                    $"Activated commercial plan {plan.Code}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
@@ -230,7 +273,7 @@ internal sealed class ActivateCommercialPlanCommandHandler(
                 plan.Code,
                 currentUserService.UserId);
 
-            return Result<CommercialPlanResponse>.Success(CommercialPlanMapper.Map(plan));
+            return Result<CommercialPlanResponse>.Success(after);
         }
         catch
         {
@@ -241,8 +284,9 @@ internal sealed class ActivateCommercialPlanCommandHandler(
 }
 
 internal sealed class InactivateCommercialPlanCommandHandler(
-    ICommercialPlanAuthorizationService authorizationService,
+    IPlatformAuthorizationService authorizationService,
     ICommercialPlanRepository repository,
+    IPlatformAuditService platformAuditService,
     ICurrentUserService currentUserService,
     IUnitOfWork unitOfWork,
     ILogger<InactivateCommercialPlanCommandHandler> logger)
@@ -252,7 +296,7 @@ internal sealed class InactivateCommercialPlanCommandHandler(
         InactivateCommercialPlanCommand command,
         CancellationToken cancellationToken)
     {
-        var authorizationResult = await authorizationService.EnsurePlatformAdministrationAsync(cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<CommercialPlanResponse>.Failure(authorizationResult.Error);
@@ -282,7 +326,20 @@ internal sealed class InactivateCommercialPlanCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            var before = CommercialPlanMapper.Map(plan);
             plan.Inactivate();
+            var after = CommercialPlanMapper.Map(plan);
+            await platformAuditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.CommercialPlanInactivated,
+                    AuditEntityTypes.CommercialPlan,
+                    plan.PublicId,
+                    plan.Code,
+                    AuditActions.Deactivate,
+                    $"Inactivated commercial plan {plan.Code}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
@@ -291,7 +348,7 @@ internal sealed class InactivateCommercialPlanCommandHandler(
                 plan.Code,
                 currentUserService.UserId);
 
-            return Result<CommercialPlanResponse>.Success(CommercialPlanMapper.Map(plan));
+            return Result<CommercialPlanResponse>.Success(after);
         }
         catch
         {

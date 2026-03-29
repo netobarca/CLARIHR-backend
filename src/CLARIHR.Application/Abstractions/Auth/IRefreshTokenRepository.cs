@@ -10,7 +10,12 @@ public interface IRefreshTokenRepository
 
     Task RevokeFamilyAsync(Guid familyId, DateTime revokedUtc, string reason, CancellationToken cancellationToken);
 
-    Task RevokeUserTokensAsync(long userId, DateTime revokedUtc, string reason, CancellationToken cancellationToken);
+    Task RevokeUserTokensAsync(
+        long userId,
+        AuthClientType clientType,
+        DateTime revokedUtc,
+        string reason,
+        CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

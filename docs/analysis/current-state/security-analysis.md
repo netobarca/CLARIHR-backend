@@ -2,23 +2,23 @@
 
 ## 1. Resumen ejecutivo
 
-Esta reevaluacion profunda se ejecuto el **28 de marzo de 2026** sobre el codigo, configuracion, pruebas y documentacion versionada del repositorio.
+Esta reevaluacion profunda se actualizo el **29 de marzo de 2026** sobre el codigo, configuracion, pruebas y documentacion versionada del repositorio.
 
 Base verificada durante la auditoria:
 
 - `dotnet build CLARIHR.slnx -v minimal`: `0 warnings`, `0 errors`
-- `dotnet test CLARIHR.slnx -v minimal`: `322/322` pruebas aprobadas
-- superficie HTTP medida en el repositorio: `34` controllers y `324` acciones HTTP
-- contrato machine-readable versionado en `openapi.yaml`: `8` paths
+- `dotnet test tests/CLARIHR.Application.UnitTests/CLARIHR.Application.UnitTests.csproj --filter "...auth/plataforma/suscripciones..."`: `43/43` pruebas dirigidas aprobadas
+- `dotnet test tests/CLARIHR.Api.IntegrationTests/CLARIHR.Api.IntegrationTests.csproj --filter "...Backoffice..."`: `9/9` pruebas dirigidas aprobadas
+- superficie HTTP medida en el repositorio: `36` controllers y `326` acciones HTTP
+- contrato machine-readable versionado en `openapi.yaml`: `15` paths
+- el suite completo aun conserva fallas legacy no relacionadas fuera del alcance de esta remediacion
 
-La conclusion revisada es que la solucion **no esta aprobada para produccion** en su estado actual para un SaaS multi-tenant de RRHH. La base tecnica sigue siendo buena, pero la reevaluacion confirmo hallazgos criticos y sumo hallazgos nuevos con evidencia verificable:
+La conclusion revisada es que la solucion **no esta aprobada para produccion** en su estado actual para un SaaS multi-tenant de RRHH. La base tecnica sigue siendo buena, y la actualizacion del 29 de marzo ya cerro la brecha critica de acceso global por email allow-list y tambien agrego auditoria durable de plataforma. Aun asi, siguen vigentes hallazgos de riesgo alto con evidencia verificable:
 
-- escalacion a `platform_admin` por registro local anonimo cuando el correo coincide con la allow-list
 - persistencia y reexposicion de PII sensible de RRHH en auditoria
 - ausencia visible de controles anti abuso para auth
 - filtro tenant global en modo `fail-open`
 - confianza excesiva en `X-Forwarded-*` si el entorno no la cierra externamente
-- writes globales de plataforma sin `AuditLog` durable
 - drift contractual y documental severo entre codigo, OpenAPI y analisis vivos
 
 ## 2. Criterio y alcance
@@ -34,27 +34,21 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 
 ## 3. Hallazgos confirmados de la auditoria revisada
 
-### 3.1 Escalacion a `platform_admin` por registro local anonimo
+### 3.1 Separacion del acceso global de plataforma respecto al auth core
 
-- Severidad: `Critico`
-- Estado: `Confirmado`
+- Severidad previa: `Critico`
+- Estado actual: `Remediado el 29 de marzo de 2026`
 - Nuevo respecto a la auditoria anterior: `Si`
-- Impacto real:
-  un actor que conozca o adivine un correo incluido en `Authentication:Jwt:PlatformAdminEmails` puede autoaprovisionarse un usuario local y recibir privilegios globales de plataforma, sin tenant y sin prueba previa de propiedad del correo.
-- Precondiciones:
-  debe existir al menos un correo en la allow-list y no debe existir una validacion externa de email ownership fuera del repo.
+- Cambio aplicado:
+  el acceso global de plataforma ya no nace desde registro o login del core, ya no depende de `PlatformAdminEmails` y ya no usa el claim `platform_admin`.
 - Evidencia:
-  [AuthController.cs#L18](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L18) expone `POST /api/auth/register` como `[AllowAnonymous]`.
-  [RegisterUserCommand.cs#L76](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/Auth/RegisterUser/RegisterUserCommand.cs#L76) crea un usuario local activo y emite tokens inmediatamente.
-  [JwtTokenService.cs#L208](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/Auth/JwtTokenService.cs#L208) agrega el claim `platform_admin` solo por coincidencia de correo normalizado.
-  [JwtTokenService.cs#L229](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/Auth/JwtTokenService.cs#L229) no exige verificacion previa del correo ni una fuente de identidad distinta del registro local.
-  [PlatformAdminAuthenticationIntegrationTests.cs#L22](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/PlatformAdminAuthenticationIntegrationTests.cs#L22) demuestra el flujo completo: registrar `dev@clarihr.local`, hacer login y recibir el claim `platform_admin`.
-- Cobertura actual:
-  existe una prueba positiva que valida la emision del claim, pero no existe una prueba negativa que bloquee auto-registro de correos allow-listed ni una prueba que exija verificacion de ownership.
-- Por que el hallazgo es valido:
-  no es una preferencia de diseno. El privilegio global depende de una cadena observable y suficiente: ruta anonima, creacion local inmediata, y grant por email allow-list. En un sistema de RRHH esto equivale a riesgo de administracion global.
-- Remediacion concreta:
-  quitar los correos allow-listed del flujo de registro anonimo, exigir email verificado o un IdP externo para `platform_admin`, y agregar pruebas negativas que impidan elevacion por self-registration.
+  `CLARIHR.Api/Program.cs` exige `client_type=core` en la Core API.
+  `CLARIHR.Backoffice.Api/Program.cs` exige `client_type=platform` en el backoffice y valida una audiencia separada.
+  `JwtTokenService.cs` ahora emite tokens `core` y `platform` distintos, sin `tid` en los tokens de plataforma.
+  `PlatformOperator` persiste el acceso global de plataforma en base de datos y `PlatformAuthAdministration.cs` lo exige para login y refresh del backoffice.
+  `PlatformAuthenticationIntegrationTests` valida que el login core nunca emite privilegios de plataforma, que un usuario sin `PlatformOperator` recibe `PLATFORM_ACCESS_FORBIDDEN`, y que los tokens `core` y `platform` no cruzan APIs.
+- Residual operativo:
+  el bootstrap inicial del primer operador ahora depende del comando `bootstrap-platform-operator`; ese paso deja de ser una brecha de runtime, pero requiere control operativo y trazabilidad de quien lo ejecuta.
 
 ### 3.2 Auditoria persiste y reexpone PII sensible de RRHH
 
@@ -144,25 +138,20 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 - Remediacion concreta:
   definir proxies o redes confiables explicitas por entorno, no limpiar listas por defecto sin justificacion operativa y agregar pruebas o validaciones de configuracion.
 
-### 3.6 Writes globales de plataforma sin `AuditLog` durable
+### 3.6 Auditoria durable para writes globales de plataforma
 
-- Severidad: `Importante`
-- Estado: `Confirmado`
+- Severidad previa: `Importante`
+- Estado actual: `Remediado el 29 de marzo de 2026`
 - Nuevo respecto a la auditoria anterior: `Si`
-- Impacto real:
-  mutaciones globales de plataforma quedan con logging operativo, pero sin before/after durable ni trazabilidad homogenea respecto al resto del sistema.
-- Precondiciones:
-  ejecutar operaciones sobre `CommercialPlan`.
+- Cambio aplicado:
+  las mutaciones globales de `CommercialPlan` y el reemplazo de suscripciones empresariales ya no dependen solo de logging operativo; ahora escriben `PlatformAuditLog` persistente y no tenant-scoped.
 - Evidencia:
-  [AuditService.cs#L20](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/Auditing/AuditService.cs#L20) exige tenant para `LogAsync`.
-  [CommercialPlanAdministration.cs#L101](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/CommercialPlans/CommercialPlanAdministration.cs#L101), [CommercialPlanAdministration.cs#L172](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/CommercialPlans/CommercialPlanAdministration.cs#L172), [CommercialPlanAdministration.cs#L228](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/CommercialPlans/CommercialPlanAdministration.cs#L228) y [CommercialPlanAdministration.cs#L289](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/CommercialPlans/CommercialPlanAdministration.cs#L289) usan `logger.LogInformation` para create/update/activate/inactivate, no `AuditService`.
-  [CommercialPlansIntegrationTests.cs#L45](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/CommercialPlansIntegrationTests.cs#L45) prueba que el CRUD global funciona sin tenant.
+  `PlatformAuditLog` y su configuracion EF existen en el modelo persistente.
+  `PlatformAuditService` registra eventos globales con actor, entidad, accion y payload serializado.
+  `CommercialPlanAdministration.cs` y `PlatformSubscriptionAdministration.cs` invocan esa auditoria persistente en writes globales.
+  la migracion `AddPlatformBackofficeAndFormalSubscriptionPlans` crea la tabla `platform_audit_logs`.
 - Cobertura actual:
-  hay cobertura funcional del CRUD global, pero no pruebas que exijan rastro durable en `AuditLog`.
-- Por que el hallazgo es valido:
-  en un backend que ya trata auditoria como control transversal, dejar fuera las mutaciones globales de plataforma rompe consistencia de trazabilidad y respuesta forense.
-- Remediacion concreta:
-  introducir auditoria persistente no tenant-scoped para writes globales o una variante de `AuditLog` de plataforma con before/after y actor.
+  `BackofficeCompanySubscriptionsIntegrationTests` falla si el reemplazo de suscripcion no deja rastro persistente. El CRUD de `CommercialPlan` ya usa la misma infraestructura, aunque aun conviene agregar una prueba especifica por endpoint.
 
 ### 3.7 Drift contractual y documental severo
 
@@ -187,12 +176,10 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 
 ## 4. Hallazgos nuevos respecto a la auditoria anterior
 
-Los hallazgos realmente nuevos que esta reevaluacion agrega sobre la auditoria anterior son:
+Los hallazgos realmente nuevos que esta reevaluacion agrega y que siguen vigentes sobre la auditoria anterior son:
 
-1. autoelevacion a `platform_admin` por registro local anonimo combinado con email allow-list
-2. confianza excesiva en `X-Forwarded-*` por limpieza de proxies y redes confiables
-3. writes globales de `CommercialPlan` sin `AuditLog` durable
-4. drift contractual y documental ya severo, no solo "pendiente"
+1. confianza excesiva en `X-Forwarded-*` por limpieza de proxies y redes confiables
+2. drift contractual y documental ya severo, no solo "pendiente"
 
 ## 5. Hallazgos de apoyo y limites de esta auditoria
 
@@ -206,27 +193,28 @@ Los hallazgos realmente nuevos que esta reevaluacion agrega sobre la auditoria a
 Cobertura positiva visible:
 
 - tokens y refresh rotation con reuse detection
-- claim `platform_admin`
+- separacion de audiencias y `client_type` entre core y backoffice
 - tenant mismatch en auditoria
 - CRUD global de `CommercialPlan` sin tenant
+- login de backoffice bloqueado sin `PlatformOperator`
+- auditoria durable en reemplazo de suscripcion empresarial
 
 Huecos de prueba que aumentan riesgo real:
 
 - no hay pruebas de redaccion de PII real de RRHH en auditoria
 - no hay pruebas de rate limiting, lockout o throttling de auth
 - no hay pruebas de spoofing o confianza de `X-Forwarded-*`
-- no hay pruebas que exijan `AuditLog` durable para writes globales
+- no hay pruebas de auditoria durable para cada mutacion del CRUD de `CommercialPlan`
 - no hay snapshots o validacion automatica del contrato OpenAPI versionado
 
 ## 7. Recomendaciones inmediatas
 
-1. Bloquear la autoelevacion a `platform_admin` desde registro local anonimo.
-2. Redisenar la auditoria para que no persista ni exponga payloads completos de RRHH.
-3. Incorporar rate limiting y controles anti abuso en `register`, `login`, `refresh` y `external`.
-4. Volver el filtro tenant global a `fail-closed` y auditar todos los `IgnoreQueryFilters()`.
-5. Cerrar la confianza de `X-Forwarded-*` con proxies o redes explicitas por entorno.
-6. Introducir auditoria persistente para writes globales de plataforma.
-7. Automatizar el contrato OpenAPI y usarlo para frenar drift documental.
+1. Redisenar la auditoria para que no persista ni exponga payloads completos de RRHH.
+2. Incorporar rate limiting y controles anti abuso en `register`, `login`, `refresh` y `external`.
+3. Volver el filtro tenant global a `fail-closed` y auditar todos los `IgnoreQueryFilters()`.
+4. Cerrar la confianza de `X-Forwarded-*` con proxies o redes explicitas por entorno.
+5. Extender pruebas de auditoria durable a todo el CRUD de `CommercialPlan`.
+6. Automatizar el contrato OpenAPI y usarlo para frenar drift documental.
 
 ## 8. Veredicto
 

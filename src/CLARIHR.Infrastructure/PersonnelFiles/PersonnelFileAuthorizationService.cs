@@ -35,11 +35,6 @@ internal sealed class PersonnelFileAuthorizationService(
             return Result.Failure(PersonnelFileErrors.TenantMismatch(manageRequired ? RbacPermissionAction.Update : RbacPermissionAction.Read));
         }
 
-        if (currentUserService.Roles.Contains(PersonnelFilePermissionCodes.PlatformAdminRole, StringComparer.OrdinalIgnoreCase))
-        {
-            return Result.Success();
-        }
-
         var normalizedClaims = currentUserService.Permissions
             .Select(static permission => permission.Trim().ToUpperInvariant())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);

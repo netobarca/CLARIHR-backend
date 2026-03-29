@@ -1,9 +1,12 @@
+using CLARIHR.Application.Abstractions.Auditing;
 using System.Reflection;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Platform;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CommercialPlans;
 using CLARIHR.Application.Features.CommercialPlans.Common;
 using CLARIHR.Domain.Common;
@@ -18,8 +21,9 @@ public sealed class CommercialPlanAdministrationTests
     public async Task Create_WhenAuthorizationFails_ShouldReturnForbidden()
     {
         var handler = new CreateCommercialPlanCommandHandler(
-            new TestCommercialPlanAuthorizationService(Result.Failure(CommercialPlanErrors.Forbidden)),
+            new TestPlatformAuthorizationService(Result.Failure(CommercialPlanErrors.Forbidden)),
             new TestCommercialPlanRepository(),
+            new TestPlatformAuditService(),
             new TestCurrentUserService(),
             new TestUnitOfWork(),
             NullLogger<CreateCommercialPlanCommandHandler>.Instance);
@@ -46,8 +50,9 @@ public sealed class CommercialPlanAdministrationTests
         repository.Add(CreatePlan("PRO", "Professional", CommercialPlanStatus.Active, id: 10));
 
         var handler = new CreateCommercialPlanCommandHandler(
-            new TestCommercialPlanAuthorizationService(Result.Success()),
+            new TestPlatformAuthorizationService(Result.Success()),
             repository,
+            new TestPlatformAuditService(),
             new TestCurrentUserService(),
             new TestUnitOfWork(),
             NullLogger<CreateCommercialPlanCommandHandler>.Instance);
@@ -71,7 +76,7 @@ public sealed class CommercialPlanAdministrationTests
     public async Task GetById_WhenPlanDoesNotExist_ShouldReturnNotFound()
     {
         var handler = new GetCommercialPlanByIdQueryHandler(
-            new TestCommercialPlanAuthorizationService(Result.Success()),
+            new TestPlatformAuthorizationService(Result.Success()),
             new TestCommercialPlanRepository());
 
         var result = await handler.Handle(new GetCommercialPlanByIdQuery(Guid.NewGuid()), CancellationToken.None);
@@ -88,8 +93,9 @@ public sealed class CommercialPlanAdministrationTests
         repository.Add(plan);
 
         var handler = new UpdateCommercialPlanCommandHandler(
-            new TestCommercialPlanAuthorizationService(Result.Success()),
+            new TestPlatformAuthorizationService(Result.Success()),
             repository,
+            new TestPlatformAuditService(),
             new TestCurrentUserService(),
             new TestUnitOfWork(),
             NullLogger<UpdateCommercialPlanCommandHandler>.Instance);
@@ -125,8 +131,9 @@ public sealed class CommercialPlanAdministrationTests
         var originalToken = plan.ConcurrencyToken;
 
         var handler = new UpdateCommercialPlanCommandHandler(
-            new TestCommercialPlanAuthorizationService(Result.Success()),
+            new TestPlatformAuthorizationService(Result.Success()),
             repository,
+            new TestPlatformAuditService(),
             new TestCurrentUserService(),
             new TestUnitOfWork(),
             NullLogger<UpdateCommercialPlanCommandHandler>.Instance);
@@ -164,8 +171,9 @@ public sealed class CommercialPlanAdministrationTests
         repository.Add(plan);
 
         var handler = new UpdateCommercialPlanCommandHandler(
-            new TestCommercialPlanAuthorizationService(Result.Success()),
+            new TestPlatformAuthorizationService(Result.Success()),
             repository,
+            new TestPlatformAuditService(),
             new TestCurrentUserService(),
             new TestUnitOfWork(),
             NullLogger<UpdateCommercialPlanCommandHandler>.Instance);
@@ -194,8 +202,9 @@ public sealed class CommercialPlanAdministrationTests
         repository.Add(plan);
 
         var handler = new InactivateCommercialPlanCommandHandler(
-            new TestCommercialPlanAuthorizationService(Result.Success()),
+            new TestPlatformAuthorizationService(Result.Success()),
             repository,
+            new TestPlatformAuditService(),
             new TestCurrentUserService(),
             new TestUnitOfWork(),
             NullLogger<InactivateCommercialPlanCommandHandler>.Instance);
@@ -217,7 +226,7 @@ public sealed class CommercialPlanAdministrationTests
         repository.Add(CreatePlan("PROPOSAL", "Proposal", CommercialPlanStatus.Draft, id: 62));
 
         var handler = new SearchCommercialPlansQueryHandler(
-            new TestCommercialPlanAuthorizationService(Result.Success()),
+            new TestPlatformAuthorizationService(Result.Success()),
             repository);
 
         var result = await handler.Handle(
@@ -261,10 +270,24 @@ public sealed class CommercialPlanAdministrationTests
             .Invoke(entity, [id]);
     }
 
-    private sealed class TestCommercialPlanAuthorizationService(Result result) : ICommercialPlanAuthorizationService
+    private sealed class TestPlatformAuthorizationService(Result result) : IPlatformAuthorizationService
     {
-        public Task<Result> EnsurePlatformAdministrationAsync(CancellationToken cancellationToken) =>
+        public Task<Result> EnsureCanReadAsync(CancellationToken cancellationToken) =>
             Task.FromResult(result);
+
+        public Task<Result> EnsureCanManageAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(result);
+    }
+
+    private sealed class TestPlatformAuditService : IPlatformAuditService
+    {
+        public List<AuditLogEntry> Entries { get; } = [];
+
+        public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken)
+        {
+            Entries.Add(entry);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class TestCurrentUserService : ICurrentUserService
@@ -296,6 +319,9 @@ public sealed class CommercialPlanAdministrationTests
 
         public Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(plan => plan.PublicId == commercialPlanId));
+
+        public Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.SingleOrDefault(plan => plan.NormalizedCode == normalizedCode));
 
         public Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.Any(plan =>

@@ -2,12 +2,12 @@
 
 ## 1. Resumen ejecutivo
 
-La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La reevaluacion del **28 de marzo de 2026** verifico:
+La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La validacion actualizada del **29 de marzo de 2026** verifico:
 
-- `188` unit tests aprobados
-- `134` integration tests aprobados
-- `322` pruebas en total aprobadas
+- `43` unit tests dirigidos aprobados para auth, platform authorization, provisioning y commercial plans
+- `9` integration tests dirigidos aprobados para Platform Backoffice API
 - `dotnet build` limpio con `0 warnings`
+- el suite completo aun conserva fallas previas no relacionadas en normalizacion y algunos escenarios legacy de integracion
 
 La base actual de testing es saludable para evolucion diaria del backend, pero sigue teniendo huecos justamente en las zonas de riesgo mas alto detectadas por la auditoria revisada.
 
@@ -20,17 +20,20 @@ Proyecto: `tests/CLARIHR.Application.UnitTests`
 Cobertura visible sobre:
 
 - auth local y externa
+- auth separada `core` / `platform`
 - refresh tokens
 - provisionamiento
 - dispatchers y dependency injection
 - tenancy
 - autorizacion RBAC
+- autorizacion de plataforma por `PlatformOperator`
 - permisos por campo
 - personnel files
 - salary tabulator
 - org units, locations, cost centers
 - job profiles, position slots y competency framework
 - catalogo global `CommercialPlan`
+- reemplazo de suscripciones empresariales
 
 ### 2.2 Integration tests
 
@@ -39,6 +42,7 @@ Proyecto: `tests/CLARIHR.Api.IntegrationTests`
 El harness actual usa:
 
 - `WebApplicationFactory<Program>`
+- factories separadas para Core API y Backoffice API con JWT reales
 - autenticacion de prueba via `TestAuthenticationHandler`
 - base PostgreSQL efimera
 - `EnsureDeletedAsync()` seguido de `MigrateAsync()`
@@ -54,9 +58,10 @@ Evidencia:
 
 Hay cobertura para:
 
-- emision del claim `platform_admin`
+- emision del claim `client_type` para tokens `core` y `platform`
 - rotacion de refresh token
 - deteccion de reuse en la familia de refresh tokens
+- rechazo cruzado de tokens entre Core API y Backoffice API
 
 ### 3.2 Tenant y permisos si tienen pruebas visibles
 
@@ -64,7 +69,7 @@ Hay pruebas de tenant mismatch y permisos en modulos sensibles, incluyendo audit
 
 ### 3.3 El flujo global de plataforma si esta ejercitado
 
-[CommercialPlansIntegrationTests.cs#L45](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/CommercialPlansIntegrationTests.cs#L45) valida que el CRUD de planes comerciales funciona sin tenant y con `platform_admin`.
+`BackofficeCommercialPlansIntegrationTests`, `BackofficeCompanySubscriptionsIntegrationTests` y `PlatformAuthenticationIntegrationTests` ejercitan el login del backoffice, el CRUD de planes globales, el reemplazo de suscripciones empresariales, la separacion de audiencias `core/platform` y la auditoria durable de plataforma en el flujo de reemplazo.
 
 ## 4. Hallazgos relevantes sobre cobertura
 
@@ -72,7 +77,7 @@ Hay pruebas de tenant mismatch y permisos en modulos sensibles, incluyendo audit
 
 La version anterior de este analisis ya no representaba el codigo real:
 
-- reportaba `291` tests cuando el snapshot actual es `322`
+- reportaba un snapshot anterior de pruebas ya superado por la suite actual y por los nuevos tests del backoffice
 - afirmaba `EnsureCreatedAsync()` como estrategia principal, pero el harness actual usa `MigrateAsync()`
 
 Esto no empeora la calidad de las pruebas, pero si la confiabilidad de la documentacion viva.
@@ -102,9 +107,9 @@ No se observa cobertura para:
 
 No existen pruebas que validen proxies confiables, spoofing de IP o consistencia entre forwarded headers y auditoria.
 
-### 4.5 No hay pruebas que exijan auditoria durable de plataforma
+### 4.5 La auditoria durable de plataforma ya tiene cobertura parcial
 
-Hay pruebas funcionales del CRUD global de `CommercialPlan`, pero no pruebas que fallen si esas mutaciones no dejan un rastro persistente de auditoria.
+El reemplazo de suscripciones empresariales ya tiene una prueba de integracion que falla si no se persiste `PlatformAuditLog`. Aun falta extender esa exigencia de auditoria durable al CRUD completo de `CommercialPlan`.
 
 ### 4.6 No hay pruebas de contrato versionado
 
@@ -115,7 +120,7 @@ La API sigue sin snapshots o validacion automatica de `openapi.yaml` contra Swag
 1. Redaccion de PII de RRHH en auditoria.
 2. Controles anti abuso en auth.
 3. `X-Forwarded-*` y confianza de proxy.
-4. Auditoria persistente de writes globales de plataforma.
+4. Cobertura explicita de auditoria durable para todo el CRUD global de plataforma.
 5. Contrato API versionado y validado automaticamente.
 
 ## 6. Conclusiones
@@ -129,5 +134,5 @@ Toda correccion derivada de esta auditoria deberia agregar, como minimo, una de 
 - prueba unitaria de redaccion de auditoria con DTOs reales de RRHH
 - integration test de anti abuso para auth
 - prueba de configuracion o integracion para forwarded headers
-- prueba de auditoria global para `CommercialPlan`
+- prueba de auditoria global para todo el backoffice de plataforma
 - snapshot o validacion automatica de OpenAPI

@@ -23,7 +23,6 @@ public static class PositionSlotPermissionCodes
     public const string Admin = "PositionSlots.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "POSITION_SLOTS";
-    public const string PlatformAdminRole = "platform_admin";
 }
 
 public static class PositionSlotErrors

@@ -23,7 +23,6 @@ public static class OrgUnitPermissionCodes
     public const string Admin = "OrgUnits.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "ORG_UNITS";
-    public const string PlatformAdminRole = "platform_admin";
 }
 
 public static class OrgUnitErrors

@@ -74,7 +74,13 @@ public sealed class RefreshTokenCommandHandlerTests
         public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
+        public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(
+            string refreshToken,
+            AuthClientType clientType,
+            CancellationToken cancellationToken) =>
             Task.FromResult(Result<RefreshTokenExchangeResult>.Success(new RefreshTokenExchangeResult(
                 user,
                 new AuthTokenResult("new-access-token", "new-refresh-token", 900))));
@@ -88,7 +94,13 @@ public sealed class RefreshTokenCommandHandlerTests
         public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
+        public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(
+            string refreshToken,
+            AuthClientType clientType,
+            CancellationToken cancellationToken) =>
             Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
     }
 }

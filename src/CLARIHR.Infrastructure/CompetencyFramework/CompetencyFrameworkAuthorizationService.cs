@@ -35,11 +35,6 @@ internal sealed class CompetencyFrameworkAuthorizationService(
             return Result.Failure(CompetencyFrameworkErrors.TenantMismatch(manageRequired ? RbacPermissionAction.Update : RbacPermissionAction.Read));
         }
 
-        if (currentUserService.Roles.Contains(CompetencyFrameworkPermissionCodes.PlatformAdminRole, StringComparer.OrdinalIgnoreCase))
-        {
-            return Result.Success();
-        }
-
         var normalizedClaims = currentUserService.Permissions
             .Select(static permission => permission.Trim().ToUpperInvariant())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);

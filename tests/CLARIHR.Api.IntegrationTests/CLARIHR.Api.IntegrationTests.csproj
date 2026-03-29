@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CLARIHR.Api\CLARIHR.Api.csproj" />
+    <ProjectReference Include="..\..\src\CLARIHR.Backoffice.Api\CLARIHR.Backoffice.Api.csproj" />
     <ProjectReference Include="..\..\src\CLARIHR.Application\CLARIHR.Application.csproj" />
     <ProjectReference Include="..\..\src\CLARIHR.Infrastructure\CLARIHR.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\CLARIHR.Domain\CLARIHR.Domain.csproj" />
