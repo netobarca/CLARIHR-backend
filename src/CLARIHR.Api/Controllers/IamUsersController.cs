@@ -41,7 +41,7 @@ public sealed class IamUsersController(
             return this.ToActionResult(result);
         }
 
-        return CreatedAtAction(nameof(GetById), new { userPublicId = result.Value.Id }, result.Value);
+        return CreatedAtAction(nameof(GetById), new { publicId = result.Value.Id }, result.Value);
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Read)]

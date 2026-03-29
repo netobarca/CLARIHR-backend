@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using CLARIHR.Application.Common.Contracts;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace CLARIHR.Api.Configuration;
 
@@ -15,38 +16,74 @@ public sealed partial class PublicContractRouteConvention : IApplicationModelCon
         {
             foreach (var action in controller.Actions)
             {
+                var routeParameterNames = GetRouteParameterNames(controller, action);
                 var parameterRenames = action.Parameters
-                    .Where(parameter => !string.IsNullOrWhiteSpace(parameter.ParameterName))
+                    .Where(parameter =>
+                        !string.IsNullOrWhiteSpace(parameter.ParameterName) &&
+                        routeParameterNames.Contains(parameter.ParameterName!))
                     .Select(parameter => new
                     {
+                        Parameter = parameter,
                         OldName = parameter.ParameterName!,
-                        NewName = PublicContractNaming.GetExternalIdentifierName(
+                        NewName = PublicContractNaming.GetExternalRouteIdentifierName(
                             parameter.ParameterName!,
                             parameter.ParameterInfo.ParameterType)
                     })
                     .Where(rename => !string.IsNullOrWhiteSpace(rename.NewName) && rename.NewName != rename.OldName)
-                    .ToDictionary(rename => rename.OldName, rename => rename.NewName!, StringComparer.Ordinal);
+                    .ToArray();
 
-                if (parameterRenames.Count == 0)
+                if (parameterRenames.Length == 0)
                 {
                     continue;
                 }
+
+                var parameterRenameMap = parameterRenames.ToDictionary(
+                    rename => rename.OldName,
+                    rename => rename.NewName!,
+                    StringComparer.Ordinal);
 
                 foreach (var selector in controller.Selectors.Where(selector => selector.AttributeRouteModel is not null))
                 {
                     selector.AttributeRouteModel!.Template = RewriteTemplate(
                         selector.AttributeRouteModel.Template,
-                        parameterRenames);
+                        parameterRenameMap);
                 }
 
                 foreach (var selector in action.Selectors.Where(selector => selector.AttributeRouteModel is not null))
                 {
                     selector.AttributeRouteModel!.Template = RewriteTemplate(
                         selector.AttributeRouteModel.Template,
-                        parameterRenames);
+                        parameterRenameMap);
+                }
+
+                foreach (var rename in parameterRenames)
+                {
+                    var newName = rename.NewName!;
+                    rename.Parameter.BindingInfo ??= new BindingInfo();
+                    rename.Parameter.BindingInfo.BinderModelName = newName;
+                    rename.Parameter.BindingInfo.BindingSource ??= BindingSource.Path;
+                    rename.Parameter.ParameterName = newName;
                 }
             }
         }
+    }
+
+    private static HashSet<string> GetRouteParameterNames(ControllerModel controller, ActionModel action)
+    {
+        var routeParameterNames = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var template in controller.Selectors
+                     .Concat(action.Selectors)
+                     .Select(selector => selector.AttributeRouteModel?.Template)
+                     .Where(static template => !string.IsNullOrWhiteSpace(template)))
+        {
+            foreach (Match match in RouteParameterRegex().Matches(template!))
+            {
+                routeParameterNames.Add(match.Groups["name"].Value);
+            }
+        }
+
+        return routeParameterNames;
     }
 
     private static string? RewriteTemplate(string? template, IReadOnlyDictionary<string, string> parameterRenames)

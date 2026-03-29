@@ -36,7 +36,7 @@ public sealed class IamRolesController(
             return this.ToActionResult(result);
         }
 
-        return CreatedAtAction(nameof(GetById), new { rolePublicId = result.Value.Id }, result.Value);
+        return CreatedAtAction(nameof(GetById), new { publicId = result.Value.Id }, result.Value);
     }
 
     [AuthorizeResource("RBAC_ROLES", RbacPermissionAction.Read)]
@@ -111,7 +111,7 @@ public sealed class IamRolesController(
             return this.ToActionResult(result);
         }
 
-        return CreatedAtAction(nameof(GetById), new { rolePublicId = result.Value.Id }, result.Value);
+        return CreatedAtAction(nameof(GetById), new { publicId = result.Value.Id }, result.Value);
     }
 
     [AuthorizeResource("RBAC_ROLES", RbacPermissionAction.Read)]

@@ -33,6 +33,8 @@ public sealed class IdentityAndPublicContractStandardsTests
         Assert.True(PublicContractNaming.ShouldSuppressMember("InternalId"));
         Assert.Equal("publicId", PublicContractNaming.GetExternalJsonName("Id", typeof(Guid)));
         Assert.Equal("companyPublicId", PublicContractNaming.GetExternalJsonName("CompanyId", typeof(Guid)));
+        Assert.Equal("publicId", PublicContractNaming.GetExternalRouteIdentifierName("roleId", typeof(Guid)));
+        Assert.Equal("companyPublicId", PublicContractNaming.GetExternalRouteIdentifierName("companyId", typeof(Guid)));
         Assert.Equal("permissionPublicIds", PublicContractNaming.GetExternalJsonName("PermissionIds", typeof(Guid[])));
         Assert.Equal("companyPublicId", PublicContractNaming.GetExternalJsonName("companyPublicId", typeof(Guid)));
         Assert.Equal("permissionPublicIds", PublicContractNaming.GetExternalJsonName("permissionPublicIds", typeof(Guid[])));

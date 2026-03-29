@@ -104,6 +104,35 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
     }
 
     [Fact]
+    public async Task Swagger_ShouldUsePublicId_ForDirectResourceRoutes_AndCompanyPublicId_ForCompanyContextRoutes()
+    {
+        await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/swagger/v1/swagger.json");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var pathNames = document.RootElement.GetProperty("paths")
+            .EnumerateObject()
+            .Select(static path => path.Name)
+            .ToArray();
+
+        Assert.Contains("/api/iam/roles/{publicId}", pathNames);
+        Assert.Contains("/api/iam/permissions/{publicId}", pathNames);
+        Assert.Contains("/api/iam/users/{publicId}", pathNames);
+        Assert.Contains("/api/company/users/{publicId}", pathNames);
+        Assert.Contains("/api/audit/logs/{publicId}", pathNames);
+        Assert.Contains("/api/v1/companies/{companyPublicId}/cost-centers", pathNames);
+
+        Assert.DoesNotContain("/api/iam/roles/{rolePublicId}", pathNames);
+        Assert.DoesNotContain("/api/iam/permissions/{permissionPublicId}", pathNames);
+        Assert.DoesNotContain("/api/iam/users/{userPublicId}", pathNames);
+        Assert.DoesNotContain("/api/company/users/{userPublicId}", pathNames);
+        Assert.DoesNotContain("/api/audit/logs/{auditLogPublicId}", pathNames);
+    }
+
+    [Fact]
     public async Task ApplicationDbContext_Model_ShouldRequirePublicId_ForEveryPersistedEntity()
     {
         _ = await factory.ResetDatabaseAsync();

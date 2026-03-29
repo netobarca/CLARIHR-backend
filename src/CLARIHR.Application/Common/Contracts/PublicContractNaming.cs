@@ -10,6 +10,38 @@ public static class PublicContractNaming
     public static string GetExternalJsonName(string memberName, Type? memberType) =>
         ToCamelCase(GetExternalIdentifierName(memberName, memberType) ?? memberName);
 
+    public static string? GetExternalRouteIdentifierName(string memberName, Type? memberType)
+    {
+        if (string.IsNullOrWhiteSpace(memberName) || memberType is null || ShouldSuppressMember(memberName))
+        {
+            return null;
+        }
+
+        if (IsAlreadyPublicIdentifierName(memberName) || IsAlreadyPublicIdentifierCollectionName(memberName))
+        {
+            return null;
+        }
+
+        if (!IsGuidLike(memberType))
+        {
+            return null;
+        }
+
+        if (memberName.Equals("CompanyId", StringComparison.Ordinal))
+        {
+            return "CompanyPublicId";
+        }
+
+        if (memberName.Equals("companyId", StringComparison.Ordinal))
+        {
+            return "companyPublicId";
+        }
+
+        return memberName.Length > 0 && char.IsUpper(memberName[0])
+            ? "PublicId"
+            : "publicId";
+    }
+
     public static string? GetExternalIdentifierName(string memberName, Type? memberType)
     {
         if (string.IsNullOrWhiteSpace(memberName) || memberType is null || ShouldSuppressMember(memberName))
