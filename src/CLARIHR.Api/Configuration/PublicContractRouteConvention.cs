@@ -16,20 +16,24 @@ public sealed partial class PublicContractRouteConvention : IApplicationModelCon
         {
             foreach (var action in controller.Actions)
             {
-                var routeParameterNames = GetRouteParameterNames(controller, action);
+                var routeTemplates = GetCombinedRouteTemplates(controller, action);
                 var parameterRenames = action.Parameters
                     .Where(parameter =>
-                        !string.IsNullOrWhiteSpace(parameter.ParameterName) &&
-                        routeParameterNames.Contains(parameter.ParameterName!))
+                        !string.IsNullOrWhiteSpace(parameter.ParameterName))
                     .Select(parameter => new
                     {
                         Parameter = parameter,
                         OldName = parameter.ParameterName!,
+                        RouteTemplate = FindRouteTemplateForParameter(parameter.ParameterName!, routeTemplates),
                         NewName = PublicContractNaming.GetExternalRouteIdentifierName(
                             parameter.ParameterName!,
-                            parameter.ParameterInfo.ParameterType)
+                            parameter.ParameterInfo.ParameterType,
+                            FindRouteTemplateForParameter(parameter.ParameterName!, routeTemplates))
                     })
-                    .Where(rename => !string.IsNullOrWhiteSpace(rename.NewName) && rename.NewName != rename.OldName)
+                    .Where(rename =>
+                        !string.IsNullOrWhiteSpace(rename.RouteTemplate) &&
+                        !string.IsNullOrWhiteSpace(rename.NewName) &&
+                        rename.NewName != rename.OldName)
                     .ToArray();
 
                 if (parameterRenames.Length == 0)
@@ -62,28 +66,57 @@ public sealed partial class PublicContractRouteConvention : IApplicationModelCon
                     rename.Parameter.BindingInfo ??= new BindingInfo();
                     rename.Parameter.BindingInfo.BinderModelName = newName;
                     rename.Parameter.BindingInfo.BindingSource ??= BindingSource.Path;
-                    rename.Parameter.ParameterName = newName;
                 }
             }
         }
     }
 
-    private static HashSet<string> GetRouteParameterNames(ControllerModel controller, ActionModel action)
+    private static string? FindRouteTemplateForParameter(string parameterName, IReadOnlyCollection<string> routeTemplates)
     {
-        var routeParameterNames = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var template in controller.Selectors
-                     .Concat(action.Selectors)
-                     .Select(selector => selector.AttributeRouteModel?.Template)
-                     .Where(static template => !string.IsNullOrWhiteSpace(template)))
+        foreach (var template in routeTemplates)
         {
             foreach (Match match in RouteParameterRegex().Matches(template!))
             {
-                routeParameterNames.Add(match.Groups["name"].Value);
+                if (match.Groups["name"].Value.Equals(parameterName, StringComparison.Ordinal))
+                {
+                    return template;
+                }
             }
         }
 
-        return routeParameterNames;
+        return null;
+    }
+
+    private static IReadOnlyCollection<string> GetCombinedRouteTemplates(ControllerModel controller, ActionModel action)
+    {
+        var controllerRoutes = controller.Selectors
+            .Select(static selector => selector.AttributeRouteModel)
+            .Where(static route => route is not null)
+            .DefaultIfEmpty(null);
+        var actionRoutes = action.Selectors
+            .Select(static selector => selector.AttributeRouteModel)
+            .Where(static route => route is not null)
+            .DefaultIfEmpty(null);
+        var templates = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var controllerRoute in controllerRoutes)
+        {
+            foreach (var actionRoute in actionRoutes)
+            {
+                var combinedRoute = controllerRoute is null
+                    ? actionRoute
+                    : actionRoute is null
+                        ? controllerRoute
+                        : AttributeRouteModel.CombineAttributeRouteModel(controllerRoute, actionRoute);
+
+                if (!string.IsNullOrWhiteSpace(combinedRoute?.Template))
+                {
+                    templates.Add(combinedRoute.Template!);
+                }
+            }
+        }
+
+        return templates;
     }
 
     private static string? RewriteTemplate(string? template, IReadOnlyDictionary<string, string> parameterRenames)

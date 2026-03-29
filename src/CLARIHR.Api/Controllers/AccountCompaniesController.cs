@@ -114,7 +114,7 @@ public sealed class AccountCompaniesController(
             return this.ToActionResult(Result<AccountCompanyDetailResponse>.Failure(result.Error));
         }
 
-        return CreatedAtAction(nameof(GetById), new { companyPublicId = result.Value.PublicId }, result.Value);
+        return CreatedAtAction(nameof(GetById), new { publicId = result.Value.PublicId }, result.Value);
     }
 
     [HttpPut("{companyId:guid}")]

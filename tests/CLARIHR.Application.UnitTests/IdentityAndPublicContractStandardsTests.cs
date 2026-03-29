@@ -33,8 +33,10 @@ public sealed class IdentityAndPublicContractStandardsTests
         Assert.True(PublicContractNaming.ShouldSuppressMember("InternalId"));
         Assert.Equal("publicId", PublicContractNaming.GetExternalJsonName("Id", typeof(Guid)));
         Assert.Equal("companyPublicId", PublicContractNaming.GetExternalJsonName("CompanyId", typeof(Guid)));
-        Assert.Equal("publicId", PublicContractNaming.GetExternalRouteIdentifierName("roleId", typeof(Guid)));
-        Assert.Equal("companyPublicId", PublicContractNaming.GetExternalRouteIdentifierName("companyId", typeof(Guid)));
+        Assert.Equal("publicId", PublicContractNaming.GetExternalRouteIdentifierName("roleId", typeof(Guid), "api/iam/roles/{roleId:guid}"));
+        Assert.Equal("companyPublicId", PublicContractNaming.GetExternalRouteIdentifierName("companyId", typeof(Guid), "api/v1/companies/{companyId:guid}/job-profiles"));
+        Assert.Equal("publicId", PublicContractNaming.GetExternalRouteIdentifierName("companyId", typeof(Guid), "api/account/companies/{companyId:guid}"));
+        Assert.Equal("publicId", PublicContractNaming.GetExternalRouteIdentifierName("id", typeof(Guid), "api/v1/job-profiles/{id:guid}"));
         Assert.Equal("permissionPublicIds", PublicContractNaming.GetExternalJsonName("PermissionIds", typeof(Guid[])));
         Assert.Equal("companyPublicId", PublicContractNaming.GetExternalJsonName("companyPublicId", typeof(Guid)));
         Assert.Equal("permissionPublicIds", PublicContractNaming.GetExternalJsonName("permissionPublicIds", typeof(Guid[])));

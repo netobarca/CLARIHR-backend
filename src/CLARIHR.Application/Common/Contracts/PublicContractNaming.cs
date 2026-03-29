@@ -10,7 +10,7 @@ public static class PublicContractNaming
     public static string GetExternalJsonName(string memberName, Type? memberType) =>
         ToCamelCase(GetExternalIdentifierName(memberName, memberType) ?? memberName);
 
-    public static string? GetExternalRouteIdentifierName(string memberName, Type? memberType)
+    public static string? GetExternalRouteIdentifierName(string memberName, Type? memberType, string? routeTemplate = null)
     {
         if (string.IsNullOrWhiteSpace(memberName) || memberType is null || ShouldSuppressMember(memberName))
         {
@@ -27,14 +27,11 @@ public static class PublicContractNaming
             return null;
         }
 
-        if (memberName.Equals("CompanyId", StringComparison.Ordinal))
+        if (IsCompanyContextRouteIdentifier(memberName, routeTemplate))
         {
-            return "CompanyPublicId";
-        }
-
-        if (memberName.Equals("companyId", StringComparison.Ordinal))
-        {
-            return "companyPublicId";
+            return memberName.Length > 0 && char.IsUpper(memberName[0])
+                ? "CompanyPublicId"
+                : "companyPublicId";
         }
 
         return memberName.Length > 0 && char.IsUpper(memberName[0])
@@ -115,6 +112,24 @@ public static class PublicContractNaming
         memberName.Equals("PublicIds", StringComparison.Ordinal) ||
         memberName.Equals("publicIds", StringComparison.Ordinal) ||
         memberName.EndsWith("PublicIds", StringComparison.Ordinal);
+
+    private static bool IsCompanyContextRouteIdentifier(string memberName, string? routeTemplate)
+    {
+        if (!memberName.Equals("CompanyId", StringComparison.Ordinal) &&
+            !memberName.Equals("companyId", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(routeTemplate))
+        {
+            return true;
+        }
+
+        var normalizedTemplate = routeTemplate.TrimStart('/');
+        return normalizedTemplate.StartsWith("api/v1/companies/{companyId", StringComparison.Ordinal) ||
+               normalizedTemplate.StartsWith("api/v1/companies/{companyPublicId", StringComparison.Ordinal);
+    }
 
     private static string? TransformGuidIdentifier(string memberName)
     {
