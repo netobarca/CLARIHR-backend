@@ -35,11 +35,6 @@ internal sealed class LocationAuthorizationService(
             return Result.Failure(LocationErrors.TenantMismatch(manageRequired ? RbacPermissionAction.Update : RbacPermissionAction.Read));
         }
 
-        if (currentUserService.Roles.Contains(LocationPermissionCodes.PlatformAdminRole, StringComparer.OrdinalIgnoreCase))
-        {
-            return Result.Success();
-        }
-
         var normalizedClaims = currentUserService.Permissions
             .Select(static permission => permission.Trim().ToUpperInvariant())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);

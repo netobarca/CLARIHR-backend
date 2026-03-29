@@ -234,7 +234,13 @@ internal sealed class SuccessfulTokenService : ITokenService
     public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
         GenerateAsync(user, cancellationToken);
 
-    public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
+    public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
+        GenerateAsync(user, cancellationToken);
+
+    public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(
+        string refreshToken,
+        AuthClientType clientType,
+        CancellationToken cancellationToken) =>
         Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
 }
 
@@ -264,7 +270,12 @@ internal sealed class TestRefreshTokenRepository : IRefreshTokenRepository
     public Task RevokeFamilyAsync(Guid familyId, DateTime revokedUtc, string reason, CancellationToken cancellationToken) =>
         Task.CompletedTask;
 
-    public Task RevokeUserTokensAsync(long userId, DateTime revokedUtc, string reason, CancellationToken cancellationToken)
+    public Task RevokeUserTokensAsync(
+        long userId,
+        AuthClientType clientType,
+        DateTime revokedUtc,
+        string reason,
+        CancellationToken cancellationToken)
     {
         RevokedUserId = userId;
         RevokedUtc = revokedUtc;

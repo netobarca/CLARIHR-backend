@@ -142,6 +142,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("ClientType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("client_type");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -197,10 +203,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_auth_refresh_tokens__token_hash");
 
-                    b.HasIndex("UserId");
-
                     b.HasIndex("FamilyId", "UserId")
                         .HasDatabaseName("ix_auth_refresh_tokens__family_user");
+
+                    b.HasIndex("UserId", "ClientType", "RevokedUtc")
+                        .HasDatabaseName("ix_auth_refresh_tokens__user_client_revoked");
 
                     b.ToTable("auth_refresh_tokens", (string)null);
                 });
@@ -549,6 +556,15 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<decimal>("BaseMonthlyFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("base_monthly_fee");
+
+                    b.Property<long>("CommercialPlanId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("commercial_plan_id");
+
                     b.Property<long>("CompanyId")
                         .HasColumnType("bigint")
                         .HasColumnName("company_id");
@@ -571,6 +587,17 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("plan_code");
 
+                    b.Property<string>("PlanName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("plan_name");
+
+                    b.Property<decimal>("PricePerActiveEmployee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("price_per_active_employee");
+
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid")
                         .HasColumnName("public_id");
@@ -587,6 +614,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_company_subscriptions");
+
+                    b.HasIndex("CommercialPlanId")
+                        .HasDatabaseName("ix_company_subscriptions__commercial_plan_id");
 
                     b.HasIndex("PublicId")
                         .IsUnique()
@@ -675,6 +705,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<long>("CommercialPlanId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("commercial_plan_id");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -710,7 +744,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_plan_entitlements__public_id");
 
-                    b.HasIndex("PlanCode", "ModuleKey")
+                    b.HasIndex("CommercialPlanId", "ModuleKey")
                         .IsUnique()
                         .HasDatabaseName("uq_plan_entitlements__plan_module");
 
@@ -720,6 +754,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -1000L,
+                            CommercialPlanId = -3000L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsEnabled = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
@@ -730,6 +765,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -1001L,
+                            CommercialPlanId = -3000L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsEnabled = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
@@ -740,6 +776,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -1002L,
+                            CommercialPlanId = -3000L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsEnabled = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
@@ -10963,6 +11000,162 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Platform.PlatformAuditLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("action");
+
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("actor_email");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<string>("AfterJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("after_json");
+
+                    b.Property<string>("BeforeJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("before_json");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<string>("DiffJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("diff_json");
+
+                    b.Property<Guid?>("EntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entity_id");
+
+                    b.Property<string>("EntityKey")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("entity_key");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("entity_type");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("event_type");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("summary");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("user_agent");
+
+                    b.HasKey("Id")
+                        .HasName("pk_platform_audit_logs");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_platform_audit_logs__public_id");
+
+                    b.HasIndex("ActorUserId", "CreatedUtc")
+                        .HasDatabaseName("ix_platform_audit_logs__actor_created");
+
+                    b.HasIndex("EntityType", "EntityId")
+                        .HasDatabaseName("ix_platform_audit_logs__entity");
+
+                    b.HasIndex("EventType", "CreatedUtc")
+                        .HasDatabaseName("ix_platform_audit_logs__event_created");
+
+                    b.ToTable("platform_audit_logs", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Platform.PlatformOperator", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("role");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_platform_operators");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_platform_operators__public_id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_platform_operators__user_id");
+
+                    b.HasIndex("IsActive", "Role")
+                        .HasDatabaseName("ix_platform_operators__active_role");
+
+                    b.ToTable("platform_operators", (string)null);
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.PositionDescriptionCatalogs.PositionCategory", b =>
                 {
                     b.Property<long>("Id")
@@ -11764,6 +11957,13 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscription", b =>
                 {
+                    b.HasOne("CLARIHR.Domain.Companies.CommercialPlan", null)
+                        .WithMany()
+                        .HasForeignKey("CommercialPlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_subscriptions__commercial_plans");
+
                     b.HasOne("CLARIHR.Domain.Companies.Company", null)
                         .WithMany()
                         .HasForeignKey("CompanyId")
@@ -11787,6 +11987,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_company_invitation_tokens__auth_users");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Companies.PlanEntitlement", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Companies.CommercialPlan", null)
+                        .WithMany()
+                        .HasForeignKey("CommercialPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_plan_entitlements__commercial_plans");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.Companies.UserCompanyMembership", b =>
@@ -12620,6 +12830,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_personnel_file_trainings__personnel_file");
 
                     b.Navigation("PersonnelFile");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Platform.PlatformOperator", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Auth.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_platform_operators__auth_users");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.PositionDescriptionCatalogs.PositionCategory", b =>

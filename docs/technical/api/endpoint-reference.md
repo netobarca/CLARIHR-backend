@@ -10,7 +10,7 @@ Este documento es la referencia humana inicial de la API actual. No intenta dupl
 - flujos criticos
 - comportamientos observables relevantes
 
-El backend expone actualmente `308` endpoints en `34` controladores.
+El repositorio expone actualmente `326` endpoints en `36` controladores, distribuidos entre la Core API tenant-scoped y la Platform Backoffice API.
 
 ## 2. Modelo de autenticacion y tenant
 
@@ -24,18 +24,29 @@ El acceso publico se limita intencionalmente a:
 - `POST /api/auth/refresh`
 - `GET /api/system/status`
 
-### 2.2 Alcance de cuenta autenticada
+### 2.2 Core API autenticada
 
-Las rutas `/api/account/*` operan sobre la cuenta autenticada y el contexto de companias del usuario.
+Las rutas del core (`/api/account/*`, `/api/company/*`, `/api/iam/*`, `/api/rbac/*`, `/api/audit/*` y `/api/v1/*`) aceptan solo tokens emitidos con `client_type=core`.
 
-### 2.3 API operativa tenant-scoped
+### 2.3 Platform backoffice autenticado
+
+Las rutas `/api/platform/*` aceptan solo tokens emitidos por `/api/platform/auth/*` con `client_type=platform`.
+
+Reglas observables:
+
+- estos tokens no incluyen `tid`
+- el acceso global no se resuelve por email allow-list ni por RBAC tenant-scoped
+- la autorizacion depende de un `PlatformOperator` activo persistido en base de datos
+- un token `core` no sirve en `/api/platform/*` y un token `platform` no sirve en la Core API
+
+### 2.4 API operativa tenant-scoped
 
 La mayoria de modulos funcionales usan:
 
 - `/api/v1/companies/{companyPublicId:guid}/...` para operaciones tenant-scoped de coleccion o listado
 - `/api/v1/{resource}/{publicId:guid}` para operar recursos directos una vez establecido el contexto tenant
 
-### 2.4 Estandar de identificadores y codigos
+### 2.5 Estandar de identificadores y codigos
 
 Convencion obligatoria de la API publica:
 
@@ -46,7 +57,7 @@ Convencion obligatoria de la API publica:
 
 Swagger runtime es la referencia canonica del contrato. Las secciones narrativas de este documento ya siguen este estandar aunque algunos nombres historicos puedan aparecer en explicaciones de negocio.
 
-### 2.5 Flujo de activacion de compania
+### 2.6 Flujo de activacion de compania
 
 La secuencia actual de onboarding es:
 
@@ -63,7 +74,9 @@ Despues del `switch`, el `access token` devuelto incluye contexto tenant y habil
 | System | `SystemController` | `/api/system/status` | salud y estado de runtime |
 | Auth | `AuthController` | `/api/auth/*` | registro, auth externa, login, refresh y logout |
 | Account companies | `AccountCompaniesController` | `/api/account/companies*` | crear, listar, archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
-| Commercial plans | `CommercialPlansController` | `/api/account/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables para futuras suscripciones |
+| Platform auth | `PlatformAuthController` | `/api/platform/auth*` | login, refresh y logout de operadores del backoffice global |
+| Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables |
+| Platform subscriptions | `PlatformCompanySubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*` | consultar y reemplazar suscripciones empresariales globales |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
 | IAM users | `IamUsersController` | `/api/iam/users*` | administracion de usuarios a nivel IAM |
 | IAM roles | `IamRolesController` | `/api/iam/roles*` | CRUD de roles, clonacion, matrices y asignaciones |
@@ -101,22 +114,20 @@ Comportamiento observable:
 - la creacion de compania siembra datos iniciales de locations segun el pais
 - el cambio de compania modifica el contexto tenant activo del usuario
 
-### 4.3 Catalogo comercial de planes
+### 4.3 Platform backoffice de suscripciones
 
-- `GET /api/account/commercial-plans`
-- `GET /api/account/commercial-plans/{publicId}`
-- `POST /api/account/commercial-plans`
-- `PUT /api/account/commercial-plans/{publicId}`
-- `PATCH /api/account/commercial-plans/{publicId}/activate`
-- `PATCH /api/account/commercial-plans/{publicId}/inactivate`
+- `POST /api/platform/auth/login`
+- `GET /api/platform/commercial-plans`
+- `PUT /api/platform/companies/{companyPublicId}/subscription`
 
 Comportamiento observable:
 
-- el catalogo es global y no depende del tenant activo del token
-- solo usuarios con rol `platform_admin` pueden consultar o administrar planes comerciales
+- el backoffice usa autenticacion separada de la Core API y nunca depende de `tid`
+- solo usuarios ligados a un `PlatformOperator` activo pueden entrar al backoffice global
+- `ReadOnly` puede consultar planes y suscripciones; `Admin` puede mutar catalogos y reemplazar suscripciones
 - cada plan define `fee` mensual base, precio por empleado activo, estado y limites configurables
 - `FREE` existe sembrado como plan de sistema para el provisioning actual y no puede renombrarse ni inactivarse
-- este modulo no activa suscripciones, no calcula cobros y no administra add-ons ni descuentos
+- reemplazar una suscripcion empresarial cierra la fila activa anterior y crea una nueva fila historica con snapshot de precios
 
 ### 4.4 Locations y organizacion
 
@@ -251,7 +262,7 @@ En la practica, `api/company/users` resuelve la administracion funcional de usua
 - Si no existe tenant activo, las operaciones sensibles fallan con errores del tipo `company_users.tenant.required`, `iam.tenant.required` o `TENANT_MISMATCH`, segun el caso.
 - El modulo combina permisos de pantalla por accion y permisos por campo. Los recursos base observables son `RBAC_USERS`, `RBAC_ROLES`, `RBAC_PERMISSIONS` y `AUDIT_LOGS`.
 - El gating por plan se evalua por pantalla. `RBAC_USERS` depende del plan module `USERS`. `RBAC_ROLES`, `RBAC_PERMISSIONS` y `AUDIT_LOGS` dependen del plan module `RBAC`.
-- Un `platform_admin`, un usuario con `ManageAdministration` o con el permiso `manage` especifico de la pantalla puede bypassear la matriz granular de esa pantalla.
+- Un usuario con `ManageAdministration` o con el permiso `manage` especifico de la pantalla puede bypassear la matriz granular de esa pantalla.
 - Las respuestas y escrituras de `CompanyUsersController` respetan permisos por campo. Los campos afectados hoy son `RBAC_USERS.EMAIL`, `RBAC_USERS.FIRST_NAME`, `RBAC_USERS.LAST_NAME`, `RBAC_USERS.ROLE` y `RBAC_USERS.STATUS`.
 - Los roles de sistema (`IsSystemRole = true`) son protegidos. No pueden modificarse ni eliminarse.
 - El tenant siempre debe conservar al menos un administrador activo. Esa invariante se protege al cambiar roles, usuarios asignados a roles, matrices de permisos y usuarios de compania.
@@ -780,7 +791,7 @@ Este modulo es el puente entre `Auth` y `api/v1`. Primero autentica la cuenta, l
 - `switch` agrega una regla adicional: ademas de ser owner, el usuario debe tener membresia activa en la compania destino.
 - `list` y `detail` exponen `IsActiveContext`, calculado desde el `tenantId` actual del token.
 - `create` no cambia automaticamente la compania activa ni devuelve tokens nuevos; solo provisiona y devuelve detalle de la nueva compania.
-- `create` provisiona la compania en plan `FREE`, crea representante legal inicial, siembra locations por pais, crea roles de sistema iniciales, genera permisos admin/matrix RBAC y vincula al owner como administrador.
+- `create` provisiona la compania con una suscripcion activa al plan de sistema `FREE`, crea representante legal inicial, siembra locations por pais, crea roles de sistema iniciales, genera permisos admin/matrix RBAC y vincula al owner como administrador.
 - `update` solo cambia `name` y `companyTypeId`; no cambia pais ni representantes legales.
 - `archive` no permite archivar la compania activa ni la compania primaria actual del usuario.
 - `reactivate` respeta el limite de companias activas/suspended permitido para la cuenta.
@@ -880,7 +891,7 @@ Contratos principales:
 - Validaciones del representante inicial: `firstName`, `lastName`, `documentNumber`, `positionTitle`, `effectiveFromUtc`; `effectiveToUtc >= effectiveFromUtc`; `email` opcional maximo `320`; `phone` opcional maximo `40`; `isPrimary` es opcional.
 - Response: `201 Created` con `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_LIMIT_REACHED`, `COMPANY_TYPE_NOT_FOUND`, `provisioning.country_not_found`.
-- Observaciones: provisiona plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estándar`, vincula al owner como admin, siembra locations segun el pais y deja la nueva compania sin hacer auto-switch. `SV` conserva una plantilla estructurada de locations; el resto de paises recibe una jerarquia minima generica de un solo nivel para permitir el arranque del tenant. Para `countryCode`, el frontend debe usar el `code` devuelto por `GET /api/account/companies/countries`. Para `initialLegalRepresentative.documentType` y `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por sus endpoints de catalogo respectivos. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. Si `initialLegalRepresentative.isPrimary` se omite o se envia `null`, el registro se persiste con `isPrimary = null`.
+- Observaciones: provisiona una suscripcion activa al plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estandar`, vincula al owner como admin, siembra locations segun el pais y deja la nueva compania sin hacer auto-switch. `SV` conserva una plantilla estructurada de locations; el resto de paises recibe una jerarquia minima generica de un solo nivel para permitir el arranque del tenant. Para `countryCode`, el frontend debe usar el `code` devuelto por `GET /api/account/companies/countries`. Para `initialLegalRepresentative.documentType` y `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por sus endpoints de catalogo respectivos. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. Si `initialLegalRepresentative.isPrimary` se omite o se envia `null`, el registro se persiste con `isPrimary = null`.
 
 ##### `PUT /api/account/companies/{companyPublicId}`
 
@@ -928,50 +939,62 @@ Contratos principales:
 
 Esa secuencia explica por que `Account companies` no usa `/api/v1`: todavia esta resolviendo el paso previo al contexto tenant estable del resto del sistema.
 
-### 5.3A Commercial plans
+### 5.3A Platform backoffice
 
 #### 5.3A.1 Alcance
 
-Este bloque cubre la administracion global del catalogo comercial mediante `CommercialPlansController`, con base `/api/account/commercial-plans`.
+Este bloque cubre la administracion global de plataforma mediante:
 
 Incluye:
 
-- `GET /api/account/commercial-plans`
-- `GET /api/account/commercial-plans/{publicId}`
-- `POST /api/account/commercial-plans`
-- `PUT /api/account/commercial-plans/{publicId}`
-- `PATCH /api/account/commercial-plans/{publicId}/activate`
-- `PATCH /api/account/commercial-plans/{publicId}/inactivate`
+- `POST /api/platform/auth/login`
+- `POST /api/platform/auth/refresh`
+- `POST /api/platform/auth/logout`
+- `GET /api/platform/commercial-plans`
+- `GET /api/platform/commercial-plans/{publicId}`
+- `POST /api/platform/commercial-plans`
+- `PUT /api/platform/commercial-plans/{publicId}`
+- `PATCH /api/platform/commercial-plans/{publicId}/activate`
+- `PATCH /api/platform/commercial-plans/{publicId}/inactivate`
+- `GET /api/platform/companies/{companyPublicId}/subscription`
+- `GET /api/platform/companies/{companyPublicId}/subscriptions`
+- `PUT /api/platform/companies/{companyPublicId}/subscription`
 
 #### 5.3A.2 Proposito funcional en CLARIHR
 
-El modulo `Commercial plans` sirve para:
+El backoffice de plataforma sirve para:
 
+- aislar las capacidades globales del plano tenant-scoped de RH
+- autenticar operadores globales con un token propio de plataforma
 - definir el catalogo comercial base que luego podran consumir las futuras suscripciones a empresas
 - estandarizar el `fee` mensual base y el precio por empleado activo por plan
 - mantener limites incluidos por plan de forma reutilizable
 - administrar el estado operativo del plan (`Draft`, `Active`, `Inactive`)
-- preservar un plan canonico `FREE` alineado al provisioning actual
+- reemplazar la suscripcion activa de una empresa manteniendo historial
+- preservar un plan canonico `FREE` alineado al provisioning actual y al provisioning inicial de companias
 
-No resuelve aun versionamiento de precios, add-ons, descuentos corporativos, activacion de suscripciones ni calculo de cobros.
+No resuelve aun versionamiento de precios, add-ons, descuentos corporativos, billing real ni calculo de cobros.
 
 #### 5.3A.3 Modelo operativo y reglas transversales del modulo
 
-- Todas las rutas requieren autenticacion.
-- El scope es global de plataforma; no dependen de `tenantId` ni usan RBAC tenant-scoped.
-- La autorizacion se resuelve por rol `platform_admin`.
-- `list` soporta paginacion, filtro por `status` y busqueda libre `q` sobre codigo y nombre.
+- `login` y `refresh` son publicos dentro del backoffice, pero solo emiten tokens si el usuario local esta ligado a un `PlatformOperator` activo.
+- Todas las demas rutas requieren `Bearer` emitido con `client_type=platform`; esos tokens no incluyen `tid`.
+- La autorizacion global no reutiliza `platform_admin`, allow-lists de correo ni RBAC tenant-scoped; depende de `PlatformOperator` y sus roles `Admin` o `ReadOnly`.
+- `ReadOnly` puede consultar planes y suscripciones; `Admin` puede crear, actualizar, activar, inactivar y reemplazar suscripciones.
+- `list` de planes soporta paginacion, filtro por `status` y busqueda libre `q` sobre codigo y nombre.
 - `create` registra `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status` y `limits`.
 - `update` reemplaza completamente la coleccion de limites del plan; no actualiza `status`.
 - Las transiciones de estado se hacen solo con `activate` e `inactivate`.
 - `FREE` existe sembrado como `system plan`, con precios `0` y lista de limites vacia.
 - Los planes de sistema no pueden cambiar `code` o `name`, y tampoco pueden inactivarse.
-- El modulo usa concurrencia optimista mediante `concurrencyToken`.
+- La suscripcion activa de una empresa nunca se edita in-place: el backoffice cancela la fila activa y crea una nueva con snapshot de `planCode`, `planName`, `baseMonthlyFee` y `pricePerActiveEmployee`.
+- `PlanEntitlement` y la resolucion de modulos siguen viviendo a nivel del plan comercial relacionado; no hay versionamiento comercial en esta fase.
+- Las escrituras globales registran `PlatformAuditLog` durable con actor, entidad y payload antes/despues cuando aplica.
 
-#### 5.3A.4 Errores observables relevantes en Commercial plans
+#### 5.3A.4 Errores observables relevantes en Platform backoffice
 
 - `UNAUTHENTICATED`: `401`, autenticacion requerida.
-- `COMMERCIAL_PLAN_FORBIDDEN`: `403`, el usuario autenticado no tiene rol `platform_admin`.
+- `PLATFORM_ACCESS_FORBIDDEN`: `403`, el usuario autenticado no tiene un `PlatformOperator` activo o no posee nivel `Admin` para la mutacion solicitada.
 - `COMMERCIAL_PLAN_NOT_FOUND`: `404`, el plan solicitado no existe.
 - `COMMERCIAL_PLAN_CODE_CONFLICT`: `409`, ya existe otro plan con ese `code`.
 - `CONCURRENCY_CONFLICT`: `409`, el recurso fue modificado por otra solicitud.
@@ -979,10 +1002,50 @@ No resuelve aun versionamiento de precios, add-ons, descuentos corporativos, act
 - `COMMERCIAL_PLAN_ALREADY_INACTIVE`: `409`, el plan ya estaba inactivo.
 - `COMMERCIAL_PLAN_SYSTEM_RENAME_FORBIDDEN`: `409`, un plan de sistema no puede cambiar `code` o `name`.
 - `COMMERCIAL_PLAN_SYSTEM_INACTIVATION_FORBIDDEN`: `409`, un plan de sistema no puede inactivarse.
+- `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`: `404`, la compania objetivo no existe.
+- `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`: `404`, no existe suscripcion vigente o historica para la consulta pedida.
+- `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`: `404`, el plan comercial enviado no existe.
+- `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`: `409`, no puede asignarse un plan inactivo.
+- `PLATFORM_COMPANY_SUBSCRIPTION_ALREADY_ASSIGNED`: `409`, la compania ya usa ese plan como suscripcion activa.
 
-#### 5.3A.5 `CommercialPlansController`
+#### 5.3A.5 `PlatformAuthController`
 
-Base route: `/api/account/commercial-plans`
+Base route: `/api/platform/auth`
+
+Contratos principales:
+
+- `PlatformLoginRequest`: `email`, `password`
+- `PlatformRefreshTokenRequest`: `refreshToken`
+- `AuthResponse`: `accessToken`, `refreshToken`, `expiresIn`, `user`
+- `UserDto`: `publicId`, `email`, `firstName`, `lastName`, `authProvider`
+
+##### `POST /api/platform/auth/login`
+
+- Proposito: autenticar un operador de plataforma usando credenciales locales.
+- Autenticacion: publica.
+- Request body: `email`, `password`.
+- Response: `AuthResponse`.
+- Errores relevantes: `INVALID_CREDENTIALS`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: solo emite token si el usuario local esta activo y ligado a un `PlatformOperator` activo.
+
+##### `POST /api/platform/auth/refresh`
+
+- Proposito: rotar una sesion de plataforma usando un refresh token valido de `client_type=platform`.
+- Autenticacion: publica.
+- Request body: `refreshToken`.
+- Response: `AuthResponse`.
+- Errores relevantes: errores estandar de refresh token y `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: si el `PlatformOperator` deja de estar activo, el refresh revoca la familia de tokens de plataforma del usuario.
+
+##### `POST /api/platform/auth/logout`
+
+- Proposito: revocar la sesion de plataforma vigente.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Response: `204 No Content`.
+
+#### 5.3A.6 `CommercialPlansController`
+
+Base route: `/api/platform/commercial-plans`
 
 Contratos principales:
 
@@ -991,65 +1054,100 @@ Contratos principales:
 - `CommercialPlanLimitInput`: `code`, `value`
 - `CommercialPlanLimitResponse`: `code`, `normalizedCode`, `value`
 
-##### `GET /api/account/commercial-plans`
+##### `GET /api/platform/commercial-plans`
 
 - Proposito: listar planes comerciales globales.
-- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Autenticacion: `Bearer` requerido con token `platform`.
 - Query: `status`, `q`, `page`, `pageSize`.
 - Validaciones: `page > 0`, `pageSize` entre `1` y `100`, `q` maximo `150`.
 - Response: `PagedResponse<CommercialPlanSummaryResponse>`.
 - Observaciones: no exige tenant activo; ordena por `name` y luego `code`.
 
-##### `GET /api/account/commercial-plans/{publicId}`
+##### `GET /api/platform/commercial-plans/{publicId}`
 
 - Proposito: obtener el detalle de un plan comercial global.
-- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Autenticacion: `Bearer` requerido con token `platform`.
 - Response: `CommercialPlanResponse`.
 - Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`.
 - Observaciones: `limits` siempre se devuelve como coleccion, aunque este vacia.
 
-##### `POST /api/account/commercial-plans`
+##### `POST /api/platform/commercial-plans`
 
 - Proposito: registrar un nuevo plan comercial global.
-- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
 - Request body: `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `limits`.
 - Validaciones base: `code` obligatorio maximo `40`; `name` obligatorio maximo `150`; `description` maximo `500`; montos y limites no negativos; maximo `2` decimales; `limits[].code` obligatorio maximo `80`.
 - Response: `201 Created` con `CommercialPlanResponse`.
-- Errores relevantes: `COMMERCIAL_PLAN_CODE_CONFLICT`.
+- Errores relevantes: `COMMERCIAL_PLAN_CODE_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
 - Observaciones: `limits` puede venir vacio; el `status` inicial puede registrarse como `Draft`, `Active` o `Inactive`.
 
-##### `PUT /api/account/commercial-plans/{publicId}`
+##### `PUT /api/platform/commercial-plans/{publicId}`
 
 - Proposito: actualizar datos base de un plan comercial existente.
-- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
 - Request body: `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `limits`, `concurrencyToken`.
 - Response: `CommercialPlanResponse`.
-- Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `COMMERCIAL_PLAN_CODE_CONFLICT`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_SYSTEM_RENAME_FORBIDDEN`.
+- Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `COMMERCIAL_PLAN_CODE_CONFLICT`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_SYSTEM_RENAME_FORBIDDEN`, `PLATFORM_ACCESS_FORBIDDEN`.
 - Observaciones: la coleccion `limits` reemplaza completamente la configuracion anterior y `status` no se modifica por esta ruta.
 
-##### `PATCH /api/account/commercial-plans/{publicId}/activate`
+##### `PATCH /api/platform/commercial-plans/{publicId}/activate`
 
 - Proposito: activar un plan comercial existente.
-- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
 - Request body: `concurrencyToken`.
 - Response: `CommercialPlanResponse`.
-- Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_ALREADY_ACTIVE`.
+- Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_ALREADY_ACTIVE`, `PLATFORM_ACCESS_FORBIDDEN`.
 - Observaciones: no existe ruta para volver un plan a `Draft`.
 
-##### `PATCH /api/account/commercial-plans/{publicId}/inactivate`
+##### `PATCH /api/platform/commercial-plans/{publicId}/inactivate`
 
 - Proposito: inactivar un plan comercial existente.
-- Autenticacion: `Bearer` requerido con rol `platform_admin`.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
 - Request body: `concurrencyToken`.
 - Response: `CommercialPlanResponse`.
-- Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_ALREADY_INACTIVE`, `COMMERCIAL_PLAN_SYSTEM_INACTIVATION_FORBIDDEN`.
+- Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_ALREADY_INACTIVE`, `COMMERCIAL_PLAN_SYSTEM_INACTIVATION_FORBIDDEN`, `PLATFORM_ACCESS_FORBIDDEN`.
 - Observaciones: `FREE` no puede inactivarse mientras siga siendo el plan canonico del provisioning.
 
-#### 5.3A.6 Relacion con provisioning y futuras suscripciones
+#### 5.3A.7 `PlatformCompanySubscriptionsController`
 
-- `PlanEntitlementService` asegura que el plan comercial `FREE` exista y siga alineado con los `PlanEntitlement` usados por el provisioning.
-- `Commercial plans` define el catalogo comercial base, pero no crea ni activa suscripciones empresariales.
-- `CompanySubscription` y `PlanEntitlement` siguen referenciando `planCode`; la relacion formal con el catalogo comercial queda para historias futuras.
+Base route: `/api/platform/companies/{companyPublicId}/subscription*`
+
+Contratos principales:
+
+- `PlatformCompanySubscriptionResponse`: `subscriptionPublicId`, `companyPublicId`, `commercialPlanPublicId`, `planCode`, `planName`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `startDateUtc`, `endDateUtc`, `createdAtUtc`, `modifiedAtUtc`
+- `ReplacePlatformCompanySubscriptionRequest`: `commercialPlanPublicId`
+
+##### `GET /api/platform/companies/{companyPublicId}/subscription`
+
+- Proposito: obtener la suscripcion vigente de una compania.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Response: `PlatformCompanySubscriptionResponse`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`, `PLATFORM_ACCESS_FORBIDDEN`.
+
+##### `GET /api/platform/companies/{companyPublicId}/subscriptions`
+
+- Proposito: listar el historial paginado de suscripciones de una compania.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Query: `page`, `pageSize`.
+- Validaciones: `page > 0`, `pageSize` entre `1` y `100`.
+- Response: `PagedResponse<PlatformCompanySubscriptionResponse>`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: la pagina se ordena por fecha de inicio descendente y conserva filas canceladas para historial.
+
+##### `PUT /api/platform/companies/{companyPublicId}/subscription`
+
+- Proposito: reemplazar la suscripcion activa de una compania por otro plan comercial activo.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `commercialPlanPublicId`.
+- Response: `PlatformCompanySubscriptionResponse`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_ALREADY_ASSIGNED`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: la fila activa anterior se cancela y se crea una nueva fila historica; la empresa nunca queda sin suscripcion activa.
+
+#### 5.3A.8 Relacion con provisioning y entitlements
+
+- `CompanyProvisioningService` resuelve formalmente el plan comercial `FREE` y crea la suscripcion inicial desde ese agregado global.
+- `PlanEntitlementService` sigue resolviendo modulos y limites desde el plan comercial relacionado a la suscripcion activa.
+- `AccountCompanySummaryResponse` y `AccountCompanyDetailResponse` mantienen `planCode` como compatibilidad de contrato, pero ese valor sale del snapshot de la suscripcion activa.
 
 ### 5.4 Org structure catalogs
 
@@ -1090,8 +1188,8 @@ Es un modulo fundacional: no modela organigramas ni companias completas, sino lo
 
 #### 5.4.4 Autorizacion observable
 
-- `unit-types` y `functional-areas` en lectura aceptan alguno de estos permisos: `OrgStructureCatalogs.Read`, `OrgStructureCatalogs.Admin`, `OrgUnits.Read`, `OrgUnits.Admin`, `iam.administration.manage` o `platform_admin`.
-- `unit-types` y `functional-areas` en escritura exigen alguno de estos permisos: `OrgStructureCatalogs.Admin`, `OrgUnits.Admin`, `iam.administration.manage` o `platform_admin`.
+- `unit-types` y `functional-areas` en lectura aceptan alguno de estos permisos: `OrgStructureCatalogs.Read`, `OrgStructureCatalogs.Admin`, `OrgUnits.Read`, `OrgUnits.Admin` o `iam.administration.manage`.
+- `unit-types` y `functional-areas` en escritura exigen alguno de estos permisos: `OrgStructureCatalogs.Admin`, `OrgUnits.Admin` o `iam.administration.manage`.
 - Si el `companyPublicId` de la ruta no coincide con el tenant actual, la respuesta observable es `TENANT_MISMATCH`.
 - Si el usuario esta autenticado pero no cumple permisos tenant-scoped, la respuesta observable es `ORG_STRUCTURE_CATALOG_FORBIDDEN`.
 
@@ -1206,8 +1304,8 @@ No es un catalogo base como `Org structure catalogs`; aqui ya se administran nod
 
 #### 5.5.4 Autorizacion observable
 
-- Lectura acepta alguno de estos permisos: `OrgUnits.Read`, `OrgUnits.Admin`, `iam.administration.manage` o `platform_admin`.
-- Escritura acepta alguno de estos permisos: `OrgUnits.Admin`, `iam.administration.manage` o `platform_admin`.
+- Lectura acepta alguno de estos permisos: `OrgUnits.Read`, `OrgUnits.Admin` o `iam.administration.manage`.
+- Escritura acepta alguno de estos permisos: `OrgUnits.Admin` o `iam.administration.manage`.
 - Si el usuario no esta autenticado o no tiene tenant valido, la API responde `UNAUTHENTICATED`.
 - Si el `companyPublicId` de la ruta no coincide con el tenant activo, la API responde `TENANT_MISMATCH`.
 - Si el usuario esta autenticado dentro del tenant correcto pero no cumple permisos, la API responde `ORG_UNITS_FORBIDDEN`.
@@ -1379,8 +1477,8 @@ No modela jerarquias; modela un catalogo operativo con estado, tipo y codigos co
 
 #### 5.6.4 Autorizacion observable
 
-- Lectura acepta alguno de estos permisos: `CostCenters.Read`, `CostCenters.Admin`, `iam.administration.manage` o `platform_admin`.
-- Escritura acepta alguno de estos permisos: `CostCenters.Admin`, `iam.administration.manage` o `platform_admin`.
+- Lectura acepta alguno de estos permisos: `CostCenters.Read`, `CostCenters.Admin` o `iam.administration.manage`.
+- Escritura acepta alguno de estos permisos: `CostCenters.Admin` o `iam.administration.manage`.
 - Si el usuario no esta autenticado o no tiene tenant valido, la API responde `UNAUTHENTICATED`.
 - Si el `companyId` de la ruta no coincide con el tenant activo, la API responde `TENANT_MISMATCH`.
 - Si el usuario esta autenticado dentro del tenant correcto pero no cumple permisos, la API responde `COST_CENTERS_FORBIDDEN`.
@@ -1535,8 +1633,8 @@ Es un modulo administrativo sensible porque afecta onboarding de compania, datos
 
 #### 5.7.4 Autorizacion observable
 
-- Lectura acepta alguno de estos permisos: `LegalRepresentatives.Read`, `LegalRepresentatives.Admin`, `iam.administration.manage` o `platform_admin`.
-- Escritura acepta alguno de estos permisos: `LegalRepresentatives.Admin`, `iam.administration.manage` o `platform_admin`.
+- Lectura acepta alguno de estos permisos: `LegalRepresentatives.Read`, `LegalRepresentatives.Admin` o `iam.administration.manage`.
+- Escritura acepta alguno de estos permisos: `LegalRepresentatives.Admin` o `iam.administration.manage`.
 - Si el usuario no esta autenticado o no tiene tenant valido, la API responde `UNAUTHENTICATED`.
 - Si el `companyId` de la ruta no coincide con el tenant activo, la API responde `TENANT_MISMATCH`.
 - Si el usuario esta autenticado dentro del tenant correcto pero no cumple permisos, la API responde `LEGAL_REPRESENTATIVES_FORBIDDEN`.
@@ -1695,14 +1793,14 @@ Es el modulo base de localizacion del tenant. Primero define la estructura, lueg
 - Todos los listados usan `page/pageSize` con maximo `100` y default `20` cuando aplican.
 - Los `code` de grupos, tipos y work centers usan regex alfanumerica con `_` o `-`, longitud maxima `50`.
 - Las operaciones de `update/activate/inactivate/move/reassign-group` usan concurrencia optimista con `ConcurrencyToken`.
-- Todo el modulo comparte una sola superficie de permisos: `Locations.Read`, `Locations.Admin`, `iam.administration.manage` o `platform_admin`.
+- Todo el modulo comparte una sola superficie de permisos: `Locations.Read`, `Locations.Admin` o `iam.administration.manage`.
 - La jerarquia admite una unica regla fuerte para work centers: solo el ultimo nivel activo puede tener `AllowsWorkCenters = true`.
 - El modulo soporta configuracion `defaultGroupCode/defaultGroupName` en la jerarquia y protege grupos marcados como `IsDefault` si existen.
 
 #### 5.8.4 Autorizacion observable
 
-- Lectura acepta alguno de estos permisos: `Locations.Read`, `Locations.Admin`, `iam.administration.manage` o `platform_admin`.
-- Escritura acepta alguno de estos permisos: `Locations.Admin`, `iam.administration.manage` o `platform_admin`.
+- Lectura acepta alguno de estos permisos: `Locations.Read`, `Locations.Admin` o `iam.administration.manage`.
+- Escritura acepta alguno de estos permisos: `Locations.Admin` o `iam.administration.manage`.
 - Si el usuario no esta autenticado o no tiene tenant valido, la API responde `UNAUTHENTICATED`.
 - Si el `companyId` de la ruta no coincide con el tenant activo, la API responde `TENANT_MISMATCH`.
 - Si el usuario esta autenticado dentro del tenant correcto pero no cumple permisos, la API responde `LOCATIONS_FORBIDDEN`.
@@ -1981,15 +2079,15 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 
 #### 5.9.4 Autorizacion observable
 
-- Lectura de `JobProfiles` y `JobCatalogs` acepta alguno de estos permisos: `JobProfiles.Read`, `JobProfiles.Admin`, `JobCatalogs.Admin`, `iam.administration.manage` o `platform_admin`.
-- Escritura de perfiles acepta alguno de estos permisos: `JobProfiles.Admin`, `iam.administration.manage` o `platform_admin`.
-- Escritura de job catalogs acepta alguno de estos permisos: `JobCatalogs.Admin`, `iam.administration.manage` o `platform_admin`.
-- Lectura de `CompetencyFramework` acepta alguno de estos permisos: `CompetencyFramework.Read`, `CompetencyFramework.Admin`, `iam.administration.manage` o `platform_admin`.
-- Escritura de `CompetencyFramework` acepta alguno de estos permisos: `CompetencyFramework.Admin`, `iam.administration.manage` o `platform_admin`.
-- Lectura de `PositionDescriptionCatalogs` acepta alguno de estos permisos: `PositionDescriptionCatalogs.Read`, `PositionDescriptionCatalogs.Admin`, `iam.administration.manage` o `platform_admin`.
-- Escritura de `PositionDescriptionCatalogs` acepta alguno de estos permisos: `PositionDescriptionCatalogs.Admin`, `iam.administration.manage` o `platform_admin`.
-- Lectura de `PositionSlots` acepta alguno de estos permisos: `PositionSlots.Read`, `PositionSlots.Admin`, `iam.administration.manage` o `platform_admin`.
-- Escritura de `PositionSlots` acepta alguno de estos permisos: `PositionSlots.Admin`, `iam.administration.manage` o `platform_admin`.
+- Lectura de `JobProfiles` y `JobCatalogs` acepta alguno de estos permisos: `JobProfiles.Read`, `JobProfiles.Admin`, `JobCatalogs.Admin` o `iam.administration.manage`.
+- Escritura de perfiles acepta alguno de estos permisos: `JobProfiles.Admin` o `iam.administration.manage`.
+- Escritura de job catalogs acepta alguno de estos permisos: `JobCatalogs.Admin` o `iam.administration.manage`.
+- Lectura de `CompetencyFramework` acepta alguno de estos permisos: `CompetencyFramework.Read`, `CompetencyFramework.Admin` o `iam.administration.manage`.
+- Escritura de `CompetencyFramework` acepta alguno de estos permisos: `CompetencyFramework.Admin` o `iam.administration.manage`.
+- Lectura de `PositionDescriptionCatalogs` acepta alguno de estos permisos: `PositionDescriptionCatalogs.Read`, `PositionDescriptionCatalogs.Admin` o `iam.administration.manage`.
+- Escritura de `PositionDescriptionCatalogs` acepta alguno de estos permisos: `PositionDescriptionCatalogs.Admin` o `iam.administration.manage`.
+- Lectura de `PositionSlots` acepta alguno de estos permisos: `PositionSlots.Read`, `PositionSlots.Admin` o `iam.administration.manage`.
+- Escritura de `PositionSlots` acepta alguno de estos permisos: `PositionSlots.Admin` o `iam.administration.manage`.
 - Si el usuario no esta autenticado o no tiene tenant valido, la API responde `UNAUTHENTICATED`.
 - Si el `companyId` de la ruta no coincide con el tenant activo, la API responde `TENANT_MISMATCH`.
 - Si el usuario esta autenticado en el tenant correcto pero no cumple permisos, la API responde el `FORBIDDEN` especifico del submodulo:
@@ -2435,9 +2533,9 @@ En terminos de negocio, este bloque une dos mundos:
 
 #### 5.10.4 Autorizacion observable
 
-- Lectura de `PersonnelFiles` acepta alguno de estos permisos: `PersonnelFiles.Read`, `PersonnelFiles.Admin`, `iam.administration.manage` o `platform_admin`.
-- Escritura de `PersonnelFiles` acepta alguno de estos permisos: `PersonnelFiles.Admin`, `iam.administration.manage` o `platform_admin`.
-- `platform_admin` hace bypass completo del chequeo tenant-permission basado en membresias y claims.
+- Lectura de `PersonnelFiles` acepta alguno de estos permisos: `PersonnelFiles.Read`, `PersonnelFiles.Admin` o `iam.administration.manage`.
+- Escritura de `PersonnelFiles` acepta alguno de estos permisos: `PersonnelFiles.Admin` o `iam.administration.manage`.
+- No existe bypass de plataforma sobre el chequeo tenant-permission del core; un token `platform` ni siquiera es valido en estas rutas.
 - Si los claims directos no bastan, la API tambien resuelve permisos a traves de la membresia activa de compania y del rol asignado en ese tenant.
 - Si el usuario no esta autenticado o no tiene tenant valido, la API responde `UNAUTHENTICATED`.
 - Si el `companyId` de la ruta no coincide con el tenant activo, la API responde `TENANT_MISMATCH`.

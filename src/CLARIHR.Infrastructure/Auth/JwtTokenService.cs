@@ -1,7 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
 using System.Security.Claims;
-using System.Text;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Abstractions.Companies;
@@ -24,20 +23,22 @@ internal sealed class JwtTokenService(
     IRefreshTokenHasher refreshTokenHasher,
     ILogger<JwtTokenService> logger) : ITokenService
 {
-    private const string PlatformAdminRole = "platform_admin";
-
     public async Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken)
     {
         var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
-        return await GenerateInternalAsync(user, tenantId, cancellationToken);
+        return await GenerateInternalAsync(user, tenantId, AuthClientType.Core, cancellationToken);
     }
 
     public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
-        GenerateInternalAsync(user, tenantId, cancellationToken);
+        GenerateInternalAsync(user, tenantId, AuthClientType.Core, cancellationToken);
+
+    public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
+        GenerateInternalAsync(user, tenantId: null, AuthClientType.Platform, cancellationToken);
 
     private async Task<Result<AuthTokenResult>> GenerateInternalAsync(
         User user,
         Guid? tenantId,
+        AuthClientType clientType,
         CancellationToken cancellationToken)
     {
         var jwtOptions = options.Value;
@@ -50,15 +51,15 @@ internal sealed class JwtTokenService(
         var expiresAt = issuedAt.AddMinutes(jwtOptions.AccessTokenExpirationMinutes);
         var refreshExpiresAt = issuedAt.AddDays(jwtOptions.RefreshTokenExpirationDays);
 
-        var claims = await CreateIdentityClaimsAsync(user, tenantId, cancellationToken);
+        var claims = await CreateIdentityClaimsAsync(user, tenantId, clientType, cancellationToken);
 
         var signingCredentials = new SigningCredentials(
-            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey!)),
+            JwtConfigurationDiagnostics.CreateSigningKey(jwtOptions.SigningKey!),
             SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
             issuer: jwtOptions.Issuer,
-            audience: jwtOptions.Audience,
+            audience: ResolveAudience(jwtOptions, clientType),
             claims: claims,
             notBefore: issuedAt,
             expires: expiresAt,
@@ -68,6 +69,7 @@ internal sealed class JwtTokenService(
         var rawRefreshToken = CreateRefreshTokenValue();
         var refreshToken = RefreshToken.Issue(
             user.Id,
+            clientType,
             refreshTokenHasher.Hash(rawRefreshToken),
             refreshExpiresAt);
 
@@ -76,9 +78,12 @@ internal sealed class JwtTokenService(
 
         var expiresIn = (int)Math.Round((expiresAt - issuedAt).TotalSeconds);
         logger.LogInformation(
-            "Issued auth token pair for user {UserPublicId} provider {AuthProvider}",
+            "Issued auth token pair for user {UserPublicId} provider {AuthProvider} client type {ClientType} audience {Audience} key fingerprint {KeyFingerprint}",
             user.PublicId,
-            user.AuthProvider);
+            user.AuthProvider,
+            clientType,
+            ResolveAudience(jwtOptions, clientType),
+            JwtConfigurationDiagnostics.ComputeSigningKeyFingerprint(jwtOptions.SigningKey));
 
         return Result<AuthTokenResult>.Success(new AuthTokenResult(
             serializedToken,
@@ -86,7 +91,10 @@ internal sealed class JwtTokenService(
             ExpiresIn: expiresIn));
     }
 
-    public async Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
+    public async Task<Result<RefreshTokenExchangeResult>> RefreshAsync(
+        string refreshToken,
+        AuthClientType clientType,
+        CancellationToken cancellationToken)
     {
         var jwtOptions = options.Value;
         if (!jwtOptions.IsConfigured)
@@ -105,6 +113,15 @@ internal sealed class JwtTokenService(
         if (storedToken is null)
         {
             logger.LogWarning("Refresh token rejected because it was not found");
+            return Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid);
+        }
+
+        if (storedToken.ClientType != clientType)
+        {
+            logger.LogWarning(
+                "Refresh token rejected because client type {StoredClientType} did not match expected {ExpectedClientType}",
+                storedToken.ClientType,
+                clientType);
             return Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid);
         }
 
@@ -146,14 +163,17 @@ internal sealed class JwtTokenService(
         await refreshTokenRepository.AddAsync(newRefreshToken, cancellationToken);
         await refreshTokenRepository.SaveChangesAsync(cancellationToken);
 
-        var accessToken = await CreateAccessTokenAsync(user, jwtOptions, utcNow, cancellationToken);
+        var accessToken = await CreateAccessTokenAsync(user, jwtOptions, utcNow, clientType, cancellationToken);
         var accessTokenValue = new JwtSecurityTokenHandler().WriteToken(accessToken);
         var expiresIn = (int)Math.Round((accessToken.ValidTo - utcNow).TotalSeconds);
 
         logger.LogInformation(
-            "Rotated refresh token for user {UserPublicId} family {RefreshTokenFamilyId}",
+            "Rotated refresh token for user {UserPublicId} family {RefreshTokenFamilyId} client type {ClientType} audience {Audience} key fingerprint {KeyFingerprint}",
             user.PublicId,
-            storedToken.FamilyId);
+            storedToken.FamilyId,
+            clientType,
+            ResolveAudience(jwtOptions, clientType),
+            JwtConfigurationDiagnostics.ComputeSigningKeyFingerprint(jwtOptions.SigningKey));
 
         return Result<RefreshTokenExchangeResult>.Success(new RefreshTokenExchangeResult(
             user,
@@ -167,19 +187,22 @@ internal sealed class JwtTokenService(
         User user,
         JwtTokenOptions jwtOptions,
         DateTime issuedAt,
+        AuthClientType clientType,
         CancellationToken cancellationToken)
     {
         var expiresAt = issuedAt.AddMinutes(jwtOptions.AccessTokenExpirationMinutes);
-        var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
-        var claims = await CreateIdentityClaimsAsync(user, tenantId, cancellationToken);
+        var tenantId = clientType == AuthClientType.Core
+            ? await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken)
+            : null;
+        var claims = await CreateIdentityClaimsAsync(user, tenantId, clientType, cancellationToken);
 
         var signingCredentials = new SigningCredentials(
-            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey!)),
+            JwtConfigurationDiagnostics.CreateSigningKey(jwtOptions.SigningKey!),
             SecurityAlgorithms.HmacSha256);
 
         return new JwtSecurityToken(
             issuer: jwtOptions.Issuer,
-            audience: jwtOptions.Audience,
+            audience: ResolveAudience(jwtOptions, clientType),
             claims: claims,
             notBefore: issuedAt,
             expires: expiresAt,
@@ -189,9 +212,9 @@ internal sealed class JwtTokenService(
     private async Task<List<Claim>> CreateIdentityClaimsAsync(
         User user,
         Guid? tenantId,
+        AuthClientType clientType,
         CancellationToken cancellationToken)
     {
-        var jwtOptions = options.Value;
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.PublicId.ToString()),
@@ -202,13 +225,9 @@ internal sealed class JwtTokenService(
             new(JwtRegisteredClaimNames.GivenName, user.FirstName),
             new(JwtRegisteredClaimNames.FamilyName, user.LastName),
             new("auth_provider", user.AuthProvider.ToString()),
-            new("user_status", user.Status.ToString())
+            new("user_status", user.Status.ToString()),
+            new("client_type", clientType.ToClaimValue())
         };
-
-        if (IsPlatformAdmin(user, jwtOptions))
-        {
-            claims.Add(new Claim(ClaimTypes.Role, PlatformAdminRole));
-        }
 
         if (!tenantId.HasValue)
         {
@@ -226,13 +245,13 @@ internal sealed class JwtTokenService(
         return claims;
     }
 
-    private static bool IsPlatformAdmin(User user, JwtTokenOptions jwtOptions) =>
-        jwtOptions.PlatformAdminEmails.Any(configuredEmail =>
-            !string.IsNullOrWhiteSpace(configuredEmail) &&
-            string.Equals(
-                User.NormalizeEmail(configuredEmail),
-                user.NormalizedEmail,
-                StringComparison.Ordinal));
+    private static string ResolveAudience(JwtTokenOptions jwtOptions, AuthClientType clientType) =>
+        clientType switch
+        {
+            AuthClientType.Core => jwtOptions.Audience!,
+            AuthClientType.Platform => jwtOptions.PlatformAudience!,
+            _ => throw new ArgumentOutOfRangeException(nameof(clientType), clientType, "Unsupported auth client type.")
+        };
 
     private static string CreateRefreshTokenValue() =>
         Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(64));

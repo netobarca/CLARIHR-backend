@@ -1024,7 +1024,7 @@ internal sealed class ApproveSalaryTabulatorChangeRequestCommandHandler(
         var before = await repository.GetChangeRequestResponseByIdAsync(request.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Salary tabulator change request could not be resolved before approval.");
 
-        var allowSelfApproval = currentUserService.Roles.Contains(SalaryTabulatorPermissionCodes.PlatformAdminRole, StringComparer.OrdinalIgnoreCase);
+        var allowSelfApproval = false;
         var lineAuditEvents = new List<SalaryTabulatorLineAuditPayload>();
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);

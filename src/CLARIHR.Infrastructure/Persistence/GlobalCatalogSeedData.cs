@@ -8,6 +8,7 @@ namespace CLARIHR.Infrastructure.Persistence;
 internal static class GlobalCatalogSeedData
 {
     public static readonly DateTime SeededAtUtc = new(2026, 03, 18, 0, 0, 0, DateTimeKind.Utc);
+    public const long FreeCommercialPlanInternalId = -3000L;
     public static readonly Guid FreeCommercialPlanPublicId = Guid.Parse("00000000-0000-0000-0000-000000000901");
     public static readonly Guid FreeCommercialPlanConcurrencyToken = Guid.Parse("00000000-0000-0000-0000-000000000902");
 
@@ -18,7 +19,7 @@ internal static class GlobalCatalogSeedData
         [
             new
             {
-                Id = -3000L,
+                Id = FreeCommercialPlanInternalId,
                 PublicId = FreeCommercialPlanPublicId,
                 Code = ProvisioningConstants.FreePlanCode,
                 NormalizedCode = ProvisioningConstants.FreePlanCode.ToUpperInvariant(),
@@ -40,6 +41,7 @@ internal static class GlobalCatalogSeedData
         {
             Id = -1000L - index,
             PublicId = CreateSeedPublicId("PLAN_ENTITLEMENT", moduleKey),
+            CommercialPlanId = FreeCommercialPlanInternalId,
             PlanCode = ProvisioningConstants.FreePlanCode.ToUpperInvariant(),
             ModuleKey = moduleKey.ToUpperInvariant(),
             IsEnabled = true,

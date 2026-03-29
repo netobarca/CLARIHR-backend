@@ -52,8 +52,7 @@ internal sealed class RbacAuthorizationService(
             return Deny(AuthorizationErrors.Denied(definition.ResourceKey, action, GetEndpoint()), definition.ResourceKey, action);
         }
 
-        if (currentUserService.Roles.Contains("platform_admin", StringComparer.OrdinalIgnoreCase) ||
-            currentUserService.Permissions.Contains(IdentityPermissionCodes.ManageAdministration, StringComparer.OrdinalIgnoreCase) ||
+        if (currentUserService.Permissions.Contains(IdentityPermissionCodes.ManageAdministration, StringComparer.OrdinalIgnoreCase) ||
             currentUserService.Permissions.Contains(definition.ManagePermissionCode, StringComparer.OrdinalIgnoreCase))
         {
             return Result.Success();

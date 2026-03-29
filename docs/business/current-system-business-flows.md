@@ -79,11 +79,18 @@ El provisioning actual deja creada la base operativa minima del tenant:
 
 ### 5.4 Catalogo comercial base de suscripciones
 
-1. Un administrador de plataforma autenticado administra planes globales desde `api/account/commercial-plans`.
-2. El sistema permite registrar `name`, `code`, `description`, `fee` mensual base, precio por empleado activo, estado y limites incluidos.
-3. Los planes quedan disponibles como catalogo reutilizable para futuras suscripciones empresariales.
-4. El plan `FREE` existe como plan de sistema sembrado y permanece protegido porque el provisioning actual depende de ese codigo.
-5. Este flujo no activa suscripciones, no calcula cobros y no administra descuentos ni add-ons.
+1. Un operador de plataforma autenticado entra al backoffice por `api/platform/auth/login`.
+2. Con ese token `platform`, administra planes globales desde `api/platform/commercial-plans`.
+3. El sistema permite registrar `name`, `code`, `description`, `fee` mensual base, precio por empleado activo, estado y limites incluidos.
+4. Los planes quedan disponibles como catalogo reutilizable para futuras suscripciones empresariales.
+5. El plan `FREE` existe como plan de sistema sembrado y permanece protegido porque el provisioning actual depende de ese codigo.
+
+### 5.5 Administracion backoffice de suscripciones empresariales
+
+1. Un operador de plataforma consulta la suscripcion vigente o el historial de una empresa desde `api/platform/companies/{companyPublicId}/subscription` y `.../subscriptions`.
+2. Si necesita cambiar el plan, envia `commercialPlanPublicId` a `PUT api/platform/companies/{companyPublicId}/subscription`.
+3. El backend cancela la suscripcion activa anterior y crea una nueva fila historica ligada formalmente al `CommercialPlan` seleccionado.
+4. La empresa nunca queda sin suscripcion activa; un downgrade operativo se resuelve asignando nuevamente `FREE`.
 
 ## 6. Flujo de administracion de estructura organizacional
 
@@ -235,7 +242,7 @@ El sistema permite:
 ## 12. Reglas funcionales visibles
 
 - El sistema es tenant-scoped por defecto.
-- El catalogo comercial de planes es una excepcion global, administrada solo por `platform_admin` y sin tenant activo.
+- El backoffice de plataforma es una superficie global separada de la Core API, autenticada con tokens `platform` y sin tenant activo.
 - La compania activa define el contexto operativo del usuario.
 - Los listados operativos se consumen con paginacion.
 - La mayoria de actualizaciones sobre bloques del expediente reemplazan la seccion completa.

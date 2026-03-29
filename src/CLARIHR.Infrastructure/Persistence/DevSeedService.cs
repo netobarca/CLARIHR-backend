@@ -90,9 +90,12 @@ internal sealed class DevSeedService(
         dbContext.Companies.Add(company);
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        var freePlan = await dbContext.CommercialPlans
+            .SingleAsync(plan => plan.NormalizedCode == ProvisioningConstants.FreePlanCode, cancellationToken);
+
         var subscription = CompanySubscription.Activate(
             company.Id,
-            "ENTERPRISE",
+            freePlan,
             SeedDate);
         dbContext.CompanySubscriptions.Add(subscription);
 

@@ -15,6 +15,7 @@ using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.OrgStructureCatalogs;
 using CLARIHR.Domain.OrgUnits;
 using CLARIHR.Domain.PersonnelFiles;
+using CLARIHR.Domain.Platform;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
 using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Domain.SalaryTabulator;
@@ -73,6 +74,10 @@ public sealed class ApplicationDbContext(
     public DbSet<FieldPermissionAuditLog> FieldPermissionAuditLogs => Set<FieldPermissionAuditLog>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    public DbSet<PlatformOperator> PlatformOperators => Set<PlatformOperator>();
+
+    public DbSet<PlatformAuditLog> PlatformAuditLogs => Set<PlatformAuditLog>();
 
     public DbSet<LocationHierarchyConfig> LocationHierarchyConfigs => Set<LocationHierarchyConfig>();
 

@@ -2,7 +2,7 @@
 
 ## 1. Proposito
 
-Este documento describe el estado actual de la arquitectura del backend CLARIHR a partir del codigo vigente del repositorio y queda alineado con la reevaluacion profunda de auditoria del **28 de marzo de 2026**.
+Este documento describe el estado actual de la arquitectura del backend CLARIHR a partir del codigo vigente del repositorio y queda alineado con la reevaluacion profunda actualizada al **29 de marzo de 2026**.
 
 ## 2. Resumen ejecutivo
 
@@ -12,6 +12,7 @@ La base arquitectonica sigue siendo coherente con el foundation document:
 - `CLARIHR.Application`
 - `CLARIHR.Infrastructure`
 - `CLARIHR.Api`
+- `CLARIHR.Backoffice.Api`
 
 Tambien se mantiene una disciplina CQRS visible, validacion centralizada, RBAC por modulo, auditoria transversal y una intencion clara de `tenant-scoped by default`.
 
@@ -26,10 +27,10 @@ Sin embargo, la reevaluacion confirma que la arquitectura actual ya no puede des
 
 Snapshot de esta reevaluacion:
 
-- `34` controllers
-- `324` acciones HTTP en `src/CLARIHR.Api/Controllers`
+- `36` controllers entre Core API y Backoffice API
+- `326` acciones HTTP en `src/CLARIHR.Api/Controllers` y `src/CLARIHR.Backoffice.Api/Controllers`
 - build limpio
-- test suite verde
+- validaciones dirigidas de auth/plataforma/suscripciones aprobadas
 
 La arquitectura observable de una request sigue siendo:
 
@@ -51,9 +52,9 @@ La separacion entre lectura y escritura sigue siendo visible y util. Hay handler
 
 El sistema sigue orientado a tenant isolation, pero [ApplicationDbContext.cs#L287](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/Persistence/ApplicationDbContext.cs#L287) deja el filtro global en modo `fail-open`. Arquitectonicamente eso significa que la garantia tenant-scoped no depende solo del modelo, sino de que todos los flujos mantengan contexto y filtros adicionales de forma impecable.
 
-### 4.3 Catalogos globales fuera de tenant
+### 4.3 Capacidades globales fuera de tenant
 
-`CommercialPlan` introduce un agregado global administrado por `platform_admin` y fuera del tenant. Eso es valido como decision funcional, pero obliga a tener una estrategia propia de permisos, auditoria y trazabilidad de plataforma.
+`CommercialPlan`, `CompanySubscription` y `PlatformOperator` introducen un plano global fuera del tenant. La decision ahora esta mejor aislada: la administracion global sale del core tenant-scoped y vive en `CLARIHR.Backoffice.Api`, con tokens `platform`, autorizacion por `PlatformOperator` persistido y `PlatformAuditLog` separado del `AuditLog` tenant-scoped.
 
 ### 4.4 Controllers con superficie mixta
 

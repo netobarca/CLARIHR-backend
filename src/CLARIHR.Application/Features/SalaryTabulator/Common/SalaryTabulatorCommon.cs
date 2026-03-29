@@ -30,7 +30,6 @@ public static class SalaryTabulatorPermissionCodes
     public const string Admin = "SalaryTabulator.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "SALARY_TABULATOR";
-    public const string PlatformAdminRole = "platform_admin";
 }
 
 public static class SalaryTabulatorErrors

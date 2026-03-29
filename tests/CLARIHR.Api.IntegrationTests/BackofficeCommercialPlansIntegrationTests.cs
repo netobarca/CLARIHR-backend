@@ -1,15 +1,16 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using CLARIHR.Domain.Companies;
+using CLARIHR.Domain.Platform;
 
 namespace CLARIHR.Api.IntegrationTests;
 
-public sealed class CommercialPlansIntegrationTests(IntegrationTestWebApplicationFactory factory)
-    : IClassFixture<IntegrationTestWebApplicationFactory>
+public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrationTestWebApplicationFactory factory)
+    : IClassFixture<BackofficeIntegrationTestWebApplicationFactory>
 {
     private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
+    private static readonly Guid PlatformOperatorUserId = Guid.Parse("90000000-0000-0000-0000-000000000001");
 
     [Fact]
     public async Task CommercialPlans_Search_WithoutAuthentication_ShouldReturnUnauthorized()
@@ -17,36 +18,47 @@ public sealed class CommercialPlansIntegrationTests(IntegrationTestWebApplicatio
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/api/account/commercial-plans");
+        var response = await client.GetAsync("/api/platform/commercial-plans");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
-    public async Task CommercialPlans_Search_WhenUserIsNotPlatformAdmin_ShouldReturnForbidden()
+    public async Task CommercialPlans_Search_WithCoreClientType_ShouldReturnForbidden()
     {
-        await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(TestUserContext.AuthenticatedWithoutTenant(Guid.NewGuid()));
+        await factory.ResetDatabaseAsync(dbContext =>
+            PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                PlatformOperatorUserId,
+                "platform.admin@clarihr.test",
+                "hashed-password"));
+        using var client = factory.CreateClientFor(TestUserContext.AuthenticatedWithoutTenant(PlatformOperatorUserId));
 
-        var response = await client.GetAsync("/api/account/commercial-plans");
+        var response = await client.GetAsync("/api/platform/commercial-plans");
 
-        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "COMMERCIAL_PLAN_FORBIDDEN");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
-    public async Task CommercialPlans_CrudLifecycle_WithPlatformAdminWithoutTenant_ShouldSucceed()
+    public async Task CommercialPlans_CrudLifecycle_WithPlatformOperator_ShouldSucceed()
     {
-        await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(TestUserContext.PlatformAdmin(Guid.NewGuid()));
+        await factory.ResetDatabaseAsync(dbContext =>
+            PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                PlatformOperatorUserId,
+                "platform.admin@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin));
+        using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(PlatformOperatorUserId));
 
-        var initialListResponse = await client.GetAsync("/api/account/commercial-plans?status=Active&page=1&pageSize=20");
+        var initialListResponse = await client.GetAsync("/api/platform/commercial-plans?status=Active&page=1&pageSize=20");
         initialListResponse.EnsureSuccessStatusCode();
 
         var initialList = await initialListResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<CommercialPlanSummaryEnvelope>>(JsonOptions);
         Assert.NotNull(initialList);
         Assert.Contains(initialList!.Items, static item => item.Code == "FREE" && item.IsSystemPlan);
 
-        var createResponse = await client.PostJsonAsync("/api/account/commercial-plans", new
+        var createResponse = await client.PostJsonAsync("/api/platform/commercial-plans", new
         {
             code = "PRO",
             name = "Professional",
@@ -70,14 +82,14 @@ public sealed class CommercialPlansIntegrationTests(IntegrationTestWebApplicatio
         Assert.False(created.IsSystemPlan);
         Assert.Equal(2, created.Limits.Count);
 
-        var getResponse = await client.GetAsync($"/api/account/commercial-plans/{created.Id}");
+        var getResponse = await client.GetAsync($"/api/platform/commercial-plans/{created.Id}");
         getResponse.EnsureSuccessStatusCode();
 
         var fetched = await getResponse.Content.ReadFromJsonAsync<CommercialPlanEnvelope>(JsonOptions);
         Assert.NotNull(fetched);
         Assert.Equal(created.Id, fetched!.Id);
 
-        var updateResponse = await client.PutJsonAsync($"/api/account/commercial-plans/{created.Id}", new
+        var updateResponse = await client.PutJsonAsync($"/api/platform/commercial-plans/{created.Id}", new
         {
             code = "PRO",
             name = "Professional Plus",
@@ -102,7 +114,7 @@ public sealed class CommercialPlansIntegrationTests(IntegrationTestWebApplicatio
         Assert.Equal(10m, updatedLimit.Value);
 
         var activateResponse = await client.PatchAsJsonAsync(
-            $"/api/account/commercial-plans/{created.Id}/activate",
+            $"/api/platform/commercial-plans/{created.Id}/activate",
             new { concurrencyToken = updated.ConcurrencyToken });
         activateResponse.EnsureSuccessStatusCode();
 
@@ -111,7 +123,7 @@ public sealed class CommercialPlansIntegrationTests(IntegrationTestWebApplicatio
         Assert.Equal(CommercialPlanStatus.Active, activated!.Status);
 
         var inactivateResponse = await client.PatchAsJsonAsync(
-            $"/api/account/commercial-plans/{created.Id}/inactivate",
+            $"/api/platform/commercial-plans/{created.Id}/inactivate",
             new { concurrencyToken = activated.ConcurrencyToken });
         inactivateResponse.EnsureSuccessStatusCode();
 
@@ -119,24 +131,12 @@ public sealed class CommercialPlansIntegrationTests(IntegrationTestWebApplicatio
         Assert.NotNull(inactivated);
         Assert.Equal(CommercialPlanStatus.Inactive, inactivated!.Status);
 
-        var filteredResponse = await client.GetAsync("/api/account/commercial-plans?status=Inactive&q=pro&page=1&pageSize=10");
+        var filteredResponse = await client.GetAsync("/api/platform/commercial-plans?status=Inactive&q=pro&page=1&pageSize=10");
         filteredResponse.EnsureSuccessStatusCode();
 
         var filtered = await filteredResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<CommercialPlanSummaryEnvelope>>(JsonOptions);
         Assert.NotNull(filtered);
         Assert.Contains(filtered!.Items, item => item.Id == created.Id);
-    }
-
-    private static async Task AssertProblemDetailsAsync(
-        HttpResponseMessage response,
-        HttpStatusCode expectedStatusCode,
-        string expectedCode)
-    {
-        Assert.Equal(expectedStatusCode, response.StatusCode);
-
-        await using var stream = await response.Content.ReadAsStreamAsync();
-        using var document = await JsonDocument.ParseAsync(stream);
-        Assert.Equal(expectedCode, document.RootElement.GetProperty("code").GetString());
     }
 
     private sealed record PagedResponseEnvelope<TItem>(

@@ -1,0 +1,36 @@
+using CLARIHR.Application.Common.Contracts;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.SwaggerGen;
+
+namespace CLARIHR.Backoffice.Api.Configuration;
+
+public sealed class PublicContractOperationFilter : IOperationFilter
+{
+    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    {
+        if (operation.Parameters.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var parameter in operation.Parameters)
+        {
+            var description = context.ApiDescription.ParameterDescriptions
+                .FirstOrDefault(candidate => candidate.Name.Equals(parameter.Name, StringComparison.Ordinal));
+
+            var modelType = description?.Type ?? description?.ModelMetadata?.ModelType;
+            var routeTemplate = parameter.In == ParameterLocation.Path || description?.Source == BindingSource.Path
+                ? context.ApiDescription.RelativePath
+                : null;
+            var renamed = parameter.In == ParameterLocation.Path || description?.Source == BindingSource.Path
+                ? PublicContractNaming.GetExternalRouteIdentifierName(parameter.Name, modelType, routeTemplate)
+                : PublicContractNaming.GetExternalIdentifierName(parameter.Name, modelType);
+
+            if (!string.IsNullOrWhiteSpace(renamed) && renamed != parameter.Name)
+            {
+                parameter.Name = renamed;
+            }
+        }
+    }
+}

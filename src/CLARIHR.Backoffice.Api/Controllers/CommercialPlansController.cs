@@ -1,18 +1,18 @@
-using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CommercialPlans;
 using CLARIHR.Application.Features.CommercialPlans.Common;
+using CLARIHR.Backoffice.Api.Common;
 using CLARIHR.Domain.Companies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace CLARIHR.Api.Controllers;
+namespace CLARIHR.Backoffice.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/account/commercial-plans")]
+[Route("api/platform/commercial-plans")]
 public sealed class CommercialPlansController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
@@ -36,16 +36,16 @@ public sealed class CommercialPlansController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("{id:guid}")]
+    [HttpGet("{publicId:guid}")]
     [ProducesResponseType<CommercialPlanResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CommercialPlanResponse>> GetById(
-        Guid id,
+        Guid publicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetCommercialPlanByIdQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetCommercialPlanByIdQuery(publicId), cancellationToken);
         return this.ToActionResult(result);
     }
 
@@ -78,7 +78,7 @@ public sealed class CommercialPlansController(
         return CreatedAtAction(nameof(GetById), new { publicId = result.Value.Id }, result.Value);
     }
 
-    [HttpPut("{id:guid}")]
+    [HttpPut("{publicId:guid}")]
     [ProducesResponseType<CommercialPlanResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -86,13 +86,13 @@ public sealed class CommercialPlansController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CommercialPlanResponse>> Update(
-        Guid id,
+        Guid publicId,
         [FromBody] UpdateCommercialPlanRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdateCommercialPlanCommand(
-                id,
+                publicId,
                 request.Code,
                 request.Name,
                 request.Description,
@@ -105,7 +105,7 @@ public sealed class CommercialPlansController(
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("{id:guid}/activate")]
+    [HttpPatch("{publicId:guid}/activate")]
     [ProducesResponseType<CommercialPlanResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -113,18 +113,18 @@ public sealed class CommercialPlansController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CommercialPlanResponse>> Activate(
-        Guid id,
+        Guid publicId,
         [FromBody] ConcurrencyRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ActivateCommercialPlanCommand(id, request.ConcurrencyToken),
+            new ActivateCommercialPlanCommand(publicId, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("{id:guid}/inactivate")]
+    [HttpPatch("{publicId:guid}/inactivate")]
     [ProducesResponseType<CommercialPlanResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -132,12 +132,12 @@ public sealed class CommercialPlansController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<CommercialPlanResponse>> Inactivate(
-        Guid id,
+        Guid publicId,
         [FromBody] ConcurrencyRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new InactivateCommercialPlanCommand(id, request.ConcurrencyToken),
+            new InactivateCommercialPlanCommand(publicId, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);

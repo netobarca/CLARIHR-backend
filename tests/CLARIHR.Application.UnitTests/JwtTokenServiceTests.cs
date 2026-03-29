@@ -79,7 +79,7 @@ public sealed class JwtTokenServiceTests
     }
 
     [Fact]
-    public async Task GenerateAsync_WhenEmailIsConfiguredAsPlatformAdmin_ShouldEmitGlobalPlatformAdminRole()
+    public async Task GeneratePlatformAsync_WhenConfigured_ShouldEmitPlatformClientTokenWithoutTenant()
     {
         var userRepository = new TestUserRepository();
         var refreshTokenRepository = new TestRefreshTokenRepository();
@@ -87,20 +87,16 @@ public sealed class JwtTokenServiceTests
         var user = CreatePersistedUser();
         userRepository.Seed(user);
 
-        var service = CreateService(
-            userRepository,
-            userCompanyRepository,
-            refreshTokenRepository,
-            platformAdminEmails: ["ana@example.com"]);
+        var service = CreateService(userRepository, userCompanyRepository, refreshTokenRepository);
 
-        var result = await service.GenerateAsync(user, CancellationToken.None);
+        var result = await service.GeneratePlatformAsync(user, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
         Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "tid");
-        Assert.Equal("platform_admin", jwt.Claims.Single(claim => claim.Type == ClaimTypes.Role).Value);
         Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "role");
+        Assert.Equal(AuthClientType.Platform.ToClaimValue(), jwt.Claims.Single(claim => claim.Type == "client_type").Value);
     }
 
     [Fact]
@@ -121,7 +117,10 @@ public sealed class JwtTokenServiceTests
         var service = CreateService(userRepository, userCompanyRepository, refreshTokenRepository);
         var issuedTokens = await service.GenerateAsync(user, CancellationToken.None);
 
-        var result = await service.RefreshAsync(issuedTokens.Value.RefreshToken!, CancellationToken.None);
+        var result = await service.RefreshAsync(
+            issuedTokens.Value.RefreshToken!,
+            AuthClientType.Core,
+            CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotEqual(issuedTokens.Value.RefreshToken, result.Value.Tokens.RefreshToken);
@@ -152,10 +151,19 @@ public sealed class JwtTokenServiceTests
 
         var service = CreateService(userRepository, userCompanyRepository, refreshTokenRepository);
         var initialTokens = await service.GenerateAsync(user, CancellationToken.None);
-        var rotatedTokens = await service.RefreshAsync(initialTokens.Value.RefreshToken!, CancellationToken.None);
+        var rotatedTokens = await service.RefreshAsync(
+            initialTokens.Value.RefreshToken!,
+            AuthClientType.Core,
+            CancellationToken.None);
 
-        var reuseAttempt = await service.RefreshAsync(initialTokens.Value.RefreshToken!, CancellationToken.None);
-        var secondTokenAttempt = await service.RefreshAsync(rotatedTokens.Value.Tokens.RefreshToken!, CancellationToken.None);
+        var reuseAttempt = await service.RefreshAsync(
+            initialTokens.Value.RefreshToken!,
+            AuthClientType.Core,
+            CancellationToken.None);
+        var secondTokenAttempt = await service.RefreshAsync(
+            rotatedTokens.Value.Tokens.RefreshToken!,
+            AuthClientType.Core,
+            CancellationToken.None);
 
         Assert.True(reuseAttempt.IsFailure);
         Assert.Equal(AuthErrors.RefreshTokenInvalid.Code, reuseAttempt.Error.Code);
@@ -167,17 +175,16 @@ public sealed class JwtTokenServiceTests
     private static JwtTokenService CreateService(
         TestUserRepository userRepository,
         TestUserCompanyRepository userCompanyRepository,
-        TestRefreshTokenRepository refreshTokenRepository,
-        string[]? platformAdminEmails = null) =>
+        TestRefreshTokenRepository refreshTokenRepository) =>
         new(
             Options.Create(new JwtTokenOptions
             {
                 Issuer = "https://issuer.test",
                 Audience = "clarihr-api",
+                PlatformAudience = "clarihr-platform-api",
                 SigningKey = "super-secret-signing-key-1234567890",
                 AccessTokenExpirationMinutes = 15,
-                RefreshTokenExpirationDays = 14,
-                PlatformAdminEmails = platformAdminEmails ?? []
+                RefreshTokenExpirationDays = 14
             }),
             new FixedDateTimeProvider(new DateTime(2026, 2, 28, 18, 0, 0, DateTimeKind.Utc)),
             userRepository,
@@ -328,9 +335,17 @@ public sealed class JwtTokenServiceTests
             return Task.CompletedTask;
         }
 
-        public Task RevokeUserTokensAsync(long userId, DateTime revokedUtc, string reason, CancellationToken cancellationToken)
+        public Task RevokeUserTokensAsync(
+            long userId,
+            AuthClientType clientType,
+            DateTime revokedUtc,
+            string reason,
+            CancellationToken cancellationToken)
         {
-            foreach (var refreshToken in _items.Where(item => item.UserId == userId && item.RevokedUtc is null))
+            foreach (var refreshToken in _items.Where(item =>
+                         item.UserId == userId &&
+                         item.ClientType == clientType &&
+                         item.RevokedUtc is null))
             {
                 refreshToken.Revoke(revokedUtc, reason);
             }

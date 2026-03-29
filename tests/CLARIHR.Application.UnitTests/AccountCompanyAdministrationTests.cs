@@ -678,7 +678,16 @@ public sealed class AccountCompanyAdministrationTests
                 900)));
         }
 
-        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(string refreshToken, CancellationToken cancellationToken) =>
+        public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
+            Task.FromResult(Result<AuthTokenResult>.Success(new AuthTokenResult(
+                "jwt-token",
+                "refresh-token",
+                900)));
+
+        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(
+            string refreshToken,
+            AuthClientType clientType,
+            CancellationToken cancellationToken) =>
             throw new NotSupportedException();
     }
 

@@ -23,4 +23,9 @@ public static class ProvisioningErrors
         "provisioning.country_not_found",
         $"The requested country '{countryCode}' does not exist in the active country catalog.",
         ErrorType.Validation);
+
+    public static readonly Error DefaultPlanUnavailable = new(
+        "provisioning.default_plan_unavailable",
+        "The default FREE commercial plan is not available for provisioning.",
+        ErrorType.Unexpected);
 }

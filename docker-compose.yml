@@ -32,6 +32,7 @@ services:
       Authentication__Google__ClientId: 16268587172-qd30l0j2rr0dlapn75ggkdvmmei7m9dg.apps.googleusercontent.com
       Authentication__Jwt__Issuer: clarihr-local
       Authentication__Jwt__Audience: clarihr-local
+      Authentication__Jwt__PlatformAudience: clarihr-platform-local
       Authentication__Jwt__SigningKey: clarihr-local-dev-signing-key-2026
       Authentication__Jwt__AccessTokenExpirationMinutes: 15
       Authentication__Jwt__RefreshTokenExpirationDays: 14

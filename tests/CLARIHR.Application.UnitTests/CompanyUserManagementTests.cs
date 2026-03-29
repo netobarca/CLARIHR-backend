@@ -1071,7 +1071,12 @@ public sealed class CompanyUserManagementTests
         public Task RevokeFamilyAsync(Guid familyId, DateTime revokedUtc, string reason, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public Task RevokeUserTokensAsync(long userId, DateTime revokedUtc, string reason, CancellationToken cancellationToken)
+        public Task RevokeUserTokensAsync(
+            long userId,
+            AuthClientType clientType,
+            DateTime revokedUtc,
+            string reason,
+            CancellationToken cancellationToken)
         {
             RevokedUsers.Add(userId);
             return Task.CompletedTask;

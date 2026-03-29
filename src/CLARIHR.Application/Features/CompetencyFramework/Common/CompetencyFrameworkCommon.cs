@@ -22,7 +22,6 @@ public static class CompetencyFrameworkPermissionCodes
     public const string Admin = "CompetencyFramework.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "COMPETENCY_FRAMEWORK";
-    public const string PlatformAdminRole = "platform_admin";
 }
 
 public static class CompetencyFrameworkErrors

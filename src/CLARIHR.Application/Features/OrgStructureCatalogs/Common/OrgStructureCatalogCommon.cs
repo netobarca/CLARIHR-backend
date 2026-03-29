@@ -24,7 +24,6 @@ public static class OrgStructureCatalogPermissionCodes
     public const string OrgUnitsAdmin = "OrgUnits.Admin";
     public const string ManageAdministration = "iam.administration.manage";
     public const string ResourceKey = "ORG_STRUCTURE_CATALOGS";
-    public const string PlatformAdminRole = "platform_admin";
 }
 
 public static class OrgStructureCatalogErrors

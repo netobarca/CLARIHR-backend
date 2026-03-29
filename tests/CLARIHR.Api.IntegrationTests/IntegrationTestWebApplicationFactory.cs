@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 
 namespace CLARIHR.Api.IntegrationTests;
 
@@ -16,7 +15,7 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
 
     public IntegrationTestWebApplicationFactory()
     {
-        _connectionString = BuildConnectionString();
+        _connectionString = IntegrationTestConnectionStrings.Create();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -30,10 +29,10 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
                 ["Database:ConnectionString"] = _connectionString,
                 ["Authentication:Jwt:Issuer"] = "clarihr-integration",
                 ["Authentication:Jwt:Audience"] = "clarihr-integration",
+                ["Authentication:Jwt:PlatformAudience"] = "clarihr-platform-integration",
                 ["Authentication:Jwt:SigningKey"] = "clarihr-integration-signing-key-2026",
                 ["Authentication:Jwt:AccessTokenExpirationMinutes"] = "15",
-                ["Authentication:Jwt:RefreshTokenExpirationDays"] = "14",
-                ["Authentication:Jwt:PlatformAdminEmails:0"] = "dev@clarihr.local"
+                ["Authentication:Jwt:RefreshTokenExpirationDays"] = "14"
             });
         });
 
@@ -104,22 +103,27 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
         }
     }
 
-    private static string BuildConnectionString()
+    internal async Task<IntegrationTestScenario> ResetDatabaseWithServicesAsync(
+        Func<IServiceProvider, ApplicationDbContext, Task> customSeed)
     {
-        var configured = Environment.GetEnvironmentVariable("CLARIHR_INTEGRATION_TEST_CONNECTION_STRING");
-        if (!string.IsNullOrWhiteSpace(configured))
+        await _resetLock.WaitAsync();
+        try
         {
-            return configured;
+            using var scope = Services.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            await dbContext.Database.EnsureDeletedAsync();
+            await dbContext.Database.MigrateAsync();
+
+            var scenario = await IntegrationTestSeeder.SeedAsync(dbContext);
+            await customSeed(scope.ServiceProvider, dbContext);
+            await dbContext.SaveChangesAsync();
+
+            return scenario;
         }
-
-        var builder = new NpgsqlConnectionStringBuilder
+        finally
         {
-            Host = "/tmp",
-            Port = 5432,
-            Database = $"clarihr_integration_tests_{Guid.NewGuid():N}",
-            Username = Environment.UserName
-        };
-
-        return builder.ConnectionString;
+            _resetLock.Release();
+        }
     }
 }

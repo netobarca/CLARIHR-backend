@@ -17,6 +17,9 @@ internal sealed class PlanEntitlementConfiguration : IEntityTypeConfiguration<Pl
         builder.Property(entitlement => entitlement.Id)
             .HasColumnName("id");
 
+        builder.Property(entitlement => entitlement.CommercialPlanId)
+            .HasColumnName("commercial_plan_id");
+
         builder.Property(entitlement => entitlement.PlanCode)
             .HasColumnName("plan_code")
             .HasMaxLength(40);
@@ -34,9 +37,15 @@ internal sealed class PlanEntitlementConfiguration : IEntityTypeConfiguration<Pl
         builder.Property(entitlement => entitlement.ModifiedUtc)
             .HasColumnName("modified_utc");
 
-        builder.HasIndex(entitlement => new { entitlement.PlanCode, entitlement.ModuleKey })
+        builder.HasIndex(entitlement => new { entitlement.CommercialPlanId, entitlement.ModuleKey })
             .IsUnique()
             .HasDatabaseName("uq_plan_entitlements__plan_module");
+
+        builder.HasOne<CommercialPlan>()
+            .WithMany()
+            .HasForeignKey(entitlement => entitlement.CommercialPlanId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_plan_entitlements__commercial_plans");
 
         builder.HasData(GlobalCatalogSeedData.GetPlanEntitlements());
     }

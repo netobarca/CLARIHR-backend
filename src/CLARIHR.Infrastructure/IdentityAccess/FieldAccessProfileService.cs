@@ -25,16 +25,6 @@ internal sealed class FieldAccessProfileService(
         }
 
         var catalog = await GetCatalogAsync(definition.ResourceKey, cancellationToken);
-        if (currentUserService.Roles.Contains("platform_admin", StringComparer.OrdinalIgnoreCase))
-        {
-            var fullAccess = FieldPermissionEvaluator.BuildProfile(
-                definition.ResourceKey,
-                catalog,
-                new Dictionary<string, FieldPermissionOverrideState>(StringComparer.OrdinalIgnoreCase),
-                new RbacPermissionState(true, true, true, true, false));
-            return Result<FieldAccessProfile>.Success(fullAccess);
-        }
-
         if (!tenantContext.TenantId.HasValue)
         {
             return Result<FieldAccessProfile>.Failure(IdentityAccessErrors.TenantContextRequired);

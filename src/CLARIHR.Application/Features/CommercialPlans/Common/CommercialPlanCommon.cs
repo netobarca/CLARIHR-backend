@@ -24,11 +24,6 @@ public static partial class CommercialPlanValidationRules
     private static partial Regex LimitCodeRegex();
 }
 
-public static class CommercialPlanPermissionCodes
-{
-    public const string PlatformAdminRole = "platform_admin";
-}
-
 public static class CommercialPlanErrors
 {
     public static readonly Error Forbidden = new(

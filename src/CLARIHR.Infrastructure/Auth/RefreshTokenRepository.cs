@@ -28,10 +28,18 @@ internal sealed class RefreshTokenRepository(ApplicationDbContext dbContext) : I
         }
     }
 
-    public async Task RevokeUserTokensAsync(long userId, DateTime revokedUtc, string reason, CancellationToken cancellationToken)
+    public async Task RevokeUserTokensAsync(
+        long userId,
+        AuthClientType clientType,
+        DateTime revokedUtc,
+        string reason,
+        CancellationToken cancellationToken)
     {
         var activeTokens = await dbContext.RefreshTokens
-            .Where(refreshToken => refreshToken.UserId == userId && refreshToken.RevokedUtc == null)
+            .Where(refreshToken =>
+                refreshToken.UserId == userId &&
+                refreshToken.ClientType == clientType &&
+                refreshToken.RevokedUtc == null)
             .ToListAsync(cancellationToken);
 
         foreach (var refreshToken in activeTokens)

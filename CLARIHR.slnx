@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/CLARIHR.Api/CLARIHR.Api.csproj" />
+    <Project Path="src/CLARIHR.Backoffice.Api/CLARIHR.Backoffice.Api.csproj" />
     <Project Path="src/CLARIHR.Application/CLARIHR.Application.csproj" />
     <Project Path="src/CLARIHR.Domain/CLARIHR.Domain.csproj" />
     <Project Path="src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj" />

@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
-  title: CLARIHR API
+  title: CLARIHR APIs
   version: 0.0-bootstrap
   description: |
-    Partial hand-maintained OpenAPI supplement for externally relevant endpoints that need
-    a checked-in contract before automated export/versioning is introduced.
+    Partial hand-maintained OpenAPI supplement for externally relevant core and backoffice
+    endpoints that need a checked-in contract before automated export/versioning is introduced.
 
     The exhaustive contract is still generated at runtime by Swagger in Development
     at /swagger/v1/swagger.json.
@@ -12,6 +12,10 @@ info:
     Public API contracts expose `publicId` or `<entity>PublicId`; internal `id` and
     `internalId` never leave the backend. When a resource has business codes, the
     public contract exposes `code` and `normalizedCode`, both normalized to uppercase.
+
+    Core API endpoints require tokens emitted with `client_type=core`. Platform
+    backoffice endpoints under `/api/platform/*` require tokens emitted with
+    `client_type=platform`.
 servers:
   - url: /
 security:
@@ -353,12 +357,84 @@ components:
           description: Optional company type selected from the authenticated country-specific company type catalog endpoint.
         initialLegalRepresentative:
           $ref: '#/components/schemas/InitialLegalRepresentativeRequest'
+    AuthProvider:
+      type: string
+      enum:
+        - Local
+        - Google
+        - Microsoft
+        - Apple
+    UserDto:
+      type: object
+      required:
+        - publicId
+        - email
+        - firstName
+        - lastName
+        - authProvider
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        authProvider:
+          $ref: '#/components/schemas/AuthProvider'
+    AuthResponse:
+      type: object
+      required:
+        - accessToken
+        - expiresIn
+        - user
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+          nullable: true
+        expiresIn:
+          type: integer
+          format: int32
+        user:
+          $ref: '#/components/schemas/UserDto'
+    PlatformLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        password:
+          type: string
+          maxLength: 100
+    PlatformRefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          maxLength: 2048
     CommercialPlanStatus:
       type: string
       enum:
         - Draft
         - Active
         - Inactive
+    SubscriptionStatus:
+      type: string
+      enum:
+        - Active
+        - Cancelled
+        - Expired
     CommercialPlanLimitInput:
       type: object
       required:
@@ -598,6 +674,91 @@ components:
           type: integer
           format: int32
           example: 2
+    PlatformCompanySubscriptionResponse:
+      type: object
+      required:
+        - subscriptionPublicId
+        - companyPublicId
+        - commercialPlanPublicId
+        - planCode
+        - planName
+        - baseMonthlyFee
+        - pricePerActiveEmployee
+        - status
+        - startDateUtc
+        - createdAtUtc
+      properties:
+        subscriptionPublicId:
+          type: string
+          format: uuid
+        companyPublicId:
+          type: string
+          format: uuid
+        commercialPlanPublicId:
+          type: string
+          format: uuid
+        planCode:
+          type: string
+          example: FREE
+        planName:
+          type: string
+          example: Free
+        baseMonthlyFee:
+          type: number
+          format: decimal
+          example: 0
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 0
+        status:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        startDateUtc:
+          type: string
+          format: date-time
+        endDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PagedPlatformCompanySubscriptionResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+        pageNumber:
+          type: integer
+          format: int32
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          example: 20
+        totalCount:
+          type: integer
+          format: int32
+          example: 2
+    ReplacePlatformCompanySubscriptionRequest:
+      type: object
+      required:
+        - commercialPlanPublicId
+      properties:
+        commercialPlanPublicId:
+          type: string
+          format: uuid
     ProblemDetails:
       type: object
       properties:
@@ -795,13 +956,115 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/commercial-plans:
+  /api/platform/auth/login:
+    post:
+      tags:
+        - platform-auth
+      operationId: PlatformLogin
+      summary: Login to the platform backoffice
+      description: Authenticates a local user linked to an active PlatformOperator and returns a token with `client_type=platform` and no tenant context.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformLoginRequest'
+      responses:
+        '200':
+          description: Platform session created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Invalid credentials.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated local user is not linked to an active platform operator.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/auth/refresh:
+    post:
+      tags:
+        - platform-auth
+      operationId: PlatformRefresh
+      summary: Refresh a platform backoffice session
+      description: Rotates a refresh token previously issued for the platform backoffice.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformRefreshTokenRequest'
+      responses:
+        '200':
+          description: Platform session refreshed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Invalid or expired refresh token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The user no longer has active platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/auth/logout:
+    post:
+      tags:
+        - platform-auth
+      operationId: PlatformLogout
+      summary: Logout from the platform backoffice
+      description: Revokes the current platform refresh token family for the authenticated platform user.
+      security:
+        - Bearer: []
+      responses:
+        '204':
+          description: Platform session revoked successfully.
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated token does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-plans:
     get:
       tags:
         - commercial-plans
       operationId: SearchCommercialPlans
       summary: List global commercial plans
-      description: Returns the paged catalog of global commercial plans. Requires an authenticated `platform_admin` user and does not depend on tenant context.
+      description: Returns the paged catalog of global commercial plans. Requires an authenticated platform token and does not depend on tenant context.
       security:
         - Bearer: []
       parameters:
@@ -853,7 +1116,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user is not a platform administrator.
+          description: The authenticated user does not have platform access.
           content:
             application/problem+json:
               schema:
@@ -863,7 +1126,7 @@ paths:
         - commercial-plans
       operationId: CreateCommercialPlan
       summary: Create a global commercial plan
-      description: Creates a reusable global commercial plan for future company subscriptions. Requires an authenticated `platform_admin` user and does not depend on tenant context.
+      description: Creates a reusable global commercial plan for future company subscriptions. Requires an authenticated platform token with admin access and does not depend on tenant context.
       security:
         - Bearer: []
       requestBody:
@@ -892,7 +1155,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user is not a platform administrator.
+          description: The authenticated user does not have platform admin access.
           content:
             application/problem+json:
               schema:
@@ -903,7 +1166,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/commercial-plans/{publicId}:
+  /api/platform/commercial-plans/{publicId}:
     get:
       tags:
         - commercial-plans
@@ -932,7 +1195,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user is not a platform administrator.
+          description: The authenticated user does not have platform access.
           content:
             application/problem+json:
               schema:
@@ -983,7 +1246,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user is not a platform administrator.
+          description: The authenticated user does not have platform admin access.
           content:
             application/problem+json:
               schema:
@@ -1000,7 +1263,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/commercial-plans/{publicId}/activate:
+  /api/platform/commercial-plans/{publicId}/activate:
     patch:
       tags:
         - commercial-plans
@@ -1041,7 +1304,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user is not a platform administrator.
+          description: The authenticated user does not have platform admin access.
           content:
             application/problem+json:
               schema:
@@ -1058,7 +1321,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/commercial-plans/{publicId}/inactivate:
+  /api/platform/commercial-plans/{publicId}/inactivate:
     patch:
       tags:
         - commercial-plans
@@ -1099,7 +1362,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user is not a platform administrator.
+          description: The authenticated user does not have platform admin access.
           content:
             application/problem+json:
               schema:
@@ -1116,13 +1379,180 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription:
+    get:
+      tags:
+        - platform-subscriptions
+      operationId: GetPlatformCompanySubscription
+      summary: Get the active company subscription
+      description: Returns the current active subscription for the requested company from the platform backoffice.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Active company subscription returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or active subscription was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - platform-subscriptions
+      operationId: ReplacePlatformCompanySubscription
+      summary: Replace the active company subscription
+      description: Cancels the current active subscription and creates a new active row linked to the selected active commercial plan.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplacePlatformCompanySubscriptionRequest'
+      responses:
+        '200':
+          description: Company subscription replaced successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as assigning an inactive plan or reassigning the same active plan.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscriptions:
+    get:
+      tags:
+        - platform-subscriptions
+      operationId: SearchPlatformCompanySubscriptions
+      summary: List the company subscription history
+      description: Returns the paged subscription history for the requested company from the platform backoffice.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Paged company subscription history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPlatformCompanySubscriptionResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 tags:
   - name: auth
     description: Authentication and session lifecycle.
   - name: account-companies
     description: Account-level company creation and tenant activation.
+  - name: platform-auth
+    description: Platform backoffice authentication and session lifecycle.
   - name: commercial-plans
-    description: Global commercial plan catalog administration for platform administrators.
+    description: Global commercial plan catalog administration from the platform backoffice.
+  - name: platform-subscriptions
+    description: Global company subscription administration from the platform backoffice.
   - name: personnel-files
     description: Personnel file lifecycle and subsections.
 x-documentation-status: partial-manual-supplement

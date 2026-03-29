@@ -39,11 +39,6 @@ internal sealed class JobProfileAuthorizationService(
             return Result.Failure(JobProfileErrors.TenantMismatch(action));
         }
 
-        if (currentUserService.Roles.Contains(JobProfilePermissionCodes.PlatformAdminRole, StringComparer.OrdinalIgnoreCase))
-        {
-            return Result.Success();
-        }
-
         var normalizedClaims = currentUserService.Permissions
             .Select(static permission => permission.Trim().ToUpperInvariant())
             .ToHashSet(StringComparer.OrdinalIgnoreCase);

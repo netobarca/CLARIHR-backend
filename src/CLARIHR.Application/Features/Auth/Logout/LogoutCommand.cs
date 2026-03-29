@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
+using CLARIHR.Domain.Auth;
 
 namespace CLARIHR.Application.Features.Auth.Logout;
 
@@ -30,6 +31,7 @@ internal sealed class LogoutCommandHandler(
 
         await refreshTokenRepository.RevokeUserTokensAsync(
             user.Id,
+            AuthClientType.Core,
             dateTimeProvider.UtcNow,
             "logout",
             cancellationToken);
