@@ -3845,6 +3845,26 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task IamUsers_GetById_WithLinkedUserPublicId_ShouldReturnUserContract()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Users, RbacPermissionAction.Access),
+            (RbacPermissionScreen.Users, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync($"/api/iam/users/{scenario.ActorUserId}");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<IamUserDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("security.operator@acme-one.test", payload!.Email);
+        var role = Assert.Single(payload.Roles);
+        Assert.Equal("Security Operator", role.Name);
+    }
+
+    [Fact]
     public async Task IamRoles_List_WithPermission_ShouldReturnTenantRolesOnly()
     {
         var scenario = await factory.ResetDatabaseAsync();

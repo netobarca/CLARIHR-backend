@@ -76,6 +76,63 @@ public sealed class IdentityAccessAdministrationTests
     }
 
     [Fact]
+    public async Task GetIamUserByIdQuery_WhenUsingLinkedUserPublicId_ShouldReturnLinkedIamUser()
+    {
+        var repository = new TestIamAdministrationRepository();
+        var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var linkedUserPublicId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var role = IamRole.Create("Security Operator", "Can read IAM users");
+        role.SetTenantId(tenantId);
+        repository.AddRole(role);
+
+        var user = IamUser.CreateLinked(linkedUserPublicId, "Luis", "Rivera", "luis@clarihr.test", true);
+        user.SetTenantId(tenantId);
+        user.SyncRoles([role]);
+        repository.AddUser(user);
+
+        await using var serviceProvider = CreateServiceProvider(repository);
+        var dispatcher = serviceProvider.GetRequiredService<IQueryDispatcher>();
+
+        var result = await dispatcher.SendAsync(new GetIamUserByIdQuery(linkedUserPublicId));
+
+        Assert.True(result.IsSuccess, $"{result.Error.Code} - {result.Error.Message}");
+        Assert.Equal(user.PublicId, result.Value.Id);
+        Assert.Equal("luis@clarihr.test", result.Value.Email);
+        Assert.Single(result.Value.Roles);
+        Assert.Equal(role.PublicId, result.Value.Roles.Single().Id);
+    }
+
+    [Fact]
+    public async Task SyncIamUserRolesCommand_WhenUsingLinkedUserPublicId_ShouldUpdateRoles()
+    {
+        var repository = new TestIamAdministrationRepository();
+        var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var linkedUserPublicId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        var currentRole = IamRole.Create("Security Operator", "Current role");
+        currentRole.SetTenantId(tenantId);
+        repository.AddRole(currentRole);
+
+        var targetRole = IamRole.Create("Employee", "Target role");
+        targetRole.SetTenantId(tenantId);
+        repository.AddRole(targetRole);
+
+        var user = IamUser.CreateLinked(linkedUserPublicId, "Ana", "Mendoza", "ana@clarihr.test", true);
+        user.SetTenantId(tenantId);
+        user.SyncRoles([currentRole]);
+        repository.AddUser(user);
+
+        await using var serviceProvider = CreateServiceProvider(repository);
+        var dispatcher = serviceProvider.GetRequiredService<ICommandDispatcher>();
+
+        var result = await dispatcher.SendAsync(new SyncIamUserRolesCommand(linkedUserPublicId, [targetRole.PublicId]));
+
+        Assert.True(result.IsSuccess, $"{result.Error.Code} - {result.Error.Message}");
+        var role = Assert.Single(result.Value.Roles);
+        Assert.Equal(targetRole.PublicId, role.Id);
+        Assert.Equal("Employee", role.Name);
+    }
+
+    [Fact]
     public async Task CreateIamRoleCommand_WhenNameAlreadyExists_ShouldReturnConflict()
     {
         var repository = new TestIamAdministrationRepository();

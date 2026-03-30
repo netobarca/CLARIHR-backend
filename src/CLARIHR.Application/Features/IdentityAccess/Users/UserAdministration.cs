@@ -1,5 +1,6 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
@@ -156,7 +157,8 @@ internal sealed class CreateIamUserCommandHandler(
 
 internal sealed class GetIamUserByIdQueryHandler(
     IIamAdministrationRepository repository,
-    IIamAdministrationAuthorizationService authorizationService)
+    IIamAdministrationAuthorizationService authorizationService,
+    ITenantContext tenantContext)
     : IQueryHandler<GetIamUserByIdQuery, IamUserResponse>
 {
     public async Task<Result<IamUserResponse>> Handle(GetIamUserByIdQuery query, CancellationToken cancellationToken)
@@ -170,7 +172,11 @@ internal sealed class GetIamUserByIdQueryHandler(
             return Result<IamUserResponse>.Failure(authorizationResult.Error);
         }
 
-        var user = await repository.GetUserAsync(query.UserId, cancellationToken);
+        var user = await UserAdministrationLookups.ResolveUserResponseAsync(
+            repository,
+            tenantContext,
+            query.UserId,
+            cancellationToken);
         return user is null
             ? Result<IamUserResponse>.Failure(await UserAdministrationErrors.ResolveUserLookupErrorAsync(repository, query.UserId, RbacPermissionAction.Read, cancellationToken))
             : Result<IamUserResponse>.Success(user);
@@ -203,7 +209,8 @@ internal sealed class ListIamUsersQueryHandler(
 internal sealed class SyncIamUserRolesCommandHandler(
     IIamAdministrationRepository repository,
     IIamAdministrationAuthorizationService authorizationService,
-    IAuditService auditService)
+    IAuditService auditService,
+    ITenantContext tenantContext)
     : ICommandHandler<SyncIamUserRolesCommand, IamUserResponse>
 {
     public async Task<Result<IamUserResponse>> Handle(SyncIamUserRolesCommand command, CancellationToken cancellationToken)
@@ -217,7 +224,12 @@ internal sealed class SyncIamUserRolesCommandHandler(
             return Result<IamUserResponse>.Failure(authorizationResult.Error);
         }
 
-        var user = await repository.FindUserByPublicIdAsync(command.UserId, includeRoles: true, cancellationToken);
+        var user = await UserAdministrationLookups.ResolveUserEntityAsync(
+            repository,
+            tenantContext,
+            command.UserId,
+            includeRoles: true,
+            cancellationToken);
         if (user is null)
         {
             return Result<IamUserResponse>.Failure(await UserAdministrationErrors.ResolveUserLookupErrorAsync(repository, command.UserId, RbacPermissionAction.Update, cancellationToken));
@@ -267,6 +279,52 @@ internal sealed class SyncIamUserRolesCommandHandler(
             : Result<IamUserResponse>.Success(updatedUser);
     }
 
+}
+
+internal static class UserAdministrationLookups
+{
+    public static async Task<IamUserResponse?> ResolveUserResponseAsync(
+        IIamAdministrationRepository repository,
+        ITenantContext tenantContext,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var user = await repository.GetUserAsync(userId, cancellationToken);
+        if (user is not null || !tenantContext.TenantId.HasValue)
+        {
+            return user;
+        }
+
+        var linkedUser = await repository.FindUserByTenantAndLinkedUserPublicIdAsync(
+            tenantContext.TenantId.Value,
+            userId,
+            includeRoles: false,
+            cancellationToken);
+
+        return linkedUser is null
+            ? null
+            : await repository.GetUserAsync(linkedUser.PublicId, cancellationToken);
+    }
+
+    public static async Task<IamUser?> ResolveUserEntityAsync(
+        IIamAdministrationRepository repository,
+        ITenantContext tenantContext,
+        Guid userId,
+        bool includeRoles,
+        CancellationToken cancellationToken)
+    {
+        var user = await repository.FindUserByPublicIdAsync(userId, includeRoles, cancellationToken);
+        if (user is not null || !tenantContext.TenantId.HasValue)
+        {
+            return user;
+        }
+
+        return await repository.FindUserByTenantAndLinkedUserPublicIdAsync(
+            tenantContext.TenantId.Value,
+            userId,
+            includeRoles,
+            cancellationToken);
+    }
 }
 
 internal static class UserAdministrationErrors
