@@ -11,8 +11,17 @@ internal sealed class RbacCatalogBackfillService(ApplicationDbContext dbContext)
     public async Task EnsureSeededAsync(CancellationToken cancellationToken)
     {
         await EnsureGlobalResourcesAsync(cancellationToken);
-        await EnsureTenantMatrixPermissionsAsync(cancellationToken);
-        await EnsureTenantAdminPermissionsAsync(cancellationToken);
+        var tenantIds = await dbContext.Companies
+            .AsNoTracking()
+            .Select(company => company.PublicId)
+            .ToArrayAsync(cancellationToken);
+
+        foreach (var tenantId in tenantIds)
+        {
+            await EnsureTenantMatrixPermissionsAsync(tenantId, cancellationToken);
+            await EnsureTenantAdminPermissionsAsync(tenantId, cancellationToken);
+            await EnsureTenantSystemAdminRoleAssignmentsAsync(tenantId, cancellationToken);
+        }
     }
 
     private async Task EnsureGlobalResourcesAsync(CancellationToken cancellationToken)
@@ -36,19 +45,6 @@ internal sealed class RbacCatalogBackfillService(ApplicationDbContext dbContext)
 
         dbContext.RbacResources.AddRange(missingResources);
         _ = await dbContext.SaveChangesAsync(cancellationToken);
-    }
-
-    private async Task EnsureTenantMatrixPermissionsAsync(CancellationToken cancellationToken)
-    {
-        var tenantIds = await dbContext.Companies
-            .AsNoTracking()
-            .Select(company => company.PublicId)
-            .ToArrayAsync(cancellationToken);
-
-        foreach (var tenantId in tenantIds)
-        {
-            await EnsureTenantMatrixPermissionsAsync(tenantId, cancellationToken);
-        }
     }
 
     private async Task EnsureTenantMatrixPermissionsAsync(Guid tenantId, CancellationToken cancellationToken)
@@ -83,19 +79,6 @@ internal sealed class RbacCatalogBackfillService(ApplicationDbContext dbContext)
 
         dbContext.IamPermissions.AddRange(missingPermissions);
         _ = await dbContext.SaveChangesAsync(cancellationToken);
-    }
-
-    private async Task EnsureTenantAdminPermissionsAsync(CancellationToken cancellationToken)
-    {
-        var tenantIds = await dbContext.Companies
-            .AsNoTracking()
-            .Select(company => company.PublicId)
-            .ToArrayAsync(cancellationToken);
-
-        foreach (var tenantId in tenantIds)
-        {
-            await EnsureTenantAdminPermissionsAsync(tenantId, cancellationToken);
-        }
     }
 
     private async Task EnsureTenantAdminPermissionsAsync(Guid tenantId, CancellationToken cancellationToken)
@@ -137,8 +120,10 @@ internal sealed class RbacCatalogBackfillService(ApplicationDbContext dbContext)
 
         dbContext.IamPermissions.AddRange(newPermissions);
         _ = await dbContext.SaveChangesAsync(cancellationToken);
+    }
 
-        // Assign new permissions to the system admin role
+    private async Task EnsureTenantSystemAdminRoleAssignmentsAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
         var normalizedAdminName = ProvisioningConstants.CompanyAdminRoleName.ToUpperInvariant();
 
         var adminRole = await dbContext.IamRoles
@@ -153,8 +138,21 @@ internal sealed class RbacCatalogBackfillService(ApplicationDbContext dbContext)
         }
 
         var allTenantPermissions = await dbContext.IamPermissions
+            .AsNoTracking()
             .Where(permission => permission.TenantId == tenantId)
             .ToArrayAsync(cancellationToken);
+
+        var assignedPermissionIds = adminRole.PermissionAssignments
+            .Select(static assignment => assignment.PermissionId)
+            .ToHashSet();
+        var tenantPermissionIds = allTenantPermissions
+            .Select(static permission => permission.Id)
+            .ToHashSet();
+
+        if (assignedPermissionIds.SetEquals(tenantPermissionIds))
+        {
+            return;
+        }
 
         adminRole.SyncPermissions(allTenantPermissions);
 

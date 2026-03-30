@@ -81,6 +81,22 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
                 iamRepository.Permissions,
                 permission => permission.TenantId == companyRepository.Items[0].PublicId &&
                               permission.NormalizedCode == code.ToUpperInvariant()));
+        Assert.Contains(
+            iamRepository.Permissions,
+            permission => permission.TenantId == companyRepository.Items[0].PublicId &&
+                          permission.NormalizedCode == "COMPANYUSERS.READ");
+        Assert.Contains(
+            iamRepository.Permissions,
+            permission => permission.TenantId == companyRepository.Items[0].PublicId &&
+                          permission.NormalizedCode == "COMPANYUSERS.ADMIN");
+        Assert.Contains(
+            iamRepository.Permissions,
+            permission => permission.TenantId == companyRepository.Items[0].PublicId &&
+                          permission.NormalizedCode == "WORKCENTERS.READ");
+        Assert.Contains(
+            iamRepository.Permissions,
+            permission => permission.TenantId == companyRepository.Items[0].PublicId &&
+                          permission.NormalizedCode == "WORKCENTERS.ADMIN");
         Assert.Single(iamRepository.Users);
         Assert.Equal(user.PublicId, iamRepository.Users[0].LinkedUserPublicId);
         Assert.Single(userCompanyRepository.Items);
