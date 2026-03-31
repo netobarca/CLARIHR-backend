@@ -429,12 +429,237 @@ components:
         - Draft
         - Active
         - Inactive
+    CommercialAddonType:
+      type: string
+      enum:
+        - Massive
+    CommercialAddonPeriodicity:
+      type: string
+      enum:
+        - Monthly
+        - Annual
+    CommercialAddonStatus:
+      type: string
+      enum:
+        - Draft
+        - Active
+        - Inactive
     SubscriptionStatus:
       type: string
       enum:
         - Active
         - Cancelled
         - Expired
+    CommercialAddonSummaryResponse:
+      type: object
+      required:
+        - publicId
+        - code
+        - normalizedCode
+        - name
+        - type
+        - pricePerActiveEmployee
+        - periodicity
+        - status
+        - createdAtUtc
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: ADDON-ATTENDANCE
+        normalizedCode:
+          type: string
+          example: ADDON-ATTENDANCE
+        name:
+          type: string
+          example: Attendance
+        description:
+          type: string
+          nullable: true
+        type:
+          $ref: '#/components/schemas/CommercialAddonType'
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 1.20
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+          example: 35.00
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        status:
+          $ref: '#/components/schemas/CommercialAddonStatus'
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    CommercialAddonResponse:
+      type: object
+      required:
+        - publicId
+        - code
+        - normalizedCode
+        - name
+        - type
+        - pricePerActiveEmployee
+        - periodicity
+        - status
+        - concurrencyToken
+        - createdAtUtc
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: ADDON-ATTENDANCE
+        normalizedCode:
+          type: string
+          example: ADDON-ATTENDANCE
+        name:
+          type: string
+          example: Attendance
+        description:
+          type: string
+          nullable: true
+        type:
+          $ref: '#/components/schemas/CommercialAddonType'
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 1.20
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+          example: 35.00
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        status:
+          $ref: '#/components/schemas/CommercialAddonStatus'
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    CreateCommercialAddonRequest:
+      type: object
+      required:
+        - code
+        - name
+        - type
+        - pricePerActiveEmployee
+        - periodicity
+        - status
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          example: ADDON-ATTENDANCE
+        name:
+          type: string
+          maxLength: 150
+          example: Attendance
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        type:
+          $ref: '#/components/schemas/CommercialAddonType'
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 1.20
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+          example: 35.00
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        status:
+          $ref: '#/components/schemas/CommercialAddonStatus'
+    UpdateCommercialAddonRequest:
+      type: object
+      required:
+        - code
+        - name
+        - type
+        - pricePerActiveEmployee
+        - periodicity
+        - concurrencyToken
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          example: ADDON-ATTENDANCE
+        name:
+          type: string
+          maxLength: 150
+          example: Attendance Plus
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        type:
+          $ref: '#/components/schemas/CommercialAddonType'
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 1.50
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        concurrencyToken:
+          type: string
+          format: uuid
+    CommercialAddonConcurrencyRequest:
+      type: object
+      required:
+        - concurrencyToken
+      properties:
+        concurrencyToken:
+          type: string
+          format: uuid
+    PagedCommercialAddonSummaryResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommercialAddonSummaryResponse'
+        pageNumber:
+          type: integer
+          format: int32
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          example: 20
+        totalCount:
+          type: integer
+          format: int32
+          example: 2
     CommercialPlanLimitInput:
       type: object
       required:
@@ -1058,6 +1283,327 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-addons:
+    get:
+      tags:
+        - commercial-addons
+      operationId: SearchCommercialAddons
+      summary: List global commercial add-ons
+      description: Returns the paged catalog of global massive commercial add-ons. Requires an authenticated platform token and does not depend on tenant context.
+      security:
+        - Bearer: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/CommercialAddonStatus'
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 150
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Paged commercial add-on summaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedCommercialAddonSummaryResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - commercial-addons
+      operationId: CreateCommercialAddon
+      summary: Create a global commercial add-on
+      description: Creates a reusable global massive commercial add-on for future company-level activation and billing. Requires an authenticated platform token with admin access and does not depend on tenant context.
+      security:
+        - Bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommercialAddonRequest'
+      responses:
+        '201':
+          description: Commercial add-on created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialAddonResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated add-on code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-addons/{publicId}:
+    get:
+      tags:
+        - commercial-addons
+      operationId: GetCommercialAddonById
+      summary: Get a global commercial add-on by public id
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Commercial add-on detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialAddonResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - commercial-addons
+      operationId: UpdateCommercialAddon
+      summary: Update a global commercial add-on
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommercialAddonRequest'
+      responses:
+        '200':
+          description: Commercial add-on updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialAddonResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated code or concurrency conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-addons/{publicId}/activate:
+    patch:
+      tags:
+        - commercial-addons
+      operationId: ActivateCommercialAddon
+      summary: Activate a global commercial add-on
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommercialAddonConcurrencyRequest'
+      responses:
+        '200':
+          description: Commercial add-on activated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialAddonResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as concurrency conflict or already active state.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-addons/{publicId}/inactivate:
+    patch:
+      tags:
+        - commercial-addons
+      operationId: InactivateCommercialAddon
+      summary: Inactivate a global commercial add-on
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommercialAddonConcurrencyRequest'
+      responses:
+        '200':
+          description: Commercial add-on inactivated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialAddonResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as concurrency conflict or already inactive state.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/platform/commercial-plans:
     get:
       tags:
@@ -1549,6 +2095,8 @@ tags:
     description: Account-level company creation and tenant activation.
   - name: platform-auth
     description: Platform backoffice authentication and session lifecycle.
+  - name: commercial-addons
+    description: Global commercial add-on catalog administration from the platform backoffice.
   - name: commercial-plans
     description: Global commercial plan catalog administration from the platform backoffice.
   - name: platform-subscriptions

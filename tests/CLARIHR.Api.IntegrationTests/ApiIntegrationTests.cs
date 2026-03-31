@@ -1747,9 +1747,50 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(payload);
         Assert.Equal("DIR-001", payload!.Code);
         Assert.Equal(orgUnitType.Id, payload.OrgUnitType.Id);
-        Assert.Equal("Direccion", payload.OrgUnitType.Code);
+        Assert.Equal(orgUnitType.Code, payload.OrgUnitType.Code);
         Assert.Null(payload.ParentId);
+        Assert.Null(payload.Parent);
         Assert.True(payload.IsActive);
+    }
+
+    [Fact]
+    public async Task OrgUnits_ListAndGetById_ShouldIncludeParentReference()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var root = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
+        var child = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia", root.Id);
+
+        Assert.Equal(root.Id, child.ParentId);
+        Assert.NotNull(child.Parent);
+        Assert.Equal(root.Id, child.Parent!.Id);
+        Assert.Equal(root.Code, child.Parent.Code);
+        Assert.Equal(root.Name, child.Parent.Name);
+
+        var listResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/org-units?page=1&pageSize=20");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgUnitItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+
+        var listedChild = Assert.Single(listPayload!.Items, item => item.Id == child.Id);
+        Assert.Equal(root.Id, listedChild.ParentId);
+        Assert.NotNull(listedChild.Parent);
+        Assert.Equal(root.Id, listedChild.Parent!.Id);
+        Assert.Equal(root.Code, listedChild.Parent.Code);
+        Assert.Equal(root.Name, listedChild.Parent.Name);
+
+        var detailResponse = await client.GetAsync($"/api/v1/org-units/{child.Id}");
+        detailResponse.EnsureSuccessStatusCode();
+
+        var detailPayload = await detailResponse.Content.ReadFromJsonAsync<OrgUnitItem>(JsonOptions);
+        Assert.NotNull(detailPayload);
+        Assert.Equal(root.Id, detailPayload!.ParentId);
+        Assert.NotNull(detailPayload.Parent);
+        Assert.Equal(root.Id, detailPayload.Parent!.Id);
+        Assert.Equal(root.Code, detailPayload.Parent.Code);
+        Assert.Equal(root.Name, detailPayload.Parent.Name);
     }
 
     [Fact]
@@ -5403,6 +5444,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         OrgUnitCatalogReferenceItem OrgUnitType,
         OrgUnitCatalogReferenceItem? FunctionalArea,
         Guid? ParentId,
+        OrgUnitCatalogReferenceItem? Parent,
         int? SortOrder,
         string? Description,
         string? CostCenterCode,

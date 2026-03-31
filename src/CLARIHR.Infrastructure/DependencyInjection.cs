@@ -75,6 +75,7 @@ public static class DependencyInjection
         services.AddScoped<IPlatformAuditService, PlatformAuditService>();
         services.AddSingleton<IAuditSanitizer, AuditSanitizer>();
         services.AddScoped<ICompanyRepository, CompanyRepository>();
+        services.AddScoped<ICommercialAddonRepository, CommercialAddonRepository>();
         services.AddScoped<ICommercialPlanRepository, CommercialPlanRepository>();
         services.AddScoped<ICompanySubscriptionRepository, CompanySubscriptionRepository>();
         services.AddScoped<IUserCompanyRepository, UserCompanyRepository>();
