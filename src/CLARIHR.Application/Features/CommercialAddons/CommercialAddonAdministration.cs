@@ -29,6 +29,8 @@ internal sealed class SearchCommercialAddonsQueryHandler(
         }
 
         var response = await repository.SearchAsync(
+            query.Type,
+            query.BillingModel,
             query.Status,
             query.Search,
             query.PageNumber,
@@ -91,7 +93,10 @@ internal sealed class CreateCommercialAddonCommandHandler(
             command.Name,
             command.Description,
             command.Type,
-            command.PricePerActiveEmployee,
+            command.BillingModel,
+            command.MeasurementUnit,
+            command.UnitPrice,
+            command.MinimumQuantity,
             command.MinimumMonthlyFee,
             command.Periodicity,
             command.Status);
@@ -174,7 +179,10 @@ internal sealed class UpdateCommercialAddonCommandHandler(
                 command.Name,
                 command.Description,
                 command.Type,
-                command.PricePerActiveEmployee,
+                command.BillingModel,
+                command.MeasurementUnit,
+                command.UnitPrice,
+                command.MinimumQuantity,
                 command.MinimumMonthlyFee,
                 command.Periodicity);
 
@@ -357,7 +365,10 @@ internal static class CommercialAddonMapper
             addon.Name,
             addon.Description,
             addon.Type,
-            addon.PricePerActiveEmployee,
+            addon.BillingModel,
+            addon.MeasurementUnit,
+            addon.UnitPrice,
+            addon.MinimumQuantity,
             addon.MinimumMonthlyFee,
             addon.Periodicity,
             addon.Status,

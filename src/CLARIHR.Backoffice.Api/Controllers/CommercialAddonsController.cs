@@ -23,6 +23,8 @@ public sealed class CommercialAddonsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<PagedResponse<CommercialAddonSummaryResponse>>> Search(
+        [FromQuery] CommercialAddonType? type,
+        [FromQuery] CommercialAddonBillingModel? billingModel,
         [FromQuery] CommercialAddonStatus? status,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
@@ -30,7 +32,7 @@ public sealed class CommercialAddonsController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchCommercialAddonsQuery(status, search, page, pageSize),
+            new SearchCommercialAddonsQuery(type, billingModel, status, search, page, pageSize),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -65,7 +67,10 @@ public sealed class CommercialAddonsController(
                 request.Name,
                 request.Description,
                 request.Type,
-                request.PricePerActiveEmployee,
+                request.BillingModel,
+                request.MeasurementUnit,
+                request.UnitPrice,
+                request.MinimumQuantity,
                 request.MinimumMonthlyFee,
                 request.Periodicity,
                 request.Status),
@@ -98,7 +103,10 @@ public sealed class CommercialAddonsController(
                 request.Name,
                 request.Description,
                 request.Type,
-                request.PricePerActiveEmployee,
+                request.BillingModel,
+                request.MeasurementUnit,
+                request.UnitPrice,
+                request.MinimumQuantity,
                 request.MinimumMonthlyFee,
                 request.Periodicity,
                 request.ConcurrencyToken),
@@ -150,7 +158,10 @@ public sealed class CommercialAddonsController(
         string Name,
         string? Description,
         CommercialAddonType Type,
-        decimal PricePerActiveEmployee,
+        CommercialAddonBillingModel BillingModel,
+        string MeasurementUnit,
+        decimal UnitPrice,
+        int? MinimumQuantity,
         decimal? MinimumMonthlyFee,
         CommercialAddonPeriodicity Periodicity,
         CommercialAddonStatus Status);
@@ -160,7 +171,10 @@ public sealed class CommercialAddonsController(
         string Name,
         string? Description,
         CommercialAddonType Type,
-        decimal PricePerActiveEmployee,
+        CommercialAddonBillingModel BillingModel,
+        string MeasurementUnit,
+        decimal UnitPrice,
+        int? MinimumQuantity,
         decimal? MinimumMonthlyFee,
         CommercialAddonPeriodicity Periodicity,
         Guid ConcurrencyToken);

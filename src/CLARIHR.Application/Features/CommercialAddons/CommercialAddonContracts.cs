@@ -12,7 +12,10 @@ public sealed record CommercialAddonSummaryResponse(
     string Name,
     string? Description,
     CommercialAddonType Type,
-    decimal PricePerActiveEmployee,
+    CommercialAddonBillingModel BillingModel,
+    string MeasurementUnit,
+    decimal UnitPrice,
+    int? MinimumQuantity,
     decimal? MinimumMonthlyFee,
     CommercialAddonPeriodicity Periodicity,
     CommercialAddonStatus Status,
@@ -25,7 +28,10 @@ public sealed record CommercialAddonResponse(
     string Name,
     string? Description,
     CommercialAddonType Type,
-    decimal PricePerActiveEmployee,
+    CommercialAddonBillingModel BillingModel,
+    string MeasurementUnit,
+    decimal UnitPrice,
+    int? MinimumQuantity,
     decimal? MinimumMonthlyFee,
     CommercialAddonPeriodicity Periodicity,
     CommercialAddonStatus Status,
@@ -34,6 +40,8 @@ public sealed record CommercialAddonResponse(
     DateTime? ModifiedAtUtc);
 
 public sealed record SearchCommercialAddonsQuery(
+    CommercialAddonType? Type,
+    CommercialAddonBillingModel? BillingModel,
     CommercialAddonStatus? Status,
     string? Search,
     int PageNumber = 1,
@@ -48,7 +56,10 @@ public sealed record CreateCommercialAddonCommand(
     string Name,
     string? Description,
     CommercialAddonType Type,
-    decimal PricePerActiveEmployee,
+    CommercialAddonBillingModel BillingModel,
+    string MeasurementUnit,
+    decimal UnitPrice,
+    int? MinimumQuantity,
     decimal? MinimumMonthlyFee,
     CommercialAddonPeriodicity Periodicity,
     CommercialAddonStatus Status)
@@ -60,7 +71,10 @@ public sealed record UpdateCommercialAddonCommand(
     string Name,
     string? Description,
     CommercialAddonType Type,
-    decimal PricePerActiveEmployee,
+    CommercialAddonBillingModel BillingModel,
+    string MeasurementUnit,
+    decimal UnitPrice,
+    int? MinimumQuantity,
     decimal? MinimumMonthlyFee,
     CommercialAddonPeriodicity Periodicity,
     Guid ConcurrencyToken)
@@ -79,6 +93,12 @@ internal sealed class SearchCommercialAddonsQueryValidator : AbstractValidator<S
         RuleFor(query => query.Search).MaximumLength(150);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, CommercialAddonValidationRules.MaxPageSize);
+        RuleFor(query => query.Type)
+            .IsInEnum()
+            .When(static query => query.Type.HasValue);
+        RuleFor(query => query.BillingModel)
+            .IsInEnum()
+            .When(static query => query.BillingModel.HasValue);
         RuleFor(query => query.Status)
             .IsInEnum()
             .When(static query => query.Status.HasValue);
@@ -110,21 +130,52 @@ internal sealed class CreateCommercialAddonCommandValidator : AbstractValidator<
             .WithMessage("Commercial addon code format is invalid.");
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
-        RuleFor(command => command.Type)
-            .IsInEnum()
-            .Equal(CommercialAddonType.Massive)
-            .WithMessage("Only massive commercial add-ons are supported.");
-        RuleFor(command => command.PricePerActiveEmployee).GreaterThanOrEqualTo(0m);
+        RuleFor(command => command.Type).IsInEnum();
+        RuleFor(command => command.BillingModel).IsInEnum();
+        RuleFor(command => command.MeasurementUnit)
+            .NotEmpty()
+            .MaximumLength(CommercialAddonValidationRules.MeasurementUnitMaxLength)
+            .Must(static unit => !string.IsNullOrWhiteSpace(unit))
+            .WithMessage("Measurement unit is required.");
+        RuleFor(command => command.UnitPrice).GreaterThanOrEqualTo(0m);
+        RuleFor(command => command.MinimumQuantity)
+            .GreaterThanOrEqualTo(0)
+            .When(static command => command.MinimumQuantity.HasValue);
         RuleFor(command => command.MinimumMonthlyFee)
             .GreaterThanOrEqualTo(0m)
             .When(static command => command.MinimumMonthlyFee.HasValue);
-        RuleFor(command => command.PricePerActiveEmployee)
+        RuleFor(command => command.UnitPrice)
             .Must(CommercialAddonValidationRules.HasSupportedScale)
-            .WithMessage("Price per active employee cannot exceed 2 decimal places.");
+            .WithMessage("Unit price cannot exceed 2 decimal places.");
         RuleFor(command => command.MinimumMonthlyFee)
             .Must(static fee => !fee.HasValue || CommercialAddonValidationRules.HasSupportedScale(fee.Value))
             .WithMessage("Minimum monthly fee cannot exceed 2 decimal places.");
         RuleFor(command => command.Periodicity).IsInEnum();
+        RuleFor(command => command)
+            .Must(HaveCoherentPricingConfiguration)
+            .WithMessage("Commercial addon pricing configuration is inconsistent with the selected type and billing model.");
+    }
+
+    private static bool HaveCoherentPricingConfiguration(CreateCommercialAddonCommand command)
+    {
+        var measurementUnit = command.MeasurementUnit.Trim();
+        var usesReservedMassiveUnit = CommercialAddonValidationRules.UsesReservedMassiveUnit(measurementUnit);
+        var containsSeat = CommercialAddonValidationRules.ContainsSeat(measurementUnit);
+
+        return command.Type switch
+        {
+            CommercialAddonType.Massive =>
+                command.BillingModel == CommercialAddonBillingModel.PerActiveEmployee &&
+                usesReservedMassiveUnit &&
+                !command.MinimumQuantity.HasValue,
+            CommercialAddonType.Specialized =>
+                command.BillingModel != CommercialAddonBillingModel.PerActiveEmployee &&
+                !usesReservedMassiveUnit &&
+                !command.MinimumMonthlyFee.HasValue &&
+                ((command.BillingModel == CommercialAddonBillingModel.PerSeat && containsSeat) ||
+                 (command.BillingModel == CommercialAddonBillingModel.PerVolume && !containsSeat)),
+            _ => false
+        };
     }
 }
 
@@ -140,22 +191,53 @@ internal sealed class UpdateCommercialAddonCommandValidator : AbstractValidator<
             .WithMessage("Commercial addon code format is invalid.");
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
-        RuleFor(command => command.Type)
-            .IsInEnum()
-            .Equal(CommercialAddonType.Massive)
-            .WithMessage("Only massive commercial add-ons are supported.");
-        RuleFor(command => command.PricePerActiveEmployee).GreaterThanOrEqualTo(0m);
+        RuleFor(command => command.Type).IsInEnum();
+        RuleFor(command => command.BillingModel).IsInEnum();
+        RuleFor(command => command.MeasurementUnit)
+            .NotEmpty()
+            .MaximumLength(CommercialAddonValidationRules.MeasurementUnitMaxLength)
+            .Must(static unit => !string.IsNullOrWhiteSpace(unit))
+            .WithMessage("Measurement unit is required.");
+        RuleFor(command => command.UnitPrice).GreaterThanOrEqualTo(0m);
+        RuleFor(command => command.MinimumQuantity)
+            .GreaterThanOrEqualTo(0)
+            .When(static command => command.MinimumQuantity.HasValue);
         RuleFor(command => command.MinimumMonthlyFee)
             .GreaterThanOrEqualTo(0m)
             .When(static command => command.MinimumMonthlyFee.HasValue);
-        RuleFor(command => command.PricePerActiveEmployee)
+        RuleFor(command => command.UnitPrice)
             .Must(CommercialAddonValidationRules.HasSupportedScale)
-            .WithMessage("Price per active employee cannot exceed 2 decimal places.");
+            .WithMessage("Unit price cannot exceed 2 decimal places.");
         RuleFor(command => command.MinimumMonthlyFee)
             .Must(static fee => !fee.HasValue || CommercialAddonValidationRules.HasSupportedScale(fee.Value))
             .WithMessage("Minimum monthly fee cannot exceed 2 decimal places.");
         RuleFor(command => command.Periodicity).IsInEnum();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command)
+            .Must(HaveCoherentPricingConfiguration)
+            .WithMessage("Commercial addon pricing configuration is inconsistent with the selected type and billing model.");
+    }
+
+    private static bool HaveCoherentPricingConfiguration(UpdateCommercialAddonCommand command)
+    {
+        var measurementUnit = command.MeasurementUnit.Trim();
+        var usesReservedMassiveUnit = CommercialAddonValidationRules.UsesReservedMassiveUnit(measurementUnit);
+        var containsSeat = CommercialAddonValidationRules.ContainsSeat(measurementUnit);
+
+        return command.Type switch
+        {
+            CommercialAddonType.Massive =>
+                command.BillingModel == CommercialAddonBillingModel.PerActiveEmployee &&
+                usesReservedMassiveUnit &&
+                !command.MinimumQuantity.HasValue,
+            CommercialAddonType.Specialized =>
+                command.BillingModel != CommercialAddonBillingModel.PerActiveEmployee &&
+                !usesReservedMassiveUnit &&
+                !command.MinimumMonthlyFee.HasValue &&
+                ((command.BillingModel == CommercialAddonBillingModel.PerSeat && containsSeat) ||
+                 (command.BillingModel == CommercialAddonBillingModel.PerVolume && !containsSeat)),
+            _ => false
+        };
     }
 }
 

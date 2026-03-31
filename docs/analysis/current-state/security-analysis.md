@@ -144,14 +144,14 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 - Estado actual: `Remediado y extendido el 30 de marzo de 2026`
 - Nuevo respecto a la auditoria anterior: `Si`
 - Cambio aplicado:
-  las mutaciones globales de `CommercialAddon`, `CommercialPlan` y el reemplazo de suscripciones empresariales ya no dependen solo de logging operativo; ahora escriben `PlatformAuditLog` persistente y no tenant-scoped.
+  las mutaciones globales de `CommercialAddon`, `CommercialPlan` y el reemplazo de suscripciones empresariales ya no dependen solo de logging operativo; ahora escriben `PlatformAuditLog` persistente y no tenant-scoped. El catalogo de `CommercialAddon` sigue protegido por rol aun despues de generalizar add-ons `Massive` y `Specialized`.
 - Evidencia:
   `PlatformAuditLog` y su configuracion EF existen en el modelo persistente.
   `PlatformAuditService` registra eventos globales con actor, entidad, accion y payload serializado.
   `CommercialAddonAdministration.cs`, `CommercialPlanAdministration.cs` y `PlatformSubscriptionAdministration.cs` invocan esa auditoria persistente en writes globales.
   la migracion `AddPlatformBackofficeAndFormalSubscriptionPlans` crea la tabla `platform_audit_logs`.
 - Cobertura actual:
-  `BackofficeCompanySubscriptionsIntegrationTests` falla si el reemplazo de suscripcion no deja rastro persistente y `BackofficeCommercialAddonsIntegrationTests` ya verifica auditoria durable para create/update/activate/inactivate del nuevo catalogo global. El CRUD de `CommercialPlan` sigue usando la misma infraestructura, aunque aun conviene agregar una prueba especifica por endpoint.
+  `BackofficeCompanySubscriptionsIntegrationTests` falla si el reemplazo de suscripcion no deja rastro persistente y `BackofficeCommercialAddonsIntegrationTests` ya verifica auditoria durable para create/update/activate/inactivate del catalogo global de add-ons, incluyendo configuraciones especializadas por seat o volumen. El CRUD de `CommercialPlan` sigue usando la misma infraestructura, aunque aun conviene agregar una prueba especifica por endpoint.
 
 ### 3.7 Drift contractual y documental severo
 

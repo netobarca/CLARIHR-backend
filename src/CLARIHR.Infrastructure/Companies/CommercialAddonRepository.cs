@@ -22,6 +22,8 @@ internal sealed class CommercialAddonRepository(ApplicationDbContext dbContext) 
             cancellationToken);
 
     public async Task<PagedResponse<CommercialAddonSummaryResponse>> SearchAsync(
+        CommercialAddonType? type,
+        CommercialAddonBillingModel? billingModel,
         CommercialAddonStatus? status,
         string? search,
         int pageNumber,
@@ -33,6 +35,16 @@ internal sealed class CommercialAddonRepository(ApplicationDbContext dbContext) 
         if (status.HasValue)
         {
             query = query.Where(addon => addon.Status == status.Value);
+        }
+
+        if (type.HasValue)
+        {
+            query = query.Where(addon => addon.Type == type.Value);
+        }
+
+        if (billingModel.HasValue)
+        {
+            query = query.Where(addon => addon.BillingModel == billingModel.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -55,7 +67,10 @@ internal sealed class CommercialAddonRepository(ApplicationDbContext dbContext) 
                 addon.Name,
                 addon.Description,
                 addon.Type,
-                addon.PricePerActiveEmployee,
+                addon.BillingModel,
+                addon.MeasurementUnit,
+                addon.UnitPrice,
+                addon.MinimumQuantity,
                 addon.MinimumMonthlyFee,
                 addon.Periodicity,
                 addon.Status,

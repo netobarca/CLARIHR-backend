@@ -70,7 +70,7 @@ Hay pruebas de tenant mismatch y permisos en modulos sensibles, incluyendo audit
 
 ### 3.3 El flujo global de plataforma si esta ejercitado
 
-`BackofficeCommercialAddonsIntegrationTests`, `BackofficeCommercialPlansIntegrationTests`, `BackofficeCompanySubscriptionsIntegrationTests` y `PlatformAuthenticationIntegrationTests` ejercitan el login del backoffice, el CRUD de add-ons y planes globales, el reemplazo de suscripciones empresariales, la separacion de audiencias `core/platform`, el rol `ReadOnly` y la auditoria durable de plataforma en writes globales.
+`BackofficeCommercialAddonsIntegrationTests`, `BackofficeCommercialPlansIntegrationTests`, `BackofficeCompanySubscriptionsIntegrationTests` y `PlatformAuthenticationIntegrationTests` ejercitan el login del backoffice, el CRUD de add-ons y planes globales, el reemplazo de suscripciones empresariales, la separacion de audiencias `core/platform`, el rol `ReadOnly` y la auditoria durable de plataforma en writes globales. Desde HU-BILL-004, esa cobertura de add-ons incluye configuraciones `Massive` y `Specialized`, filtros por `type` y `billingModel`, y compatibilidad de lectura para filas masivas preexistentes.
 
 ## 4. Hallazgos relevantes sobre cobertura
 
@@ -110,7 +110,7 @@ No existen pruebas que validen proxies confiables, spoofing de IP o consistencia
 
 ### 4.5 La auditoria durable de plataforma ya tiene cobertura parcial
 
-El reemplazo de suscripciones empresariales ya tiene una prueba de integracion que falla si no se persiste `PlatformAuditLog` y el nuevo CRUD de `CommercialAddon` ya valida esa persistencia para create/update/activate/inactivate. Aun falta extender esa exigencia de auditoria durable al CRUD completo de `CommercialPlan`.
+El reemplazo de suscripciones empresariales ya tiene una prueba de integracion que falla si no se persiste `PlatformAuditLog` y el CRUD de `CommercialAddon` ya valida esa persistencia para create/update/activate/inactivate, incluyendo add-ons especializados. Aun falta extender esa exigencia de auditoria durable al CRUD completo de `CommercialPlan`.
 
 ### 4.6 No hay pruebas de contrato versionado
 

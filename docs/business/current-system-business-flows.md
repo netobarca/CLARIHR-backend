@@ -85,13 +85,14 @@ El provisioning actual deja creada la base operativa minima del tenant:
 4. Los planes quedan disponibles como catalogo reutilizable para futuras suscripciones empresariales.
 5. El plan `FREE` existe como plan de sistema sembrado y permanece protegido porque el provisioning actual depende de ese codigo.
 
-### 5.5 Catalogo comercial de add-ons masivos
+### 5.5 Catalogo comercial de add-ons globales
 
 1. Un operador de plataforma autenticado entra al backoffice por `api/platform/auth/login`.
 2. Con ese token `platform`, administra add-ons globales desde `api/platform/commercial-addons`.
-3. El sistema permite registrar `name`, `code`, `description`, `type=Massive`, `pricePerActiveEmployee`, `minimumMonthlyFee`, `periodicity` y `status`.
-4. Los add-ons quedan disponibles como catalogo comercial reutilizable para futuras activaciones por empresa y para el motor de cobro posterior.
-5. La Core API tenant-scoped no expone este catalogo; el acceso queda reservado al backoffice global.
+3. El sistema permite registrar `name`, `code`, `description`, `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity` y `status`.
+4. Los add-ons `Massive` usan `billingModel=PerActiveEmployee`, la unidad reservada `active employee` y un `minimumMonthlyFee` opcional; los `Specialized` usan `PerSeat` o `PerVolume`, una unidad comercial propia y una cantidad minima opcional.
+5. Los add-ons quedan disponibles como catalogo comercial reutilizable para futuras activaciones por empresa y para el motor de cobro posterior.
+6. La Core API tenant-scoped no expone este catalogo; el acceso queda reservado al backoffice global.
 
 ### 5.6 Administracion backoffice de suscripciones empresariales
 

@@ -75,7 +75,7 @@ Despues del `switch`, el `access token` devuelto incluye contexto tenant y habil
 | Auth | `AuthController` | `/api/auth/*` | registro, auth externa, login, refresh y logout |
 | Account companies | `AccountCompaniesController` | `/api/account/companies*` | crear, listar, archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
 | Platform auth | `PlatformAuthController` | `/api/platform/auth*` | login, refresh y logout de operadores del backoffice global |
-| Platform commercial addons | `CommercialAddonsController` | `/api/platform/commercial-addons*` | administrar el catalogo comercial global de add-ons masivos reutilizables |
+| Platform commercial addons | `CommercialAddonsController` | `/api/platform/commercial-addons*` | administrar el catalogo comercial global de add-ons reutilizables con pricing masivo o especializado |
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables |
 | Platform subscriptions | `PlatformCompanySubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*` | consultar y reemplazar suscripciones empresariales globales |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
@@ -127,9 +127,9 @@ Comportamiento observable:
 - el backoffice usa autenticacion separada de la Core API y nunca depende de `tid`
 - solo usuarios ligados a un `PlatformOperator` activo pueden entrar al backoffice global
 - `ReadOnly` puede consultar add-ons, planes y suscripciones; `Admin` puede mutar catalogos y reemplazar suscripciones
-- el catalogo de add-ons masivos se administra solo desde `/api/platform/commercial-addons`; la Core API no expone este recurso
+- el catalogo de add-ons globales se administra solo desde `/api/platform/commercial-addons`; la Core API no expone este recurso
 - cada plan define `fee` mensual base, precio por empleado activo, estado y limites configurables
-- cada add-on define `type=Massive`, precio mensual por empleado activo, minimo mensual opcional, periodicidad y estado
+- cada add-on define `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity` y `status`, con reglas distintas para `Massive` y `Specialized`
 - `FREE` existe sembrado como plan de sistema para el provisioning actual y no puede renombrarse ni inactivarse
 - reemplazar una suscripcion empresarial cierra la fila activa anterior y crea una nueva fila historica con snapshot de precios
 
@@ -976,10 +976,10 @@ El backoffice de plataforma sirve para:
 
 - aislar las capacidades globales del plano tenant-scoped de RH
 - autenticar operadores globales con un token propio de plataforma
-- definir el catalogo comercial global de add-ons masivos que luego podran activarse por empresa
+- definir el catalogo comercial global de add-ons que luego podran activarse por empresa
 - definir el catalogo comercial base que luego podran consumir las futuras suscripciones a empresas
 - estandarizar el `fee` mensual base y el precio por empleado activo por plan
-- estandarizar el precio por empleado activo, el minimo mensual opcional y la periodicidad comercial de add-ons masivos
+- estandarizar el pricing comercial de add-ons masivos y especializados sin acoplar todo el catalogo al cobro por empleado activo
 - mantener limites incluidos por plan de forma reutilizable
 - administrar el estado operativo de planes y add-ons (`Draft`, `Active`, `Inactive`)
 - reemplazar la suscripcion activa de una empresa manteniendo historial
@@ -993,8 +993,8 @@ No resuelve aun versionamiento de precios, activacion de add-ons por empresa, de
 - Todas las demas rutas requieren `Bearer` emitido con `client_type=platform`; esos tokens no incluyen `tid`.
 - La autorizacion global no reutiliza `platform_admin`, allow-lists de correo ni RBAC tenant-scoped; depende de `PlatformOperator` y sus roles `Admin` o `ReadOnly`.
 - `ReadOnly` puede consultar add-ons, planes y suscripciones; `Admin` puede crear, actualizar, activar, inactivar y reemplazar suscripciones.
-- `list` de add-ons soporta paginacion, filtro por `status` y busqueda libre `q` sobre codigo y nombre.
-- `create` de add-on registra `code`, `name`, `description`, `type=Massive`, `pricePerActiveEmployee`, `minimumMonthlyFee`, `periodicity` y `status`.
+- `list` de add-ons soporta paginacion, filtros por `type`, `billingModel`, `status` y busqueda libre `q` sobre codigo y nombre.
+- `create` de add-on registra `code`, `name`, `description`, `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity` y `status`.
 - `update` de add-on modifica datos comerciales editables; no actualiza `status`.
 - `list` de planes soporta paginacion, filtro por `status` y busqueda libre `q` sobre codigo y nombre.
 - `create` registra `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status` y `limits`.
@@ -1129,14 +1129,14 @@ Base route: `/api/platform/commercial-addons`
 
 Contratos principales:
 
-- `CommercialAddonSummaryResponse`: `publicId`, `code`, `normalizedCode`, `name`, `description`, `type`, `pricePerActiveEmployee`, `minimumMonthlyFee`, `periodicity`, `status`, `createdAtUtc`, `modifiedAtUtc`
+- `CommercialAddonSummaryResponse`: `publicId`, `code`, `name`, `description`, `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity`, `status`, `createdAtUtc`, `modifiedAtUtc`
 - `CommercialAddonResponse`: agrega `concurrencyToken`
 
 ##### `GET /api/platform/commercial-addons`
 
-- Proposito: listar add-ons comerciales globales de alcance masivo.
+- Proposito: listar add-ons comerciales globales con pricing masivo o especializado.
 - Autenticacion: `Bearer` requerido con token `platform`.
-- Query: `status`, `q`, `page`, `pageSize`.
+- Query: `type`, `billingModel`, `status`, `q`, `page`, `pageSize`.
 - Validaciones: `page > 0`, `pageSize` entre `1` y `100`, `q` maximo `150`.
 - Response: `PagedResponse<CommercialAddonSummaryResponse>`.
 - Observaciones: no exige tenant activo; ordena por `name` y luego `code`.
@@ -1153,20 +1153,20 @@ Contratos principales:
 
 - Proposito: registrar un nuevo add-on comercial global.
 - Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
-- Request body: `code`, `name`, `description`, `type`, `pricePerActiveEmployee`, `minimumMonthlyFee`, `periodicity`, `status`.
-- Validaciones base: `code` obligatorio maximo `40`; `name` obligatorio maximo `150`; `description` maximo `500`; `type` debe ser `Massive`; montos no negativos; maximo `2` decimales.
+- Request body: `code`, `name`, `description`, `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity`, `status`.
+- Validaciones base: `code` obligatorio maximo `40`; `name` obligatorio maximo `150`; `description` maximo `500`; `measurementUnit` obligatorio maximo `80`; `unitPrice` y `minimumMonthlyFee` con maximo `2` decimales; `minimumQuantity` entero no negativo si se envia.
 - Response: `201 Created` con `CommercialAddonResponse`.
 - Errores relevantes: `COMMERCIAL_ADDON_CODE_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
-- Observaciones: `minimumMonthlyFee` puede venir `null`; el `status` inicial puede registrarse como `Draft`, `Active` o `Inactive`.
+- Observaciones: los add-ons `Massive` usan `billingModel=PerActiveEmployee`, unidad `active employee` y no aceptan `minimumQuantity`; los `Specialized` usan `PerSeat` o `PerVolume`, no aceptan `minimumMonthlyFee` y exigen una unidad comercial coherente con la modalidad elegida.
 
 ##### `PUT /api/platform/commercial-addons/{publicId}`
 
 - Proposito: actualizar datos base de un add-on comercial existente.
 - Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
-- Request body: `code`, `name`, `description`, `type`, `pricePerActiveEmployee`, `minimumMonthlyFee`, `periodicity`, `concurrencyToken`.
+- Request body: `code`, `name`, `description`, `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity`, `concurrencyToken`.
 - Response: `CommercialAddonResponse`.
 - Errores relevantes: `COMMERCIAL_ADDON_NOT_FOUND`, `COMMERCIAL_ADDON_CODE_CONFLICT`, `CONCURRENCY_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
-- Observaciones: `status` no se modifica por esta ruta y el catalogo sigue limitado a `type=Massive`.
+- Observaciones: `status` no se modifica por esta ruta; la coherencia entre `type`, `billingModel` y la unidad comercial se revalida en cada actualizacion.
 
 ##### `PATCH /api/platform/commercial-addons/{publicId}/activate`
 
