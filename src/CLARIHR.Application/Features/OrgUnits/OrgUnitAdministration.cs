@@ -31,6 +31,7 @@ public sealed record OrgUnitResponse(
     OrgUnitCatalogReferenceResponse OrgUnitType,
     OrgUnitCatalogReferenceResponse? FunctionalArea,
     Guid? ParentId,
+    OrgUnitCatalogReferenceResponse? Parent,
     int? SortOrder,
     string? Description,
     string? CostCenterCode,

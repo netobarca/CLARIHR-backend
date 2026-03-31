@@ -2,10 +2,10 @@
 
 ## 1. Resumen ejecutivo
 
-La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La validacion actualizada del **29 de marzo de 2026** verifico:
+La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La validacion actualizada del **30 de marzo de 2026** verifico:
 
-- `43` unit tests dirigidos aprobados para auth, platform authorization, provisioning y commercial plans
-- `9` integration tests dirigidos aprobados para Platform Backoffice API
+- `56` unit tests dirigidos aprobados para auth, platform authorization, provisioning, commercial plans y commercial add-ons
+- `13` integration tests dirigidos aprobados para Platform Backoffice API
 - `dotnet build` limpio con `0 warnings`
 - el suite completo aun conserva fallas previas no relacionadas en normalizacion y algunos escenarios legacy de integracion
 
@@ -32,6 +32,7 @@ Cobertura visible sobre:
 - salary tabulator
 - org units, locations, cost centers
 - job profiles, position slots y competency framework
+- catalogo global `CommercialAddon`
 - catalogo global `CommercialPlan`
 - reemplazo de suscripciones empresariales
 
@@ -69,7 +70,7 @@ Hay pruebas de tenant mismatch y permisos en modulos sensibles, incluyendo audit
 
 ### 3.3 El flujo global de plataforma si esta ejercitado
 
-`BackofficeCommercialPlansIntegrationTests`, `BackofficeCompanySubscriptionsIntegrationTests` y `PlatformAuthenticationIntegrationTests` ejercitan el login del backoffice, el CRUD de planes globales, el reemplazo de suscripciones empresariales, la separacion de audiencias `core/platform` y la auditoria durable de plataforma en el flujo de reemplazo.
+`BackofficeCommercialAddonsIntegrationTests`, `BackofficeCommercialPlansIntegrationTests`, `BackofficeCompanySubscriptionsIntegrationTests` y `PlatformAuthenticationIntegrationTests` ejercitan el login del backoffice, el CRUD de add-ons y planes globales, el reemplazo de suscripciones empresariales, la separacion de audiencias `core/platform`, el rol `ReadOnly` y la auditoria durable de plataforma en writes globales.
 
 ## 4. Hallazgos relevantes sobre cobertura
 
@@ -109,7 +110,7 @@ No existen pruebas que validen proxies confiables, spoofing de IP o consistencia
 
 ### 4.5 La auditoria durable de plataforma ya tiene cobertura parcial
 
-El reemplazo de suscripciones empresariales ya tiene una prueba de integracion que falla si no se persiste `PlatformAuditLog`. Aun falta extender esa exigencia de auditoria durable al CRUD completo de `CommercialPlan`.
+El reemplazo de suscripciones empresariales ya tiene una prueba de integracion que falla si no se persiste `PlatformAuditLog` y el nuevo CRUD de `CommercialAddon` ya valida esa persistencia para create/update/activate/inactivate. Aun falta extender esa exigencia de auditoria durable al CRUD completo de `CommercialPlan`.
 
 ### 4.6 No hay pruebas de contrato versionado
 
@@ -120,7 +121,7 @@ La API sigue sin snapshots o validacion automatica de `openapi.yaml` contra Swag
 1. Redaccion de PII de RRHH en auditoria.
 2. Controles anti abuso en auth.
 3. `X-Forwarded-*` y confianza de proxy.
-4. Cobertura explicita de auditoria durable para todo el CRUD global de plataforma.
+4. Cobertura explicita de auditoria durable para todo el CRUD global restante de plataforma.
 5. Contrato API versionado y validado automaticamente.
 
 ## 6. Conclusiones

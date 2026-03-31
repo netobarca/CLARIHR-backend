@@ -18,6 +18,10 @@ public static class AuditEventTypes
     public const string CompanyArchived = "COMPANY_ARCHIVED";
     public const string CompanyReactivated = "COMPANY_REACTIVATED";
     public const string ActiveCompanySwitched = "ACTIVE_COMPANY_SWITCHED";
+    public const string CommercialAddonCreated = "COMMERCIAL_ADDON_CREATED";
+    public const string CommercialAddonUpdated = "COMMERCIAL_ADDON_UPDATED";
+    public const string CommercialAddonActivated = "COMMERCIAL_ADDON_ACTIVATED";
+    public const string CommercialAddonInactivated = "COMMERCIAL_ADDON_INACTIVATED";
     public const string CommercialPlanCreated = "COMMERCIAL_PLAN_CREATED";
     public const string CommercialPlanUpdated = "COMMERCIAL_PLAN_UPDATED";
     public const string CommercialPlanActivated = "COMMERCIAL_PLAN_ACTIVATED";
@@ -120,6 +124,10 @@ public static class AuditEventTypes
         CompanyArchived,
         CompanyReactivated,
         ActiveCompanySwitched,
+        CommercialAddonCreated,
+        CommercialAddonUpdated,
+        CommercialAddonActivated,
+        CommercialAddonInactivated,
         CommercialPlanCreated,
         CommercialPlanUpdated,
         CommercialPlanActivated,
@@ -224,6 +232,7 @@ public static class AuditEntityTypes
     public const string Role = "Role";
     public const string Permission = "Permission";
     public const string Company = "Company";
+    public const string CommercialAddon = "CommercialAddon";
     public const string CommercialPlan = "CommercialPlan";
     public const string CompanySubscription = "CompanySubscription";
     public const string CompanyTypeCatalogItem = "CompanyTypeCatalogItem";
@@ -251,6 +260,7 @@ public static class AuditEntityTypes
         Role,
         Permission,
         Company,
+        CommercialAddon,
         CommercialPlan,
         CompanySubscription,
         CompanyTypeCatalogItem,

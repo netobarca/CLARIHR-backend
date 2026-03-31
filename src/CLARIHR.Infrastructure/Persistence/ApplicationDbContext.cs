@@ -41,6 +41,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<Company> Companies => Set<Company>();
 
+    public DbSet<CommercialAddon> CommercialAddons => Set<CommercialAddon>();
+
     public DbSet<CommercialPlan> CommercialPlans => Set<CommercialPlan>();
 
     public DbSet<CommercialPlanLimit> CommercialPlanLimits => Set<CommercialPlanLimit>();

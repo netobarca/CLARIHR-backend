@@ -10,7 +10,7 @@ Este documento es la referencia humana inicial de la API actual. No intenta dupl
 - flujos criticos
 - comportamientos observables relevantes
 
-El repositorio expone actualmente `326` endpoints en `36` controladores, distribuidos entre la Core API tenant-scoped y la Platform Backoffice API.
+El repositorio expone actualmente `332` endpoints en `37` controladores, distribuidos entre la Core API tenant-scoped y la Platform Backoffice API.
 
 ## 2. Modelo de autenticacion y tenant
 
@@ -75,6 +75,7 @@ Despues del `switch`, el `access token` devuelto incluye contexto tenant y habil
 | Auth | `AuthController` | `/api/auth/*` | registro, auth externa, login, refresh y logout |
 | Account companies | `AccountCompaniesController` | `/api/account/companies*` | crear, listar, archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
 | Platform auth | `PlatformAuthController` | `/api/platform/auth*` | login, refresh y logout de operadores del backoffice global |
+| Platform commercial addons | `CommercialAddonsController` | `/api/platform/commercial-addons*` | administrar el catalogo comercial global de add-ons masivos reutilizables |
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables |
 | Platform subscriptions | `PlatformCompanySubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*` | consultar y reemplazar suscripciones empresariales globales |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
@@ -117,6 +118,7 @@ Comportamiento observable:
 ### 4.3 Platform backoffice de suscripciones
 
 - `POST /api/platform/auth/login`
+- `GET /api/platform/commercial-addons`
 - `GET /api/platform/commercial-plans`
 - `PUT /api/platform/companies/{companyPublicId}/subscription`
 
@@ -124,8 +126,10 @@ Comportamiento observable:
 
 - el backoffice usa autenticacion separada de la Core API y nunca depende de `tid`
 - solo usuarios ligados a un `PlatformOperator` activo pueden entrar al backoffice global
-- `ReadOnly` puede consultar planes y suscripciones; `Admin` puede mutar catalogos y reemplazar suscripciones
+- `ReadOnly` puede consultar add-ons, planes y suscripciones; `Admin` puede mutar catalogos y reemplazar suscripciones
+- el catalogo de add-ons masivos se administra solo desde `/api/platform/commercial-addons`; la Core API no expone este recurso
 - cada plan define `fee` mensual base, precio por empleado activo, estado y limites configurables
+- cada add-on define `type=Massive`, precio mensual por empleado activo, minimo mensual opcional, periodicidad y estado
 - `FREE` existe sembrado como plan de sistema para el provisioning actual y no puede renombrarse ni inactivarse
 - reemplazar una suscripcion empresarial cierra la fila activa anterior y crea una nueva fila historica con snapshot de precios
 
@@ -950,6 +954,12 @@ Incluye:
 - `POST /api/platform/auth/login`
 - `POST /api/platform/auth/refresh`
 - `POST /api/platform/auth/logout`
+- `GET /api/platform/commercial-addons`
+- `GET /api/platform/commercial-addons/{publicId}`
+- `POST /api/platform/commercial-addons`
+- `PUT /api/platform/commercial-addons/{publicId}`
+- `PATCH /api/platform/commercial-addons/{publicId}/activate`
+- `PATCH /api/platform/commercial-addons/{publicId}/inactivate`
 - `GET /api/platform/commercial-plans`
 - `GET /api/platform/commercial-plans/{publicId}`
 - `POST /api/platform/commercial-plans`
@@ -966,21 +976,26 @@ El backoffice de plataforma sirve para:
 
 - aislar las capacidades globales del plano tenant-scoped de RH
 - autenticar operadores globales con un token propio de plataforma
+- definir el catalogo comercial global de add-ons masivos que luego podran activarse por empresa
 - definir el catalogo comercial base que luego podran consumir las futuras suscripciones a empresas
 - estandarizar el `fee` mensual base y el precio por empleado activo por plan
+- estandarizar el precio por empleado activo, el minimo mensual opcional y la periodicidad comercial de add-ons masivos
 - mantener limites incluidos por plan de forma reutilizable
-- administrar el estado operativo del plan (`Draft`, `Active`, `Inactive`)
+- administrar el estado operativo de planes y add-ons (`Draft`, `Active`, `Inactive`)
 - reemplazar la suscripcion activa de una empresa manteniendo historial
 - preservar un plan canonico `FREE` alineado al provisioning actual y al provisioning inicial de companias
 
-No resuelve aun versionamiento de precios, add-ons, descuentos corporativos, billing real ni calculo de cobros.
+No resuelve aun versionamiento de precios, activacion de add-ons por empresa, descuentos corporativos, billing real ni calculo de cobros.
 
 #### 5.3A.3 Modelo operativo y reglas transversales del modulo
 
 - `login` y `refresh` son publicos dentro del backoffice, pero solo emiten tokens si el usuario local esta ligado a un `PlatformOperator` activo.
 - Todas las demas rutas requieren `Bearer` emitido con `client_type=platform`; esos tokens no incluyen `tid`.
 - La autorizacion global no reutiliza `platform_admin`, allow-lists de correo ni RBAC tenant-scoped; depende de `PlatformOperator` y sus roles `Admin` o `ReadOnly`.
-- `ReadOnly` puede consultar planes y suscripciones; `Admin` puede crear, actualizar, activar, inactivar y reemplazar suscripciones.
+- `ReadOnly` puede consultar add-ons, planes y suscripciones; `Admin` puede crear, actualizar, activar, inactivar y reemplazar suscripciones.
+- `list` de add-ons soporta paginacion, filtro por `status` y busqueda libre `q` sobre codigo y nombre.
+- `create` de add-on registra `code`, `name`, `description`, `type=Massive`, `pricePerActiveEmployee`, `minimumMonthlyFee`, `periodicity` y `status`.
+- `update` de add-on modifica datos comerciales editables; no actualiza `status`.
 - `list` de planes soporta paginacion, filtro por `status` y busqueda libre `q` sobre codigo y nombre.
 - `create` registra `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status` y `limits`.
 - `update` reemplaza completamente la coleccion de limites del plan; no actualiza `status`.
@@ -1108,7 +1123,70 @@ Contratos principales:
 - Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_ALREADY_INACTIVE`, `COMMERCIAL_PLAN_SYSTEM_INACTIVATION_FORBIDDEN`, `PLATFORM_ACCESS_FORBIDDEN`.
 - Observaciones: `FREE` no puede inactivarse mientras siga siendo el plan canonico del provisioning.
 
-#### 5.3A.7 `PlatformCompanySubscriptionsController`
+#### 5.3A.7 `CommercialAddonsController`
+
+Base route: `/api/platform/commercial-addons`
+
+Contratos principales:
+
+- `CommercialAddonSummaryResponse`: `publicId`, `code`, `normalizedCode`, `name`, `description`, `type`, `pricePerActiveEmployee`, `minimumMonthlyFee`, `periodicity`, `status`, `createdAtUtc`, `modifiedAtUtc`
+- `CommercialAddonResponse`: agrega `concurrencyToken`
+
+##### `GET /api/platform/commercial-addons`
+
+- Proposito: listar add-ons comerciales globales de alcance masivo.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Query: `status`, `q`, `page`, `pageSize`.
+- Validaciones: `page > 0`, `pageSize` entre `1` y `100`, `q` maximo `150`.
+- Response: `PagedResponse<CommercialAddonSummaryResponse>`.
+- Observaciones: no exige tenant activo; ordena por `name` y luego `code`.
+
+##### `GET /api/platform/commercial-addons/{publicId}`
+
+- Proposito: obtener el detalle de un add-on comercial global.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Response: `CommercialAddonResponse`.
+- Errores relevantes: `COMMERCIAL_ADDON_NOT_FOUND`.
+- Observaciones: la auditoria basica visible en contrato se limita a `createdAtUtc` y `modifiedAtUtc`.
+
+##### `POST /api/platform/commercial-addons`
+
+- Proposito: registrar un nuevo add-on comercial global.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `code`, `name`, `description`, `type`, `pricePerActiveEmployee`, `minimumMonthlyFee`, `periodicity`, `status`.
+- Validaciones base: `code` obligatorio maximo `40`; `name` obligatorio maximo `150`; `description` maximo `500`; `type` debe ser `Massive`; montos no negativos; maximo `2` decimales.
+- Response: `201 Created` con `CommercialAddonResponse`.
+- Errores relevantes: `COMMERCIAL_ADDON_CODE_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: `minimumMonthlyFee` puede venir `null`; el `status` inicial puede registrarse como `Draft`, `Active` o `Inactive`.
+
+##### `PUT /api/platform/commercial-addons/{publicId}`
+
+- Proposito: actualizar datos base de un add-on comercial existente.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `code`, `name`, `description`, `type`, `pricePerActiveEmployee`, `minimumMonthlyFee`, `periodicity`, `concurrencyToken`.
+- Response: `CommercialAddonResponse`.
+- Errores relevantes: `COMMERCIAL_ADDON_NOT_FOUND`, `COMMERCIAL_ADDON_CODE_CONFLICT`, `CONCURRENCY_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: `status` no se modifica por esta ruta y el catalogo sigue limitado a `type=Massive`.
+
+##### `PATCH /api/platform/commercial-addons/{publicId}/activate`
+
+- Proposito: activar un add-on comercial existente.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `concurrencyToken`.
+- Response: `CommercialAddonResponse`.
+- Errores relevantes: `COMMERCIAL_ADDON_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_ADDON_ALREADY_ACTIVE`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: no existe ruta para volver un add-on a `Draft`.
+
+##### `PATCH /api/platform/commercial-addons/{publicId}/inactivate`
+
+- Proposito: inactivar un add-on comercial existente.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `concurrencyToken`.
+- Response: `CommercialAddonResponse`.
+- Errores relevantes: `COMMERCIAL_ADDON_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_ADDON_ALREADY_INACTIVE`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: no existe delete fisico; la baja operativa del catalogo se resuelve por estado.
+
+#### 5.3A.8 `PlatformCompanySubscriptionsController`
 
 Base route: `/api/platform/companies/{companyPublicId}/subscription*`
 
@@ -1143,7 +1221,7 @@ Contratos principales:
 - Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_ALREADY_ASSIGNED`, `PLATFORM_ACCESS_FORBIDDEN`.
 - Observaciones: la fila activa anterior se cancela y se crea una nueva fila historica; la empresa nunca queda sin suscripcion activa.
 
-#### 5.3A.8 Relacion con provisioning y entitlements
+#### 5.3A.9 Relacion con provisioning y entitlements
 
 - `CompanyProvisioningService` resuelve formalmente el plan comercial `FREE` y crea la suscripcion inicial desde ese agregado global.
 - `PlanEntitlementService` sigue resolviendo modulos y limites desde el plan comercial relacionado a la suscripcion activa.
@@ -1292,7 +1370,7 @@ No es un catalogo base como `Org structure catalogs`; aqui ya se administran nod
 - `search`, `tree`, `graph`, `export`, `diagram-export` y `create` usan `companyPublicId` en la ruta.
 - `get by id`, `update`, `move`, `activate` e `inactivate` usan solo `{publicId}` y resuelven el tenant desde el token actual.
 - Si una org unit existe pero pertenece a otro tenant, la API responde `TENANT_MISMATCH` en vez de devolver un `404` plano.
-- El shape principal de lectura es `OrgUnitResponse`: `publicId`, `code`, `normalizedCode`, `name`, `orgUnitType`, `functionalArea`, `parentPublicId`, `sortOrder`, `description`, `costCenterCode`, `managerEmployeePublicId`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y opcionalmente `allowedActions`.
+- El shape principal de lectura es `OrgUnitResponse`: `id`, `code`, `name`, `orgUnitType`, `functionalArea`, `parentId`, `parent`, `sortOrder`, `description`, `costCenterCode`, `managerEmployeeId`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y opcionalmente `allowedActions`.
 - `code` es obligatorio, maximo `50`, y debe cumplir regex alfanumerica con `_` o `-`.
 - `name` es obligatorio y maximo `150`.
 - `description` acepta hasta `500` caracteres.
@@ -1347,6 +1425,7 @@ Observaciones funcionales:
 - el orden observable del listado es `sortOrder`, luego `name`, luego `code`.
 - `search` devuelve `PagedResponse<OrgUnitResponse>`.
 - `get by id` devuelve una sola `OrgUnitResponse`.
+- `search` y `get by id` incluyen `parent` con `id`, `code` y `name` cuando la unidad tiene padre; `parentId` se conserva para filtros y flujos de edicion.
 - `get by id` siempre calcula `allowedActions` usando el estado activo y la existencia de hijos activos.
 - `search` solo calcula `allowedActions` si `includeAllowedActions=true`.
 

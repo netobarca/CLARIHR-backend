@@ -2,7 +2,7 @@
 
 ## 1. Proposito
 
-Este documento describe el estado actual de la arquitectura del backend CLARIHR a partir del codigo vigente del repositorio y queda alineado con la reevaluacion profunda actualizada al **29 de marzo de 2026**.
+Este documento describe el estado actual de la arquitectura del backend CLARIHR a partir del codigo vigente del repositorio y queda alineado con la reevaluacion profunda actualizada al **30 de marzo de 2026**.
 
 ## 2. Resumen ejecutivo
 
@@ -27,10 +27,10 @@ Sin embargo, la reevaluacion confirma que la arquitectura actual ya no puede des
 
 Snapshot de esta reevaluacion:
 
-- `36` controllers entre Core API y Backoffice API
-- `326` acciones HTTP en `src/CLARIHR.Api/Controllers` y `src/CLARIHR.Backoffice.Api/Controllers`
+- `37` controllers entre Core API y Backoffice API
+- `332` acciones HTTP en `src/CLARIHR.Api/Controllers` y `src/CLARIHR.Backoffice.Api/Controllers`
 - build limpio
-- validaciones dirigidas de auth/plataforma/suscripciones aprobadas
+- validaciones dirigidas de auth/plataforma/suscripciones/add-ons aprobadas
 
 La arquitectura observable de una request sigue siendo:
 
@@ -54,7 +54,7 @@ El sistema sigue orientado a tenant isolation, pero [ApplicationDbContext.cs#L28
 
 ### 4.3 Capacidades globales fuera de tenant
 
-`CommercialPlan`, `CompanySubscription` y `PlatformOperator` introducen un plano global fuera del tenant. La decision ahora esta mejor aislada: la administracion global sale del core tenant-scoped y vive en `CLARIHR.Backoffice.Api`, con tokens `platform`, autorizacion por `PlatformOperator` persistido y `PlatformAuditLog` separado del `AuditLog` tenant-scoped.
+`CommercialAddon`, `CommercialPlan`, `CompanySubscription` y `PlatformOperator` introducen un plano global fuera del tenant. La decision ahora esta mejor aislada: la administracion global sale del core tenant-scoped y vive en `CLARIHR.Backoffice.Api`, con tokens `platform`, autorizacion por `PlatformOperator` persistido y `PlatformAuditLog` separado del `AuditLog` tenant-scoped.
 
 ### 4.4 Controllers con superficie mixta
 
@@ -96,7 +96,7 @@ La reevaluacion encontro uso amplio de `IgnoreQueryFilters()` en repositorios de
 
 El documento previo ya no representaba fielmente el sistema:
 
-- reportaba `308` endpoints cuando la superficie actual medida es `324`
+- reportaba `308` endpoints cuando la superficie actual medida es `332`
 - afirmaba controllers universalmente delgados cuando ya hay excepciones visibles
 
 ### 5.4 Matriz resumida de `IgnoreQueryFilters()`
