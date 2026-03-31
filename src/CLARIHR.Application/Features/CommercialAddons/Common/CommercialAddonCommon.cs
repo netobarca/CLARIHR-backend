@@ -7,12 +7,19 @@ public static partial class CommercialAddonValidationRules
 {
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
+    public const int MeasurementUnitMaxLength = 80;
 
     public static bool IsValidAddonCode(string code) =>
         AddonCodeRegex().IsMatch(code.Trim());
 
     public static bool HasSupportedScale(decimal value) =>
         decimal.Round(value, 2) == value;
+
+    public static bool UsesReservedMassiveUnit(string measurementUnit) =>
+        string.Equals(measurementUnit.Trim(), CLARIHR.Domain.Companies.CommercialAddon.MassiveMeasurementUnit, StringComparison.OrdinalIgnoreCase);
+
+    public static bool ContainsSeat(string measurementUnit) =>
+        measurementUnit.Contains("seat", StringComparison.OrdinalIgnoreCase);
 
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$", RegexOptions.CultureInvariant)]
     private static partial Regex AddonCodeRegex();

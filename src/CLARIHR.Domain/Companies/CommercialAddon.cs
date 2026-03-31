@@ -4,6 +4,9 @@ namespace CLARIHR.Domain.Companies;
 
 public sealed class CommercialAddon : AuditableEntity
 {
+    public const string MassiveMeasurementUnit = "active employee";
+    private const int MeasurementUnitMaxLength = 80;
+
     private CommercialAddon()
     {
     }
@@ -14,7 +17,10 @@ public sealed class CommercialAddon : AuditableEntity
         string name,
         string? description,
         CommercialAddonType type,
-        decimal pricePerActiveEmployee,
+        CommercialAddonBillingModel billingModel,
+        string measurementUnit,
+        decimal unitPrice,
+        int? minimumQuantity,
         decimal? minimumMonthlyFee,
         CommercialAddonPeriodicity periodicity,
         CommercialAddonStatus status)
@@ -22,6 +28,11 @@ public sealed class CommercialAddon : AuditableEntity
         if (!Enum.IsDefined(type))
         {
             throw new ArgumentOutOfRangeException(nameof(type), "Commercial addon type is invalid.");
+        }
+
+        if (!Enum.IsDefined(billingModel))
+        {
+            throw new ArgumentOutOfRangeException(nameof(billingModel), "Commercial addon billing model is invalid.");
         }
 
         if (!Enum.IsDefined(periodicity))
@@ -39,8 +50,7 @@ public sealed class CommercialAddon : AuditableEntity
         SetName(name);
         Description = CompanyNormalization.CleanOptional(description);
         Type = type;
-        PricePerActiveEmployee = NormalizeAmount(pricePerActiveEmployee, nameof(pricePerActiveEmployee));
-        MinimumMonthlyFee = NormalizeOptionalAmount(minimumMonthlyFee, nameof(minimumMonthlyFee));
+        ConfigurePricing(type, billingModel, measurementUnit, unitPrice, minimumQuantity, minimumMonthlyFee);
         Periodicity = periodicity;
         Status = status;
         ConcurrencyToken = Guid.NewGuid();
@@ -58,7 +68,13 @@ public sealed class CommercialAddon : AuditableEntity
 
     public CommercialAddonType Type { get; private set; }
 
-    public decimal PricePerActiveEmployee { get; private set; }
+    public CommercialAddonBillingModel BillingModel { get; private set; }
+
+    public string MeasurementUnit { get; private set; } = string.Empty;
+
+    public decimal UnitPrice { get; private set; }
+
+    public int? MinimumQuantity { get; private set; }
 
     public decimal? MinimumMonthlyFee { get; private set; }
 
@@ -73,7 +89,10 @@ public sealed class CommercialAddon : AuditableEntity
         string name,
         string? description,
         CommercialAddonType type,
-        decimal pricePerActiveEmployee,
+        CommercialAddonBillingModel billingModel,
+        string measurementUnit,
+        decimal unitPrice,
+        int? minimumQuantity,
         decimal? minimumMonthlyFee,
         CommercialAddonPeriodicity periodicity,
         CommercialAddonStatus status) =>
@@ -83,7 +102,10 @@ public sealed class CommercialAddon : AuditableEntity
             name,
             description,
             type,
-            pricePerActiveEmployee,
+            billingModel,
+            measurementUnit,
+            unitPrice,
+            minimumQuantity,
             minimumMonthlyFee,
             periodicity,
             status);
@@ -93,13 +115,21 @@ public sealed class CommercialAddon : AuditableEntity
         string name,
         string? description,
         CommercialAddonType type,
-        decimal pricePerActiveEmployee,
+        CommercialAddonBillingModel billingModel,
+        string measurementUnit,
+        decimal unitPrice,
+        int? minimumQuantity,
         decimal? minimumMonthlyFee,
         CommercialAddonPeriodicity periodicity)
     {
         if (!Enum.IsDefined(type))
         {
             throw new ArgumentOutOfRangeException(nameof(type), "Commercial addon type is invalid.");
+        }
+
+        if (!Enum.IsDefined(billingModel))
+        {
+            throw new ArgumentOutOfRangeException(nameof(billingModel), "Commercial addon billing model is invalid.");
         }
 
         if (!Enum.IsDefined(periodicity))
@@ -111,8 +141,7 @@ public sealed class CommercialAddon : AuditableEntity
         SetName(name);
         Description = CompanyNormalization.CleanOptional(description);
         Type = type;
-        PricePerActiveEmployee = NormalizeAmount(pricePerActiveEmployee, nameof(pricePerActiveEmployee));
-        MinimumMonthlyFee = NormalizeOptionalAmount(minimumMonthlyFee, nameof(minimumMonthlyFee));
+        ConfigurePricing(type, billingModel, measurementUnit, unitPrice, minimumQuantity, minimumMonthlyFee);
         Periodicity = periodicity;
         RefreshConcurrencyToken();
     }
@@ -151,7 +180,88 @@ public sealed class CommercialAddon : AuditableEntity
         NormalizedName = CompanyNormalization.NormalizeName(name);
     }
 
+    private void ConfigurePricing(
+        CommercialAddonType type,
+        CommercialAddonBillingModel billingModel,
+        string measurementUnit,
+        decimal unitPrice,
+        int? minimumQuantity,
+        decimal? minimumMonthlyFee)
+    {
+        var cleanedMeasurementUnit = CleanMeasurementUnit(measurementUnit);
+        var normalizedMeasurementUnit = cleanedMeasurementUnit.ToLowerInvariant();
+        var containsSeat = normalizedMeasurementUnit.Contains("seat", StringComparison.Ordinal);
+
+        switch (type)
+        {
+            case CommercialAddonType.Massive:
+                if (billingModel != CommercialAddonBillingModel.PerActiveEmployee)
+                {
+                    throw new ArgumentException("Massive commercial add-ons must be billed per active employee.", nameof(billingModel));
+                }
+
+                if (!string.Equals(normalizedMeasurementUnit, MassiveMeasurementUnit, StringComparison.Ordinal))
+                {
+                    throw new ArgumentException("Massive commercial add-ons must use the reserved active employee unit.", nameof(measurementUnit));
+                }
+
+                if (minimumQuantity.HasValue)
+                {
+                    throw new ArgumentException("Massive commercial add-ons cannot define a minimum quantity.", nameof(minimumQuantity));
+                }
+
+                BillingModel = billingModel;
+                MeasurementUnit = MassiveMeasurementUnit;
+                UnitPrice = NormalizeAmount(unitPrice, nameof(unitPrice));
+                MinimumQuantity = null;
+                MinimumMonthlyFee = NormalizeOptionalAmount(minimumMonthlyFee, nameof(minimumMonthlyFee));
+                return;
+            case CommercialAddonType.Specialized:
+                if (billingModel == CommercialAddonBillingModel.PerActiveEmployee)
+                {
+                    throw new ArgumentException("Specialized commercial add-ons cannot be billed per active employee.", nameof(billingModel));
+                }
+
+                if (string.Equals(normalizedMeasurementUnit, MassiveMeasurementUnit, StringComparison.Ordinal))
+                {
+                    throw new ArgumentException("Specialized commercial add-ons cannot use the reserved active employee unit.", nameof(measurementUnit));
+                }
+
+                if (billingModel == CommercialAddonBillingModel.PerSeat && !containsSeat)
+                {
+                    throw new ArgumentException("Per-seat commercial add-ons must use a measurement unit containing 'seat'.", nameof(measurementUnit));
+                }
+
+                if (billingModel == CommercialAddonBillingModel.PerVolume && containsSeat)
+                {
+                    throw new ArgumentException("Per-volume commercial add-ons cannot use a measurement unit containing 'seat'.", nameof(measurementUnit));
+                }
+
+                if (minimumMonthlyFee.HasValue)
+                {
+                    throw new ArgumentException("Specialized commercial add-ons cannot define a minimum monthly fee.", nameof(minimumMonthlyFee));
+                }
+
+                BillingModel = billingModel;
+                MeasurementUnit = cleanedMeasurementUnit;
+                UnitPrice = NormalizeAmount(unitPrice, nameof(unitPrice));
+                MinimumQuantity = NormalizeOptionalQuantity(minimumQuantity, nameof(minimumQuantity));
+                MinimumMonthlyFee = null;
+                return;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(type), "Commercial addon type is invalid.");
+        }
+    }
+
     private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
+
+    private static string CleanMeasurementUnit(string measurementUnit)
+    {
+        var cleaned = CompanyNormalization.Clean(measurementUnit, nameof(measurementUnit));
+        return cleaned.Length <= MeasurementUnitMaxLength
+            ? cleaned
+            : throw new ArgumentOutOfRangeException(nameof(measurementUnit), $"Measurement unit cannot exceed {MeasurementUnitMaxLength} characters.");
+    }
 
     private static decimal NormalizeAmount(decimal value, string parameterName)
     {
@@ -171,5 +281,20 @@ public sealed class CommercialAddon : AuditableEntity
         }
 
         return NormalizeAmount(value.Value, parameterName);
+    }
+
+    private static int? NormalizeOptionalQuantity(int? value, string parameterName)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        if (value.Value < 0)
+        {
+            throw new ArgumentOutOfRangeException(parameterName, "Quantity must be greater than or equal to zero.");
+        }
+
+        return value.Value;
     }
 }

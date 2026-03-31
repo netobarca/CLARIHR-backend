@@ -35,7 +35,7 @@ La reevaluacion profunda del **28 de marzo de 2026** confirma, sin embargo, que 
 - listados principales con paginacion
 - consultas con `AsNoTracking()` en varias lecturas
 - uso amplio de proyecciones y DTOs en repositorios
-- los catalogos globales de plataforma para planes y add-ons mantienen lectura paginada, `AsNoTracking()` e indices por codigo/estado
+- los catalogos globales de plataforma para planes y add-ons mantienen lectura paginada, `AsNoTracking()` e indices por codigo, estado y filtros comerciales; `CommercialAddon` ahora filtra tambien por `type` y `billingModel` con indice dedicado sobre `billing_model`
 - segregacion CQRS que facilita aislar optimizaciones
 - build limpio y test suite estable, lo que ayuda a refactorizar sin romper flujo funcional
 

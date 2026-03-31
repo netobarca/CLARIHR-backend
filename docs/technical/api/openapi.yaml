@@ -433,6 +433,13 @@ components:
       type: string
       enum:
         - Massive
+        - Specialized
+    CommercialAddonBillingModel:
+      type: string
+      enum:
+        - PerActiveEmployee
+        - PerSeat
+        - PerVolume
     CommercialAddonPeriodicity:
       type: string
       enum:
@@ -455,10 +462,11 @@ components:
       required:
         - publicId
         - code
-        - normalizedCode
         - name
         - type
-        - pricePerActiveEmployee
+        - billingModel
+        - measurementUnit
+        - unitPrice
         - periodicity
         - status
         - createdAtUtc
@@ -468,22 +476,29 @@ components:
           format: uuid
         code:
           type: string
-          example: ADDON-ATTENDANCE
-        normalizedCode:
-          type: string
-          example: ADDON-ATTENDANCE
+          example: ADDON-RECRUITING
         name:
           type: string
-          example: Attendance
+          example: Recruiting ATS
         description:
           type: string
           nullable: true
         type:
           $ref: '#/components/schemas/CommercialAddonType'
-        pricePerActiveEmployee:
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+          example: recruiter seat
+        unitPrice:
           type: number
           format: decimal
-          example: 1.20
+          example: 12.50
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+          example: 2
         minimumMonthlyFee:
           type: number
           format: decimal
@@ -505,10 +520,11 @@ components:
       required:
         - publicId
         - code
-        - normalizedCode
         - name
         - type
-        - pricePerActiveEmployee
+        - billingModel
+        - measurementUnit
+        - unitPrice
         - periodicity
         - status
         - concurrencyToken
@@ -519,22 +535,29 @@ components:
           format: uuid
         code:
           type: string
-          example: ADDON-ATTENDANCE
-        normalizedCode:
-          type: string
-          example: ADDON-ATTENDANCE
+          example: ADDON-RECRUITING
         name:
           type: string
-          example: Attendance
+          example: Recruiting ATS
         description:
           type: string
           nullable: true
         type:
           $ref: '#/components/schemas/CommercialAddonType'
-        pricePerActiveEmployee:
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+          example: recruiter seat
+        unitPrice:
           type: number
           format: decimal
-          example: 1.20
+          example: 12.50
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+          example: 2
         minimumMonthlyFee:
           type: number
           format: decimal
@@ -560,7 +583,9 @@ components:
         - code
         - name
         - type
-        - pricePerActiveEmployee
+        - billingModel
+        - measurementUnit
+        - unitPrice
         - periodicity
         - status
       properties:
@@ -578,10 +603,21 @@ components:
           maxLength: 500
         type:
           $ref: '#/components/schemas/CommercialAddonType'
-        pricePerActiveEmployee:
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+          maxLength: 80
+          example: recruiter seat
+        unitPrice:
           type: number
           format: decimal
-          example: 1.20
+          example: 12.50
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+          example: 2
         minimumMonthlyFee:
           type: number
           format: decimal
@@ -597,7 +633,9 @@ components:
         - code
         - name
         - type
-        - pricePerActiveEmployee
+        - billingModel
+        - measurementUnit
+        - unitPrice
         - periodicity
         - concurrencyToken
       properties:
@@ -615,10 +653,20 @@ components:
           maxLength: 500
         type:
           $ref: '#/components/schemas/CommercialAddonType'
-        pricePerActiveEmployee:
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+          maxLength: 80
+          example: vacante
+        unitPrice:
           type: number
           format: decimal
           example: 1.50
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
         minimumMonthlyFee:
           type: number
           format: decimal
@@ -1289,10 +1337,20 @@ paths:
         - commercial-addons
       operationId: SearchCommercialAddons
       summary: List global commercial add-ons
-      description: Returns the paged catalog of global massive commercial add-ons. Requires an authenticated platform token and does not depend on tenant context.
+      description: Returns the paged catalog of global commercial add-ons, including massive and specialized pricing models. Requires an authenticated platform token and does not depend on tenant context.
       security:
         - Bearer: []
       parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/CommercialAddonType'
+        - name: billingModel
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/CommercialAddonBillingModel'
         - name: status
           in: query
           required: false
@@ -1351,7 +1409,7 @@ paths:
         - commercial-addons
       operationId: CreateCommercialAddon
       summary: Create a global commercial add-on
-      description: Creates a reusable global massive commercial add-on for future company-level activation and billing. Requires an authenticated platform token with admin access and does not depend on tenant context.
+      description: Creates a reusable global commercial add-on for future company-level activation and billing. Supports massive pricing per active employee and specialized pricing per seat or volume. Requires an authenticated platform token with admin access and does not depend on tenant context.
       security:
         - Bearer: []
       requestBody:

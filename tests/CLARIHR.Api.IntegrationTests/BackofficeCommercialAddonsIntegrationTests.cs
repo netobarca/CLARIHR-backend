@@ -63,7 +63,10 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
                 "Attendance",
                 "Attendance addon",
                 CommercialAddonType.Massive,
+                CommercialAddonBillingModel.PerActiveEmployee,
+                CommercialAddon.MassiveMeasurementUnit,
                 1.2m,
+                null,
                 20m,
                 CommercialAddonPeriodicity.Monthly,
                 CommercialAddonStatus.Active);
@@ -94,7 +97,10 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
             name = "Payroll ES",
             description = "Payroll addon",
             type = CommercialAddonType.Massive,
-            pricePerActiveEmployee = 2.5m,
+            billingModel = CommercialAddonBillingModel.PerActiveEmployee,
+            measurementUnit = CommercialAddon.MassiveMeasurementUnit,
+            unitPrice = 2.5m,
+            minimumQuantity = (int?)null,
             minimumMonthlyFee = 35m,
             periodicity = CommercialAddonPeriodicity.Monthly,
             status = CommercialAddonStatus.Draft
@@ -117,12 +123,15 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
 
         var createResponse = await client.PostJsonAsync("/api/platform/commercial-addons", new
         {
-            code = "ADDON-ATTENDANCE",
-            name = "Attendance",
-            description = "Attendance addon",
-            type = CommercialAddonType.Massive,
-            pricePerActiveEmployee = 1.2m,
-            minimumMonthlyFee = 20m,
+            code = "ADDON-RECRUITING",
+            name = "Recruiting ATS",
+            description = "Recruiting seat addon",
+            type = CommercialAddonType.Specialized,
+            billingModel = CommercialAddonBillingModel.PerSeat,
+            measurementUnit = "recruiter seat",
+            unitPrice = 12.5m,
+            minimumQuantity = 2,
+            minimumMonthlyFee = (decimal?)null,
             periodicity = CommercialAddonPeriodicity.Monthly,
             status = CommercialAddonStatus.Draft
         });
@@ -131,9 +140,13 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
 
         var created = await createResponse.Content.ReadFromJsonAsync<CommercialAddonEnvelope>(JsonOptions);
         Assert.NotNull(created);
-        Assert.Equal("ADDON-ATTENDANCE", created!.Code);
-        Assert.Equal(CommercialAddonType.Massive, created.Type);
-        Assert.Equal(20m, created.MinimumMonthlyFee);
+        Assert.Equal("ADDON-RECRUITING", created!.Code);
+        Assert.Equal(CommercialAddonType.Specialized, created.Type);
+        Assert.Equal(CommercialAddonBillingModel.PerSeat, created.BillingModel);
+        Assert.Equal("recruiter seat", created.MeasurementUnit);
+        Assert.Equal(12.5m, created.UnitPrice);
+        Assert.Equal(2, created.MinimumQuantity);
+        Assert.Null(created.MinimumMonthlyFee);
         Assert.Equal(CommercialAddonStatus.Draft, created.Status);
 
         var getResponse = await client.GetAsync($"/api/platform/commercial-addons/{created.PublicId}");
@@ -145,11 +158,14 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
 
         var updateResponse = await client.PutJsonAsync($"/api/platform/commercial-addons/{created.PublicId}", new
         {
-            code = "ADDON-ATTENDANCE",
-            name = "Attendance Plus",
-            description = "Attendance addon updated",
-            type = CommercialAddonType.Massive,
-            pricePerActiveEmployee = 1.5m,
+            code = "ADDON-RECRUITING",
+            name = "Recruiting ATS Plus",
+            description = "Recruiting addon updated",
+            type = CommercialAddonType.Specialized,
+            billingModel = CommercialAddonBillingModel.PerVolume,
+            measurementUnit = "vacante",
+            unitPrice = 1.5m,
+            minimumQuantity = 10,
             minimumMonthlyFee = (decimal?)null,
             periodicity = CommercialAddonPeriodicity.Annual,
             concurrencyToken = created.ConcurrencyToken
@@ -158,7 +174,10 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
 
         var updated = await updateResponse.Content.ReadFromJsonAsync<CommercialAddonEnvelope>(JsonOptions);
         Assert.NotNull(updated);
-        Assert.Equal("Attendance Plus", updated!.Name);
+        Assert.Equal("Recruiting ATS Plus", updated!.Name);
+        Assert.Equal(CommercialAddonBillingModel.PerVolume, updated.BillingModel);
+        Assert.Equal("vacante", updated.MeasurementUnit);
+        Assert.Equal(10, updated.MinimumQuantity);
         Assert.Null(updated.MinimumMonthlyFee);
         Assert.Equal(CommercialAddonPeriodicity.Annual, updated.Periodicity);
 
@@ -180,7 +199,7 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
         Assert.NotNull(inactivated);
         Assert.Equal(CommercialAddonStatus.Inactive, inactivated!.Status);
 
-        var filteredResponse = await client.GetAsync("/api/platform/commercial-addons?status=Inactive&q=attendance&page=1&pageSize=10");
+        var filteredResponse = await client.GetAsync("/api/platform/commercial-addons?type=Specialized&billingModel=PerVolume&status=Inactive&q=recruiting&page=1&pageSize=10");
         filteredResponse.EnsureSuccessStatusCode();
 
         var filtered = await filteredResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<CommercialAddonSummaryEnvelope>>(JsonOptions);
@@ -207,7 +226,10 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
         string Name,
         string? Description,
         CommercialAddonType Type,
-        decimal PricePerActiveEmployee,
+        CommercialAddonBillingModel BillingModel,
+        string MeasurementUnit,
+        decimal UnitPrice,
+        int? MinimumQuantity,
         decimal? MinimumMonthlyFee,
         CommercialAddonPeriodicity Periodicity,
         CommercialAddonStatus Status,
@@ -220,7 +242,10 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
         string Name,
         string? Description,
         CommercialAddonType Type,
-        decimal PricePerActiveEmployee,
+        CommercialAddonBillingModel BillingModel,
+        string MeasurementUnit,
+        decimal UnitPrice,
+        int? MinimumQuantity,
         decimal? MinimumMonthlyFee,
         CommercialAddonPeriodicity Periodicity,
         CommercialAddonStatus Status,

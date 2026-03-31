@@ -44,9 +44,21 @@ internal sealed class CommercialAddonConfiguration : IEntityTypeConfiguration<Co
             .HasConversion<string>()
             .HasMaxLength(20);
 
-        builder.Property(addon => addon.PricePerActiveEmployee)
-            .HasColumnName("price_per_active_employee")
+        builder.Property(addon => addon.BillingModel)
+            .HasColumnName("billing_model")
+            .HasConversion<string>()
+            .HasMaxLength(30);
+
+        builder.Property(addon => addon.MeasurementUnit)
+            .HasColumnName("measurement_unit")
+            .HasMaxLength(80);
+
+        builder.Property(addon => addon.UnitPrice)
+            .HasColumnName("unit_price")
             .HasPrecision(18, 2);
+
+        builder.Property(addon => addon.MinimumQuantity)
+            .HasColumnName("minimum_quantity");
 
         builder.Property(addon => addon.MinimumMonthlyFee)
             .HasColumnName("minimum_monthly_fee")
@@ -88,5 +100,8 @@ internal sealed class CommercialAddonConfiguration : IEntityTypeConfiguration<Co
 
         builder.HasIndex(addon => addon.Type)
             .HasDatabaseName("ix_commercial_addons__type");
+
+        builder.HasIndex(addon => addon.BillingModel)
+            .HasDatabaseName("ix_commercial_addons__billing_model");
     }
 }

@@ -13,6 +13,8 @@ public interface ICommercialAddonRepository
     Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken);
 
     Task<PagedResponse<CommercialAddonSummaryResponse>> SearchAsync(
+        CommercialAddonType? type,
+        CommercialAddonBillingModel? billingModel,
         CommercialAddonStatus? status,
         string? search,
         int pageNumber,

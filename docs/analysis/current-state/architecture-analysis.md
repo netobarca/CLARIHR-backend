@@ -55,6 +55,7 @@ El sistema sigue orientado a tenant isolation, pero [ApplicationDbContext.cs#L28
 ### 4.3 Capacidades globales fuera de tenant
 
 `CommercialAddon`, `CommercialPlan`, `CompanySubscription` y `PlatformOperator` introducen un plano global fuera del tenant. La decision ahora esta mejor aislada: la administracion global sale del core tenant-scoped y vive en `CLARIHR.Backoffice.Api`, con tokens `platform`, autorizacion por `PlatformOperator` persistido y `PlatformAuditLog` separado del `AuditLog` tenant-scoped.
+Desde el 30 de marzo de 2026, `CommercialAddon` tambien deja de estar acoplado solo al cobro masivo por empleado activo y pasa a modelar pricing global reutilizable con `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity` y `minimumMonthlyFee` segun corresponda.
 
 ### 4.4 Controllers con superficie mixta
 

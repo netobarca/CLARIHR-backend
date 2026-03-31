@@ -35,7 +35,10 @@ public sealed class CommercialAddonAdministrationTests
                 "Attendance",
                 null,
                 CommercialAddonType.Massive,
+                CommercialAddonBillingModel.PerActiveEmployee,
+                CommercialAddon.MassiveMeasurementUnit,
                 1.2m,
+                null,
                 null,
                 CommercialAddonPeriodicity.Monthly,
                 CommercialAddonStatus.Draft),
@@ -49,7 +52,7 @@ public sealed class CommercialAddonAdministrationTests
     public async Task Create_WhenCodeAlreadyExists_ShouldReturnConflict()
     {
         var repository = new TestCommercialAddonRepository();
-        repository.Add(CreateAddon("ADDON-ATTENDANCE", "Attendance", CommercialAddonStatus.Active, id: 10));
+        repository.Add(CreateMassiveAddon("ADDON-ATTENDANCE", "Attendance", CommercialAddonStatus.Active, id: 10));
 
         var handler = new CreateCommercialAddonCommandHandler(
             new TestPlatformAuthorizationService(Result.Success(), Result.Success()),
@@ -65,7 +68,10 @@ public sealed class CommercialAddonAdministrationTests
                 "Attendance Plus",
                 null,
                 CommercialAddonType.Massive,
+                CommercialAddonBillingModel.PerActiveEmployee,
+                CommercialAddon.MassiveMeasurementUnit,
                 1.5m,
+                null,
                 25m,
                 CommercialAddonPeriodicity.Monthly,
                 CommercialAddonStatus.Draft),
@@ -76,22 +82,64 @@ public sealed class CommercialAddonAdministrationTests
     }
 
     [Fact]
-    public void CreateValidator_WhenTypeIsNotMassive_ShouldRejectCommand()
+    public void CreateValidator_WhenSpecializedPerSeatUnitDoesNotContainSeat_ShouldRejectCommand()
     {
         var validator = new CreateCommercialAddonCommandValidator();
         var command = new CreateCommercialAddonCommand(
-            "ADDON-ATTENDANCE",
-            "Attendance",
+            "ADDON-RECRUITING",
+            "Recruiting ATS",
             null,
-            (CommercialAddonType)99,
+            CommercialAddonType.Specialized,
+            CommercialAddonBillingModel.PerSeat,
+            "recruiter",
             1.2m,
+            2,
             null,
             CommercialAddonPeriodicity.Monthly,
             CommercialAddonStatus.Draft);
 
         var result = validator.TestValidate(command);
 
-        result.ShouldHaveValidationErrorFor(x => x.Type);
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.PropertyName == string.Empty);
+    }
+
+    [Fact]
+    public async Task Create_WhenSpecializedConfigurationIsValid_ShouldPersistAddon()
+    {
+        var repository = new TestCommercialAddonRepository();
+
+        var handler = new CreateCommercialAddonCommandHandler(
+            new TestPlatformAuthorizationService(Result.Success(), Result.Success()),
+            repository,
+            new TestPlatformAuditService(),
+            new TestCurrentUserService(),
+            new TestUnitOfWork(),
+            NullLogger<CreateCommercialAddonCommandHandler>.Instance);
+
+        var result = await handler.Handle(
+            new CreateCommercialAddonCommand(
+                "ADDON-RECRUITING",
+                "Recruiting ATS",
+                "Recruiting seat addon",
+                CommercialAddonType.Specialized,
+                CommercialAddonBillingModel.PerSeat,
+                "recruiter seat",
+                12.5m,
+                2,
+                null,
+                CommercialAddonPeriodicity.Monthly,
+                CommercialAddonStatus.Draft),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(CommercialAddonType.Specialized, result.Value.Type);
+        Assert.Equal(CommercialAddonBillingModel.PerSeat, result.Value.BillingModel);
+        Assert.Equal("recruiter seat", result.Value.MeasurementUnit);
+        Assert.Equal(12.5m, result.Value.UnitPrice);
+        Assert.Equal(2, result.Value.MinimumQuantity);
+        Assert.Null(result.Value.MinimumMonthlyFee);
+        Assert.Contains(repository.Items, addon => addon.PublicId == result.Value.PublicId);
     }
 
     [Fact]
@@ -111,7 +159,7 @@ public sealed class CommercialAddonAdministrationTests
     public async Task Update_WhenConcurrencyTokenDoesNotMatch_ShouldReturnConflict()
     {
         var repository = new TestCommercialAddonRepository();
-        var addon = CreateAddon("ADDON-ATTENDANCE", "Attendance", CommercialAddonStatus.Draft, id: 20);
+        var addon = CreateMassiveAddon("ADDON-ATTENDANCE", "Attendance", CommercialAddonStatus.Draft, id: 20);
         repository.Add(addon);
 
         var handler = new UpdateCommercialAddonCommandHandler(
@@ -129,7 +177,10 @@ public sealed class CommercialAddonAdministrationTests
                 "Attendance Updated",
                 "Updated",
                 CommercialAddonType.Massive,
+                CommercialAddonBillingModel.PerActiveEmployee,
+                CommercialAddon.MassiveMeasurementUnit,
                 1.5m,
+                null,
                 30m,
                 CommercialAddonPeriodicity.Annual,
                 Guid.NewGuid()),
@@ -143,7 +194,7 @@ public sealed class CommercialAddonAdministrationTests
     public async Task Update_ShouldRefreshConcurrencyToken_AndEditableFields()
     {
         var repository = new TestCommercialAddonRepository();
-        var addon = CreateAddon("ADDON-ATTENDANCE", "Attendance", CommercialAddonStatus.Draft, id: 30);
+        var addon = CreateMassiveAddon("ADDON-ATTENDANCE", "Attendance", CommercialAddonStatus.Draft, id: 30);
         repository.Add(addon);
 
         var originalToken = addon.ConcurrencyToken;
@@ -162,8 +213,11 @@ public sealed class CommercialAddonAdministrationTests
                 "ADDON-ATTENDANCE",
                 "Attendance Plus",
                 "Updated description",
-                CommercialAddonType.Massive,
+                CommercialAddonType.Specialized,
+                CommercialAddonBillingModel.PerVolume,
+                "vacante",
                 1.7m,
+                null,
                 null,
                 CommercialAddonPeriodicity.Annual,
                 originalToken),
@@ -172,7 +226,11 @@ public sealed class CommercialAddonAdministrationTests
         Assert.True(result.IsSuccess);
         Assert.Equal("Attendance Plus", addon.Name);
         Assert.Equal("Updated description", addon.Description);
-        Assert.Equal(1.7m, addon.PricePerActiveEmployee);
+        Assert.Equal(CommercialAddonType.Specialized, addon.Type);
+        Assert.Equal(CommercialAddonBillingModel.PerVolume, addon.BillingModel);
+        Assert.Equal("vacante", addon.MeasurementUnit);
+        Assert.Equal(1.7m, addon.UnitPrice);
+        Assert.Null(addon.MinimumQuantity);
         Assert.Null(addon.MinimumMonthlyFee);
         Assert.Equal(CommercialAddonPeriodicity.Annual, addon.Periodicity);
         Assert.NotEqual(originalToken, addon.ConcurrencyToken);
@@ -183,7 +241,7 @@ public sealed class CommercialAddonAdministrationTests
     public async Task Activate_WhenAddonAlreadyActive_ShouldReturnConflict()
     {
         var repository = new TestCommercialAddonRepository();
-        var addon = CreateAddon("ADDON-ATTENDANCE", "Attendance", CommercialAddonStatus.Active, id: 40);
+        var addon = CreateMassiveAddon("ADDON-ATTENDANCE", "Attendance", CommercialAddonStatus.Active, id: 40);
         repository.Add(addon);
 
         var handler = new ActivateCommercialAddonCommandHandler(
@@ -206,26 +264,32 @@ public sealed class CommercialAddonAdministrationTests
     public async Task Search_ShouldApplyStatusSearchAndPagination()
     {
         var repository = new TestCommercialAddonRepository();
-        repository.Add(CreateAddon("ADDON-ATTENDANCE", "Attendance", CommercialAddonStatus.Active, id: 50));
-        repository.Add(CreateAddon("ADDON-PAYROLL", "Payroll", CommercialAddonStatus.Active, id: 51));
-        repository.Add(CreateAddon("ADDON-PERFORMANCE", "Performance", CommercialAddonStatus.Draft, id: 52));
+        repository.Add(CreateMassiveAddon("ADDON-ATTENDANCE", "Attendance", CommercialAddonStatus.Active, id: 50));
+        repository.Add(CreateSpecializedAddon("ADDON-RECRUITING", "Recruiting", CommercialAddonBillingModel.PerSeat, "recruiter seat", CommercialAddonStatus.Active, id: 51));
+        repository.Add(CreateSpecializedAddon("ADDON-API-PACK", "Api Pack", CommercialAddonBillingModel.PerVolume, "api call", CommercialAddonStatus.Draft, id: 52));
 
         var handler = new SearchCommercialAddonsQueryHandler(
             new TestPlatformAuthorizationService(Result.Success(), Result.Success()),
             repository);
 
         var result = await handler.Handle(
-            new SearchCommercialAddonsQuery(CommercialAddonStatus.Active, "addON", PageNumber: 1, PageSize: 1),
+            new SearchCommercialAddonsQuery(
+                CommercialAddonType.Specialized,
+                CommercialAddonBillingModel.PerSeat,
+                CommercialAddonStatus.Active,
+                "addON",
+                PageNumber: 1,
+                PageSize: 1),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.TotalCount);
+        Assert.Equal(1, result.Value.TotalCount);
         var item = Assert.Single(result.Value.Items);
-        Assert.Equal("ADDON-ATTENDANCE", item.Code);
-        Assert.Equal("Attendance", item.Name);
+        Assert.Equal("ADDON-RECRUITING", item.Code);
+        Assert.Equal(CommercialAddonBillingModel.PerSeat, item.BillingModel);
     }
 
-    private static CommercialAddon CreateAddon(
+    private static CommercialAddon CreateMassiveAddon(
         string code,
         string name,
         CommercialAddonStatus status,
@@ -236,8 +300,36 @@ public sealed class CommercialAddonAdministrationTests
             name,
             $"{name} description",
             CommercialAddonType.Massive,
+            CommercialAddonBillingModel.PerActiveEmployee,
+            CommercialAddon.MassiveMeasurementUnit,
             1.2m,
+            null,
             25m,
+            CommercialAddonPeriodicity.Monthly,
+            status);
+
+        SetEntityId(addon, id);
+        return addon;
+    }
+
+    private static CommercialAddon CreateSpecializedAddon(
+        string code,
+        string name,
+        CommercialAddonBillingModel billingModel,
+        string measurementUnit,
+        CommercialAddonStatus status,
+        long id)
+    {
+        var addon = CommercialAddon.Create(
+            code,
+            name,
+            $"{name} description",
+            CommercialAddonType.Specialized,
+            billingModel,
+            measurementUnit,
+            3.5m,
+            2,
+            null,
             CommercialAddonPeriodicity.Monthly,
             status);
 
@@ -309,6 +401,8 @@ public sealed class CommercialAddonAdministrationTests
                 (!excludingId.HasValue || addon.Id != excludingId.Value)));
 
         public Task<PagedResponse<CommercialAddonSummaryResponse>> SearchAsync(
+            CommercialAddonType? type,
+            CommercialAddonBillingModel? billingModel,
             CommercialAddonStatus? status,
             string? search,
             int pageNumber,
@@ -316,6 +410,16 @@ public sealed class CommercialAddonAdministrationTests
             CancellationToken cancellationToken)
         {
             IEnumerable<CommercialAddon> query = Items;
+
+            if (type.HasValue)
+            {
+                query = query.Where(addon => addon.Type == type.Value);
+            }
+
+            if (billingModel.HasValue)
+            {
+                query = query.Where(addon => addon.BillingModel == billingModel.Value);
+            }
 
             if (status.HasValue)
             {
@@ -344,7 +448,10 @@ public sealed class CommercialAddonAdministrationTests
                     addon.Name,
                     addon.Description,
                     addon.Type,
-                    addon.PricePerActiveEmployee,
+                    addon.BillingModel,
+                    addon.MeasurementUnit,
+                    addon.UnitPrice,
+                    addon.MinimumQuantity,
                     addon.MinimumMonthlyFee,
                     addon.Periodicity,
                     addon.Status,
