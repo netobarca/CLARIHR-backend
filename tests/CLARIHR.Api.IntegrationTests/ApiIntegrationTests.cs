@@ -1748,7 +1748,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal("DIR-001", payload!.Code);
         Assert.Equal(orgUnitType.Id, payload.OrgUnitType.Id);
         Assert.Equal(orgUnitType.Code, payload.OrgUnitType.Code);
-        Assert.Null(payload.ParentId);
         Assert.Null(payload.Parent);
         Assert.True(payload.IsActive);
     }
@@ -1762,7 +1761,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var root = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
         var child = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia", root.Id);
 
-        Assert.Equal(root.Id, child.ParentId);
         Assert.NotNull(child.Parent);
         Assert.Equal(root.Id, child.Parent!.Id);
         Assert.Equal(root.Code, child.Parent.Code);
@@ -1775,7 +1773,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(listPayload);
 
         var listedChild = Assert.Single(listPayload!.Items, item => item.Id == child.Id);
-        Assert.Equal(root.Id, listedChild.ParentId);
         Assert.NotNull(listedChild.Parent);
         Assert.Equal(root.Id, listedChild.Parent!.Id);
         Assert.Equal(root.Code, listedChild.Parent.Code);
@@ -1784,9 +1781,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var detailResponse = await client.GetAsync($"/api/v1/org-units/{child.Id}");
         detailResponse.EnsureSuccessStatusCode();
 
-        var detailPayload = await detailResponse.Content.ReadFromJsonAsync<OrgUnitItem>(JsonOptions);
+        var detailJson = await detailResponse.Content.ReadAsStringAsync();
+        using var detailDocument = JsonDocument.Parse(detailJson);
+        Assert.False(detailDocument.RootElement.TryGetProperty("parentPublicId", out _));
+        Assert.True(detailDocument.RootElement.TryGetProperty("parent", out var parentElement));
+        Assert.True(parentElement.TryGetProperty("publicId", out var parentPublicIdElement));
+        Assert.False(parentElement.TryGetProperty("id", out _));
+        Assert.Equal(root.Id, parentPublicIdElement.GetGuid());
+
+        var detailPayload = JsonSerializer.Deserialize<OrgUnitItem>(detailJson, JsonOptions);
         Assert.NotNull(detailPayload);
-        Assert.Equal(root.Id, detailPayload!.ParentId);
         Assert.NotNull(detailPayload.Parent);
         Assert.Equal(root.Id, detailPayload.Parent!.Id);
         Assert.Equal(root.Code, detailPayload.Parent.Code);
@@ -5443,7 +5447,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string Name,
         OrgUnitCatalogReferenceItem OrgUnitType,
         OrgUnitCatalogReferenceItem? FunctionalArea,
-        Guid? ParentId,
         OrgUnitCatalogReferenceItem? Parent,
         int? SortOrder,
         string? Description,

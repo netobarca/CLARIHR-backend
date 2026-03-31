@@ -1370,7 +1370,7 @@ No es un catalogo base como `Org structure catalogs`; aqui ya se administran nod
 - `search`, `tree`, `graph`, `export`, `diagram-export` y `create` usan `companyPublicId` en la ruta.
 - `get by id`, `update`, `move`, `activate` e `inactivate` usan solo `{publicId}` y resuelven el tenant desde el token actual.
 - Si una org unit existe pero pertenece a otro tenant, la API responde `TENANT_MISMATCH` en vez de devolver un `404` plano.
-- El shape principal de lectura es `OrgUnitResponse`: `id`, `code`, `name`, `orgUnitType`, `functionalArea`, `parentId`, `parent`, `sortOrder`, `description`, `costCenterCode`, `managerEmployeeId`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y opcionalmente `allowedActions`.
+- El shape principal de lectura es `OrgUnitResponse`: `publicId`, `code`, `normalizedCode`, `name`, `orgUnitType`, `functionalArea`, `parent`, `sortOrder`, `description`, `costCenterCode`, `managerEmployeePublicId`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y opcionalmente `allowedActions`.
 - `code` es obligatorio, maximo `50`, y debe cumplir regex alfanumerica con `_` o `-`.
 - `name` es obligatorio y maximo `150`.
 - `description` acepta hasta `500` caracteres.
@@ -1425,7 +1425,7 @@ Observaciones funcionales:
 - el orden observable del listado es `sortOrder`, luego `name`, luego `code`.
 - `search` devuelve `PagedResponse<OrgUnitResponse>`.
 - `get by id` devuelve una sola `OrgUnitResponse`.
-- `search` y `get by id` incluyen `parent` con `id`, `code` y `name` cuando la unidad tiene padre; `parentId` se conserva para filtros y flujos de edicion.
+- `search` y `get by id` incluyen `parent` con `publicId`, `code`, `normalizedCode` y `name` cuando la unidad tiene padre.
 - `get by id` siempre calcula `allowedActions` usando el estado activo y la existencia de hijos activos.
 - `search` solo calcula `allowedActions` si `includeAllowedActions=true`.
 

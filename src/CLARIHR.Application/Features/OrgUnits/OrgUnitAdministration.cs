@@ -30,7 +30,6 @@ public sealed record OrgUnitResponse(
     string Name,
     OrgUnitCatalogReferenceResponse OrgUnitType,
     OrgUnitCatalogReferenceResponse? FunctionalArea,
-    Guid? ParentId,
     OrgUnitCatalogReferenceResponse? Parent,
     int? SortOrder,
     string? Description,

@@ -102,7 +102,6 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
                 item.FunctionalArea != null
                     ? new OrgUnitCatalogReferenceResponse(item.FunctionalArea.PublicId, item.FunctionalArea.Code, item.FunctionalArea.Name)
                     : null,
-                item.Parent != null ? item.Parent.PublicId : null,
                 item.Parent != null
                     ? new OrgUnitCatalogReferenceResponse(item.Parent.PublicId, item.Parent.Code, item.Parent.Name)
                     : null,
@@ -135,7 +134,6 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
              functionalArea != null
                  ? new OrgUnitCatalogReferenceResponse(functionalArea.PublicId, functionalArea.Code, functionalArea.Name)
                  : null,
-             parent != null ? parent.PublicId : null,
              parent != null
                  ? new OrgUnitCatalogReferenceResponse(parent.PublicId, parent.Code, parent.Name)
                  : null,
