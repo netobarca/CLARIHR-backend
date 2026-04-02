@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Domain.Auth;
@@ -90,7 +92,8 @@ internal static class CompanyUserManagementHelpers
             fieldSerializationService.SerializeString(fieldAccessProfile.GetRule(CompanyUserFieldKeys.Role), response.Role),
             response.Status.HasValue
                 ? fieldSerializationService.SerializeEnum(fieldAccessProfile.GetRule(CompanyUserFieldKeys.Status), response.Status.Value)
-                : null);
+                : null,
+            response.AllowedActions);
 
     public static CompanyUserResponse Filter(
         CompanyUserResponse response,
@@ -110,4 +113,31 @@ internal static class CompanyUserManagementHelpers
                 : null);
 
     public static string CreateRawToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
+
+    public static CompanyUserSummaryResponse ApplyAllowedActions(
+        CompanyUserSummaryResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManageUsers,
+        bool isLastActiveAdministrator)
+    {
+        var status = response.Status;
+        var isActive = status == UserStatus.Active;
+        var isInactive = status == UserStatus.Inactive;
+
+        return response with
+        {
+            AllowedActions = resourceActionPolicyService.Evaluate(
+                new ResourceActionContext(
+                    ResourceKey: CompanyUserFieldKeys.ResourceKey,
+                    State: status?.ToString(),
+                    IsActive: isActive,
+                    HasDependencies: isLastActiveAdministrator,
+                    SupportsEdit: true,
+                    EditAllowed: canManageUsers,
+                    SupportsActivate: isInactive,
+                    ActivateAllowed: canManageUsers,
+                    SupportsInactivate: isActive,
+                    InactivateAllowed: canManageUsers))
+        };
+    }
 }

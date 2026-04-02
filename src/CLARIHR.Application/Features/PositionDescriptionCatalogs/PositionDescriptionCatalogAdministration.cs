@@ -1,10 +1,12 @@
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
@@ -30,7 +32,8 @@ public sealed record PositionDescriptionCatalogItemResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record PositionCategoryClassificationResponse(
     Guid Id,
@@ -44,7 +47,8 @@ public sealed record PositionCategoryClassificationResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record PositionCategoryResponse(
     Guid Id,
@@ -56,7 +60,8 @@ public sealed record PositionCategoryResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record PositionSlotContractTypeLookup(
     Guid PositionSlotId,
@@ -73,7 +78,8 @@ public sealed record SearchPositionDescriptionCatalogItemsQuery(
     bool? IsActive,
     string? Search,
     int PageNumber = 1,
-    int PageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize)
+    int PageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false)
     : IQuery<PagedResponse<PositionDescriptionCatalogItemResponse>>;
 
 public sealed record GetPositionDescriptionCatalogItemByIdQuery(Guid ItemId)
@@ -111,7 +117,8 @@ public sealed record SearchPositionCategoryClassificationsQuery(
     bool? IsActive,
     string? Search,
     int PageNumber = 1,
-    int PageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize)
+    int PageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false)
     : IQuery<PagedResponse<PositionCategoryClassificationResponse>>;
 
 public sealed record GetPositionCategoryClassificationByIdQuery(Guid ClassificationId)
@@ -152,7 +159,8 @@ public sealed record SearchPositionCategoriesQuery(
     bool? IsActive,
     string? Search,
     int PageNumber = 1,
-    int PageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize)
+    int PageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false)
     : IQuery<PagedResponse<PositionCategoryResponse>>;
 
 public sealed record GetPositionCategoryByIdQuery(Guid CategoryId)
@@ -401,7 +409,8 @@ internal sealed class InactivatePositionCategoryCommandValidator : AbstractValid
 
 internal sealed class SearchPositionDescriptionCatalogItemsQueryHandler(
     IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository)
+    IPositionDescriptionCatalogRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchPositionDescriptionCatalogItemsQuery, PagedResponse<PositionDescriptionCatalogItemResponse>>
 {
     public async Task<Result<PagedResponse<PositionDescriptionCatalogItemResponse>>> Handle(
@@ -422,6 +431,31 @@ internal sealed class SearchPositionDescriptionCatalogItemsQueryHandler(
             query.PageNumber,
             query.PageSize,
             cancellationToken);
+
+        if (query.IncludeAllowedActions)
+        {
+            var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
+            var enrichedItems = new List<PositionDescriptionCatalogItemResponse>(response.Items.Count);
+
+            foreach (var item in response.Items)
+            {
+                var hasDependencies = item.IsActive &&
+                    await PositionDescriptionCatalogPolicyAdapter.HasSimpleDependenciesAsync(repository, item.Id, cancellationToken);
+
+                enrichedItems.Add(
+                    PositionDescriptionCatalogPolicyAdapter.ApplyAllowedActions(
+                        item,
+                        resourceActionPolicyService,
+                        canManage,
+                        hasDependencies));
+            }
+
+            response = new PagedResponse<PositionDescriptionCatalogItemResponse>(
+                enrichedItems,
+                response.PageNumber,
+                response.PageSize,
+                response.TotalCount);
+        }
 
         return Result<PagedResponse<PositionDescriptionCatalogItemResponse>>.Success(response);
     }
@@ -774,7 +808,8 @@ internal sealed class InactivatePositionDescriptionCatalogItemCommandHandler(
 
 internal sealed class SearchPositionCategoryClassificationsQueryHandler(
     IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository)
+    IPositionDescriptionCatalogRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchPositionCategoryClassificationsQuery, PagedResponse<PositionCategoryClassificationResponse>>
 {
     public async Task<Result<PagedResponse<PositionCategoryClassificationResponse>>> Handle(
@@ -797,6 +832,31 @@ internal sealed class SearchPositionCategoryClassificationsQueryHandler(
             query.PageNumber,
             query.PageSize,
             cancellationToken);
+
+        if (query.IncludeAllowedActions)
+        {
+            var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
+            var enrichedItems = new List<PositionCategoryClassificationResponse>(response.Items.Count);
+
+            foreach (var item in response.Items)
+            {
+                var hasDependencies = item.IsActive &&
+                    await PositionDescriptionCatalogPolicyAdapter.HasClassificationDependenciesAsync(repository, item.Id, cancellationToken);
+
+                enrichedItems.Add(
+                    PositionDescriptionCatalogPolicyAdapter.ApplyAllowedActions(
+                        item,
+                        resourceActionPolicyService,
+                        canManage,
+                        hasDependencies));
+            }
+
+            response = new PagedResponse<PositionCategoryClassificationResponse>(
+                enrichedItems,
+                response.PageNumber,
+                response.PageSize,
+                response.TotalCount);
+        }
 
         return Result<PagedResponse<PositionCategoryClassificationResponse>>.Success(response);
     }
@@ -1216,7 +1276,8 @@ internal sealed class InactivatePositionCategoryClassificationCommandHandler(
 
 internal sealed class SearchPositionCategoriesQueryHandler(
     IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository)
+    IPositionDescriptionCatalogRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchPositionCategoriesQuery, PagedResponse<PositionCategoryResponse>>
 {
     public async Task<Result<PagedResponse<PositionCategoryResponse>>> Handle(
@@ -1237,6 +1298,31 @@ internal sealed class SearchPositionCategoriesQueryHandler(
             query.PageNumber,
             query.PageSize,
             cancellationToken);
+
+        if (query.IncludeAllowedActions)
+        {
+            var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
+            var enrichedItems = new List<PositionCategoryResponse>(response.Items.Count);
+
+            foreach (var item in response.Items)
+            {
+                var hasDependencies = item.IsActive &&
+                    await PositionDescriptionCatalogPolicyAdapter.HasCategoryDependenciesAsync(repository, item.Id, cancellationToken);
+
+                enrichedItems.Add(
+                    PositionDescriptionCatalogPolicyAdapter.ApplyAllowedActions(
+                        item,
+                        resourceActionPolicyService,
+                        canManage,
+                        hasDependencies));
+            }
+
+            response = new PagedResponse<PositionCategoryResponse>(
+                enrichedItems,
+                response.PageNumber,
+                response.PageSize,
+                response.TotalCount);
+        }
 
         return Result<PagedResponse<PositionCategoryResponse>>.Success(response);
     }
@@ -1589,6 +1675,100 @@ internal sealed class InactivatePositionCategoryCommandHandler(
             throw;
         }
     }
+}
+
+internal static class PositionDescriptionCatalogPolicyAdapter
+{
+    public static PositionDescriptionCatalogItemResponse ApplyAllowedActions(
+        PositionDescriptionCatalogItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
+        bool hasDependencies) =>
+        response with
+        {
+            AllowedActions = Evaluate(resourceActionPolicyService, response.IsActive, canManage, hasDependencies, response.CatalogType.ToString())
+        };
+
+    public static PositionCategoryClassificationResponse ApplyAllowedActions(
+        PositionCategoryClassificationResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
+        bool hasDependencies) =>
+        response with
+        {
+            AllowedActions = Evaluate(resourceActionPolicyService, response.IsActive, canManage, hasDependencies, "PositionCategoryClassifications")
+        };
+
+    public static PositionCategoryResponse ApplyAllowedActions(
+        PositionCategoryResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
+        bool hasDependencies) =>
+        response with
+        {
+            AllowedActions = Evaluate(resourceActionPolicyService, response.IsActive, canManage, hasDependencies, "PositionCategories")
+        };
+
+    public static async Task<bool> HasSimpleDependenciesAsync(
+        IPositionDescriptionCatalogRepository repository,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        var entity = await repository.GetCatalogItemByIdAsync(itemId, cancellationToken);
+        if (entity is null)
+        {
+            return false;
+        }
+
+        return entity.CatalogType switch
+        {
+            PositionDescriptionCatalogType.PositionFunctionType => await repository.HasClassificationsUsingCatalogItemAsync(entity.Id, cancellationToken),
+            PositionDescriptionCatalogType.PositionContractType => await repository.HasClassificationsUsingCatalogItemAsync(entity.Id, cancellationToken),
+            PositionDescriptionCatalogType.Frequency => await repository.HasFunctionsUsingFrequencyAsync(entity.Id, cancellationToken),
+            PositionDescriptionCatalogType.RequirementType => await repository.HasRequirementsUsingRequirementTypeAsync(entity.Id, cancellationToken),
+            PositionDescriptionCatalogType.WorkConditionType => await repository.HasWorkConditionsUsingWorkConditionTypeAsync(entity.Id, cancellationToken),
+            _ => await repository.HasJobProfilesUsingCatalogItemAsync(entity.Id, cancellationToken)
+        };
+    }
+
+    public static async Task<bool> HasClassificationDependenciesAsync(
+        IPositionDescriptionCatalogRepository repository,
+        Guid classificationId,
+        CancellationToken cancellationToken)
+    {
+        var entity = await repository.GetClassificationByIdAsync(classificationId, cancellationToken);
+        return entity is not null &&
+               await repository.HasCategoriesUsingClassificationAsync(entity.Id, cancellationToken);
+    }
+
+    public static async Task<bool> HasCategoryDependenciesAsync(
+        IPositionDescriptionCatalogRepository repository,
+        Guid categoryId,
+        CancellationToken cancellationToken)
+    {
+        var entity = await repository.GetCategoryByIdAsync(categoryId, cancellationToken);
+        return entity is not null &&
+               await repository.HasJobProfilesUsingCategoryAsync(entity.Id, cancellationToken);
+    }
+
+    private static AllowedActionsResponse Evaluate(
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool isActive,
+        bool canManage,
+        bool hasDependencies,
+        string resourceKey) =>
+        resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                ResourceKey: resourceKey,
+                State: isActive ? "Active" : "Inactive",
+                IsActive: isActive,
+                HasDependencies: hasDependencies,
+                SupportsEdit: true,
+                EditAllowed: canManage,
+                SupportsActivate: true,
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
 }
 
 internal static class PositionDescriptionCatalogCacheInvalidation

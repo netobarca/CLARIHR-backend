@@ -533,6 +533,9 @@ public sealed class AccountCompanyAdministrationTests
             return Task.FromResult(active);
         }
 
+        public Task<bool> HasAnyActiveAdministratorAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+
         public Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
         {
             var company = companyRepository.Items.Single(item => item.PublicId == companyPublicId);

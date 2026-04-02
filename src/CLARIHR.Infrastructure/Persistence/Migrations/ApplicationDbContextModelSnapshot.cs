@@ -595,6 +595,91 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("commercial_plan_limits", (string)null);
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CommercialPlanVersion", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("BaseMonthlyFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("base_monthly_fee");
+
+                    b.Property<long>("CommercialPlanId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("commercial_plan_id");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency_code");
+
+                    b.Property<DateTime>("EffectiveFromUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_from_utc");
+
+                    b.Property<DateTime?>("EffectiveToUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_to_utc");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<decimal>("PricePerActiveEmployee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("price_per_active_employee");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_number");
+
+                    b.HasKey("Id")
+                        .HasName("pk_commercial_plan_versions");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_commercial_plan_versions__public_id");
+
+                    b.HasIndex("CommercialPlanId", "EffectiveFromUtc")
+                        .HasDatabaseName("ix_commercial_plan_versions__plan_effective_from");
+
+                    b.HasIndex("CommercialPlanId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("uq_commercial_plan_versions__plan_version_number");
+
+                    b.ToTable("commercial_plan_versions", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = -3001L,
+                            BaseMonthlyFee = 0m,
+                            CommercialPlanId = -3000L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CurrencyCode = "USD",
+                            EffectiveFromUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PricePerActiveEmployee = 0m,
+                            PublicId = new Guid("cf0c879c-d6c7-3d5d-d1cf-903ef0f66cfb"),
+                            VersionNumber = 1
+                        });
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Companies.Company", b =>
                 {
                     b.Property<long>("Id")
@@ -603,6 +688,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("BillableSinceUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("billable_since_utc");
 
                     b.Property<long?>("CompanyTypeCatalogItemId")
                         .HasColumnType("bigint")
@@ -625,6 +714,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsBillable")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_billable");
 
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -681,6 +774,14 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<DateTime>("ActivatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("activated_at_utc");
+
+                    b.Property<Guid>("ActivatedByUserPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("activated_by_user_public_id");
+
                     b.Property<decimal>("BaseMonthlyFee")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -690,6 +791,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("commercial_plan_id");
 
+                    b.Property<long>("CommercialPlanVersionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("commercial_plan_version_id");
+
                     b.Property<long>("CompanyId")
                         .HasColumnType("bigint")
                         .HasColumnName("company_id");
@@ -698,6 +803,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
 
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency_code");
+
                     b.Property<DateTime?>("EndDateUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_date_utc");
@@ -705,6 +816,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_utc");
+
+                    b.Property<string>("Periodicity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("periodicity");
 
                     b.Property<string>("PlanCode")
                         .IsRequired()
@@ -717,6 +834,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)")
                         .HasColumnName("plan_name");
+
+                    b.Property<int>("PlanVersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("plan_version_number");
 
                     b.Property<decimal>("PricePerActiveEmployee")
                         .HasPrecision(18, 2)
@@ -743,14 +864,20 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("CommercialPlanId")
                         .HasDatabaseName("ix_company_subscriptions__commercial_plan_id");
 
+                    b.HasIndex("CommercialPlanVersionId")
+                        .HasDatabaseName("ix_company_subscriptions__commercial_plan_version_id");
+
                     b.HasIndex("PublicId")
                         .IsUnique()
                         .HasDatabaseName("uq_company_subscriptions__public_id");
 
                     b.HasIndex("CompanyId", "Status")
                         .IsUnique()
-                        .HasDatabaseName("uq_company_subscriptions__company_active")
-                        .HasFilter("status = 'Active'");
+                        .HasDatabaseName("uq_company_subscriptions__company_scheduled")
+                        .HasFilter("status = 'Scheduled'");
+
+                    b.HasIndex("Status", "StartDateUtc")
+                        .HasDatabaseName("ix_company_subscriptions__status_start_date");
 
                     b.ToTable("company_subscriptions", (string)null);
                 });
@@ -12064,6 +12191,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_commercial_plan_limits__commercial_plans");
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CommercialPlanVersion", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Companies.CommercialPlan", null)
+                        .WithMany("Versions")
+                        .HasForeignKey("CommercialPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_commercial_plan_versions__commercial_plans");
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Companies.Company", b =>
                 {
                     b.HasOne("CLARIHR.Domain.OrgStructureCatalogs.CompanyTypeCatalogItem", null)
@@ -12088,6 +12225,13 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_company_subscriptions__commercial_plans");
+
+                    b.HasOne("CLARIHR.Domain.Companies.CommercialPlanVersion", null)
+                        .WithMany()
+                        .HasForeignKey("CommercialPlanVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_subscriptions__commercial_plan_versions");
 
                     b.HasOne("CLARIHR.Domain.Companies.Company", null)
                         .WithMany()
@@ -13051,6 +13195,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CLARIHR.Domain.Companies.CommercialPlan", b =>
                 {
                     b.Navigation("Limits");
+
+                    b.Navigation("Versions");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.CompetencyFramework.CompetencyConduct", b =>

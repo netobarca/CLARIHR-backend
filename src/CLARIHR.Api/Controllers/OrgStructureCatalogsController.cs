@@ -27,10 +27,11 @@ public sealed class OrgStructureCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = OrgStructureCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchOrgUnitTypesQuery(companyId, isActive, search, page, pageSize),
+            new SearchOrgUnitTypesQuery(companyId, isActive, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -143,10 +144,11 @@ public sealed class OrgStructureCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = OrgStructureCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchFunctionalAreasQuery(companyId, isActive, search, page, pageSize),
+            new SearchFunctionalAreasQuery(companyId, isActive, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);

@@ -426,8 +426,9 @@ internal sealed class SearchPositionSlotsQueryHandler(
             return Result<PagedResponse<PositionSlotListItemResponse>>.Success(response);
         }
 
+        var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
         var items = response.Items
-            .Select(item => PositionSlotPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .Select(item => PositionSlotPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManage))
             .ToArray();
         response = response with { Items = items };
 
@@ -460,7 +461,8 @@ internal sealed class GetPositionSlotByIdQueryHandler(
         var response = await repository.GetResponseByIdAsync(query.PositionSlotId, cancellationToken);
         if (response is not null)
         {
-            response = PositionSlotPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
+            var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            response = PositionSlotPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage);
             return Result<PositionSlotResponse>.Success(response);
         }
 
@@ -1122,7 +1124,8 @@ internal static class PositionSlotPolicyAdapter
 {
     public static PositionSlotListItemResponse ApplyAllowedActions(
         PositionSlotListItemResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
@@ -1130,17 +1133,21 @@ internal static class PositionSlotPolicyAdapter
                 response.Status.ToString(),
                 response.IsActive,
                 SupportsEdit: true,
+                EditAllowed: canManage,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: true,
-                SupportsInactivate: true));
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }
 
     public static PositionSlotResponse ApplyAllowedActions(
         PositionSlotResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
@@ -1148,10 +1155,13 @@ internal static class PositionSlotPolicyAdapter
                 response.Status.ToString(),
                 response.IsActive,
                 SupportsEdit: true,
+                EditAllowed: canManage,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: true,
-                SupportsInactivate: true));
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }

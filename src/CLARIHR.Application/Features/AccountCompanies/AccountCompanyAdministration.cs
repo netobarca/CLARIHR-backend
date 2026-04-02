@@ -4,11 +4,13 @@ using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.OrgStructureCatalogs;
@@ -24,7 +26,10 @@ internal sealed class GetOwnedCompaniesQueryHandler(
     ICurrentUserService currentUserService,
     IUserRepository userRepository,
     ICompanyRepository companyRepository,
-    ITenantContext tenantContext)
+    ITenantContext tenantContext,
+    ICompanyOwnershipPolicy companyOwnershipPolicy,
+    IUserCompanyRepository userCompanyRepository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<GetOwnedCompaniesQuery, PagedResponse<AccountCompanySummaryResponse>>
 {
     public async Task<Result<PagedResponse<AccountCompanySummaryResponse>>> Handle(
@@ -44,6 +49,45 @@ internal sealed class GetOwnedCompaniesQueryHandler(
             currentUserResult.Value.PublicId,
             new CompanyListFilter(query.Status, query.PageNumber, query.PageSize, tenantContext.TenantId),
             cancellationToken);
+
+        if (query.IncludeAllowedActions)
+        {
+            var primaryCompanyId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(currentUserResult.Value.Id, cancellationToken);
+            var hasCapacityForAnotherActiveCompany = await companyOwnershipPolicy.HasCapacityForAnotherActiveCompanyAsync(
+                currentUserResult.Value.PublicId,
+                cancellationToken);
+
+            var enrichedItems = companies.Items
+                .Select(company =>
+                {
+                    var canArchive = company.Status != CompanyStatus.Archived &&
+                                     !company.IsActiveContext &&
+                                     (!primaryCompanyId.HasValue || primaryCompanyId.Value != company.PublicId);
+                    var canReactivate = company.Status != CompanyStatus.Active && hasCapacityForAnotherActiveCompany;
+
+                    return company with
+                    {
+                        AllowedActions = resourceActionPolicyService.Evaluate(
+                            new ResourceActionContext(
+                                ResourceKey: "AccountCompanies",
+                                State: company.Status.ToString(),
+                                IsActive: company.Status == CompanyStatus.Active,
+                                SupportsEdit: true,
+                                EditAllowed: company.IsOwnedByCurrentUser,
+                                SupportsArchive: true,
+                                ArchiveAllowed: canArchive,
+                                SupportsActivate: true,
+                                ActivateAllowed: canReactivate))
+                    };
+                })
+                .ToArray();
+
+            companies = new PagedResponse<AccountCompanySummaryResponse>(
+                enrichedItems,
+                companies.PageNumber,
+                companies.PageSize,
+                companies.TotalCount);
+        }
 
         return Result<PagedResponse<AccountCompanySummaryResponse>>.Success(companies);
     }

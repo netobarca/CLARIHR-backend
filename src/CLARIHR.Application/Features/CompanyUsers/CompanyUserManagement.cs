@@ -1,5 +1,6 @@
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Domain.Auth;
 
 namespace CLARIHR.Application.Features.CompanyUsers;
@@ -11,7 +12,8 @@ public sealed record CompanyUserSummaryResponse(
     string? LastName,
     Guid? RoleId,
     string? Role,
-    UserStatus? Status);
+    UserStatus? Status,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record CompanyUserResponse(
     Guid Id,
@@ -31,7 +33,8 @@ public sealed record GetCompanyUsersQuery(
     int PageSize = 20,
     UserStatus? Status = null,
     Guid? RoleId = null,
-    string? Search = null) : IQuery<PagedResponse<CompanyUserSummaryResponse>>;
+    string? Search = null,
+    bool IncludeAllowedActions = false) : IQuery<PagedResponse<CompanyUserSummaryResponse>>;
 
 public sealed record CreateCompanyUserCommand(
     string Email,

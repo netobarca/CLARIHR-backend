@@ -263,8 +263,9 @@ internal sealed class SearchCostCentersQueryHandler(
             return Result<PagedResponse<CostCenterListItemResponse>>.Success(response);
         }
 
+        var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
         var items = response.Items
-            .Select(item => CostCenterPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .Select(item => CostCenterPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManage))
             .ToArray();
         response = response with { Items = items };
 
@@ -298,9 +299,11 @@ internal sealed class GetCostCenterByIdQueryHandler(
         if (response is not null)
         {
             var usage = await repository.GetUsageByIdAsync(query.CostCenterId, cancellationToken);
+            var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
             response = CostCenterPolicyAdapter.ApplyAllowedActions(
                 response,
                 resourceActionPolicyService,
+                canManage,
                 hasActiveUsage: usage?.HasActiveReferences ?? false);
 
             return Result<CostCenterResponse>.Success(response);
@@ -677,7 +680,8 @@ internal static class CostCenterPolicyAdapter
 {
     public static CostCenterListItemResponse ApplyAllowedActions(
         CostCenterListItemResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
@@ -685,10 +689,13 @@ internal static class CostCenterPolicyAdapter
                 response.Type.ToString(),
                 response.IsActive,
                 SupportsEdit: true,
+                EditAllowed: canManage,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: true,
-                SupportsInactivate: true));
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }
@@ -696,6 +703,7 @@ internal static class CostCenterPolicyAdapter
     public static CostCenterResponse ApplyAllowedActions(
         CostCenterResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
         bool hasActiveUsage)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
@@ -705,10 +713,13 @@ internal static class CostCenterPolicyAdapter
                 response.IsActive,
                 HasDependencies: hasActiveUsage,
                 SupportsEdit: true,
+                EditAllowed: canManage,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: true,
-                SupportsInactivate: true));
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }

@@ -1,10 +1,12 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Locations;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Locations.Common;
@@ -33,7 +35,8 @@ public sealed record WorkCenterResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record SearchWorkCentersQuery(
     Guid CompanyId,
@@ -42,7 +45,8 @@ public sealed record SearchWorkCentersQuery(
     bool? IsActive,
     string? Search,
     int PageNumber = 1,
-    int PageSize = LocationValidationRules.DefaultPageSize) : IQuery<PagedResponse<WorkCenterResponse>>;
+    int PageSize = LocationValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false) : IQuery<PagedResponse<WorkCenterResponse>>;
 
 public sealed record GetWorkCenterByIdQuery(Guid WorkCenterId) : IQuery<WorkCenterResponse>;
 
@@ -178,7 +182,9 @@ internal sealed class InactivateWorkCenterCommandValidator : AbstractValidator<I
 
 internal sealed class SearchWorkCentersQueryHandler(
     ILocationAuthorizationService authorizationService,
-    IWorkCenterRepository repository)
+    IWorkCenterRepository repository,
+    ILocationDependencyPolicy dependencyPolicy,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchWorkCentersQuery, PagedResponse<WorkCenterResponse>>
 {
     public async Task<Result<PagedResponse<WorkCenterResponse>>> Handle(
@@ -201,8 +207,57 @@ internal sealed class SearchWorkCentersQueryHandler(
             query.PageSize,
             cancellationToken);
 
+        if (query.IncludeAllowedActions)
+        {
+            var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
+            var enrichedItems = new List<WorkCenterResponse>(result.Items.Count);
+
+            foreach (var workCenter in result.Items)
+            {
+                var hasDependencies = workCenter.IsActive &&
+                    (await dependencyPolicy.CanInactivateWorkCenterAsync(workCenter.Id, cancellationToken)).IsFailure;
+
+                enrichedItems.Add(
+                    WorkCenterPolicyAdapter.ApplyAllowedActions(
+                        workCenter,
+                        resourceActionPolicyService,
+                        canManage,
+                        hasDependencies));
+            }
+
+            result = new PagedResponse<WorkCenterResponse>(
+                enrichedItems,
+                result.PageNumber,
+                result.PageSize,
+                result.TotalCount);
+        }
+
         return Result<PagedResponse<WorkCenterResponse>>.Success(result);
     }
+}
+
+internal static class WorkCenterPolicyAdapter
+{
+    public static WorkCenterResponse ApplyAllowedActions(
+        WorkCenterResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
+        bool hasDependencies) =>
+        response with
+        {
+            AllowedActions = resourceActionPolicyService.Evaluate(
+                new ResourceActionContext(
+                    ResourceKey: "WorkCenters",
+                    State: response.IsActive ? "Active" : "Inactive",
+                    IsActive: response.IsActive,
+                    HasDependencies: hasDependencies,
+                    SupportsEdit: true,
+                    EditAllowed: canManage,
+                    SupportsActivate: true,
+                    ActivateAllowed: canManage,
+                    SupportsInactivate: true,
+                    InactivateAllowed: canManage))
+        };
 }
 
 internal sealed class GetWorkCenterByIdQueryHandler(

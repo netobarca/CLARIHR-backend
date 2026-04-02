@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Platform;
+using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
@@ -66,6 +67,7 @@ internal sealed class CreateCommercialPlanCommandHandler(
     ICommercialPlanRepository repository,
     IPlatformAuditService platformAuditService,
     ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork,
     ILogger<CreateCommercialPlanCommandHandler> logger)
     : ICommandHandler<CreateCommercialPlanCommand, CommercialPlanResponse>
@@ -93,7 +95,8 @@ internal sealed class CreateCommercialPlanCommandHandler(
             command.PricePerActiveEmployee,
             command.Status,
             isSystemPlan: false,
-            CommercialPlanMapper.ToLimitData(command.Limits));
+            CommercialPlanMapper.ToLimitData(command.Limits),
+            dateTimeProvider.UtcNow);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -133,6 +136,7 @@ internal sealed class UpdateCommercialPlanCommandHandler(
     ICommercialPlanRepository repository,
     IPlatformAuditService platformAuditService,
     ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork,
     ILogger<UpdateCommercialPlanCommandHandler> logger)
     : ICommandHandler<UpdateCommercialPlanCommand, CommercialPlanResponse>
@@ -181,7 +185,8 @@ internal sealed class UpdateCommercialPlanCommandHandler(
                 command.Description,
                 command.BaseMonthlyFee,
                 command.PricePerActiveEmployee,
-                CommercialPlanMapper.ToLimitData(command.Limits));
+                CommercialPlanMapper.ToLimitData(command.Limits),
+                dateTimeProvider.UtcNow);
 
             var after = CommercialPlanMapper.Map(plan);
             await platformAuditService.LogAsync(
@@ -360,14 +365,19 @@ internal sealed class InactivateCommercialPlanCommandHandler(
 
 internal static class CommercialPlanMapper
 {
-    public static CommercialPlanResponse Map(CommercialPlan plan) =>
-        new(
+    public static CommercialPlanResponse Map(CommercialPlan plan)
+    {
+        var currentVersion = plan.GetCurrentVersion();
+
+        return new CommercialPlanResponse(
             plan.PublicId,
             plan.Code,
             plan.Name,
             plan.Description,
             plan.BaseMonthlyFee,
             plan.PricePerActiveEmployee,
+            currentVersion.VersionNumber,
+            currentVersion.CurrencyCode,
             plan.Status,
             plan.IsSystemPlan,
             plan.ConcurrencyToken,
@@ -377,6 +387,7 @@ internal static class CommercialPlanMapper
                 .OrderBy(limit => limit.NormalizedLimitCode, StringComparer.Ordinal)
                 .Select(limit => new CommercialPlanLimitResponse(limit.LimitCode, limit.Value))
                 .ToArray());
+    }
 
     public static IReadOnlyCollection<(string LimitCode, decimal Value)> ToLimitData(
         IReadOnlyCollection<CommercialPlanLimitInput> limits) =>

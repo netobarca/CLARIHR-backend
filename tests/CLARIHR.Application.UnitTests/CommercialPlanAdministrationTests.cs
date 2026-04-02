@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Platform;
+using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
@@ -25,6 +26,7 @@ public sealed class CommercialPlanAdministrationTests
             new TestCommercialPlanRepository(),
             new TestPlatformAuditService(),
             new TestCurrentUserService(),
+            new FixedDateTimeProvider(DateTime.Parse("2026-04-02T12:00:00Z").ToUniversalTime()),
             new TestUnitOfWork(),
             NullLogger<CreateCommercialPlanCommandHandler>.Instance);
 
@@ -54,6 +56,7 @@ public sealed class CommercialPlanAdministrationTests
             repository,
             new TestPlatformAuditService(),
             new TestCurrentUserService(),
+            new FixedDateTimeProvider(DateTime.Parse("2026-04-02T12:00:00Z").ToUniversalTime()),
             new TestUnitOfWork(),
             NullLogger<CreateCommercialPlanCommandHandler>.Instance);
 
@@ -97,6 +100,7 @@ public sealed class CommercialPlanAdministrationTests
             repository,
             new TestPlatformAuditService(),
             new TestCurrentUserService(),
+            new FixedDateTimeProvider(DateTime.Parse("2026-04-02T12:00:00Z").ToUniversalTime()),
             new TestUnitOfWork(),
             NullLogger<UpdateCommercialPlanCommandHandler>.Instance);
 
@@ -135,6 +139,7 @@ public sealed class CommercialPlanAdministrationTests
             repository,
             new TestPlatformAuditService(),
             new TestCurrentUserService(),
+            new FixedDateTimeProvider(DateTime.Parse("2026-04-02T12:00:00Z").ToUniversalTime()),
             new TestUnitOfWork(),
             NullLogger<UpdateCommercialPlanCommandHandler>.Instance);
 
@@ -175,6 +180,7 @@ public sealed class CommercialPlanAdministrationTests
             repository,
             new TestPlatformAuditService(),
             new TestCurrentUserService(),
+            new FixedDateTimeProvider(DateTime.Parse("2026-04-02T12:00:00Z").ToUniversalTime()),
             new TestUnitOfWork(),
             NullLogger<UpdateCommercialPlanCommandHandler>.Instance);
 
@@ -304,6 +310,7 @@ public sealed class CommercialPlanAdministrationTests
     private sealed class TestCommercialPlanRepository : ICommercialPlanRepository
     {
         private long _nextId = 1000;
+        private long _nextVersionId = 5000;
 
         public List<CommercialPlan> Items { get; } = [];
 
@@ -314,11 +321,29 @@ public sealed class CommercialPlanAdministrationTests
                 SetEntityId(plan, _nextId++);
             }
 
+            foreach (var version in plan.Versions.Where(version => version.Id == 0))
+            {
+                SetEntityId(version, _nextVersionId++);
+            }
+
             Items.Add(plan);
         }
 
         public Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(plan => plan.PublicId == commercialPlanId));
+
+        public Task<CommercialPlanVersion?> GetEffectiveVersionAsync(
+            Guid commercialPlanId,
+            DateTime effectiveAtUtc,
+            CancellationToken cancellationToken)
+        {
+            var version = Items
+                .SingleOrDefault(plan => plan.PublicId == commercialPlanId)?
+                .Versions
+                .SingleOrDefault(item => item.IsEffectiveOn(effectiveAtUtc));
+
+            return Task.FromResult(version);
+        }
 
         public Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(plan => plan.NormalizedCode == normalizedCode));
@@ -365,6 +390,8 @@ public sealed class CommercialPlanAdministrationTests
                     plan.Description,
                     plan.BaseMonthlyFee,
                     plan.PricePerActiveEmployee,
+                    plan.GetCurrentVersion().VersionNumber,
+                    plan.GetCurrentVersion().CurrencyCode,
                     plan.Status,
                     plan.IsSystemPlan,
                     plan.CreatedUtc,
@@ -373,6 +400,11 @@ public sealed class CommercialPlanAdministrationTests
 
             return Task.FromResult(new PagedResponse<CommercialPlanSummaryResponse>(items, pageNumber, pageSize, ordered.Count));
         }
+    }
+
+    private sealed class FixedDateTimeProvider(DateTime utcNow) : IDateTimeProvider
+    {
+        public DateTime UtcNow { get; } = utcNow;
     }
 
     private sealed class TestUnitOfWork : IUnitOfWork

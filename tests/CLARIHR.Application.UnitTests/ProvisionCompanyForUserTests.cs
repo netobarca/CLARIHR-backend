@@ -567,8 +567,13 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
                 subscription.Status == SubscriptionStatus.Active));
         }
 
-        public Task<PlatformCompanySubscriptionResponse?> GetCurrentByCompanyPublicIdAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
-            Task.FromResult<PlatformCompanySubscriptionResponse?>(null);
+        public Task<CompanySubscription?> GetScheduledByCompanyIdAsync(long companyId, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.SingleOrDefault(subscription =>
+                subscription.CompanyId == companyId &&
+                subscription.Status == SubscriptionStatus.Scheduled));
+
+        public Task<PlatformCompanySubscriptionOverviewResponse?> GetOverviewByCompanyPublicIdAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult<PlatformCompanySubscriptionOverviewResponse?>(null);
 
         public Task<PagedResponse<PlatformCompanySubscriptionResponse>> SearchByCompanyPublicIdAsync(
             Guid companyPublicId,
@@ -576,6 +581,23 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             int pageSize,
             CancellationToken cancellationToken) =>
             Task.FromResult(new PagedResponse<PlatformCompanySubscriptionResponse>([], pageNumber, pageSize, 0));
+
+        public Task<PagedResponse<PlatformCompanySubscriptionListItemResponse>> SearchAsync(
+            SubscriptionStatus? status,
+            string? search,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PagedResponse<PlatformCompanySubscriptionListItemResponse>([], pageNumber, pageSize, 0));
+
+        public Task<IReadOnlyCollection<Guid>> GetDueScheduledSubscriptionIdsAsync(
+            DateTime utcNow,
+            int take,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>([]);
+
+        public Task<CompanySubscription?> GetByPublicIdAsync(Guid subscriptionPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.SingleOrDefault(subscription => subscription.PublicId == subscriptionPublicId));
     }
 
     private sealed class TestCommercialPlanRepository : ICommercialPlanRepository
@@ -592,8 +614,13 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
                 0m,
                 CommercialPlanStatus.Active,
                 isSystemPlan: true,
-                []);
+                [],
+                initialVersionEffectiveFromUtc: DateTime.Parse("2026-01-01T00:00:00Z").ToUniversalTime());
             SetEntityId(_freePlan, 900);
+            foreach (var version in _freePlan.Versions.Where(version => version.Id == 0))
+            {
+                SetEntityId(version, 9000 + version.VersionNumber);
+            }
         }
 
         public void Add(CommercialPlan plan) => throw new NotSupportedException();
@@ -603,6 +630,15 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
 
         public Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken) =>
             Task.FromResult(_freePlan.NormalizedCode == normalizedCode ? _freePlan : null);
+
+        public Task<CommercialPlanVersion?> GetEffectiveVersionAsync(
+            Guid commercialPlanId,
+            DateTime effectiveAtUtc,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(
+                _freePlan.PublicId == commercialPlanId
+                    ? _freePlan.Versions.SingleOrDefault(version => version.IsEffectiveOn(effectiveAtUtc))
+                    : null);
 
         public Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
             Task.FromResult(_freePlan.NormalizedCode == normalizedCode &&
@@ -680,6 +716,9 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
 
             return Task.FromResult(active);
         }
+
+        public Task<bool> HasAnyActiveAdministratorAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
 
         public Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
         {

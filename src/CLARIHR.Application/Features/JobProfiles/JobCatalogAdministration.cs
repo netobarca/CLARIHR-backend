@@ -1,6 +1,8 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.JobProfiles;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -22,7 +24,8 @@ public sealed record JobCatalogItemResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record SearchJobCatalogItemsQuery(
     Guid CompanyId,
@@ -30,7 +33,8 @@ public sealed record SearchJobCatalogItemsQuery(
     bool? IsActive,
     string? Search,
     int PageNumber = 1,
-    int PageSize = JobProfileValidationRules.DefaultPageSize) : IQuery<PagedResponse<JobCatalogItemResponse>>;
+    int PageSize = JobProfileValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false) : IQuery<PagedResponse<JobCatalogItemResponse>>;
 
 public sealed record CreateJobCatalogItemCommand(
     Guid CompanyId,
@@ -87,7 +91,8 @@ internal sealed class InactivateJobCatalogItemCommandValidator : AbstractValidat
 
 internal sealed class SearchJobCatalogItemsQueryHandler(
     IJobProfileAuthorizationService authorizationService,
-    IJobCatalogRepository repository)
+    IJobCatalogRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchJobCatalogItemsQuery, PagedResponse<JobCatalogItemResponse>>
 {
     public async Task<Result<PagedResponse<JobCatalogItemResponse>>> Handle(
@@ -109,7 +114,43 @@ internal sealed class SearchJobCatalogItemsQueryHandler(
             query.PageSize,
             cancellationToken);
 
-        return Result<PagedResponse<JobCatalogItemResponse>>.Success(response);
+        if (!query.IncludeAllowedActions)
+        {
+            return Result<PagedResponse<JobCatalogItemResponse>>.Success(response);
+        }
+
+        var canManageCatalogs = (await authorizationService.EnsureCanManageCatalogsAsync(query.CompanyId, cancellationToken)).IsSuccess;
+        var items = response.Items
+            .Select(item => JobCatalogPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManageCatalogs))
+            .ToArray();
+
+        return Result<PagedResponse<JobCatalogItemResponse>>.Success(response with { Items = items });
+    }
+}
+
+internal static class JobCatalogPolicyAdapter
+{
+    public static JobCatalogItemResponse ApplyAllowedActions(
+        JobCatalogItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManageCatalogs)
+    {
+        var state = response.Category.ToString();
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                JobProfilePermissionCodes.ResourceKey,
+                state,
+                response.IsActive,
+                IsSystem: response.IsSystem,
+                SupportsEdit: false,
+                SupportsDelete: false,
+                SupportsArchive: false,
+                SupportsActivate: true,
+                ActivateAllowed: canManageCatalogs,
+                SupportsInactivate: true,
+                InactivateAllowed: canManageCatalogs));
+
+        return response with { AllowedActions = allowedActions };
     }
 }
 

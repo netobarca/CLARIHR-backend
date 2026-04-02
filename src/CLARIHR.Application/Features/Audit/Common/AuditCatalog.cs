@@ -26,7 +26,9 @@ public static class AuditEventTypes
     public const string CommercialPlanUpdated = "COMMERCIAL_PLAN_UPDATED";
     public const string CommercialPlanActivated = "COMMERCIAL_PLAN_ACTIVATED";
     public const string CommercialPlanInactivated = "COMMERCIAL_PLAN_INACTIVATED";
-    public const string CompanySubscriptionReplaced = "COMPANY_SUBSCRIPTION_REPLACED";
+    public const string CompanySubscriptionActivated = "COMPANY_SUBSCRIPTION_ACTIVATED";
+    public const string CompanySubscriptionScheduled = "COMPANY_SUBSCRIPTION_SCHEDULED";
+    public const string CompanySubscriptionPromotionProcessed = "COMPANY_SUBSCRIPTION_PROMOTION_PROCESSED";
     public const string CompanyTypeCatalogItemCreated = "COMPANY_TYPE_CATALOG_ITEM_CREATED";
     public const string CompanyTypeCatalogItemUpdated = "COMPANY_TYPE_CATALOG_ITEM_UPDATED";
     public const string CompanyTypeCatalogItemActivated = "COMPANY_TYPE_CATALOG_ITEM_ACTIVATED";
@@ -132,7 +134,9 @@ public static class AuditEventTypes
         CommercialPlanUpdated,
         CommercialPlanActivated,
         CommercialPlanInactivated,
-        CompanySubscriptionReplaced,
+        CompanySubscriptionActivated,
+        CompanySubscriptionScheduled,
+        CompanySubscriptionPromotionProcessed,
         CompanyTypeCatalogItemCreated,
         CompanyTypeCatalogItemUpdated,
         CompanyTypeCatalogItemActivated,

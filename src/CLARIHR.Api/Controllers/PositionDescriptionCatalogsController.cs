@@ -25,8 +25,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.PositionFunctionType, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.PositionFunctionType, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/position-function-types/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -75,8 +76,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.PositionContractType, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.PositionContractType, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/position-contract-types/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -125,8 +127,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.StrategicObjective, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.StrategicObjective, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/strategic-objectives/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -175,8 +178,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.Frequency, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.Frequency, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/frequencies/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -225,8 +229,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.RequirementType, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.RequirementType, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/requirement-types/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -275,8 +280,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.Requirement, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.Requirement, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/requirements/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -325,8 +331,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.GeneralFunction, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.GeneralFunction, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/general-functions/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -375,8 +382,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.SalaryClass, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.SalaryClass, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/salary-classes/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -425,8 +433,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.WorkEquipment, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.WorkEquipment, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/work-equipments/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -475,8 +484,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.Responsibility, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.Responsibility, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/responsibilities-catalog/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -525,8 +535,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.Benefit, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.Benefit, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/benefits-catalog/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -575,8 +586,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.WorkConditionType, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.WorkConditionType, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/work-condition-types/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -625,8 +637,9 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default) =>
-        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.WorkCondition, isActive, search, page, pageSize, cancellationToken);
+        SearchSimpleCatalog(companyId, PositionDescriptionCatalogType.WorkCondition, isActive, search, page, pageSize, includeAllowedActions, cancellationToken);
 
     [HttpGet("api/v1/work-conditions/{id:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
@@ -678,6 +691,7 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
@@ -689,7 +703,8 @@ public sealed class PositionDescriptionCatalogsController(
                 isActive,
                 search,
                 page,
-                pageSize),
+                pageSize,
+                includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -789,10 +804,11 @@ public sealed class PositionDescriptionCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchPositionCategoriesQuery(companyId, classificationId, isActive, search, page, pageSize),
+            new SearchPositionCategoriesQuery(companyId, classificationId, isActive, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -886,10 +902,11 @@ public sealed class PositionDescriptionCatalogsController(
         string? search,
         int page,
         int pageSize,
+        bool includeAllowedActions,
         CancellationToken cancellationToken)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchPositionDescriptionCatalogItemsQuery(companyId, catalogType, isActive, search, page, pageSize),
+            new SearchPositionDescriptionCatalogItemsQuery(companyId, catalogType, isActive, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);

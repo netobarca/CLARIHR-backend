@@ -1,9 +1,11 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.IdentityAccess.Contracts;
@@ -25,7 +27,8 @@ public sealed record GetIamUserByIdQuery(Guid UserId) : IQuery<IamUserResponse>;
 public sealed record ListIamUsersQuery(
     int PageNumber = 1,
     int PageSize = 20,
-    string? Search = null) : IQuery<PagedResponse<IamUserSummaryResponse>>;
+    string? Search = null,
+    bool IncludeAllowedActions = false) : IQuery<PagedResponse<IamUserSummaryResponse>>;
 
 public sealed record SyncIamUserRolesCommand(
     Guid UserId,
@@ -185,7 +188,8 @@ internal sealed class GetIamUserByIdQueryHandler(
 
 internal sealed class ListIamUsersQueryHandler(
     IIamAdministrationRepository repository,
-    IIamAdministrationAuthorizationService authorizationService)
+    IIamAdministrationAuthorizationService authorizationService,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<ListIamUsersQuery, PagedResponse<IamUserSummaryResponse>>
 {
     public async Task<Result<PagedResponse<IamUserSummaryResponse>>> Handle(
@@ -202,6 +206,37 @@ internal sealed class ListIamUsersQueryHandler(
         }
 
         var users = await repository.GetUsersAsync(query.PageNumber, query.PageSize, query.Search, cancellationToken);
+
+        if (query.IncludeAllowedActions)
+        {
+            var canManageUsers = (await authorizationService.EnsureAuthorizedAsync(
+                RbacPermissionScreen.Users,
+                RbacPermissionAction.Update,
+                cancellationToken)).IsSuccess;
+            var activeAdministratorUserIds = await repository.GetActiveAdministratorUserIdsAsync(cancellationToken);
+            var enrichedItems = users.Items
+                .Select(user => user with
+                {
+                    AllowedActions = resourceActionPolicyService.Evaluate(
+                        new ResourceActionContext(
+                            ResourceKey: RbacPermissionScreen.Users.ToString(),
+                            State: user.IsActive ? "Active" : "Inactive",
+                            IsActive: user.IsActive,
+                            HasDependencies: user.IsActive &&
+                                             activeAdministratorUserIds.Count == 1 &&
+                                             activeAdministratorUserIds.Contains(user.Id),
+                            SupportsEdit: true,
+                            EditAllowed: canManageUsers))
+                })
+                .ToArray();
+
+            users = new PagedResponse<IamUserSummaryResponse>(
+                enrichedItems,
+                users.PageNumber,
+                users.PageSize,
+                users.TotalCount);
+        }
+
         return Result<PagedResponse<IamUserSummaryResponse>>.Success(users);
     }
 }

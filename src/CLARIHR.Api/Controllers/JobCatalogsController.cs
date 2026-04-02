@@ -27,10 +27,11 @@ public sealed class JobCatalogsController(
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchJobCatalogItemsQuery(companyId, category, isActive, search, page, pageSize),
+            new SearchJobCatalogItemsQuery(companyId, category, isActive, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);

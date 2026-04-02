@@ -362,8 +362,9 @@ internal sealed class SearchLegalRepresentativesQueryHandler(
             return Result<PagedResponse<LegalRepresentativeListItemResponse>>.Success(response);
         }
 
+        var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
         var items = response.Items
-            .Select(item => LegalRepresentativePolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .Select(item => LegalRepresentativePolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManage))
             .ToArray();
         response = response with { Items = items };
 
@@ -397,9 +398,11 @@ internal sealed class GetLegalRepresentativeByIdQueryHandler(
         if (response is not null)
         {
             var usage = await repository.GetUsageByIdAsync(query.LegalRepresentativeId, cancellationToken);
+            var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
             response = LegalRepresentativePolicyAdapter.ApplyAllowedActions(
                 response,
                 resourceActionPolicyService,
+                canManage,
                 usage?.CanInactivate ?? true);
 
             return Result<LegalRepresentativeResponse>.Success(response);
@@ -516,7 +519,8 @@ internal static class LegalRepresentativePolicyAdapter
 {
     public static LegalRepresentativeListItemResponse ApplyAllowedActions(
         LegalRepresentativeListItemResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
@@ -524,10 +528,13 @@ internal static class LegalRepresentativePolicyAdapter
                 response.RepresentationType.ToString(),
                 response.IsActive,
                 SupportsEdit: true,
+                EditAllowed: canManage,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: true,
-                SupportsInactivate: true));
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }
@@ -535,6 +542,7 @@ internal static class LegalRepresentativePolicyAdapter
     public static LegalRepresentativeResponse ApplyAllowedActions(
         LegalRepresentativeResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
         bool canInactivate)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
@@ -543,10 +551,13 @@ internal static class LegalRepresentativePolicyAdapter
                 response.RepresentationType.ToString(),
                 response.IsActive,
                 SupportsEdit: true,
+                EditAllowed: canManage,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: true,
-                SupportsInactivate: true));
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
 
         if (response.IsActive && !canInactivate)
         {

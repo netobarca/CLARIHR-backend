@@ -551,8 +551,9 @@ internal sealed class SearchSalaryTabulatorChangeRequestsQueryHandler(
             return Result<PagedResponse<SalaryTabulatorChangeRequestListItemResponse>>.Success(response);
         }
 
+        var canRequest = (await authorizationService.EnsureCanRequestAsync(query.CompanyId, cancellationToken)).IsSuccess;
         var items = response.Items
-            .Select(item => SalaryTabulatorPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .Select(item => SalaryTabulatorPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canRequest))
             .ToArray();
         response = response with { Items = items };
 
@@ -585,7 +586,8 @@ internal sealed class GetSalaryTabulatorChangeRequestByIdQueryHandler(
         var response = await repository.GetChangeRequestResponseByIdAsync(query.RequestId, cancellationToken);
         if (response is not null)
         {
-            response = SalaryTabulatorPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
+            var canRequest = (await authorizationService.EnsureCanRequestAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            response = SalaryTabulatorPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canRequest);
             return Result<SalaryTabulatorChangeRequestResponse>.Success(response);
         }
 
@@ -670,7 +672,8 @@ internal static class SalaryTabulatorPolicyAdapter
 
     public static SalaryTabulatorChangeRequestListItemResponse ApplyAllowedActions(
         SalaryTabulatorChangeRequestListItemResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canRequest)
     {
         var isActive = response.Status is SalaryTabulatorChangeRequestStatus.Draft or SalaryTabulatorChangeRequestStatus.Submitted;
         var allowedActions = resourceActionPolicyService.Evaluate(
@@ -679,6 +682,7 @@ internal static class SalaryTabulatorPolicyAdapter
                 response.Status.ToString(),
                 isActive,
                 SupportsEdit: true,
+                EditAllowed: canRequest,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: false,
@@ -696,7 +700,8 @@ internal static class SalaryTabulatorPolicyAdapter
 
     public static SalaryTabulatorChangeRequestResponse ApplyAllowedActions(
         SalaryTabulatorChangeRequestResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canRequest)
     {
         var isActive = response.Status is SalaryTabulatorChangeRequestStatus.Draft or SalaryTabulatorChangeRequestStatus.Submitted;
         var allowedActions = resourceActionPolicyService.Evaluate(
@@ -705,6 +710,7 @@ internal static class SalaryTabulatorPolicyAdapter
                 response.Status.ToString(),
                 isActive,
                 SupportsEdit: true,
+                EditAllowed: canRequest,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: false,

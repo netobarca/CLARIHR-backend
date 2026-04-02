@@ -365,8 +365,9 @@ internal sealed class SearchOrgUnitsQueryHandler(
             return Result<PagedResponse<OrgUnitResponse>>.Success(result);
         }
 
+        var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
         var items = result.Items
-            .Select(item => OrgUnitPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, hasActiveChildren: false))
+            .Select(item => OrgUnitPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManage, hasActiveChildren: false))
             .ToArray();
 
         result = result with { Items = items };
@@ -402,8 +403,9 @@ internal sealed class GetOrgUnitByIdQueryHandler(
             var orgUnit = await repository.GetByIdAsync(query.OrgUnitId, cancellationToken);
             var hasActiveChildren = orgUnit is not null &&
                                     await repository.HasActiveChildrenAsync(orgUnit.Id, cancellationToken);
+            var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
 
-            response = OrgUnitPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, hasActiveChildren);
+            response = OrgUnitPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage, hasActiveChildren);
             return Result<OrgUnitResponse>.Success(response);
         }
 
@@ -1082,6 +1084,7 @@ internal static class OrgUnitPolicyAdapter
     public static OrgUnitResponse ApplyAllowedActions(
         OrgUnitResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
         bool hasActiveChildren)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
@@ -1091,10 +1094,13 @@ internal static class OrgUnitPolicyAdapter
                 response.IsActive,
                 HasDependencies: hasActiveChildren,
                 SupportsEdit: true,
+                EditAllowed: canManage,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: true,
-                SupportsInactivate: true));
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }

@@ -1,11 +1,13 @@
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.IdentityAccess.Contracts;
@@ -25,7 +27,8 @@ public sealed record GetIamRoleByIdQuery(Guid RoleId) : IQuery<IamRoleResponse>;
 public sealed record ListIamRolesQuery(
     int PageNumber = 1,
     int PageSize = 20,
-    string? Search = null) : IQuery<PagedResponse<IamRoleSummaryResponse>>;
+    string? Search = null,
+    bool IncludeAllowedActions = false) : IQuery<PagedResponse<IamRoleSummaryResponse>>;
 
 public sealed record UpdateIamRoleCommand(
     Guid RoleId,
@@ -463,7 +466,8 @@ internal sealed class DeleteIamRoleCommandHandler(
 
 internal sealed class ListIamRolesQueryHandler(
     IIamAdministrationRepository repository,
-    IIamAdministrationAuthorizationService authorizationService)
+    IIamAdministrationAuthorizationService authorizationService,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<ListIamRolesQuery, PagedResponse<IamRoleSummaryResponse>>
 {
     public async Task<Result<PagedResponse<IamRoleSummaryResponse>>> Handle(
@@ -480,6 +484,41 @@ internal sealed class ListIamRolesQueryHandler(
         }
 
         var roles = await repository.GetRolesAsync(query.PageNumber, query.PageSize, query.Search, cancellationToken);
+
+        if (query.IncludeAllowedActions)
+        {
+            var canUpdateRoles = (await authorizationService.EnsureAuthorizedAsync(
+                RbacPermissionScreen.Roles,
+                RbacPermissionAction.Update,
+                cancellationToken)).IsSuccess;
+            var canDeleteRoles = (await authorizationService.EnsureAuthorizedAsync(
+                RbacPermissionScreen.Roles,
+                RbacPermissionAction.Delete,
+                cancellationToken)).IsSuccess;
+            var enrichedItems = roles.Items
+                .Select(role => role with
+                {
+                    AllowedActions = resourceActionPolicyService.Evaluate(
+                        new ResourceActionContext(
+                            ResourceKey: RbacPermissionScreen.Roles.ToString(),
+                            State: role.IsSystemRole ? "System" : "Custom",
+                            IsActive: true,
+                            IsSystem: role.IsSystemRole,
+                            HasDependencies: role.UserCount > 0,
+                            SupportsEdit: true,
+                            EditAllowed: canUpdateRoles,
+                            SupportsDelete: true,
+                            DeleteAllowed: canDeleteRoles))
+                })
+                .ToArray();
+
+            roles = new PagedResponse<IamRoleSummaryResponse>(
+                enrichedItems,
+                roles.PageNumber,
+                roles.PageSize,
+                roles.TotalCount);
+        }
+
         return Result<PagedResponse<IamRoleSummaryResponse>>.Success(roles);
     }
 }

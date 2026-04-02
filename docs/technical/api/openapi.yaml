@@ -953,12 +953,18 @@ components:
         - subscriptionPublicId
         - companyPublicId
         - commercialPlanPublicId
+        - commercialPlanVersionId
         - planCode
         - planName
+        - planVersionNumber
         - baseMonthlyFee
         - pricePerActiveEmployee
+        - periodicity
+        - currencyCode
         - status
         - startDateUtc
+        - activatedByUserId
+        - activatedAtUtc
         - createdAtUtc
       properties:
         subscriptionPublicId:
@@ -970,12 +976,19 @@ components:
         commercialPlanPublicId:
           type: string
           format: uuid
+        commercialPlanVersionId:
+          type: string
+          format: uuid
         planCode:
           type: string
           example: FREE
         planName:
           type: string
           example: Free
+        planVersionNumber:
+          type: integer
+          format: int32
+          example: 1
         baseMonthlyFee:
           type: number
           format: decimal
@@ -984,6 +997,11 @@ components:
           type: number
           format: decimal
           example: 0
+        periodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+        currencyCode:
+          type: string
+          example: USD
         status:
           $ref: '#/components/schemas/SubscriptionStatus'
         startDateUtc:
@@ -993,6 +1011,12 @@ components:
           type: string
           format: date-time
           nullable: true
+        activatedByUserId:
+          type: string
+          format: uuid
+        activatedAtUtc:
+          type: string
+          format: date-time
         createdAtUtc:
           type: string
           format: date-time
@@ -1000,6 +1024,155 @@ components:
           type: string
           format: date-time
           nullable: true
+    PlatformCompanySubscriptionOverviewResponse:
+      type: object
+      required:
+        - companyPublicId
+        - companyName
+        - companySlug
+        - companyStatus
+        - isBillable
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        companySlug:
+          type: string
+        companyStatus:
+          $ref: '#/components/schemas/CompanyStatus'
+        isBillable:
+          type: boolean
+        billableSinceUtc:
+          type: string
+          format: date-time
+          nullable: true
+        currentSubscription:
+          $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+          nullable: true
+        scheduledReplacement:
+          $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+          nullable: true
+    PlatformCompanySubscriptionPreviewResponse:
+      type: object
+      required:
+        - companyPublicId
+        - companyName
+        - companySlug
+        - companyStatus
+        - isBillable
+        - commercialPlanPublicId
+        - commercialPlanVersionId
+        - planCode
+        - planName
+        - planVersionNumber
+        - baseMonthlyFee
+        - pricePerActiveEmployee
+        - periodicity
+        - currencyCode
+        - resolvedStatus
+        - startDateUtc
+        - isEligible
+        - ineligibilityReasons
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        companySlug:
+          type: string
+        companyStatus:
+          $ref: '#/components/schemas/CompanyStatus'
+        isBillable:
+          type: boolean
+        commercialPlanPublicId:
+          type: string
+          format: uuid
+        commercialPlanVersionId:
+          type: string
+          format: uuid
+        planCode:
+          type: string
+        planName:
+          type: string
+        planVersionNumber:
+          type: integer
+          format: int32
+        baseMonthlyFee:
+          type: number
+          format: decimal
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+        periodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+        currencyCode:
+          type: string
+        resolvedStatus:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        startDateUtc:
+          type: string
+          format: date-time
+        isEligible:
+          type: boolean
+        ineligibilityReasons:
+          type: array
+          items:
+            type: string
+    PlatformCompanySubscriptionListItemResponse:
+      type: object
+      required:
+        - companyPublicId
+        - companyName
+        - companySlug
+        - isBillable
+        - subscriptionPublicId
+        - commercialPlanPublicId
+        - commercialPlanVersionId
+        - planCode
+        - planName
+        - planVersionNumber
+        - startDateUtc
+        - periodicity
+        - currencyCode
+        - status
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        companySlug:
+          type: string
+        isBillable:
+          type: boolean
+        subscriptionPublicId:
+          type: string
+          format: uuid
+        commercialPlanPublicId:
+          type: string
+          format: uuid
+        commercialPlanVersionId:
+          type: string
+          format: uuid
+        planCode:
+          type: string
+        planName:
+          type: string
+        planVersionNumber:
+          type: integer
+          format: int32
+        startDateUtc:
+          type: string
+          format: date-time
+        periodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+        currencyCode:
+          type: string
+        status:
+          $ref: '#/components/schemas/SubscriptionStatus'
     PagedPlatformCompanySubscriptionResponse:
       type: object
       required:
@@ -1024,14 +1197,47 @@ components:
           type: integer
           format: int32
           example: 2
-    ReplacePlatformCompanySubscriptionRequest:
+    PagedPlatformCompanySubscriptionListItemResponse:
       type: object
       required:
-        - commercialPlanPublicId
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
       properties:
-        commercialPlanPublicId:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCompanySubscriptionListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    UpsertPlatformCompanySubscriptionRequest:
+      type: object
+      required:
+        - commercialPlanId
+        - startDateUtc
+        - periodicity
+      properties:
+        commercialPlanId:
           type: string
           format: uuid
+        startDateUtc:
+          type: string
+          format: date-time
+        periodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+    CompanySubscriptionPeriodicity:
+      type: string
+      enum:
+        - Monthly
+        - Annual
     ProblemDetails:
       type: object
       properties:
@@ -1988,8 +2194,8 @@ paths:
       tags:
         - platform-subscriptions
       operationId: GetPlatformCompanySubscription
-      summary: Get the active company subscription
-      description: Returns the current active subscription for the requested company from the platform backoffice.
+      summary: Get the company subscription overview
+      description: Returns the active company subscription plus a scheduled replacement when one exists.
       security:
         - Bearer: []
       parameters:
@@ -2001,11 +2207,11 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Active company subscription returned successfully.
+          description: Company subscription overview returned successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+                $ref: '#/components/schemas/PlatformCompanySubscriptionOverviewResponse'
         '401':
           description: Authentication is required.
           content:
@@ -2024,12 +2230,12 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-    put:
+    post:
       tags:
         - platform-subscriptions
-      operationId: ReplacePlatformCompanySubscription
-      summary: Replace the active company subscription
-      description: Cancels the current active subscription and creates a new active row linked to the selected active commercial plan.
+      operationId: PreviewPlatformCompanySubscription
+      summary: Preview a company subscription activation
+      description: Resolves the effective plan version, eligibility and initial status without mutating state.
       security:
         - Bearer: []
       parameters:
@@ -2044,10 +2250,68 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReplacePlatformCompanySubscriptionRequest'
+              $ref: '#/components/schemas/UpsertPlatformCompanySubscriptionRequest'
       responses:
         '200':
-          description: Company subscription replaced successfully.
+          description: Company subscription preview returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionPreviewResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as inactive plan or missing effective version.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - platform-subscriptions
+      operationId: ActivatePlatformCompanySubscription
+      summary: Activate or schedule a company subscription
+      description: Creates an active or scheduled company subscription linked to the selected commercial plan version.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertPlatformCompanySubscriptionRequest'
+      responses:
+        '200':
+          description: Company subscription created successfully.
           content:
             application/json:
               schema:
@@ -2077,7 +2341,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
-          description: Business conflict such as assigning an inactive plan or reassigning the same active plan.
+          description: Business conflict such as assigning an inactive plan, missing eligibility, or colliding with an existing scheduled subscription.
           content:
             application/problem+json:
               schema:
@@ -2122,6 +2386,68 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PagedPlatformCompanySubscriptionResponse'
+  /api/platform/company-subscriptions:
+    get:
+      tags:
+        - platform-subscriptions
+      operationId: SearchPlatformCompanySubscriptionsGlobal
+      summary: List company subscriptions globally
+      description: Returns the paged global list of company subscriptions from the platform backoffice.
+      security:
+        - Bearer: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/SubscriptionStatus'
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Paged global company subscription list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPlatformCompanySubscriptionListItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '400':
           description: Validation error.
           content:

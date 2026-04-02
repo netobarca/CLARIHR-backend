@@ -1603,8 +1603,9 @@ internal sealed class SearchPersonnelFilesQueryHandler(
             return Result<PagedResponse<PersonnelFileListItemResponse>>.Success(response);
         }
 
+        var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
         var items = response.Items
-            .Select(item => PersonnelFilePolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .Select(item => PersonnelFilePolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManage))
             .ToArray();
         response = response with { Items = items };
 
@@ -1637,7 +1638,8 @@ internal sealed class GetPersonnelFileByIdQueryHandler(
         var response = await repository.GetResponseByIdAsync(query.PersonnelFileId, cancellationToken);
         if (response is not null)
         {
-            response = PersonnelFilePolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
+            var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            response = PersonnelFilePolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage);
             return Result<PersonnelFileResponse>.Success(response);
         }
 
@@ -1679,7 +1681,8 @@ internal sealed class GetPersonnelFilePrintQueryHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        response = PersonnelFilePolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
+        var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+        response = PersonnelFilePolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage);
         var includedSections = PersonnelFilePrintSections.Resolve(query.Sections);
         var filtered = PersonnelFilePrintSections.Filter(response, includedSections);
 
@@ -1775,8 +1778,9 @@ internal sealed class DynamicQueryPersonnelFilesQueryHandler(
             return Result<PersonnelFileDynamicQueryResponse>.Success(response);
         }
 
+        var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
         var items = response.Items
-            .Select(item => PersonnelFilePolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .Select(item => PersonnelFilePolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManage))
             .ToArray();
         response = response with { Items = items };
 
@@ -1871,7 +1875,8 @@ internal static class PersonnelFilePolicyAdapter
 {
     public static PersonnelFileListItemResponse ApplyAllowedActions(
         PersonnelFileListItemResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
@@ -1879,17 +1884,21 @@ internal static class PersonnelFilePolicyAdapter
                 response.RecordType.ToString(),
                 response.IsActive,
                 SupportsEdit: true,
+                EditAllowed: canManage,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: true,
-                SupportsInactivate: true));
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }
 
     public static PersonnelFileResponse ApplyAllowedActions(
         PersonnelFileResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
@@ -1897,10 +1906,13 @@ internal static class PersonnelFilePolicyAdapter
                 response.RecordType.ToString(),
                 response.IsActive,
                 SupportsEdit: true,
+                EditAllowed: canManage,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: true,
-                SupportsInactivate: true));
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }

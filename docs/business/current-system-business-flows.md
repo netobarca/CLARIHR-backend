@@ -96,10 +96,12 @@ El provisioning actual deja creada la base operativa minima del tenant:
 
 ### 5.6 Administracion backoffice de suscripciones empresariales
 
-1. Un operador de plataforma consulta la suscripcion vigente o el historial de una empresa desde `api/platform/companies/{companyPublicId}/subscription` y `.../subscriptions`.
-2. Si necesita cambiar el plan, envia `commercialPlanPublicId` a `PUT api/platform/companies/{companyPublicId}/subscription`.
-3. El backend cancela la suscripcion activa anterior y crea una nueva fila historica ligada formalmente al `CommercialPlan` seleccionado.
-4. La empresa nunca queda sin suscripcion activa; un downgrade operativo se resuelve asignando nuevamente `FREE`.
+1. Un operador de plataforma consulta el overview comercial y el historial de una empresa desde `api/platform/companies/{companyPublicId}/subscription` y `.../subscriptions`, o usa `api/platform/company-subscriptions` para listar el universo global.
+2. Antes de confirmar, puede solicitar una vista previa en `POST api/platform/companies/{companyPublicId}/subscription/preview` para validar elegibilidad, version efectiva del plan, moneda `USD`, periodicidad y estado inicial.
+3. La activacion usa `PUT api/platform/companies/{companyPublicId}/subscription` con `commercialPlanId`, `startDateUtc` y `periodicity`.
+4. Si la fecha inicia hoy, el backend cancela la fila activa anterior y crea una nueva `Active`; si la fecha es futura, crea una fila `Scheduled` sin efectos comerciales inmediatos.
+5. Cada suscripcion queda amarrada explicitamente a `CommercialPlanVersion`, conserva snapshot de precios, registra auditoria durable y actualiza `Company.IsBillable` solo cuando la empresa entra en una suscripcion comercial activa no sistema.
+6. Un proceso de fondo promueve automaticamente las filas `Scheduled` al llegar la fecha efectiva y realiza el swap transaccional con la fila activa previa.
 
 ## 6. Flujo de administracion de estructura organizacional
 

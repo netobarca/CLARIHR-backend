@@ -59,6 +59,7 @@ public static class DependencyInjection
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
         services.Configure<FieldPermissionCacheOptions>(configuration.GetSection(FieldPermissionCacheOptions.SectionName));
         services.Configure<CompanyOwnershipOptions>(configuration.GetSection(CompanyOwnershipOptions.SectionName));
+        services.Configure<CompanySubscriptionLifecycleOptions>(configuration.GetSection(CompanySubscriptionLifecycleOptions.SectionName));
         services.AddHttpContextAccessor();
 
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
@@ -78,6 +79,7 @@ public static class DependencyInjection
         services.AddScoped<ICommercialAddonRepository, CommercialAddonRepository>();
         services.AddScoped<ICommercialPlanRepository, CommercialPlanRepository>();
         services.AddScoped<ICompanySubscriptionRepository, CompanySubscriptionRepository>();
+        services.AddScoped<CompanySubscriptionLifecycleProcessor>();
         services.AddScoped<IUserCompanyRepository, UserCompanyRepository>();
         services.AddScoped<ICompanyOwnershipPolicy, CompanyOwnershipPolicy>();
         services.AddScoped<IInvitationTokenRepository, InvitationTokenRepository>();
@@ -135,6 +137,7 @@ public static class DependencyInjection
         services.AddScoped<IFieldAccessProfileService, FieldAccessProfileService>();
         services.AddScoped<IFieldPermissionService, FieldPermissionService>();
         services.AddSingleton<IFieldSerializationService, FieldSerializationService>();
+        services.AddHostedService<CompanySubscriptionLifecycleBackgroundService>();
 
         services.AddDbContext<ApplicationDbContext>((serviceProvider, optionsBuilder) =>
         {

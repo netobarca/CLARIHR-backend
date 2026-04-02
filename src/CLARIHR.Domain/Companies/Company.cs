@@ -16,7 +16,9 @@ public sealed class Company : AuditableEntity
         long countryCatalogItemId,
         CompanyStatus status,
         Guid createdByUserPublicId,
-        long? companyTypeCatalogItemId)
+        long? companyTypeCatalogItemId,
+        bool isBillable,
+        DateTime? billableSinceUtc)
     {
         if (createdByUserPublicId == Guid.Empty)
         {
@@ -30,6 +32,8 @@ public sealed class Company : AuditableEntity
         Status = status;
         CreatedByUserPublicId = createdByUserPublicId;
         SetCompanyType(companyTypeCatalogItemId);
+        IsBillable = isBillable;
+        BillableSinceUtc = billableSinceUtc;
     }
 
     public string Name { get; private set; } = string.Empty;
@@ -46,6 +50,10 @@ public sealed class Company : AuditableEntity
 
     public long? CompanyTypeCatalogItemId { get; private set; }
 
+    public bool IsBillable { get; private set; }
+
+    public DateTime? BillableSinceUtc { get; private set; }
+
     public static Company Create(
         string name,
         string slug,
@@ -61,7 +69,9 @@ public sealed class Company : AuditableEntity
             countryCatalogItemId,
             CompanyStatus.Active,
             createdByUserPublicId,
-            companyTypeCatalogItemId);
+            companyTypeCatalogItemId,
+            isBillable: false,
+            billableSinceUtc: null);
 
     private void SetCountry(long countryCatalogItemId, string countryCode)
     {
@@ -107,5 +117,21 @@ public sealed class Company : AuditableEntity
         }
 
         Status = CompanyStatus.Active;
+    }
+
+    public void MarkBillable(DateTime effectiveFromUtc)
+    {
+        if (!IsBillable)
+        {
+            BillableSinceUtc = effectiveFromUtc;
+        }
+
+        IsBillable = true;
+    }
+
+    public void ClearBillable()
+    {
+        IsBillable = false;
+        BillableSinceUtc = null;
     }
 }

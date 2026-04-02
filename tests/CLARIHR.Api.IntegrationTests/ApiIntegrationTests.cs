@@ -2082,6 +2082,112 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var salaryRequestsList = await approverClient.GetAsync(
             $"/api/v1/companies/{scenario.TenantId}/salary-tabulator/change-requests?page=1&pageSize=20&includeAllowedActions=true");
         await AssertFirstItemHasAllowedActionsAsync(salaryRequestsList);
+
+        using var companyUsersClient = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Users, RbacPermissionAction.Read),
+            (RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+        var companyUsersList = await companyUsersClient.GetAsync("/api/company/users?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(companyUsersList);
+
+        using var locationClient = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+        var defaultLocationGroup = await GetDefaultLocationGroupAsync(locationClient, scenario.TenantId);
+        var createWorkCenterTypeResponse = await locationClient.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-center-types", new
+        {
+            code = "WCT-AA",
+            name = "Tipo AllowedActions",
+            requiresAddress = false,
+            requiresGeo = false,
+            allowsBiometric = false
+        });
+        createWorkCenterTypeResponse.EnsureSuccessStatusCode();
+        var workCenterType = await createWorkCenterTypeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
+        Assert.NotNull(workCenterType);
+
+        var createWorkCenterResponse = await locationClient.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/work-centers", new
+        {
+            code = "WC-AA",
+            name = "Centro AllowedActions",
+            workCenterTypePublicId = workCenterType!.Id,
+            locationGroupPublicId = defaultLocationGroup.Id,
+            address = (string?)null,
+            geoLat = (decimal?)null,
+            geoLong = (decimal?)null,
+            phone = (string?)null,
+            email = (string?)null,
+            notes = (string?)null
+        });
+        createWorkCenterResponse.EnsureSuccessStatusCode();
+
+        var locationGroupsList = await locationClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/location-groups?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(locationGroupsList);
+
+        var workCenterTypesList = await locationClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/work-center-types?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(workCenterTypesList);
+
+        var workCentersList = await locationClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/work-centers?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(workCentersList);
+
+        using var catalogClient = factory.CreateClientFor(CreateJobProfileAdminWithCatalogContext(scenario));
+        var orgUnitType = await EnsureOrgUnitTypeAsync(catalogClient, scenario.TenantId, "ORG-AA");
+        _ = await EnsureFunctionalAreaAsync(catalogClient, scenario.TenantId, "FUNC-AREA-AA");
+        var functionType = await EnsurePositionDescriptionCatalogItemAsync(catalogClient, scenario.TenantId, "position-function-types", "FUNC-AA");
+        var contractType = await EnsurePositionDescriptionCatalogItemAsync(catalogClient, scenario.TenantId, "position-contract-types", "CON-AA");
+        var classification = await EnsurePositionCategoryClassificationAsync(
+            catalogClient,
+            scenario.TenantId,
+            "CLASS-AA",
+            functionType.Id,
+            contractType.Id,
+            orgUnitType.Id);
+        _ = await EnsurePositionCategoryAsync(catalogClient, scenario.TenantId, "CAT-AA", classification.Id);
+        _ = await CreateJobCatalogItemAsync(catalogClient, scenario.TenantId, JobCatalogCategory.EducationLevel, "EDU-AA", "Educacion AllowedActions");
+
+        var orgUnitTypesList = await catalogClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/org-structure-catalogs/unit-types?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(orgUnitTypesList);
+
+        var functionalAreasList = await catalogClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/org-structure-catalogs/functional-areas?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(functionalAreasList);
+
+        var positionFunctionTypesList = await catalogClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-function-types?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(positionFunctionTypesList);
+
+        var classificationsList = await catalogClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-category-classifications?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(classificationsList);
+
+        var categoriesList = await catalogClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-categories?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(categoriesList);
+
+        var jobCatalogsList = await catalogClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/job-catalogs/EducationLevel?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(jobCatalogsList);
+
+        using var iamUsersClient = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Users, RbacPermissionAction.Read),
+            (RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+        var iamUsersList = await iamUsersClient.GetAsync("/api/iam/users?pageNumber=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(iamUsersList);
+
+        using var iamRolesClient = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Read),
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Update),
+            (RbacPermissionScreen.Roles, RbacPermissionAction.Delete)));
+        var iamRolesList = await iamRolesClient.GetAsync("/api/iam/roles?pageNumber=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(iamRolesList);
+
+        using var accountCompaniesClient = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+        var accountCompaniesList = await accountCompaniesClient.GetAsync("/api/account/companies?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstItemHasAllowedActionsAsync(accountCompaniesList);
     }
 
     [Fact]

@@ -1,10 +1,12 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
@@ -40,7 +42,8 @@ public sealed record OrgUnitTypeCatalogItemResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record FunctionalAreaCatalogItemResponse(
     Guid Id,
@@ -51,14 +54,16 @@ public sealed record FunctionalAreaCatalogItemResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record SearchOrgUnitTypesQuery(
     Guid CompanyId,
     bool? IsActive,
     string? Search,
     int PageNumber = 1,
-    int PageSize = OrgStructureCatalogValidationRules.DefaultPageSize)
+    int PageSize = OrgStructureCatalogValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false)
     : IQuery<PagedResponse<OrgUnitTypeCatalogItemResponse>>;
 
 public sealed record GetOrgUnitTypeByIdQuery(Guid OrgUnitTypeId)
@@ -96,7 +101,8 @@ public sealed record SearchFunctionalAreasQuery(
     bool? IsActive,
     string? Search,
     int PageNumber = 1,
-    int PageSize = OrgStructureCatalogValidationRules.DefaultPageSize)
+    int PageSize = OrgStructureCatalogValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false)
     : IQuery<PagedResponse<FunctionalAreaCatalogItemResponse>>;
 
 public sealed record GetFunctionalAreaByIdQuery(Guid FunctionalAreaId)
@@ -271,7 +277,8 @@ internal sealed class InactivateFunctionalAreaCommandValidator : AbstractValidat
 
 internal sealed class SearchOrgUnitTypesQueryHandler(
     IOrgStructureCatalogAuthorizationService authorizationService,
-    IOrgStructureCatalogRepository repository)
+    IOrgStructureCatalogRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchOrgUnitTypesQuery, PagedResponse<OrgUnitTypeCatalogItemResponse>>
 {
     public async Task<Result<PagedResponse<OrgUnitTypeCatalogItemResponse>>> Handle(
@@ -291,6 +298,37 @@ internal sealed class SearchOrgUnitTypesQueryHandler(
             query.PageNumber,
             query.PageSize,
             cancellationToken);
+
+        if (query.IncludeAllowedActions)
+        {
+            var canManage = (await authorizationService.EnsureCanManageTenantAsync(query.CompanyId, cancellationToken)).IsSuccess;
+            var enrichedItems = new List<OrgUnitTypeCatalogItemResponse>(response.Items.Count);
+
+            foreach (var item in response.Items)
+            {
+                var hasDependencies = false;
+                if (item.IsActive)
+                {
+                    var entity = await repository.GetOrgUnitTypeByIdAsync(item.Id, cancellationToken);
+                    hasDependencies = entity is not null &&
+                        (await repository.HasOrgUnitsUsingOrgUnitTypeAsync(entity.Id, cancellationToken) ||
+                         await repository.HasPositionCategoryClassificationsUsingOrgUnitTypeAsync(entity.Id, cancellationToken));
+                }
+
+                enrichedItems.Add(
+                    OrgStructureCatalogPolicyAdapter.ApplyAllowedActions(
+                        item,
+                        resourceActionPolicyService,
+                        canManage,
+                        hasDependencies));
+            }
+
+            response = new PagedResponse<OrgUnitTypeCatalogItemResponse>(
+                enrichedItems,
+                response.PageNumber,
+                response.PageSize,
+                response.TotalCount);
+        }
 
         return Result<PagedResponse<OrgUnitTypeCatalogItemResponse>>.Success(response);
     }
@@ -621,7 +659,8 @@ internal sealed class InactivateOrgUnitTypeCommandHandler(
 
 internal sealed class SearchFunctionalAreasQueryHandler(
     IOrgStructureCatalogAuthorizationService authorizationService,
-    IOrgStructureCatalogRepository repository)
+    IOrgStructureCatalogRepository repository,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchFunctionalAreasQuery, PagedResponse<FunctionalAreaCatalogItemResponse>>
 {
     public async Task<Result<PagedResponse<FunctionalAreaCatalogItemResponse>>> Handle(
@@ -642,8 +681,80 @@ internal sealed class SearchFunctionalAreasQueryHandler(
             query.PageSize,
             cancellationToken);
 
+        if (query.IncludeAllowedActions)
+        {
+            var canManage = (await authorizationService.EnsureCanManageTenantAsync(query.CompanyId, cancellationToken)).IsSuccess;
+            var enrichedItems = new List<FunctionalAreaCatalogItemResponse>(response.Items.Count);
+
+            foreach (var item in response.Items)
+            {
+                var hasDependencies = false;
+                if (item.IsActive)
+                {
+                    var entity = await repository.GetFunctionalAreaByIdAsync(item.Id, cancellationToken);
+                    hasDependencies = entity is not null &&
+                        await repository.HasOrgUnitsUsingFunctionalAreaAsync(entity.Id, cancellationToken);
+                }
+
+                enrichedItems.Add(
+                    OrgStructureCatalogPolicyAdapter.ApplyAllowedActions(
+                        item,
+                        resourceActionPolicyService,
+                        canManage,
+                        hasDependencies));
+            }
+
+            response = new PagedResponse<FunctionalAreaCatalogItemResponse>(
+                enrichedItems,
+                response.PageNumber,
+                response.PageSize,
+                response.TotalCount);
+        }
+
         return Result<PagedResponse<FunctionalAreaCatalogItemResponse>>.Success(response);
     }
+}
+
+internal static class OrgStructureCatalogPolicyAdapter
+{
+    public static OrgUnitTypeCatalogItemResponse ApplyAllowedActions(
+        OrgUnitTypeCatalogItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
+        bool hasDependencies) =>
+        response with
+        {
+            AllowedActions = Evaluate(resourceActionPolicyService, response.IsActive, canManage, hasDependencies, "OrgUnitTypes")
+        };
+
+    public static FunctionalAreaCatalogItemResponse ApplyAllowedActions(
+        FunctionalAreaCatalogItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
+        bool hasDependencies) =>
+        response with
+        {
+            AllowedActions = Evaluate(resourceActionPolicyService, response.IsActive, canManage, hasDependencies, "FunctionalAreas")
+        };
+
+    private static AllowedActionsResponse Evaluate(
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool isActive,
+        bool canManage,
+        bool hasDependencies,
+        string resourceKey) =>
+        resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                ResourceKey: resourceKey,
+                State: isActive ? "Active" : "Inactive",
+                IsActive: isActive,
+                HasDependencies: hasDependencies,
+                SupportsEdit: true,
+                EditAllowed: canManage,
+                SupportsActivate: true,
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
 }
 
 internal sealed class GetFunctionalAreaByIdQueryHandler(

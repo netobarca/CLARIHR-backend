@@ -9,6 +9,7 @@ internal static class GlobalCatalogSeedData
 {
     public static readonly DateTime SeededAtUtc = new(2026, 03, 18, 0, 0, 0, DateTimeKind.Utc);
     public const long FreeCommercialPlanInternalId = -3000L;
+    public const long FreeCommercialPlanVersionInternalId = -3001L;
     public static readonly Guid FreeCommercialPlanPublicId = Guid.Parse("00000000-0000-0000-0000-000000000901");
     public static readonly Guid FreeCommercialPlanConcurrencyToken = Guid.Parse("00000000-0000-0000-0000-000000000902");
 
@@ -31,6 +32,24 @@ internal static class GlobalCatalogSeedData
                 Status = CommercialPlanStatus.Active,
                 IsSystemPlan = true,
                 ConcurrencyToken = FreeCommercialPlanConcurrencyToken,
+                CreatedUtc = SeededAtUtc,
+                ModifiedUtc = SeededAtUtc
+            }
+        ];
+
+    public static IEnumerable<object> GetCommercialPlanVersions() =>
+        [
+            new
+            {
+                Id = FreeCommercialPlanVersionInternalId,
+                PublicId = CreateSeedPublicId("COMMERCIAL_PLAN_VERSION", "FREE:1"),
+                CommercialPlanId = FreeCommercialPlanInternalId,
+                VersionNumber = 1,
+                CurrencyCode = "USD",
+                BaseMonthlyFee = 0m,
+                PricePerActiveEmployee = 0m,
+                EffectiveFromUtc = SeededAtUtc,
+                EffectiveToUtc = (DateTime?)null,
                 CreatedUtc = SeededAtUtc,
                 ModifiedUtc = SeededAtUtc
             }

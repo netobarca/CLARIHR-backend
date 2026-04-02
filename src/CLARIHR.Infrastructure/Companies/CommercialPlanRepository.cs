@@ -14,11 +14,29 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
     public Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken) =>
         dbContext.CommercialPlans
             .Include(plan => plan.Limits)
+            .Include(plan => plan.Versions)
             .SingleOrDefaultAsync(plan => plan.PublicId == commercialPlanId, cancellationToken);
+
+    public Task<CommercialPlanVersion?> GetEffectiveVersionAsync(
+        Guid commercialPlanId,
+        DateTime effectiveAtUtc,
+        CancellationToken cancellationToken) =>
+        dbContext.CommercialPlanVersions
+            .AsNoTracking()
+            .Join(
+                dbContext.CommercialPlans.AsNoTracking().Where(plan => plan.PublicId == commercialPlanId),
+                version => version.CommercialPlanId,
+                plan => plan.Id,
+                (version, _) => version)
+            .Where(version => version.EffectiveFromUtc <= effectiveAtUtc &&
+                              (!version.EffectiveToUtc.HasValue || effectiveAtUtc < version.EffectiveToUtc.Value))
+            .OrderByDescending(version => version.VersionNumber)
+            .SingleOrDefaultAsync(cancellationToken);
 
     public Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken) =>
         dbContext.CommercialPlans
             .Include(plan => plan.Limits)
+            .Include(plan => plan.Versions)
             .SingleOrDefaultAsync(plan => plan.NormalizedCode == normalizedCode, cancellationToken);
 
     public Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
@@ -62,6 +80,14 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
                 plan.Description,
                 plan.BaseMonthlyFee,
                 plan.PricePerActiveEmployee,
+                plan.Versions
+                    .OrderByDescending(version => version.VersionNumber)
+                    .Select(version => version.VersionNumber)
+                    .FirstOrDefault(),
+                plan.Versions
+                    .OrderByDescending(version => version.VersionNumber)
+                    .Select(version => version.CurrencyCode)
+                    .FirstOrDefault() ?? "USD",
                 plan.Status,
                 plan.IsSystemPlan,
                 plan.CreatedUtc,

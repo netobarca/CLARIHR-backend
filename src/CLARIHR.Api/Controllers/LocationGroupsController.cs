@@ -38,10 +38,11 @@ public sealed class LocationGroupsController(
         [FromQuery] string? q,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchLocationGroupsQuery(companyId, levelOrder, isActive, q, page, pageSize),
+            new SearchLocationGroupsQuery(companyId, levelOrder, isActive, q, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);
