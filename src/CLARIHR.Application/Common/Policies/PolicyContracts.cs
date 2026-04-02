@@ -15,10 +15,15 @@ public sealed record ResourceActionContext(
     bool IsSystem = false,
     bool HasDependencies = false,
     bool SupportsEdit = true,
+    bool EditAllowed = true,
     bool SupportsDelete = false,
+    bool DeleteAllowed = true,
     bool SupportsArchive = false,
+    bool ArchiveAllowed = true,
     bool SupportsActivate = false,
+    bool ActivateAllowed = true,
     bool SupportsInactivate = false,
+    bool InactivateAllowed = true,
     IReadOnlyCollection<string>? NonEditableStates = null);
 
 public sealed record ReportCapabilitiesResponse(

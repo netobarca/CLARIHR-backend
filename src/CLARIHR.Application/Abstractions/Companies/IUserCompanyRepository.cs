@@ -29,6 +29,8 @@ public interface IUserCompanyRepository
 
     Task<bool> HasActiveMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken);
 
+    Task<bool> HasAnyActiveAdministratorAsync(Guid companyPublicId, CancellationToken cancellationToken);
+
     Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken);
 
     Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken);

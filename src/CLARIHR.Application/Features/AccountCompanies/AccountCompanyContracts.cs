@@ -1,5 +1,6 @@
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.OrgStructureCatalogs;
 using CLARIHR.Domain.Companies;
@@ -18,7 +19,8 @@ public sealed record AccountCompanySummaryResponse(
     bool IsActiveContext,
     bool IsOwnedByCurrentUser,
     DateTime CreatedAtUtc,
-    CompanyTypeMetadataResponse? CompanyType);
+    CompanyTypeMetadataResponse? CompanyType,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record AccountCompanyDetailResponse(
     Guid PublicId,
@@ -72,7 +74,8 @@ public sealed record CompanyListFilter(
 public sealed record GetOwnedCompaniesQuery(
     CompanyStatus? Status = null,
     int PageNumber = 1,
-    int PageSize = 20) : IQuery<PagedResponse<AccountCompanySummaryResponse>>;
+    int PageSize = 20,
+    bool IncludeAllowedActions = false) : IQuery<PagedResponse<AccountCompanySummaryResponse>>;
 
 public sealed record GetAvailableCompanyTypesQuery(string CountryCode)
     : IQuery<IReadOnlyCollection<CompanyTypeCatalogItemResponse>>;

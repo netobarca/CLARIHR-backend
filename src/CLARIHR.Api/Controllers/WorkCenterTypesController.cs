@@ -25,10 +25,11 @@ public sealed class WorkCenterTypesController(
         [FromQuery] string? q,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new GetWorkCenterTypesQuery(companyId, isActive, q, page, pageSize),
+            new GetWorkCenterTypesQuery(companyId, isActive, q, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);

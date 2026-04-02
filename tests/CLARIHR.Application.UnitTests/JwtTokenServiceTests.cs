@@ -289,6 +289,9 @@ public sealed class JwtTokenServiceTests
         public Task<bool> HasActiveMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<bool> HasAnyActiveAdministratorAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+
         public Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

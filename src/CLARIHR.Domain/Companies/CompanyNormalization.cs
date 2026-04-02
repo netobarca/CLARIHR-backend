@@ -26,6 +26,17 @@ internal static class CompanyNormalization
     public static string NormalizeModuleKey(string moduleKey) =>
         Clean(moduleKey, nameof(moduleKey)).ToUpperInvariant();
 
+    public static string NormalizeCurrencyCode(string currencyCode)
+    {
+        var normalized = Clean(currencyCode, nameof(currencyCode)).ToUpperInvariant();
+        if (normalized.Length != 3)
+        {
+            throw new ArgumentException("Currency code must contain exactly 3 characters.", nameof(currencyCode));
+        }
+
+        return normalized;
+    }
+
     public static string NormalizeName(string name) =>
         Clean(name, nameof(name)).ToUpperInvariant();
 

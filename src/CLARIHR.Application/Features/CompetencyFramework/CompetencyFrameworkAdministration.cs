@@ -480,8 +480,9 @@ internal sealed class SearchOccupationalPyramidLevelsQueryHandler(
             return Result<PagedResponse<OccupationalPyramidLevelListItemResponse>>.Success(payload);
         }
 
+        var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
         var items = payload.Items
-            .Select(item => CompetencyFrameworkPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .Select(item => CompetencyFrameworkPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManage))
             .ToArray();
 
         return Result<PagedResponse<OccupationalPyramidLevelListItemResponse>>.Success(payload with { Items = items });
@@ -513,7 +514,8 @@ internal sealed class GetOccupationalPyramidLevelByIdQueryHandler(
         var response = await repository.GetOccupationalPyramidLevelResponseByIdAsync(query.LevelId, cancellationToken);
         if (response is not null)
         {
-            response = CompetencyFrameworkPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
+            var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            response = CompetencyFrameworkPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage);
             return Result<OccupationalPyramidLevelResponse>.Success(response);
         }
 
@@ -854,8 +856,9 @@ internal sealed class SearchCompetencyConductsQueryHandler(
             return Result<PagedResponse<CompetencyConductListItemResponse>>.Success(payload);
         }
 
+        var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
         var items = payload.Items
-            .Select(item => CompetencyFrameworkPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .Select(item => CompetencyFrameworkPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManage))
             .ToArray();
 
         return Result<PagedResponse<CompetencyConductListItemResponse>>.Success(payload with { Items = items });
@@ -887,7 +890,8 @@ internal sealed class GetCompetencyConductByIdQueryHandler(
         var response = await repository.GetCompetencyConductResponseByIdAsync(query.ConductId, cancellationToken);
         if (response is not null)
         {
-            response = CompetencyFrameworkPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
+            var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            response = CompetencyFrameworkPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage);
             return Result<CompetencyConductResponse>.Success(response);
         }
 
@@ -1422,7 +1426,8 @@ internal sealed class GetJobProfileCompetencyMatrixQueryHandler(
         var response = await repository.GetJobProfileCompetencyMatrixResponseAsync(query.JobProfileId, cancellationToken);
         if (response is not null)
         {
-            response = CompetencyFrameworkPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
+            var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            response = CompetencyFrameworkPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage);
             return Result<JobProfileCompetencyMatrixResponse>.Success(response);
         }
 
@@ -1691,7 +1696,8 @@ internal static class CompetencyFrameworkPolicyAdapter
 {
     public static OccupationalPyramidLevelListItemResponse ApplyAllowedActions(
         OccupationalPyramidLevelListItemResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
     {
         var state = response.IsActive ? "Active" : "Inactive";
         var allowedActions = resourceActionPolicyService.Evaluate(new ResourceActionContext(
@@ -1699,17 +1705,21 @@ internal static class CompetencyFrameworkPolicyAdapter
             state,
             response.IsActive,
             SupportsEdit: true,
+            EditAllowed: canManage,
             SupportsDelete: false,
             SupportsArchive: false,
             SupportsActivate: true,
-            SupportsInactivate: true));
+            ActivateAllowed: canManage,
+            SupportsInactivate: true,
+            InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }
 
     public static OccupationalPyramidLevelResponse ApplyAllowedActions(
         OccupationalPyramidLevelResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
     {
         var state = response.IsActive ? "Active" : "Inactive";
         var allowedActions = resourceActionPolicyService.Evaluate(new ResourceActionContext(
@@ -1717,17 +1727,21 @@ internal static class CompetencyFrameworkPolicyAdapter
             state,
             response.IsActive,
             SupportsEdit: true,
+            EditAllowed: canManage,
             SupportsDelete: false,
             SupportsArchive: false,
             SupportsActivate: true,
-            SupportsInactivate: true));
+            ActivateAllowed: canManage,
+            SupportsInactivate: true,
+            InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }
 
     public static CompetencyConductListItemResponse ApplyAllowedActions(
         CompetencyConductListItemResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
     {
         var state = response.IsActive ? "Active" : "Inactive";
         var allowedActions = resourceActionPolicyService.Evaluate(new ResourceActionContext(
@@ -1735,17 +1749,21 @@ internal static class CompetencyFrameworkPolicyAdapter
             state,
             response.IsActive,
             SupportsEdit: true,
+            EditAllowed: canManage,
             SupportsDelete: false,
             SupportsArchive: false,
             SupportsActivate: true,
-            SupportsInactivate: true));
+            ActivateAllowed: canManage,
+            SupportsInactivate: true,
+            InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }
 
     public static CompetencyConductResponse ApplyAllowedActions(
         CompetencyConductResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
     {
         var state = response.IsActive ? "Active" : "Inactive";
         var allowedActions = resourceActionPolicyService.Evaluate(new ResourceActionContext(
@@ -1753,23 +1771,28 @@ internal static class CompetencyFrameworkPolicyAdapter
             state,
             response.IsActive,
             SupportsEdit: true,
+            EditAllowed: canManage,
             SupportsDelete: false,
             SupportsArchive: false,
             SupportsActivate: true,
-            SupportsInactivate: true));
+            ActivateAllowed: canManage,
+            SupportsInactivate: true,
+            InactivateAllowed: canManage));
 
         return response with { AllowedActions = allowedActions };
     }
 
     public static JobProfileCompetencyMatrixResponse ApplyAllowedActions(
         JobProfileCompetencyMatrixResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(new ResourceActionContext(
             CompetencyFrameworkPermissionCodes.ResourceKey,
             response.JobProfileStatus.ToString(),
             IsActive: response.JobProfileStatus != JobProfileStatus.Archived,
             SupportsEdit: true,
+            EditAllowed: canManage,
             SupportsDelete: false,
             SupportsArchive: false,
             SupportsActivate: false,

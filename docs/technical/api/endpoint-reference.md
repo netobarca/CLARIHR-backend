@@ -77,7 +77,7 @@ Despues del `switch`, el `access token` devuelto incluye contexto tenant y habil
 | Platform auth | `PlatformAuthController` | `/api/platform/auth*` | login, refresh y logout de operadores del backoffice global |
 | Platform commercial addons | `CommercialAddonsController` | `/api/platform/commercial-addons*` | administrar el catalogo comercial global de add-ons reutilizables con pricing masivo o especializado |
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables |
-| Platform subscriptions | `PlatformCompanySubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*` | consultar y reemplazar suscripciones empresariales globales |
+| Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar y listar suscripciones empresariales globales |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
 | IAM users | `IamUsersController` | `/api/iam/users*` | administracion de usuarios a nivel IAM |
 | IAM roles | `IamRolesController` | `/api/iam/roles*` | CRUD de roles, clonacion, matrices y asignaciones |
@@ -1192,14 +1192,16 @@ Base route: `/api/platform/companies/{companyPublicId}/subscription*`
 
 Contratos principales:
 
-- `PlatformCompanySubscriptionResponse`: `subscriptionPublicId`, `companyPublicId`, `commercialPlanPublicId`, `planCode`, `planName`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `startDateUtc`, `endDateUtc`, `createdAtUtc`, `modifiedAtUtc`
-- `ReplacePlatformCompanySubscriptionRequest`: `commercialPlanPublicId`
+- `PlatformCompanySubscriptionResponse`: `subscriptionPublicId`, `companyPublicId`, `commercialPlanPublicId`, `commercialPlanVersionId`, `planCode`, `planName`, `planVersionNumber`, `baseMonthlyFee`, `pricePerActiveEmployee`, `periodicity`, `currencyCode`, `status`, `startDateUtc`, `endDateUtc`, `activatedByUserId`, `activatedAtUtc`, `createdAtUtc`, `modifiedAtUtc`
+- `PlatformCompanySubscriptionOverviewResponse`: `companyPublicId`, `companyName`, `companySlug`, `companyStatus`, `isBillable`, `billableSinceUtc`, `currentSubscription`, `scheduledReplacement`
+- `PlatformCompanySubscriptionPreviewResponse`: `companyPublicId`, `commercialPlanPublicId`, `commercialPlanVersionId`, `planCode`, `planName`, `planVersionNumber`, `baseMonthlyFee`, `pricePerActiveEmployee`, `periodicity`, `currencyCode`, `resolvedStatus`, `startDateUtc`, `isEligible`, `ineligibilityReasons`
+- `UpsertPlatformCompanySubscriptionRequest`: `commercialPlanId`, `startDateUtc`, `periodicity`
 
 ##### `GET /api/platform/companies/{companyPublicId}/subscription`
 
-- Proposito: obtener la suscripcion vigente de una compania.
+- Proposito: obtener el overview comercial de una compania, incluyendo la suscripcion vigente y una programada si existe.
 - Autenticacion: `Bearer` requerido con token `platform`.
-- Response: `PlatformCompanySubscriptionResponse`.
+- Response: `PlatformCompanySubscriptionOverviewResponse`.
 - Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`, `PLATFORM_ACCESS_FORBIDDEN`.
 
 ##### `GET /api/platform/companies/{companyPublicId}/subscriptions`
@@ -1212,20 +1214,42 @@ Contratos principales:
 - Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_ACCESS_FORBIDDEN`.
 - Observaciones: la pagina se ordena por fecha de inicio descendente y conserva filas canceladas para historial.
 
+##### `POST /api/platform/companies/{companyPublicId}/subscription/preview`
+
+- Proposito: resolver la version comercial efectiva, el estado inicial (`Active` o `Scheduled`) y la elegibilidad antes de confirmar la activacion.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Request body: `commercialPlanId`, `startDateUtc`, `periodicity`.
+- Response: `PlatformCompanySubscriptionPreviewResponse`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_VERSION_NOT_AVAILABLE`, `PLATFORM_COMPANY_SUBSCRIPTION_START_DATE_IN_PAST`, `PLATFORM_ACCESS_FORBIDDEN`.
+
 ##### `PUT /api/platform/companies/{companyPublicId}/subscription`
 
-- Proposito: reemplazar la suscripcion activa de una compania por otro plan comercial activo.
+- Proposito: activar de inmediato o programar una suscripcion empresarial ligada a una version explicita del plan comercial.
 - Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
-- Request body: `commercialPlanPublicId`.
+- Request body: `commercialPlanId`, `startDateUtc`, `periodicity`.
 - Response: `PlatformCompanySubscriptionResponse`.
-- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_ALREADY_ASSIGNED`, `PLATFORM_ACCESS_FORBIDDEN`.
-- Observaciones: la fila activa anterior se cancela y se crea una nueva fila historica; la empresa nunca queda sin suscripcion activa.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_VERSION_NOT_AVAILABLE`, `PLATFORM_COMPANY_SUBSCRIPTION_START_DATE_IN_PAST`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_LEGAL_REPRESENTATIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_ADMINISTRATOR`, `PLATFORM_COMPANY_SUBSCRIPTION_SCHEDULED_CONFLICT`, `PLATFORM_COMPANY_SUBSCRIPTION_ALREADY_ASSIGNED`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: si la fecha es hoy, la fila activa anterior se cancela y se crea una nueva activa; si la fecha es futura, la fila se registra como `Scheduled` y se promueve automaticamente cuando llega su vigencia.
 
-#### 5.3A.9 Relacion con provisioning y entitlements
+#### 5.3A.9 `PlatformSubscriptionsController`
+
+Base route: `/api/platform/company-subscriptions`
+
+##### `GET /api/platform/company-subscriptions`
+
+- Proposito: listar globalmente empresas con suscripciones creadas, activas o programadas desde el backoffice.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Query: `status`, `search`, `page`, `pageSize`.
+- Validaciones: `status` debe ser un `SubscriptionStatus` valido; `page > 0`; `pageSize` entre `1` y `100`.
+- Response: `PagedResponse<PlatformCompanySubscriptionListItemResponse>`.
+- Observaciones: permite filtrar por estado y buscar por nombre de empresa, slug, codigo o nombre del plan.
+
+#### 5.3A.10 Relacion con provisioning y entitlements
 
 - `CompanyProvisioningService` resuelve formalmente el plan comercial `FREE` y crea la suscripcion inicial desde ese agregado global.
 - `PlanEntitlementService` sigue resolviendo modulos y limites desde el plan comercial relacionado a la suscripcion activa.
 - `AccountCompanySummaryResponse` y `AccountCompanyDetailResponse` mantienen `planCode` como compatibilidad de contrato, pero ese valor sale del snapshot de la suscripcion activa.
+- `Company.IsBillable` solo se activa cuando la empresa tiene una suscripcion comercial `Active` no sistema; una fila `Scheduled` no la vuelve facturable antes de tiempo.
 
 ### 5.4 Org structure catalogs
 

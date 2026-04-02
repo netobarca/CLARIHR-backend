@@ -91,6 +91,7 @@ internal sealed class DevSeedService(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var freePlan = await dbContext.CommercialPlans
+            .Include(plan => plan.Versions)
             .SingleAsync(plan => plan.NormalizedCode == ProvisioningConstants.FreePlanCode, cancellationToken);
 
         var subscription = CompanySubscription.Activate(

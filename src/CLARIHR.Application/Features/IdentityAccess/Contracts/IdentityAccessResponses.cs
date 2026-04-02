@@ -1,4 +1,5 @@
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Application.Common.Policies;
 
 namespace CLARIHR.Application.Features.IdentityAccess.Contracts;
 
@@ -32,7 +33,8 @@ public sealed record IamUserSummaryResponse(
     string FirstName,
     string LastName,
     bool IsActive,
-    int RoleCount);
+    int RoleCount,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record IamUserResponse(
     Guid Id,
@@ -48,7 +50,8 @@ public sealed record IamRoleSummaryResponse(
     string? Description,
     bool IsSystemRole,
     int PermissionCount,
-    int UserCount);
+    int UserCount,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record IamRoleResponse(
     Guid Id,

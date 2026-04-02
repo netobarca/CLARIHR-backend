@@ -47,6 +47,12 @@ internal sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
         builder.Property(company => company.CompanyTypeCatalogItemId)
             .HasColumnName("company_type_catalog_item_id");
 
+        builder.Property(company => company.IsBillable)
+            .HasColumnName("is_billable");
+
+        builder.Property(company => company.BillableSinceUtc)
+            .HasColumnName("billable_since_utc");
+
         builder.Property(company => company.CreatedUtc)
             .HasColumnName("created_utc");
 

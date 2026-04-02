@@ -691,8 +691,9 @@ internal sealed class SearchJobProfilesQueryHandler(
             return Result<PagedResponse<JobProfileListItemResponse>>.Success(payload);
         }
 
+        var canManageProfiles = (await authorizationService.EnsureCanManageProfilesAsync(query.CompanyId, cancellationToken)).IsSuccess;
         var items = payload.Items
-            .Select(item => JobProfilePolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .Select(item => JobProfilePolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManageProfiles))
             .ToArray();
         payload = payload with { Items = items };
 
@@ -723,7 +724,8 @@ internal sealed class GetJobProfileByIdQueryHandler(
         var response = await repository.GetResponseByIdAsync(query.JobProfileId, cancellationToken);
         if (response is not null)
         {
-            response = JobProfilePolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
+            var canManageProfiles = (await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            response = JobProfilePolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManageProfiles);
             return Result<JobProfileResponse>.Success(response);
         }
 
@@ -793,7 +795,8 @@ internal sealed class GetJobProfilePrintQueryHandler(
         var response = await repository.GetPrintByIdAsync(query.JobProfileId, cancellationToken);
         if (response is not null)
         {
-            var enrichedProfile = JobProfilePolicyAdapter.ApplyAllowedActions(response.Profile, resourceActionPolicyService);
+            var canManageProfiles = (await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            var enrichedProfile = JobProfilePolicyAdapter.ApplyAllowedActions(response.Profile, resourceActionPolicyService, canManageProfiles);
             response = response with { Profile = enrichedProfile };
             return Result<JobProfilePrintResponse>.Success(response);
         }
@@ -2022,7 +2025,8 @@ internal static class JobProfilePolicyAdapter
 {
     public static JobProfileListItemResponse ApplyAllowedActions(
         JobProfileListItemResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManageProfiles)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
@@ -2030,8 +2034,10 @@ internal static class JobProfilePolicyAdapter
                 response.Status.ToString(),
                 response.IsActive,
                 SupportsEdit: true,
+                EditAllowed: canManageProfiles,
                 SupportsDelete: false,
                 SupportsArchive: true,
+                ArchiveAllowed: canManageProfiles,
                 SupportsActivate: false,
                 SupportsInactivate: false,
                 NonEditableStates: [JobProfileStatus.Archived.ToString()]));
@@ -2041,7 +2047,8 @@ internal static class JobProfilePolicyAdapter
 
     public static JobProfileResponse ApplyAllowedActions(
         JobProfileResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManageProfiles)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
@@ -2050,8 +2057,10 @@ internal static class JobProfilePolicyAdapter
                 response.IsActive,
                 HasDependencies: response.DependentPositions.Count > 0,
                 SupportsEdit: true,
+                EditAllowed: canManageProfiles,
                 SupportsDelete: false,
                 SupportsArchive: true,
+                ArchiveAllowed: canManageProfiles,
                 SupportsActivate: false,
                 SupportsInactivate: false,
                 NonEditableStates: [JobProfileStatus.Archived.ToString()]));

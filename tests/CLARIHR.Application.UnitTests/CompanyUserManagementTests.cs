@@ -18,6 +18,7 @@ using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Infrastructure.IdentityAccess;
+using CLARIHR.Infrastructure.Policies;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CLARIHR.Application.UnitTests;
@@ -420,6 +421,7 @@ public sealed class CompanyUserManagementTests
         var handler = new GetCompanyUsersQueryHandler(
             userCompanyRepository,
             new AllowCompanyUserAuthorizationService(),
+            new ResourceActionPolicyService(),
             new TestTenantContext(TenantId),
             CreateFieldPermissionService(),
             CreateFieldSerializationService());
@@ -458,6 +460,7 @@ public sealed class CompanyUserManagementTests
         var handler = new GetCompanyUsersQueryHandler(
             userCompanyRepository,
             new AllowCompanyUserAuthorizationService(),
+            new ResourceActionPolicyService(),
             new TestTenantContext(TenantId),
             CreateFieldPermissionService(profile),
             CreateFieldSerializationService());
@@ -889,6 +892,26 @@ public sealed class CompanyUserManagementTests
                 Items.Any(item => item.UserId == userId && item.CompanyId == company.Id && item.Status == UserCompanyStatus.Active);
 
             return Task.FromResult(active);
+        }
+
+        public Task<bool> HasAnyActiveAdministratorAsync(Guid companyPublicId, CancellationToken cancellationToken)
+        {
+            var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
+            if (company is null)
+            {
+                return Task.FromResult(false);
+            }
+
+            var hasAdministrator = Items
+                .Where(item => item.CompanyId == company.Id && item.Status == UserCompanyStatus.Active)
+                .Join(
+                    userRepository.Items.Where(user => user.Status == UserStatus.Active),
+                    membership => membership.UserId,
+                    user => user.Id,
+                    (membership, _) => membership.RoleId)
+                .Any(IsAdministrativeRole);
+
+            return Task.FromResult(hasAdministrator);
         }
 
         public Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)

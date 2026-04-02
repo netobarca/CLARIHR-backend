@@ -118,6 +118,34 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 (_, _) => true)
             .AnyAsync(cancellationToken);
 
+    public Task<bool> HasAnyActiveAdministratorAsync(Guid companyPublicId, CancellationToken cancellationToken)
+    {
+        var normalizedManageUsers = CompanyUserPermissionCodes.ManageUsers.ToUpperInvariant();
+        var normalizedManageAdministration = IdentityPermissionCodes.ManageAdministration.ToUpperInvariant();
+
+        return dbContext.UserCompanyMemberships
+            .AsNoTracking()
+            .Where(membership => membership.Status == UserCompanyStatus.Active)
+            .Join(
+                dbContext.Companies.AsNoTracking().Where(company => company.PublicId == companyPublicId),
+                membership => membership.CompanyId,
+                company => company.Id,
+                (membership, _) => membership)
+            .Join(
+                dbContext.AuthUsers.AsNoTracking().Where(user => user.Status == UserStatus.Active),
+                membership => membership.UserId,
+                user => user.Id,
+                (membership, user) => new { membership.RoleId, UserPublicId = user.PublicId })
+            .Join(
+                dbContext.IamRoles.AsNoTracking(),
+                item => item.RoleId,
+                role => role.Id,
+                (item, role) => role)
+            .AnyAsync(role => role.PermissionAssignments.Any(assignment =>
+                assignment.Permission.NormalizedCode == normalizedManageUsers ||
+                assignment.Permission.NormalizedCode == normalizedManageAdministration), cancellationToken);
+    }
+
     public async Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
     {
         var targetCompanyId = await dbContext.Companies

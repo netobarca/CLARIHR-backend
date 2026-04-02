@@ -10,6 +10,11 @@ public interface ICommercialPlanRepository
 
     Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken);
 
+    Task<CommercialPlanVersion?> GetEffectiveVersionAsync(
+        Guid commercialPlanId,
+        DateTime effectiveAtUtc,
+        CancellationToken cancellationToken);
+
     Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken);
 
     Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken);

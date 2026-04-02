@@ -24,6 +24,7 @@ internal static class IntegrationTestSeeder
             .Select(item => item.Id)
             .SingleAsync();
         var freePlan = await dbContext.CommercialPlans
+            .Include(plan => plan.Versions)
             .SingleAsync(plan => plan.NormalizedCode == ProvisioningConstants.FreePlanCode);
 
         var companyA = Company.Create("Acme One", "acme-one", actorUserId, "SV", countryCatalogItemId);
@@ -86,11 +87,23 @@ internal static class IntegrationTestSeeder
 
         var securityAdminPermissions = new[]
         {
+            IamPermission.CreateScreenAction(
+                IdentityPermissionCodes.ManageAdministration,
+                "Manage Administration",
+                "Can manage tenant administration flows.",
+                "RBAC",
+                "Administration",
+                "Manage"),
             CreatePermission(tenantA, RbacPermissionScreen.Roles, RbacPermissionAction.Access),
             CreatePermission(tenantA, RbacPermissionScreen.Roles, RbacPermissionAction.Update),
             CreatePermission(tenantA, RbacPermissionScreen.Permissions, RbacPermissionAction.Access),
             CreatePermission(tenantA, RbacPermissionScreen.Permissions, RbacPermissionAction.Update)
         };
+
+        foreach (var permission in securityAdminPermissions)
+        {
+            permission.SetTenantId(tenantA);
+        }
 
         dbContext.IamPermissions.AddRange(actorPermissions);
         dbContext.IamPermissions.AddRange(securityAdminPermissions);
@@ -149,6 +162,18 @@ internal static class IntegrationTestSeeder
             source: "integration-tests");
         dbContext.AuthUsers.Add(targetAuthUser);
         await dbContext.SaveChangesAsync();
+
+        dbContext.UserCompanyMemberships.Add(UserCompanyMembership.Create(
+            actorAuthUser.Id,
+            companyA.Id,
+            actorRole.Id,
+            isPrimary: true));
+
+        dbContext.UserCompanyMemberships.Add(UserCompanyMembership.Create(
+            securityAdminAuthUser.Id,
+            companyA.Id,
+            securityAdminRole.Id,
+            isPrimary: false));
 
         dbContext.UserCompanyMemberships.Add(UserCompanyMembership.Create(
             targetAuthUser.Id,

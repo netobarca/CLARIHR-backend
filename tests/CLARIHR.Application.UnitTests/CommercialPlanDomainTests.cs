@@ -112,6 +112,66 @@ public sealed class CommercialPlanDomainTests
     }
 
     [Fact]
+    public void Create_ShouldCreateInitialPricingVersion()
+    {
+        var effectiveFromUtc = DateTime.Parse("2026-04-02T00:00:00Z").ToUniversalTime();
+
+        var plan = CommercialPlan.Create(
+            "PRO",
+            "Professional",
+            null,
+            120m,
+            3m,
+            CommercialPlanStatus.Active,
+            isSystemPlan: false,
+            limits: [],
+            initialVersionEffectiveFromUtc: effectiveFromUtc);
+
+        var version = Assert.Single(plan.Versions);
+        Assert.Equal(1, version.VersionNumber);
+        Assert.Equal("USD", version.CurrencyCode);
+        Assert.Equal(effectiveFromUtc, version.EffectiveFromUtc);
+        Assert.Equal(120m, version.BaseMonthlyFee);
+        Assert.Equal(3m, version.PricePerActiveEmployee);
+    }
+
+    [Fact]
+    public void Update_WhenPricingChanges_ShouldCreateNewVersionAndClosePreviousOne()
+    {
+        var initialUtc = DateTime.Parse("2026-04-02T00:00:00Z").ToUniversalTime();
+        var nextUtc = DateTime.Parse("2026-05-01T00:00:00Z").ToUniversalTime();
+
+        var plan = CommercialPlan.Create(
+            "PRO",
+            "Professional",
+            null,
+            120m,
+            3m,
+            CommercialPlanStatus.Active,
+            isSystemPlan: false,
+            limits: [],
+            initialVersionEffectiveFromUtc: initialUtc);
+
+        plan.Update(
+            "PRO",
+            "Professional",
+            null,
+            180m,
+            4m,
+            [],
+            priceEffectiveFromUtc: nextUtc);
+
+        Assert.Equal(2, plan.Versions.Count);
+        var previous = plan.Versions.Single(version => version.VersionNumber == 1);
+        var current = plan.Versions.Single(version => version.VersionNumber == 2);
+
+        Assert.Equal(nextUtc, previous.EffectiveToUtc);
+        Assert.Equal(nextUtc, current.EffectiveFromUtc);
+        Assert.Equal(180m, current.BaseMonthlyFee);
+        Assert.Equal(4m, current.PricePerActiveEmployee);
+    }
+
+    [Fact]
     public void Activate_AndInactivate_ShouldTransitionStatus_AndRefreshConcurrencyToken()
     {
         var plan = CommercialPlan.Create(

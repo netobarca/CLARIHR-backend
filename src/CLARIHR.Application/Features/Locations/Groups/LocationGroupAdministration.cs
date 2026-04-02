@@ -1,10 +1,12 @@
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Locations;
+using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Locations.Common;
@@ -24,7 +26,8 @@ public sealed record LocationGroupResponse(
     bool IsDefault,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record LocationGroupTreeNodeResponse(
     Guid Id,
@@ -57,7 +60,8 @@ public sealed record SearchLocationGroupsQuery(
     bool? IsActive,
     string? Search,
     int PageNumber = 1,
-    int PageSize = LocationValidationRules.DefaultPageSize) : IQuery<PagedResponse<LocationGroupResponse>>;
+    int PageSize = LocationValidationRules.DefaultPageSize,
+    bool IncludeAllowedActions = false) : IQuery<PagedResponse<LocationGroupResponse>>;
 
 public sealed record CreateLocationGroupCommand(
     Guid CompanyId,
@@ -188,7 +192,9 @@ internal sealed class GetLocationGroupTreeQueryHandler(
 
 internal sealed class SearchLocationGroupsQueryHandler(
     ILocationAuthorizationService authorizationService,
-    ILocationGroupRepository repository)
+    ILocationGroupRepository repository,
+    ILocationDependencyPolicy dependencyPolicy,
+    IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchLocationGroupsQuery, PagedResponse<LocationGroupResponse>>
 {
     public async Task<Result<PagedResponse<LocationGroupResponse>>> Handle(
@@ -210,8 +216,57 @@ internal sealed class SearchLocationGroupsQueryHandler(
             query.PageSize,
             cancellationToken);
 
+        if (query.IncludeAllowedActions)
+        {
+            var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
+            var enrichedItems = new List<LocationGroupResponse>(groups.Items.Count);
+
+            foreach (var group in groups.Items)
+            {
+                var hasDependencies = group.IsActive &&
+                    (await dependencyPolicy.CanInactivateLocationGroupAsync(group.Id, cancellationToken)).IsFailure;
+
+                enrichedItems.Add(
+                    LocationGroupPolicyAdapter.ApplyAllowedActions(
+                        group,
+                        resourceActionPolicyService,
+                        canManage,
+                        hasDependencies));
+            }
+
+            groups = new PagedResponse<LocationGroupResponse>(
+                enrichedItems,
+                groups.PageNumber,
+                groups.PageSize,
+                groups.TotalCount);
+        }
+
         return Result<PagedResponse<LocationGroupResponse>>.Success(groups);
     }
+}
+
+internal static class LocationGroupPolicyAdapter
+{
+    public static LocationGroupResponse ApplyAllowedActions(
+        LocationGroupResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage,
+        bool hasDependencies) =>
+        response with
+        {
+            AllowedActions = resourceActionPolicyService.Evaluate(
+                new ResourceActionContext(
+                    ResourceKey: "LocationGroups",
+                    State: response.IsActive ? "Active" : "Inactive",
+                    IsActive: response.IsActive,
+                    HasDependencies: hasDependencies,
+                    SupportsEdit: true,
+                    EditAllowed: canManage,
+                    SupportsActivate: true,
+                    ActivateAllowed: canManage,
+                    SupportsInactivate: true,
+                    InactivateAllowed: canManage))
+        };
 }
 
 internal sealed class CreateLocationGroupCommandHandler(
