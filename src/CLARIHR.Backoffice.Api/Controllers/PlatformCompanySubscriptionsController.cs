@@ -48,6 +48,7 @@ public sealed class PlatformCompanySubscriptionsController(
                 companyPublicId,
                 request.CommercialPlanId,
                 request.StartDateUtc,
+                request.ExpiresAtUtc,
                 request.Periodicity),
             cancellationToken);
 
@@ -90,7 +91,57 @@ public sealed class PlatformCompanySubscriptionsController(
                 companyPublicId,
                 request.CommercialPlanId,
                 request.StartDateUtc,
+                request.ExpiresAtUtc,
                 request.Periodicity),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [HttpPatch("subscriptions/{subscriptionPublicId:guid}/status")]
+    [ProducesResponseType<PlatformCompanySubscriptionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PlatformCompanySubscriptionResponse>> ChangeStatus(
+        Guid companyPublicId,
+        Guid subscriptionPublicId,
+        [FromBody] ChangePlatformCompanySubscriptionStatusRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ChangePlatformCompanySubscriptionStatusCommand(
+                companyPublicId,
+                subscriptionPublicId,
+                request.TargetStatus,
+                request.ReasonCode,
+                request.Observations),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("subscriptions/{subscriptionPublicId:guid}/status-history")]
+    [ProducesResponseType<PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>>> GetStatusHistory(
+        Guid companyPublicId,
+        Guid subscriptionPublicId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new SearchPlatformCompanySubscriptionStatusHistoryQuery(
+                companyPublicId,
+                subscriptionPublicId,
+                page,
+                pageSize),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -99,5 +150,11 @@ public sealed class PlatformCompanySubscriptionsController(
     public sealed record UpsertPlatformCompanySubscriptionRequest(
         Guid CommercialPlanId,
         DateTime StartDateUtc,
+        DateTime? ExpiresAtUtc,
         CompanySubscriptionPeriodicity Periodicity);
+
+    public sealed record ChangePlatformCompanySubscriptionStatusRequest(
+        SubscriptionStatus TargetStatus,
+        SubscriptionStatusChangeReasonCode ReasonCode,
+        string? Observations);
 }

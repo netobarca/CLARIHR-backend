@@ -2,10 +2,10 @@
 
 ## 1. Resumen ejecutivo
 
-La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La validacion actualizada del **30 de marzo de 2026** verifico:
+La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La validacion actualizada del **2 de abril de 2026** verifico:
 
-- `56` unit tests dirigidos aprobados para auth, platform authorization, provisioning, commercial plans y commercial add-ons
-- `13` integration tests dirigidos aprobados para Platform Backoffice API
+- `5` unit tests dirigidos aprobados para manejo de estados de suscripcion empresarial
+- `6` integration tests dirigidos aprobados para Platform Backoffice API de suscripciones empresariales
 - `dotnet build` limpio con `0 warnings`
 - el suite completo aun conserva fallas previas no relacionadas en normalizacion y algunos escenarios legacy de integracion
 
@@ -35,6 +35,7 @@ Cobertura visible sobre:
 - catalogo global `CommercialAddon`
 - catalogo global `CommercialPlan`
 - reemplazo de suscripciones empresariales
+- ciclo de vida de estados de suscripcion empresarial, incluyendo suspension, reactivacion, cancelacion, expiracion y politica de capacidades por estado
 
 ### 2.2 Integration tests
 
@@ -70,7 +71,7 @@ Hay pruebas de tenant mismatch y permisos en modulos sensibles, incluyendo audit
 
 ### 3.3 El flujo global de plataforma si esta ejercitado
 
-`BackofficeCommercialAddonsIntegrationTests`, `BackofficeCommercialPlansIntegrationTests`, `BackofficeCompanySubscriptionsIntegrationTests` y `PlatformAuthenticationIntegrationTests` ejercitan el login del backoffice, el CRUD de add-ons y planes globales, el reemplazo de suscripciones empresariales, la separacion de audiencias `core/platform`, el rol `ReadOnly` y la auditoria durable de plataforma en writes globales. Desde HU-BILL-004, esa cobertura de add-ons incluye configuraciones `Massive` y `Specialized`, filtros por `type` y `billingModel`, y compatibilidad de lectura para filas masivas preexistentes.
+`BackofficeCommercialAddonsIntegrationTests`, `BackofficeCommercialPlansIntegrationTests`, `BackofficeCompanySubscriptionsIntegrationTests` y `PlatformAuthenticationIntegrationTests` ejercitan el login del backoffice, el CRUD de add-ons y planes globales, el reemplazo de suscripciones empresariales, la separacion de audiencias `core/platform`, el rol `ReadOnly` y la auditoria durable de plataforma en writes globales. Desde HU-BILL-007, esa cobertura de suscripciones tambien valida suspension, reactivacion, consulta de historial de estados, expiracion automatica y bloqueo de cambios manuales para operadores `ReadOnly`. Desde HU-BILL-004, la cobertura de add-ons incluye configuraciones `Massive` y `Specialized`, filtros por `type` y `billingModel`, y compatibilidad de lectura para filas masivas preexistentes.
 
 ## 4. Hallazgos relevantes sobre cobertura
 
@@ -110,7 +111,7 @@ No existen pruebas que validen proxies confiables, spoofing de IP o consistencia
 
 ### 4.5 La auditoria durable de plataforma ya tiene cobertura parcial
 
-El reemplazo de suscripciones empresariales ya tiene una prueba de integracion que falla si no se persiste `PlatformAuditLog` y el CRUD de `CommercialAddon` ya valida esa persistencia para create/update/activate/inactivate, incluyendo add-ons especializados. Aun falta extender esa exigencia de auditoria durable al CRUD completo de `CommercialPlan`.
+El backoffice de suscripciones empresariales ya tiene pruebas de integracion para reemplazo, suspension, reactivacion, historial y expiracion automatica, de modo que el flujo falla si pierde enforcement de rol, consistencia de historial o trazabilidad durable. El CRUD de `CommercialAddon` ya valida esa persistencia para create/update/activate/inactivate, incluyendo add-ons especializados. Aun falta extender esa exigencia de auditoria durable al CRUD completo de `CommercialPlan`.
 
 ### 4.6 No hay pruebas de contrato versionado
 

@@ -139,7 +139,8 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                     .AsNoTracking()
                     .Where(subscription =>
                         subscription.CompanyId == company.Id &&
-                        subscription.Status == SubscriptionStatus.Active)
+                        (subscription.Status == SubscriptionStatus.Active ||
+                         subscription.Status == SubscriptionStatus.Trial))
                     .OrderByDescending(subscription => subscription.StartDateUtc)
                     .Select(subscription => subscription.PlanCode)
                     .FirstOrDefault() ?? string.Empty,

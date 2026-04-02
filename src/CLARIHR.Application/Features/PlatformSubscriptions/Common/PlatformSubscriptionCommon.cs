@@ -40,6 +40,11 @@ public static class PlatformSubscriptionErrors
         "The requested subscription start date cannot be in the past.",
         ErrorType.Validation);
 
+    public static readonly Error ExpirationBeforeStartDate = new(
+        "PLATFORM_COMPANY_SUBSCRIPTION_EXPIRATION_BEFORE_START_DATE",
+        "The requested subscription expiration date cannot be earlier than the start date.",
+        ErrorType.Validation);
+
     public static readonly Error InvalidPeriodicity = new(
         "PLATFORM_COMPANY_SUBSCRIPTION_INVALID_PERIODICITY",
         "The requested subscription periodicity is invalid.",
@@ -68,5 +73,20 @@ public static class PlatformSubscriptionErrors
     public static readonly Error AlreadyAssigned = new(
         "PLATFORM_COMPANY_SUBSCRIPTION_ALREADY_ASSIGNED",
         "The requested company already uses the selected commercial plan.",
+        ErrorType.Conflict);
+
+    public static readonly Error InvalidStatusTransition = new(
+        "PLATFORM_COMPANY_SUBSCRIPTION_INVALID_STATUS_TRANSITION",
+        "The requested subscription status transition is not allowed.",
+        ErrorType.Conflict);
+
+    public static readonly Error InvalidStatusReason = new(
+        "PLATFORM_COMPANY_SUBSCRIPTION_INVALID_STATUS_REASON",
+        "The provided reason code is not valid for the requested status transition.",
+        ErrorType.Validation);
+
+    public static readonly Error ReactivationPastExpiration = new(
+        "PLATFORM_COMPANY_SUBSCRIPTION_REACTIVATION_PAST_EXPIRATION",
+        "The requested subscription can no longer be reactivated because it is already past its expiration date.",
         ErrorType.Conflict);
 }

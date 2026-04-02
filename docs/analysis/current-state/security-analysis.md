@@ -2,15 +2,15 @@
 
 ## 1. Resumen ejecutivo
 
-Esta reevaluacion profunda se actualizo el **30 de marzo de 2026** sobre el codigo, configuracion, pruebas y documentacion versionada del repositorio.
+Esta reevaluacion profunda se actualizo el **2 de abril de 2026** sobre el codigo, configuracion, pruebas y documentacion versionada del repositorio.
 
 Base verificada durante la auditoria:
 
 - `dotnet build CLARIHR.slnx -v minimal`: `0 warnings`, `0 errors`
-- `dotnet test tests/CLARIHR.Application.UnitTests/CLARIHR.Application.UnitTests.csproj --filter "...auth/plataforma/suscripciones/add-ons..."`: `56/56` pruebas dirigidas aprobadas
-- `dotnet test tests/CLARIHR.Api.IntegrationTests/CLARIHR.Api.IntegrationTests.csproj --filter "...Backoffice..."`: `13/13` pruebas dirigidas aprobadas
+- `dotnet test tests/CLARIHR.Application.UnitTests/CLARIHR.Application.UnitTests.csproj --filter CompanySubscriptionStateManagementTests -v minimal`: `5/5` pruebas dirigidas aprobadas
+- `dotnet test tests/CLARIHR.Api.IntegrationTests/CLARIHR.Api.IntegrationTests.csproj --filter BackofficeCompanySubscriptionsIntegrationTests -v minimal`: `6/6` pruebas dirigidas aprobadas
 - superficie HTTP medida en el repositorio: `37` controllers y `332` acciones HTTP
-- contrato machine-readable versionado en `openapi.yaml`: `19` paths
+- contrato machine-readable versionado en `openapi.yaml`: `23` paths
 - el suite completo aun conserva fallas legacy no relacionadas fuera del alcance de esta remediacion
 
 La conclusion revisada es que la solucion **no esta aprobada para produccion** en su estado actual para un SaaS multi-tenant de RRHH. La base tecnica sigue siendo buena, y la actualizacion del 29 de marzo ya cerro la brecha critica de acceso global por email allow-list y tambien agrego auditoria durable de plataforma. Aun asi, siguen vigentes hallazgos de riesgo alto con evidencia verificable:
@@ -141,17 +141,17 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 ### 3.6 Auditoria durable para writes globales de plataforma
 
 - Severidad previa: `Importante`
-- Estado actual: `Remediado y extendido el 30 de marzo de 2026`
+- Estado actual: `Remediado y extendido el 2 de abril de 2026`
 - Nuevo respecto a la auditoria anterior: `Si`
 - Cambio aplicado:
-  las mutaciones globales de `CommercialAddon`, `CommercialPlan` y el reemplazo de suscripciones empresariales ya no dependen solo de logging operativo; ahora escriben `PlatformAuditLog` persistente y no tenant-scoped. El catalogo de `CommercialAddon` sigue protegido por rol aun despues de generalizar add-ons `Massive` y `Specialized`.
+  las mutaciones globales de `CommercialAddon`, `CommercialPlan`, el reemplazo de suscripciones empresariales y ahora tambien los cambios manuales o automaticos de estado de suscripcion ya no dependen solo de logging operativo; ahora escriben `PlatformAuditLog` persistente y no tenant-scoped. El catalogo de `CommercialAddon` sigue protegido por rol aun despues de generalizar add-ons `Massive` y `Specialized`, y los cambios sensibles de estado de suscripcion quedaron restringidos a `PlatformOperatorRole.Admin`.
 - Evidencia:
   `PlatformAuditLog` y su configuracion EF existen en el modelo persistente.
   `PlatformAuditService` registra eventos globales con actor, entidad, accion y payload serializado.
-  `CommercialAddonAdministration.cs`, `CommercialPlanAdministration.cs` y `PlatformSubscriptionAdministration.cs` invocan esa auditoria persistente en writes globales.
+  `CommercialAddonAdministration.cs`, `CommercialPlanAdministration.cs`, `PlatformSubscriptionAdministration.cs` y `CompanySubscriptionLifecycleProcessor.cs` invocan esa auditoria persistente en writes globales y transiciones automaticas.
   la migracion `AddPlatformBackofficeAndFormalSubscriptionPlans` crea la tabla `platform_audit_logs`.
 - Cobertura actual:
-  `BackofficeCompanySubscriptionsIntegrationTests` falla si el reemplazo de suscripcion no deja rastro persistente y `BackofficeCommercialAddonsIntegrationTests` ya verifica auditoria durable para create/update/activate/inactivate del catalogo global de add-ons, incluyendo configuraciones especializadas por seat o volumen. El CRUD de `CommercialPlan` sigue usando la misma infraestructura, aunque aun conviene agregar una prueba especifica por endpoint.
+  `BackofficeCompanySubscriptionsIntegrationTests` ya cubre suspension, reactivacion, cancelacion, consulta del historial de estados y expiracion automatica de suscripciones empresariales, ademas de fallar si el flujo global de suscripciones pierde trazabilidad o enforcement de rol. `BackofficeCommercialAddonsIntegrationTests` ya verifica auditoria durable para create/update/activate/inactivate del catalogo global de add-ons, incluyendo configuraciones especializadas por seat o volumen. El CRUD de `CommercialPlan` sigue usando la misma infraestructura, aunque aun conviene agregar una prueba especifica por endpoint.
 
 ### 3.7 Drift contractual y documental severo
 
@@ -163,7 +163,7 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 - Precondiciones:
   ninguna.
 - Evidencia:
-  la superficie real del repo mide `332` acciones HTTP, mientras que [openapi.yaml](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/docs/technical/api/openapi.yaml) versiona solo `19` paths explicitos del contrato publico.
+  la superficie real del repo mide `332` acciones HTTP, mientras que [openapi.yaml](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/docs/technical/api/openapi.yaml) versiona solo `23` paths explicitos del contrato publico.
   [endpoint-reference.md](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/docs/technical/api/endpoint-reference.md) reconoce que el contrato exhaustivo sigue solo en Swagger runtime.
   [testing-analysis.md](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/docs/analysis/current-state/testing-analysis.md) reportaba `291` tests y `EnsureCreatedAsync()` antes de esta correccion documental, pero [IntegrationTestWebApplicationFactory.cs#L89](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/tests/CLARIHR.Api.IntegrationTests/IntegrationTestWebApplicationFactory.cs#L89) usa `MigrateAsync()`.
   [architecture-analysis.md](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/docs/analysis/current-state/architecture-analysis.md) reportaba `308` endpoints y controllers delgados antes de esta correccion documental, pero el codigo actual ya contiene controllers con auditoria, `SaveChangesAsync` y generacion de archivos.
@@ -197,7 +197,7 @@ Cobertura positiva visible:
 - tenant mismatch en auditoria
 - CRUD global de `CommercialPlan` y `CommercialAddon` sin tenant
 - login de backoffice bloqueado sin `PlatformOperator`
-- auditoria durable en reemplazo de suscripcion empresarial y CRUD de `CommercialAddon`
+- auditoria durable en reemplazo, suspension, reactivacion, cancelacion y expiracion automatica de suscripcion empresarial, ademas del CRUD de `CommercialAddon`
 
 Huecos de prueba que aumentan riesgo real:
 

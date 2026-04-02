@@ -120,18 +120,25 @@ Comportamiento observable:
 - `POST /api/platform/auth/login`
 - `GET /api/platform/commercial-addons`
 - `GET /api/platform/commercial-plans`
+- `POST /api/platform/companies/{companyPublicId}/subscription/preview`
 - `PUT /api/platform/companies/{companyPublicId}/subscription`
+- `PATCH /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status`
+- `GET /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status-history`
 
 Comportamiento observable:
 
 - el backoffice usa autenticacion separada de la Core API y nunca depende de `tid`
 - solo usuarios ligados a un `PlatformOperator` activo pueden entrar al backoffice global
-- `ReadOnly` puede consultar add-ons, planes y suscripciones; `Admin` puede mutar catalogos y reemplazar suscripciones
+- `ReadOnly` puede consultar add-ons, planes, overview, historial e historial de estados; `Admin` puede mutar catalogos, reemplazar suscripciones y cambiar estados manualmente
 - el catalogo de add-ons globales se administra solo desde `/api/platform/commercial-addons`; la Core API no expone este recurso
 - cada plan define `fee` mensual base, precio por empleado activo, estado y limites configurables
 - cada add-on define `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity` y `status`, con reglas distintas para `Massive` y `Specialized`
 - `FREE` existe sembrado como plan de sistema para el provisioning actual y no puede renombrarse ni inactivarse
-- reemplazar una suscripcion empresarial cierra la fila activa anterior y crea una nueva fila historica con snapshot de precios
+- la vista previa y la activacion aceptan `expiresAtUtc` opcional y resuelven un estado inicial `Active` o `Scheduled` segun la fecha de inicio
+- el ciclo de vida visible de la suscripcion incluye `Draft`, `Scheduled`, `Trial`, `Active`, `Suspended`, `Expired` y `Cancelled`
+- las respuestas de overview, historial y listado global ahora exponen `statusChangedAtUtc`, `currentStatusReasonCode`, `currentStatusOrigin`, `canOperate` y `canGenerateCharges`; la respuesta detallada tambien devuelve `currentStatusObservations`
+- cada cambio de estado manual o automatico deja historial con estado anterior, nuevo estado, fecha, motivo, observaciones y actor u origen del sistema
+- reemplazar una suscripcion empresarial cierra la fila viva previa cuando corresponde, crea una nueva fila historica con snapshot de precios y mantiene trazabilidad completa de transiciones
 
 ### 4.4 Locations y organizacion
 

@@ -57,7 +57,9 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
         var normalizedModuleKey = moduleKey.Trim().ToUpperInvariant();
 
         return dbContext.CompanySubscriptions
-            .Where(subscription => subscription.Status == SubscriptionStatus.Active)
+            .Where(subscription =>
+                subscription.Status == SubscriptionStatus.Active ||
+                subscription.Status == SubscriptionStatus.Trial)
             .Join(
                 dbContext.Companies.Where(company => company.PublicId == companyPublicId),
                 subscription => subscription.CompanyId,

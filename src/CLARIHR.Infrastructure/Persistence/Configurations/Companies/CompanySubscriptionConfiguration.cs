@@ -61,6 +61,9 @@ internal sealed class CompanySubscriptionConfiguration : IEntityTypeConfiguratio
         builder.Property(subscription => subscription.StartDateUtc)
             .HasColumnName("start_date_utc");
 
+        builder.Property(subscription => subscription.ExpiresAtUtc)
+            .HasColumnName("expires_at_utc");
+
         builder.Property(subscription => subscription.EndDateUtc)
             .HasColumnName("end_date_utc");
 
@@ -70,18 +73,39 @@ internal sealed class CompanySubscriptionConfiguration : IEntityTypeConfiguratio
         builder.Property(subscription => subscription.ActivatedAtUtc)
             .HasColumnName("activated_at_utc");
 
+        builder.Property(subscription => subscription.StatusChangedAtUtc)
+            .HasColumnName("status_changed_at_utc");
+
+        builder.Property(subscription => subscription.CurrentStatusReasonCode)
+            .HasColumnName("current_status_reason_code")
+            .HasConversion<string>()
+            .HasMaxLength(40);
+
+        builder.Property(subscription => subscription.CurrentStatusObservations)
+            .HasColumnName("current_status_observations")
+            .HasMaxLength(2000);
+
+        builder.Property(subscription => subscription.CurrentStatusOrigin)
+            .HasColumnName("current_status_origin")
+            .HasConversion<string>()
+            .HasMaxLength(30);
+
         builder.Property(subscription => subscription.CreatedUtc)
             .HasColumnName("created_utc");
 
         builder.Property(subscription => subscription.ModifiedUtc)
             .HasColumnName("modified_utc");
 
-        builder.HasIndex(subscription => new { subscription.CompanyId, subscription.Status })
+        builder.HasIndex(
+                [nameof(CompanySubscription.CompanyId), nameof(CompanySubscription.Status)],
+                "company_subscription_live_status_idx")
             .IsUnique()
-            .HasFilter("status = 'Active'")
-            .HasDatabaseName("uq_company_subscriptions__company_active");
+            .HasFilter("status IN ('Draft', 'Trial', 'Active', 'Suspended')")
+            .HasDatabaseName("uq_company_subscriptions__company_live");
 
-        builder.HasIndex(subscription => new { subscription.CompanyId, subscription.Status })
+        builder.HasIndex(
+                [nameof(CompanySubscription.CompanyId), nameof(CompanySubscription.Status)],
+                "company_subscription_scheduled_status_idx")
             .IsUnique()
             .HasFilter("status = 'Scheduled'")
             .HasDatabaseName("uq_company_subscriptions__company_scheduled");
@@ -94,6 +118,9 @@ internal sealed class CompanySubscriptionConfiguration : IEntityTypeConfiguratio
 
         builder.HasIndex(subscription => new { subscription.Status, subscription.StartDateUtc })
             .HasDatabaseName("ix_company_subscriptions__status_start_date");
+
+        builder.HasIndex(subscription => new { subscription.CompanyId, subscription.StatusChangedAtUtc })
+            .HasDatabaseName("ix_company_subscriptions__company_status_changed");
 
         builder.HasOne<Company>()
             .WithMany()
@@ -112,5 +139,67 @@ internal sealed class CompanySubscriptionConfiguration : IEntityTypeConfiguratio
             .HasForeignKey(subscription => subscription.CommercialPlanVersionId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_company_subscriptions__commercial_plan_versions");
+
+        builder.HasMany(subscription => subscription.StatusTransitions)
+            .WithOne(transition => transition.CompanySubscription)
+            .HasForeignKey(transition => transition.CompanySubscriptionId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_company_subscription_status_transitions__company_subscriptions");
+    }
+}
+
+internal sealed class CompanySubscriptionStatusTransitionConfiguration : IEntityTypeConfiguration<CompanySubscriptionStatusTransition>
+{
+    public void Configure(EntityTypeBuilder<CompanySubscriptionStatusTransition> builder)
+    {
+        builder.ToTable("company_subscription_status_transitions");
+
+        builder.HasKey(transition => transition.Id)
+            .HasName("pk_company_subscription_status_transitions");
+
+        builder.Property(transition => transition.Id)
+            .HasColumnName("id");
+
+        builder.Property(transition => transition.CompanySubscriptionId)
+            .HasColumnName("company_subscription_id");
+
+        builder.Property(transition => transition.PreviousStatus)
+            .HasColumnName("previous_status")
+            .HasConversion<string>()
+            .HasMaxLength(30);
+
+        builder.Property(transition => transition.NewStatus)
+            .HasColumnName("new_status")
+            .HasConversion<string>()
+            .HasMaxLength(30);
+
+        builder.Property(transition => transition.ReasonCode)
+            .HasColumnName("reason_code")
+            .HasConversion<string>()
+            .HasMaxLength(40);
+
+        builder.Property(transition => transition.Observations)
+            .HasColumnName("observations")
+            .HasMaxLength(2000);
+
+        builder.Property(transition => transition.ChangedAtUtc)
+            .HasColumnName("changed_at_utc");
+
+        builder.Property(transition => transition.Origin)
+            .HasColumnName("origin")
+            .HasConversion<string>()
+            .HasMaxLength(30);
+
+        builder.Property(transition => transition.ActorUserPublicId)
+            .HasColumnName("actor_user_public_id");
+
+        builder.Property(transition => transition.CreatedUtc)
+            .HasColumnName("created_utc");
+
+        builder.Property(transition => transition.ModifiedUtc)
+            .HasColumnName("modified_utc");
+
+        builder.HasIndex(transition => new { transition.CompanySubscriptionId, transition.ChangedAtUtc })
+            .HasDatabaseName("ix_company_subscription_status_transitions__subscription_changed");
     }
 }

@@ -10,9 +10,16 @@ public interface ICompanySubscriptionRepository
 
     Task<CompanySubscription?> GetActiveByCompanyIdAsync(long companyId, CancellationToken cancellationToken);
 
+    Task<CompanySubscription?> GetCurrentByCompanyIdAsync(long companyId, CancellationToken cancellationToken);
+
     Task<CompanySubscription?> GetScheduledByCompanyIdAsync(long companyId, CancellationToken cancellationToken);
 
     Task<CompanySubscription?> GetActiveByCompanyPublicIdAsync(Guid companyPublicId, CancellationToken cancellationToken);
+
+    Task<CompanySubscription?> GetByCompanyAndSubscriptionPublicIdAsync(
+        Guid companyPublicId,
+        Guid subscriptionPublicId,
+        CancellationToken cancellationToken);
 
     Task<PlatformCompanySubscriptionOverviewResponse?> GetOverviewByCompanyPublicIdAsync(Guid companyPublicId, CancellationToken cancellationToken);
 
@@ -29,12 +36,29 @@ public interface ICompanySubscriptionRepository
         int pageSize,
         CancellationToken cancellationToken);
 
+    Task<PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>> SearchStatusHistoryAsync(
+        Guid companyPublicId,
+        Guid subscriptionPublicId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<Guid>> GetDueScheduledSubscriptionIdsAsync(
         DateTime utcNow,
         int take,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<Guid>> GetDueExpiringSubscriptionIdsAsync(
+        DateTime utcNow,
+        int take,
+        CancellationToken cancellationToken);
+
     Task<CompanySubscription?> GetByPublicIdAsync(Guid subscriptionPublicId, CancellationToken cancellationToken);
+
+    Task<PlatformCompanySubscriptionResponse?> GetResponseByPublicIdAsync(
+        Guid companyPublicId,
+        Guid subscriptionPublicId,
+        CancellationToken cancellationToken);
 
     Task<string?> GetActivePlanCodeAsync(Guid companyPublicId, CancellationToken cancellationToken);
 }

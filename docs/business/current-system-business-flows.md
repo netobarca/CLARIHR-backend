@@ -96,12 +96,15 @@ El provisioning actual deja creada la base operativa minima del tenant:
 
 ### 5.6 Administracion backoffice de suscripciones empresariales
 
-1. Un operador de plataforma consulta el overview comercial y el historial de una empresa desde `api/platform/companies/{companyPublicId}/subscription` y `.../subscriptions`, o usa `api/platform/company-subscriptions` para listar el universo global.
-2. Antes de confirmar, puede solicitar una vista previa en `POST api/platform/companies/{companyPublicId}/subscription/preview` para validar elegibilidad, version efectiva del plan, moneda `USD`, periodicidad y estado inicial.
-3. La activacion usa `PUT api/platform/companies/{companyPublicId}/subscription` con `commercialPlanId`, `startDateUtc` y `periodicity`.
-4. Si la fecha inicia hoy, el backend cancela la fila activa anterior y crea una nueva `Active`; si la fecha es futura, crea una fila `Scheduled` sin efectos comerciales inmediatos.
-5. Cada suscripcion queda amarrada explicitamente a `CommercialPlanVersion`, conserva snapshot de precios, registra auditoria durable y actualiza `Company.IsBillable` solo cuando la empresa entra en una suscripcion comercial activa no sistema.
-6. Un proceso de fondo promueve automaticamente las filas `Scheduled` al llegar la fecha efectiva y realiza el swap transaccional con la fila activa previa.
+1. Un operador de plataforma consulta el overview comercial y el historial de una empresa desde `api/platform/companies/{companyPublicId}/subscription` y `.../subscriptions`, o usa `api/platform/company-subscriptions` para listar el universo global con el estado actual visible por fila.
+2. Antes de confirmar, puede solicitar una vista previa en `POST api/platform/companies/{companyPublicId}/subscription/preview` para validar elegibilidad, version efectiva del plan, moneda `USD`, periodicidad, fecha de vencimiento opcional y estado inicial resuelto.
+3. La activacion usa `PUT api/platform/companies/{companyPublicId}/subscription` con `commercialPlanId`, `startDateUtc`, `expiresAtUtc` opcional y `periodicity`.
+4. Si la fecha inicia hoy, el backend cancela la fila viva anterior cuando corresponde y crea una nueva `Active`; si la fecha es futura, crea una fila `Scheduled` sin efectos comerciales inmediatos.
+5. La suscripcion ahora mantiene un ciclo de vida comercial controlado con estados `Draft`, `Scheduled`, `Trial`, `Active`, `Suspended`, `Expired` y `Cancelled`, aunque en la operacion actual del backoffice se usan `Scheduled`, `Active`, `Suspended`, `Expired` y `Cancelled`.
+6. Los cambios manuales de estado se ejecutan desde `PATCH api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status`; solo `Admin` puede suspender, reactivar o cancelar, y cada cambio exige `reasonCode` y acepta `observations` opcionales.
+7. El historial de transiciones se consulta desde `GET api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status-history`, donde cada movimiento conserva estado anterior, nuevo estado, fecha, actor u origen del sistema, motivo y observaciones.
+8. Cada suscripcion queda amarrada explicitamente a `CommercialPlanVersion`, conserva snapshot de precios, expone `canOperate` y `canGenerateCharges`, registra auditoria durable y actualiza `Company.IsBillable` solo cuando la empresa queda en una suscripcion comercial operable y cobrable segun la politica de estado.
+9. Un proceso de fondo promueve automaticamente las filas `Scheduled` al llegar la fecha efectiva y vence filas `Active` cuando `expiresAtUtc` se cumple; ambos cambios dejan historial y auditoria durable.
 
 ## 6. Flujo de administracion de estructura organizacional
 
