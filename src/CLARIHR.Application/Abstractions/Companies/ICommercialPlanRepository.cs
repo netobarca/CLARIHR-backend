@@ -17,6 +17,8 @@ public interface ICommercialPlanRepository
 
     Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken);
 
+    Task<bool> IsSystemPlanAsync(long commercialPlanId, CancellationToken cancellationToken);
+
     Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken);
 
     Task<PagedResponse<CommercialPlanSummaryResponse>> SearchAsync(

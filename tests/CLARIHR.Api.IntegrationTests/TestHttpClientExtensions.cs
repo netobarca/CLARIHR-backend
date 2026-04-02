@@ -41,6 +41,16 @@ internal static class TestHttpClientExtensions
 
     public static Task<HttpResponseMessage> PutJsonAsync(this HttpClient client, string? requestUri, object? value, CancellationToken cancellationToken = default) =>
         client.PutAsJsonAsync(requestUri, value, JsonOptions, cancellationToken);
+
+    public static Task<HttpResponseMessage> PatchJsonAsync(this HttpClient client, string? requestUri, object? value, CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, requestUri)
+        {
+            Content = JsonContent.Create(value, options: JsonOptions)
+        };
+
+        return client.SendAsync(request, cancellationToken);
+    }
 }
 
 internal sealed record TestUserContext(

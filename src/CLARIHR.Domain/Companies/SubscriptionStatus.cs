@@ -2,8 +2,11 @@ namespace CLARIHR.Domain.Companies;
 
 public enum SubscriptionStatus
 {
-    Active = 1,
+    Draft = 1,
     Scheduled = 2,
-    Cancelled = 3,
-    Expired = 4
+    Trial = 3,
+    Active = 4,
+    Suspended = 5,
+    Expired = 6,
+    Cancelled = 7
 }

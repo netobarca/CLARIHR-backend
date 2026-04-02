@@ -103,6 +103,48 @@ internal sealed class SearchPlatformCompanySubscriptionsQueryHandler(
     }
 }
 
+internal sealed class SearchPlatformCompanySubscriptionStatusHistoryQueryHandler(
+    IPlatformAuthorizationService authorizationService,
+    ICompanyRepository companyRepository,
+    ICompanySubscriptionRepository subscriptionRepository)
+    : IQueryHandler<SearchPlatformCompanySubscriptionStatusHistoryQuery, PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>>
+{
+    public async Task<Result<PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>>> Handle(
+        SearchPlatformCompanySubscriptionStatusHistoryQuery query,
+        CancellationToken cancellationToken)
+    {
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>>.Failure(authorizationResult.Error);
+        }
+
+        if (await companyRepository.FindByPublicIdAsync(query.CompanyId, cancellationToken) is null)
+        {
+            return Result<PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>>.Failure(PlatformSubscriptionErrors.CompanyNotFound);
+        }
+
+        var subscription = await subscriptionRepository.GetByCompanyAndSubscriptionPublicIdAsync(
+            query.CompanyId,
+            query.SubscriptionId,
+            cancellationToken);
+
+        if (subscription is null)
+        {
+            return Result<PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>>.Failure(PlatformSubscriptionErrors.SubscriptionNotFound);
+        }
+
+        var response = await subscriptionRepository.SearchStatusHistoryAsync(
+            query.CompanyId,
+            query.SubscriptionId,
+            query.PageNumber,
+            query.PageSize,
+            cancellationToken);
+
+        return Result<PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>>.Success(response);
+    }
+}
+
 internal sealed class PreviewPlatformCompanySubscriptionQueryHandler(
     IPlatformAuthorizationService authorizationService,
     ICompanyRepository companyRepository,
@@ -127,6 +169,7 @@ internal sealed class PreviewPlatformCompanySubscriptionQueryHandler(
             query.CompanyId,
             query.CommercialPlanId,
             query.StartDateUtc,
+            query.ExpiresAtUtc,
             query.Periodicity,
             companyRepository,
             commercialPlanRepository,
@@ -173,6 +216,7 @@ internal sealed class ActivatePlatformCompanySubscriptionCommandHandler(
             command.CompanyId,
             command.CommercialPlanId,
             command.StartDateUtc,
+            command.ExpiresAtUtc,
             command.Periodicity,
             companyRepository,
             commercialPlanRepository,
@@ -193,18 +237,20 @@ internal sealed class ActivatePlatformCompanySubscriptionCommandHandler(
             return Result<PlatformCompanySubscriptionResponse>.Failure(context.PrimaryError);
         }
 
-        var actorUserPublicId = Guid.TryParse(currentUserService.UserId, out var parsedUserId)
-            ? parsedUserId
-            : Guid.Empty;
-
+        var actorUserPublicId = PlatformSubscriptionAdministrationHelpers.TryParseCurrentUserId(currentUserService.UserId);
         var before = await subscriptionRepository.GetOverviewByCompanyPublicIdAsync(command.CompanyId, cancellationToken);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            if (context.ResolvedStatus == SubscriptionStatus.Active && context.ActiveSubscription is not null)
+            if (context.ResolvedStatus == SubscriptionStatus.Active && context.CurrentSubscription is not null)
             {
-                context.ActiveSubscription.Cancel(utcNow);
+                context.CurrentSubscription.Cancel(
+                    utcNow,
+                    SubscriptionStatusChangeReasonCode.SubscriptionReplacement,
+                    observations: null,
+                    SubscriptionStatusChangeOrigin.PlatformOperator,
+                    actorUserPublicId);
             }
 
             var nextSubscription = context.ResolvedStatus == SubscriptionStatus.Active
@@ -213,38 +259,44 @@ internal sealed class ActivatePlatformCompanySubscriptionCommandHandler(
                     context.Plan,
                     context.Periodicity,
                     context.StartDateUtc,
-                    actorUserPublicId,
-                    utcNow)
+                    context.ExpiresAtUtc,
+                    actorUserPublicId ?? Guid.Empty,
+                    utcNow,
+                    SubscriptionStatusChangeReasonCode.ManualActivation,
+                    SubscriptionStatusChangeOrigin.PlatformOperator,
+                    observations: null)
                 : CompanySubscription.Schedule(
                     context.Company.Id,
                     context.Plan,
                     context.Periodicity,
                     context.StartDateUtc,
-                    actorUserPublicId,
-                    utcNow);
+                    context.ExpiresAtUtc,
+                    actorUserPublicId ?? Guid.Empty,
+                    utcNow,
+                    SubscriptionStatusChangeReasonCode.ActivationScheduled,
+                    SubscriptionStatusChangeOrigin.PlatformOperator,
+                    observations: null);
 
+            var nextSubscriptionPublicId = nextSubscription.PublicId;
             subscriptionRepository.Add(nextSubscription);
 
             if (context.ResolvedStatus == SubscriptionStatus.Active)
             {
-                if (context.Plan.IsSystemPlan)
-                {
-                    context.Company.ClearBillable();
-                }
-                else
-                {
-                    context.Company.MarkBillable(utcNow);
-                }
+                await PlatformSubscriptionBillablePolicy.ApplyBillableStateAsync(
+                    context.Company,
+                    nextSubscription,
+                    commercialPlanRepository,
+                    utcNow,
+                    cancellationToken);
             }
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var overviewAfter = await subscriptionRepository.GetOverviewByCompanyPublicIdAsync(command.CompanyId, cancellationToken);
-            var response = overviewAfter?.CurrentSubscription?.SubscriptionId == nextSubscription.PublicId
-                ? overviewAfter.CurrentSubscription
-                : overviewAfter?.ScheduledReplacement?.SubscriptionId == nextSubscription.PublicId
-                    ? overviewAfter.ScheduledReplacement
-                    : null;
+            var response = await subscriptionRepository.GetResponseByPublicIdAsync(
+                command.CompanyId,
+                nextSubscriptionPublicId,
+                cancellationToken);
 
             if (response is null)
             {
@@ -257,12 +309,12 @@ internal sealed class ActivatePlatformCompanySubscriptionCommandHandler(
                         ? AuditEventTypes.CompanySubscriptionActivated
                         : AuditEventTypes.CompanySubscriptionScheduled,
                     AuditEntityTypes.CompanySubscription,
-                    nextSubscription.PublicId,
+                    nextSubscriptionPublicId,
                     context.Company.Slug,
                     context.ResolvedStatus == SubscriptionStatus.Active ? AuditActions.Create : AuditActions.Update,
                     context.ResolvedStatus == SubscriptionStatus.Active
-                        ? $"Activated commercial subscription for {context.Company.Name} using plan {context.Plan.Code}."
-                        : $"Scheduled commercial subscription for {context.Company.Name} using plan {context.Plan.Code}.",
+                        ? $"Activated company subscription for {context.Company.Name} using plan {context.Plan.Code}."
+                        : $"Scheduled company subscription for {context.Company.Name} using plan {context.Plan.Code}.",
                     Before: before,
                     After: overviewAfter),
                 cancellationToken);
@@ -279,14 +331,173 @@ internal sealed class ActivatePlatformCompanySubscriptionCommandHandler(
     }
 }
 
+internal sealed class ChangePlatformCompanySubscriptionStatusCommandHandler(
+    IPlatformAuthorizationService authorizationService,
+    ICompanyRepository companyRepository,
+    ICommercialPlanRepository commercialPlanRepository,
+    ICompanySubscriptionRepository subscriptionRepository,
+    ICurrentUserService currentUserService,
+    IPlatformAuditService platformAuditService,
+    IDateTimeProvider dateTimeProvider,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<ChangePlatformCompanySubscriptionStatusCommand, PlatformCompanySubscriptionResponse>
+{
+    public async Task<Result<PlatformCompanySubscriptionResponse>> Handle(
+        ChangePlatformCompanySubscriptionStatusCommand command,
+        CancellationToken cancellationToken)
+    {
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PlatformCompanySubscriptionResponse>.Failure(authorizationResult.Error);
+        }
+
+        var company = await companyRepository.FindByPublicIdAsync(command.CompanyId, cancellationToken);
+        if (company is null)
+        {
+            return Result<PlatformCompanySubscriptionResponse>.Failure(PlatformSubscriptionErrors.CompanyNotFound);
+        }
+
+        var subscription = await subscriptionRepository.GetByCompanyAndSubscriptionPublicIdAsync(
+            command.CompanyId,
+            command.SubscriptionId,
+            cancellationToken);
+
+        if (subscription is null)
+        {
+            return Result<PlatformCompanySubscriptionResponse>.Failure(PlatformSubscriptionErrors.SubscriptionNotFound);
+        }
+
+        if (!SubscriptionStatusPolicy.CanTransition(
+                subscription.Status,
+                command.TargetStatus,
+                SubscriptionStatusChangeOrigin.PlatformOperator))
+        {
+            return Result<PlatformCompanySubscriptionResponse>.Failure(PlatformSubscriptionErrors.InvalidStatusTransition);
+        }
+
+        if (!SubscriptionStatusPolicy.IsReasonAllowed(
+                subscription.Status,
+                command.TargetStatus,
+                SubscriptionStatusChangeOrigin.PlatformOperator,
+                command.ReasonCode))
+        {
+            return Result<PlatformCompanySubscriptionResponse>.Failure(PlatformSubscriptionErrors.InvalidStatusReason);
+        }
+
+        if (command.TargetStatus == SubscriptionStatus.Active &&
+            subscription.ExpiresAtUtc.HasValue &&
+            subscription.ExpiresAtUtc.Value.Date < dateTimeProvider.UtcNow.Date)
+        {
+            return Result<PlatformCompanySubscriptionResponse>.Failure(PlatformSubscriptionErrors.ReactivationPastExpiration);
+        }
+
+        var before = await subscriptionRepository.GetOverviewByCompanyPublicIdAsync(command.CompanyId, cancellationToken);
+        var actorUserPublicId = PlatformSubscriptionAdministrationHelpers.TryParseCurrentUserId(currentUserService.UserId);
+        var utcNow = dateTimeProvider.UtcNow;
+        var previousStatus = subscription.Status;
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            switch (command.TargetStatus)
+            {
+                case SubscriptionStatus.Suspended:
+                    subscription.Suspend(
+                        utcNow,
+                        command.ReasonCode,
+                        command.Observations,
+                        SubscriptionStatusChangeOrigin.PlatformOperator,
+                        actorUserPublicId);
+                    company.ClearBillable();
+                    break;
+
+                case SubscriptionStatus.Active:
+                    subscription.Reactivate(
+                        utcNow,
+                        command.ReasonCode,
+                        command.Observations,
+                        SubscriptionStatusChangeOrigin.PlatformOperator,
+                        actorUserPublicId);
+                    await PlatformSubscriptionBillablePolicy.ApplyBillableStateAsync(
+                        company,
+                        subscription,
+                        commercialPlanRepository,
+                        utcNow,
+                        cancellationToken);
+                    break;
+
+                case SubscriptionStatus.Cancelled:
+                    subscription.Cancel(
+                        utcNow,
+                        command.ReasonCode,
+                        command.Observations,
+                        SubscriptionStatusChangeOrigin.PlatformOperator,
+                        actorUserPublicId);
+                    if (previousStatus != SubscriptionStatus.Scheduled)
+                    {
+                        company.ClearBillable();
+                    }
+
+                    break;
+
+                default:
+                    return Result<PlatformCompanySubscriptionResponse>.Failure(PlatformSubscriptionErrors.InvalidStatusTransition);
+            }
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var overviewAfter = await subscriptionRepository.GetOverviewByCompanyPublicIdAsync(command.CompanyId, cancellationToken);
+            var response = await subscriptionRepository.GetResponseByPublicIdAsync(
+                command.CompanyId,
+                command.SubscriptionId,
+                cancellationToken);
+
+            if (response is null)
+            {
+                throw new InvalidOperationException("The updated company subscription could not be loaded after persistence.");
+            }
+
+            await platformAuditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.CompanySubscriptionStatusChanged,
+                    AuditEntityTypes.CompanySubscription,
+                    subscription.PublicId,
+                    company.Slug,
+                    AuditActions.Update,
+                    $"Changed company subscription status from {previousStatus} to {command.TargetStatus} for {company.Name}.",
+                    Before: before,
+                    After: overviewAfter),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PlatformCompanySubscriptionResponse>.Success(response);
+        }
+        catch (InvalidOperationException exception) when (
+            command.TargetStatus == SubscriptionStatus.Active &&
+            exception.Message.Contains("past their expiration date", StringComparison.OrdinalIgnoreCase))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<PlatformCompanySubscriptionResponse>.Failure(PlatformSubscriptionErrors.ReactivationPastExpiration);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
 internal sealed record PlatformSubscriptionResolution(
     Company Company,
     CommercialPlan Plan,
     CommercialPlanVersion PlanVersion,
     CompanySubscriptionPeriodicity Periodicity,
     DateTime StartDateUtc,
+    DateTime? ExpiresAtUtc,
     SubscriptionStatus ResolvedStatus,
-    CompanySubscription? ActiveSubscription,
+    CompanySubscription? CurrentSubscription,
     CompanySubscription? ScheduledSubscription,
     IReadOnlyCollection<string> IneligibilityReasons,
     Error PrimaryError)
@@ -311,6 +522,9 @@ internal sealed record PlatformSubscriptionResolution(
             PlanVersion.CurrencyCode,
             ResolvedStatus,
             StartDateUtc,
+            ExpiresAtUtc,
+            SubscriptionStatusPolicy.CanOperate(ResolvedStatus),
+            SubscriptionStatusPolicy.CanGenerateCharges(ResolvedStatus),
             IsEligible,
             IneligibilityReasons);
 }
@@ -321,6 +535,7 @@ internal static class PlatformSubscriptionResolver
         Guid companyPublicId,
         Guid commercialPlanPublicId,
         DateTime startDateUtc,
+        DateTime? expiresAtUtc,
         CompanySubscriptionPeriodicity periodicity,
         ICompanyRepository companyRepository,
         ICommercialPlanRepository commercialPlanRepository,
@@ -352,6 +567,11 @@ internal static class PlatformSubscriptionResolver
             return Result<PlatformSubscriptionResolution>.Failure(PlatformSubscriptionErrors.StartDateInPast);
         }
 
+        if (expiresAtUtc.HasValue && expiresAtUtc.Value.Date < startDateUtc.Date)
+        {
+            return Result<PlatformSubscriptionResolution>.Failure(PlatformSubscriptionErrors.ExpirationBeforeStartDate);
+        }
+
         if (plan.Status != CommercialPlanStatus.Active)
         {
             return Result<PlatformSubscriptionResolution>.Failure(PlatformSubscriptionErrors.PlanInactive);
@@ -367,7 +587,7 @@ internal static class PlatformSubscriptionResolver
             return Result<PlatformSubscriptionResolution>.Failure(PlatformSubscriptionErrors.PlanVersionNotAvailable);
         }
 
-        var activeSubscription = await subscriptionRepository.GetActiveByCompanyIdAsync(company.Id, cancellationToken);
+        var currentSubscription = await subscriptionRepository.GetCurrentByCompanyIdAsync(company.Id, cancellationToken);
         var scheduledSubscription = await subscriptionRepository.GetScheduledByCompanyIdAsync(company.Id, cancellationToken);
         var resolvedStatus = startDateUtc.Date > utcNow.Date
             ? SubscriptionStatus.Scheduled
@@ -395,12 +615,12 @@ internal static class PlatformSubscriptionResolver
         }
 
         if (resolvedStatus == SubscriptionStatus.Active &&
-            activeSubscription is not null &&
-            activeSubscription.CommercialPlanId == plan.Id &&
-            activeSubscription.CommercialPlanVersionId == planVersion.Id &&
-            activeSubscription.Periodicity == periodicity)
+            currentSubscription is not null &&
+            currentSubscription.CommercialPlanId == plan.Id &&
+            currentSubscription.CommercialPlanVersionId == planVersion.Id &&
+            currentSubscription.Periodicity == periodicity)
         {
-            reasons.Add("La empresa ya tiene activa una suscripcion con el mismo plan, version y periodicidad.");
+            reasons.Add("La empresa ya usa una suscripcion vigente con el mismo plan, version y periodicidad.");
             errors.Add(PlatformSubscriptionErrors.AlreadyAssigned);
         }
 
@@ -415,11 +635,38 @@ internal static class PlatformSubscriptionResolver
             plan,
             planVersion,
             periodicity,
-            startDateUtc,
+            startDateUtc.Date,
+            expiresAtUtc?.Date,
             resolvedStatus,
-            activeSubscription,
+            currentSubscription,
             scheduledSubscription,
             reasons,
             errors.FirstOrDefault() ?? PlatformSubscriptionErrors.CompanyNotEligible));
     }
+}
+
+internal static class PlatformSubscriptionBillablePolicy
+{
+    public static async Task ApplyBillableStateAsync(
+        Company company,
+        CompanySubscription subscription,
+        ICommercialPlanRepository commercialPlanRepository,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        var isSystemPlan = await commercialPlanRepository.IsSystemPlanAsync(subscription.CommercialPlanId, cancellationToken);
+        if (isSystemPlan || !SubscriptionStatusPolicy.CanGenerateCharges(subscription.Status))
+        {
+            company.ClearBillable();
+            return;
+        }
+
+        company.MarkBillable(utcNow.Date);
+    }
+}
+
+internal static class PlatformSubscriptionAdministrationHelpers
+{
+    public static Guid? TryParseCurrentUserId(string? currentUserId) =>
+        Guid.TryParse(currentUserId, out var parsedUserId) ? parsedUserId : null;
 }

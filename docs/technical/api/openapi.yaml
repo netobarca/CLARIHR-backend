@@ -454,9 +454,34 @@ components:
     SubscriptionStatus:
       type: string
       enum:
+        - Draft
+        - Scheduled
+        - Trial
         - Active
+        - Suspended
         - Cancelled
         - Expired
+    SubscriptionStatusChangeOrigin:
+      type: string
+      enum:
+        - PlatformOperator
+        - SystemProcess
+    SubscriptionStatusChangeReasonCode:
+      type: string
+      enum:
+        - InitialAssignment
+        - ManualActivation
+        - ActivationScheduled
+        - ScheduledStartReached
+        - TrialEnded
+        - ExpirationReached
+        - ManualSuspension
+        - PaymentDelinquency
+        - CustomerRequest
+        - CommercialCancellation
+        - AuthorizedReactivation
+        - SubscriptionReplacement
+        - LegacyMigration
     CommercialAddonSummaryResponse:
       type: object
       required:
@@ -963,6 +988,11 @@ components:
         - currencyCode
         - status
         - startDateUtc
+        - statusChangedAtUtc
+        - currentStatusReasonCode
+        - currentStatusOrigin
+        - canOperate
+        - canGenerateCharges
         - activatedByUserId
         - activatedAtUtc
         - createdAtUtc
@@ -1007,10 +1037,28 @@ components:
         startDateUtc:
           type: string
           format: date-time
+        expiresAtUtc:
+          type: string
+          format: date-time
+          nullable: true
         endDateUtc:
           type: string
           format: date-time
           nullable: true
+        statusChangedAtUtc:
+          type: string
+          format: date-time
+        currentStatusReasonCode:
+          $ref: '#/components/schemas/SubscriptionStatusChangeReasonCode'
+        currentStatusObservations:
+          type: string
+          nullable: true
+        currentStatusOrigin:
+          $ref: '#/components/schemas/SubscriptionStatusChangeOrigin'
+        canOperate:
+          type: boolean
+        canGenerateCharges:
+          type: boolean
         activatedByUserId:
           type: string
           format: uuid
@@ -1073,6 +1121,8 @@ components:
         - currencyCode
         - resolvedStatus
         - startDateUtc
+        - canOperate
+        - canGenerateCharges
         - isEligible
         - ineligibilityReasons
       properties:
@@ -1115,6 +1165,14 @@ components:
         startDateUtc:
           type: string
           format: date-time
+        expiresAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        canOperate:
+          type: boolean
+        canGenerateCharges:
+          type: boolean
         isEligible:
           type: boolean
         ineligibilityReasons:
@@ -1135,6 +1193,11 @@ components:
         - planName
         - planVersionNumber
         - startDateUtc
+        - statusChangedAtUtc
+        - currentStatusReasonCode
+        - currentStatusOrigin
+        - canOperate
+        - canGenerateCharges
         - periodicity
         - currencyCode
         - status
@@ -1167,12 +1230,27 @@ components:
         startDateUtc:
           type: string
           format: date-time
+        expiresAtUtc:
+          type: string
+          format: date-time
+          nullable: true
         periodicity:
           $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
         currencyCode:
           type: string
         status:
           $ref: '#/components/schemas/SubscriptionStatus'
+        statusChangedAtUtc:
+          type: string
+          format: date-time
+        currentStatusReasonCode:
+          $ref: '#/components/schemas/SubscriptionStatusChangeReasonCode'
+        currentStatusOrigin:
+          $ref: '#/components/schemas/SubscriptionStatusChangeOrigin'
+        canOperate:
+          type: boolean
+        canGenerateCharges:
+          type: boolean
     PagedPlatformCompanySubscriptionResponse:
       type: object
       required:
@@ -1218,6 +1296,55 @@ components:
         totalCount:
           type: integer
           format: int32
+    PlatformCompanySubscriptionStatusTransitionResponse:
+      type: object
+      required:
+        - newStatus
+        - changedAtUtc
+        - origin
+        - reasonCode
+      properties:
+        previousStatus:
+          allOf:
+            - $ref: '#/components/schemas/SubscriptionStatus'
+          nullable: true
+        newStatus:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        changedAtUtc:
+          type: string
+          format: date-time
+        origin:
+          $ref: '#/components/schemas/SubscriptionStatusChangeOrigin'
+        actorUserId:
+          type: string
+          format: uuid
+          nullable: true
+        reasonCode:
+          $ref: '#/components/schemas/SubscriptionStatusChangeReasonCode'
+        observations:
+          type: string
+          nullable: true
+    PagedPlatformCompanySubscriptionStatusTransitionResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCompanySubscriptionStatusTransitionResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     UpsertPlatformCompanySubscriptionRequest:
       type: object
       required:
@@ -1231,8 +1358,25 @@ components:
         startDateUtc:
           type: string
           format: date-time
+        expiresAtUtc:
+          type: string
+          format: date-time
+          nullable: true
         periodicity:
           $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+    ChangePlatformCompanySubscriptionStatusRequest:
+      type: object
+      required:
+        - targetStatus
+        - reasonCode
+      properties:
+        targetStatus:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        reasonCode:
+          $ref: '#/components/schemas/SubscriptionStatusChangeReasonCode'
+        observations:
+          type: string
+          nullable: true
     CompanySubscriptionPeriodicity:
       type: string
       enum:
@@ -2195,7 +2339,7 @@ paths:
         - platform-subscriptions
       operationId: GetPlatformCompanySubscription
       summary: Get the company subscription overview
-      description: Returns the active company subscription plus a scheduled replacement when one exists.
+      description: Returns the current non-scheduled company subscription plus the latest scheduled replacement when one exists.
       security:
         - Bearer: []
       parameters:
@@ -2225,65 +2369,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Company or active subscription was not found.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    post:
-      tags:
-        - platform-subscriptions
-      operationId: PreviewPlatformCompanySubscription
-      summary: Preview a company subscription activation
-      description: Resolves the effective plan version, eligibility and initial status without mutating state.
-      security:
-        - Bearer: []
-      parameters:
-        - name: companyPublicId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpsertPlatformCompanySubscriptionRequest'
-      responses:
-        '200':
-          description: Company subscription preview returned successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlatformCompanySubscriptionPreviewResponse'
-        '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have platform access.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Company or selected commercial plan was not found.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Business conflict such as inactive plan or missing effective version.
+          description: Company was not found.
           content:
             application/problem+json:
               schema:
@@ -2346,6 +2432,65 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription/preview:
+    post:
+      tags:
+        - platform-subscriptions
+      operationId: PreviewPlatformCompanySubscription
+      summary: Preview a company subscription activation
+      description: Resolves the effective plan version, eligibility and initial status without mutating state.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertPlatformCompanySubscriptionRequest'
+      responses:
+        '200':
+          description: Company subscription preview returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionPreviewResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as inactive plan or missing effective version.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/platform/companies/{companyPublicId}/subscriptions:
     get:
       tags:
@@ -2386,6 +2531,141 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PagedPlatformCompanySubscriptionResponse'
+  /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status:
+    patch:
+      tags:
+        - platform-subscriptions
+      operationId: ChangePlatformCompanySubscriptionStatus
+      summary: Change the current status of a company subscription
+      description: Applies a manual status transition under the platform transition policy and stores a durable audit trail.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: subscriptionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePlatformCompanySubscriptionStatusRequest'
+      responses:
+        '200':
+          description: Company subscription status changed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected subscription was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as an invalid transition, invalid reason, or reactivation after expiration.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status-history:
+    get:
+      tags:
+        - platform-subscriptions
+      operationId: SearchPlatformCompanySubscriptionStatusHistory
+      summary: List the status transition history for a company subscription
+      description: Returns the paged status transition history for the requested company subscription from the platform backoffice.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: subscriptionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Paged company subscription status transition history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPlatformCompanySubscriptionStatusTransitionResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected subscription was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/platform/company-subscriptions:
     get:
       tags:

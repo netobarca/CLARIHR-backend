@@ -51,6 +51,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CompanySubscription> CompanySubscriptions => Set<CompanySubscription>();
 
+    public DbSet<CompanySubscriptionStatusTransition> CompanySubscriptionStatusTransitions => Set<CompanySubscriptionStatusTransition>();
+
     public DbSet<UserCompanyMembership> UserCompanyMemberships => Set<UserCompanyMembership>();
 
     public DbSet<PlanEntitlement> PlanEntitlements => Set<PlanEntitlement>();

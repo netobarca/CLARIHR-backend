@@ -348,6 +348,9 @@ public sealed class CommercialPlanAdministrationTests
         public Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(plan => plan.NormalizedCode == normalizedCode));
 
+        public Task<bool> IsSystemPlanAsync(long commercialPlanId, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.Single(plan => plan.Id == commercialPlanId).IsSystemPlan);
+
         public Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.Any(plan =>
                 plan.NormalizedCode == normalizedCode &&
