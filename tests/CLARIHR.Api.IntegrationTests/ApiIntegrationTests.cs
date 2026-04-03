@@ -2441,6 +2441,42 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task JobProfiles_GetById_ShouldReturnProfile_WhenDependentPositionReferencesProfileOutsideTenantScope()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var adminClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var profile = await CreateJobProfileAsync(adminClient, scenario.TenantId, "JP-DET", "Perfil Detalle");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var profileEntity = await dbContext.JobProfiles
+                .SingleAsync(item => item.PublicId == profile.Id);
+
+            var externalDependentProfile = JobProfile.Create("JP-EXT", "Perfil Externo");
+            externalDependentProfile.SetTenantId(scenario.OtherTenantId);
+            dbContext.JobProfiles.Add(externalDependentProfile);
+            await dbContext.SaveChangesAsync();
+
+            var dependentPosition = JobProfileDependentPosition.Create(externalDependentProfile.Id, 1, "Legacy external dependency");
+            dependentPosition.SetTenantId(profileEntity.TenantId);
+
+            profileEntity.ReplaceDependentPositions([dependentPosition]);
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var client = factory.CreateClientFor(CreateJobProfileReadContext(scenario));
+        var response = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<JobProfileDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(profile.Id, payload!.Id);
+        Assert.Empty(payload.DependentPositions);
+    }
+
+    [Fact]
     public async Task JobProfiles_Update_WithStaleToken_ShouldReturn409Conflict()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -2497,6 +2533,107 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task JobProfiles_Update_WhenDraftCanRemainIncomplete_ShouldReturn200()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-DRAFT", "Perfil Draft");
+
+        var response = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
+        {
+            code = profile.Code,
+            title = profile.Title,
+            objective = (string?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
+            positionCategoryPublicId = (Guid?)null,
+            strategicObjectiveCatalogItemPublicId = (Guid?)null,
+            assignedWorkEquipmentCatalogItemPublicId = (Guid?)null,
+            responsibilityCatalogItemPublicId = (Guid?)null,
+            decisionScope = "Operacion",
+            assignedResources = "Equipo",
+            responsibilities = (string?)null,
+            benefitsSummary = "Ley",
+            workingConditionSummary = "Presencial",
+            marketSalaryReference = "Mercado",
+            valuationNotes = "Notas",
+            effectiveFromUtc = (DateTime?)null,
+            effectiveToUtc = (DateTime?)null,
+            allowInlineCatalogCreate = false,
+            requirements = Array.Empty<object>(),
+            functions = Array.Empty<object>(),
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensations = Array.Empty<object>(),
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = Array.Empty<object>(),
+            concurrencyToken = profile.ConcurrencyToken
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(JobProfileStatus.Draft, payload!.Status);
+    }
+
+    [Fact]
+    public async Task JobProfiles_Update_WhenPublishedWouldLoseMinimumRequirements_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-PUB-UPD", "Perfil Publicado");
+
+        var publishResponse = await client.PatchAsJsonAsync($"/api/v1/job-profiles/{profile.Id}/publish", new
+        {
+            concurrencyToken = profile.ConcurrencyToken
+        });
+        publishResponse.EnsureSuccessStatusCode();
+
+        var published = await publishResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(published);
+
+        var response = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
+        {
+            code = profile.Code,
+            title = profile.Title,
+            objective = (string?)null,
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
+            positionCategoryPublicId = (Guid?)null,
+            strategicObjectiveCatalogItemPublicId = (Guid?)null,
+            assignedWorkEquipmentCatalogItemPublicId = (Guid?)null,
+            responsibilityCatalogItemPublicId = (Guid?)null,
+            decisionScope = "Operacion",
+            assignedResources = "Equipo",
+            responsibilities = (string?)null,
+            benefitsSummary = "Ley",
+            workingConditionSummary = "Presencial",
+            marketSalaryReference = "Mercado",
+            valuationNotes = "Notas",
+            effectiveFromUtc = (DateTime?)null,
+            effectiveToUtc = (DateTime?)null,
+            allowInlineCatalogCreate = false,
+            requirements = Array.Empty<object>(),
+            functions = Array.Empty<object>(),
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensations = Array.Empty<object>(),
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = Array.Empty<object>(),
+            concurrencyToken = published!.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING");
     }
 
     [Fact]
@@ -2672,6 +2809,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
 
         await AssertProblemDetailsAsync(updateBResponse, HttpStatusCode.Conflict, "JOB_PROFILE_DEPENDENCY_CYCLE");
+        using var cycleDocument = JsonDocument.Parse(await updateBResponse.Content.ReadAsStringAsync());
+        const string expectedCycleMessage = "This change cannot be saved because it would make the selected job profiles depend on each other in a circular way. Review the reporting profile and dependent positions, then try again.";
+        Assert.Equal(expectedCycleMessage, cycleDocument.RootElement.GetProperty("title").GetString());
+        Assert.Equal(expectedCycleMessage, cycleDocument.RootElement.GetProperty("detail").GetString());
     }
 
     [Fact]
@@ -5604,6 +5745,21 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string Code,
         string Title,
         JobProfileStatus Status,
+        Guid ConcurrencyToken);
+
+    private sealed record JobProfileDependentPositionItem(
+        Guid DependentJobProfileId,
+        string DependentJobProfileCode,
+        string DependentJobProfileTitle,
+        int Quantity,
+        string? Notes);
+
+    private sealed record JobProfileDetailItem(
+        Guid Id,
+        string Code,
+        string Title,
+        JobProfileStatus Status,
+        IReadOnlyCollection<JobProfileDependentPositionItem> DependentPositions,
         Guid ConcurrencyToken);
 
     private sealed record JobProfilePrintItem(

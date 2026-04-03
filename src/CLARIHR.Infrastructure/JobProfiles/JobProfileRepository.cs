@@ -13,6 +13,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
 
     public Task<JobProfile?> GetByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles
+            .AsSplitQuery()
             .Include(profile => profile.Requirements)
                 .ThenInclude(requirement => requirement.CatalogItem)
             .Include(profile => profile.Functions)
@@ -205,6 +206,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
     {
         var profile = await dbContext.JobProfiles
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(item => item.Requirements)
                 .ThenInclude(item => item.CatalogItem)
             .Include(item => item.Functions)
