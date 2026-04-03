@@ -1162,6 +1162,16 @@ internal sealed class UpdateJobProfileCommandHandler(
             return Result<JobProfileResponse>.Failure(mutation.Error);
         }
 
+        if (profile.Status == JobProfileStatus.Published &&
+            !JobProfileCommandSupport.MeetsPublishedMinimumRequirements(
+                command.Objective,
+                command.Responsibilities,
+                mutation.Value.Requirements,
+                mutation.Value.Functions))
+        {
+            return Result<JobProfileResponse>.Failure(JobProfileErrors.PublishRequirementsMissing);
+        }
+
         var before = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Job profile response could not be resolved before update.");
 
@@ -2150,6 +2160,16 @@ internal static class JobProfileCsvExporter
 
 internal static class JobProfileCommandSupport
 {
+    public static bool MeetsPublishedMinimumRequirements(
+        string? objective,
+        string? responsibilities,
+        IReadOnlyCollection<JobProfileRequirement> requirements,
+        IReadOnlyCollection<JobProfileFunction> functions) =>
+        !string.IsNullOrWhiteSpace(objective) &&
+        !string.IsNullOrWhiteSpace(responsibilities) &&
+        requirements.Count > 0 &&
+        functions.Count > 0;
+
     public static async Task<Result<long?>> ResolveOrgUnitInternalIdAsync(
         Guid tenantId,
         Guid? orgUnitId,

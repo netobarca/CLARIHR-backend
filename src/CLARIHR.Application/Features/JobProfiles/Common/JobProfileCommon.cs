@@ -64,7 +64,7 @@ public static class JobProfileErrors
 
     public static readonly Error DependencyCycle = new(
         "JOB_PROFILE_DEPENDENCY_CYCLE",
-        "The requested dependency would create a cycle in job profiles.",
+        "This change cannot be saved because it would make the selected job profiles depend on each other in a circular way. Review the reporting profile and dependent positions, then try again.",
         ErrorType.Conflict);
 
     public static readonly Error StateConflict = new(

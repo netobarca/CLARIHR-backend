@@ -2441,7 +2441,7 @@ Errores relevantes en `JobProfiles` y `JobCatalogs`:
 - `JOB_PROFILE_REPORTS_TO_NOT_FOUND`: `404`, el perfil superior referenciado no se pudo resolver.
 - `JOB_PROFILE_CODE_CONFLICT`: `409`, otro perfil ya usa ese `code`.
 - `JOB_CATALOG_ITEM_CODE_CONFLICT`: `409`, otro item de la misma categoria ya usa ese `code`.
-- `JOB_PROFILE_DEPENDENCY_CYCLE`: `409`, `reportsTo` o `dependentPositions` crearian un ciclo.
+- `JOB_PROFILE_DEPENDENCY_CYCLE`: `409`, `reportsTo` o `dependentPositions` crearian una dependencia circular entre perfiles; el usuario debe revisar el perfil superior y las posiciones dependientes.
 - `JOB_PROFILE_STATE_CONFLICT`: `409`, la operacion no aplica al estado actual, por ejemplo editar un perfil archivado.
 - `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING`: `422`, faltan requisitos minimos para publicar.
 - `JOB_CATALOG_INLINE_CREATE_FORBIDDEN`: `403`, el payload quiso crear catalogos inline sin permisos de catalog admin.
@@ -2574,6 +2574,7 @@ Observaciones funcionales:
 - las referencias a `StrategicObjective`, `AssignedWorkEquipment`, `Responsibility`, `RequirementType`, `Frequency` y `WorkConditionType` deben existir y estar activas.
 - el sistema detecta ciclos tanto en `reportsTo` como en `dependentPositions`.
 - `Published` no es un estado inmutable: un job profile publicado todavia puede editarse y volver a publicarse mientras no este archivado.
+- `PUT /api/v1/job-profiles/{id}` permite guardar borradores incompletos, pero si el perfil ya esta `Published` no puede remover `objective`, `responsibilities`, `requirements` o `functions`; en ese caso responde `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING` (`422`).
 - `Archived` si es terminal para edicion: cualquier `update` o `publish` sobre un perfil archivado falla con `JOB_PROFILE_STATE_CONFLICT`.
 - `publish` exige al menos estas precondiciones: `Objective`, minimo un `Requirement`, minimo una `Function` y `Responsibilities`.
 - `publish` no exige competencias, trainings, beneficios, compensaciones ni categoria de puesto.
