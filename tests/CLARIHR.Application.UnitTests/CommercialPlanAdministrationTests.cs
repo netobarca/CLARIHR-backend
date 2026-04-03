@@ -332,6 +332,9 @@ public sealed class CommercialPlanAdministrationTests
         public Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(plan => plan.PublicId == commercialPlanId));
 
+        public Task<CommercialPlan?> GetByInternalIdAsync(long commercialPlanId, CancellationToken cancellationToken) =>
+            Task.FromResult(Items.SingleOrDefault(plan => plan.Id == commercialPlanId));
+
         public Task<CommercialPlanVersion?> GetEffectiveVersionAsync(
             Guid commercialPlanId,
             DateTime effectiveAtUtc,

@@ -33,9 +33,11 @@ public static class SubscriptionStatusPolicy
         (fromStatus, toStatus, origin) switch
         {
             (null, SubscriptionStatus.Active, SubscriptionStatusChangeOrigin.PlatformOperator) =>
-                reasonCode == SubscriptionStatusChangeReasonCode.ManualActivation,
+                reasonCode is SubscriptionStatusChangeReasonCode.ManualActivation
+                    or SubscriptionStatusChangeReasonCode.PlanChangeApplied,
             (null, SubscriptionStatus.Active, SubscriptionStatusChangeOrigin.SystemProcess) =>
-                reasonCode == SubscriptionStatusChangeReasonCode.InitialAssignment,
+                reasonCode is SubscriptionStatusChangeReasonCode.InitialAssignment
+                    or SubscriptionStatusChangeReasonCode.PlanChangeApplied,
             (null, SubscriptionStatus.Scheduled, SubscriptionStatusChangeOrigin.PlatformOperator) =>
                 reasonCode == SubscriptionStatusChangeReasonCode.ActivationScheduled,
             (null, SubscriptionStatus.Scheduled, SubscriptionStatusChangeOrigin.SystemProcess) =>
@@ -48,6 +50,10 @@ public static class SubscriptionStatusPolicy
                 reasonCode is SubscriptionStatusChangeReasonCode.ManualSuspension or SubscriptionStatusChangeReasonCode.PaymentDelinquency,
             (SubscriptionStatus.Suspended, SubscriptionStatus.Active, SubscriptionStatusChangeOrigin.PlatformOperator) =>
                 reasonCode == SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
+            (SubscriptionStatus.Suspended, SubscriptionStatus.Active, SubscriptionStatusChangeOrigin.SystemProcess) =>
+                reasonCode == SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
+            (_, SubscriptionStatus.Cancelled, SubscriptionStatusChangeOrigin.SystemProcess) =>
+                reasonCode == SubscriptionStatusChangeReasonCode.SubscriptionReplacement,
             (_, SubscriptionStatus.Cancelled, SubscriptionStatusChangeOrigin.PlatformOperator) =>
                 reasonCode is SubscriptionStatusChangeReasonCode.CustomerRequest
                     or SubscriptionStatusChangeReasonCode.CommercialCancellation
@@ -70,6 +76,10 @@ public static class SubscriptionStatusPolicy
         (fromStatus, toStatus) switch
         {
             (SubscriptionStatus.Scheduled, SubscriptionStatus.Active) => true,
+            (SubscriptionStatus.Active, SubscriptionStatus.Cancelled) => true,
+            (SubscriptionStatus.Trial, SubscriptionStatus.Cancelled) => true,
+            (SubscriptionStatus.Suspended, SubscriptionStatus.Active) => true,
+            (SubscriptionStatus.Suspended, SubscriptionStatus.Cancelled) => true,
             (SubscriptionStatus.Active, SubscriptionStatus.Expired) => true,
             _ => false
         };

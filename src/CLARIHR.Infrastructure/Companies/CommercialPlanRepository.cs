@@ -11,6 +11,12 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
 {
     public void Add(CommercialPlan plan) => dbContext.CommercialPlans.Add(plan);
 
+    public Task<CommercialPlan?> GetByInternalIdAsync(long commercialPlanId, CancellationToken cancellationToken) =>
+        dbContext.CommercialPlans
+            .Include(plan => plan.Limits)
+            .Include(plan => plan.Versions)
+            .SingleOrDefaultAsync(plan => plan.Id == commercialPlanId, cancellationToken);
+
     public Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken) =>
         dbContext.CommercialPlans
             .Include(plan => plan.Limits)

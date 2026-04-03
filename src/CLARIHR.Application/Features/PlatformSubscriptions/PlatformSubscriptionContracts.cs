@@ -28,6 +28,7 @@ public sealed record PlatformCompanySubscriptionResponse(
     SubscriptionStatusChangeOrigin CurrentStatusOrigin,
     bool CanOperate,
     bool CanGenerateCharges,
+    PlatformCompanySubscriptionPendingStatusChangeResponse? PendingStatusChange,
     Guid ActivatedByUserId,
     DateTime ActivatedAtUtc,
     DateTime CreatedAtUtc,
@@ -97,6 +98,102 @@ public sealed record PlatformCompanySubscriptionStatusTransitionResponse(
     SubscriptionStatusChangeReasonCode ReasonCode,
     string? Observations);
 
+public sealed record PlatformCompanySubscriptionPendingStatusChangeResponse(
+    SubscriptionStatus TargetStatus,
+    DateTime EffectiveDateUtc,
+    SubscriptionStatusChangeReasonCode ReasonCode,
+    string? Observations,
+    DateTime RequestedAtUtc,
+    Guid? RequestedByUserId);
+
+public sealed record PlatformCompanySubscriptionStatusChangePreviewResponse(
+    Guid CompanyId,
+    string CompanyName,
+    string CompanySlug,
+    CompanyStatus CompanyStatus,
+    Guid SubscriptionId,
+    SubscriptionStatus CurrentStatus,
+    SubscriptionStatus TargetStatus,
+    DateTime EffectiveDateUtc,
+    string PlanCode,
+    string PlanName,
+    int PlanVersionNumber,
+    DateTime? ExpiresAtUtc,
+    bool CanOperate,
+    bool CanGenerateCharges,
+    bool IsEligible,
+    IReadOnlyCollection<string> IneligibilityReasons);
+
+public sealed record PlatformCompanySubscriptionPlanChangePreviewResponse(
+    Guid CompanyId,
+    string CompanyName,
+    string CompanySlug,
+    Guid CurrentSubscriptionId,
+    Guid CurrentCommercialPlanId,
+    Guid CurrentCommercialPlanVersionId,
+    string CurrentPlanCode,
+    string CurrentPlanName,
+    int CurrentPlanVersionNumber,
+    decimal CurrentBaseMonthlyFee,
+    decimal CurrentPricePerActiveEmployee,
+    CompanySubscriptionPeriodicity CurrentPeriodicity,
+    string CurrentCurrencyCode,
+    Guid TargetCommercialPlanId,
+    Guid TargetCommercialPlanVersionId,
+    string TargetPlanCode,
+    string TargetPlanName,
+    int TargetPlanVersionNumber,
+    decimal TargetBaseMonthlyFee,
+    decimal TargetPricePerActiveEmployee,
+    CompanySubscriptionPeriodicity TargetPeriodicity,
+    string TargetCurrencyCode,
+    SubscriptionPlanChangeMode Mode,
+    DateTime EffectiveDateUtc,
+    int ActiveEmployeeCount,
+    decimal EstimatedNextCharge,
+    bool IsEligible,
+    IReadOnlyCollection<string> IneligibilityReasons,
+    IReadOnlyCollection<string> AddonCompatibilityWarnings);
+
+public sealed record PlatformCompanySubscriptionPlanChangeResponse(
+    Guid PlanChangeId,
+    Guid CompanyId,
+    Guid CurrentSubscriptionId,
+    Guid CurrentCommercialPlanId,
+    Guid CurrentCommercialPlanVersionId,
+    string CurrentPlanCode,
+    string CurrentPlanName,
+    int CurrentPlanVersionNumber,
+    decimal CurrentBaseMonthlyFee,
+    decimal CurrentPricePerActiveEmployee,
+    CompanySubscriptionPeriodicity CurrentPeriodicity,
+    string CurrentCurrencyCode,
+    Guid TargetCommercialPlanId,
+    Guid TargetCommercialPlanVersionId,
+    string TargetPlanCode,
+    string TargetPlanName,
+    int TargetPlanVersionNumber,
+    decimal TargetBaseMonthlyFee,
+    decimal TargetPricePerActiveEmployee,
+    CompanySubscriptionPeriodicity TargetPeriodicity,
+    string TargetCurrencyCode,
+    SubscriptionPlanChangeMode Mode,
+    SubscriptionPlanChangeStatus Status,
+    SubscriptionPlanChangeReasonCode ReasonCode,
+    DateTime RequestedAtUtc,
+    DateTime EffectiveDateUtc,
+    Guid? RequestedByUserId,
+    string? Observations,
+    int ActiveEmployeeCount,
+    decimal EstimatedNextCharge,
+    DateTime? AppliedAtUtc,
+    Guid? AppliedSubscriptionId,
+    DateTime? CancelledAtUtc,
+    Guid? CancelledByUserId,
+    string? CancellationObservations,
+    DateTime? RejectedAtUtc,
+    string? RejectionReason);
+
 public sealed record GetPlatformCompanySubscriptionQuery(Guid CompanyId)
     : IQuery<PlatformCompanySubscriptionOverviewResponse>;
 
@@ -134,8 +231,18 @@ public sealed record ChangePlatformCompanySubscriptionStatusCommand(
     Guid SubscriptionId,
     SubscriptionStatus TargetStatus,
     SubscriptionStatusChangeReasonCode ReasonCode,
-    string? Observations)
+    string? Observations,
+    DateTime? EffectiveDateUtc)
     : ICommand<PlatformCompanySubscriptionResponse>;
+
+public sealed record PreviewPlatformCompanySubscriptionStatusChangeQuery(
+    Guid CompanyId,
+    Guid SubscriptionId,
+    SubscriptionStatus TargetStatus,
+    SubscriptionStatusChangeReasonCode ReasonCode,
+    string? Observations,
+    DateTime? EffectiveDateUtc)
+    : IQuery<PlatformCompanySubscriptionStatusChangePreviewResponse>;
 
 public sealed record SearchPlatformCompanySubscriptionStatusHistoryQuery(
     Guid CompanyId,
@@ -143,6 +250,34 @@ public sealed record SearchPlatformCompanySubscriptionStatusHistoryQuery(
     int PageNumber = 1,
     int PageSize = PlatformSubscriptionValidationRules.DefaultPageSize)
     : IQuery<PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>>;
+
+public sealed record PreviewPlatformCompanySubscriptionPlanChangeQuery(
+    Guid CompanyId,
+    Guid CommercialPlanId,
+    SubscriptionPlanChangeMode Mode,
+    DateTime? RequestedEffectiveDateUtc)
+    : IQuery<PlatformCompanySubscriptionPlanChangePreviewResponse>;
+
+public sealed record CreatePlatformCompanySubscriptionPlanChangeCommand(
+    Guid CompanyId,
+    Guid CommercialPlanId,
+    SubscriptionPlanChangeMode Mode,
+    DateTime? RequestedEffectiveDateUtc,
+    SubscriptionPlanChangeReasonCode ReasonCode,
+    string? Observations)
+    : ICommand<PlatformCompanySubscriptionPlanChangeResponse>;
+
+public sealed record SearchPlatformCompanySubscriptionPlanChangesQuery(
+    Guid CompanyId,
+    int PageNumber = 1,
+    int PageSize = PlatformSubscriptionValidationRules.DefaultPageSize)
+    : IQuery<PagedResponse<PlatformCompanySubscriptionPlanChangeResponse>>;
+
+public sealed record CancelPlatformCompanySubscriptionPlanChangeCommand(
+    Guid CompanyId,
+    Guid PlanChangeId,
+    string Observations)
+    : ICommand<PlatformCompanySubscriptionPlanChangeResponse>;
 
 internal sealed class GetPlatformCompanySubscriptionQueryValidator : AbstractValidator<GetPlatformCompanySubscriptionQuery>
 {
@@ -217,6 +352,22 @@ internal sealed class ChangePlatformCompanySubscriptionStatusCommandValidator : 
         RuleFor(command => command.TargetStatus).IsInEnum();
         RuleFor(command => command.ReasonCode).IsInEnum();
         RuleFor(command => command.Observations).MaximumLength(2000);
+        RuleFor(command => command.EffectiveDateUtc)
+            .Must(static value => !value.HasValue || value.Value != default);
+    }
+}
+
+internal sealed class PreviewPlatformCompanySubscriptionStatusChangeQueryValidator : AbstractValidator<PreviewPlatformCompanySubscriptionStatusChangeQuery>
+{
+    public PreviewPlatformCompanySubscriptionStatusChangeQueryValidator()
+    {
+        RuleFor(query => query.CompanyId).NotEmpty();
+        RuleFor(query => query.SubscriptionId).NotEmpty();
+        RuleFor(query => query.TargetStatus).IsInEnum();
+        RuleFor(query => query.ReasonCode).IsInEnum();
+        RuleFor(query => query.Observations).MaximumLength(2000);
+        RuleFor(query => query.EffectiveDateUtc)
+            .Must(static value => !value.HasValue || value.Value != default);
     }
 }
 
@@ -228,5 +379,55 @@ internal sealed class SearchPlatformCompanySubscriptionStatusHistoryQueryValidat
         RuleFor(query => query.SubscriptionId).NotEmpty();
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PlatformSubscriptionValidationRules.MaxPageSize);
+    }
+}
+
+internal sealed class PreviewPlatformCompanySubscriptionPlanChangeQueryValidator : AbstractValidator<PreviewPlatformCompanySubscriptionPlanChangeQuery>
+{
+    public PreviewPlatformCompanySubscriptionPlanChangeQueryValidator()
+    {
+        RuleFor(query => query.CompanyId).NotEmpty();
+        RuleFor(query => query.CommercialPlanId).NotEmpty();
+        RuleFor(query => query.Mode).IsInEnum();
+        RuleFor(query => query.RequestedEffectiveDateUtc)
+            .NotNull()
+            .When(query => query.Mode == SubscriptionPlanChangeMode.SpecificDate);
+    }
+}
+
+internal sealed class CreatePlatformCompanySubscriptionPlanChangeCommandValidator : AbstractValidator<CreatePlatformCompanySubscriptionPlanChangeCommand>
+{
+    public CreatePlatformCompanySubscriptionPlanChangeCommandValidator()
+    {
+        RuleFor(command => command.CompanyId).NotEmpty();
+        RuleFor(command => command.CommercialPlanId).NotEmpty();
+        RuleFor(command => command.Mode).IsInEnum();
+        RuleFor(command => command.RequestedEffectiveDateUtc)
+            .NotNull()
+            .When(command => command.Mode == SubscriptionPlanChangeMode.SpecificDate);
+        RuleFor(command => command.ReasonCode).IsInEnum();
+        RuleFor(command => command.Observations).MaximumLength(2000);
+    }
+}
+
+internal sealed class SearchPlatformCompanySubscriptionPlanChangesQueryValidator : AbstractValidator<SearchPlatformCompanySubscriptionPlanChangesQuery>
+{
+    public SearchPlatformCompanySubscriptionPlanChangesQueryValidator()
+    {
+        RuleFor(query => query.CompanyId).NotEmpty();
+        RuleFor(query => query.PageNumber).GreaterThan(0);
+        RuleFor(query => query.PageSize).InclusiveBetween(1, PlatformSubscriptionValidationRules.MaxPageSize);
+    }
+}
+
+internal sealed class CancelPlatformCompanySubscriptionPlanChangeCommandValidator : AbstractValidator<CancelPlatformCompanySubscriptionPlanChangeCommand>
+{
+    public CancelPlatformCompanySubscriptionPlanChangeCommandValidator()
+    {
+        RuleFor(command => command.CompanyId).NotEmpty();
+        RuleFor(command => command.PlanChangeId).NotEmpty();
+        RuleFor(command => command.Observations)
+            .NotEmpty()
+            .MaximumLength(2000);
     }
 }

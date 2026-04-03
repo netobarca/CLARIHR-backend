@@ -15,6 +15,15 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
     public void AddCustomFieldDefinition(PersonnelFileCustomFieldDefinition definition) =>
         dbContext.Set<PersonnelFileCustomFieldDefinition>().Add(definition);
 
+    public Task<int> CountActiveEmployeesAsync(Guid tenantId, CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFile>()
+            .AsNoTracking()
+            .CountAsync(
+                file => file.TenantId == tenantId &&
+                        file.IsActive &&
+                        file.RecordType == PersonnelFileRecordType.Employee,
+                cancellationToken);
+
     public Task<PersonnelFile?> GetByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
         dbContext.Set<PersonnelFile>()
             .Include(file => file.Identifications)

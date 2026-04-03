@@ -533,6 +533,10 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
     private sealed class TestCompanySubscriptionRepository(TestCompanyRepository companyRepository) : ICompanySubscriptionRepository
     {
         public List<CompanySubscription> Items { get; } = [];
+        public List<CompanySubscriptionStatusChangeRequest> StatusChangeRequests { get; } = [];
+        public List<CompanySubscriptionPlanChange> PlanChanges { get; } = [];
+        public List<CompanyCommercialAddon> CompanyAddons { get; } = [];
+        public List<CompanyCommercialAddonChange> CompanyAddonChanges { get; } = [];
 
         public void Add(CompanySubscription subscription)
         {
@@ -542,6 +546,46 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             }
 
             Items.Add(subscription);
+        }
+
+        public void AddStatusChangeRequest(CompanySubscriptionStatusChangeRequest statusChangeRequest)
+        {
+            if (statusChangeRequest.Id == 0)
+            {
+                SetEntityId(statusChangeRequest, StatusChangeRequests.Count + 1);
+            }
+
+            StatusChangeRequests.Add(statusChangeRequest);
+        }
+
+        public void AddPlanChange(CompanySubscriptionPlanChange planChange)
+        {
+            if (planChange.Id == 0)
+            {
+                SetEntityId(planChange, PlanChanges.Count + 1);
+            }
+
+            PlanChanges.Add(planChange);
+        }
+
+        public void AddCompanyAddon(CompanyCommercialAddon companyAddon)
+        {
+            if (companyAddon.Id == 0)
+            {
+                SetEntityId(companyAddon, CompanyAddons.Count + 1);
+            }
+
+            CompanyAddons.Add(companyAddon);
+        }
+
+        public void AddCompanyAddonChange(CompanyCommercialAddonChange companyAddonChange)
+        {
+            if (companyAddonChange.Id == 0)
+            {
+                SetEntityId(companyAddonChange, CompanyAddonChanges.Count + 1);
+            }
+
+            CompanyAddonChanges.Add(companyAddonChange);
         }
 
         public Task<string?> GetActivePlanCodeAsync(Guid companyPublicId, CancellationToken cancellationToken)
@@ -617,7 +661,45 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             CancellationToken cancellationToken) =>
             Task.FromResult(new PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>([], pageNumber, pageSize, 0));
 
+        public Task<PagedResponse<PlatformCompanySubscriptionPlanChangeResponse>> SearchPlanChangesByCompanyPublicIdAsync(
+            Guid companyPublicId,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PagedResponse<PlatformCompanySubscriptionPlanChangeResponse>([], pageNumber, pageSize, 0));
+
+        public Task<PagedResponse<PlatformCompanyAddonResponse>> SearchCompanyAddonsByCompanyPublicIdAsync(
+            Guid companyPublicId,
+            CompanyAddonStatus? status,
+            string? search,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PagedResponse<PlatformCompanyAddonResponse>([], pageNumber, pageSize, 0));
+
+        public Task<PagedResponse<PlatformCompanyEligibleAddonResponse>> SearchEligibleAddonsByCompanyPublicIdAsync(
+            Guid companyPublicId,
+            CommercialAddonType? type,
+            string? search,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PagedResponse<PlatformCompanyEligibleAddonResponse>([], pageNumber, pageSize, 0));
+
+        public Task<PagedResponse<PlatformCompanyAddonChangeResponse>> SearchAddonChangesByCompanyPublicIdAsync(
+            Guid companyPublicId,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PagedResponse<PlatformCompanyAddonChangeResponse>([], pageNumber, pageSize, 0));
+
         public Task<IReadOnlyCollection<Guid>> GetDueScheduledSubscriptionIdsAsync(
+            DateTime utcNow,
+            int take,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>([]);
+
+        public Task<IReadOnlyCollection<Guid>> GetDueScheduledStatusChangeRequestIdsAsync(
             DateTime utcNow,
             int take,
             CancellationToken cancellationToken) =>
@@ -629,14 +711,106 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyCollection<Guid>>([]);
 
+        public Task<IReadOnlyCollection<Guid>> GetDueScheduledPlanChangeIdsAsync(
+            DateTime utcNow,
+            int take,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>([]);
+
+        public Task<IReadOnlyCollection<Guid>> GetDueScheduledAddonChangeIdsAsync(
+            DateTime utcNow,
+            int take,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>([]);
+
         public Task<CompanySubscription?> GetByPublicIdAsync(Guid subscriptionPublicId, CancellationToken cancellationToken) =>
             Task.FromResult(Items.SingleOrDefault(subscription => subscription.PublicId == subscriptionPublicId));
+
+        public Task<CompanySubscriptionStatusChangeRequest?> GetStatusChangeRequestByPublicIdAsync(
+            Guid statusChangeRequestPublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(StatusChangeRequests.SingleOrDefault(request => request.PublicId == statusChangeRequestPublicId));
+
+        public Task<CompanySubscriptionStatusChangeRequest?> GetScheduledStatusChangeRequestBySubscriptionIdAsync(
+            long companySubscriptionId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(StatusChangeRequests.SingleOrDefault(request =>
+                request.CompanySubscriptionId == companySubscriptionId &&
+                request.Status == SubscriptionStatusChangeRequestStatus.Scheduled));
+
+        public Task<CompanySubscriptionPlanChange?> GetPlanChangeByPublicIdAsync(Guid planChangePublicId, CancellationToken cancellationToken) =>
+            Task.FromResult(PlanChanges.SingleOrDefault(planChange => planChange.PublicId == planChangePublicId));
+
+        public Task<CompanySubscriptionPlanChange?> GetPlanChangeByCompanyAndPublicIdAsync(
+            Guid companyPublicId,
+            Guid planChangePublicId,
+            CancellationToken cancellationToken)
+        {
+            var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
+            return Task.FromResult(PlanChanges.SingleOrDefault(planChange =>
+                planChange.CompanyId == company?.Id &&
+                planChange.PublicId == planChangePublicId));
+        }
+
+        public Task<CompanySubscriptionPlanChange?> GetScheduledPlanChangeByCompanyIdAsync(long companyId, CancellationToken cancellationToken) =>
+            Task.FromResult(PlanChanges.SingleOrDefault(planChange =>
+                planChange.CompanyId == companyId &&
+                planChange.Status == SubscriptionPlanChangeStatus.Scheduled));
+
+        public Task<CompanyCommercialAddon?> GetCompanyAddonByCompanyAndAddonPublicIdAsync(
+            Guid companyPublicId,
+            Guid commercialAddonPublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CompanyCommercialAddon?>(null);
+
+        public Task<CompanyCommercialAddon?> GetCompanyAddonByCompanyIdAndAddonIdAsync(
+            long companyId,
+            long commercialAddonId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(CompanyAddons.SingleOrDefault(addon =>
+                addon.CompanyId == companyId &&
+                addon.CommercialAddonId == commercialAddonId));
+
+        public Task<CompanyCommercialAddonChange?> GetAddonChangeByPublicIdAsync(Guid addonChangePublicId, CancellationToken cancellationToken) =>
+            Task.FromResult(CompanyAddonChanges.SingleOrDefault(change => change.PublicId == addonChangePublicId));
+
+        public Task<CompanyCommercialAddonChange?> GetAddonChangeByCompanyAndPublicIdAsync(
+            Guid companyPublicId,
+            Guid addonChangePublicId,
+            CancellationToken cancellationToken)
+        {
+            var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
+            return Task.FromResult(CompanyAddonChanges.SingleOrDefault(change =>
+                change.CompanyId == company?.Id &&
+                change.PublicId == addonChangePublicId));
+        }
+
+        public Task<CompanyCommercialAddonChange?> GetScheduledAddonChangeByCompanyAndAddonIdAsync(
+            long companyId,
+            long commercialAddonId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(CompanyAddonChanges.SingleOrDefault(change =>
+                change.CompanyId == companyId &&
+                change.CommercialAddonId == commercialAddonId &&
+                change.Status == SubscriptionAddonChangeStatus.Scheduled));
 
         public Task<PlatformCompanySubscriptionResponse?> GetResponseByPublicIdAsync(
             Guid companyPublicId,
             Guid subscriptionPublicId,
             CancellationToken cancellationToken) =>
             Task.FromResult<PlatformCompanySubscriptionResponse?>(null);
+
+        public Task<PlatformCompanySubscriptionPlanChangeResponse?> GetPlanChangeResponseByPublicIdAsync(
+            Guid companyPublicId,
+            Guid planChangePublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<PlatformCompanySubscriptionPlanChangeResponse?>(null);
+
+        public Task<PlatformCompanyAddonChangeResponse?> GetAddonChangeResponseByPublicIdAsync(
+            Guid companyPublicId,
+            Guid addonChangePublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<PlatformCompanyAddonChangeResponse?>(null);
     }
 
     private sealed class TestCommercialPlanRepository : ICommercialPlanRepository
@@ -663,6 +837,9 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         }
 
         public void Add(CommercialPlan plan) => throw new NotSupportedException();
+
+        public Task<CommercialPlan?> GetByInternalIdAsync(long commercialPlanId, CancellationToken cancellationToken) =>
+            Task.FromResult(_freePlan.Id == commercialPlanId ? _freePlan : null);
 
         public Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken) =>
             Task.FromResult(_freePlan.PublicId == commercialPlanId ? _freePlan : null);

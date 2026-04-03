@@ -10,7 +10,7 @@ Este documento es la referencia humana inicial de la API actual. No intenta dupl
 - flujos criticos
 - comportamientos observables relevantes
 
-El repositorio expone actualmente `332` endpoints en `37` controladores, distribuidos entre la Core API tenant-scoped y la Platform Backoffice API.
+El repositorio expone actualmente `346` endpoints en `38` controladores, distribuidos entre la Core API tenant-scoped y la Platform Backoffice API.
 
 ## 2. Modelo de autenticacion y tenant
 
@@ -77,7 +77,7 @@ Despues del `switch`, el `access token` devuelto incluye contexto tenant y habil
 | Platform auth | `PlatformAuthController` | `/api/platform/auth*` | login, refresh y logout de operadores del backoffice global |
 | Platform commercial addons | `CommercialAddonsController` | `/api/platform/commercial-addons*` | administrar el catalogo comercial global de add-ons reutilizables con pricing masivo o especializado |
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables |
-| Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar y listar suscripciones empresariales globales |
+| Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar, cambiar plan, administrar add-ons y listar suscripciones empresariales globales |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
 | IAM users | `IamUsersController` | `/api/iam/users*` | administracion de usuarios a nivel IAM |
 | IAM roles | `IamRolesController` | `/api/iam/roles*` | CRUD de roles, clonacion, matrices y asignaciones |
@@ -122,6 +122,16 @@ Comportamiento observable:
 - `GET /api/platform/commercial-plans`
 - `POST /api/platform/companies/{companyPublicId}/subscription/preview`
 - `PUT /api/platform/companies/{companyPublicId}/subscription`
+- `POST /api/platform/companies/{companyPublicId}/subscription/plan-changes/preview`
+- `POST /api/platform/companies/{companyPublicId}/subscription/plan-changes`
+- `GET /api/platform/companies/{companyPublicId}/subscription/plan-changes`
+- `POST /api/platform/companies/{companyPublicId}/subscription/plan-changes/{planChangePublicId}/cancel`
+- `GET /api/platform/companies/{companyPublicId}/subscription/addons`
+- `GET /api/platform/companies/{companyPublicId}/subscription/addons/eligible`
+- `POST /api/platform/companies/{companyPublicId}/subscription/addon-changes/preview`
+- `POST /api/platform/companies/{companyPublicId}/subscription/addon-changes`
+- `GET /api/platform/companies/{companyPublicId}/subscription/addon-changes`
+- `POST /api/platform/companies/{companyPublicId}/subscription/addon-changes/{addonChangePublicId}/cancel`
 - `PATCH /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status`
 - `GET /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status-history`
 
@@ -135,9 +145,12 @@ Comportamiento observable:
 - cada add-on define `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity` y `status`, con reglas distintas para `Massive` y `Specialized`
 - `FREE` existe sembrado como plan de sistema para el provisioning actual y no puede renombrarse ni inactivarse
 - la vista previa y la activacion aceptan `expiresAtUtc` opcional y resuelven un estado inicial `Active` o `Scheduled` segun la fecha de inicio
+- los cambios de plan usan el patron `preview + create + history + cancel`; calculan `Immediate`, `SpecificDate` o `NextBillingCycle`, conservan snapshot del plan actual y objetivo, y el processor aplica automaticamente los cambios vencidos
+- los add-ons por empresa usan el mismo patron `preview + create + history + cancel`, distinguen estado actual por empresa de estado del catalogo y admiten activacion o desactivacion con fecha inmediata, especifica o siguiente ciclo de billing
 - el ciclo de vida visible de la suscripcion incluye `Draft`, `Scheduled`, `Trial`, `Active`, `Suspended`, `Expired` y `Cancelled`
 - las respuestas de overview, historial y listado global ahora exponen `statusChangedAtUtc`, `currentStatusReasonCode`, `currentStatusOrigin`, `canOperate` y `canGenerateCharges`; la respuesta detallada tambien devuelve `currentStatusObservations`
 - cada cambio de estado manual o automatico deja historial con estado anterior, nuevo estado, fecha, motivo, observaciones y actor u origen del sistema
+- la administracion de add-ons es comercial-only en V1: no altera todavia `PlanEntitlement`, gating operativo, asignacion de seats, volumen, pagos ni facturacion
 - reemplazar una suscripcion empresarial cierra la fila viva previa cuando corresponde, crea una nueva fila historica con snapshot de precios y mantiene trazabilidad completa de transiciones
 
 ### 4.4 Locations y organizacion
@@ -1199,10 +1212,25 @@ Base route: `/api/platform/companies/{companyPublicId}/subscription*`
 
 Contratos principales:
 
-- `PlatformCompanySubscriptionResponse`: `subscriptionPublicId`, `companyPublicId`, `commercialPlanPublicId`, `commercialPlanVersionId`, `planCode`, `planName`, `planVersionNumber`, `baseMonthlyFee`, `pricePerActiveEmployee`, `periodicity`, `currencyCode`, `status`, `startDateUtc`, `endDateUtc`, `activatedByUserId`, `activatedAtUtc`, `createdAtUtc`, `modifiedAtUtc`
+- `PlatformCompanySubscriptionResponse`: `subscriptionPublicId`, `companyPublicId`, `commercialPlanPublicId`, `commercialPlanVersionId`, `planCode`, `planName`, `planVersionNumber`, `baseMonthlyFee`, `pricePerActiveEmployee`, `periodicity`, `currencyCode`, `status`, `startDateUtc`, `expiresAtUtc`, `endDateUtc`, `statusChangedAtUtc`, `currentStatusReasonCode`, `currentStatusObservations`, `currentStatusOrigin`, `canOperate`, `canGenerateCharges`, `pendingStatusChange`, `activatedByUserId`, `activatedAtUtc`, `createdAtUtc`, `modifiedAtUtc`
 - `PlatformCompanySubscriptionOverviewResponse`: `companyPublicId`, `companyName`, `companySlug`, `companyStatus`, `isBillable`, `billableSinceUtc`, `currentSubscription`, `scheduledReplacement`
 - `PlatformCompanySubscriptionPreviewResponse`: `companyPublicId`, `commercialPlanPublicId`, `commercialPlanVersionId`, `planCode`, `planName`, `planVersionNumber`, `baseMonthlyFee`, `pricePerActiveEmployee`, `periodicity`, `currencyCode`, `resolvedStatus`, `startDateUtc`, `isEligible`, `ineligibilityReasons`
+- `PlatformCompanySubscriptionPendingStatusChangeResponse`: `targetStatus`, `effectiveDateUtc`, `reasonCode`, `observations`, `requestedAtUtc`, `requestedByUserPublicId`
+- `PlatformCompanySubscriptionStatusChangePreviewResponse`: `companyPublicId`, `companyName`, `companySlug`, `companyStatus`, `subscriptionPublicId`, `currentStatus`, `targetStatus`, `effectiveDateUtc`, `planCode`, `planName`, `planVersionNumber`, `expiresAtUtc`, `canOperate`, `canGenerateCharges`, `isEligible`, `ineligibilityReasons`
 - `UpsertPlatformCompanySubscriptionRequest`: `commercialPlanId`, `startDateUtc`, `periodicity`
+- `ChangePlatformCompanySubscriptionStatusRequest`: `targetStatus`, `reasonCode`, `observations`, `effectiveDateUtc`
+- `PlatformCompanySubscriptionPlanChangePreviewResponse`: snapshot del plan actual y del plan objetivo, `mode`, `effectiveDateUtc`, `activeEmployeeCount`, `estimatedNextCharge`, `isEligible`, `ineligibilityReasons`, `addonCompatibilityWarnings`
+- `PlatformCompanySubscriptionPlanChangeResponse`: `planChangePublicId`, snapshot actual/objetivo, `mode`, `status`, `reasonCode`, fechas de solicitud y aplicacion, `estimatedNextCharge`, metadata de cancelacion o rechazo
+- `PreviewPlatformCompanySubscriptionPlanChangeRequest`: `commercialPlanId`, `mode`, `requestedEffectiveDateUtc`
+- `CreatePlatformCompanySubscriptionPlanChangeRequest`: `commercialPlanId`, `mode`, `requestedEffectiveDateUtc`, `reasonCode`, `observations`
+- `CancelPlatformCompanySubscriptionPlanChangeRequest`: `observations`
+- `PlatformCompanyAddonResponse`: `companyAddonPublicId`, `companyPublicId`, `companySubscriptionPublicId`, `commercialAddonPublicId`, `addonCode`, `addonName`, `addonType`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity`, `currencyCode`, `status`, `statusEffectiveDateUtc`
+- `PlatformCompanyEligibleAddonResponse`: `commercialAddonPublicId`, `addonCode`, `addonName`, `description`, `addonType`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity`, `catalogStatus`
+- `PlatformCompanyAddonChangePreviewResponse`: empresa, suscripcion actual, add-on seleccionado, `action`, `mode`, `currentStatus`, `resultingStatus`, `effectiveDateUtc`, `quantityBasis`, `estimatedNextChargeImpact`, `isEligible`, `warnings`
+- `PlatformCompanyAddonChangeResponse`: `addonChangePublicId`, snapshot del add-on, `action`, `mode`, `status`, `reasonCode`, `previousStatus`, `resultingStatus`, fechas de solicitud/aplicacion/cancelacion/rechazo y metadata de actor
+- `PreviewPlatformCompanyAddonChangeRequest`: `commercialAddonId`, `action`, `mode`, `requestedEffectiveDateUtc`
+- `CreatePlatformCompanyAddonChangeRequest`: `commercialAddonId`, `action`, `mode`, `requestedEffectiveDateUtc`, `reasonCode`, `observations`
+- `CancelPlatformCompanyAddonChangeRequest`: `observations`
 
 ##### `GET /api/platform/companies/{companyPublicId}/subscription`
 
@@ -1237,6 +1265,111 @@ Contratos principales:
 - Response: `PlatformCompanySubscriptionResponse`.
 - Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_VERSION_NOT_AVAILABLE`, `PLATFORM_COMPANY_SUBSCRIPTION_START_DATE_IN_PAST`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_LEGAL_REPRESENTATIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_ADMINISTRATOR`, `PLATFORM_COMPANY_SUBSCRIPTION_SCHEDULED_CONFLICT`, `PLATFORM_COMPANY_SUBSCRIPTION_ALREADY_ASSIGNED`, `PLATFORM_ACCESS_FORBIDDEN`.
 - Observaciones: si la fecha es hoy, la fila activa anterior se cancela y se crea una nueva activa; si la fecha es futura, la fila se registra como `Scheduled` y se promueve automaticamente cuando llega su vigencia.
+
+##### `POST /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status/preview`
+
+- Proposito: previsualizar una reactivacion manual de una suscripcion suspendida sin mutar el estado actual.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Request body: `targetStatus`, `reasonCode`, `observations`, `effectiveDateUtc`.
+- Response: `PlatformCompanySubscriptionStatusChangePreviewResponse`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_STATUS_CHANGE_EFFECTIVE_DATE_REQUIRED`, `PLATFORM_COMPANY_SUBSCRIPTION_STATUS_CHANGE_EFFECTIVE_DATE_IN_PAST`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: en este MVP solo soporta `Suspended -> Active`; si la fecha es futura, el preview conserva el plan/version vigentes y expone las razones de inelegibilidad sin crear una solicitud aun.
+
+##### `PATCH /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status`
+
+- Proposito: aplicar un cambio manual inmediato de estado o registrar una reactivacion programada de una suscripcion suspendida.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `targetStatus`, `reasonCode`, `observations`, `effectiveDateUtc`.
+- Response: `PlatformCompanySubscriptionResponse`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_INVALID_STATUS_TRANSITION`, `PLATFORM_COMPANY_SUBSCRIPTION_INVALID_STATUS_REASON`, `PLATFORM_COMPANY_SUBSCRIPTION_STATUS_CHANGE_EFFECTIVE_DATE_REQUIRED`, `PLATFORM_COMPANY_SUBSCRIPTION_STATUS_CHANGE_EFFECTIVE_DATE_IN_PAST`, `PLATFORM_COMPANY_SUBSCRIPTION_STATUS_CHANGE_PENDING_CONFLICT`, `PLATFORM_COMPANY_SUBSCRIPTION_REACTIVATION_REQUIRES_SUSPENDED_STATUS`, `PLATFORM_COMPANY_SUBSCRIPTION_REACTIVATION_PAST_EXPIRATION`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: `effectiveDateUtc` solo aplica a reactivaciones `Suspended -> Active`; si es hoy, la suscripcion vuelve a `Active` en la misma transaccion; si es futura, la respuesta conserva `status = Suspended` y expone `pendingStatusChange` hasta que el lifecycle processor aplique o rechace la solicitud.
+
+##### `POST /api/platform/companies/{companyPublicId}/subscription/plan-changes/preview`
+
+- Proposito: previsualizar un cambio de plan sobre la suscripcion actual sin mutar estado.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Request body: `commercialPlanId`, `mode`, `requestedEffectiveDateUtc`.
+- Response: `PlatformCompanySubscriptionPlanChangePreviewResponse`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_INVALID_MODE`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_EFFECTIVE_DATE_REQUIRED`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_EFFECTIVE_DATE_IN_PAST`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_ALREADY_PENDING`, `PLATFORM_ACCESS_FORBIDDEN`.
+
+##### `POST /api/platform/companies/{companyPublicId}/subscription/plan-changes`
+
+- Proposito: crear un cambio de plan inmediato o programado, preservando historial comercial y auditoria durable.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `commercialPlanId`, `mode`, `requestedEffectiveDateUtc`, `reasonCode`, `observations`.
+- Response: `PlatformCompanySubscriptionPlanChangeResponse`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_INVALID_MODE`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_REASON_REQUIRED`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_ALREADY_PENDING`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: `Immediate` aplica el swap en la misma transaccion; `SpecificDate` y `NextBillingCycle` crean una fila pendiente o programada que luego consume el lifecycle processor.
+
+##### `GET /api/platform/companies/{companyPublicId}/subscription/plan-changes`
+
+- Proposito: listar el historial paginado de cambios de plan solicitados para la empresa.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Query: `page`, `pageSize`.
+- Validaciones: `page > 0`, `pageSize` entre `1` y `100`.
+- Response: `PagedResponse<PlatformCompanySubscriptionPlanChangeResponse>`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_ACCESS_FORBIDDEN`.
+
+##### `POST /api/platform/companies/{companyPublicId}/subscription/plan-changes/{planChangePublicId}/cancel`
+
+- Proposito: cancelar un cambio de plan aun no aplicado.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `observations`.
+- Response: `PlatformCompanySubscriptionPlanChangeResponse`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_CANCELLATION_NOT_ALLOWED`, `PLATFORM_ACCESS_FORBIDDEN`.
+
+##### `GET /api/platform/companies/{companyPublicId}/subscription/addons`
+
+- Proposito: listar el estado actual y comercial de los add-ons asociados a la empresa.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Query: `status`, `q`, `page`, `pageSize`.
+- Validaciones: `status` debe ser un `CompanyAddonStatus` valido; `q` maximo `150` caracteres; `page > 0`; `pageSize` entre `1` y `100`.
+- Response: `PagedResponse<PlatformCompanyAddonResponse>`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_ACCESS_FORBIDDEN`.
+
+##### `GET /api/platform/companies/{companyPublicId}/subscription/addons/eligible`
+
+- Proposito: listar los add-ons del catalogo global que pueden evaluarse para contratacion en la empresa.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Query: `type`, `q`, `page`, `pageSize`.
+- Validaciones: `type` debe ser un `CommercialAddonType` valido; `q` maximo `150` caracteres; `page > 0`; `pageSize` entre `1` y `100`.
+- Response: `PagedResponse<PlatformCompanyEligibleAddonResponse>`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_ACCESS_FORBIDDEN`.
+
+##### `POST /api/platform/companies/{companyPublicId}/subscription/addon-changes/preview`
+
+- Proposito: previsualizar la activacion o desactivacion comercial de un add-on sin mutar el estado actual.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Request body: `commercialAddonId`, `action`, `mode`, `requestedEffectiveDateUtc`.
+- Response: `PlatformCompanyAddonChangePreviewResponse`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_INVALID_MODE`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_EFFECTIVE_DATE_REQUIRED`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_EFFECTIVE_DATE_IN_PAST`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_ALREADY_ACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_NOT_ACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_PENDING_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: la respuesta incluye `quantityBasis`, `estimatedNextChargeImpact`, `ineligibilityReasons` y `warnings`; la estimacion es informativa y no representa el cobro final.
+
+##### `POST /api/platform/companies/{companyPublicId}/subscription/addon-changes`
+
+- Proposito: registrar una activacion o desactivacion inmediata o programada de add-on preservando historial comercial, estado actual por empresa y auditoria durable.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `commercialAddonId`, `action`, `mode`, `requestedEffectiveDateUtc`, `reasonCode`, `observations`.
+- Response: `PlatformCompanyAddonChangeResponse`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_INVALID_ACTION`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_INVALID_MODE`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_REASON_REQUIRED`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_ALREADY_ACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_NOT_ACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_PENDING_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: si existe un cambio pendiente incompatible del mismo add-on, el backend resuelve el conflicto antes de crear otro; la funcionalidad no altera todavia entitlements ni cobro final.
+
+##### `GET /api/platform/companies/{companyPublicId}/subscription/addon-changes`
+
+- Proposito: listar el historial paginado de cambios comerciales de add-ons por empresa.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Query: `page`, `pageSize`.
+- Validaciones: `page > 0`, `pageSize` entre `1` y `100`.
+- Response: `PagedResponse<PlatformCompanyAddonChangeResponse>`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_ACCESS_FORBIDDEN`.
+
+##### `POST /api/platform/companies/{companyPublicId}/subscription/addon-changes/{addonChangePublicId}/cancel`
+
+- Proposito: cancelar un cambio de add-on aun no aplicado.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `observations`.
+- Response: `PlatformCompanyAddonChangeResponse`.
+- Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_CHANGE_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_CHANGE_CANCELLATION_NOT_ALLOWED`, `PLATFORM_ACCESS_FORBIDDEN`.
 
 #### 5.3A.9 `PlatformSubscriptionsController`
 
