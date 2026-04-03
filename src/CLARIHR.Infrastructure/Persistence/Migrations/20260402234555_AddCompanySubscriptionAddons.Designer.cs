@@ -3,6 +3,7 @@ using System;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260402234555_AddCompanySubscriptionAddons")]
+    partial class AddCompanySubscriptionAddons
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1462,110 +1465,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasFilter("status = 'Scheduled'");
 
                     b.ToTable("company_subscription_plan_changes", (string)null);
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscriptionStatusChangeRequest", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime?>("AppliedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("applied_at_utc");
-
-                    b.Property<long>("CompanyId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("company_id");
-
-                    b.Property<long>("CompanySubscriptionId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("company_subscription_id");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<string>("CurrentStatus")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("current_status");
-
-                    b.Property<DateTime>("EffectiveDateUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("effective_date_utc");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("Observations")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("observations");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<string>("ReasonCode")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("reason_code");
-
-                    b.Property<DateTime?>("RejectedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("rejected_at_utc");
-
-                    b.Property<string>("RejectionReason")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("rejection_reason");
-
-                    b.Property<DateTime>("RequestedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("requested_at_utc");
-
-                    b.Property<Guid?>("RequestedByUserPublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("requested_by_user_public_id");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("status");
-
-                    b.Property<string>("TargetStatus")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("target_status");
-
-                    b.HasKey("Id")
-                        .HasName("pk_company_subscription_status_change_requests");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_company_subscription_status_change_requests__public_id");
-
-                    b.HasIndex("CompanyId", "RequestedAtUtc")
-                        .HasDatabaseName("ix_company_subscription_status_change_requests__company_requested");
-
-                    b.HasIndex("Status", "EffectiveDateUtc")
-                        .HasDatabaseName("ix_company_subscription_status_change_requests__status_effective_date");
-
-                    b.HasIndex(new[] { "CompanySubscriptionId", "Status" }, "company_subscription_status_change_requests_pending_status_idx")
-                        .IsUnique()
-                        .HasDatabaseName("uq_company_subscription_status_change_requests__subscription_scheduled")
-                        .HasFilter("status = 'Scheduled'");
-
-                    b.ToTable("company_subscription_status_change_requests", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscriptionStatusTransition", b =>
@@ -13078,23 +12977,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_company_subscription_plan_changes__target_plan_versions");
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscriptionStatusChangeRequest", b =>
-                {
-                    b.HasOne("CLARIHR.Domain.Companies.Company", null)
-                        .WithMany()
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_company_subscription_status_change_requests__companies");
-
-                    b.HasOne("CLARIHR.Domain.Companies.CompanySubscription", null)
-                        .WithMany()
-                        .HasForeignKey("CompanySubscriptionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_company_subscription_status_change_requests__company_subscriptions");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscriptionStatusTransition", b =>

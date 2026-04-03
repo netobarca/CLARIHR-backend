@@ -8,6 +8,8 @@ public interface ICommercialPlanRepository
 {
     void Add(CommercialPlan plan);
 
+    Task<CommercialPlan?> GetByInternalIdAsync(long commercialPlanId, CancellationToken cancellationToken);
+
     Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken);
 
     Task<CommercialPlanVersion?> GetEffectiveVersionAsync(

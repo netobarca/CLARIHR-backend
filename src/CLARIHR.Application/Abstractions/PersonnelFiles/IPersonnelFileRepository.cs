@@ -10,6 +10,8 @@ public interface IPersonnelFileRepository
 
     void AddCustomFieldDefinition(PersonnelFileCustomFieldDefinition definition);
 
+    Task<int> CountActiveEmployeesAsync(Guid tenantId, CancellationToken cancellationToken);
+
     Task<PersonnelFile?> GetByIdAsync(Guid personnelFileId, CancellationToken cancellationToken);
 
     Task<bool> ExistsOutsideTenantAsync(Guid personnelFileId, CancellationToken cancellationToken);

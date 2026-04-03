@@ -29,8 +29,19 @@ public static class AuditEventTypes
     public const string CompanySubscriptionActivated = "COMPANY_SUBSCRIPTION_ACTIVATED";
     public const string CompanySubscriptionScheduled = "COMPANY_SUBSCRIPTION_SCHEDULED";
     public const string CompanySubscriptionStatusChanged = "COMPANY_SUBSCRIPTION_STATUS_CHANGED";
+    public const string CompanySubscriptionStatusChangeRequested = "COMPANY_SUBSCRIPTION_STATUS_CHANGE_REQUESTED";
+    public const string CompanySubscriptionStatusChangeApplied = "COMPANY_SUBSCRIPTION_STATUS_CHANGE_APPLIED";
+    public const string CompanySubscriptionStatusChangeRejected = "COMPANY_SUBSCRIPTION_STATUS_CHANGE_REJECTED";
     public const string CompanySubscriptionPromotionProcessed = "COMPANY_SUBSCRIPTION_PROMOTION_PROCESSED";
     public const string CompanySubscriptionExpirationProcessed = "COMPANY_SUBSCRIPTION_EXPIRATION_PROCESSED";
+    public const string CompanySubscriptionPlanChangeRequested = "COMPANY_SUBSCRIPTION_PLAN_CHANGE_REQUESTED";
+    public const string CompanySubscriptionPlanChangeApplied = "COMPANY_SUBSCRIPTION_PLAN_CHANGE_APPLIED";
+    public const string CompanySubscriptionPlanChangeCancelled = "COMPANY_SUBSCRIPTION_PLAN_CHANGE_CANCELLED";
+    public const string CompanySubscriptionPlanChangeRejected = "COMPANY_SUBSCRIPTION_PLAN_CHANGE_REJECTED";
+    public const string CompanySubscriptionAddonChangeRequested = "COMPANY_SUBSCRIPTION_ADDON_CHANGE_REQUESTED";
+    public const string CompanySubscriptionAddonChangeApplied = "COMPANY_SUBSCRIPTION_ADDON_CHANGE_APPLIED";
+    public const string CompanySubscriptionAddonChangeCancelled = "COMPANY_SUBSCRIPTION_ADDON_CHANGE_CANCELLED";
+    public const string CompanySubscriptionAddonChangeRejected = "COMPANY_SUBSCRIPTION_ADDON_CHANGE_REJECTED";
     public const string CompanyTypeCatalogItemCreated = "COMPANY_TYPE_CATALOG_ITEM_CREATED";
     public const string CompanyTypeCatalogItemUpdated = "COMPANY_TYPE_CATALOG_ITEM_UPDATED";
     public const string CompanyTypeCatalogItemActivated = "COMPANY_TYPE_CATALOG_ITEM_ACTIVATED";
@@ -139,8 +150,19 @@ public static class AuditEventTypes
         CompanySubscriptionActivated,
         CompanySubscriptionScheduled,
         CompanySubscriptionStatusChanged,
+        CompanySubscriptionStatusChangeRequested,
+        CompanySubscriptionStatusChangeApplied,
+        CompanySubscriptionStatusChangeRejected,
         CompanySubscriptionPromotionProcessed,
         CompanySubscriptionExpirationProcessed,
+        CompanySubscriptionPlanChangeRequested,
+        CompanySubscriptionPlanChangeApplied,
+        CompanySubscriptionPlanChangeCancelled,
+        CompanySubscriptionPlanChangeRejected,
+        CompanySubscriptionAddonChangeRequested,
+        CompanySubscriptionAddonChangeApplied,
+        CompanySubscriptionAddonChangeCancelled,
+        CompanySubscriptionAddonChangeRejected,
         CompanyTypeCatalogItemCreated,
         CompanyTypeCatalogItemUpdated,
         CompanyTypeCatalogItemActivated,
@@ -243,6 +265,10 @@ public static class AuditEntityTypes
     public const string CommercialAddon = "CommercialAddon";
     public const string CommercialPlan = "CommercialPlan";
     public const string CompanySubscription = "CompanySubscription";
+    public const string CompanySubscriptionStatusChangeRequest = "CompanySubscriptionStatusChangeRequest";
+    public const string CompanySubscriptionPlanChange = "CompanySubscriptionPlanChange";
+    public const string CompanyCommercialAddon = "CompanyCommercialAddon";
+    public const string CompanyCommercialAddonChange = "CompanyCommercialAddonChange";
     public const string CompanyTypeCatalogItem = "CompanyTypeCatalogItem";
     public const string OrgUnit = "OrgUnit";
     public const string OrgUnitTypeCatalogItem = "OrgUnitTypeCatalogItem";
@@ -271,6 +297,10 @@ public static class AuditEntityTypes
         CommercialAddon,
         CommercialPlan,
         CompanySubscription,
+        CompanySubscriptionStatusChangeRequest,
+        CompanySubscriptionPlanChange,
+        CompanyCommercialAddon,
+        CompanyCommercialAddonChange,
         CompanyTypeCatalogItem,
         OrgUnit,
         OrgUnitTypeCatalogItem,

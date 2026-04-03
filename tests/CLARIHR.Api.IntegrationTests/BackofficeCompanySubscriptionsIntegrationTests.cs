@@ -272,7 +272,8 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
             {
                 targetStatus = SubscriptionStatus.Active,
                 reasonCode = SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
-                observations = "Pago validado"
+                observations = "Pago validado",
+                effectiveDateUtc = DateTime.UtcNow.Date
             });
         await EnsureSuccessAsync(reactivateResponse);
 
@@ -302,6 +303,210 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.True(await dbContext.PlatformAuditLogs.AnyAsync(log => log.EventType == "COMPANY_SUBSCRIPTION_STATUS_CHANGED"));
+    }
+
+    [Fact]
+    public async Task CompanySubscriptions_StatusChangePreviewAndScheduling_ShouldExposePendingStatusChangeAndApplyViaProcessor()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            await PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                PlatformOperatorUserId,
+                "platform.subscription@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin);
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(PlatformOperatorUserId));
+        var subscriptionId = await GetCurrentSubscriptionIdAsync(client, scenario.TenantId);
+
+        var suspendResponse = await client.PatchJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscriptions/{subscriptionId}/status",
+            new
+            {
+                targetStatus = SubscriptionStatus.Suspended,
+                reasonCode = SubscriptionStatusChangeReasonCode.ManualSuspension,
+                observations = "Bloqueo temporal",
+                effectiveDateUtc = (DateTime?)null
+            });
+        await EnsureSuccessAsync(suspendResponse);
+
+        var futureDate = DateTime.UtcNow.Date.AddDays(3);
+
+        var previewResponse = await client.PostJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscriptions/{subscriptionId}/status/preview",
+            new
+            {
+                targetStatus = SubscriptionStatus.Active,
+                reasonCode = SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
+                observations = "Pago confirmado",
+                effectiveDateUtc = futureDate
+            });
+        await EnsureSuccessAsync(previewResponse);
+
+        await using (var previewStream = await previewResponse.Content.ReadAsStreamAsync())
+        using (var previewDocument = await JsonDocument.ParseAsync(previewStream))
+        {
+            Assert.True(previewDocument.RootElement.GetProperty("isEligible").GetBoolean());
+            Assert.Equal("Suspended", previewDocument.RootElement.GetProperty("currentStatus").GetString());
+            Assert.Equal("Active", previewDocument.RootElement.GetProperty("targetStatus").GetString());
+            Assert.Equal(futureDate, previewDocument.RootElement.GetProperty("effectiveDateUtc").GetDateTime());
+            Assert.Equal("FREE", previewDocument.RootElement.GetProperty("planCode").GetString());
+        }
+
+        var scheduleResponse = await client.PatchJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscriptions/{subscriptionId}/status",
+            new
+            {
+                targetStatus = SubscriptionStatus.Active,
+                reasonCode = SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
+                observations = "Pago confirmado",
+                effectiveDateUtc = futureDate
+            });
+        await EnsureSuccessAsync(scheduleResponse);
+
+        await using (var scheduleStream = await scheduleResponse.Content.ReadAsStreamAsync())
+        using (var scheduleDocument = await JsonDocument.ParseAsync(scheduleStream))
+        {
+            Assert.Equal("Suspended", scheduleDocument.RootElement.GetProperty("status").GetString());
+            var pending = scheduleDocument.RootElement.GetProperty("pendingStatusChange");
+            Assert.Equal("Active", pending.GetProperty("targetStatus").GetString());
+            Assert.Equal("AuthorizedReactivation", pending.GetProperty("reasonCode").GetString());
+            Assert.Equal(futureDate, pending.GetProperty("effectiveDateUtc").GetDateTime());
+        }
+
+        Guid statusChangeRequestId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var subscriptionInternalId = await dbContext.CompanySubscriptions
+                .Where(subscription => subscription.PublicId == subscriptionId)
+                .Select(subscription => subscription.Id)
+                .SingleAsync();
+
+            statusChangeRequestId = await dbContext.CompanySubscriptionStatusChangeRequests
+                .Where(request => request.CompanySubscriptionId == subscriptionInternalId)
+                .Select(request => request.PublicId)
+                .SingleAsync();
+        }
+
+        var overviewBeforeApplyResponse = await client.GetAsync($"/api/platform/companies/{scenario.TenantId}/subscription");
+        await EnsureSuccessAsync(overviewBeforeApplyResponse);
+
+        await using (var overviewBeforeApplyStream = await overviewBeforeApplyResponse.Content.ReadAsStreamAsync())
+        using (var overviewBeforeApplyDocument = await JsonDocument.ParseAsync(overviewBeforeApplyStream))
+        {
+            var currentSubscription = overviewBeforeApplyDocument.RootElement.GetProperty("currentSubscription");
+            Assert.Equal("Suspended", currentSubscription.GetProperty("status").GetString());
+            Assert.Equal(
+                futureDate,
+                currentSubscription.GetProperty("pendingStatusChange").GetProperty("effectiveDateUtc").GetDateTime());
+            Assert.False(overviewBeforeApplyDocument.RootElement.GetProperty("isBillable").GetBoolean());
+        }
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            _ = await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE company_subscription_status_change_requests SET effective_date_utc = {DateTime.UtcNow.Date} WHERE public_id = {statusChangeRequestId}");
+        }
+
+        _ = await InvokeStatusChangeProcessorAsync();
+
+        var overviewAfterApplyResponse = await client.GetAsync($"/api/platform/companies/{scenario.TenantId}/subscription");
+        await EnsureSuccessAsync(overviewAfterApplyResponse);
+
+        await using (var overviewAfterApplyStream = await overviewAfterApplyResponse.Content.ReadAsStreamAsync())
+        using (var overviewAfterApplyDocument = await JsonDocument.ParseAsync(overviewAfterApplyStream))
+        {
+            var currentSubscription = overviewAfterApplyDocument.RootElement.GetProperty("currentSubscription");
+            Assert.Equal("Active", currentSubscription.GetProperty("status").GetString());
+            Assert.Equal("AuthorizedReactivation", currentSubscription.GetProperty("currentStatusReasonCode").GetString());
+            Assert.True(currentSubscription.GetProperty("canOperate").GetBoolean());
+            Assert.True(currentSubscription.GetProperty("canGenerateCharges").GetBoolean());
+            Assert.False(overviewAfterApplyDocument.RootElement.GetProperty("isBillable").GetBoolean());
+
+            if (currentSubscription.TryGetProperty("pendingStatusChange", out var pendingStatusChange))
+            {
+                Assert.Equal(JsonValueKind.Null, pendingStatusChange.ValueKind);
+            }
+        }
+
+        var historyResponse = await client.GetAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscriptions/{subscriptionId}/status-history?page=1&pageSize=10");
+        await EnsureSuccessAsync(historyResponse);
+
+        await using (var historyStream = await historyResponse.Content.ReadAsStreamAsync())
+        using (var historyDocument = await JsonDocument.ParseAsync(historyStream))
+        {
+            Assert.Equal(3, historyDocument.RootElement.GetProperty("totalCount").GetInt32());
+            var items = historyDocument.RootElement.GetProperty("items");
+            Assert.Equal("Active", items[0].GetProperty("newStatus").GetString());
+            Assert.Equal("AuthorizedReactivation", items[0].GetProperty("reasonCode").GetString());
+        }
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.True(await dbContext.PlatformAuditLogs.AnyAsync(log => log.EventType == "COMPANY_SUBSCRIPTION_STATUS_CHANGE_REQUESTED"));
+            Assert.True(await dbContext.PlatformAuditLogs.AnyAsync(log => log.EventType == "COMPANY_SUBSCRIPTION_STATUS_CHANGE_APPLIED"));
+        }
+    }
+
+    [Fact]
+    public async Task CompanySubscriptions_StatusChangeScheduling_WhenDuplicatePendingRequestExists_ShouldReturnConflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            await PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                PlatformOperatorUserId,
+                "platform.subscription@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin);
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(PlatformOperatorUserId));
+        var subscriptionId = await GetCurrentSubscriptionIdAsync(client, scenario.TenantId);
+
+        var suspendResponse = await client.PatchJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscriptions/{subscriptionId}/status",
+            new
+            {
+                targetStatus = SubscriptionStatus.Suspended,
+                reasonCode = SubscriptionStatusChangeReasonCode.ManualSuspension,
+                observations = "Mora",
+                effectiveDateUtc = (DateTime?)null
+            });
+        await EnsureSuccessAsync(suspendResponse);
+
+        var firstScheduleResponse = await client.PatchJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscriptions/{subscriptionId}/status",
+            new
+            {
+                targetStatus = SubscriptionStatus.Active,
+                reasonCode = SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
+                observations = "Regularizacion inicial",
+                effectiveDateUtc = DateTime.UtcNow.Date.AddDays(2)
+            });
+        await EnsureSuccessAsync(firstScheduleResponse);
+
+        var duplicateResponse = await client.PatchJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscriptions/{subscriptionId}/status",
+            new
+            {
+                targetStatus = SubscriptionStatus.Active,
+                reasonCode = SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
+                observations = "Intento duplicado",
+                effectiveDateUtc = DateTime.UtcNow.Date.AddDays(3)
+            });
+
+        Assert.Equal(HttpStatusCode.Conflict, duplicateResponse.StatusCode);
+
+        await using var duplicateStream = await duplicateResponse.Content.ReadAsStreamAsync();
+        using var duplicateDocument = await JsonDocument.ParseAsync(duplicateStream);
+        Assert.Equal("PLATFORM_COMPANY_SUBSCRIPTION_STATUS_CHANGE_PENDING_CONFLICT", duplicateDocument.RootElement.GetProperty("code").GetString());
     }
 
     [Fact]
@@ -395,6 +600,260 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
         Assert.True(await dbContext.PlatformAuditLogs.AnyAsync(log => log.EventType == "COMPANY_SUBSCRIPTION_EXPIRATION_PROCESSED"));
     }
 
+    [Fact]
+    public async Task CompanySubscriptions_PlanChangeImmediate_ShouldApplySwapPersistHistoryAndAudit()
+    {
+        Guid proPlanPublicId = Guid.Empty;
+
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            await PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                PlatformOperatorUserId,
+                "platform.subscription@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin);
+
+            var proPlan = CommercialPlan.Create(
+                "PRO",
+                "Professional",
+                "Plan profesional",
+                150m,
+                4m,
+                CommercialPlanStatus.Active,
+                isSystemPlan: false,
+                []);
+            dbContext.CommercialPlans.Add(proPlan);
+            await dbContext.SaveChangesAsync();
+            proPlanPublicId = proPlan.PublicId;
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(PlatformOperatorUserId));
+
+        var previewResponse = await client.PostJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscription/plan-changes/preview",
+            new
+            {
+                commercialPlanId = proPlanPublicId,
+                mode = SubscriptionPlanChangeMode.Immediate
+            });
+        await EnsureSuccessAsync(previewResponse);
+
+        await using (var previewStream = await previewResponse.Content.ReadAsStreamAsync())
+        using (var previewDocument = await JsonDocument.ParseAsync(previewStream))
+        {
+            Assert.True(previewDocument.RootElement.GetProperty("isEligible").GetBoolean());
+            Assert.Equal("FREE", previewDocument.RootElement.GetProperty("currentPlanCode").GetString());
+            Assert.Equal("PRO", previewDocument.RootElement.GetProperty("targetPlanCode").GetString());
+            Assert.Equal("Immediate", previewDocument.RootElement.GetProperty("mode").GetString());
+        }
+
+        var createResponse = await client.PostJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscription/plan-changes",
+            new
+            {
+                commercialPlanId = proPlanPublicId,
+                mode = SubscriptionPlanChangeMode.Immediate,
+                reasonCode = SubscriptionPlanChangeReasonCode.UpgradeCommercial,
+                observations = "Upgrade por crecimiento"
+            });
+        await EnsureSuccessAsync(createResponse);
+
+        Guid planChangeId;
+        await using (var createStream = await createResponse.Content.ReadAsStreamAsync())
+        using (var createDocument = await JsonDocument.ParseAsync(createStream))
+        {
+            planChangeId = createDocument.RootElement.GetProperty("planChangePublicId").GetGuid();
+            Assert.Equal("Applied", createDocument.RootElement.GetProperty("status").GetString());
+            Assert.Equal("PRO", createDocument.RootElement.GetProperty("targetPlanCode").GetString());
+            Assert.Equal("FREE", createDocument.RootElement.GetProperty("currentPlanCode").GetString());
+        }
+
+        var historyResponse = await client.GetAsync($"/api/platform/companies/{scenario.TenantId}/subscription/plan-changes?page=1&pageSize=10");
+        await EnsureSuccessAsync(historyResponse);
+
+        await using (var historyStream = await historyResponse.Content.ReadAsStreamAsync())
+        using (var historyDocument = await JsonDocument.ParseAsync(historyStream))
+        {
+            Assert.Equal(1, historyDocument.RootElement.GetProperty("totalCount").GetInt32());
+            Assert.Equal(planChangeId, historyDocument.RootElement.GetProperty("items")[0].GetProperty("planChangePublicId").GetGuid());
+        }
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var companyId = await dbContext.Companies
+            .Where(company => company.PublicId == scenario.TenantId)
+            .Select(company => company.Id)
+            .SingleAsync();
+
+        Assert.Equal(
+            1,
+            await dbContext.CompanySubscriptionPlanChanges.CountAsync(planChange => planChange.CompanyId == companyId));
+        Assert.True(await dbContext.PlatformAuditLogs.AnyAsync(log => log.EventType == "COMPANY_SUBSCRIPTION_PLAN_CHANGE_APPLIED"));
+
+        var subscriptions = await dbContext.CompanySubscriptions
+            .Where(subscription => subscription.CompanyId == companyId)
+            .OrderBy(subscription => subscription.CreatedUtc)
+            .ToListAsync();
+
+        Assert.Equal(2, subscriptions.Count);
+        Assert.Single(subscriptions, subscription => subscription.Status == SubscriptionStatus.Active && subscription.PlanCode == "PRO");
+        Assert.Single(subscriptions, subscription => subscription.Status == SubscriptionStatus.Cancelled && subscription.PlanCode == "FREE");
+    }
+
+    [Fact]
+    public async Task CompanySubscriptions_PlanChangeScheduled_ShouldListAndAllowCancellation()
+    {
+        Guid proPlanPublicId = Guid.Empty;
+
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            await PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                PlatformOperatorUserId,
+                "platform.subscription@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin);
+
+            var proPlan = CommercialPlan.Create(
+                "PRO",
+                "Professional",
+                "Plan profesional",
+                150m,
+                4m,
+                CommercialPlanStatus.Active,
+                isSystemPlan: false,
+                []);
+            dbContext.CommercialPlans.Add(proPlan);
+            await dbContext.SaveChangesAsync();
+            proPlanPublicId = proPlan.PublicId;
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(PlatformOperatorUserId));
+        var effectiveDate = DateTime.UtcNow.Date.AddDays(7);
+
+        var createResponse = await client.PostJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscription/plan-changes",
+            new
+            {
+                commercialPlanId = proPlanPublicId,
+                mode = SubscriptionPlanChangeMode.SpecificDate,
+                requestedEffectiveDateUtc = effectiveDate,
+                reasonCode = SubscriptionPlanChangeReasonCode.CommercialStrategyMigration,
+                observations = "Migracion programada"
+            });
+        await EnsureSuccessAsync(createResponse);
+
+        Guid planChangeId;
+        await using (var createStream = await createResponse.Content.ReadAsStreamAsync())
+        using (var createDocument = await JsonDocument.ParseAsync(createStream))
+        {
+            planChangeId = createDocument.RootElement.GetProperty("planChangePublicId").GetGuid();
+            Assert.Equal("Scheduled", createDocument.RootElement.GetProperty("status").GetString());
+            Assert.Equal(effectiveDate, createDocument.RootElement.GetProperty("effectiveDateUtc").GetDateTime());
+        }
+
+        var cancelResponse = await client.PostJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscription/plan-changes/{planChangeId}/cancel",
+            new
+            {
+                observations = "Cambio de decision comercial"
+            });
+        await EnsureSuccessAsync(cancelResponse);
+
+        await using (var cancelStream = await cancelResponse.Content.ReadAsStreamAsync())
+        using (var cancelDocument = await JsonDocument.ParseAsync(cancelStream))
+        {
+            Assert.Equal("Cancelled", cancelDocument.RootElement.GetProperty("status").GetString());
+            Assert.Equal(
+                "Cambio de decision comercial",
+                cancelDocument.RootElement.GetProperty("cancellationObservations").GetString());
+        }
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.True(await dbContext.PlatformAuditLogs.AnyAsync(log => log.EventType == "COMPANY_SUBSCRIPTION_PLAN_CHANGE_CANCELLED"));
+    }
+
+    [Fact]
+    public async Task CompanySubscriptions_PlanChangeProcessor_ShouldApplyDueScheduledPlanChange()
+    {
+        Guid proPlanPublicId = Guid.Empty;
+
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            await PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                PlatformOperatorUserId,
+                "platform.subscription@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin);
+
+            var proPlan = CommercialPlan.Create(
+                "PRO",
+                "Professional",
+                "Plan profesional",
+                150m,
+                4m,
+                CommercialPlanStatus.Active,
+                isSystemPlan: false,
+                []);
+            dbContext.CommercialPlans.Add(proPlan);
+            await dbContext.SaveChangesAsync();
+            proPlanPublicId = proPlan.PublicId;
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(PlatformOperatorUserId));
+        var futureDate = DateTime.UtcNow.Date.AddDays(2);
+
+        var createResponse = await client.PostJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscription/plan-changes",
+            new
+            {
+                commercialPlanId = proPlanPublicId,
+                mode = SubscriptionPlanChangeMode.SpecificDate,
+                requestedEffectiveDateUtc = futureDate,
+                reasonCode = SubscriptionPlanChangeReasonCode.UpgradeCommercial,
+                observations = "Aplicar por processor"
+            });
+        await EnsureSuccessAsync(createResponse);
+
+        Guid planChangeId;
+        await using (var createStream = await createResponse.Content.ReadAsStreamAsync())
+        using (var createDocument = await JsonDocument.ParseAsync(createStream))
+        {
+            planChangeId = createDocument.RootElement.GetProperty("planChangePublicId").GetGuid();
+        }
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            _ = await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE company_subscription_plan_changes SET effective_date_utc = {DateTime.UtcNow.Date} WHERE public_id = {planChangeId}");
+        }
+
+        await InvokePlanChangeProcessorAsync();
+
+        var historyResponse = await client.GetAsync($"/api/platform/companies/{scenario.TenantId}/subscription/plan-changes?page=1&pageSize=10");
+        await EnsureSuccessAsync(historyResponse);
+
+        await using (var historyStream = await historyResponse.Content.ReadAsStreamAsync())
+        using (var historyDocument = await JsonDocument.ParseAsync(historyStream))
+        {
+            Assert.Equal("Applied", historyDocument.RootElement.GetProperty("items")[0].GetProperty("status").GetString());
+        }
+
+        var overviewResponse = await client.GetAsync($"/api/platform/companies/{scenario.TenantId}/subscription");
+        await EnsureSuccessAsync(overviewResponse);
+
+        await using (var overviewStream = await overviewResponse.Content.ReadAsStreamAsync())
+        using (var overviewDocument = await JsonDocument.ParseAsync(overviewStream))
+        {
+            Assert.Equal("PRO", overviewDocument.RootElement.GetProperty("currentSubscription").GetProperty("planCode").GetString());
+            Assert.Equal("Active", overviewDocument.RootElement.GetProperty("currentSubscription").GetProperty("status").GetString());
+        }
+    }
+
     private async Task<Guid> GetCurrentSubscriptionIdAsync(HttpClient client, Guid companyPublicId)
     {
         var response = await client.GetAsync($"/api/platform/companies/{companyPublicId}/subscription");
@@ -424,6 +883,47 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
         var processedCount = await task;
 
         Assert.True(processedCount >= 1);
+    }
+
+    private async Task InvokePlanChangeProcessorAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var processorType = typeof(ApplicationDbContext).Assembly.GetType(
+            "CLARIHR.Infrastructure.Companies.CompanySubscriptionLifecycleProcessor",
+            throwOnError: true)!;
+        var processor = scope.ServiceProvider.GetRequiredService(processorType);
+        var applyMethod = processorType.GetMethod(
+            "ApplyDueScheduledPlanChangesAsync",
+            BindingFlags.Instance | BindingFlags.Public)!;
+
+        var invocation = applyMethod.Invoke(processor, [CancellationToken.None]);
+        var task = Assert.IsAssignableFrom<Task<int>>(invocation);
+        var processedCount = await task;
+
+        Assert.True(processedCount >= 1);
+    }
+
+    private async Task<int> InvokeStatusChangeProcessorAsync(bool shouldProcessAtLeastOne = true)
+    {
+        using var scope = factory.Services.CreateScope();
+        var processorType = typeof(ApplicationDbContext).Assembly.GetType(
+            "CLARIHR.Infrastructure.Companies.CompanySubscriptionLifecycleProcessor",
+            throwOnError: true)!;
+        var processor = scope.ServiceProvider.GetRequiredService(processorType);
+        var applyMethod = processorType.GetMethod(
+            "ApplyDueScheduledStatusChangesAsync",
+            BindingFlags.Instance | BindingFlags.Public)!;
+
+        var invocation = applyMethod.Invoke(processor, [CancellationToken.None]);
+        var task = Assert.IsAssignableFrom<Task<int>>(invocation);
+        var processedCount = await task;
+
+        if (shouldProcessAtLeastOne)
+        {
+            Assert.True(processedCount >= 1);
+        }
+
+        return processedCount;
     }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response)

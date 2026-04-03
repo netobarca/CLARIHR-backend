@@ -30,6 +30,9 @@ internal sealed class CompanySubscriptionLifecycleBackgroundService(
             using var scope = scopeFactory.CreateScope();
             var processor = scope.ServiceProvider.GetRequiredService<CompanySubscriptionLifecycleProcessor>();
             _ = await processor.PromoteDueScheduledSubscriptionsAsync(cancellationToken);
+            _ = await processor.ApplyDueScheduledStatusChangesAsync(cancellationToken);
+            _ = await processor.ApplyDueScheduledPlanChangesAsync(cancellationToken);
+            _ = await processor.ApplyDueScheduledAddonChangesAsync(cancellationToken);
             _ = await processor.ExpireDueSubscriptionsAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

@@ -14,5 +14,6 @@ public enum SubscriptionStatusChangeReasonCode
     CommercialCancellation = 10,
     AuthorizedReactivation = 11,
     SubscriptionReplacement = 12,
-    LegacyMigration = 13
+    LegacyMigration = 13,
+    PlanChangeApplied = 14
 }

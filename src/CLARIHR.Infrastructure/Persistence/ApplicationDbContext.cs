@@ -53,6 +53,14 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CompanySubscriptionStatusTransition> CompanySubscriptionStatusTransitions => Set<CompanySubscriptionStatusTransition>();
 
+    public DbSet<CompanySubscriptionStatusChangeRequest> CompanySubscriptionStatusChangeRequests => Set<CompanySubscriptionStatusChangeRequest>();
+
+    public DbSet<CompanySubscriptionPlanChange> CompanySubscriptionPlanChanges => Set<CompanySubscriptionPlanChange>();
+
+    public DbSet<CompanyCommercialAddon> CompanyCommercialAddons => Set<CompanyCommercialAddon>();
+
+    public DbSet<CompanyCommercialAddonChange> CompanyCommercialAddonChanges => Set<CompanyCommercialAddonChange>();
+
     public DbSet<UserCompanyMembership> UserCompanyMemberships => Set<UserCompanyMembership>();
 
     public DbSet<PlanEntitlement> PlanEntitlements => Set<PlanEntitlement>();

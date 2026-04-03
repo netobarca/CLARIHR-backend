@@ -38,7 +38,8 @@ La reevaluacion profunda del **28 de marzo de 2026** confirma, sin embargo, que 
 - uso amplio de proyecciones y DTOs en repositorios
 - los catalogos globales de plataforma para planes y add-ons mantienen lectura paginada, `AsNoTracking()` e indices por codigo, estado y filtros comerciales; `CommercialAddon` ahora filtra tambien por `type` y `billingModel` con indice dedicado sobre `billing_model`
 - el backoffice global de suscripciones mantiene overview, historial por empresa, historial de estados y listado global con paginacion, `AsNoTracking()` y ordenamiento server-side sobre columnas persistidas
-- las transiciones automaticas de suscripcion por fecha se ejecutan en `CompanySubscriptionLifecycleBackgroundService`, con lotes acotados para promociones y vencimientos, evitando mover ese costo al request path
+- las reactivaciones programadas usan una tabla dedicada con indice por `status + effective_date_utc` y unicidad parcial por suscripcion para evitar duplicados en el request path
+- las transiciones automaticas de suscripcion por fecha se ejecutan en `CompanySubscriptionLifecycleBackgroundService`, con lotes acotados para promociones, reactivaciones programadas y vencimientos, evitando mover ese costo al request path y aplicando primero reactivaciones antes de cambios de plan o add-ons del mismo dia
 - segregacion CQRS que facilita aislar optimizaciones
 - build limpio y test suite estable, lo que ayuda a refactorizar sin romper flujo funcional
 

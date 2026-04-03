@@ -144,14 +144,14 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 - Estado actual: `Remediado y extendido el 2 de abril de 2026`
 - Nuevo respecto a la auditoria anterior: `Si`
 - Cambio aplicado:
-  las mutaciones globales de `CommercialAddon`, `CommercialPlan`, el reemplazo de suscripciones empresariales y ahora tambien los cambios manuales o automaticos de estado de suscripcion ya no dependen solo de logging operativo; ahora escriben `PlatformAuditLog` persistente y no tenant-scoped. El catalogo de `CommercialAddon` sigue protegido por rol aun despues de generalizar add-ons `Massive` y `Specialized`, y los cambios sensibles de estado de suscripcion quedaron restringidos a `PlatformOperatorRole.Admin`.
+  las mutaciones globales de `CommercialAddon`, `CommercialPlan`, el reemplazo de suscripciones empresariales y ahora tambien los cambios manuales, programados o automaticos de estado de suscripcion ya no dependen solo de logging operativo; ahora escriben `PlatformAuditLog` persistente y no tenant-scoped. El catalogo de `CommercialAddon` sigue protegido por rol aun despues de generalizar add-ons `Massive` y `Specialized`, y los cambios sensibles de estado de suscripcion quedaron restringidos a `PlatformOperatorRole.Admin`.
 - Evidencia:
   `PlatformAuditLog` y su configuracion EF existen en el modelo persistente.
   `PlatformAuditService` registra eventos globales con actor, entidad, accion y payload serializado.
   `CommercialAddonAdministration.cs`, `CommercialPlanAdministration.cs`, `PlatformSubscriptionAdministration.cs` y `CompanySubscriptionLifecycleProcessor.cs` invocan esa auditoria persistente en writes globales y transiciones automaticas.
   la migracion `AddPlatformBackofficeAndFormalSubscriptionPlans` crea la tabla `platform_audit_logs`.
 - Cobertura actual:
-  `BackofficeCompanySubscriptionsIntegrationTests` ya cubre suspension, reactivacion, cancelacion, consulta del historial de estados y expiracion automatica de suscripciones empresariales, ademas de fallar si el flujo global de suscripciones pierde trazabilidad o enforcement de rol. `BackofficeCommercialAddonsIntegrationTests` ya verifica auditoria durable para create/update/activate/inactivate del catalogo global de add-ons, incluyendo configuraciones especializadas por seat o volumen. El CRUD de `CommercialPlan` sigue usando la misma infraestructura, aunque aun conviene agregar una prueba especifica por endpoint.
+  `BackofficeCompanySubscriptionsIntegrationTests` ya cubre suspension, reactivacion inmediata, preview de reactivacion, reactivacion programada, conflicto por duplicado pendiente, consulta del historial de estados y expiracion automatica de suscripciones empresariales, ademas de fallar si el flujo global de suscripciones pierde trazabilidad o enforcement de rol. `BackofficeCommercialAddonsIntegrationTests` ya verifica auditoria durable para create/update/activate/inactivate del catalogo global de add-ons, incluyendo configuraciones especializadas por seat o volumen. El CRUD de `CommercialPlan` sigue usando la misma infraestructura, aunque aun conviene agregar una prueba especifica por endpoint.
 
 ### 3.7 Drift contractual y documental severo
 
