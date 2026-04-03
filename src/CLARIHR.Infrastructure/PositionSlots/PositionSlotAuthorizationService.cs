@@ -1,4 +1,5 @@
 using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.IdentityAccess.Common;
@@ -13,6 +14,7 @@ namespace CLARIHR.Infrastructure.PositionSlots;
 internal sealed class PositionSlotAuthorizationService(
     ICurrentUserService currentUserService,
     CLARIHR.Application.Abstractions.Tenancy.ITenantContext tenantContext,
+    IPlanEntitlementService planEntitlementService,
     ApplicationDbContext dbContext) : IPositionSlotAuthorizationService
 {
     public Task<Result> EnsureCanReadAsync(Guid companyId, CancellationToken cancellationToken) =>
@@ -33,6 +35,11 @@ internal sealed class PositionSlotAuthorizationService(
         if (tenantContext.TenantId.Value != companyId)
         {
             return Result.Failure(PositionSlotErrors.TenantMismatch(manageRequired ? RbacPermissionAction.Update : RbacPermissionAction.Read));
+        }
+
+        if (!await planEntitlementService.IsModuleEnabledAsync(companyId, CommercialModuleKeys.PositionSlots, cancellationToken))
+        {
+            return Result.Failure(PositionSlotErrors.Forbidden);
         }
 
         var normalizedClaims = currentUserService.Permissions

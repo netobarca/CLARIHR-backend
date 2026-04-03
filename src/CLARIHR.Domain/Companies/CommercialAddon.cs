@@ -6,6 +6,7 @@ public sealed class CommercialAddon : AuditableEntity
 {
     public const string MassiveMeasurementUnit = "active employee";
     private const int MeasurementUnitMaxLength = 80;
+    private readonly List<CommercialAddonEntitlement> _entitlements = [];
 
     private CommercialAddon()
     {
@@ -22,6 +23,7 @@ public sealed class CommercialAddon : AuditableEntity
         decimal unitPrice,
         int? minimumQuantity,
         decimal? minimumMonthlyFee,
+        IEnumerable<string> moduleKeys,
         CommercialAddonPeriodicity periodicity,
         CommercialAddonStatus status)
     {
@@ -51,6 +53,7 @@ public sealed class CommercialAddon : AuditableEntity
         Description = CompanyNormalization.CleanOptional(description);
         Type = type;
         ConfigurePricing(type, billingModel, measurementUnit, unitPrice, minimumQuantity, minimumMonthlyFee);
+        ReplaceEntitlementsInternal(moduleKeys);
         Periodicity = periodicity;
         Status = status;
         ConcurrencyToken = Guid.NewGuid();
@@ -84,6 +87,8 @@ public sealed class CommercialAddon : AuditableEntity
 
     public Guid ConcurrencyToken { get; private set; }
 
+    public IReadOnlyCollection<CommercialAddonEntitlement> Entitlements => _entitlements.AsReadOnly();
+
     public static CommercialAddon Create(
         string code,
         string name,
@@ -94,6 +99,7 @@ public sealed class CommercialAddon : AuditableEntity
         decimal unitPrice,
         int? minimumQuantity,
         decimal? minimumMonthlyFee,
+        IEnumerable<string> moduleKeys,
         CommercialAddonPeriodicity periodicity,
         CommercialAddonStatus status) =>
         new(
@@ -107,6 +113,33 @@ public sealed class CommercialAddon : AuditableEntity
             unitPrice,
             minimumQuantity,
             minimumMonthlyFee,
+            moduleKeys,
+            periodicity,
+            status);
+
+    public static CommercialAddon Create(
+        string code,
+        string name,
+        string? description,
+        CommercialAddonType type,
+        CommercialAddonBillingModel billingModel,
+        string measurementUnit,
+        decimal unitPrice,
+        int? minimumQuantity,
+        decimal? minimumMonthlyFee,
+        CommercialAddonPeriodicity periodicity,
+        CommercialAddonStatus status) =>
+        Create(
+            code,
+            name,
+            description,
+            type,
+            billingModel,
+            measurementUnit,
+            unitPrice,
+            minimumQuantity,
+            minimumMonthlyFee,
+            Array.Empty<string>(),
             periodicity,
             status);
 
@@ -120,6 +153,7 @@ public sealed class CommercialAddon : AuditableEntity
         decimal unitPrice,
         int? minimumQuantity,
         decimal? minimumMonthlyFee,
+        IEnumerable<string> moduleKeys,
         CommercialAddonPeriodicity periodicity)
     {
         if (!Enum.IsDefined(type))
@@ -142,9 +176,34 @@ public sealed class CommercialAddon : AuditableEntity
         Description = CompanyNormalization.CleanOptional(description);
         Type = type;
         ConfigurePricing(type, billingModel, measurementUnit, unitPrice, minimumQuantity, minimumMonthlyFee);
+        ReplaceEntitlementsInternal(moduleKeys);
         Periodicity = periodicity;
         RefreshConcurrencyToken();
     }
+
+    public void Update(
+        string code,
+        string name,
+        string? description,
+        CommercialAddonType type,
+        CommercialAddonBillingModel billingModel,
+        string measurementUnit,
+        decimal unitPrice,
+        int? minimumQuantity,
+        decimal? minimumMonthlyFee,
+        CommercialAddonPeriodicity periodicity) =>
+        Update(
+            code,
+            name,
+            description,
+            type,
+            billingModel,
+            measurementUnit,
+            unitPrice,
+            minimumQuantity,
+            minimumMonthlyFee,
+            Array.Empty<string>(),
+            periodicity);
 
     public void Activate()
     {
@@ -254,6 +313,34 @@ public sealed class CommercialAddon : AuditableEntity
     }
 
     private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
+
+    private void ReplaceEntitlementsInternal(IEnumerable<string> moduleKeys)
+    {
+        if (moduleKeys is null)
+        {
+            throw new ArgumentNullException(nameof(moduleKeys));
+        }
+
+        var nextEntitlements = new List<CommercialAddonEntitlement>();
+        var normalizedKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var moduleKey in moduleKeys)
+        {
+            var normalizedKey = CommercialModuleCatalog.NormalizeKnownKey(moduleKey);
+            if (!normalizedKeys.Add(normalizedKey))
+            {
+                throw new InvalidOperationException($"Duplicate commercial add-on module key '{normalizedKey}' is not allowed.");
+            }
+
+            nextEntitlements.Add(CommercialAddonEntitlement.Create(Code, normalizedKey));
+        }
+
+        _entitlements.Clear();
+        foreach (var entitlement in nextEntitlements.OrderBy(entitlement => entitlement.ModuleKey, StringComparer.Ordinal))
+        {
+            _entitlements.Add(entitlement);
+        }
+    }
 
     private static string CleanMeasurementUnit(string measurementUnit)
     {

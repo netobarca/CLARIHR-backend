@@ -1,30 +1,27 @@
+using CLARIHR.Domain.Companies;
+
 namespace CLARIHR.Application.Features.Provisioning.Common;
 
 public static class ProvisioningConstants
 {
     public const string FreePlanCode = "FREE";
-    public const string RbacModuleKey = "RBAC";
-    public const string UsersModuleKey = "USERS";
-    public const string OrgStructureCatalogsModuleKey = "ORG_STRUCTURE_CATALOGS";
-    public const string PositionDescriptionCatalogsModuleKey = "POSITION_DESCRIPTION_CATALOGS";
-    public const string JobProfilesModuleKey = "JOB_PROFILES";
-    public const string PositionSlotsModuleKey = "POSITION_SLOTS";
-    public const string SalaryTabulatorModuleKey = "SALARY_TABULATOR";
-    public const string CostCentersModuleKey = "COST_CENTERS";
-    public const string LegalRepresentativesModuleKey = "LEGAL_REPRESENTATIVES";
-    public const string CompetencyFrameworkModuleKey = "COMPETENCY_FRAMEWORK";
-    public const string OrgUnitsModuleKey = "ORG_UNITS";
-    public const string LocationsModuleKey = "LOCATIONS";
-    public const string PersonnelFilesModuleKey = "PERSONNEL_FILES";
+    public const string RbacModuleKey = CommercialModuleKeys.Rbac;
+    public const string UsersModuleKey = CommercialModuleKeys.Users;
+    public const string OrgStructureCatalogsModuleKey = CommercialModuleKeys.OrgStructureCatalogs;
+    public const string PositionDescriptionCatalogsModuleKey = CommercialModuleKeys.PositionDescriptionCatalogs;
+    public const string JobProfilesModuleKey = CommercialModuleKeys.JobProfiles;
+    public const string PositionSlotsModuleKey = CommercialModuleKeys.PositionSlots;
+    public const string SalaryTabulatorModuleKey = CommercialModuleKeys.SalaryTabulator;
+    public const string CostCentersModuleKey = CommercialModuleKeys.CostCenters;
+    public const string LegalRepresentativesModuleKey = CommercialModuleKeys.LegalRepresentatives;
+    public const string CompetencyFrameworkModuleKey = CommercialModuleKeys.CompetencyFramework;
+    public const string OrgUnitsModuleKey = CommercialModuleKeys.OrgUnits;
+    public const string LocationsModuleKey = CommercialModuleKeys.Locations;
+    public const string PersonnelFilesModuleKey = CommercialModuleKeys.PersonnelFiles;
     public const string CompanyAdminRoleName = "Admin de Empresa";
     public const string StandardUserRoleName = "Usuario Estándar";
 
-    public static readonly string[] FreePlanEnabledModules =
-    [
-        RbacModuleKey,
-        UsersModuleKey,
-        OrgStructureCatalogsModuleKey
-    ];
+    public static readonly string[] FreePlanEnabledModules = CommercialModuleCatalog.DefaultFreeModuleKeys.ToArray();
 
     public static readonly ProvisioningPermissionDefinition[] CompanyAdminPermissions =
     [

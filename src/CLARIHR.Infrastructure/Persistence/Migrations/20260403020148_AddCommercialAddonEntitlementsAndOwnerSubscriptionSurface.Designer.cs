@@ -3,6 +3,7 @@ using System;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260403020148_AddCommercialAddonEntitlementsAndOwnerSubscriptionSurface")]
+    partial class AddCommercialAddonEntitlementsAndOwnerSubscriptionSurface
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1850,116 +1853,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             ModuleKey = "ORG_STRUCTURE_CATALOGS",
                             PlanCode = "FREE",
                             PublicId = new Guid("0de9b273-f61d-0f2b-084b-0e28cf98f2a3")
-                        },
-                        new
-                        {
-                            Id = -1003L,
-                            CommercialPlanId = -3000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsEnabled = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ModuleKey = "POSITION_DESCRIPTION_CATALOGS",
-                            PlanCode = "FREE",
-                            PublicId = new Guid("e8f03b3f-124a-43e0-3086-d3fd87531449")
-                        },
-                        new
-                        {
-                            Id = -1004L,
-                            CommercialPlanId = -3000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsEnabled = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ModuleKey = "JOB_PROFILES",
-                            PlanCode = "FREE",
-                            PublicId = new Guid("4d87b97f-409d-d231-3356-f2c1069c2337")
-                        },
-                        new
-                        {
-                            Id = -1005L,
-                            CommercialPlanId = -3000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsEnabled = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ModuleKey = "POSITION_SLOTS",
-                            PlanCode = "FREE",
-                            PublicId = new Guid("6350efac-fe0b-5515-2fba-fcb461cc45ec")
-                        },
-                        new
-                        {
-                            Id = -1006L,
-                            CommercialPlanId = -3000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsEnabled = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ModuleKey = "SALARY_TABULATOR",
-                            PlanCode = "FREE",
-                            PublicId = new Guid("3225785e-2969-d164-597e-eab4842f8301")
-                        },
-                        new
-                        {
-                            Id = -1007L,
-                            CommercialPlanId = -3000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsEnabled = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ModuleKey = "COST_CENTERS",
-                            PlanCode = "FREE",
-                            PublicId = new Guid("55c0c7cf-693d-d96a-a261-00eca37b38e5")
-                        },
-                        new
-                        {
-                            Id = -1008L,
-                            CommercialPlanId = -3000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsEnabled = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ModuleKey = "LEGAL_REPRESENTATIVES",
-                            PlanCode = "FREE",
-                            PublicId = new Guid("ff84f2b2-dba8-bb0a-facc-9cb3200ccfeb")
-                        },
-                        new
-                        {
-                            Id = -1009L,
-                            CommercialPlanId = -3000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsEnabled = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ModuleKey = "COMPETENCY_FRAMEWORK",
-                            PlanCode = "FREE",
-                            PublicId = new Guid("148950dc-39f7-e8f9-c9cc-ea6ad7c7675d")
-                        },
-                        new
-                        {
-                            Id = -1010L,
-                            CommercialPlanId = -3000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsEnabled = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ModuleKey = "ORG_UNITS",
-                            PlanCode = "FREE",
-                            PublicId = new Guid("633547b7-6c6d-cb77-067e-088d0129717f")
-                        },
-                        new
-                        {
-                            Id = -1011L,
-                            CommercialPlanId = -3000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsEnabled = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ModuleKey = "LOCATIONS",
-                            PlanCode = "FREE",
-                            PublicId = new Guid("535ee7f7-bb7a-52f9-9153-9013b2268e6c")
-                        },
-                        new
-                        {
-                            Id = -1012L,
-                            CommercialPlanId = -3000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsEnabled = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ModuleKey = "PERSONNEL_FILES",
-                            PlanCode = "FREE",
-                            PublicId = new Guid("b958aa1c-cff1-2d49-bf47-b3d1972215de")
                         });
                 });
 

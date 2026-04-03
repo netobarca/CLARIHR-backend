@@ -1,4 +1,5 @@
 using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.CostCenters.Common;
@@ -13,6 +14,7 @@ namespace CLARIHR.Infrastructure.CostCenters;
 internal sealed class CostCenterAuthorizationService(
     ICurrentUserService currentUserService,
     CLARIHR.Application.Abstractions.Tenancy.ITenantContext tenantContext,
+    IPlanEntitlementService planEntitlementService,
     ApplicationDbContext dbContext) : ICostCenterAuthorizationService
 {
     public Task<Result> EnsureCanReadAsync(Guid companyId, CancellationToken cancellationToken) =>
@@ -33,6 +35,11 @@ internal sealed class CostCenterAuthorizationService(
         if (tenantContext.TenantId.Value != companyId)
         {
             return Result.Failure(CostCenterErrors.TenantMismatch(manageRequired ? RbacPermissionAction.Update : RbacPermissionAction.Read));
+        }
+
+        if (!await planEntitlementService.IsModuleEnabledAsync(companyId, CommercialModuleKeys.CostCenters, cancellationToken))
+        {
+            return Result.Failure(CostCenterErrors.Forbidden);
         }
 
         var normalizedClaims = currentUserService.Permissions

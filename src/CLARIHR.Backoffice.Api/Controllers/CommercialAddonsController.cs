@@ -72,6 +72,7 @@ public sealed class CommercialAddonsController(
                 request.UnitPrice,
                 request.MinimumQuantity,
                 request.MinimumMonthlyFee,
+                request.ModuleKeys,
                 request.Periodicity,
                 request.Status),
             cancellationToken);
@@ -108,6 +109,7 @@ public sealed class CommercialAddonsController(
                 request.UnitPrice,
                 request.MinimumQuantity,
                 request.MinimumMonthlyFee,
+                request.ModuleKeys,
                 request.Periodicity,
                 request.ConcurrencyToken),
             cancellationToken);
@@ -163,6 +165,7 @@ public sealed class CommercialAddonsController(
         decimal UnitPrice,
         int? MinimumQuantity,
         decimal? MinimumMonthlyFee,
+        IReadOnlyCollection<string> ModuleKeys,
         CommercialAddonPeriodicity Periodicity,
         CommercialAddonStatus Status);
 
@@ -176,6 +179,7 @@ public sealed class CommercialAddonsController(
         decimal UnitPrice,
         int? MinimumQuantity,
         decimal? MinimumMonthlyFee,
+        IReadOnlyCollection<string> ModuleKeys,
         CommercialAddonPeriodicity Periodicity,
         Guid ConcurrencyToken);
 

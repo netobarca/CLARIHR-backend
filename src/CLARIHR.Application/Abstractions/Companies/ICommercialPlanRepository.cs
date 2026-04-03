@@ -8,6 +8,9 @@ public interface ICommercialPlanRepository
 {
     void Add(CommercialPlan plan);
 
+    Task<IReadOnlyCollection<CommercialPlan>> ListActiveAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<CommercialPlan>>(Array.Empty<CommercialPlan>());
+
     Task<CommercialPlan?> GetByInternalIdAsync(long commercialPlanId, CancellationToken cancellationToken);
 
     Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken);

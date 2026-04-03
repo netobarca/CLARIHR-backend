@@ -80,6 +80,7 @@ public sealed class BackofficeCompanySubscriptionAddonsIntegrationTests(Backoffi
     public async Task CompanySubscriptionAddons_ImmediateActivation_ShouldPersistStateHistoryAndAudit()
     {
         Guid addonPublicId = Guid.Empty;
+        Guid paidPlanPublicId = Guid.Empty;
 
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
@@ -103,11 +104,25 @@ public sealed class BackofficeCompanySubscriptionAddonsIntegrationTests(Backoffi
                 CommercialAddonPeriodicity.Monthly,
                 CommercialAddonStatus.Active);
             dbContext.CommercialAddons.Add(addon);
+
+            var paidPlan = CommercialPlan.Create(
+                "PRO",
+                "Professional",
+                "Plan profesional",
+                150m,
+                4m,
+                CommercialPlanStatus.Active,
+                isSystemPlan: false,
+                []);
+            dbContext.CommercialPlans.Add(paidPlan);
+
             await dbContext.SaveChangesAsync();
             addonPublicId = addon.PublicId;
+            paidPlanPublicId = paidPlan.PublicId;
         });
 
         using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(AdminUserId));
+        await ActivatePaidPlanAsync(client, scenario.TenantId, paidPlanPublicId);
 
         var previewResponse = await client.PostJsonAsync(
             $"/api/platform/companies/{scenario.TenantId}/subscription/addon-changes/preview",
@@ -179,6 +194,7 @@ public sealed class BackofficeCompanySubscriptionAddonsIntegrationTests(Backoffi
     public async Task CompanySubscriptionAddons_ScheduledActivation_ShouldAllowCancellation()
     {
         Guid addonPublicId = Guid.Empty;
+        Guid paidPlanPublicId = Guid.Empty;
 
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
@@ -202,11 +218,25 @@ public sealed class BackofficeCompanySubscriptionAddonsIntegrationTests(Backoffi
                 CommercialAddonPeriodicity.Monthly,
                 CommercialAddonStatus.Active);
             dbContext.CommercialAddons.Add(addon);
+
+            var paidPlan = CommercialPlan.Create(
+                "PRO",
+                "Professional",
+                "Plan profesional",
+                150m,
+                4m,
+                CommercialPlanStatus.Active,
+                isSystemPlan: false,
+                []);
+            dbContext.CommercialPlans.Add(paidPlan);
+
             await dbContext.SaveChangesAsync();
             addonPublicId = addon.PublicId;
+            paidPlanPublicId = paidPlan.PublicId;
         });
 
         using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(AdminUserId));
+        await ActivatePaidPlanAsync(client, scenario.TenantId, paidPlanPublicId);
         var effectiveDate = DateTime.UtcNow.Date.AddDays(7);
 
         var createResponse = await client.PostJsonAsync(
@@ -257,6 +287,7 @@ public sealed class BackofficeCompanySubscriptionAddonsIntegrationTests(Backoffi
     public async Task CompanySubscriptionAddons_Processor_ShouldApplyScheduledActivationAndDeactivation()
     {
         Guid addonPublicId = Guid.Empty;
+        Guid paidPlanPublicId = Guid.Empty;
 
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
@@ -280,11 +311,25 @@ public sealed class BackofficeCompanySubscriptionAddonsIntegrationTests(Backoffi
                 CommercialAddonPeriodicity.Monthly,
                 CommercialAddonStatus.Active);
             dbContext.CommercialAddons.Add(addon);
+
+            var paidPlan = CommercialPlan.Create(
+                "PRO",
+                "Professional",
+                "Plan profesional",
+                150m,
+                4m,
+                CommercialPlanStatus.Active,
+                isSystemPlan: false,
+                []);
+            dbContext.CommercialPlans.Add(paidPlan);
+
             await dbContext.SaveChangesAsync();
             addonPublicId = addon.PublicId;
+            paidPlanPublicId = paidPlan.PublicId;
         });
 
         using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(AdminUserId));
+        await ActivatePaidPlanAsync(client, scenario.TenantId, paidPlanPublicId);
         var futureDate = DateTime.UtcNow.Date.AddDays(2);
 
         var activationResponse = await client.PostJsonAsync(
@@ -368,6 +413,7 @@ public sealed class BackofficeCompanySubscriptionAddonsIntegrationTests(Backoffi
     public async Task CompanySubscriptionAddons_ScheduledConflict_ShouldReturnConflict()
     {
         Guid addonPublicId = Guid.Empty;
+        Guid paidPlanPublicId = Guid.Empty;
 
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
@@ -391,11 +437,25 @@ public sealed class BackofficeCompanySubscriptionAddonsIntegrationTests(Backoffi
                 CommercialAddonPeriodicity.Monthly,
                 CommercialAddonStatus.Active);
             dbContext.CommercialAddons.Add(addon);
+
+            var paidPlan = CommercialPlan.Create(
+                "PRO",
+                "Professional",
+                "Plan profesional",
+                150m,
+                4m,
+                CommercialPlanStatus.Active,
+                isSystemPlan: false,
+                []);
+            dbContext.CommercialPlans.Add(paidPlan);
+
             await dbContext.SaveChangesAsync();
             addonPublicId = addon.PublicId;
+            paidPlanPublicId = paidPlan.PublicId;
         });
 
         using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(AdminUserId));
+        await ActivatePaidPlanAsync(client, scenario.TenantId, paidPlanPublicId);
 
         var firstResponse = await client.PostJsonAsync(
             $"/api/platform/companies/{scenario.TenantId}/subscription/addon-changes",
@@ -429,6 +489,79 @@ public sealed class BackofficeCompanySubscriptionAddonsIntegrationTests(Backoffi
         Assert.Equal("PLATFORM_COMPANY_SUBSCRIPTION_ADDON_PENDING_CONFLICT", document.RootElement.GetProperty("code").GetString());
     }
 
+    [Fact]
+    public async Task CompanySubscriptionAddons_FreePlan_ShouldBlockPreviewAndActivation()
+    {
+        Guid addonPublicId = Guid.Empty;
+
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            await PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                AdminUserId,
+                "platform.addons.admin@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin);
+
+            var addon = CommercialAddon.Create(
+                "ADDON-ATTENDANCE",
+                "Attendance",
+                "Attendance addon",
+                CommercialAddonType.Massive,
+                CommercialAddonBillingModel.PerActiveEmployee,
+                CommercialAddon.MassiveMeasurementUnit,
+                1.2m,
+                null,
+                20m,
+                CommercialAddonPeriodicity.Monthly,
+                CommercialAddonStatus.Active);
+            dbContext.CommercialAddons.Add(addon);
+            await dbContext.SaveChangesAsync();
+            addonPublicId = addon.PublicId;
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(AdminUserId));
+
+        var previewResponse = await client.PostJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscription/addon-changes/preview",
+            new
+            {
+                commercialAddonId = addonPublicId,
+                action = SubscriptionAddonChangeAction.Activate,
+                mode = SubscriptionAddonChangeMode.Immediate
+            });
+        await EnsureSuccessAsync(previewResponse);
+
+        await using (var previewStream = await previewResponse.Content.ReadAsStreamAsync())
+        using (var previewDocument = await JsonDocument.ParseAsync(previewStream))
+        {
+            Assert.False(previewDocument.RootElement.GetProperty("isEligible").GetBoolean());
+            Assert.Contains(
+                "FREE",
+                previewDocument.RootElement.GetProperty("ineligibilityReasons")[0].GetString(),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        var createResponse = await client.PostJsonAsync(
+            $"/api/platform/companies/{scenario.TenantId}/subscription/addon-changes",
+            new
+            {
+                commercialAddonId = addonPublicId,
+                action = SubscriptionAddonChangeAction.Activate,
+                mode = SubscriptionAddonChangeMode.Immediate,
+                reasonCode = SubscriptionAddonChangeReasonCode.CustomerRequest,
+                observations = "Debe bloquearse por FREE"
+            });
+
+        Assert.Equal(HttpStatusCode.Conflict, createResponse.StatusCode);
+
+        await using var createStream = await createResponse.Content.ReadAsStreamAsync();
+        using var createDocument = await JsonDocument.ParseAsync(createStream);
+        Assert.Equal(
+            "PLATFORM_COMPANY_SUBSCRIPTION_ADDON_FORBIDDEN_FOR_FREE_PLAN",
+            createDocument.RootElement.GetProperty("code").GetString());
+    }
+
     private async Task InvokeAddonChangeProcessorAsync()
     {
         using var scope = factory.Services.CreateScope();
@@ -445,6 +578,20 @@ public sealed class BackofficeCompanySubscriptionAddonsIntegrationTests(Backoffi
         var processedCount = await task;
 
         Assert.True(processedCount >= 1);
+    }
+
+    private static async Task ActivatePaidPlanAsync(HttpClient client, Guid companyPublicId, Guid commercialPlanPublicId)
+    {
+        var response = await client.PutJsonAsync(
+            $"/api/platform/companies/{companyPublicId}/subscription",
+            new
+            {
+                commercialPlanId = commercialPlanPublicId,
+                startDateUtc = DateTime.UtcNow.Date,
+                periodicity = CompanySubscriptionPeriodicity.Monthly
+            });
+
+        await EnsureSuccessAsync(response);
     }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response)

@@ -41,12 +41,6 @@ internal sealed class PlanEntitlementConfiguration : IEntityTypeConfiguration<Pl
             .IsUnique()
             .HasDatabaseName("uq_plan_entitlements__plan_module");
 
-        builder.HasOne<CommercialPlan>()
-            .WithMany()
-            .HasForeignKey(entitlement => entitlement.CommercialPlanId)
-            .OnDelete(DeleteBehavior.Cascade)
-            .HasConstraintName("fk_plan_entitlements__commercial_plans");
-
         builder.HasData(GlobalCatalogSeedData.GetPlanEntitlements());
     }
 }

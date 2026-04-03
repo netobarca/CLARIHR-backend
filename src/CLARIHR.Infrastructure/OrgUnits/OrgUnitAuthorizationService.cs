@@ -1,4 +1,5 @@
 using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.OrgUnits;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.IdentityAccess.Common;
@@ -13,6 +14,7 @@ namespace CLARIHR.Infrastructure.OrgUnits;
 internal sealed class OrgUnitAuthorizationService(
     ICurrentUserService currentUserService,
     CLARIHR.Application.Abstractions.Tenancy.ITenantContext tenantContext,
+    IPlanEntitlementService planEntitlementService,
     ApplicationDbContext dbContext) : IOrgUnitAuthorizationService
 {
     public Task<Result> EnsureCanReadAsync(Guid companyId, CancellationToken cancellationToken) =>
@@ -33,6 +35,11 @@ internal sealed class OrgUnitAuthorizationService(
         if (tenantContext.TenantId.Value != companyId)
         {
             return Result.Failure(OrgUnitErrors.TenantMismatch(manageRequired ? RbacPermissionAction.Update : RbacPermissionAction.Read));
+        }
+
+        if (!await planEntitlementService.IsModuleEnabledAsync(companyId, CommercialModuleKeys.OrgUnits, cancellationToken))
+        {
+            return Result.Failure(OrgUnitErrors.Forbidden);
         }
 
         var normalizedClaims = currentUserService.Permissions

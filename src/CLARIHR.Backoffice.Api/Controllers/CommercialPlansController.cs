@@ -67,6 +67,7 @@ public sealed class CommercialPlansController(
                 request.BaseMonthlyFee,
                 request.PricePerActiveEmployee,
                 request.Status,
+                request.ModuleKeys,
                 request.Limits),
             cancellationToken);
 
@@ -98,6 +99,7 @@ public sealed class CommercialPlansController(
                 request.Description,
                 request.BaseMonthlyFee,
                 request.PricePerActiveEmployee,
+                request.ModuleKeys,
                 request.Limits,
                 request.ConcurrencyToken),
             cancellationToken);
@@ -150,6 +152,7 @@ public sealed class CommercialPlansController(
         decimal BaseMonthlyFee,
         decimal PricePerActiveEmployee,
         CommercialPlanStatus Status,
+        IReadOnlyCollection<string> ModuleKeys,
         IReadOnlyCollection<CommercialPlanLimitInput> Limits);
 
     public sealed record UpdateCommercialPlanRequest(
@@ -158,6 +161,7 @@ public sealed class CommercialPlansController(
         string? Description,
         decimal BaseMonthlyFee,
         decimal PricePerActiveEmployee,
+        IReadOnlyCollection<string> ModuleKeys,
         IReadOnlyCollection<CommercialPlanLimitInput> Limits,
         Guid ConcurrencyToken);
 

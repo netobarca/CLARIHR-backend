@@ -57,6 +57,7 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
         var initialList = await initialListResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<CommercialPlanSummaryEnvelope>>(JsonOptions);
         Assert.NotNull(initialList);
         Assert.Contains(initialList!.Items, static item => item.Code == "FREE" && item.IsSystemPlan);
+        Assert.Contains(initialList.Items, static item => item.Code == "FREE" && item.ModuleCount >= 1);
 
         var createResponse = await client.PostJsonAsync("/api/platform/commercial-plans", new
         {
@@ -66,6 +67,11 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
             baseMonthlyFee = 120m,
             pricePerActiveEmployee = 3.5m,
             status = CommercialPlanStatus.Draft,
+            moduleKeys = new[]
+            {
+                CommercialModuleKeys.JobProfiles,
+                CommercialModuleKeys.OrgUnits
+            },
             limits = new[]
             {
                 new { code = "employees", value = 25m },
@@ -81,6 +87,10 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
         Assert.Equal(CommercialPlanStatus.Draft, created.Status);
         Assert.False(created.IsSystemPlan);
         Assert.Equal(2, created.Limits.Count);
+        Assert.Equal(2, created.ModuleCount);
+        Assert.Equal(
+            [CommercialModuleKeys.JobProfiles, CommercialModuleKeys.OrgUnits],
+            created.ModuleKeys.OrderBy(static key => key).ToArray());
 
         var getResponse = await client.GetAsync($"/api/platform/commercial-plans/{created.Id}");
         getResponse.EnsureSuccessStatusCode();
@@ -88,6 +98,7 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
         var fetched = await getResponse.Content.ReadFromJsonAsync<CommercialPlanEnvelope>(JsonOptions);
         Assert.NotNull(fetched);
         Assert.Equal(created.Id, fetched!.Id);
+        Assert.Equal(created.ModuleKeys.OrderBy(static key => key), fetched.ModuleKeys.OrderBy(static key => key));
 
         var updateResponse = await client.PutJsonAsync($"/api/platform/commercial-plans/{created.Id}", new
         {
@@ -96,6 +107,11 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
             description = "Plan actualizado",
             baseMonthlyFee = 180m,
             pricePerActiveEmployee = 4m,
+            moduleKeys = new[]
+            {
+                CommercialModuleKeys.JobProfiles,
+                CommercialModuleKeys.PositionSlots
+            },
             limits = new[]
             {
                 new { code = "work_centers", value = 10m }
@@ -112,6 +128,10 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
         var updatedLimit = Assert.Single(updated.Limits);
         Assert.Equal("WORK_CENTERS", updatedLimit.Code);
         Assert.Equal(10m, updatedLimit.Value);
+        Assert.Equal(2, updated.ModuleCount);
+        Assert.Equal(
+            [CommercialModuleKeys.JobProfiles, CommercialModuleKeys.PositionSlots],
+            updated.ModuleKeys.OrderBy(static key => key).ToArray());
 
         var activateResponse = await client.PatchAsJsonAsync(
             $"/api/platform/commercial-plans/{created.Id}/activate",
@@ -139,6 +159,28 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
         Assert.Contains(filtered!.Items, item => item.Id == created.Id);
     }
 
+    [Fact]
+    public async Task CommercialModules_List_WithPlatformOperator_ShouldReturnCatalog()
+    {
+        await factory.ResetDatabaseAsync(dbContext =>
+            PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                PlatformOperatorUserId,
+                "platform.admin@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin));
+        using var client = factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(PlatformOperatorUserId));
+
+        var response = await client.GetAsync("/api/platform/commercial-modules");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<CommercialModuleEnvelope>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Contains(payload!, static module => module.Key == CommercialModuleKeys.Rbac);
+        Assert.Contains(payload!, static module => module.Key == CommercialModuleKeys.JobProfiles);
+        Assert.Contains(payload!, static module => module.Key == CommercialModuleKeys.PersonnelFiles);
+    }
+
     private sealed record PagedResponseEnvelope<TItem>(
         IReadOnlyCollection<TItem> Items,
         int PageNumber,
@@ -154,6 +196,7 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
         decimal PricePerActiveEmployee,
         CommercialPlanStatus Status,
         bool IsSystemPlan,
+        int ModuleCount,
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc);
 
@@ -166,10 +209,14 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
         decimal PricePerActiveEmployee,
         CommercialPlanStatus Status,
         bool IsSystemPlan,
+        int ModuleCount,
         Guid ConcurrencyToken,
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc,
+        IReadOnlyCollection<string> ModuleKeys,
         IReadOnlyCollection<CommercialPlanLimitEnvelope> Limits);
 
     private sealed record CommercialPlanLimitEnvelope(string Code, decimal Value);
+
+    private sealed record CommercialModuleEnvelope(string Key, string DisplayName, string Description);
 }

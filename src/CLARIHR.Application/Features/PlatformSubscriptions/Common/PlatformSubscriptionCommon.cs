@@ -190,6 +190,11 @@ public static class PlatformSubscriptionErrors
         "The company already has a scheduled change pending for the requested add-on.",
         ErrorType.Conflict);
 
+    public static readonly Error AddonForbiddenForFreePlan = new(
+        "PLATFORM_COMPANY_SUBSCRIPTION_ADDON_FORBIDDEN_FOR_FREE_PLAN",
+        "Companies using the FREE plan cannot acquire commercial add-ons.",
+        ErrorType.Conflict);
+
     public static readonly Error AddonChangeNotFound = new(
         "PLATFORM_COMPANY_SUBSCRIPTION_ADDON_CHANGE_NOT_FOUND",
         "The requested company add-on change could not be found.",

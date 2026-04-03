@@ -1,4 +1,5 @@
 using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.IdentityAccess.Common;
@@ -13,6 +14,7 @@ namespace CLARIHR.Infrastructure.JobProfiles;
 internal sealed class JobProfileAuthorizationService(
     ICurrentUserService currentUserService,
     CLARIHR.Application.Abstractions.Tenancy.ITenantContext tenantContext,
+    IPlanEntitlementService planEntitlementService,
     ApplicationDbContext dbContext) : IJobProfileAuthorizationService
 {
     public Task<Result> EnsureCanReadAsync(Guid companyId, CancellationToken cancellationToken) =>
@@ -37,6 +39,11 @@ internal sealed class JobProfileAuthorizationService(
         {
             var action = scope == PermissionScope.Read ? RbacPermissionAction.Read : RbacPermissionAction.Update;
             return Result.Failure(JobProfileErrors.TenantMismatch(action));
+        }
+
+        if (!await planEntitlementService.IsModuleEnabledAsync(companyId, CommercialModuleKeys.JobProfiles, cancellationToken))
+        {
+            return Result.Failure(JobProfileErrors.Forbidden);
         }
 
         var normalizedClaims = currentUserService.Permissions

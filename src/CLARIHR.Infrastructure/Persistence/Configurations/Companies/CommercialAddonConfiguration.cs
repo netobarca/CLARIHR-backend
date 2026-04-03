@@ -103,5 +103,51 @@ internal sealed class CommercialAddonConfiguration : IEntityTypeConfiguration<Co
 
         builder.HasIndex(addon => addon.BillingModel)
             .HasDatabaseName("ix_commercial_addons__billing_model");
+
+        builder.HasMany(addon => addon.Entitlements)
+            .WithOne()
+            .HasForeignKey(entitlement => entitlement.CommercialAddonId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_commercial_addon_entitlements__commercial_addons");
+
+        builder.Navigation(addon => addon.Entitlements).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+internal sealed class CommercialAddonEntitlementConfiguration : IEntityTypeConfiguration<CommercialAddonEntitlement>
+{
+    public void Configure(EntityTypeBuilder<CommercialAddonEntitlement> builder)
+    {
+        builder.ToTable("commercial_addon_entitlements");
+
+        builder.HasKey(entitlement => entitlement.Id)
+            .HasName("pk_commercial_addon_entitlements");
+
+        builder.Property(entitlement => entitlement.Id)
+            .HasColumnName("id");
+
+        builder.Property(entitlement => entitlement.CommercialAddonId)
+            .HasColumnName("commercial_addon_id");
+
+        builder.Property(entitlement => entitlement.AddonCode)
+            .HasColumnName("addon_code")
+            .HasMaxLength(40);
+
+        builder.Property(entitlement => entitlement.ModuleKey)
+            .HasColumnName("module_key")
+            .HasMaxLength(60);
+
+        builder.Property(entitlement => entitlement.IsEnabled)
+            .HasColumnName("is_enabled");
+
+        builder.Property(entitlement => entitlement.CreatedUtc)
+            .HasColumnName("created_utc");
+
+        builder.Property(entitlement => entitlement.ModifiedUtc)
+            .HasColumnName("modified_utc");
+
+        builder.HasIndex(entitlement => new { entitlement.CommercialAddonId, entitlement.ModuleKey })
+            .IsUnique()
+            .HasDatabaseName("uq_commercial_addon_entitlements__addon_module");
     }
 }

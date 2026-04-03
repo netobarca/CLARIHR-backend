@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Application.Features.PlatformSubscriptions;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Infrastructure.Configuration;
@@ -650,6 +651,19 @@ internal sealed class CompanySubscriptionLifecycleProcessor(
                     addonChange,
                     company,
                     "The current subscription changed before the scheduled add-on change could be applied.",
+                    utcNow,
+                    cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+                return false;
+            }
+
+            if (addonChange.Action == SubscriptionAddonChangeAction.Activate &&
+                string.Equals(currentSubscription.PlanCode, ProvisioningConstants.FreePlanCode, StringComparison.Ordinal))
+            {
+                await RejectAddonChangeAsync(
+                    addonChange,
+                    company,
+                    "The company switched to the FREE plan before the scheduled add-on change could be applied.",
                     utcNow,
                     cancellationToken);
                 await transaction.CommitAsync(cancellationToken);

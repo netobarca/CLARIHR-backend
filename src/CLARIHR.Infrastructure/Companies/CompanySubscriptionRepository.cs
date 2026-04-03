@@ -712,6 +712,17 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
                 companyAddon => companyAddon.CompanyId == companyId && companyAddon.CommercialAddonId == commercialAddonId,
                 cancellationToken);
 
+    public async Task<IReadOnlyCollection<CompanyCommercialAddon>> GetNonInactiveCompanyAddonsByCompanyIdAsync(
+        long companyId,
+        CancellationToken cancellationToken) =>
+        await dbContext.CompanyCommercialAddons
+            .Where(companyAddon =>
+                companyAddon.CompanyId == companyId &&
+                companyAddon.Status != CompanyAddonStatus.Inactive)
+            .OrderBy(companyAddon => companyAddon.AddonName)
+            .ThenBy(companyAddon => companyAddon.AddonCode)
+            .ToListAsync(cancellationToken);
+
     public Task<CompanyCommercialAddonChange?> GetAddonChangeByPublicIdAsync(Guid addonChangePublicId, CancellationToken cancellationToken) =>
         dbContext.CompanyCommercialAddonChanges
             .SingleOrDefaultAsync(change => change.PublicId == addonChangePublicId, cancellationToken);
@@ -738,6 +749,17 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
                     change.CommercialAddonId == commercialAddonId &&
                     change.Status == SubscriptionAddonChangeStatus.Scheduled,
                 cancellationToken);
+
+    public async Task<IReadOnlyCollection<CompanyCommercialAddonChange>> GetScheduledAddonChangesByCompanyIdAsync(
+        long companyId,
+        CancellationToken cancellationToken) =>
+        await dbContext.CompanyCommercialAddonChanges
+            .Where(change =>
+                change.CompanyId == companyId &&
+                change.Status == SubscriptionAddonChangeStatus.Scheduled)
+            .OrderBy(change => change.EffectiveDateUtc)
+            .ThenBy(change => change.RequestedAtUtc)
+            .ToListAsync(cancellationToken);
 
     public async Task<PlatformCompanySubscriptionResponse?> GetResponseByPublicIdAsync(
         Guid companyPublicId,

@@ -25,8 +25,70 @@ public sealed record CommercialPlanSummaryResponse(
     string CurrencyCode,
     CommercialPlanStatus Status,
     bool IsSystemPlan,
+    int ModuleCount,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc)
+{
+    public CommercialPlanSummaryResponse(
+        Guid Id,
+        string Code,
+        string Name,
+        string? Description,
+        decimal BaseMonthlyFee,
+        decimal PricePerActiveEmployee,
+        int CurrentVersionNumber,
+        string CurrencyCode,
+        CommercialPlanStatus Status,
+        bool IsSystemPlan,
+        int ModuleCount,
+        DateTime CreatedAtUtc)
+        : this(
+            Id,
+            Code,
+            Name,
+            Description,
+            BaseMonthlyFee,
+            PricePerActiveEmployee,
+            CurrentVersionNumber,
+            CurrencyCode,
+            Status,
+            IsSystemPlan,
+            ModuleCount,
+            CreatedAtUtc,
+            ModifiedAtUtc: null)
+    {
+    }
+
+    public CommercialPlanSummaryResponse(
+        Guid Id,
+        string Code,
+        string Name,
+        string? Description,
+        decimal BaseMonthlyFee,
+        decimal PricePerActiveEmployee,
+        int CurrentVersionNumber,
+        string CurrencyCode,
+        CommercialPlanStatus Status,
+        bool IsSystemPlan,
+        DateTime CreatedAtUtc,
+        DateTime? ModifiedAtUtc)
+        : this(
+            Id,
+            Code,
+            Name,
+            Description,
+            BaseMonthlyFee,
+            PricePerActiveEmployee,
+            CurrentVersionNumber,
+            CurrencyCode,
+            Status,
+            IsSystemPlan,
+            ModuleCount: 0,
+            CreatedAtUtc,
+            ModifiedAtUtc)
+    {
+    }
+}
 
 public sealed record CommercialPlanResponse(
     Guid Id,
@@ -39,9 +101,11 @@ public sealed record CommercialPlanResponse(
     string CurrencyCode,
     CommercialPlanStatus Status,
     bool IsSystemPlan,
+    int ModuleCount,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
+    IReadOnlyCollection<string> ModuleKeys,
     IReadOnlyCollection<CommercialPlanLimitResponse> Limits);
 
 public sealed record SearchCommercialPlansQuery(
@@ -61,8 +125,30 @@ public sealed record CreateCommercialPlanCommand(
     decimal BaseMonthlyFee,
     decimal PricePerActiveEmployee,
     CommercialPlanStatus Status,
+    IReadOnlyCollection<string> ModuleKeys,
     IReadOnlyCollection<CommercialPlanLimitInput> Limits)
-    : ICommand<CommercialPlanResponse>;
+    : ICommand<CommercialPlanResponse>
+{
+    public CreateCommercialPlanCommand(
+        string Code,
+        string Name,
+        string? Description,
+        decimal BaseMonthlyFee,
+        decimal PricePerActiveEmployee,
+        CommercialPlanStatus Status,
+        IReadOnlyCollection<CommercialPlanLimitInput> Limits)
+        : this(
+            Code,
+            Name,
+            Description,
+            BaseMonthlyFee,
+            PricePerActiveEmployee,
+            Status,
+            Array.Empty<string>(),
+            Limits)
+    {
+    }
+}
 
 public sealed record UpdateCommercialPlanCommand(
     Guid CommercialPlanId,
@@ -71,9 +157,33 @@ public sealed record UpdateCommercialPlanCommand(
     string? Description,
     decimal BaseMonthlyFee,
     decimal PricePerActiveEmployee,
+    IReadOnlyCollection<string> ModuleKeys,
     IReadOnlyCollection<CommercialPlanLimitInput> Limits,
     Guid ConcurrencyToken)
-    : ICommand<CommercialPlanResponse>;
+    : ICommand<CommercialPlanResponse>
+{
+    public UpdateCommercialPlanCommand(
+        Guid CommercialPlanId,
+        string Code,
+        string Name,
+        string? Description,
+        decimal BaseMonthlyFee,
+        decimal PricePerActiveEmployee,
+        IReadOnlyCollection<CommercialPlanLimitInput> Limits,
+        Guid ConcurrencyToken)
+        : this(
+            CommercialPlanId,
+            Code,
+            Name,
+            Description,
+            BaseMonthlyFee,
+            PricePerActiveEmployee,
+            Array.Empty<string>(),
+            Limits,
+            ConcurrencyToken)
+    {
+    }
+}
 
 public sealed record ActivateCommercialPlanCommand(Guid CommercialPlanId, Guid ConcurrencyToken)
     : ICommand<CommercialPlanResponse>;
@@ -143,6 +253,13 @@ internal sealed class CreateCommercialPlanCommandValidator : AbstractValidator<C
         RuleFor(command => command.PricePerActiveEmployee)
             .Must(CommercialPlanValidationRules.HasSupportedScale)
             .WithMessage("Price per active employee cannot exceed 2 decimal places.");
+        RuleFor(command => command.ModuleKeys).NotNull();
+        RuleForEach(command => command.ModuleKeys)
+            .Must(CommercialModuleCatalog.IsKnown)
+            .WithMessage("Unknown commercial module key.");
+        RuleFor(command => command.ModuleKeys)
+            .Must(HaveDistinctModuleKeys)
+            .WithMessage("Commercial plan module keys cannot contain duplicates.");
         RuleFor(command => command.Limits).NotNull();
         RuleForEach(command => command.Limits).SetValidator(new CommercialPlanLimitInputValidator());
         RuleFor(command => command.Limits)
@@ -155,6 +272,12 @@ internal sealed class CreateCommercialPlanCommandValidator : AbstractValidator<C
             .Select(limit => limit.Code.Trim().ToUpperInvariant())
             .Distinct(StringComparer.Ordinal)
             .Count() == limits.Count;
+
+    private static bool HaveDistinctModuleKeys(IReadOnlyCollection<string> moduleKeys) =>
+        moduleKeys
+            .Select(static moduleKey => moduleKey.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .Count() == moduleKeys.Count;
 }
 
 internal sealed class UpdateCommercialPlanCommandValidator : AbstractValidator<UpdateCommercialPlanCommand>
@@ -177,6 +300,17 @@ internal sealed class UpdateCommercialPlanCommandValidator : AbstractValidator<U
         RuleFor(command => command.PricePerActiveEmployee)
             .Must(CommercialPlanValidationRules.HasSupportedScale)
             .WithMessage("Price per active employee cannot exceed 2 decimal places.");
+        RuleFor(command => command.ModuleKeys).NotNull();
+        RuleForEach(command => command.ModuleKeys)
+            .Must(CommercialModuleCatalog.IsKnown)
+            .WithMessage("Unknown commercial module key.");
+        RuleFor(command => command.ModuleKeys)
+            .Must(static moduleKeys =>
+                moduleKeys
+                    .Select(static moduleKey => moduleKey.Trim().ToUpperInvariant())
+                    .Distinct(StringComparer.Ordinal)
+                    .Count() == moduleKeys.Count)
+            .WithMessage("Commercial plan module keys cannot contain duplicates.");
         RuleFor(command => command.Limits).NotNull();
         RuleForEach(command => command.Limits).SetValidator(new CommercialPlanLimitInputValidator());
         RuleFor(command => command.Limits)

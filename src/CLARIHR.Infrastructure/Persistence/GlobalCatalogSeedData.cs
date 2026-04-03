@@ -56,7 +56,7 @@ internal static class GlobalCatalogSeedData
         ];
 
     public static IEnumerable<object> GetPlanEntitlements() =>
-        ProvisioningConstants.FreePlanEnabledModules.Select(static (moduleKey, index) => new
+        CommercialModuleCatalog.DefaultFreeModuleKeys.Select(static (moduleKey, index) => new
         {
             Id = -1000L - index,
             PublicId = CreateSeedPublicId("PLAN_ENTITLEMENT", moduleKey),

@@ -88,6 +88,14 @@ internal sealed class CommercialPlanConfiguration : IEntityTypeConfiguration<Com
 
         builder.Navigation(plan => plan.Limits).UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        builder.HasMany(plan => plan.Entitlements)
+            .WithOne()
+            .HasForeignKey(entitlement => entitlement.CommercialPlanId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_plan_entitlements__commercial_plans");
+
+        builder.Navigation(plan => plan.Entitlements).UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasMany(plan => plan.Versions)
             .WithOne()
             .HasForeignKey(version => version.CommercialPlanId)

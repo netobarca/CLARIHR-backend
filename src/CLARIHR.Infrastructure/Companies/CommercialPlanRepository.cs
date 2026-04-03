@@ -11,14 +11,27 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
 {
     public void Add(CommercialPlan plan) => dbContext.CommercialPlans.Add(plan);
 
+    public async Task<IReadOnlyCollection<CommercialPlan>> ListActiveAsync(CancellationToken cancellationToken) =>
+        await dbContext.CommercialPlans
+            .AsNoTracking()
+            .Include(plan => plan.Entitlements)
+            .Include(plan => plan.Limits)
+            .Include(plan => plan.Versions)
+            .Where(plan => plan.Status == CommercialPlanStatus.Active)
+            .OrderBy(plan => plan.Name)
+            .ThenBy(plan => plan.Code)
+            .ToListAsync(cancellationToken);
+
     public Task<CommercialPlan?> GetByInternalIdAsync(long commercialPlanId, CancellationToken cancellationToken) =>
         dbContext.CommercialPlans
+            .Include(plan => plan.Entitlements)
             .Include(plan => plan.Limits)
             .Include(plan => plan.Versions)
             .SingleOrDefaultAsync(plan => plan.Id == commercialPlanId, cancellationToken);
 
     public Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken) =>
         dbContext.CommercialPlans
+            .Include(plan => plan.Entitlements)
             .Include(plan => plan.Limits)
             .Include(plan => plan.Versions)
             .SingleOrDefaultAsync(plan => plan.PublicId == commercialPlanId, cancellationToken);
@@ -41,6 +54,7 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
 
     public Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken) =>
         dbContext.CommercialPlans
+            .Include(plan => plan.Entitlements)
             .Include(plan => plan.Limits)
             .Include(plan => plan.Versions)
             .SingleOrDefaultAsync(plan => plan.NormalizedCode == normalizedCode, cancellationToken);
@@ -103,6 +117,7 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
                     .FirstOrDefault() ?? "USD",
                 plan.Status,
                 plan.IsSystemPlan,
+                plan.Entitlements.Count(entitlement => entitlement.IsEnabled),
                 plan.CreatedUtc,
                 plan.ModifiedUtc))
             .ToListAsync(cancellationToken);

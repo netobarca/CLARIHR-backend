@@ -48,7 +48,7 @@ public sealed class CompanySubscriptionPlanChange : AuditableEntity
             throw new ArgumentOutOfRangeException(nameof(companySubscriptionId), "Company subscription id must be greater than zero.");
         }
 
-        if (targetCommercialPlanId <= 0 || targetCommercialPlanVersionId <= 0)
+        if (targetCommercialPlanId == 0 || targetCommercialPlanVersionId == 0)
         {
             throw new ArgumentOutOfRangeException(nameof(targetCommercialPlanId), "Target plan identifiers must be persisted non-zero identifiers.");
         }
