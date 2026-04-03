@@ -74,7 +74,9 @@ Despues del `switch`, el `access token` devuelto incluye contexto tenant y habil
 | System | `SystemController` | `/api/system/status` | salud y estado de runtime |
 | Auth | `AuthController` | `/api/auth/*` | registro, auth externa, login, refresh y logout |
 | Account companies | `AccountCompaniesController` | `/api/account/companies*` | crear, listar, archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
+| Account company subscriptions | `AccountCompanySubscriptionsController` | `/api/account/companies/{publicId}/subscription*` | consultar y administrar como owner el plan activo, marketplace de add-ons y modulos efectivos de la compania |
 | Platform auth | `PlatformAuthController` | `/api/platform/auth*` | login, refresh y logout de operadores del backoffice global |
+| Platform commercial modules | `CommercialModulesController` | `/api/platform/commercial-modules` | exponer el catalogo canonico de modulos comerciales asignables a planes y add-ons |
 | Platform commercial addons | `CommercialAddonsController` | `/api/platform/commercial-addons*` | administrar el catalogo comercial global de add-ons reutilizables con pricing masivo o especializado |
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables |
 | Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar, cambiar plan, administrar add-ons y listar suscripciones empresariales globales |
@@ -120,6 +122,7 @@ Comportamiento observable:
 - `POST /api/platform/auth/login`
 - `GET /api/platform/commercial-addons`
 - `GET /api/platform/commercial-plans`
+- `GET /api/platform/commercial-modules`
 - `POST /api/platform/companies/{companyPublicId}/subscription/preview`
 - `PUT /api/platform/companies/{companyPublicId}/subscription`
 - `POST /api/platform/companies/{companyPublicId}/subscription/plan-changes/preview`
@@ -141,16 +144,18 @@ Comportamiento observable:
 - solo usuarios ligados a un `PlatformOperator` activo pueden entrar al backoffice global
 - `ReadOnly` puede consultar add-ons, planes, overview, historial e historial de estados; `Admin` puede mutar catalogos, reemplazar suscripciones y cambiar estados manualmente
 - el catalogo de add-ons globales se administra solo desde `/api/platform/commercial-addons`; la Core API no expone este recurso
-- cada plan define `fee` mensual base, precio por empleado activo, estado y limites configurables
-- cada add-on define `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity` y `status`, con reglas distintas para `Massive` y `Specialized`
-- `FREE` existe sembrado como plan de sistema para el provisioning actual y no puede renombrarse ni inactivarse
+- `/api/platform/commercial-modules` expone el catalogo canonico de modulos comerciales que la plataforma puede asignar a planes y add-ons; no acepta claves arbitrarias
+- cada plan define `fee` mensual base, precio por empleado activo, estado, limites configurables y `moduleKeys`; `FREE` sigue siendo plan de sistema, pero sus modulos ya no son fijos
+- cada add-on define `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity`, `status` y `moduleKeys`, con reglas distintas para `Massive` y `Specialized`
+- `FREE` existe sembrado como plan de sistema para el provisioning actual, no puede renombrarse ni inactivarse, y cualquier empresa nueva sigue provisionandose contra ese plan
 - la vista previa y la activacion aceptan `expiresAtUtc` opcional y resuelven un estado inicial `Active` o `Scheduled` segun la fecha de inicio
 - los cambios de plan usan el patron `preview + create + history + cancel`; calculan `Immediate`, `SpecificDate` o `NextBillingCycle`, conservan snapshot del plan actual y objetivo, y el processor aplica automaticamente los cambios vencidos
 - los add-ons por empresa usan el mismo patron `preview + create + history + cancel`, distinguen estado actual por empresa de estado del catalogo y admiten activacion o desactivacion con fecha inmediata, especifica o siguiente ciclo de billing
+- la activacion de add-ons queda bloqueada cuando la compania esta en `FREE`; el preview devuelve inelegibilidad y la activacion responde conflicto
 - el ciclo de vida visible de la suscripcion incluye `Draft`, `Scheduled`, `Trial`, `Active`, `Suspended`, `Expired` y `Cancelled`
 - las respuestas de overview, historial y listado global ahora exponen `statusChangedAtUtc`, `currentStatusReasonCode`, `currentStatusOrigin`, `canOperate` y `canGenerateCharges`; la respuesta detallada tambien devuelve `currentStatusObservations`
 - cada cambio de estado manual o automatico deja historial con estado anterior, nuevo estado, fecha, motivo, observaciones y actor u origen del sistema
-- la administracion de add-ons es comercial-only en V1: no altera todavia `PlanEntitlement`, gating operativo, asignacion de seats, volumen, pagos ni facturacion
+- la administracion de add-ons es comercial-only en V1: no altera todavia seats operativos, volumen contratado, pagos ni facturacion, pero si alimenta el gating operativo mediante los modulos efectivos por empresa
 - reemplazar una suscripcion empresarial cierra la fila viva previa cuando corresponde, crea una nueva fila historica con snapshot de precios y mantiene trazabilidad completa de transiciones
 
 ### 4.4 Locations y organizacion
@@ -925,6 +930,87 @@ Contratos principales:
 - Response: `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `COMPANY_TYPE_NOT_FOUND`.
 - Observaciones: no cambia pais, plan ni representantes legales; solo metadata basica. Si se envia `companyTypePublicId`, debe pertenecer al catalogo global activo del pais ya asociado a la compania.
+
+#### 5.3.6 `AccountCompanySubscriptionsController`
+
+Base route: `/api/account/companies/{publicId}/subscription`
+
+Contratos principales:
+
+- `AccountCompanySubscriptionOverviewResponse`: `companyPublicId`, `companyName`, `companySlug`, `planCode`, `currentPlan`, `activeAddons`, `effectiveModules`
+- `AccountCompanySubscriptionPlanResponse`: `commercialPlanPublicId`, `code`, `normalizedCode`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `currentVersionNumber`, `currencyCode`, `moduleCount`, `moduleKeys`, `isCurrent`
+- `AccountCompanySubscriptionAddonResponse`: `companyAddonPublicId`, `commercialAddonPublicId`, `code`, `normalizedCode`, `name`, `description`, `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity`, `status`, `moduleCount`, `moduleKeys`
+- `AccountCompanyEffectiveModuleResponse`: `moduleKey`, `displayName`, `description`, `source`, `grantedByPlan`, `grantedByAddon`
+- `AccountCompanySubscriptionPlanPreviewResponse`: `companyPublicId`, `currentPlan`, `targetPlan`, `addedModuleKeys`, `removedModuleKeys`, `addonDeactivationWarnings`, `isEligible`, `ineligibilityReasons`
+- `AccountCompanyMarketplaceAddonResponse`: `commercialAddonPublicId`, `code`, `normalizedCode`, `name`, `description`, `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity`, `moduleCount`, `moduleKeys`, `isOwned`, `canAcquire`, `blockedReason`
+- `AccountCompanyAddonChangePreviewResponse`: `companyPublicId`, `commercialAddonPublicId`, `addonCode`, `addonName`, `action`, `addedModuleKeys`, `removedModuleKeys`, `isEligible`, `ineligibilityReasons`, `warnings`
+
+##### `GET /api/account/companies/{publicId}/subscription`
+
+- Proposito: obtener la vista comercial efectiva de una compania owned por el usuario autenticado.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Response: `AccountCompanySubscriptionOverviewResponse`.
+- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`.
+- Observaciones: `effectiveModules` es la union viva entre modulos del plan activo y modulos de add-ons activos; `source` puede ser `plan`, `addon` o `plan+addon`.
+
+##### `GET /api/account/companies/{publicId}/subscription/plans`
+
+- Proposito: listar los planes comerciales activos visibles para el owner.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Response: `IReadOnlyCollection<AccountCompanySubscriptionPlanResponse>`.
+- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`.
+- Observaciones: incluye `FREE` para downgrade controlado y expone `moduleKeys` resueltos para UI.
+
+##### `POST /api/account/companies/{publicId}/subscription/preview`
+
+- Proposito: previsualizar un cambio inmediato de plan iniciado por el owner.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Request body: `commercialPlanPublicId`.
+- Response: `AccountCompanySubscriptionPlanPreviewResponse`.
+- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`.
+- Observaciones: devuelve diffs de modulos agregados/removidos y advierte si un downgrade a `FREE` desactivaria add-ons activos.
+
+##### `PUT /api/account/companies/{publicId}/subscription`
+
+- Proposito: aplicar de inmediato un cambio de plan iniciado por el owner.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Request body: `commercialPlanPublicId`, `observations`.
+- Response: `AccountCompanySubscriptionOverviewResponse`.
+- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_LEGAL_REPRESENTATIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_ADMINISTRATOR`.
+- Observaciones: un downgrade a `FREE` desactiva en la misma transaccion todos los add-ons activos de la empresa.
+
+##### `GET /api/account/companies/{publicId}/subscription/addons`
+
+- Proposito: listar los add-ons activos que el owner ya tiene adquiridos para su compania.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Response: `IReadOnlyCollection<AccountCompanySubscriptionAddonResponse>`.
+- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`.
+
+##### `GET /api/account/companies/{publicId}/subscription/addons/marketplace`
+
+- Proposito: listar el marketplace de add-ons disponible para la compania del owner.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Response: `IReadOnlyCollection<AccountCompanyMarketplaceAddonResponse>`.
+- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`.
+- Observaciones: cuando el plan activo es `FREE`, `canAcquire=false` y `blockedReason` explica el bloqueo comercial.
+
+##### `POST /api/account/companies/{publicId}/subscription/addons/preview`
+
+- Proposito: previsualizar la activacion o desactivacion inmediata de un add-on desde el marketplace owner.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Request body: `commercialAddonPublicId`, `action`.
+- Response: `AccountCompanyAddonChangePreviewResponse`.
+- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_FORBIDDEN_FOR_FREE_PLAN`.
+- Observaciones: expone diffs de modulos y las razones de inelegibilidad antes de aplicar el cambio.
+
+##### `POST /api/account/companies/{publicId}/subscription/addons`
+
+- Proposito: aplicar de inmediato una activacion o desactivacion de add-on iniciada por el owner.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Request body: `commercialAddonPublicId`, `action`, `observations`.
+- Response: `AccountCompanySubscriptionOverviewResponse`.
+- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_FORBIDDEN_FOR_FREE_PLAN`.
+- Observaciones: si la activacion procede, los modulos del add-on aparecen inmediatamente dentro de `effectiveModules`.
 
 ##### `PATCH /api/account/companies/{companyPublicId}/archive`
 

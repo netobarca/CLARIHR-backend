@@ -133,6 +133,11 @@ public interface ICompanySubscriptionRepository
         long commercialAddonId,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<CompanyCommercialAddon>> GetNonInactiveCompanyAddonsByCompanyIdAsync(
+        long companyId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<CompanyCommercialAddon>>(Array.Empty<CompanyCommercialAddon>());
+
     Task<CompanyCommercialAddonChange?> GetAddonChangeByPublicIdAsync(Guid addonChangePublicId, CancellationToken cancellationToken);
 
     Task<CompanyCommercialAddonChange?> GetAddonChangeByCompanyAndPublicIdAsync(
@@ -144,6 +149,11 @@ public interface ICompanySubscriptionRepository
         long companyId,
         long commercialAddonId,
         CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<CompanyCommercialAddonChange>> GetScheduledAddonChangesByCompanyIdAsync(
+        long companyId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<CompanyCommercialAddonChange>>(Array.Empty<CompanyCommercialAddonChange>());
 
     Task<PlatformCompanySubscriptionResponse?> GetResponseByPublicIdAsync(
         Guid companyPublicId,

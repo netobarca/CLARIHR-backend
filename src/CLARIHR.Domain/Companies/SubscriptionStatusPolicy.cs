@@ -21,6 +21,7 @@ public static class SubscriptionStatusPolicy
         origin switch
         {
             SubscriptionStatusChangeOrigin.PlatformOperator => CanTransitionManually(fromStatus, toStatus),
+            SubscriptionStatusChangeOrigin.CompanyOwner => CanTransitionManually(fromStatus, toStatus),
             SubscriptionStatusChangeOrigin.SystemProcess => CanTransitionAutomatically(fromStatus, toStatus),
             _ => false
         };
@@ -35,10 +36,15 @@ public static class SubscriptionStatusPolicy
             (null, SubscriptionStatus.Active, SubscriptionStatusChangeOrigin.PlatformOperator) =>
                 reasonCode is SubscriptionStatusChangeReasonCode.ManualActivation
                     or SubscriptionStatusChangeReasonCode.PlanChangeApplied,
+            (null, SubscriptionStatus.Active, SubscriptionStatusChangeOrigin.CompanyOwner) =>
+                reasonCode is SubscriptionStatusChangeReasonCode.ManualActivation
+                    or SubscriptionStatusChangeReasonCode.PlanChangeApplied,
             (null, SubscriptionStatus.Active, SubscriptionStatusChangeOrigin.SystemProcess) =>
                 reasonCode is SubscriptionStatusChangeReasonCode.InitialAssignment
                     or SubscriptionStatusChangeReasonCode.PlanChangeApplied,
             (null, SubscriptionStatus.Scheduled, SubscriptionStatusChangeOrigin.PlatformOperator) =>
+                reasonCode == SubscriptionStatusChangeReasonCode.ActivationScheduled,
+            (null, SubscriptionStatus.Scheduled, SubscriptionStatusChangeOrigin.CompanyOwner) =>
                 reasonCode == SubscriptionStatusChangeReasonCode.ActivationScheduled,
             (null, SubscriptionStatus.Scheduled, SubscriptionStatusChangeOrigin.SystemProcess) =>
                 reasonCode == SubscriptionStatusChangeReasonCode.InitialAssignment,
@@ -48,13 +54,21 @@ public static class SubscriptionStatusPolicy
                 reasonCode == SubscriptionStatusChangeReasonCode.ExpirationReached,
             (SubscriptionStatus.Active, SubscriptionStatus.Suspended, SubscriptionStatusChangeOrigin.PlatformOperator) =>
                 reasonCode is SubscriptionStatusChangeReasonCode.ManualSuspension or SubscriptionStatusChangeReasonCode.PaymentDelinquency,
+            (SubscriptionStatus.Active, SubscriptionStatus.Suspended, SubscriptionStatusChangeOrigin.CompanyOwner) =>
+                reasonCode is SubscriptionStatusChangeReasonCode.ManualSuspension or SubscriptionStatusChangeReasonCode.PaymentDelinquency,
             (SubscriptionStatus.Suspended, SubscriptionStatus.Active, SubscriptionStatusChangeOrigin.PlatformOperator) =>
+                reasonCode == SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
+            (SubscriptionStatus.Suspended, SubscriptionStatus.Active, SubscriptionStatusChangeOrigin.CompanyOwner) =>
                 reasonCode == SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
             (SubscriptionStatus.Suspended, SubscriptionStatus.Active, SubscriptionStatusChangeOrigin.SystemProcess) =>
                 reasonCode == SubscriptionStatusChangeReasonCode.AuthorizedReactivation,
             (_, SubscriptionStatus.Cancelled, SubscriptionStatusChangeOrigin.SystemProcess) =>
                 reasonCode == SubscriptionStatusChangeReasonCode.SubscriptionReplacement,
             (_, SubscriptionStatus.Cancelled, SubscriptionStatusChangeOrigin.PlatformOperator) =>
+                reasonCode is SubscriptionStatusChangeReasonCode.CustomerRequest
+                    or SubscriptionStatusChangeReasonCode.CommercialCancellation
+                    or SubscriptionStatusChangeReasonCode.SubscriptionReplacement,
+            (_, SubscriptionStatus.Cancelled, SubscriptionStatusChangeOrigin.CompanyOwner) =>
                 reasonCode is SubscriptionStatusChangeReasonCode.CustomerRequest
                     or SubscriptionStatusChangeReasonCode.CommercialCancellation
                     or SubscriptionStatusChangeReasonCode.SubscriptionReplacement,

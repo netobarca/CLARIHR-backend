@@ -334,6 +334,377 @@ components:
           allOf:
             - $ref: '#/components/schemas/CompanyTypeMetadataResponse'
           nullable: true
+    AccountCompanyEffectiveModuleResponse:
+      type: object
+      required:
+        - moduleKey
+        - displayName
+        - description
+        - source
+        - grantedByPlan
+        - grantedByAddon
+      properties:
+        moduleKey:
+          type: string
+          example: JOB_PROFILES
+        displayName:
+          type: string
+          example: Job Profiles
+        description:
+          type: string
+        source:
+          type: string
+          example: plan+addon
+        grantedByPlan:
+          type: boolean
+        grantedByAddon:
+          type: boolean
+    AccountCompanySubscriptionPlanResponse:
+      type: object
+      required:
+        - commercialPlanPublicId
+        - code
+        - normalizedCode
+        - name
+        - baseMonthlyFee
+        - pricePerActiveEmployee
+        - currentVersionNumber
+        - currencyCode
+        - moduleCount
+        - moduleKeys
+        - isCurrent
+      properties:
+        commercialPlanPublicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: FREE
+        normalizedCode:
+          type: string
+          example: FREE
+        name:
+          type: string
+          example: Free
+        description:
+          type: string
+          nullable: true
+        baseMonthlyFee:
+          type: number
+          format: decimal
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+        currentVersionNumber:
+          type: integer
+          format: int32
+        currencyCode:
+          type: string
+          example: USD
+        moduleCount:
+          type: integer
+          format: int32
+        moduleKeys:
+          type: array
+          items:
+            type: string
+        isCurrent:
+          type: boolean
+    AccountCompanySubscriptionAddonResponse:
+      type: object
+      required:
+        - companyAddonPublicId
+        - commercialAddonPublicId
+        - code
+        - normalizedCode
+        - name
+        - type
+        - billingModel
+        - measurementUnit
+        - unitPrice
+        - periodicity
+        - status
+        - moduleCount
+        - moduleKeys
+      properties:
+        companyAddonPublicId:
+          type: string
+          format: uuid
+        commercialAddonPublicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        normalizedCode:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        type:
+          $ref: '#/components/schemas/CommercialAddonType'
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+        unitPrice:
+          type: number
+          format: decimal
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        status:
+          $ref: '#/components/schemas/CompanyAddonStatus'
+        moduleCount:
+          type: integer
+          format: int32
+        moduleKeys:
+          type: array
+          items:
+            type: string
+    AccountCompanySubscriptionOverviewResponse:
+      type: object
+      required:
+        - companyPublicId
+        - companyName
+        - companySlug
+        - planCode
+        - currentPlan
+        - activeAddons
+        - effectiveModules
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        companySlug:
+          type: string
+        planCode:
+          type: string
+          example: FREE
+        currentPlan:
+          $ref: '#/components/schemas/AccountCompanySubscriptionPlanResponse'
+        activeAddons:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountCompanySubscriptionAddonResponse'
+        effectiveModules:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountCompanyEffectiveModuleResponse'
+    AccountCompanySubscriptionPlanPreviewResponse:
+      type: object
+      required:
+        - companyPublicId
+        - currentPlan
+        - targetPlan
+        - addedModuleKeys
+        - removedModuleKeys
+        - addonDeactivationWarnings
+        - isEligible
+        - ineligibilityReasons
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        currentPlan:
+          $ref: '#/components/schemas/AccountCompanySubscriptionPlanResponse'
+        targetPlan:
+          $ref: '#/components/schemas/AccountCompanySubscriptionPlanResponse'
+        addedModuleKeys:
+          type: array
+          items:
+            type: string
+        removedModuleKeys:
+          type: array
+          items:
+            type: string
+        addonDeactivationWarnings:
+          type: array
+          items:
+            type: string
+        isEligible:
+          type: boolean
+        ineligibilityReasons:
+          type: array
+          items:
+            type: string
+    AccountCompanyMarketplaceAddonResponse:
+      type: object
+      required:
+        - commercialAddonPublicId
+        - code
+        - normalizedCode
+        - name
+        - type
+        - billingModel
+        - measurementUnit
+        - unitPrice
+        - periodicity
+        - moduleCount
+        - moduleKeys
+        - isOwned
+        - canAcquire
+      properties:
+        commercialAddonPublicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        normalizedCode:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        type:
+          $ref: '#/components/schemas/CommercialAddonType'
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+        unitPrice:
+          type: number
+          format: decimal
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        moduleCount:
+          type: integer
+          format: int32
+        moduleKeys:
+          type: array
+          items:
+            type: string
+        isOwned:
+          type: boolean
+        canAcquire:
+          type: boolean
+        blockedReason:
+          type: string
+          nullable: true
+    AccountCompanyAddonChangePreviewResponse:
+      type: object
+      required:
+        - companyPublicId
+        - commercialAddonPublicId
+        - addonCode
+        - addonName
+        - action
+        - addedModuleKeys
+        - removedModuleKeys
+        - isEligible
+        - ineligibilityReasons
+        - warnings
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        commercialAddonPublicId:
+          type: string
+          format: uuid
+        addonCode:
+          type: string
+        addonName:
+          type: string
+        action:
+          $ref: '#/components/schemas/SubscriptionAddonChangeAction'
+        addedModuleKeys:
+          type: array
+          items:
+            type: string
+        removedModuleKeys:
+          type: array
+          items:
+            type: string
+        isEligible:
+          type: boolean
+        ineligibilityReasons:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+    PreviewOwnedCompanySubscriptionRequest:
+      type: object
+      required:
+        - commercialPlanPublicId
+      properties:
+        commercialPlanPublicId:
+          type: string
+          format: uuid
+    ChangeOwnedCompanySubscriptionRequest:
+      type: object
+      required:
+        - commercialPlanPublicId
+      properties:
+        commercialPlanPublicId:
+          type: string
+          format: uuid
+        observations:
+          type: string
+          nullable: true
+          maxLength: 2000
+    PreviewOwnedCompanyAddonRequest:
+      type: object
+      required:
+        - commercialAddonPublicId
+        - action
+      properties:
+        commercialAddonPublicId:
+          type: string
+          format: uuid
+        action:
+          $ref: '#/components/schemas/SubscriptionAddonChangeAction'
+    ChangeOwnedCompanyAddonRequest:
+      type: object
+      required:
+        - commercialAddonPublicId
+        - action
+      properties:
+        commercialAddonPublicId:
+          type: string
+          format: uuid
+        action:
+          $ref: '#/components/schemas/SubscriptionAddonChangeAction'
+        observations:
+          type: string
+          nullable: true
+          maxLength: 2000
+    CommercialModuleResponse:
+      type: object
+      required:
+        - key
+        - displayName
+        - description
+      properties:
+        key:
+          type: string
+          example: JOB_PROFILES
+        displayName:
+          type: string
+          example: Job Profiles
+        description:
+          type: string
     CreateAccountCompanyRequest:
       type: object
       required:
@@ -494,6 +865,7 @@ components:
         - unitPrice
         - periodicity
         - status
+        - moduleCount
         - createdAtUtc
       properties:
         publicId:
@@ -533,6 +905,9 @@ components:
           $ref: '#/components/schemas/CommercialAddonPeriodicity'
         status:
           $ref: '#/components/schemas/CommercialAddonStatus'
+        moduleCount:
+          type: integer
+          format: int32
         createdAtUtc:
           type: string
           format: date-time
@@ -552,6 +927,8 @@ components:
         - unitPrice
         - periodicity
         - status
+        - moduleCount
+        - moduleKeys
         - concurrencyToken
         - createdAtUtc
       properties:
@@ -592,6 +969,13 @@ components:
           $ref: '#/components/schemas/CommercialAddonPeriodicity'
         status:
           $ref: '#/components/schemas/CommercialAddonStatus'
+        moduleCount:
+          type: integer
+          format: int32
+        moduleKeys:
+          type: array
+          items:
+            type: string
         concurrencyToken:
           type: string
           format: uuid
@@ -611,6 +995,7 @@ components:
         - billingModel
         - measurementUnit
         - unitPrice
+        - moduleKeys
         - periodicity
         - status
       properties:
@@ -648,6 +1033,10 @@ components:
           format: decimal
           nullable: true
           example: 35.00
+        moduleKeys:
+          type: array
+          items:
+            type: string
         periodicity:
           $ref: '#/components/schemas/CommercialAddonPeriodicity'
         status:
@@ -661,6 +1050,7 @@ components:
         - billingModel
         - measurementUnit
         - unitPrice
+        - moduleKeys
         - periodicity
         - concurrencyToken
       properties:
@@ -696,6 +1086,10 @@ components:
           type: number
           format: decimal
           nullable: true
+        moduleKeys:
+          type: array
+          items:
+            type: string
         periodicity:
           $ref: '#/components/schemas/CommercialAddonPeriodicity'
         concurrencyToken:
@@ -773,8 +1167,11 @@ components:
         - name
         - baseMonthlyFee
         - pricePerActiveEmployee
+        - currentVersionNumber
+        - currencyCode
         - status
         - isSystemPlan
+        - moduleCount
         - createdAtUtc
       properties:
         publicId:
@@ -800,10 +1197,20 @@ components:
           type: number
           format: decimal
           example: 3.50
+        currentVersionNumber:
+          type: integer
+          format: int32
+          example: 1
+        currencyCode:
+          type: string
+          example: USD
         status:
           $ref: '#/components/schemas/CommercialPlanStatus'
         isSystemPlan:
           type: boolean
+        moduleCount:
+          type: integer
+          format: int32
         createdAtUtc:
           type: string
           format: date-time
@@ -820,8 +1227,12 @@ components:
         - name
         - baseMonthlyFee
         - pricePerActiveEmployee
+        - currentVersionNumber
+        - currencyCode
         - status
         - isSystemPlan
+        - moduleCount
+        - moduleKeys
         - concurrencyToken
         - createdAtUtc
         - limits
@@ -849,10 +1260,24 @@ components:
           type: number
           format: decimal
           example: 3.50
+        currentVersionNumber:
+          type: integer
+          format: int32
+          example: 1
+        currencyCode:
+          type: string
+          example: USD
         status:
           $ref: '#/components/schemas/CommercialPlanStatus'
         isSystemPlan:
           type: boolean
+        moduleCount:
+          type: integer
+          format: int32
+        moduleKeys:
+          type: array
+          items:
+            type: string
         concurrencyToken:
           type: string
           format: uuid
@@ -875,6 +1300,7 @@ components:
         - baseMonthlyFee
         - pricePerActiveEmployee
         - status
+        - moduleKeys
         - limits
       properties:
         code:
@@ -899,6 +1325,10 @@ components:
           example: 3.50
         status:
           $ref: '#/components/schemas/CommercialPlanStatus'
+        moduleKeys:
+          type: array
+          items:
+            type: string
         limits:
           type: array
           items:
@@ -910,6 +1340,7 @@ components:
         - name
         - baseMonthlyFee
         - pricePerActiveEmployee
+        - moduleKeys
         - limits
         - concurrencyToken
       properties:
@@ -933,6 +1364,10 @@ components:
           type: number
           format: decimal
           example: 4.00
+        moduleKeys:
+          type: array
+          items:
+            type: string
         limits:
           type: array
           items:
@@ -2466,6 +2901,402 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/{publicId}/subscription:
+    get:
+      tags:
+        - account-company-subscriptions
+      operationId: GetOwnedCompanySubscription
+      summary: Get the owner-facing commercial overview for a company
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Owner subscription overview returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCompanySubscriptionOverviewResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - account-company-subscriptions
+      operationId: ChangeOwnedCompanySubscription
+      summary: Apply an immediate owner-initiated plan change
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeOwnedCompanySubscriptionRequest'
+      responses:
+        '200':
+          description: Plan change applied and overview returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCompanySubscriptionOverviewResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or target plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as inactive target plan or missing eligibility.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/{publicId}/subscription/plans:
+    get:
+      tags:
+        - account-company-subscriptions
+      operationId: GetOwnedCompanySubscriptionPlans
+      summary: List active commercial plans visible to the owner
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Active plans returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccountCompanySubscriptionPlanResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/{publicId}/subscription/preview:
+    post:
+      tags:
+        - account-company-subscriptions
+      operationId: PreviewOwnedCompanySubscriptionPlanChange
+      summary: Preview an immediate owner-initiated plan change
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewOwnedCompanySubscriptionRequest'
+      responses:
+        '200':
+          description: Plan preview returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCompanySubscriptionPlanPreviewResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or target plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as inactive target plan or missing eligibility.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/{publicId}/subscription/addons:
+    get:
+      tags:
+        - account-company-subscriptions
+      operationId: GetOwnedCompanySubscriptionAddons
+      summary: List active owner-facing company add-ons
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Active add-ons returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccountCompanySubscriptionAddonResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - account-company-subscriptions
+      operationId: ApplyOwnedCompanyAddonChange
+      summary: Apply an immediate owner-initiated add-on change
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeOwnedCompanyAddonRequest'
+      responses:
+        '200':
+          description: Add-on change applied and overview returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCompanySubscriptionOverviewResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as FREE-plan add-on restriction or ineligible transition.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/{publicId}/subscription/addons/marketplace:
+    get:
+      tags:
+        - account-company-subscriptions
+      operationId: GetOwnedCompanySubscriptionMarketplace
+      summary: List marketplace add-ons visible to the owner
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Marketplace entries returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccountCompanyMarketplaceAddonResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/{publicId}/subscription/addons/preview:
+    post:
+      tags:
+        - account-company-subscriptions
+      operationId: PreviewOwnedCompanyAddonChange
+      summary: Preview an immediate owner-initiated add-on change
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewOwnedCompanyAddonRequest'
+      responses:
+        '200':
+          description: Add-on preview returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCompanyAddonChangePreviewResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as FREE-plan add-on restriction or ineligible transition.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/platform/auth/login:
     post:
       tags:
@@ -2682,6 +3513,35 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Business conflict such as duplicated add-on code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-modules:
+    get:
+      tags:
+        - commercial-modules
+      operationId: GetCommercialModules
+      summary: List the canonical commercial module catalog
+      security:
+        - Bearer: []
+      responses:
+        '200':
+          description: Commercial modules returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommercialModuleResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
           content:
             application/problem+json:
               schema:
@@ -4349,8 +5209,12 @@ tags:
     description: Authentication and session lifecycle.
   - name: account-companies
     description: Account-level company creation and tenant activation.
+  - name: account-company-subscriptions
+    description: Owner-facing company subscription, marketplace add-on and effective module management.
   - name: platform-auth
     description: Platform backoffice authentication and session lifecycle.
+  - name: commercial-modules
+    description: Canonical commercial module catalog exposed to the platform backoffice.
   - name: commercial-addons
     description: Global commercial add-on catalog administration from the platform backoffice.
   - name: commercial-plans

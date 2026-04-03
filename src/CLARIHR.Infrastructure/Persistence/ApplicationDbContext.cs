@@ -43,6 +43,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CommercialAddon> CommercialAddons => Set<CommercialAddon>();
 
+    public DbSet<CommercialAddonEntitlement> CommercialAddonEntitlements => Set<CommercialAddonEntitlement>();
+
     public DbSet<CommercialPlan> CommercialPlans => Set<CommercialPlan>();
 
     public DbSet<CommercialPlanVersion> CommercialPlanVersions => Set<CommercialPlanVersion>();

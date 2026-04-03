@@ -98,6 +98,7 @@ internal sealed class CreateCommercialAddonCommandHandler(
             command.UnitPrice,
             command.MinimumQuantity,
             command.MinimumMonthlyFee,
+            command.ModuleKeys,
             command.Periodicity,
             command.Status);
 
@@ -184,6 +185,7 @@ internal sealed class UpdateCommercialAddonCommandHandler(
                 command.UnitPrice,
                 command.MinimumQuantity,
                 command.MinimumMonthlyFee,
+                command.ModuleKeys,
                 command.Periodicity);
 
             var after = CommercialAddonMapper.Map(addon);
@@ -372,7 +374,13 @@ internal static class CommercialAddonMapper
             addon.MinimumMonthlyFee,
             addon.Periodicity,
             addon.Status,
+            addon.Entitlements.Count(entitlement => entitlement.IsEnabled),
             addon.ConcurrencyToken,
             addon.CreatedUtc,
-            addon.ModifiedUtc);
+            addon.ModifiedUtc,
+            addon.Entitlements
+                .Where(entitlement => entitlement.IsEnabled)
+                .OrderBy(entitlement => entitlement.ModuleKey, StringComparer.Ordinal)
+                .Select(entitlement => entitlement.ModuleKey)
+                .ToArray());
 }

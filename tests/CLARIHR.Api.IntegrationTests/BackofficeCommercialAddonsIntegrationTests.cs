@@ -102,6 +102,10 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
             unitPrice = 2.5m,
             minimumQuantity = (int?)null,
             minimumMonthlyFee = 35m,
+            moduleKeys = new[]
+            {
+                CommercialModuleKeys.Users
+            },
             periodicity = CommercialAddonPeriodicity.Monthly,
             status = CommercialAddonStatus.Draft
         });
@@ -132,6 +136,11 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
             unitPrice = 12.5m,
             minimumQuantity = 2,
             minimumMonthlyFee = (decimal?)null,
+            moduleKeys = new[]
+            {
+                CommercialModuleKeys.JobProfiles,
+                CommercialModuleKeys.PersonnelFiles
+            },
             periodicity = CommercialAddonPeriodicity.Monthly,
             status = CommercialAddonStatus.Draft
         });
@@ -148,6 +157,10 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
         Assert.Equal(2, created.MinimumQuantity);
         Assert.Null(created.MinimumMonthlyFee);
         Assert.Equal(CommercialAddonStatus.Draft, created.Status);
+        Assert.Equal(2, created.ModuleCount);
+        Assert.Equal(
+            [CommercialModuleKeys.JobProfiles, CommercialModuleKeys.PersonnelFiles],
+            created.ModuleKeys.OrderBy(static key => key).ToArray());
 
         var getResponse = await client.GetAsync($"/api/platform/commercial-addons/{created.PublicId}");
         getResponse.EnsureSuccessStatusCode();
@@ -155,6 +168,7 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
         var fetched = await getResponse.Content.ReadFromJsonAsync<CommercialAddonEnvelope>(JsonOptions);
         Assert.NotNull(fetched);
         Assert.Equal(created.PublicId, fetched!.PublicId);
+        Assert.Equal(created.ModuleKeys.OrderBy(static key => key), fetched.ModuleKeys.OrderBy(static key => key));
 
         var updateResponse = await client.PutJsonAsync($"/api/platform/commercial-addons/{created.PublicId}", new
         {
@@ -167,6 +181,10 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
             unitPrice = 1.5m,
             minimumQuantity = 10,
             minimumMonthlyFee = (decimal?)null,
+            moduleKeys = new[]
+            {
+                CommercialModuleKeys.PersonnelFiles
+            },
             periodicity = CommercialAddonPeriodicity.Annual,
             concurrencyToken = created.ConcurrencyToken
         });
@@ -180,6 +198,8 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
         Assert.Equal(10, updated.MinimumQuantity);
         Assert.Null(updated.MinimumMonthlyFee);
         Assert.Equal(CommercialAddonPeriodicity.Annual, updated.Periodicity);
+        Assert.Equal(1, updated.ModuleCount);
+        Assert.Equal([CommercialModuleKeys.PersonnelFiles], updated.ModuleKeys.ToArray());
 
         var activateResponse = await client.PatchAsJsonAsync(
             $"/api/platform/commercial-addons/{created.PublicId}/activate",
@@ -233,6 +253,7 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
         decimal? MinimumMonthlyFee,
         CommercialAddonPeriodicity Periodicity,
         CommercialAddonStatus Status,
+        int ModuleCount,
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc);
 
@@ -249,7 +270,9 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
         decimal? MinimumMonthlyFee,
         CommercialAddonPeriodicity Periodicity,
         CommercialAddonStatus Status,
+        int ModuleCount,
         Guid ConcurrencyToken,
         DateTime CreatedAtUtc,
-        DateTime? ModifiedAtUtc);
+        DateTime? ModifiedAtUtc,
+        IReadOnlyCollection<string> ModuleKeys);
 }

@@ -4,6 +4,7 @@ namespace CLARIHR.Domain.Companies;
 
 public sealed class CommercialPlan : AuditableEntity
 {
+    private readonly List<PlanEntitlement> _entitlements = [];
     private readonly List<CommercialPlanLimit> _limits = [];
     private readonly List<CommercialPlanVersion> _versions = [];
 
@@ -20,6 +21,7 @@ public sealed class CommercialPlan : AuditableEntity
         decimal pricePerActiveEmployee,
         CommercialPlanStatus status,
         bool isSystemPlan,
+        IEnumerable<string> moduleKeys,
         IEnumerable<(string LimitCode, decimal Value)> limits,
         DateTime initialVersionEffectiveFromUtc,
         string currencyCode)
@@ -37,6 +39,7 @@ public sealed class CommercialPlan : AuditableEntity
         PricePerActiveEmployee = NormalizeAmount(pricePerActiveEmployee, nameof(pricePerActiveEmployee));
         Status = status;
         IsSystemPlan = isSystemPlan;
+        ReplaceEntitlementsInternal(moduleKeys);
         ReplaceLimitsInternal(limits);
         AddVersionInternal(
             versionNumber: 1,
@@ -67,6 +70,8 @@ public sealed class CommercialPlan : AuditableEntity
 
     public Guid ConcurrencyToken { get; private set; }
 
+    public IReadOnlyCollection<PlanEntitlement> Entitlements => _entitlements.AsReadOnly();
+
     public IReadOnlyCollection<CommercialPlanLimit> Limits => _limits.AsReadOnly();
 
     public IReadOnlyCollection<CommercialPlanVersion> Versions => _versions.AsReadOnly();
@@ -79,6 +84,7 @@ public sealed class CommercialPlan : AuditableEntity
         decimal pricePerActiveEmployee,
         CommercialPlanStatus status,
         bool isSystemPlan,
+        IEnumerable<string> moduleKeys,
         IEnumerable<(string LimitCode, decimal Value)> limits,
         DateTime? initialVersionEffectiveFromUtc = null,
         string currencyCode = "USD") =>
@@ -91,8 +97,33 @@ public sealed class CommercialPlan : AuditableEntity
             pricePerActiveEmployee,
             status,
             isSystemPlan,
+            moduleKeys,
             limits,
             initialVersionEffectiveFromUtc ?? DateTime.UtcNow.Date,
+            currencyCode);
+
+    public static CommercialPlan Create(
+        string code,
+        string name,
+        string? description,
+        decimal baseMonthlyFee,
+        decimal pricePerActiveEmployee,
+        CommercialPlanStatus status,
+        bool isSystemPlan,
+        IEnumerable<(string LimitCode, decimal Value)> limits,
+        DateTime? initialVersionEffectiveFromUtc = null,
+        string currencyCode = "USD") =>
+        Create(
+            code,
+            name,
+            description,
+            baseMonthlyFee,
+            pricePerActiveEmployee,
+            status,
+            isSystemPlan,
+            Array.Empty<string>(),
+            limits,
+            initialVersionEffectiveFromUtc,
             currencyCode);
 
     public void Update(
@@ -101,6 +132,7 @@ public sealed class CommercialPlan : AuditableEntity
         string? description,
         decimal baseMonthlyFee,
         decimal pricePerActiveEmployee,
+        IEnumerable<string> moduleKeys,
         IEnumerable<(string LimitCode, decimal Value)> limits,
         DateTime? priceEffectiveFromUtc = null,
         string currencyCode = "USD")
@@ -117,9 +149,30 @@ public sealed class CommercialPlan : AuditableEntity
             currencyCode);
         BaseMonthlyFee = normalizedBaseMonthlyFee;
         PricePerActiveEmployee = normalizedPricePerActiveEmployee;
+        ReplaceEntitlementsInternal(moduleKeys);
         ReplaceLimitsInternal(limits);
         RefreshConcurrencyToken();
     }
+
+    public void Update(
+        string code,
+        string name,
+        string? description,
+        decimal baseMonthlyFee,
+        decimal pricePerActiveEmployee,
+        IEnumerable<(string LimitCode, decimal Value)> limits,
+        DateTime? priceEffectiveFromUtc = null,
+        string currencyCode = "USD") =>
+        Update(
+            code,
+            name,
+            description,
+            baseMonthlyFee,
+            pricePerActiveEmployee,
+            Array.Empty<string>(),
+            limits,
+            priceEffectiveFromUtc,
+            currencyCode);
 
     public void Activate()
     {
@@ -180,6 +233,34 @@ public sealed class CommercialPlan : AuditableEntity
         foreach (var limit in nextLimits.OrderBy(limit => limit.NormalizedLimitCode, StringComparer.Ordinal))
         {
             _limits.Add(limit);
+        }
+    }
+
+    private void ReplaceEntitlementsInternal(IEnumerable<string> moduleKeys)
+    {
+        if (moduleKeys is null)
+        {
+            throw new ArgumentNullException(nameof(moduleKeys));
+        }
+
+        var nextEntitlements = new List<PlanEntitlement>();
+        var normalizedKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var moduleKey in moduleKeys)
+        {
+            var normalizedKey = CommercialModuleCatalog.NormalizeKnownKey(moduleKey);
+            if (!normalizedKeys.Add(normalizedKey))
+            {
+                throw new InvalidOperationException($"Duplicate commercial plan module key '{normalizedKey}' is not allowed.");
+            }
+
+            nextEntitlements.Add(PlanEntitlement.Create(Code, normalizedKey));
+        }
+
+        _entitlements.Clear();
+        foreach (var entitlement in nextEntitlements.OrderBy(entitlement => entitlement.ModuleKey, StringComparer.Ordinal))
+        {
+            _entitlements.Add(entitlement);
         }
     }
 

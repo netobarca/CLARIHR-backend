@@ -95,6 +95,7 @@ internal sealed class CreateCommercialPlanCommandHandler(
             command.PricePerActiveEmployee,
             command.Status,
             isSystemPlan: false,
+            command.ModuleKeys,
             CommercialPlanMapper.ToLimitData(command.Limits),
             dateTimeProvider.UtcNow);
 
@@ -185,6 +186,7 @@ internal sealed class UpdateCommercialPlanCommandHandler(
                 command.Description,
                 command.BaseMonthlyFee,
                 command.PricePerActiveEmployee,
+                command.ModuleKeys,
                 CommercialPlanMapper.ToLimitData(command.Limits),
                 dateTimeProvider.UtcNow);
 
@@ -380,9 +382,15 @@ internal static class CommercialPlanMapper
             currentVersion.CurrencyCode,
             plan.Status,
             plan.IsSystemPlan,
+            plan.Entitlements.Count(entitlement => entitlement.IsEnabled),
             plan.ConcurrencyToken,
             plan.CreatedUtc,
             plan.ModifiedUtc,
+            plan.Entitlements
+                .Where(entitlement => entitlement.IsEnabled)
+                .OrderBy(entitlement => entitlement.ModuleKey, StringComparer.Ordinal)
+                .Select(entitlement => entitlement.ModuleKey)
+                .ToArray(),
             plan.Limits
                 .OrderBy(limit => limit.NormalizedLimitCode, StringComparer.Ordinal)
                 .Select(limit => new CommercialPlanLimitResponse(limit.LimitCode, limit.Value))

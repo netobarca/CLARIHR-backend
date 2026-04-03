@@ -9,6 +9,7 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Application.Features.PlatformSubscriptions.Common;
 using CLARIHR.Domain.Companies;
 
@@ -559,6 +560,13 @@ internal static class PlatformCompanyAddonChangeResolver
         {
             reasons.Add("La empresa debe estar activa para administrar add-ons.");
             errors.Add(PlatformSubscriptionErrors.CompanyNotEligible);
+        }
+
+        if (action == SubscriptionAddonChangeAction.Activate &&
+            string.Equals(currentSubscription.PlanCode, ProvisioningConstants.FreePlanCode, StringComparison.Ordinal))
+        {
+            reasons.Add("La suscripcion FREE no puede adquirir add-ons comerciales.");
+            errors.Add(PlatformSubscriptionErrors.AddonForbiddenForFreePlan);
         }
 
         if (commercialAddon.Status != CommercialAddonStatus.Active &&

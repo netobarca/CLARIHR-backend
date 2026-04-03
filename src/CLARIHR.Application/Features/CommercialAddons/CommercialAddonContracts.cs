@@ -19,8 +19,78 @@ public sealed record CommercialAddonSummaryResponse(
     decimal? MinimumMonthlyFee,
     CommercialAddonPeriodicity Periodicity,
     CommercialAddonStatus Status,
+    int ModuleCount,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc)
+{
+    public CommercialAddonSummaryResponse(
+        Guid PublicId,
+        string Code,
+        string Name,
+        string? Description,
+        CommercialAddonType Type,
+        CommercialAddonBillingModel BillingModel,
+        string MeasurementUnit,
+        decimal UnitPrice,
+        int? MinimumQuantity,
+        decimal? MinimumMonthlyFee,
+        CommercialAddonPeriodicity Periodicity,
+        CommercialAddonStatus Status,
+        int ModuleCount,
+        DateTime CreatedAtUtc)
+        : this(
+            PublicId,
+            Code,
+            Name,
+            Description,
+            Type,
+            BillingModel,
+            MeasurementUnit,
+            UnitPrice,
+            MinimumQuantity,
+            MinimumMonthlyFee,
+            Periodicity,
+            Status,
+            ModuleCount,
+            CreatedAtUtc,
+            ModifiedAtUtc: null)
+    {
+    }
+
+    public CommercialAddonSummaryResponse(
+        Guid PublicId,
+        string Code,
+        string Name,
+        string? Description,
+        CommercialAddonType Type,
+        CommercialAddonBillingModel BillingModel,
+        string MeasurementUnit,
+        decimal UnitPrice,
+        int? MinimumQuantity,
+        decimal? MinimumMonthlyFee,
+        CommercialAddonPeriodicity Periodicity,
+        CommercialAddonStatus Status,
+        DateTime CreatedAtUtc,
+        DateTime? ModifiedAtUtc)
+        : this(
+            PublicId,
+            Code,
+            Name,
+            Description,
+            Type,
+            BillingModel,
+            MeasurementUnit,
+            UnitPrice,
+            MinimumQuantity,
+            MinimumMonthlyFee,
+            Periodicity,
+            Status,
+            ModuleCount: 0,
+            CreatedAtUtc,
+            ModifiedAtUtc)
+    {
+    }
+}
 
 public sealed record CommercialAddonResponse(
     Guid PublicId,
@@ -35,9 +105,11 @@ public sealed record CommercialAddonResponse(
     decimal? MinimumMonthlyFee,
     CommercialAddonPeriodicity Periodicity,
     CommercialAddonStatus Status,
+    int ModuleCount,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    IReadOnlyCollection<string> ModuleKeys);
 
 public sealed record SearchCommercialAddonsQuery(
     CommercialAddonType? Type,
@@ -61,9 +133,39 @@ public sealed record CreateCommercialAddonCommand(
     decimal UnitPrice,
     int? MinimumQuantity,
     decimal? MinimumMonthlyFee,
+    IReadOnlyCollection<string> ModuleKeys,
     CommercialAddonPeriodicity Periodicity,
     CommercialAddonStatus Status)
-    : ICommand<CommercialAddonResponse>;
+    : ICommand<CommercialAddonResponse>
+{
+    public CreateCommercialAddonCommand(
+        string Code,
+        string Name,
+        string? Description,
+        CommercialAddonType Type,
+        CommercialAddonBillingModel BillingModel,
+        string MeasurementUnit,
+        decimal UnitPrice,
+        int? MinimumQuantity,
+        decimal? MinimumMonthlyFee,
+        CommercialAddonPeriodicity Periodicity,
+        CommercialAddonStatus Status)
+        : this(
+            Code,
+            Name,
+            Description,
+            Type,
+            BillingModel,
+            MeasurementUnit,
+            UnitPrice,
+            MinimumQuantity,
+            MinimumMonthlyFee,
+            Array.Empty<string>(),
+            Periodicity,
+            Status)
+    {
+    }
+}
 
 public sealed record UpdateCommercialAddonCommand(
     Guid CommercialAddonId,
@@ -76,9 +178,41 @@ public sealed record UpdateCommercialAddonCommand(
     decimal UnitPrice,
     int? MinimumQuantity,
     decimal? MinimumMonthlyFee,
+    IReadOnlyCollection<string> ModuleKeys,
     CommercialAddonPeriodicity Periodicity,
     Guid ConcurrencyToken)
-    : ICommand<CommercialAddonResponse>;
+    : ICommand<CommercialAddonResponse>
+{
+    public UpdateCommercialAddonCommand(
+        Guid CommercialAddonId,
+        string Code,
+        string Name,
+        string? Description,
+        CommercialAddonType Type,
+        CommercialAddonBillingModel BillingModel,
+        string MeasurementUnit,
+        decimal UnitPrice,
+        int? MinimumQuantity,
+        decimal? MinimumMonthlyFee,
+        CommercialAddonPeriodicity Periodicity,
+        Guid ConcurrencyToken)
+        : this(
+            CommercialAddonId,
+            Code,
+            Name,
+            Description,
+            Type,
+            BillingModel,
+            MeasurementUnit,
+            UnitPrice,
+            MinimumQuantity,
+            MinimumMonthlyFee,
+            Array.Empty<string>(),
+            Periodicity,
+            ConcurrencyToken)
+    {
+    }
+}
 
 public sealed record ActivateCommercialAddonCommand(Guid CommercialAddonId, Guid ConcurrencyToken)
     : ICommand<CommercialAddonResponse>;
@@ -150,11 +284,24 @@ internal sealed class CreateCommercialAddonCommandValidator : AbstractValidator<
         RuleFor(command => command.MinimumMonthlyFee)
             .Must(static fee => !fee.HasValue || CommercialAddonValidationRules.HasSupportedScale(fee.Value))
             .WithMessage("Minimum monthly fee cannot exceed 2 decimal places.");
+        RuleFor(command => command.ModuleKeys).NotNull();
+        RuleForEach(command => command.ModuleKeys)
+            .Must(CommercialModuleCatalog.IsKnown)
+            .WithMessage("Unknown commercial module key.");
+        RuleFor(command => command.ModuleKeys)
+            .Must(HaveDistinctModuleKeys)
+            .WithMessage("Commercial add-on module keys cannot contain duplicates.");
         RuleFor(command => command.Periodicity).IsInEnum();
         RuleFor(command => command)
             .Must(HaveCoherentPricingConfiguration)
             .WithMessage("Commercial addon pricing configuration is inconsistent with the selected type and billing model.");
     }
+
+    private static bool HaveDistinctModuleKeys(IReadOnlyCollection<string> moduleKeys) =>
+        moduleKeys
+            .Select(static moduleKey => moduleKey.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .Count() == moduleKeys.Count;
 
     private static bool HaveCoherentPricingConfiguration(CreateCommercialAddonCommand command)
     {
@@ -211,6 +358,17 @@ internal sealed class UpdateCommercialAddonCommandValidator : AbstractValidator<
         RuleFor(command => command.MinimumMonthlyFee)
             .Must(static fee => !fee.HasValue || CommercialAddonValidationRules.HasSupportedScale(fee.Value))
             .WithMessage("Minimum monthly fee cannot exceed 2 decimal places.");
+        RuleFor(command => command.ModuleKeys).NotNull();
+        RuleForEach(command => command.ModuleKeys)
+            .Must(CommercialModuleCatalog.IsKnown)
+            .WithMessage("Unknown commercial module key.");
+        RuleFor(command => command.ModuleKeys)
+            .Must(static moduleKeys =>
+                moduleKeys
+                    .Select(static moduleKey => moduleKey.Trim().ToUpperInvariant())
+                    .Distinct(StringComparer.Ordinal)
+                    .Count() == moduleKeys.Count)
+            .WithMessage("Commercial add-on module keys cannot contain duplicates.");
         RuleFor(command => command.Periodicity).IsInEnum();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command)

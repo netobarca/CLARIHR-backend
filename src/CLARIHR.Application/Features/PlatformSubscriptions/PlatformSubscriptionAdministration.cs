@@ -10,6 +10,7 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Application.Features.PlatformSubscriptions.Common;
 using CLARIHR.Domain.Companies;
 
@@ -1143,6 +1144,7 @@ internal sealed record PlatformSubscriptionPlanChangeResolution(
     int ActiveEmployeeCount,
     decimal EstimatedNextCharge,
     IReadOnlyCollection<string> IneligibilityReasons,
+    IReadOnlyCollection<string> AddonCompatibilityWarnings,
     Error PrimaryError)
 {
     public bool IsEligible => IneligibilityReasons.Count == 0;
@@ -1177,7 +1179,7 @@ internal sealed record PlatformSubscriptionPlanChangeResolution(
             EstimatedNextCharge,
             IsEligible,
             IneligibilityReasons,
-            []);
+            AddonCompatibilityWarnings);
 }
 
 internal static class PlatformSubscriptionPlanChangeResolver
@@ -1221,10 +1223,10 @@ internal static class PlatformSubscriptionPlanChangeResolver
 
         CommercialPlan? currentPlan = null;
         CommercialPlanVersion? currentPlanVersion = null;
-        if (currentSubscription.CommercialPlanId > 0)
+        if (currentSubscription.CommercialPlanId != 0)
         {
             currentPlan = await commercialPlanRepository.GetByInternalIdAsync(currentSubscription.CommercialPlanId, cancellationToken);
-            if (currentPlan is not null && currentSubscription.CommercialPlanVersionId > 0)
+            if (currentPlan is not null && currentSubscription.CommercialPlanVersionId != 0)
             {
                 currentPlanVersion = currentPlan.Versions.SingleOrDefault(version => version.Id == currentSubscription.CommercialPlanVersionId);
             }
@@ -1306,6 +1308,22 @@ internal static class PlatformSubscriptionPlanChangeResolver
 
         var activeEmployeeCount = await personnelFileRepository.CountActiveEmployeesAsync(company.PublicId, cancellationToken);
         var estimatedNextCharge = targetPlanVersion.BaseMonthlyFee + (targetPlanVersion.PricePerActiveEmployee * activeEmployeeCount);
+        var addonCompatibilityWarnings = Array.Empty<string>();
+
+        if (string.Equals(targetPlan.Code, ProvisioningConstants.FreePlanCode, StringComparison.Ordinal))
+        {
+            var activeAddons = await subscriptionRepository.SearchCompanyAddonsByCompanyPublicIdAsync(
+                company.PublicId,
+                CompanyAddonStatus.Active,
+                search: null,
+                pageNumber: 1,
+                pageSize: 100,
+                cancellationToken);
+
+            addonCompatibilityWarnings = activeAddons.Items
+                .Select(static addon => $"The add-on {addon.AddonCode} will be deactivated when the company moves to FREE.")
+                .ToArray();
+        }
 
         return Result<PlatformSubscriptionPlanChangeResolution>.Success(new PlatformSubscriptionPlanChangeResolution(
             company,
@@ -1319,6 +1337,7 @@ internal static class PlatformSubscriptionPlanChangeResolver
             activeEmployeeCount,
             estimatedNextCharge,
             reasons,
+            addonCompatibilityWarnings,
             errors.FirstOrDefault() ?? PlatformSubscriptionErrors.PlanChangeUnsupportedCurrentStatus));
     }
 

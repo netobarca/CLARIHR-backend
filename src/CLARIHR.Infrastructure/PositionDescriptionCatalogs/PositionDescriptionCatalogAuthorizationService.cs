@@ -1,4 +1,5 @@
 using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.IdentityAccess.Common;
@@ -13,6 +14,7 @@ namespace CLARIHR.Infrastructure.PositionDescriptionCatalogs;
 internal sealed class PositionDescriptionCatalogAuthorizationService(
     ICurrentUserService currentUserService,
     CLARIHR.Application.Abstractions.Tenancy.ITenantContext tenantContext,
+    IPlanEntitlementService planEntitlementService,
     ApplicationDbContext dbContext)
     : IPositionDescriptionCatalogAuthorizationService
 {
@@ -34,6 +36,11 @@ internal sealed class PositionDescriptionCatalogAuthorizationService(
         if (tenantContext.TenantId.Value != companyId)
         {
             return Result.Failure(PositionDescriptionCatalogErrors.TenantMismatch(manageRequired ? RbacPermissionAction.Update : RbacPermissionAction.Read));
+        }
+
+        if (!await planEntitlementService.IsModuleEnabledAsync(companyId, CommercialModuleKeys.PositionDescriptionCatalogs, cancellationToken))
+        {
+            return Result.Failure(PositionDescriptionCatalogErrors.Forbidden);
         }
 
         var normalizedClaims = currentUserService.Permissions

@@ -11,8 +11,18 @@ internal sealed class CommercialAddonRepository(ApplicationDbContext dbContext) 
 {
     public void Add(CommercialAddon addon) => dbContext.CommercialAddons.Add(addon);
 
+    public async Task<IReadOnlyCollection<CommercialAddon>> ListActiveAsync(CancellationToken cancellationToken) =>
+        await dbContext.CommercialAddons
+            .AsNoTracking()
+            .Include(addon => addon.Entitlements)
+            .Where(addon => addon.Status == CommercialAddonStatus.Active)
+            .OrderBy(addon => addon.Name)
+            .ThenBy(addon => addon.Code)
+            .ToListAsync(cancellationToken);
+
     public Task<CommercialAddon?> GetByIdAsync(Guid commercialAddonId, CancellationToken cancellationToken) =>
         dbContext.CommercialAddons
+            .Include(addon => addon.Entitlements)
             .SingleOrDefaultAsync(addon => addon.PublicId == commercialAddonId, cancellationToken);
 
     public Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
@@ -74,6 +84,7 @@ internal sealed class CommercialAddonRepository(ApplicationDbContext dbContext) 
                 addon.MinimumMonthlyFee,
                 addon.Periodicity,
                 addon.Status,
+                addon.Entitlements.Count(entitlement => entitlement.IsEnabled),
                 addon.CreatedUtc,
                 addon.ModifiedUtc))
             .ToListAsync(cancellationToken);

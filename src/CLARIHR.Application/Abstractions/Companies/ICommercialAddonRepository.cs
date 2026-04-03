@@ -8,6 +8,9 @@ public interface ICommercialAddonRepository
 {
     void Add(CommercialAddon addon);
 
+    Task<IReadOnlyCollection<CommercialAddon>> ListActiveAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<CommercialAddon>>(Array.Empty<CommercialAddon>());
+
     Task<CommercialAddon?> GetByIdAsync(Guid commercialAddonId, CancellationToken cancellationToken);
 
     Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken);

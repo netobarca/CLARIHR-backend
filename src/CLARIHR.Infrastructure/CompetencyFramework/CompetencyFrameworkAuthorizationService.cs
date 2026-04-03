@@ -1,4 +1,5 @@
 using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.CompetencyFramework;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
@@ -13,6 +14,7 @@ namespace CLARIHR.Infrastructure.CompetencyFramework;
 internal sealed class CompetencyFrameworkAuthorizationService(
     ICurrentUserService currentUserService,
     CLARIHR.Application.Abstractions.Tenancy.ITenantContext tenantContext,
+    IPlanEntitlementService planEntitlementService,
     ApplicationDbContext dbContext) : ICompetencyFrameworkAuthorizationService
 {
     public Task<Result> EnsureCanReadAsync(Guid companyId, CancellationToken cancellationToken) =>
@@ -33,6 +35,11 @@ internal sealed class CompetencyFrameworkAuthorizationService(
         if (tenantContext.TenantId.Value != companyId)
         {
             return Result.Failure(CompetencyFrameworkErrors.TenantMismatch(manageRequired ? RbacPermissionAction.Update : RbacPermissionAction.Read));
+        }
+
+        if (!await planEntitlementService.IsModuleEnabledAsync(companyId, CommercialModuleKeys.CompetencyFramework, cancellationToken))
+        {
+            return Result.Failure(CompetencyFrameworkErrors.Forbidden);
         }
 
         var normalizedClaims = currentUserService.Permissions
