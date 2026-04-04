@@ -2,10 +2,12 @@
 
 ## 1. Resumen ejecutivo
 
-La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La validacion actualizada del **2 de abril de 2026** verifico:
+La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La validacion actualizada del **3 de abril de 2026** verifico:
 
 - `5` unit tests dirigidos aprobados para manejo de estados de suscripcion empresarial
 - `6` integration tests dirigidos aprobados para Platform Backoffice API de suscripciones empresariales
+- `7` unit tests dirigidos aprobados para catalogos internos globales
+- `5` integration tests dirigidos aprobados para catalogos internos globales y autopoblado desde `JobProfiles`
 - `dotnet build` limpio con `0 warnings`
 - el suite completo aun conserva fallas previas no relacionadas en normalizacion y algunos escenarios legacy de integracion
 
@@ -36,6 +38,7 @@ Cobertura visible sobre:
 - catalogo global `CommercialPlan`
 - reemplazo de suscripciones empresariales
 - ciclo de vida de estados de suscripcion empresarial, incluyendo suspension, reactivacion, cancelacion, expiracion y politica de capacidades por estado
+- catalogos internos globales para requisitos de `JobProfiles`, incluyendo normalizacion, thresholds `0.70/0.90`, reuse exacto y reuse por similitud en uso
 
 ### 2.2 Integration tests
 
@@ -72,6 +75,10 @@ Hay pruebas de tenant mismatch y permisos en modulos sensibles, incluyendo audit
 ### 3.3 El flujo global de plataforma si esta ejercitado
 
 `BackofficeCommercialAddonsIntegrationTests`, `BackofficeCommercialPlansIntegrationTests`, `BackofficeCompanySubscriptionsIntegrationTests` y `PlatformAuthenticationIntegrationTests` ejercitan el login del backoffice, el CRUD de add-ons y planes globales, el reemplazo de suscripciones empresariales, la separacion de audiencias `core/platform`, el rol `ReadOnly` y la auditoria durable de plataforma en writes globales. Desde HU-BILL-007 y HU-BILL-010, esa cobertura de suscripciones tambien valida suspension, preview de reactivacion, reactivacion inmediata o programada, `pendingStatusChange` en overview, conflicto por duplicado pendiente, consulta de historial de estados, expiracion automatica y bloqueo de cambios manuales para operadores `ReadOnly`. Desde HU-BILL-004, la cobertura de add-ons incluye configuraciones `Massive` y `Specialized`, filtros por `type` y `billingModel`, y compatibilidad de lectura para filas masivas preexistentes.
+
+### 3.4 Los catalogos internos globales ya tienen cobertura dirigida
+
+`InternalCatalogAdministrationTests` valida normalizacion, mapping de tipos de requisito, thresholds `0.70` para busqueda y `0.90` para duplicados, ademas de reuse exacto o por similitud. `InternalCatalogsIntegrationTests` cubre acceso autenticado sin tenant, visibilidad global cross-tenant, `409` por casi duplicado, y el autopoblado del catalogo global cuando `JobProfiles` crea o actualiza requisitos `Education`, `Knowledge` o `Certification`, dejando fuera `Experience` y `Other`.
 
 ## 4. Hallazgos relevantes sobre cobertura
 

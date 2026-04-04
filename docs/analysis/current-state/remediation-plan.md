@@ -20,6 +20,7 @@ La logica de prioridad usada es:
 | P0 | Cerrar confianza de `X-Forwarded-*` por entorno | La app limpia proxies/redes conocidas y usa esa IP para logging y auditoria | Pendiente |
 | P1 | Volver tenant filter global a `fail-closed` | El filtro EF actual permite lecturas abiertas cuando falta tenant context | Pendiente |
 | P1 | Revisar y gobernar todos los `IgnoreQueryFilters()` | El patron esta ampliamente distribuido y necesita matriz de legitimidad y pruebas | Pendiente |
+| P1 | Unificar la gobernanza entre planes, add-ons, `effectiveModules` y permisos | El backend ya une entitlements de plan y add-on, pero la semantica comercial sigue distribuida, `FREE` conserva una base demasiado amplia y el marketplace no evalua redundancia o compatibilidad por modulo | Pendiente |
 | P1 | Agregar auditoria persistente para writes globales de `CommercialPlan` | El backoffice ya persiste `PlatformAuditLog` para writes globales y reemplazo de suscripciones | Implementado |
 | P1 | Automatizar OpenAPI y pruebas de contrato | El contrato versionado ya fue ampliado para core y backoffice clave, pero sigue manual y sin contract tests automatizados | En progreso |
 | P1 | Estandarizar `publicId` y `normalizedCode` en contratos publicos | La API necesitaba ocultar `id` interno, estabilizar identificadores publicos y unificar `code` en `UPPERCASE` | Implementado |
@@ -35,16 +36,34 @@ La logica de prioridad usada es:
 3. forwarded headers y confianza de proxy
 4. tenant filter `fail-closed`
 5. matriz de `IgnoreQueryFilters()`
-6. OpenAPI versionado y contract tests
-7. exportes y analytics fuera del request path
-8. blocklist de passwords, observabilidad y disciplina documental
+6. matriz canonica de planes, add-ons, `effectiveModules` y permisos
+7. OpenAPI versionado y contract tests
+8. exportes y analytics fuera del request path
+9. blocklist de passwords, observabilidad y disciplina documental
 
 Iniciativas ya cerradas en la actualizacion del 29 de marzo:
 
 - separacion del acceso global de plataforma respecto al auth core
 - auditoria persistente para writes globales de plataforma
 
-## 4. Criterio de cierre
+## 4. Auditoria puntual de suscripciones, add-ons y accesos
+
+Hallazgos permanentes que deben guiar la remediacion:
+
+- los add-ons no estan fuera de `effectiveModules` en backend; `PlanEntitlementService` ya calcula la union de modulos del plan activo y de los add-ons activos.
+- el problema real es de gobernanza y trazabilidad comercial: la plataforma separa correctamente producto comercial y modulo efectivo, pero todavia no ofrece una matriz canonica unica para responder que producto habilita que capacidad y que permisos quedan condicionados por ese modulo.
+- `FREE` conserva una superficie base demasiado amplia para que el catalogo comercial sirva como control de diferenciacion entre planes.
+- la elegibilidad de add-ons hoy no usa redundancia ni compatibilidad por modulo como criterio primario; eso puede mostrar add-ons "comprables" aunque no agreguen capacidad neta frente al plan actual.
+- el acceso a `USERS` queda protegido tecnicamente por `RBAC_USERS` y `PermissionMatrixCatalog`, pero el diseño sigue siendo indirecto y facil de malinterpretar en futuras extensiones.
+
+Salida esperada de esta remediacion:
+
+- matriz canonica `producto comercial -> modulos efectivos -> recursos RBAC -> permisos`
+- reglas explicitas de redundancia, incompatibilidad y dependencia para add-ons
+- baseline comercial revisado para `FREE`
+- pruebas de integracion que validen que marketplace, preview y enforcement de acceso responden a la misma verdad
+
+## 5. Criterio de cierre
 
 Cada iniciativa deberia cerrarse solo cuando:
 
@@ -53,6 +72,6 @@ Cada iniciativa deberia cerrarse solo cuando:
 - existan pruebas nuevas en la zona de riesgo correspondiente
 - el cambio deje evidencia verificable de la mejora
 
-## 5. Resultado esperado
+## 6. Resultado esperado
 
 La solucion no deberia considerarse aprobada para produccion hasta cerrar todos los puntos `P0` pendientes y, como minimo, dejar encaminados con implementacion real los `P1` de tenant isolation y contrato API.

@@ -56,7 +56,7 @@ internal sealed class DevSeedService(
         var orgUnitType = await SeedOrgStructureCatalogsAsync(user.PublicId, tenantId, cancellationToken);
         var orgUnits = await SeedOrgUnitsAsync(tenantId, orgUnitType.Id, cancellationToken);
         var costCenters = await SeedCostCentersAsync(tenantId, cancellationToken);
-        var jobProfiles = await SeedJobProfilesAsync(tenantId, cancellationToken);
+        var jobProfiles = await SeedJobProfilesAsync(tenantId, orgUnits, cancellationToken);
         await SeedPositionSlotsAsync(tenantId, jobProfiles, orgUnits, cancellationToken);
         await SeedSalaryTabulatorAsync(tenantId, cancellationToken);
         await SeedPersonnelFileAsync(tenantId, orgUnits, cancellationToken);
@@ -343,13 +343,53 @@ internal sealed class DevSeedService(
         return [cc1, cc2];
     }
 
-    private async Task<JobProfile[]> SeedJobProfilesAsync(Guid tenantId, CancellationToken cancellationToken)
+    private async Task<JobProfile[]> SeedJobProfilesAsync(Guid tenantId, OrgUnit[] orgUnits, CancellationToken cancellationToken)
     {
         var gerenteGeneral = JobProfile.Create("JP-001", "Gerente General");
         gerenteGeneral.SetTenantId(tenantId);
+        gerenteGeneral.UpdateCore(
+            "JP-001",
+            "Gerente General",
+            objective: null,
+            orgUnitId: orgUnits[0].Id,
+            reportsToJobProfileId: null,
+            positionCategoryId: null,
+            strategicObjectiveCatalogItemId: null,
+            assignedWorkEquipmentCatalogItemId: null,
+            responsibilityCatalogItemId: null,
+            decisionScope: null,
+            assignedResources: null,
+            responsibilities: null,
+            benefitsSummary: null,
+            workingConditionSummary: null,
+            marketSalaryReference: null,
+            valuationNotes: null,
+            effectiveFromUtc: null,
+            effectiveToUtc: null,
+            bumpVersion: false);
 
         var analistaRrhh = JobProfile.Create("JP-002", "Analista de RRHH");
         analistaRrhh.SetTenantId(tenantId);
+        analistaRrhh.UpdateCore(
+            "JP-002",
+            "Analista de RRHH",
+            objective: null,
+            orgUnitId: orgUnits[2].Id,
+            reportsToJobProfileId: null,
+            positionCategoryId: null,
+            strategicObjectiveCatalogItemId: null,
+            assignedWorkEquipmentCatalogItemId: null,
+            responsibilityCatalogItemId: null,
+            decisionScope: null,
+            assignedResources: null,
+            responsibilities: null,
+            benefitsSummary: null,
+            workingConditionSummary: null,
+            marketSalaryReference: null,
+            valuationNotes: null,
+            effectiveFromUtc: null,
+            effectiveToUtc: null,
+            bumpVersion: false);
 
         dbContext.JobProfiles.AddRange(gerenteGeneral, analistaRrhh);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -364,8 +404,8 @@ internal sealed class DevSeedService(
     {
         var slot1 = PositionSlot.Create(
             "PS-001", "Plaza Gerente General",
-            jobProfiles[0].Id, orgUnits[0].Id,
-            workCenterId: null, costCenterCode: "CC-001",
+            jobProfiles[0].Id,
+            workCenterId: null,
             directDependencyPositionSlotId: null, functionalDependencyPositionSlotId: null,
             PositionSlotStatus.Vacant, maxEmployees: 1, occupiedEmployees: 0,
             isFixedTerm: false, effectiveFromUtc: SeedDate, effectiveToUtc: null,
@@ -374,8 +414,8 @@ internal sealed class DevSeedService(
 
         var slot2 = PositionSlot.Create(
             "PS-002", "Plaza Analista RRHH",
-            jobProfiles[1].Id, orgUnits[2].Id,
-            workCenterId: null, costCenterCode: "CC-002",
+            jobProfiles[1].Id,
+            workCenterId: null,
             directDependencyPositionSlotId: null, functionalDependencyPositionSlotId: null,
             PositionSlotStatus.Vacant, maxEmployees: 3, occupiedEmployees: 0,
             isFixedTerm: false, effectiveFromUtc: SeedDate, effectiveToUtc: null,

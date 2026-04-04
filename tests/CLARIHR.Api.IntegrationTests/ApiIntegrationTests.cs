@@ -2016,7 +2016,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var orgUnit = await CreateOrgUnitAsync(orgUnitClient, scenario.TenantId, "DIR-AA", "Direccion AllowedActions", "Direccion");
 
         using var jobProfileClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
-        var jobProfile = await CreateJobProfileAsync(jobProfileClient, scenario.TenantId, "JP-AA", "Perfil AllowedActions");
+        var jobProfile = await CreateJobProfileAsync(jobProfileClient, scenario.TenantId, "JP-AA", "Perfil AllowedActions", orgUnit.Id);
 
         using var positionSlotClient = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
         _ = await CreatePositionSlotAsync(
@@ -2025,7 +2025,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code: "PS-AA",
             title: "Plaza AllowedActions",
             jobProfileId: jobProfile.Id,
-            orgUnitId: orgUnit.Id,
             maxEmployees: 1);
 
         using var costCenterClient = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
@@ -2279,13 +2278,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-JP-001", "Direccion Nomina", "Direccion");
 
         var createResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
         {
             code = "JP-001",
             title = "Analista de Nomina",
             objective = "Garantizar el proceso de nomina.",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = orgUnit.Id,
             reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo RRHH",
@@ -2337,7 +2337,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code = "JP-001",
             title = "Analista de Nomina Senior",
             objective = "Garantizar el proceso de nomina.",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = orgUnit.Id,
             reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo RRHH",
@@ -2455,6 +2455,26 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
             var externalDependentProfile = JobProfile.Create("JP-EXT", "Perfil Externo");
             externalDependentProfile.SetTenantId(scenario.OtherTenantId);
+            externalDependentProfile.UpdateCore(
+                "JP-EXT",
+                "Perfil Externo",
+                objective: null,
+                orgUnitId: profileEntity.OrgUnitId,
+                reportsToJobProfileId: null,
+                positionCategoryId: null,
+                strategicObjectiveCatalogItemId: null,
+                assignedWorkEquipmentCatalogItemId: null,
+                responsibilityCatalogItemId: null,
+                decisionScope: null,
+                assignedResources: null,
+                responsibilities: null,
+                benefitsSummary: null,
+                workingConditionSummary: null,
+                marketSalaryReference: null,
+                valuationNotes: null,
+                effectiveFromUtc: null,
+                effectiveToUtc: null,
+                bumpVersion: false);
             dbContext.JobProfiles.Add(externalDependentProfile);
             await dbContext.SaveChangesAsync();
 
@@ -2489,7 +2509,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code = "JP-001",
             title = "Analista Actualizado",
             objective = "Objetivo",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = profile.OrgUnitId,
             reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
@@ -2548,7 +2568,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code = profile.Code,
             title = profile.Title,
             objective = (string?)null,
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = profile.OrgUnitId,
             reportsToJobProfilePublicId = (Guid?)null,
             positionCategoryPublicId = (Guid?)null,
             strategicObjectiveCatalogItemPublicId = (Guid?)null,
@@ -2605,7 +2625,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code = profile.Code,
             title = profile.Title,
             objective = (string?)null,
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = profile.OrgUnitId,
             reportsToJobProfilePublicId = (Guid?)null,
             positionCategoryPublicId = (Guid?)null,
             strategicObjectiveCatalogItemPublicId = (Guid?)null,
@@ -2637,10 +2657,48 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task JobProfiles_Create_WithoutOrgUnit_ShouldReturn400Validation()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
+        {
+            code = "JP-NO-ORG",
+            title = "Perfil sin unidad",
+            objective = "Objetivo",
+            orgUnitPublicId = Guid.Empty,
+            reportsToJobProfilePublicId = (Guid?)null,
+            decisionScope = "Operacion",
+            assignedResources = "Equipo",
+            responsibilities = "Responsabilidades",
+            benefitsSummary = "Ley",
+            workingConditionSummary = "Presencial",
+            marketSalaryReference = "Mercado",
+            valuationNotes = "Notas",
+            effectiveFromUtc = (DateTime?)null,
+            effectiveToUtc = (DateTime?)null,
+            allowInlineCatalogCreate = false,
+            requirements = Array.Empty<object>(),
+            functions = Array.Empty<object>(),
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensations = Array.Empty<object>(),
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = Array.Empty<object>()
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.BadRequest, "common.validation");
+    }
+
+    [Fact]
     public async Task JobProfiles_Create_WithDuplicateCode_ShouldReturn409Conflict()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-DUP-JP", "Direccion Duplicados", "Direccion");
 
         _ = await CreateJobProfileAsync(client, scenario.TenantId, "JP-001", "Analista");
 
@@ -2649,7 +2707,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code = "JP-001",
             title = "Analista 2",
             objective = "Objetivo",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = orgUnit.Id,
             reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
@@ -2695,6 +2753,74 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task JobProfiles_Create_WithInvalidDependentPositionIdentifier_ShouldReturnStandardValidationProblem()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-VAL-JP", "Direccion Validacion", "Direccion");
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
+        {
+            code = "JP-VAL-001",
+            title = "Perfil invalido",
+            objective = "Objetivo",
+            orgUnitPublicId = orgUnit.Id,
+            reportsToJobProfilePublicId = (Guid?)null,
+            positionCategoryPublicId = (Guid?)null,
+            strategicObjectiveCatalogItemPublicId = (Guid?)null,
+            assignedWorkEquipmentCatalogItemPublicId = (Guid?)null,
+            responsibilityCatalogItemPublicId = (Guid?)null,
+            decisionScope = "Operacion",
+            assignedResources = "Equipo",
+            responsibilities = "Responsabilidades",
+            benefitsSummary = "Ley",
+            workingConditionSummary = "Presencial",
+            marketSalaryReference = "Mercado",
+            valuationNotes = "Notas",
+            effectiveFromUtc = (DateTime?)null,
+            effectiveToUtc = (DateTime?)null,
+            allowInlineCatalogCreate = false,
+            requirements = Array.Empty<object>(),
+            functions = Array.Empty<object>(),
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensations = Array.Empty<object>(),
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = new[]
+            {
+                new
+                {
+                    dependentJobProfilePublicId = "not-a-guid",
+                    quantity = 1,
+                    notes = "dep"
+                }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("https://httpstatuses.com/400", document.RootElement.GetProperty("type").GetString());
+        Assert.Equal("One or more validation errors occurred.", document.RootElement.GetProperty("title").GetString());
+        Assert.Equal("One or more validation errors occurred.", document.RootElement.GetProperty("detail").GetString());
+        Assert.Equal(400, document.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal("common.validation", document.RootElement.GetProperty("code").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(document.RootElement.GetProperty("traceId").GetString()));
+
+        var errors = document.RootElement.GetProperty("errors");
+        Assert.False(errors.TryGetProperty("request", out _));
+        Assert.False(errors.TryGetProperty("body", out _));
+        Assert.False(errors.TryGetProperty("$.dependentPositions[0].dependentJobProfilePublicId", out _));
+
+        var fieldErrors = errors.GetProperty("dependentPositions[0].dependentJobProfilePublicId");
+        Assert.Contains(
+            fieldErrors.EnumerateArray().Select(static item => item.GetString()),
+            static message => message == "The value must be a valid UUID.");
+    }
+
+    [Fact]
     public async Task JobProfiles_Update_WhenDependencyCycleDetected_ShouldReturn409Conflict()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -2708,7 +2834,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code = profileA.Code,
             title = profileA.Title,
             objective = "Objetivo A",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = profileA.OrgUnitId,
             reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
@@ -2762,7 +2888,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code = profileB.Code,
             title = profileB.Title,
             objective = "Objetivo B",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = profileB.OrgUnitId,
             reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
@@ -2842,13 +2968,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-INLINE-JP", "Direccion Inline", "Direccion");
 
         var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
         {
             code = "JP-001",
             title = "Analista",
             objective = "Objetivo",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = orgUnit.Id,
             reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
@@ -2906,7 +3033,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code = "JP-001",
             title = "Analista",
             objective = "Objetivo",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = profile.OrgUnitId,
             reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
@@ -2963,13 +3090,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateJobProfileAdminWithAuditContext(scenario));
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-AUD-JP", "Direccion Audit", "Direccion");
 
         var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
         {
             code = "JP-001",
             title = "Analista",
             objective = "Objetivo",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = orgUnit.Id,
             reportsToJobProfilePublicId = (Guid?)null,
             decisionScope = "Operacion",
             assignedResources = "Equipo",
@@ -3204,7 +3332,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
 
         var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-PS", "Direccion Plazas", "Direccion");
-        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-PS", "Analista de Plazas");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-PS", "Analista de Plazas", orgUnit.Id);
 
         var primary = await CreatePositionSlotAsync(
             client,
@@ -3212,7 +3340,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code: "PS-001",
             title: "Plaza Principal",
             jobProfileId: profile.Id,
-            orgUnitId: orgUnit.Id,
             maxEmployees: 2);
 
         var dependency = await CreatePositionSlotAsync(
@@ -3221,7 +3348,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code: "PS-002",
             title: "Plaza Dependencia",
             jobProfileId: profile.Id,
-            orgUnitId: orgUnit.Id,
             maxEmployees: 1);
 
         var listResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/position-slots?page=1&pageSize=20");
@@ -3236,15 +3362,15 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var getPayload = await getResponse.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions);
         Assert.NotNull(getPayload);
         Assert.Equal(primary.Id, getPayload!.Id);
+        Assert.Equal(orgUnit.Id, getPayload.OrgUnitId);
+        Assert.Null(getPayload.CostCenterCode);
 
         var updateResponse = await client.PutJsonAsync($"/api/v1/position-slots/{primary.Id}", new
         {
             code = "PS-001",
             title = "Plaza Principal Actualizada",
             jobProfilePublicId = profile.Id,
-            orgUnitPublicId = orgUnit.Id,
             workCenterPublicId = (Guid?)null,
-            costCenterCode = (string?)null,
             maxEmployees = 3,
             effectiveFromUtc = DateTime.UtcNow.Date,
             effectiveToUtc = (DateTime?)null,
@@ -3325,23 +3451,120 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task PositionSlots_ShouldReflectUpdatedJobProfileOrgUnitAndCostCenter()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+        using var costCenterClient = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        _ = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-DER-OLD", "Centro Derivado Inicial", "Mixed");
+        _ = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-DER-NEW", "Centro Derivado Nuevo", "Mixed");
+
+        var initialOrgUnit = await CreateOrgUnitAsync(
+            client,
+            scenario.TenantId,
+            "DIR-DER-OLD",
+            "Direccion Inicial",
+            "Direccion",
+            costCenterCode: "CC-DER-OLD");
+        var updatedOrgUnit = await CreateOrgUnitAsync(
+            client,
+            scenario.TenantId,
+            "DIR-DER-NEW",
+            "Direccion Nueva",
+            "Direccion",
+            costCenterCode: "CC-DER-NEW");
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-DER", "Perfil Derivado", initialOrgUnit.Id);
+        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-DER", "Plaza Derivada", profile.Id, 1);
+        var positionCategory = await EnsureDefaultPositionCategoryAsync(client, scenario.TenantId);
+
+        var updateProfileResponse = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
+        {
+            code = profile.Code,
+            title = profile.Title,
+            objective = "Objetivo",
+            orgUnitPublicId = updatedOrgUnit.Id,
+            reportsToJobProfilePublicId = (Guid?)null,
+            positionCategoryPublicId = positionCategory.Id,
+            strategicObjectiveCatalogItemPublicId = (Guid?)null,
+            assignedWorkEquipmentCatalogItemPublicId = (Guid?)null,
+            responsibilityCatalogItemPublicId = (Guid?)null,
+            decisionScope = "Operacion",
+            assignedResources = "Equipo",
+            responsibilities = "Responsabilidades",
+            benefitsSummary = "Ley",
+            workingConditionSummary = "Presencial",
+            marketSalaryReference = "Mercado",
+            valuationNotes = "Notas",
+            effectiveFromUtc = (DateTime?)null,
+            effectiveToUtc = (DateTime?)null,
+            allowInlineCatalogCreate = false,
+            requirements = new[]
+            {
+                new
+                {
+                    requirementType = "Experience",
+                    catalogItemPublicId = (Guid?)null,
+                    catalogCode = (string?)null,
+                    catalogName = (string?)null,
+                    description = "2 anios",
+                    sortOrder = 1
+                }
+            },
+            functions = new[]
+            {
+                new
+                {
+                    functionType = "General",
+                    description = "Funcion",
+                    sortOrder = 1
+                }
+            },
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensations = Array.Empty<object>(),
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = Array.Empty<object>(),
+            concurrencyToken = profile.ConcurrencyToken
+        });
+        updateProfileResponse.EnsureSuccessStatusCode();
+
+        var detailResponse = await client.GetAsync($"/api/v1/position-slots/{slot.Id}");
+        detailResponse.EnsureSuccessStatusCode();
+
+        var payload = await detailResponse.Content.ReadFromJsonAsync<PositionSlotItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(updatedOrgUnit.Id, payload!.OrgUnitId);
+        Assert.Equal("CC-DER-NEW", payload.CostCenterCode);
+
+        var filteredResponse = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-slots?page=1&pageSize=20&orgUnitId={updatedOrgUnit.Id}");
+        filteredResponse.EnsureSuccessStatusCode();
+
+        var filteredPayload = await filteredResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<PositionSlotListItem>>(JsonOptions);
+        Assert.NotNull(filteredPayload);
+        Assert.Contains(filteredPayload!.Items, item => item.Id == slot.Id);
+    }
+
+    [Fact]
     public async Task PositionSlots_Update_WithStaleToken_ShouldReturn409Conflict()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
 
         var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-STALE", "Direccion", "Direccion");
-        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-STALE", "Perfil");
-        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-STALE", "Plaza", profile.Id, orgUnit.Id, 1);
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-STALE", "Perfil", orgUnit.Id);
+        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-STALE", "Plaza", profile.Id, 1);
 
         var response = await client.PutJsonAsync($"/api/v1/position-slots/{slot.Id}", new
         {
             code = slot.Code,
             title = "Plaza actualizada",
             jobProfilePublicId = profile.Id,
-            orgUnitPublicId = orgUnit.Id,
             workCenterPublicId = (Guid?)null,
-            costCenterCode = (string?)null,
             maxEmployees = 1,
             effectiveFromUtc = DateTime.UtcNow.Date,
             effectiveToUtc = (DateTime?)null,
@@ -3359,18 +3582,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
 
         var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-DUP", "Direccion", "Direccion");
-        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-DUP", "Perfil");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-DUP", "Perfil", orgUnit.Id);
 
-        _ = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-DUP", "Plaza 1", profile.Id, orgUnit.Id, 1);
+        _ = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-DUP", "Plaza 1", profile.Id, 1);
 
         var duplicateResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
         {
             code = "PS-DUP",
             title = "Plaza 2",
             jobProfilePublicId = profile.Id,
-            orgUnitPublicId = orgUnit.Id,
             workCenterPublicId = (Guid?)null,
-            costCenterCode = (string?)null,
             directDependencyPositionSlotPublicId = (Guid?)null,
             functionalDependencyPositionSlotPublicId = (Guid?)null,
             status = "Vacant",
@@ -3391,10 +3612,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
 
         var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-CYCLE", "Direccion", "Direccion");
-        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CYCLE", "Perfil");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CYCLE", "Perfil", orgUnit.Id);
 
-        var parent = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-A", "A", profile.Id, orgUnit.Id, 1);
-        var child = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-B", "B", profile.Id, orgUnit.Id, 1);
+        var parent = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-A", "A", profile.Id, 1);
+        var child = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-B", "B", profile.Id, 1);
 
         var parentUpdateResponse = await client.PatchAsJsonAsync($"/api/v1/position-slots/{parent.Id}/dependencies", new
         {
@@ -3421,8 +3642,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
 
         var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-CAP", "Direccion", "Direccion");
-        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CAP", "Perfil");
-        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-CAP", "Capacidad", profile.Id, orgUnit.Id, 1);
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CAP", "Perfil", orgUnit.Id);
+        var slot = await CreatePositionSlotAsync(client, scenario.TenantId, "PS-CAP", "Capacidad", profile.Id, 1);
 
         var response = await client.PatchAsJsonAsync($"/api/v1/position-slots/{slot.Id}/occupancy", new
         {
@@ -3462,16 +3683,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreatePositionSlotAdminWithAuditContext(scenario));
 
         var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-AUD", "Direccion", "Direccion");
-        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-AUD", "Perfil");
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-AUD", "Perfil", orgUnit.Id);
 
         var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
         {
             code = "PS-AUD",
             title = "Plaza Audit",
             jobProfilePublicId = profile.Id,
-            orgUnitPublicId = orgUnit.Id,
             workCenterPublicId = (Guid?)null,
-            costCenterCode = (string?)null,
             directDependencyPositionSlotPublicId = (Guid?)null,
             functionalDependencyPositionSlotPublicId = (Guid?)null,
             status = "Vacant",
@@ -3635,6 +3854,36 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task CostCenters_Usage_ShouldCountPositionSlotsDerivedFromJobProfileOrgUnit()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var costCenterClient = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+        using var orgUnitClient = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+        using var jobProfileClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        using var positionSlotClient = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        var costCenter = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-SLOT-USAGE", "Centro Plaza", "Mixed");
+        var orgUnit = await CreateOrgUnitAsync(
+            orgUnitClient,
+            scenario.TenantId,
+            "DIR-SLOT-USAGE",
+            "Direccion Plaza",
+            "Direccion",
+            costCenterCode: costCenter.Code);
+        var profile = await CreateJobProfileAsync(jobProfileClient, scenario.TenantId, "JP-SLOT-USAGE", "Perfil Plaza", orgUnit.Id);
+        _ = await CreatePositionSlotAsync(positionSlotClient, scenario.TenantId, "PS-SLOT-USAGE", "Plaza Uso", profile.Id, 1);
+
+        var usageResponse = await costCenterClient.GetAsync($"/api/v1/cost-centers/{costCenter.Id}/usage");
+        usageResponse.EnsureSuccessStatusCode();
+
+        var usage = await usageResponse.Content.ReadFromJsonAsync<CostCenterUsageItem>(JsonOptions);
+        Assert.NotNull(usage);
+        Assert.Equal(1, usage!.OrgUnitActiveReferences);
+        Assert.Equal(1, usage.PositionSlotActiveReferences);
+        Assert.True(usage.HasActiveReferences);
+    }
+
+    [Fact]
     public async Task CostCenters_List_WithTenantMismatch_ShouldReturn403()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -3706,32 +3955,38 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task PositionSlots_Create_WithInactiveCostCenter_ShouldReturn422()
+    public async Task PositionSlots_Create_WithInactiveCostCenterInferredFromOrgUnit_ShouldReturn422()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var costCenterClient = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
 
         var costCenter = await CreateCostCenterAsync(costCenterClient, scenario.TenantId, "CC-INACTIVE", "Centro Inactivo", "Mixed");
 
-        var inactivateResponse = await costCenterClient.PatchAsJsonAsync($"/api/v1/cost-centers/{costCenter.Id}/inactivate", new
-        {
-            concurrencyToken = costCenter.ConcurrencyToken
-        });
-        inactivateResponse.EnsureSuccessStatusCode();
-
         using var slotClient = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
 
-        var orgUnit = await CreateOrgUnitAsync(slotClient, scenario.TenantId, "DIR-PS-CC", "Direccion", "Direccion");
-        var profile = await CreateJobProfileAsync(slotClient, scenario.TenantId, "JP-PS-CC", "Perfil");
+        var orgUnit = await CreateOrgUnitAsync(
+            slotClient,
+            scenario.TenantId,
+            "DIR-PS-CC",
+            "Direccion",
+            "Direccion",
+            costCenterCode: "CC-INACTIVE");
+        var profile = await CreateJobProfileAsync(slotClient, scenario.TenantId, "JP-PS-CC", "Perfil", orgUnit.Id);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var costCenterEntity = await dbContext.CostCenters.SingleAsync(item => item.PublicId == costCenter.Id);
+            costCenterEntity.Inactivate();
+            await dbContext.SaveChangesAsync();
+        }
 
         var response = await slotClient.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-slots", new
         {
             code = "PS-CC-INV",
             title = "Plaza con centro inactivo",
             jobProfilePublicId = profile.Id,
-            orgUnitPublicId = orgUnit.Id,
             workCenterPublicId = (Guid?)null,
-            costCenterCode = "CC-INACTIVE",
             directDependencyPositionSlotPublicId = (Guid?)null,
             functionalDependencyPositionSlotPublicId = (Guid?)null,
             status = "Vacant",
@@ -4380,6 +4635,29 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(payload.Before);
         Assert.NotNull(payload.After);
         Assert.NotNull(payload.Diff);
+    }
+
+    [Fact]
+    public async Task AuditLogs_WithEntityPublicIdFilter_ShouldReturnOnlyMatchingEntityAndAlignedTotalCount()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync(
+            $"/api/audit/logs?EntityPublicId={scenario.TargetUserId}&EntityType=User&page=1&pageSize=20");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(1, payload!.TotalCount);
+
+        var item = Assert.Single(payload.Items);
+        Assert.Equal("USER_UPDATED", item.EventType);
+        Assert.Equal("User", item.EntityType);
+        Assert.Equal(scenario.TargetUserId, item.EntityId);
     }
 
     [Fact]
@@ -5195,8 +5473,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         HttpClient client,
         Guid companyId,
         string code,
-        string title)
+        string title,
+        Guid? orgUnitPublicId = null)
     {
+        var orgUnit = orgUnitPublicId.HasValue
+            ? (OrgUnitItem?)null
+            : await CreateOrgUnitAsync(client, companyId, $"DIR-{code}", $"Unidad {title}", "Direccion");
         var positionCategory = await EnsureDefaultPositionCategoryAsync(client, companyId);
 
         var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/job-profiles", new
@@ -5204,7 +5486,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code,
             title,
             objective = "Objetivo",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = orgUnitPublicId ?? orgUnit!.Id,
             reportsToJobProfilePublicId = (Guid?)null,
             positionCategoryPublicId = positionCategory.Id,
             strategicObjectiveCatalogItemPublicId = (Guid?)null,
@@ -5264,17 +5546,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string code,
         string title,
         Guid jobProfileId,
-        Guid orgUnitId,
         int maxEmployees)
     {
         var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/position-slots", new
         {
             code,
             title,
-            jobProfileId,
-            orgUnitId,
+            jobProfilePublicId = jobProfileId,
             workCenterPublicId = (Guid?)null,
-            costCenterCode = (string?)null,
             directDependencyPositionSlotPublicId = (Guid?)null,
             functionalDependencyPositionSlotPublicId = (Guid?)null,
             status = "Vacant",
@@ -5745,6 +6024,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string Code,
         string Title,
         JobProfileStatus Status,
+        Guid? OrgUnitId,
+        string? OrgUnitName,
         Guid ConcurrencyToken);
 
     private sealed record JobProfileDependentPositionItem(
@@ -5875,6 +6156,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string Code,
         string? Title,
         PositionSlotStatus Status,
+        Guid JobProfileId,
+        Guid OrgUnitId,
+        string OrgUnitName,
+        string? CostCenterCode,
         Guid? DirectDependencyPositionSlotId,
         int OccupiedEmployees,
         bool IsActive,

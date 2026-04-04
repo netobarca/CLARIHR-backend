@@ -11,6 +11,7 @@ public interface IAuditLogRepository
         DateTime? fromUtc,
         DateTime? toUtc,
         Guid? actorUserId,
+        Guid? entityId,
         string? entityType,
         string? eventType,
         string? search,

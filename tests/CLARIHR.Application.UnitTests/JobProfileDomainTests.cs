@@ -10,7 +10,7 @@ public sealed class JobProfileDomainTests
     {
         var profile = JobProfile.Create("  jp-001 ", "  Analista de Nomina  ");
 
-        Assert.Equal("jp-001", profile.Code);
+        Assert.Equal("JP-001", profile.Code);
         Assert.Equal("JP-001", profile.NormalizedCode);
         Assert.Equal("Analista de Nomina", profile.Title);
         Assert.Equal("ANALISTA DE NOMINA", profile.NormalizedTitle);
@@ -28,7 +28,7 @@ public sealed class JobProfileDomainTests
             "JP-001",
             "Analista",
             objective: "Objetivo",
-            orgUnitId: null,
+            orgUnitId: 1,
             reportsToJobProfileId: null,
             positionCategoryId: null,
             strategicObjectiveCatalogItemId: null,
@@ -50,6 +50,32 @@ public sealed class JobProfileDomainTests
     }
 
     [Fact]
+    public void JobProfile_UpdateCore_WithoutOrgUnit_ShouldThrow()
+    {
+        var profile = JobProfile.Create("JP-001", "Analista");
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => profile.UpdateCore(
+            "JP-001",
+            "Analista",
+            objective: "Objetivo",
+            orgUnitId: 0,
+            reportsToJobProfileId: null,
+            positionCategoryId: null,
+            strategicObjectiveCatalogItemId: null,
+            assignedWorkEquipmentCatalogItemId: null,
+            responsibilityCatalogItemId: null,
+            decisionScope: null,
+            assignedResources: null,
+            responsibilities: "Responsabilidades",
+            benefitsSummary: null,
+            workingConditionSummary: null,
+            marketSalaryReference: null,
+            valuationNotes: null,
+            effectiveFromUtc: null,
+            effectiveToUtc: null));
+    }
+
+    [Fact]
     public void JobProfile_UpdateCore_ShouldRefreshConcurrencyToken()
     {
         var profile = JobProfile.Create("JP-001", "Analista");
@@ -59,7 +85,7 @@ public sealed class JobProfileDomainTests
             "JP-001",
             "Analista Senior",
             objective: "Objetivo",
-            orgUnitId: null,
+            orgUnitId: 1,
             reportsToJobProfileId: null,
             positionCategoryId: null,
             strategicObjectiveCatalogItemId: null,
@@ -96,7 +122,7 @@ public sealed class JobProfileDomainTests
             "JP-001",
             "Analista",
             objective: "Objetivo del puesto",
-            orgUnitId: null,
+            orgUnitId: 1,
             reportsToJobProfileId: null,
             positionCategoryId: null,
             strategicObjectiveCatalogItemId: null,

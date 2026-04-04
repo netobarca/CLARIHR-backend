@@ -13,9 +13,7 @@ public sealed class PositionSlot : TenantEntity
         string code,
         string? title,
         long jobProfileId,
-        long orgUnitId,
         long? workCenterId,
-        string? costCenterCode,
         long? directDependencyPositionSlotId,
         long? functionalDependencyPositionSlotId,
         PositionSlotStatus status,
@@ -27,7 +25,6 @@ public sealed class PositionSlot : TenantEntity
         string? notes)
     {
         EnsurePositiveId(jobProfileId, nameof(jobProfileId));
-        EnsurePositiveId(orgUnitId, nameof(orgUnitId));
         if (workCenterId.HasValue)
         {
             EnsurePositiveId(workCenterId.Value, nameof(workCenterId));
@@ -41,9 +38,7 @@ public sealed class PositionSlot : TenantEntity
         SetCode(code);
         Title = PositionSlotNormalization.CleanOptional(title);
         JobProfileId = jobProfileId;
-        OrgUnitId = orgUnitId;
         WorkCenterId = workCenterId;
-        CostCenterCode = PositionSlotNormalization.CleanOptional(costCenterCode);
         DirectDependencyPositionSlotId = directDependencyPositionSlotId;
         FunctionalDependencyPositionSlotId = functionalDependencyPositionSlotId;
         Status = status;
@@ -65,11 +60,7 @@ public sealed class PositionSlot : TenantEntity
 
     public long JobProfileId { get; private set; }
 
-    public long OrgUnitId { get; private set; }
-
     public long? WorkCenterId { get; private set; }
-
-    public string? CostCenterCode { get; private set; }
 
     public long? DirectDependencyPositionSlotId { get; private set; }
 
@@ -97,9 +88,7 @@ public sealed class PositionSlot : TenantEntity
         string code,
         string? title,
         long jobProfileId,
-        long orgUnitId,
         long? workCenterId,
-        string? costCenterCode,
         long? directDependencyPositionSlotId,
         long? functionalDependencyPositionSlotId,
         PositionSlotStatus status,
@@ -114,9 +103,7 @@ public sealed class PositionSlot : TenantEntity
             code,
             title,
             jobProfileId,
-            orgUnitId,
             workCenterId,
-            costCenterCode,
             directDependencyPositionSlotId,
             functionalDependencyPositionSlotId,
             status,
@@ -131,9 +118,7 @@ public sealed class PositionSlot : TenantEntity
         string code,
         string? title,
         long jobProfileId,
-        long orgUnitId,
         long? workCenterId,
-        string? costCenterCode,
         int maxEmployees,
         bool isFixedTerm,
         DateTime effectiveFromUtc,
@@ -141,7 +126,6 @@ public sealed class PositionSlot : TenantEntity
         string? notes)
     {
         EnsurePositiveId(jobProfileId, nameof(jobProfileId));
-        EnsurePositiveId(orgUnitId, nameof(orgUnitId));
         if (workCenterId.HasValue)
         {
             EnsurePositiveId(workCenterId.Value, nameof(workCenterId));
@@ -153,9 +137,7 @@ public sealed class PositionSlot : TenantEntity
         SetCode(code);
         Title = PositionSlotNormalization.CleanOptional(title);
         JobProfileId = jobProfileId;
-        OrgUnitId = orgUnitId;
         WorkCenterId = workCenterId;
-        CostCenterCode = PositionSlotNormalization.CleanOptional(costCenterCode);
         MaxEmployees = maxEmployees;
         IsFixedTerm = isFixedTerm;
         EffectiveFromUtc = effectiveFromUtc;

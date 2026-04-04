@@ -55,6 +55,58 @@ public sealed class AuditAdministrationTests
     }
 
     [Fact]
+    public async Task GetAuditLogsQuery_WhenFilteringByEntityIdAndType_ShouldReturnOnlyMatchingItemsAndCount()
+    {
+        var matchingEntityId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var otherEntityId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var matchingLogA = CreateAuditLog(
+            TenantId,
+            AuditEventTypes.UserUpdated,
+            AuditEntityTypes.User,
+            "Updated user profile.",
+            matchingEntityId);
+        var matchingLogB = CreateAuditLog(
+            TenantId,
+            AuditEventTypes.UserCreated,
+            AuditEntityTypes.User,
+            "Created user profile.",
+            matchingEntityId);
+        var differentTypeSameEntity = CreateAuditLog(
+            TenantId,
+            AuditEventTypes.RoleUpdated,
+            AuditEntityTypes.Role,
+            "Updated role assignment.",
+            matchingEntityId);
+        var differentEntitySameType = CreateAuditLog(
+            TenantId,
+            AuditEventTypes.UserUpdated,
+            AuditEntityTypes.User,
+            "Updated another user.",
+            otherEntityId);
+        var repository = new TestAuditLogRepository(
+            TenantId,
+            [matchingLogA, matchingLogB, differentTypeSameEntity, differentEntitySameType]);
+        var handler = new GetAuditLogsQueryHandler(new AllowAuditAuthorizationService(), repository);
+
+        var result = await handler.Handle(
+            new GetAuditLogsQuery(
+                EntityId: matchingEntityId,
+                EntityType: AuditEntityTypes.User,
+                Page: 1,
+                PageSize: 20),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Value.TotalCount);
+        Assert.Equal(2, result.Value.Items.Count);
+        Assert.All(result.Value.Items, item =>
+        {
+            Assert.Equal(matchingEntityId, item.EntityId);
+            Assert.Equal(AuditEntityTypes.User, item.EntityType);
+        });
+    }
+
+    [Fact]
     public async Task GetAuditLogDetailQuery_WhenLogBelongsToAnotherTenant_ShouldReturnTenantMismatch()
     {
         var otherLog = CreateAuditLog(OtherTenantId, AuditEventTypes.RoleCreated, AuditEntityTypes.Role, "Created role Supervisor.");
@@ -67,14 +119,19 @@ public sealed class AuditAdministrationTests
         Assert.Equal("TENANT_MISMATCH", result.Error.Code);
     }
 
-    private static AuditLog CreateAuditLog(Guid tenantId, string eventType, string entityType, string summary)
+    private static AuditLog CreateAuditLog(
+        Guid tenantId,
+        string eventType,
+        string entityType,
+        string summary,
+        Guid? entityId = null)
     {
         var log = AuditLog.Create(
             Guid.Parse("11111111-1111-1111-1111-111111111111"),
             "admin@acme.test",
             eventType,
             entityType,
-            Guid.NewGuid(),
+            entityId ?? Guid.NewGuid(),
             "entity-key",
             AuditActions.Update,
             summary,
@@ -112,6 +169,7 @@ public sealed class AuditAdministrationTests
             DateTime? fromUtc,
             DateTime? toUtc,
             Guid? actorUserId,
+            Guid? entityId,
             string? entityType,
             string? eventType,
             string? search,
@@ -138,6 +196,11 @@ public sealed class AuditAdministrationTests
                 query = query.Where(log => log.ActorUserId == actorUserId.Value);
             }
 
+            if (entityId.HasValue)
+            {
+                query = query.Where(log => log.EntityId == entityId.Value);
+            }
+
             if (!string.IsNullOrWhiteSpace(entityType))
             {
                 query = query.Where(log => log.EntityType == entityType);
@@ -153,12 +216,15 @@ public sealed class AuditAdministrationTests
                 query = query.Where(log => log.Summary.Contains(search, StringComparison.OrdinalIgnoreCase));
             }
 
+            var totalCount = query.Count();
             var items = query
                 .OrderByDescending(log => log.CreatedUtc)
                 .ThenByDescending(log => log.Id)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToArray();
 
-            return Task.FromResult(new PagedResponse<AuditLog>(items, pageNumber, pageSize, items.Length));
+            return Task.FromResult(new PagedResponse<AuditLog>(items, pageNumber, pageSize, totalCount));
         }
 
         public Task<AuditLog?> GetByPublicIdAsync(Guid auditLogId, CancellationToken cancellationToken) =>

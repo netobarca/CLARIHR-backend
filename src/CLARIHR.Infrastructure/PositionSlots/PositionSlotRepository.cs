@@ -38,18 +38,6 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             .IgnoreQueryFilters()
             .AnyAsync(profile => profile.PublicId == jobProfileId, cancellationToken);
 
-    public Task<long?> ResolveOrgUnitIdAsync(Guid tenantId, Guid orgUnitId, CancellationToken cancellationToken) =>
-        dbContext.OrgUnits
-            .AsNoTracking()
-            .Where(orgUnit => orgUnit.TenantId == tenantId && orgUnit.PublicId == orgUnitId)
-            .Select(orgUnit => (long?)orgUnit.Id)
-            .SingleOrDefaultAsync(cancellationToken);
-
-    public Task<bool> OrgUnitExistsOutsideTenantAsync(Guid orgUnitId, CancellationToken cancellationToken) =>
-        dbContext.OrgUnits
-            .IgnoreQueryFilters()
-            .AnyAsync(orgUnit => orgUnit.PublicId == orgUnitId, cancellationToken);
-
     public Task<long?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken) =>
         dbContext.WorkCenters
             .AsNoTracking()
@@ -84,7 +72,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         var query =
             from slot in dbContext.Set<PositionSlot>().AsNoTracking()
             join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
-            join orgUnit in dbContext.OrgUnits.AsNoTracking() on slot.OrgUnitId equals orgUnit.Id
+            join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
             join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
             from workCenter in workCenterGroup.DefaultIfEmpty()
             join positionCategory in dbContext.PositionCategories.AsNoTracking()
@@ -184,7 +172,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
     public Task<PositionSlotResponse?> GetResponseByIdAsync(Guid slotId, CancellationToken cancellationToken) =>
         (from slot in dbContext.Set<PositionSlot>().AsNoTracking()
          join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
-         join orgUnit in dbContext.OrgUnits.AsNoTracking() on slot.OrgUnitId equals orgUnit.Id
+         join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
          join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
          from workCenter in workCenterGroup.DefaultIfEmpty()
          join directDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.DirectDependencyPositionSlotId equals directDependency.Id into directGroup
@@ -214,7 +202,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
              orgUnit.Name,
              workCenter != null ? workCenter.PublicId : null,
              workCenter != null ? workCenter.Name : null,
-             slot.CostCenterCode,
+             orgUnit.CostCenterCode,
              directDependency != null ? directDependency.PublicId : null,
              directDependency != null ? directDependency.Code : null,
              functionalDependency != null ? functionalDependency.PublicId : null,
@@ -240,9 +228,9 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         var nodes = await
             (from slot in dbContext.Set<PositionSlot>().AsNoTracking()
              join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
-             join orgUnit in dbContext.OrgUnits.AsNoTracking() on slot.OrgUnitId equals orgUnit.Id
+             join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
              join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
-             from workCenter in workCenterGroup.DefaultIfEmpty()
+            from workCenter in workCenterGroup.DefaultIfEmpty()
              join positionCategory in dbContext.PositionCategories.AsNoTracking()
                 on jobProfile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
              from positionCategory in positionCategoryGroup.DefaultIfEmpty()
@@ -299,7 +287,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         var query =
             from slot in dbContext.Set<PositionSlot>().AsNoTracking()
             join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
-            join orgUnit in dbContext.OrgUnits.AsNoTracking() on slot.OrgUnitId equals orgUnit.Id
+            join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
             join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
             from workCenter in workCenterGroup.DefaultIfEmpty()
             join directDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.DirectDependencyPositionSlotId equals directDependency.Id into directGroup
@@ -380,7 +368,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 item.OrgUnit.Name,
                 item.WorkCenter != null ? item.WorkCenter.Code : null,
                 item.WorkCenter != null ? item.WorkCenter.Name : null,
-                item.Slot.CostCenterCode,
+                item.OrgUnit.CostCenterCode,
                 item.DirectDependency != null ? item.DirectDependency.Code : null,
                 item.FunctionalDependency != null ? item.FunctionalDependency.Code : null,
                 item.ContractType != null ? item.ContractType.PublicId : null,
@@ -396,11 +384,14 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             .ToArrayAsync(cancellationToken);
     }
 
-    public Task<PositionSlotContractTypeLookup?> GetContractTypeByJobProfileAsync(
+    public Task<PositionSlotJobProfileLookup?> GetJobProfileLookupAsync(
         Guid tenantId,
         Guid jobProfileId,
         CancellationToken cancellationToken) =>
         (from profile in dbContext.JobProfiles.AsNoTracking()
+         join orgUnit in dbContext.OrgUnits.AsNoTracking()
+             on profile.OrgUnitId equals orgUnit.Id into orgUnitGroup
+         from orgUnit in orgUnitGroup.DefaultIfEmpty()
          join positionCategory in dbContext.PositionCategories.AsNoTracking()
              on profile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
          from positionCategory in positionCategoryGroup.DefaultIfEmpty()
@@ -411,8 +402,12 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
              on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
          from contractType in contractTypeGroup.DefaultIfEmpty()
          where profile.TenantId == tenantId && profile.PublicId == jobProfileId
-         select new PositionSlotContractTypeLookup(
+         select new PositionSlotJobProfileLookup(
+             profile.Id,
              profile.PublicId,
+             orgUnit != null ? orgUnit.PublicId : null,
+             orgUnit != null ? orgUnit.Name : null,
+             orgUnit != null ? orgUnit.CostCenterCode : null,
              positionCategory != null ? positionCategory.PublicId : null,
              classification != null ? classification.PublicId : null,
              contractType != null ? contractType.PublicId : null,

@@ -2,15 +2,17 @@
 
 ## 1. Resumen ejecutivo
 
-Esta reevaluacion profunda se actualizo el **2 de abril de 2026** sobre el codigo, configuracion, pruebas y documentacion versionada del repositorio.
+Esta reevaluacion profunda se actualizo el **3 de abril de 2026** sobre el codigo, configuracion, pruebas y documentacion versionada del repositorio.
 
 Base verificada durante la auditoria:
 
 - `dotnet build CLARIHR.slnx -v minimal`: `0 warnings`, `0 errors`
 - `dotnet test tests/CLARIHR.Application.UnitTests/CLARIHR.Application.UnitTests.csproj --filter CompanySubscriptionStateManagementTests -v minimal`: `5/5` pruebas dirigidas aprobadas
 - `dotnet test tests/CLARIHR.Api.IntegrationTests/CLARIHR.Api.IntegrationTests.csproj --filter BackofficeCompanySubscriptionsIntegrationTests -v minimal`: `6/6` pruebas dirigidas aprobadas
+- `dotnet test tests/CLARIHR.Application.UnitTests/CLARIHR.Application.UnitTests.csproj --filter InternalCatalogAdministrationTests -v minimal`: `7/7` pruebas dirigidas aprobadas
+- `dotnet test tests/CLARIHR.Api.IntegrationTests/CLARIHR.Api.IntegrationTests.csproj --filter InternalCatalogsIntegrationTests -v minimal`: `5/5` pruebas dirigidas aprobadas
 - superficie HTTP medida en el repositorio: `37` controllers y `332` acciones HTTP
-- contrato machine-readable versionado en `openapi.yaml`: `23` paths
+- contrato machine-readable versionado en `openapi.yaml`: `41` paths
 - el suite completo aun conserva fallas legacy no relacionadas fuera del alcance de esta remediacion
 
 La conclusion revisada es que la solucion **no esta aprobada para produccion** en su estado actual para un SaaS multi-tenant de RRHH. La base tecnica sigue siendo buena, y la actualizacion del 29 de marzo ya cerro la brecha critica de acceso global por email allow-list y tambien agrego auditoria durable de plataforma. Aun asi, siguen vigentes hallazgos de riesgo alto con evidencia verificable:
@@ -138,20 +140,20 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 - Remediacion concreta:
   definir proxies o redes confiables explicitas por entorno, no limpiar listas por defecto sin justificacion operativa y agregar pruebas o validaciones de configuracion.
 
-### 3.6 Auditoria durable para writes globales de plataforma
+### 3.6 Auditoria durable para writes globales de plataforma y catalogos internos globales
 
 - Severidad previa: `Importante`
 - Estado actual: `Remediado y extendido el 2 de abril de 2026`
 - Nuevo respecto a la auditoria anterior: `Si`
 - Cambio aplicado:
-  las mutaciones globales de `CommercialAddon`, `CommercialPlan`, el reemplazo de suscripciones empresariales y ahora tambien los cambios manuales, programados o automaticos de estado de suscripcion ya no dependen solo de logging operativo; ahora escriben `PlatformAuditLog` persistente y no tenant-scoped. El catalogo de `CommercialAddon` sigue protegido por rol aun despues de generalizar add-ons `Massive` y `Specialized`, y los cambios sensibles de estado de suscripcion quedaron restringidos a `PlatformOperatorRole.Admin`.
+  las mutaciones globales de `CommercialAddon`, `CommercialPlan`, el reemplazo de suscripciones empresariales, los cambios manuales o automaticos de estado de suscripcion y ahora tambien los valores aceptados de `InternalCatalogValue` ya no dependen solo de logging operativo; ahora escriben `PlatformAuditLog` persistente y no tenant-scoped. El catalogo de `CommercialAddon` sigue protegido por rol aun despues de generalizar add-ons `Massive` y `Specialized`, los cambios sensibles de estado de suscripcion quedaron restringidos a `PlatformOperatorRole.Admin`, y la nueva superficie de catalogos internos exige usuario autenticado valido aunque no requiera tenant activo.
 - Evidencia:
   `PlatformAuditLog` y su configuracion EF existen en el modelo persistente.
   `PlatformAuditService` registra eventos globales con actor, entidad, accion y payload serializado.
-  `CommercialAddonAdministration.cs`, `CommercialPlanAdministration.cs`, `PlatformSubscriptionAdministration.cs` y `CompanySubscriptionLifecycleProcessor.cs` invocan esa auditoria persistente en writes globales y transiciones automaticas.
+  `CommercialAddonAdministration.cs`, `CommercialPlanAdministration.cs`, `PlatformSubscriptionAdministration.cs`, `CompanySubscriptionLifecycleProcessor.cs`, `InternalCatalogAdministration.cs` y `JobProfileAdministration.cs` invocan esa auditoria persistente en writes globales y transiciones automaticas.
   la migracion `AddPlatformBackofficeAndFormalSubscriptionPlans` crea la tabla `platform_audit_logs`.
 - Cobertura actual:
-  `BackofficeCompanySubscriptionsIntegrationTests` ya cubre suspension, reactivacion inmediata, preview de reactivacion, reactivacion programada, conflicto por duplicado pendiente, consulta del historial de estados y expiracion automatica de suscripciones empresariales, ademas de fallar si el flujo global de suscripciones pierde trazabilidad o enforcement de rol. `BackofficeCommercialAddonsIntegrationTests` ya verifica auditoria durable para create/update/activate/inactivate del catalogo global de add-ons, incluyendo configuraciones especializadas por seat o volumen. El CRUD de `CommercialPlan` sigue usando la misma infraestructura, aunque aun conviene agregar una prueba especifica por endpoint.
+  `BackofficeCompanySubscriptionsIntegrationTests` ya cubre suspension, reactivacion inmediata, preview de reactivacion, reactivacion programada, conflicto por duplicado pendiente, consulta del historial de estados y expiracion automatica de suscripciones empresariales, ademas de fallar si el flujo global de suscripciones pierde trazabilidad o enforcement de rol. `BackofficeCommercialAddonsIntegrationTests` ya verifica auditoria durable para create/update/activate/inactivate del catalogo global de add-ons, incluyendo configuraciones especializadas por seat o volumen. `InternalCatalogsIntegrationTests` ya cubre el acceso autenticado sin tenant, la visibilidad cross-tenant, el conflicto `409` por similitud `>= 0.90` y el autopoblado global desde `JobProfiles`. El CRUD de `CommercialPlan` sigue usando la misma infraestructura, aunque aun conviene agregar una prueba especifica por endpoint.
 
 ### 3.7 Drift contractual y documental severo
 

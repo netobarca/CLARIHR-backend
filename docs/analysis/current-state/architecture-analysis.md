@@ -56,6 +56,7 @@ El sistema sigue orientado a tenant isolation, pero [ApplicationDbContext.cs#L28
 
 `CommercialAddon`, `CommercialPlan`, `CompanySubscription` y `PlatformOperator` introducen un plano global fuera del tenant. La decision ahora esta mejor aislada: la administracion global sale del core tenant-scoped y vive en `CLARIHR.Backoffice.Api`, con tokens `platform`, autorizacion por `PlatformOperator` persistido y `PlatformAuditLog` separado del `AuditLog` tenant-scoped.
 Desde el 30 de marzo de 2026, `CommercialAddon` tambien deja de estar acoplado solo al cobro masivo por empleado activo y pasa a modelar pricing global reutilizable con `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity` y `minimumMonthlyFee` segun corresponda.
+Desde el 3 de abril de 2026, la Core API tambien expone un plano global acotado para `InternalCatalogValue`: `AccountInternalCatalogsController` publica definiciones y valores reutilizables de requisitos de `JobProfiles` sin `tenantId` activo, mientras `JobProfileAdministration` puede alimentar ese catalogo automaticamente al crear o editar perfiles. Arquitectonicamente sigue separado del `JobCatalog` tenant-scoped existente y mantiene auditoria durable de plataforma para las altas globales aceptadas.
 
 ### 4.4 Controllers con superficie mixta
 
@@ -76,6 +77,24 @@ Desde marzo de 2026 el backend endurecio la gobernanza contractual con una conve
 - `IamUser` separa el `PublicId` de la fila tenant-scoped del `LinkedUserPublicId` que referencia al usuario autenticado global, evitando colisiones entre tenants
 
 La garantia ya no depende solo de disciplina manual: hay convenciones de modelo, transformacion central de contratos y pruebas de guardrail sobre Swagger y `ApplicationDbContext`.
+
+### 4.6 Modelo comercial y acceso efectivo: coherente, pero no canonico
+
+La auditoria puntual sobre suscripciones, add-ons, permisos y accesos confirma que el backend ya tiene una cadena tecnica real de enforcement:
+
+1. `CommercialPlan` define `PlanEntitlements`.
+2. `CommercialAddon` define `CommercialAddonEntitlements`.
+3. `PlanEntitlementService` calcula `effectiveModules` como la union de modulos habilitados por plan y add-ons activos.
+4. varios authorization services y `RbacAuthorizationService` niegan acceso si el modulo comercial correspondiente no esta habilitado.
+
+Eso significa que, en backend, los add-ons no estan realmente "fuera" de `effectiveModules`. Al contrario: hoy son productos comerciales separados que pueden aportar modulos al conjunto efectivo final.
+
+La tension arquitectonica no esta en la ausencia total de union, sino en la falta de una fuente canonica simple para gobernar el modelo comercial y su traduccion a acceso:
+
+- `FREE` conserva una base muy amplia de modulos habilitados, lo que debilita la diferenciacion comercial real entre planes.
+- el marketplace y la consulta de add-ons elegibles no usan compatibilidad ni redundancia por modulo como criterio de elegibilidad; hoy filtran principalmente por estado y no propiedad previa.
+- la vista de suscripcion expone por separado `CurrentPlan.ModuleKeys`, `ActiveAddons.ModuleKeys` y `EffectiveModules`, lo cual es util, pero deja la interpretacion comercial repartida entre varias superficies.
+- el modulo `USERS` termina gobernado de forma indirecta a traves de `RBAC_USERS` y `PermissionMatrixCatalog`, lo que funciona tecnicamente, pero aumenta el costo mental para entender por que una capacidad esta o no habilitada.
 
 ## 5. Tensiones confirmadas por la reevaluacion
 
@@ -112,6 +131,14 @@ La reevaluacion encontro el siguiente patron resumido:
 | `UserCompanyRepository` | resolver rol tenant-scoped uniendo contra `IamRoles` sin filtro | la membresia y compania si van filtradas antes del join | parcial | revisar cuidadosamente para no normalizar bypasses innecesarios |
 | `LocationGroupRepository.GetByIdIgnoreFiltersAsync` | obtener entidad completa ignorando filtros | no se observa compensacion estructural en el nombre del metodo; requiere auditoria puntual de usos | no visible en esta reevaluacion | mayor prioridad de revision entre los bypasses encontrados |
 
+### 5.5 Gobernanza comercial aun demasiado distribuida
+
+La reevaluacion de suscripciones y add-ons deja una tension adicional:
+
+- el sistema ya calcula correctamente `effectiveModules`, pero la semantica comercial sigue repartida entre catalogo de planes, catalogo de add-ons, snapshots de suscripcion, `PermissionMatrixCatalog` y servicios de autorizacion por modulo.
+- no existe todavia una matriz canonica que responda, en un solo lugar, que modulo habilita cada producto comercial, que recursos protege, que permisos dependen de ese modulo y que add-ons son redundantes o incompatibles para un plan dado.
+- mientras esa matriz no exista, la plataforma depende de disciplina manual para evitar drift entre pricing, UX de marketplace, permisos y enforcement real.
+
 ## 6. Conclusiones
 
 La prioridad arquitectonica del proyecto no es redisenar desde cero. La base sigue siendo rescatable y, en muchos modulos, sana. La prioridad correcta es endurecer las garantias que hoy dependen demasiado de disciplina manual:
@@ -121,3 +148,4 @@ La prioridad arquitectonica del proyecto no es redisenar desde cero. La base sig
 3. gobernanza de bypasses como `IgnoreQueryFilters()`
 4. separacion clara entre auditoria tenant-scoped y auditoria global de plataforma
 5. contratos y analisis vivos alineados con la superficie real del backend
+6. gobernanza canonica entre plan, add-ons, `effectiveModules` y permisos

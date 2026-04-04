@@ -12,9 +12,7 @@ public sealed class PositionSlotDomainTests
             code: "  ps-001  ",
             title: "  Plaza Analista  ",
             jobProfileId: 1,
-            orgUnitId: 2,
             workCenterId: null,
-            costCenterCode: "  cc-01  ",
             directDependencyPositionSlotId: null,
             functionalDependencyPositionSlotId: null,
             status: PositionSlotStatus.Vacant,
@@ -25,7 +23,7 @@ public sealed class PositionSlotDomainTests
             effectiveToUtc: null,
             notes: "  note  ");
 
-        Assert.Equal("ps-001", slot.Code);
+        Assert.Equal("PS-001", slot.Code);
         Assert.Equal("PS-001", slot.NormalizedCode);
         Assert.Equal(PositionSlotStatus.Vacant, slot.Status);
         Assert.True(slot.IsActive);
@@ -38,9 +36,7 @@ public sealed class PositionSlotDomainTests
             code: "PS-001",
             title: "Plaza",
             jobProfileId: 1,
-            orgUnitId: 2,
             workCenterId: null,
-            costCenterCode: null,
             directDependencyPositionSlotId: null,
             functionalDependencyPositionSlotId: null,
             status: PositionSlotStatus.Vacant,
@@ -67,9 +63,7 @@ public sealed class PositionSlotDomainTests
             code: "PS-001",
             title: "Plaza",
             jobProfileId: 1,
-            orgUnitId: 2,
             workCenterId: null,
-            costCenterCode: null,
             directDependencyPositionSlotId: null,
             functionalDependencyPositionSlotId: null,
             status: PositionSlotStatus.Vacant,
@@ -92,9 +86,7 @@ public sealed class PositionSlotDomainTests
             code: "PS-001",
             title: "Plaza",
             jobProfileId: 1,
-            orgUnitId: 2,
             workCenterId: null,
-            costCenterCode: null,
             directDependencyPositionSlotId: null,
             functionalDependencyPositionSlotId: null,
             status: PositionSlotStatus.Occupied,

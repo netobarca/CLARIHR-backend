@@ -39,7 +39,7 @@ public sealed class JobProfile : TenantEntity
 
     public string? Objective { get; private set; }
 
-    public long? OrgUnitId { get; private set; }
+    public long OrgUnitId { get; private set; }
 
     public long? ReportsToJobProfileId { get; private set; }
 
@@ -101,7 +101,7 @@ public sealed class JobProfile : TenantEntity
         string code,
         string title,
         string? objective,
-        long? orgUnitId,
+        long orgUnitId,
         long? reportsToJobProfileId,
         long? positionCategoryId,
         long? strategicObjectiveCatalogItemId,
@@ -119,6 +119,7 @@ public sealed class JobProfile : TenantEntity
         bool bumpVersion = true)
     {
         EnsureEditable();
+        EnsurePositiveId(orgUnitId, nameof(orgUnitId));
 
         if (effectiveFromUtc.HasValue && effectiveToUtc.HasValue && effectiveFromUtc.Value > effectiveToUtc.Value)
         {
@@ -275,6 +276,14 @@ public sealed class JobProfile : TenantEntity
     {
         Title = JobProfileNormalization.Clean(title, nameof(title));
         NormalizedTitle = JobProfileNormalization.NormalizeName(title);
+    }
+
+    private static void EnsurePositiveId(long id, string parameterName)
+    {
+        if (id <= 0)
+        {
+            throw new ArgumentOutOfRangeException(parameterName, "Identifier must be greater than zero.");
+        }
     }
 
     private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();

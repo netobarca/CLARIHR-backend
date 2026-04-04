@@ -14,6 +14,7 @@ internal sealed class AuditLogRepository(ApplicationDbContext dbContext) : IAudi
         DateTime? fromUtc,
         DateTime? toUtc,
         Guid? actorUserId,
+        Guid? entityId,
         string? entityType,
         string? eventType,
         string? search,
@@ -36,6 +37,11 @@ internal sealed class AuditLogRepository(ApplicationDbContext dbContext) : IAudi
         if (actorUserId.HasValue)
         {
             query = query.Where(log => log.ActorUserId == actorUserId.Value);
+        }
+
+        if (entityId.HasValue)
+        {
+            query = query.Where(log => log.EntityId == entityId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(entityType))

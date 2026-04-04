@@ -42,15 +42,15 @@ public static class PositionSlotErrors
         "The selected job profile could not be found.",
         ErrorType.NotFound);
 
-    public static readonly Error OrgUnitNotFound = new(
-        "POSITION_SLOT_ORG_UNIT_NOT_FOUND",
-        "The selected organization unit could not be found.",
-        ErrorType.NotFound);
-
     public static readonly Error WorkCenterNotFound = new(
         "POSITION_SLOT_WORK_CENTER_NOT_FOUND",
         "The selected work center could not be found.",
         ErrorType.NotFound);
+
+    public static readonly Error JobProfileOrgUnitNotConfigured = new(
+        "POSITION_SLOT_JOB_PROFILE_ORG_UNIT_NOT_CONFIGURED",
+        "The selected job profile does not have an organization unit configured.",
+        ErrorType.UnprocessableEntity);
 
     public static readonly Error ContractTypeNotResolved = new(
         "POSITION_SLOT_CONTRACT_TYPE_NOT_RESOLVED",
@@ -59,7 +59,7 @@ public static class PositionSlotErrors
 
     public static readonly Error CostCenterInvalid = new(
         "POSITION_SLOT_COST_CENTER_INVALID",
-        "The selected cost center code does not exist or is inactive for the company.",
+        "The cost center inferred from the job profile organization unit does not exist or is inactive for the company.",
         ErrorType.UnprocessableEntity);
 
     public static readonly Error DependencyNotFound = new(

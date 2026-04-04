@@ -1,6 +1,5 @@
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.Locations;
-using CLARIHR.Domain.OrgUnits;
 using CLARIHR.Domain.PositionSlots;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -40,15 +39,8 @@ internal sealed class PositionSlotConfiguration : IEntityTypeConfiguration<Posit
         builder.Property(slot => slot.JobProfileId)
             .HasColumnName("job_profile_id");
 
-        builder.Property(slot => slot.OrgUnitId)
-            .HasColumnName("org_unit_id");
-
         builder.Property(slot => slot.WorkCenterId)
             .HasColumnName("work_center_id");
-
-        builder.Property(slot => slot.CostCenterCode)
-            .HasColumnName("cost_center_code")
-            .HasMaxLength(100);
 
         builder.Property(slot => slot.DirectDependencyPositionSlotId)
             .HasColumnName("direct_dependency_position_slot_id");
@@ -107,9 +99,6 @@ internal sealed class PositionSlotConfiguration : IEntityTypeConfiguration<Posit
         builder.HasIndex(slot => new { slot.TenantId, slot.JobProfileId })
             .HasDatabaseName("ix_position_slots__tenant_job_profile");
 
-        builder.HasIndex(slot => new { slot.TenantId, slot.OrgUnitId })
-            .HasDatabaseName("ix_position_slots__tenant_org_unit");
-
         builder.HasIndex(slot => new { slot.TenantId, slot.WorkCenterId })
             .HasDatabaseName("ix_position_slots__tenant_work_center");
 
@@ -124,12 +113,6 @@ internal sealed class PositionSlotConfiguration : IEntityTypeConfiguration<Posit
             .HasForeignKey(slot => slot.JobProfileId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_position_slots__job_profile");
-
-        builder.HasOne<OrgUnit>()
-            .WithMany()
-            .HasForeignKey(slot => slot.OrgUnitId)
-            .OnDelete(DeleteBehavior.Restrict)
-            .HasConstraintName("fk_position_slots__org_unit");
 
         builder.HasOne<WorkCenter>()
             .WithMany()

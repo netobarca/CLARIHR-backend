@@ -149,22 +149,26 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
                 orgUnit.CostCenterCode.Trim().ToUpper() == costCenter.NormalizedCode)
             .CountAsync(cancellationToken);
 
-        var positionSlotActiveReferences = await dbContext.PositionSlots
-            .AsNoTracking()
-            .Where(slot =>
-                slot.TenantId == costCenter.TenantId &&
-                slot.IsActive &&
-                slot.CostCenterCode != null &&
-                slot.CostCenterCode.Trim().ToUpper() == costCenter.NormalizedCode)
+        var positionSlotActiveReferences = await
+            (from slot in dbContext.PositionSlots.AsNoTracking()
+             join profile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals profile.Id
+             join orgUnit in dbContext.OrgUnits.AsNoTracking() on profile.OrgUnitId equals orgUnit.Id
+             where slot.TenantId == costCenter.TenantId &&
+                   slot.IsActive &&
+                   orgUnit.CostCenterCode != null &&
+                   orgUnit.CostCenterCode.Trim().ToUpper() == costCenter.NormalizedCode
+             select slot.Id)
             .CountAsync(cancellationToken);
 
-        var positionSlotInactiveReferences = await dbContext.PositionSlots
-            .AsNoTracking()
-            .Where(slot =>
-                slot.TenantId == costCenter.TenantId &&
-                !slot.IsActive &&
-                slot.CostCenterCode != null &&
-                slot.CostCenterCode.Trim().ToUpper() == costCenter.NormalizedCode)
+        var positionSlotInactiveReferences = await
+            (from slot in dbContext.PositionSlots.AsNoTracking()
+             join profile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals profile.Id
+             join orgUnit in dbContext.OrgUnits.AsNoTracking() on profile.OrgUnitId equals orgUnit.Id
+             where slot.TenantId == costCenter.TenantId &&
+                   !slot.IsActive &&
+                   orgUnit.CostCenterCode != null &&
+                   orgUnit.CostCenterCode.Trim().ToUpper() == costCenter.NormalizedCode
+             select slot.Id)
             .CountAsync(cancellationToken);
 
         return new CostCenterUsageResponse(
@@ -210,15 +214,16 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
             return true;
         }
 
-        return await dbContext.PositionSlots
-            .AsNoTracking()
-            .AnyAsync(
-                slot =>
-                    slot.TenantId == costCenter.TenantId &&
-                    slot.IsActive &&
-                    slot.CostCenterCode != null &&
-                    slot.CostCenterCode.Trim().ToUpper() == costCenter.NormalizedCode,
-                cancellationToken);
+        return await
+            (from slot in dbContext.PositionSlots.AsNoTracking()
+             join profile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals profile.Id
+             join orgUnit in dbContext.OrgUnits.AsNoTracking() on profile.OrgUnitId equals orgUnit.Id
+             where slot.TenantId == costCenter.TenantId &&
+                   slot.IsActive &&
+                   orgUnit.CostCenterCode != null &&
+                   orgUnit.CostCenterCode.Trim().ToUpper() == costCenter.NormalizedCode
+             select slot.Id)
+            .AnyAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<CostCenterExportRow>> GetExportRowsAsync(

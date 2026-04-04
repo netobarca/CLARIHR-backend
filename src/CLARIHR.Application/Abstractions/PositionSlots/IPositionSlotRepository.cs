@@ -18,10 +18,6 @@ public interface IPositionSlotRepository
 
     Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken);
 
-    Task<long?> ResolveOrgUnitIdAsync(Guid tenantId, Guid orgUnitId, CancellationToken cancellationToken);
-
-    Task<bool> OrgUnitExistsOutsideTenantAsync(Guid orgUnitId, CancellationToken cancellationToken);
-
     Task<long?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken);
 
     Task<bool> WorkCenterExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken);
@@ -54,7 +50,7 @@ public interface IPositionSlotRepository
         string? search,
         CancellationToken cancellationToken);
 
-    Task<PositionSlotContractTypeLookup?> GetContractTypeByJobProfileAsync(
+    Task<PositionSlotJobProfileLookup?> GetJobProfileLookupAsync(
         Guid tenantId,
         Guid jobProfileId,
         CancellationToken cancellationToken);

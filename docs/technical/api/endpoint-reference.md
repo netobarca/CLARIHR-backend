@@ -67,6 +67,21 @@ La secuencia actual de onboarding es:
 
 Despues del `switch`, el `access token` devuelto incluye contexto tenant y habilita los modulos `api/v1`.
 
+### 2.7 Estandar observable de errores
+
+Las respuestas de error de la API usan `ProblemDetails` enriquecido con:
+
+- `code`: codigo estable de negocio o de validacion
+- `traceId`: identificador de correlacion para soporte y logs
+- `errors`: diccionario campo -> mensajes cuando el error es `400 common.validation`
+- `details`: metadata estructurada opcional para errores de autorizacion o politicas
+
+Reglas observables:
+
+- las validaciones de negocio, las validaciones explicitas y los errores de `model binding` comparten el mismo envelope base
+- cuando el body JSON es invalido, `errors` usa nombres del contrato publico y no expone prefijos internos como `request` o `$.`
+- los errores de conversion JSON se devuelven con mensajes saneados por tipo esperado, por ejemplo UUID invalido, en lugar de detalles crudos del parser
+
 ## 3. Inventario de modulos
 
 | Modulo | Controladores | Familias principales de rutas | Proposito |
@@ -75,6 +90,7 @@ Despues del `switch`, el `access token` devuelto incluye contexto tenant y habil
 | Auth | `AuthController` | `/api/auth/*` | registro, auth externa, login, refresh y logout |
 | Account companies | `AccountCompaniesController` | `/api/account/companies*` | crear, listar, archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
 | Account company subscriptions | `AccountCompanySubscriptionsController` | `/api/account/companies/{publicId}/subscription*` | consultar y administrar como owner el plan activo, marketplace de add-ons y modulos efectivos de la compania |
+| Account internal catalogs | `AccountInternalCatalogsController` | `/api/account/internal-catalogs*` | exponer catalogos internos globales reutilizables por frontend y permitir altas controladas por similitud |
 | Platform auth | `PlatformAuthController` | `/api/platform/auth*` | login, refresh y logout de operadores del backoffice global |
 | Platform commercial modules | `CommercialModulesController` | `/api/platform/commercial-modules` | exponer el catalogo canonico de modulos comerciales asignables a planes y add-ons |
 | Platform commercial addons | `CommercialAddonsController` | `/api/platform/commercial-addons*` | administrar el catalogo comercial global de add-ons reutilizables con pricing masivo o especializado |
@@ -649,7 +665,43 @@ Reglas comunes:
 - Response: `PagedResponse<RbacPermissionAuditEntryResponse>`.
 - Observaciones: cada item devuelve `before` y `after` con `HasAccess/CanRead/CanCreate/CanUpdate/CanDelete`, mas `changedByUserId` y `changedAtUtc`.
 
-#### 5.1.10 Relacion entre superficies IAM
+#### 5.1.10 `AuditController` - auditoria funcional del tenant
+
+Base route: `/api/audit/logs`
+
+Este controlador expone la auditoria funcional del tenant activo para entidades del negocio y de seguridad. A diferencia de `/api/rbac/audit`, aqui el sujeto principal es la entidad auditada y no la matriz RBAC.
+
+Contratos principales:
+
+- `PagedResponse<AuditLogSummaryResponse>` para listado
+- `AuditLogDetailResponse` para detalle
+
+Reglas comunes:
+
+- Todas las rutas usan el recurso `AUDIT_LOGS` con `Read`.
+- El listado es tenant-scoped implicito y nunca mezcla registros de otro tenant.
+- Los identificadores publicos siguen el estandar transversal del backend: cuando se filtra por GUID publico se usa `EntityPublicId`, no `EntityId`.
+- `EntityType` acepta los valores normalizados del catalogo de auditoria, por ejemplo `User`, `Role`, `JobProfile`, `OrgUnit`, `PositionSlot`, `CostCenter`.
+- `totalCount` se calcula despues de aplicar todos los filtros server-side, incluido `EntityPublicId`, para que la paginacion del frontend quede alineada con la misma consulta.
+
+##### `GET /api/audit/logs`
+
+- Proposito: listar logs de auditoria del tenant activo.
+- Autorizacion: `AUDIT_LOGS:Read`.
+- Query: `fromUtc`, `toUtc`, `ActorUserPublicId`, `EntityPublicId`, `entityType`, `eventType`, `search`, `page`, `pageSize`.
+- Validaciones: `page > 0`, `pageSize` entre `1` y `100`, `ActorUserPublicId` y `EntityPublicId` no pueden ser `Guid.Empty`, `entityType` y `eventType` deben existir en sus catalogos, `fromUtc <= toUtc`.
+- Response: `PagedResponse<AuditLogSummaryResponse>`.
+- Observaciones: `EntityPublicId` filtra por el sujeto auditado; combinarlo con `entityType` evita ambiguedad entre tipos distintos que pudieran compartir el mismo GUID publico en ambientes sinteticos o seeds.
+
+##### `GET /api/audit/logs/{publicId}`
+
+- Proposito: obtener el detalle completo de un log de auditoria.
+- Autorizacion: `AUDIT_LOGS:Read`.
+- Response: `AuditLogDetailResponse`.
+- Errores relevantes: `TENANT_MISMATCH`, `AUDIT_LOG_NOT_FOUND`.
+- Observaciones: el detalle incluye `before`, `after`, `diff`, metadatos del actor y contexto tecnico (`ipAddress`, `userAgent`) cuando existen.
+
+#### 5.1.11 Relacion entre superficies IAM
 
 - `api/company/users` resuelve membresia, invitacion y lifecycle operativo del usuario dentro de una compania.
 - `api/iam/users` resuelve la entidad IAM y sus roles.
@@ -1011,6 +1063,41 @@ Contratos principales:
 - Response: `AccountCompanySubscriptionOverviewResponse`.
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_ADDON_FORBIDDEN_FOR_FREE_PLAN`.
 - Observaciones: si la activacion procede, los modulos del add-on aparecen inmediatamente dentro de `effectiveModules`.
+
+#### 5.3.7 `AccountInternalCatalogsController`
+
+Base route: `/api/account/internal-catalogs`
+
+Contratos principales:
+
+- `InternalCatalogDefinitionResponse`: `context`, `identifier`, `label`, `renderType`, `catalogKey`, `allowCreate`, `minQueryLength`
+- `InternalCatalogValueSuggestionResponse`: `id`, `value`, `score`
+- `CreateInternalCatalogValueRequest`: `value`
+
+##### `GET /api/account/internal-catalogs?context=job-profile.requirements`
+
+- Proposito: devolver el manifest de catalogos internos globales que el frontend puede usar para renderizar campos `search`, `select` o `freeText`.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Response: `IReadOnlyCollection<InternalCatalogDefinitionResponse>`.
+- Errores relevantes: `UNAUTHENTICATED`, `internal_catalogs.context_not_found`.
+- Observaciones: esta superficie no requiere `tenantId` activo ni ownership de compania; hoy publica el contexto `job-profile.requirements` con `Education`, `Knowledge` y `Certification` como `search`, mientras `Experience` y `Other` siguen en `freeText`.
+
+##### `GET /api/account/internal-catalogs/{catalogKey}/values?q=...&limit=...`
+
+- Proposito: buscar sugerencias globales por similitud dentro de un catalogo interno puntual.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Response: `IReadOnlyCollection<InternalCatalogValueSuggestionResponse>`.
+- Errores relevantes: `UNAUTHENTICATED`, `internal_catalogs.catalog_key_not_found`.
+- Observaciones: la busqueda usa `normalized_value`, threshold minimo `0.70`, ordena por exact match, prefijo, similitud, uso y nombre, y no separa resultados por tenant o compania.
+
+##### `POST /api/account/internal-catalogs/{catalogKey}/values`
+
+- Proposito: crear un nuevo valor global dentro de un catalogo `search` cuando el usuario autenticado no encuentra una opcion util.
+- Autenticacion: `Bearer` requerido con token `core`.
+- Request body: `value`.
+- Response: `InternalCatalogValueSuggestionResponse`.
+- Errores relevantes: `UNAUTHENTICATED`, `internal_catalogs.catalog_key_not_found`, `internal_catalogs.create_not_allowed`, `internal_catalogs.similar_value_conflict`.
+- Observaciones: si el valor ya existe por coincidencia exacta se reutiliza y responde `200`; si es nuevo responde `201`; si existe otra fila con similitud `>= 0.90`, la API responde `409` y adjunta `suggestions` en el `ProblemDetails` para evitar duplicados casi identicos.
 
 ##### `PATCH /api/account/companies/{companyPublicId}/archive`
 
@@ -1781,7 +1868,7 @@ Familias de rutas:
 
 #### 5.6.2 Proposito funcional en CLARIHR
 
-El modulo `CostCenters` mantiene el catalogo operativo de centros de costo del tenant. Su funcion es clasificar costos laborales y organizativos para que otros modulos puedan referenciar un codigo valido al asignar organigramas, posiciones y movimientos relacionados con gasto.
+El modulo `CostCenters` mantiene el catalogo operativo de centros de costo del tenant. Su funcion es clasificar costos laborales y organizativos para que otros modulos puedan referenciar un codigo valido al asignar organigramas, perfiles y plazas derivadas del perfil, ademas de movimientos relacionados con gasto.
 
 No modela jerarquias; modela un catalogo operativo con estado, tipo y codigos contables auxiliares.
 
@@ -1795,6 +1882,7 @@ No modela jerarquias; modela un catalogo operativo con estado, tipo y codigos co
 - `CostCenterListItemResponse` devuelve `id`, `code`, `name`, `type`, codigos contables opcionales, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y opcionalmente `allowedActions`.
 - `CostCenterResponse` agrega `companyId` y `description`.
 - `CostCenterUsageResponse` devuelve contadores de referencias activas e inactivas desde `OrgUnits` y `PositionSlots`, mas `hasActiveReferences`.
+- El uso de `PositionSlots` se calcula por derivacion `PositionSlot -> JobProfile -> OrgUnit -> CostCenterCode`; la plaza ya no conserva un `costCenterCode` propio.
 - `code` es obligatorio, maximo `50`, y debe cumplir regex alfanumerica con `_` o `-`.
 - `name` es obligatorio y maximo `150`.
 - `description` acepta hasta `500` caracteres.
@@ -1862,6 +1950,7 @@ Observaciones funcionales:
 - devuelve conteos separados para `PositionSlots` activas e inactivas.
 - `hasActiveReferences` se vuelve `true` si existe al menos una referencia activa en cualquiera de esos dos modulos.
 - la logica de bloqueo de `inactivate` se basa en referencias activas, no en referencias historicas inactivas.
+- los conteos de `PositionSlots` se resuelven desde la `OrgUnit` del `JobProfile` asociado a cada plaza, no desde una columna propia de la plaza.
 
 #### 5.6.8 Exportes
 
@@ -1903,15 +1992,16 @@ Observaciones funcionales:
 - `create` valida unicidad de `code` por tenant.
 - `update` modifica datos escalares del centro de costo, exige `ConcurrencyToken` y puede cambiar `type` y account codes.
 - `activate` exige `ConcurrencyToken` y reactiva el centro de costo.
-- `inactivate` exige `ConcurrencyToken` y falla si existe uso activo en `OrgUnits` o `PositionSlots`.
+- `inactivate` exige `ConcurrencyToken` y falla si existe uso activo en `OrgUnits` o en `PositionSlots` que lleguen a ese centro de costo por derivacion.
 
 #### 5.6.10 Relacion con otros modulos
 
 - `OrgUnits` puede referenciar centros de costo por `costCenterCode`.
-- `PositionSlots` tambien puede referenciarlos por `costCenterCode`.
+- `JobProfiles` fija la `OrgUnit` obligatoria del puesto, y esa `OrgUnit` puede cargar `costCenterCode`.
+- `PositionSlots` ya no almacena `CostCenterCode`; el detalle, los exportes y `usage` lo resuelven desde `JobProfile -> OrgUnit -> CostCenterCode`.
 - La respuesta `usage` existe precisamente para hacer visible esa dependencia cruzada antes de desactivar un codigo.
 
-`CostCenters` cierra el bloque organizacional base junto con `Org structure catalogs` y `OrgUnits`: primero se definen catalogos, luego la estructura y luego las claves de imputacion de costo que esa estructura y los puestos reutilizan.
+`CostCenters` cierra el bloque organizacional base junto con `Org structure catalogs` y `OrgUnits`: primero se definen catalogos, luego la estructura y luego las claves de imputacion de costo que esa estructura y los perfiles/plazas reutilizan por derivacion.
 
 ### 5.7 Legal representatives
 
@@ -2378,7 +2468,7 @@ Este bloque convierte la estructura organizacional en un modelo formal de puesto
 - `Job profiles` define el puesto tipo: objetivo, dependencias, requisitos, funciones, relaciones, compensaciones, beneficios y condiciones.
 - `Competency framework` modela la piramide ocupacional, los conductos esperados y la matriz de expectativas por perfil.
 - `Position description catalogs` provee el vocabulario formal del descriptor de puestos y sus clasificaciones.
-- `Position slots` aterriza ese diseno en plazas concretas dentro de la empresa: una posicion real, ubicada en un `OrgUnit`, opcionalmente en un `WorkCenter`, con capacidad, ocupacion y dependencias.
+- `Position slots` aterriza ese diseno en plazas concretas dentro de la empresa: una posicion real asociada a un `JobProfile`, que hereda `OrgUnit` y `CostCenter` desde ese perfil, opcionalmente en un `WorkCenter`, con capacidad, ocupacion y dependencias.
 
 En terminos funcionales, este bloque es la base del diseno organizacional y del gobierno del talento: sin estos endpoints no hay perfiles de puesto consistentes, matrices de competencia por perfil ni plazas concretas para dotacion.
 
@@ -2404,6 +2494,8 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - `PATCH /position-slots/{id}/dependencies` sobrescribe tanto la dependencia directa como la funcional; `null` limpia la relacion.
 - `JobProfileStatus` hoy expone `Draft`, `Published` y `Archived`.
 - `PositionSlotStatus` hoy expone `Vacant`, `Occupied` y `Suspended`.
+- `POST/PUT /job-profiles` exige `OrgUnitPublicId`; ya no existen perfiles de puesto sin unidad organizativa.
+- `POST/PUT /position-slots` ya no aceptan `OrgUnitPublicId` ni `CostCenterCode`; ambos valores se infieren desde `JobProfile -> OrgUnit`.
 - En `PositionSlots`, el tipo de contrato no lo envia el cliente: se deriva desde `JobProfile -> PositionCategory -> PositionCategoryClassification -> PositionContractType`.
 
 #### 5.9.4 Autorizacion observable
@@ -2435,6 +2527,7 @@ Errores transversales:
 
 Errores relevantes en `JobProfiles` y `JobCatalogs`:
 
+- `common.validation`: `400`, request body invalido, `model binding` invalido o validaciones de entrada; responde con `code`, `traceId` y `errors` por campo usando nombres del contrato publico. En `create/update`, `orgUnitPublicId` ahora es obligatorio.
 - `JOB_PROFILE_NOT_FOUND`: `404`, el perfil solicitado no existe en el scope correcto.
 - `JOB_CATALOG_ITEM_NOT_FOUND`: `404`, el catalog item solicitado no existe en el scope correcto.
 - `JOB_PROFILE_ORG_UNIT_NOT_FOUND`: `404`, el `OrgUnit` referenciado no se pudo resolver.
@@ -2486,11 +2579,11 @@ Errores relevantes en `PositionSlots`:
 
 - `POSITION_SLOT_NOT_FOUND`: `404`, la plaza solicitada no existe en el scope correcto.
 - `POSITION_SLOT_JOB_PROFILE_NOT_FOUND`: `404`, el job profile referenciado no se pudo resolver.
-- `POSITION_SLOT_ORG_UNIT_NOT_FOUND`: `404`, el `OrgUnit` referenciado no se pudo resolver.
 - `POSITION_SLOT_WORK_CENTER_NOT_FOUND`: `404`, el `WorkCenter` referenciado no se pudo resolver.
 - `POSITION_SLOT_DEPENDENCY_NOT_FOUND`: `404`, la plaza usada como dependencia no se pudo resolver.
+- `POSITION_SLOT_JOB_PROFILE_ORG_UNIT_NOT_CONFIGURED`: `422`, el job profile referenciado no resuelve una `OrgUnit`; es un guardrail defensivo para datos legacy o inconsistentes.
 - `POSITION_SLOT_CONTRACT_TYPE_NOT_RESOLVED`: `422`, el job profile no resuelve un tipo de contrato activo.
-- `POSITION_SLOT_COST_CENTER_INVALID`: `422`, el `costCenterCode` no existe o esta inactivo en la compania.
+- `POSITION_SLOT_COST_CENTER_INVALID`: `422`, el `costCenterCode` inferido desde la `OrgUnit` del job profile no existe o esta inactivo en la compania.
 - `POSITION_SLOT_CODE_CONFLICT`: `409`, otra plaza ya usa ese `code`.
 - `POSITION_SLOT_DEPENDENCY_CYCLE`: `409`, la dependencia directa crearia un ciclo.
 - `POSITION_SLOT_DEPENDENCY_SELF_REFERENCE`: `409`, la plaza no puede depender de si misma.
@@ -2570,19 +2663,23 @@ Observaciones funcionales:
 - el payload de `create/update` mezcla campos escalares y colecciones anidadas.
 - `update` es de reemplazo total sobre las colecciones; no es un merge parcial.
 - `create/update` resuelven referencias a `OrgUnit`, `ReportsToJobProfile`, `PositionCategory`, `StrategicObjective`, `AssignedWorkEquipment` y `Responsibility`.
+- `OrgUnitPublicId` es obligatoria en `create/update`; incluso un borrador debe quedar asociado a una unidad organizativa valida.
 - `PositionCategory` debe existir y estar activa para poder asociarse al perfil.
 - las referencias a `StrategicObjective`, `AssignedWorkEquipment`, `Responsibility`, `RequirementType`, `Frequency` y `WorkConditionType` deben existir y estar activas.
 - el sistema detecta ciclos tanto en `reportsTo` como en `dependentPositions`.
 - `Published` no es un estado inmutable: un job profile publicado todavia puede editarse y volver a publicarse mientras no este archivado.
-- `PUT /api/v1/job-profiles/{id}` permite guardar borradores incompletos, pero si el perfil ya esta `Published` no puede remover `objective`, `responsibilities`, `requirements` o `functions`; en ese caso responde `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING` (`422`).
+- `PUT /api/v1/job-profiles/{id}` permite guardar borradores incompletos, pero si el perfil ya esta `Published` no puede remover `objective`, `responsibilities`, `requirements` o `functions`; en ese caso responde `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING` (`422`). Esa flexibilidad ya no aplica a `OrgUnit`: siempre debe existir.
 - `Archived` si es terminal para edicion: cualquier `update` o `publish` sobre un perfil archivado falla con `JOB_PROFILE_STATE_CONFLICT`.
 - `publish` exige al menos estas precondiciones: `Objective`, minimo un `Requirement`, minimo una `Function` y `Responsibilities`.
 - `publish` no exige competencias, trainings, beneficios, compensaciones ni categoria de puesto.
 - `publish` usa el `ConcurrencyToken` del perfil y, si el estado es valido, incrementa `Version`.
 - `archive` es practicamente idempotente: si el perfil ya estaba archivado y el `ConcurrencyToken` coincide, devuelve la representacion actual sin volver a mutar.
+- cambiar la `OrgUnit` del `JobProfile` cambia automaticamente la `OrgUnit` y el `CostCenterCode` derivados que exponen todas sus `PositionSlots`.
 - `AllowInlineCatalogCreate=true` permite que el mismo payload cree items faltantes en ciertas categorias de `job-catalogs`.
 - ese inline create solo funciona si el usuario tambien tiene permisos de catalog admin; de lo contrario responde `JOB_CATALOG_INLINE_CREATE_FORBIDDEN`.
 - para inline create se requieren `code + name`; si ya existe un item activo con el mismo `name` normalizado, la API lo reutiliza en vez de crear duplicado.
+- para requisitos `Education`, `Knowledge` y `Certification`, `create/update` ahora tambien resuelven un catalogo interno global no tenant-scoped a partir de `description`; si no existe un valor suficientemente parecido, lo agregan y dejan el texto canonico resultante en el perfil.
+- `Experience` y `Other` siguen siendo texto libre y no alimentan el catalogo interno global.
 
 #### 5.9.8 Competency framework
 
@@ -2711,17 +2808,19 @@ Observaciones funcionales:
 - `q` busca por `slot code`, `slot title`, `job profile`, `org unit` y `work center`.
 - el orden observable del listado es `Code`, luego `Title`.
 - el detail devuelve referencias resueltas a `JobProfile`, `OrgUnit`, `WorkCenter`, `DirectDependency`, `FunctionalDependency`, `PositionCategory`, `PositionCategoryClassification` y `ContractType`.
-- `create` exige `Code`, `JobProfileId`, `OrgUnitId`, `Status`, `MaxEmployees`, `OccupiedEmployees` y `EffectiveFromUtc`.
-- `WorkCenterId`, `CostCenterCode`, dependencias directas/funcionales, `EffectiveToUtc` y `Notes` son opcionales.
+- `OrgUnit` y `CostCenterCode` visibles en listados, detalle, grafo y exportes se derivan siempre desde `JobProfile -> OrgUnit`.
+- `create` exige `Code`, `JobProfileId`, `Status`, `MaxEmployees`, `OccupiedEmployees` y `EffectiveFromUtc`.
+- `WorkCenterId`, dependencias directas/funcionales, `EffectiveToUtc` y `Notes` son opcionales.
+- `OrgUnitId` y `CostCenterCode` ya no forman parte del request de `create/update`.
 - `JobProfileId` se resuelve por tenant, no por estado; el API no exige que el perfil este publicado para crear una plaza.
-- la validacion critica real no es el estado del perfil sino que ese perfil resuelva a un tipo de contrato activo.
+- la validacion critica real no es el estado del perfil sino que ese perfil resuelva una `OrgUnit` valida y un tipo de contrato activo.
 - `ContractType` no viene del cliente y se infiere desde la clasificacion del job profile.
 - la bandera interna `IsFixedTerm` se infiere automaticamente por heuristica de `contractTypeCode/contractTypeName` con tokens como `TEMP`, `FIXED`, `PLAZO` o `FIJO`.
-- si se envia `CostCenterCode`, debe existir activo dentro del tenant.
+- si la `OrgUnit` del job profile tiene `CostCenterCode`, ese codigo debe existir activo dentro del tenant; si no existe o esta inactivo, `create/update` responde `POSITION_SLOT_COST_CENTER_INVALID` (`422`).
 - `Vacant` exige `OccupiedEmployees = 0`.
 - `Occupied` exige `OccupiedEmployees > 0`.
 - `Suspended` no cambia la ocupacion existente, pero pone `IsActive = false`.
-- `PUT /position-slots/{id}` actualiza solo el nucleo de la plaza; no cambia ni `Status` ni `OccupiedEmployees`.
+- `PUT /position-slots/{id}` actualiza solo el nucleo de la plaza; no cambia ni `Status` ni `OccupiedEmployees`. Si cambia `JobProfileId`, tambien cambian la `OrgUnit` y el `CostCenterCode` derivados.
 - `PATCH /position-slots/{id}/status` cambia solo el estado y revalida consistencia contra la ocupacion actual.
 - `PATCH /position-slots/{id}/occupancy` cambia solo `OccupiedEmployees` y recalcula automaticamente el estado a `Vacant` u `Occupied`.
 - una plaza `Suspended` no puede usar el endpoint de `occupancy`.
@@ -2737,14 +2836,14 @@ Observaciones funcionales:
 
 #### 5.9.11 Relacion con otros modulos
 
-- `OrgUnits` aporta la estructura organizacional sobre la que se ubican `JobProfiles` y `PositionSlots`.
+- `OrgUnits` aporta la estructura organizacional sobre la que se ubican `JobProfiles`; `PositionSlots` la hereda desde el perfil.
 - `Locations` aporta `WorkCenters`, que `PositionSlots` puede usar como ubicacion operativa concreta.
-- `CostCenters` valida `CostCenterCode` para plazas.
+- `CostCenters` valida el `CostCenterCode` configurado en la `OrgUnit` del perfil; `PositionSlots` lo expone por derivacion.
 - `Org structure catalogs` aporta `OrgUnitTypes`, que son obligatorios para construir `PositionCategoryClassifications`.
 - `PositionDescriptionCatalogs` alimenta a `JobProfiles` con tipos de funcion, contratos, frecuencias, salary classes, work equipments, responsabilidades, benefits y work conditions.
 - `Job catalogs` alimenta tanto a `JobProfiles` como a `CompetencyFramework`.
 - `CompetencyFramework` se apoya en `JobProfiles`: la matriz siempre cuelga de un `job-profile`.
-- `PositionSlots` se apoya en `JobProfiles`: la plaza es la instancia operativa de un perfil, no un recurso independiente del diseno.
+- `PositionSlots` se apoya en `JobProfiles`: la plaza es la instancia operativa de un perfil, no un recurso independiente del diseno ni con overrides propios de `OrgUnit` o `CostCenter`.
 
 `Job and competency design` es asi el modulo que une diseno, clasificacion y operacion: primero se definen catalogos y clasificaciones, luego el perfil de puesto, despues el framework de competencias y finalmente la plaza concreta dentro de la empresa.
 

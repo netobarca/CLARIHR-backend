@@ -180,8 +180,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
         var items = await
             (from profile in query
              join orgUnit in dbContext.OrgUnits.AsNoTracking()
-                 on profile.OrgUnitId equals orgUnit.Id into orgUnitGroup
-             from orgUnit in orgUnitGroup.DefaultIfEmpty()
+                 on profile.OrgUnitId equals orgUnit.Id
              orderby profile.Title, profile.Code
              select new JobProfileListItemResponse(
                  profile.PublicId,
@@ -189,8 +188,8 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                  profile.Title,
                  profile.Status,
                  profile.Version,
-                 orgUnit != null ? orgUnit.PublicId : null,
-                 orgUnit != null ? orgUnit.Name : null,
+                 orgUnit.PublicId,
+                 orgUnit.Name,
                  profile.IsActive,
                  profile.ConcurrencyToken,
                  profile.CreatedUtc,
@@ -231,13 +230,11 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             return null;
         }
 
-        var orgUnitLookup = profile.OrgUnitId.HasValue
-            ? await dbContext.OrgUnits
-                .AsNoTracking()
-                .Where(unit => unit.Id == profile.OrgUnitId.Value)
-                .Select(unit => new { unit.PublicId, unit.Name })
-                .SingleOrDefaultAsync(cancellationToken)
-            : null;
+        var orgUnitLookup = await dbContext.OrgUnits
+            .AsNoTracking()
+            .Where(unit => unit.Id == profile.OrgUnitId)
+            .Select(unit => new { unit.PublicId, unit.Name })
+            .SingleOrDefaultAsync(cancellationToken);
 
         var reportsToLookup = profile.ReportsToJobProfileId.HasValue
             ? await dbContext.JobProfiles
