@@ -3,6 +3,7 @@ using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
+using System.Text.Json;
 
 namespace CLARIHR.Application.Common.CQRS;
 
@@ -99,7 +100,7 @@ public sealed class RequestDispatcher(IServiceProvider serviceProvider) : IComma
     private static IReadOnlyDictionary<string, string[]> ToDictionary(IEnumerable<ValidationFailure> failures) =>
         failures
             .GroupBy(
-                static failure => failure.PropertyName,
+                static failure => JsonNamingPolicy.CamelCase.ConvertName(failure.PropertyName),
                 static failure => failure.ErrorMessage)
             .ToDictionary(
                 static group => group.Key,
