@@ -9,6 +9,7 @@ using CLARIHR.Domain.Common;
 using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.CostCenters;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.InternalCatalogs;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.LegalRepresentatives;
 using CLARIHR.Domain.Locations;
@@ -102,6 +103,8 @@ public sealed class ApplicationDbContext(
     public DbSet<LocationGroup> LocationGroups => Set<LocationGroup>();
 
     public DbSet<CountryCatalogItem> CountryCatalogItems => Set<CountryCatalogItem>();
+
+    public DbSet<InternalCatalogValue> InternalCatalogValues => Set<InternalCatalogValue>();
 
     public DbSet<WorkCenterType> WorkCenterTypes => Set<WorkCenterType>();
 

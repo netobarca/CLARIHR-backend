@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using CLARIHR.Api.Common;
 using CLARIHR.Api.Configuration;
 using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
@@ -9,6 +10,7 @@ using CLARIHR.Infrastructure.Configuration;
 using CLARIHR.Infrastructure.Logging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -23,7 +25,14 @@ Log.Logger = LoggingConfigurationExtensions.CreateLoggingConfiguration(builder.E
 builder.Logging.ClearProviders();
 builder.Logging.AddSerilog(Log.Logger);
 
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = ProblemDetailsDefaults.Apply;
+});
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = ModelStateProblemDetailsFactory.Create;
+});
 builder.Services
     .AddControllers(options =>
     {

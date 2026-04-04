@@ -3425,6 +3425,78 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("role_field_permissions", (string)null);
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.InternalCatalogs.InternalCatalogValue", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CatalogKey")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("catalog_key");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<Guid>("CreatedByUserPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_public_id");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("LastUsedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at_utc");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("NormalizedValue")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_value");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("UsageCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("usage_count");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("value");
+
+                    b.HasKey("Id")
+                        .HasName("pk_internal_catalog_values");
+
+                    b.HasIndex("CatalogKey", "IsActive")
+                        .HasDatabaseName("ix_internal_catalog_values__catalog_key_active");
+
+                    b.HasIndex("CatalogKey", "NormalizedValue")
+                        .IsUnique()
+                        .HasDatabaseName("uq_internal_catalog_values__catalog_key_normalized_value");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_internal_catalog_values__public_id");
+
+                    b.ToTable("internal_catalog_values", (string)null);
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.JobProfiles.JobCatalogItem", b =>
                 {
                     b.Property<long>("Id")
@@ -3594,7 +3666,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(4000)")
                         .HasColumnName("objective");
 
-                    b.Property<long?>("OrgUnitId")
+                    b.Property<long>("OrgUnitId")
                         .HasColumnType("bigint")
                         .HasColumnName("org_unit_id");
 
@@ -8990,6 +9062,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "IsActive")
                         .HasDatabaseName("ix_org_units__tenant_active");
 
+                    b.HasIndex("TenantId", "CostCenterCode")
+                        .HasDatabaseName("ix_org_units__tenant_cost_center_code");
+
                     b.HasIndex("TenantId", "NormalizedCode")
                         .IsUnique()
                         .HasDatabaseName("uq_org_units__tenant_code");
@@ -12651,11 +12726,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
-                    b.Property<string>("CostCenterCode")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("cost_center_code");
-
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -12711,10 +12781,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("occupied_employees");
 
-                    b.Property<long>("OrgUnitId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("org_unit_id");
-
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid")
                         .HasColumnName("public_id");
@@ -12747,8 +12813,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("JobProfileId");
 
-                    b.HasIndex("OrgUnitId");
-
                     b.HasIndex("PublicId")
                         .IsUnique()
                         .HasDatabaseName("uq_position_slots__public_id");
@@ -12767,9 +12831,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "NormalizedCode")
                         .IsUnique()
                         .HasDatabaseName("uq_position_slots__tenant_code");
-
-                    b.HasIndex("TenantId", "OrgUnitId")
-                        .HasDatabaseName("ix_position_slots__tenant_org_unit");
 
                     b.HasIndex("TenantId", "Status")
                         .HasDatabaseName("ix_position_slots__tenant_status");
@@ -13485,6 +13546,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("OrgUnitId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
                         .HasConstraintName("fk_job_profiles__org_unit");
 
                     b.HasOne("CLARIHR.Domain.PositionDescriptionCatalogs.PositionCategory", null)
@@ -14208,13 +14270,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_position_slots__job_profile");
-
-                    b.HasOne("CLARIHR.Domain.OrgUnits.OrgUnit", null)
-                        .WithMany()
-                        .HasForeignKey("OrgUnitId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_position_slots__org_unit");
 
                     b.HasOne("CLARIHR.Domain.Locations.WorkCenter", null)
                         .WithMany()

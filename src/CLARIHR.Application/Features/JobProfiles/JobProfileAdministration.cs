@@ -1,18 +1,25 @@
 using System.Globalization;
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Auth;
+using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.InternalCatalogs;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.InternalCatalogs;
+using CLARIHR.Application.Features.InternalCatalogs.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
+using CLARIHR.Domain.InternalCatalogs;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
 using FluentValidation;
@@ -253,7 +260,7 @@ public sealed record CreateJobProfileCommand(
     string Code,
     string Title,
     string? Objective,
-    Guid? OrgUnitId,
+    Guid OrgUnitId,
     Guid? ReportsToJobProfileId,
     Guid? PositionCategoryId,
     Guid? StrategicObjectiveCatalogItemId,
@@ -284,7 +291,7 @@ public sealed record UpdateJobProfileCommand(
     string Code,
     string Title,
     string? Objective,
-    Guid? OrgUnitId,
+    Guid OrgUnitId,
     Guid? ReportsToJobProfileId,
     Guid? PositionCategoryId,
     Guid? StrategicObjectiveCatalogItemId,
@@ -371,9 +378,7 @@ internal sealed class CreateJobProfileCommandValidator : AbstractValidator<Creat
         RuleFor(command => command.WorkingConditionSummary).MaximumLength(4000);
         RuleFor(command => command.MarketSalaryReference).MaximumLength(4000);
         RuleFor(command => command.ValuationNotes).MaximumLength(4000);
-        RuleFor(command => command.OrgUnitId)
-            .NotEqual(Guid.Empty)
-            .When(static command => command.OrgUnitId.HasValue);
+        RuleFor(command => command.OrgUnitId).NotEmpty();
         RuleFor(command => command.ReportsToJobProfileId)
             .NotEqual(Guid.Empty)
             .When(static command => command.ReportsToJobProfileId.HasValue);
@@ -431,9 +436,7 @@ internal sealed class UpdateJobProfileCommandValidator : AbstractValidator<Updat
         RuleFor(command => command.WorkingConditionSummary).MaximumLength(4000);
         RuleFor(command => command.MarketSalaryReference).MaximumLength(4000);
         RuleFor(command => command.ValuationNotes).MaximumLength(4000);
-        RuleFor(command => command.OrgUnitId)
-            .NotEqual(Guid.Empty)
-            .When(static command => command.OrgUnitId.HasValue);
+        RuleFor(command => command.OrgUnitId).NotEmpty();
         RuleFor(command => command.ReportsToJobProfileId)
             .NotEqual(Guid.Empty)
             .When(static command => command.ReportsToJobProfileId.HasValue);
@@ -812,8 +815,13 @@ internal sealed class CreateJobProfileCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
     IJobCatalogRepository catalogRepository,
+    IInternalCatalogRepository internalCatalogRepository,
     IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
     IAuditService auditService,
+    IPlatformAuditService platformAuditService,
+    IUserRepository userRepository,
+    ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork)
     : ICommandHandler<CreateJobProfileCommand, JobProfileResponse>
 {
@@ -917,7 +925,17 @@ internal sealed class CreateJobProfileCommandHandler(
             return Result<JobProfileResponse>.Failure(inlineDecision.Error);
         }
 
+        var actorResult = await InternalCatalogActorResolver.ResolveCurrentUserAsync(
+            currentUserService,
+            userRepository,
+            cancellationToken);
+        if (actorResult.IsFailure)
+        {
+            return Result<JobProfileResponse>.Failure(actorResult.Error);
+        }
+
         var createdCatalogItems = new List<JobCatalogItem>();
+        var createdInternalCatalogValues = new List<InternalCatalogValue>();
         var categoryInvalidation = new HashSet<JobCatalogCategory>();
 
         var mutation = await JobProfileMutationMapper.BuildAsync(
@@ -929,8 +947,12 @@ internal sealed class CreateJobProfileCommandHandler(
             authorizationService,
             repository,
             catalogRepository,
+            internalCatalogRepository,
             positionDescriptionCatalogRepository,
+            actorResult.Value.PublicId,
+            dateTimeProvider,
             createdCatalogItems,
+            createdInternalCatalogValues,
             categoryInvalidation,
             cancellationToken);
         if (mutation.IsFailure)
@@ -986,6 +1008,12 @@ internal sealed class CreateJobProfileCommandHandler(
                 unitOfWork,
                 cancellationToken);
 
+            await JobProfileCommandSupport.WriteInternalCatalogAuditAsync(
+                createdInternalCatalogValues,
+                platformAuditService,
+                unitOfWork,
+                cancellationToken);
+
             var response = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Job profile response could not be resolved after creation.");
 
@@ -1016,8 +1044,13 @@ internal sealed class UpdateJobProfileCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
     IJobCatalogRepository catalogRepository,
+    IInternalCatalogRepository internalCatalogRepository,
     IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
     IAuditService auditService,
+    IPlatformAuditService platformAuditService,
+    IUserRepository userRepository,
+    ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ICommandHandler<UpdateJobProfileCommand, JobProfileResponse>
@@ -1141,7 +1174,17 @@ internal sealed class UpdateJobProfileCommandHandler(
             return Result<JobProfileResponse>.Failure(inlineDecision.Error);
         }
 
+        var actorResult = await InternalCatalogActorResolver.ResolveCurrentUserAsync(
+            currentUserService,
+            userRepository,
+            cancellationToken);
+        if (actorResult.IsFailure)
+        {
+            return Result<JobProfileResponse>.Failure(actorResult.Error);
+        }
+
         var createdCatalogItems = new List<JobCatalogItem>();
+        var createdInternalCatalogValues = new List<InternalCatalogValue>();
         var categoryInvalidation = new HashSet<JobCatalogCategory>();
 
         var mutation = await JobProfileMutationMapper.BuildAsync(
@@ -1153,8 +1196,12 @@ internal sealed class UpdateJobProfileCommandHandler(
             authorizationService,
             repository,
             catalogRepository,
+            internalCatalogRepository,
             positionDescriptionCatalogRepository,
+            actorResult.Value.PublicId,
+            dateTimeProvider,
             createdCatalogItems,
+            createdInternalCatalogValues,
             categoryInvalidation,
             cancellationToken);
         if (mutation.IsFailure)
@@ -1223,6 +1270,12 @@ internal sealed class UpdateJobProfileCommandHandler(
                 categoryInvalidation,
                 auditService,
                 catalogRepository,
+                unitOfWork,
+                cancellationToken);
+
+            await JobProfileCommandSupport.WriteInternalCatalogAuditAsync(
+                createdInternalCatalogValues,
+                platformAuditService,
                 unitOfWork,
                 cancellationToken);
 
@@ -1455,8 +1508,12 @@ internal static class JobProfileMutationMapper
         IJobProfileAuthorizationService authorizationService,
         IJobProfileRepository profileRepository,
         IJobCatalogRepository catalogRepository,
+        IInternalCatalogRepository internalCatalogRepository,
         IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        Guid actorUserPublicId,
+        IDateTimeProvider dateTimeProvider,
         IList<JobCatalogItem> createdCatalogItems,
+        IList<InternalCatalogValue> createdInternalCatalogValues,
         ISet<JobCatalogCategory> categoryInvalidation,
         CancellationToken cancellationToken) =>
         await BuildAsync(
@@ -1476,8 +1533,12 @@ internal static class JobProfileMutationMapper
             authorizationService,
             profileRepository,
             catalogRepository,
+            internalCatalogRepository,
             positionDescriptionCatalogRepository,
+            actorUserPublicId,
+            dateTimeProvider,
             createdCatalogItems,
+            createdInternalCatalogValues,
             categoryInvalidation,
             cancellationToken);
 
@@ -1490,8 +1551,12 @@ internal static class JobProfileMutationMapper
         IJobProfileAuthorizationService authorizationService,
         IJobProfileRepository profileRepository,
         IJobCatalogRepository catalogRepository,
+        IInternalCatalogRepository internalCatalogRepository,
         IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        Guid actorUserPublicId,
+        IDateTimeProvider dateTimeProvider,
         IList<JobCatalogItem> createdCatalogItems,
+        IList<InternalCatalogValue> createdInternalCatalogValues,
         ISet<JobCatalogCategory> categoryInvalidation,
         CancellationToken cancellationToken) =>
         await BuildAsync(
@@ -1511,8 +1576,12 @@ internal static class JobProfileMutationMapper
             authorizationService,
             profileRepository,
             catalogRepository,
+            internalCatalogRepository,
             positionDescriptionCatalogRepository,
+            actorUserPublicId,
+            dateTimeProvider,
             createdCatalogItems,
+            createdInternalCatalogValues,
             categoryInvalidation,
             cancellationToken);
 
@@ -1533,8 +1602,12 @@ internal static class JobProfileMutationMapper
         IJobProfileAuthorizationService authorizationService,
         IJobProfileRepository profileRepository,
         IJobCatalogRepository catalogRepository,
+        IInternalCatalogRepository internalCatalogRepository,
         IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        Guid actorUserPublicId,
+        IDateTimeProvider dateTimeProvider,
         IList<JobCatalogItem> createdCatalogItems,
+        IList<InternalCatalogValue> createdInternalCatalogValues,
         ISet<JobCatalogCategory> categoryInvalidation,
         CancellationToken cancellationToken)
     {
@@ -1575,12 +1648,25 @@ internal static class JobProfileMutationMapper
                 return Result<JobProfileMutation>.Failure(catalogResolution.Error);
             }
 
+            var descriptionResult = await ResolveRequirementDescriptionAsync(
+                input.RequirementType,
+                input.Description,
+                actorUserPublicId,
+                internalCatalogRepository,
+                dateTimeProvider,
+                createdInternalCatalogValues,
+                cancellationToken);
+            if (descriptionResult.IsFailure)
+            {
+                return Result<JobProfileMutation>.Failure(descriptionResult.Error);
+            }
+
             requirementEntities.Add(JobProfileRequirement.Create(
                 input.RequirementType,
                 requirementTypeCatalogItemId,
                 catalogResolution.Value?.Id,
                 catalogResolution.Value,
-                input.Description,
+                descriptionResult.Value,
                 input.SortOrder));
         }
 
@@ -1860,6 +1946,54 @@ internal static class JobProfileMutationMapper
                 benefitEntities,
                 workingConditionEntities,
                 dependentEntities));
+    }
+
+    private static async Task<Result<string>> ResolveRequirementDescriptionAsync(
+        JobRequirementType requirementType,
+        string description,
+        Guid actorUserPublicId,
+        IInternalCatalogRepository internalCatalogRepository,
+        IDateTimeProvider dateTimeProvider,
+        IList<InternalCatalogValue> createdInternalCatalogValues,
+        CancellationToken cancellationToken)
+    {
+        if (!InternalCatalogRegistry.TryGetRequirementDefinition(requirementType, out var definition) ||
+            definition.RenderType != InternalCatalogRenderType.Search ||
+            string.IsNullOrWhiteSpace(definition.CatalogKey) ||
+            string.IsNullOrWhiteSpace(description))
+        {
+            return Result<string>.Success(description);
+        }
+
+        var normalizedDescription = InternalCatalogValue.InternalCatalogNormalization.NormalizeValue(description);
+        var pendingCreatedValue = createdInternalCatalogValues.FirstOrDefault(
+            value => value.CatalogKey == definition.CatalogKey &&
+                     value.NormalizedValue == normalizedDescription);
+        if (pendingCreatedValue is not null)
+        {
+            pendingCreatedValue.RegisterUsage(dateTimeProvider.UtcNow);
+            return Result<string>.Success(pendingCreatedValue.Value);
+        }
+
+        var resolution = await InternalCatalogValueResolver.ResolveForUsageAsync(
+            definition.CatalogKey,
+            description,
+            actorUserPublicId,
+            internalCatalogRepository,
+            dateTimeProvider,
+            cancellationToken);
+        if (resolution.IsFailure)
+        {
+            return Result<string>.Failure(resolution.Error);
+        }
+
+        if (resolution.Value.CreatedValue is not null)
+        {
+            internalCatalogRepository.Add(resolution.Value.CreatedValue);
+            createdInternalCatalogValues.Add(resolution.Value.CreatedValue);
+        }
+
+        return Result<string>.Success(resolution.Value.ResolvedValue);
     }
 
     private static async Task<Result<JobCatalogItem?>> ResolveCatalogReferenceAsync(
@@ -2170,27 +2304,22 @@ internal static class JobProfileCommandSupport
         requirements.Count > 0 &&
         functions.Count > 0;
 
-    public static async Task<Result<long?>> ResolveOrgUnitInternalIdAsync(
+    public static async Task<Result<long>> ResolveOrgUnitInternalIdAsync(
         Guid tenantId,
-        Guid? orgUnitId,
+        Guid orgUnitId,
         IJobProfileAuthorizationService authorizationService,
         IJobProfileRepository repository,
         RbacPermissionAction action,
         CancellationToken cancellationToken)
     {
-        if (!orgUnitId.HasValue)
-        {
-            return Result<long?>.Success(null);
-        }
-
-        var orgUnitInternalId = await repository.ResolveOrgUnitIdAsync(tenantId, orgUnitId.Value, cancellationToken);
+        var orgUnitInternalId = await repository.ResolveOrgUnitIdAsync(tenantId, orgUnitId, cancellationToken);
         if (orgUnitInternalId.HasValue)
         {
-            return Result<long?>.Success(orgUnitInternalId.Value);
+            return Result<long>.Success(orgUnitInternalId.Value);
         }
 
-        return Result<long?>.Failure(
-            await repository.OrgUnitExistsOutsideTenantAsync(orgUnitId.Value, cancellationToken)
+        return Result<long>.Failure(
+            await repository.OrgUnitExistsOutsideTenantAsync(orgUnitId, cancellationToken)
                 ? authorizationService.TenantMismatch(action)
                 : JobProfileErrors.OrgUnitNotFound);
     }
@@ -2361,5 +2490,33 @@ internal static class JobProfileCommandSupport
         {
             catalogRepository.InvalidateCategoryCache(tenantId, category);
         }
+    }
+
+    public static async Task WriteInternalCatalogAuditAsync(
+        IReadOnlyCollection<InternalCatalogValue> createdValues,
+        IPlatformAuditService platformAuditService,
+        IUnitOfWork unitOfWork,
+        CancellationToken cancellationToken)
+    {
+        if (createdValues.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var value in createdValues)
+        {
+            await platformAuditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.InternalCatalogValueCreated,
+                    AuditEntityTypes.InternalCatalogValue,
+                    value.PublicId,
+                    value.CatalogKey,
+                    AuditActions.Create,
+                    $"Created internal catalog value '{value.Value}' in '{value.CatalogKey}' from job profile flow.",
+                    After: InternalCatalogResponseMapper.MapSuggestion(value, scoreOverride: 1d)),
+                cancellationToken);
+        }
+
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

@@ -3,6 +3,7 @@ using System.Text.Json.Serialization.Metadata;
 using CLARIHR.Application;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.PlatformOperators;
+using CLARIHR.Backoffice.Api.Common;
 using CLARIHR.Backoffice.Api.Configuration;
 using CLARIHR.Backoffice.Api.Middleware;
 using CLARIHR.Domain.Auth;
@@ -13,6 +14,7 @@ using CLARIHR.Infrastructure.Logging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.Extensions.Options;
@@ -31,7 +33,14 @@ public partial class Program
         builder.Logging.ClearProviders();
         builder.Logging.AddSerilog(Log.Logger);
 
-        builder.Services.AddProblemDetails();
+        builder.Services.AddProblemDetails(options =>
+        {
+            options.CustomizeProblemDetails = ProblemDetailsDefaults.Apply;
+        });
+        builder.Services.Configure<ApiBehaviorOptions>(options =>
+        {
+            options.InvalidModelStateResponseFactory = ModelStateProblemDetailsFactory.Create;
+        });
         builder.Services
             .AddControllers(options =>
             {

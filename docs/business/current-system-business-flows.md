@@ -117,7 +117,9 @@ El provisioning actual deja creada la base operativa minima del tenant:
 
 1. La cuenta autenticada consulta un catalogo global de tipos de empresa filtrado por pais; ese catalogo ya no depende del owner ni del tenant activo.
 2. El tenant administra catalogos de tipos de unidad, areas funcionales y catalogos de descripcion de puestos.
-3. Estos catalogos sirven como base para crear estructura, perfiles, posiciones y para clasificar companias.
+3. Cualquier usuario autenticado tambien puede consultar catalogos internos globales de requisitos desde `api/account/internal-catalogs`, sin tenant activo y sin separacion por empresa.
+4. En `Job Profiles`, los requisitos `Education`, `Knowledge` y `Certification` usan ese catalogo global como fuente reusable de sugerencias; si el usuario no encuentra un valor, puede proponer uno nuevo y el backend evita casi duplicados por similitud.
+5. Estos catalogos sirven como base para crear estructura, perfiles, posiciones y para clasificar companias.
 
 ### 6.2 Locations y work centers
 

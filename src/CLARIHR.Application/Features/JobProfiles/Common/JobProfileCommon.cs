@@ -47,6 +47,11 @@ public static class JobProfileErrors
         "The selected organization unit could not be found.",
         ErrorType.NotFound);
 
+    public static readonly Error OrgUnitRequired = new(
+        "JOB_PROFILE_ORG_UNIT_REQUIRED",
+        "An organization unit is required for the job profile.",
+        ErrorType.Validation);
+
     public static readonly Error ReportsToProfileNotFound = new(
         "JOB_PROFILE_REPORTS_TO_NOT_FOUND",
         "The selected reporting profile could not be found.",

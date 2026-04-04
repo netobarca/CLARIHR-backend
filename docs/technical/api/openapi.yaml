@@ -2704,6 +2704,201 @@ components:
       enum:
         - Monthly
         - Annual
+    InternalCatalogRenderType:
+      type: string
+      enum:
+        - Search
+        - Select
+        - FreeText
+    InternalCatalogDefinitionResponse:
+      type: object
+      required:
+        - context
+        - identifier
+        - label
+        - renderType
+        - allowCreate
+        - minQueryLength
+      properties:
+        context:
+          type: string
+          example: job-profile.requirements
+        identifier:
+          type: string
+          example: Certification
+        label:
+          type: string
+          example: Certification
+        renderType:
+          $ref: '#/components/schemas/InternalCatalogRenderType'
+        catalogKey:
+          type: string
+          nullable: true
+          example: job-profile.requirements.certification
+        allowCreate:
+          type: boolean
+        minQueryLength:
+          type: integer
+          format: int32
+          example: 2
+    InternalCatalogValueSuggestionResponse:
+      type: object
+      required:
+        - id
+        - value
+        - score
+      properties:
+        id:
+          type: string
+          format: uuid
+        value:
+          type: string
+          example: Azure AI Fundamentals
+        score:
+          type: number
+          format: double
+          example: 0.93
+    CreateInternalCatalogValueRequest:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          type: string
+          maxLength: 200
+          example: Azure AI Fundamentals
+    InternalCatalogConflictProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          properties:
+            suggestions:
+              type: array
+              items:
+                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+    AuditJsonPayload:
+      type: object
+      nullable: true
+      additionalProperties: true
+      description: Arbitrary JSON payload captured in audit before/after/diff snapshots.
+    AuditLogSummaryResponse:
+      type: object
+      required:
+        - publicId
+        - createdAtUtc
+        - actorUserPublicId
+        - eventType
+        - entityType
+        - action
+        - summary
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        actorUserPublicId:
+          type: string
+          format: uuid
+        actorEmail:
+          type: string
+          nullable: true
+        eventType:
+          type: string
+        entityType:
+          type: string
+        entityPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        entityKey:
+          type: string
+          nullable: true
+        action:
+          type: string
+        summary:
+          type: string
+        diff:
+          $ref: '#/components/schemas/AuditJsonPayload'
+    PagedAuditLogSummaryResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogSummaryResponse'
+        pageNumber:
+          type: integer
+          format: int32
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          example: 20
+        totalCount:
+          type: integer
+          format: int32
+          example: 1
+    AuditLogDetailResponse:
+      type: object
+      required:
+        - publicId
+        - companyPublicId
+        - createdAtUtc
+        - actorUserPublicId
+        - eventType
+        - entityType
+        - action
+        - summary
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        companyPublicId:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        actorUserPublicId:
+          type: string
+          format: uuid
+        actorEmail:
+          type: string
+          nullable: true
+        eventType:
+          type: string
+        entityType:
+          type: string
+        entityPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        entityKey:
+          type: string
+          nullable: true
+        action:
+          type: string
+        summary:
+          type: string
+        before:
+          $ref: '#/components/schemas/AuditJsonPayload'
+        after:
+          $ref: '#/components/schemas/AuditJsonPayload'
+        diff:
+          $ref: '#/components/schemas/AuditJsonPayload'
+        ipAddress:
+          type: string
+          nullable: true
+        userAgent:
+          type: string
+          nullable: true
     ProblemDetails:
       type: object
       properties:
@@ -2726,7 +2921,787 @@ components:
         code:
           type: string
           nullable: true
+        traceId:
+          type: string
+          nullable: true
+          description: Correlation identifier that links the error response with server logs.
+        errors:
+          type: object
+          nullable: true
+          description: Field-level validation messages. Present when `code` is `common.validation`.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        details:
+          type: array
+          nullable: true
+          description: Optional structured metadata returned by some authorization or policy failures.
+          items:
+            $ref: '#/components/schemas/ProblemDetailItem'
+    ProblemDetailItem:
+      type: object
+      properties:
+        resourceKey:
+          type: string
+          nullable: true
+        action:
+          type: string
+          nullable: true
+        fieldKey:
+          type: string
+          nullable: true
+        endpoint:
+          type: string
+          nullable: true
+    JobProfileStatus:
+      type: string
+      enum:
+        - Draft
+        - Published
+        - Archived
+    PositionSlotStatus:
+      type: string
+      enum:
+        - Vacant
+        - Occupied
+        - Suspended
+    JobProfileRequirementRequest:
+      type: object
+      required:
+        - requirementType
+        - description
+        - sortOrder
+      properties:
+        requirementType:
+          type: string
+          description: Serialized `JobRequirementType` enum value.
+          example: Education
+        requirementTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        catalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        catalogCode:
+          type: string
+          nullable: true
+        catalogName:
+          type: string
+          nullable: true
+        description:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileFunctionRequest:
+      type: object
+      required:
+        - functionType
+        - description
+        - sortOrder
+      properties:
+        functionType:
+          type: string
+          description: Serialized `JobFunctionType` enum value.
+          example: General
+        frequencyCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileRelationRequest:
+      type: object
+      required:
+        - relationType
+        - counterpart
+        - sortOrder
+      properties:
+        relationType:
+          type: string
+          description: Serialized `JobRelationType` enum value.
+          example: Internal
+        catalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        catalogCode:
+          type: string
+          nullable: true
+        catalogName:
+          type: string
+          nullable: true
+        counterpart:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileCompetencyRequest:
+      type: object
+      required:
+        - name
+        - sortOrder
+      properties:
+        catalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        catalogCode:
+          type: string
+          nullable: true
+        catalogName:
+          type: string
+          nullable: true
+        name:
+          type: string
+        expectedLevel:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileTrainingRequest:
+      type: object
+      required:
+        - name
+        - sortOrder
+      properties:
+        catalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        catalogCode:
+          type: string
+          nullable: true
+        catalogName:
+          type: string
+          nullable: true
+        name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileCompensationRequest:
+      type: object
+      required:
+        - isPrimary
+      properties:
+        salaryClassPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        salaryClassCode:
+          type: string
+          nullable: true
+        salaryClassName:
+          type: string
+          nullable: true
+        minSalary:
+          type: number
+          format: decimal
+          nullable: true
+        maxSalary:
+          type: number
+          format: decimal
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        workSchedule:
+          type: string
+          nullable: true
+        isPrimary:
+          type: boolean
+    JobProfileBenefitRequest:
+      type: object
+      required:
+        - name
+        - sortOrder
+      properties:
+        catalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        catalogCode:
+          type: string
+          nullable: true
+        catalogName:
+          type: string
+          nullable: true
+        name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileWorkingConditionRequest:
+      type: object
+      required:
+        - name
+        - sortOrder
+      properties:
+        workConditionTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        catalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        catalogCode:
+          type: string
+          nullable: true
+        catalogName:
+          type: string
+          nullable: true
+        name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileDependentPositionRequest:
+      type: object
+      required:
+        - dependentJobProfilePublicId
+        - quantity
+      properties:
+        dependentJobProfilePublicId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          format: int32
+          minimum: 1
+        notes:
+          type: string
+          nullable: true
+    JobProfileUpsertRequest:
+      type: object
+      required:
+        - code
+        - title
+        - orgUnitPublicId
+        - allowInlineCatalogCreate
+      properties:
+        code:
+          type: string
+          maxLength: 50
+          example: JP-FIN-001
+        title:
+          type: string
+          maxLength: 180
+          example: Financial Analyst
+        objective:
+          type: string
+          nullable: true
+          maxLength: 4000
+        orgUnitPublicId:
+          type: string
+          format: uuid
+          description: Required. Every job profile must now belong to an organization unit.
+        reportsToJobProfilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        positionCategoryPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        strategicObjectiveCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedWorkEquipmentCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        responsibilityCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        decisionScope:
+          type: string
+          nullable: true
+          maxLength: 4000
+        assignedResources:
+          type: string
+          nullable: true
+          maxLength: 4000
+        responsibilities:
+          type: string
+          nullable: true
+          maxLength: 4000
+        benefitsSummary:
+          type: string
+          nullable: true
+          maxLength: 4000
+        workingConditionSummary:
+          type: string
+          nullable: true
+          maxLength: 4000
+        marketSalaryReference:
+          type: string
+          nullable: true
+          maxLength: 4000
+        valuationNotes:
+          type: string
+          nullable: true
+          maxLength: 4000
+        effectiveFromUtc:
+          type: string
+          format: date-time
+          nullable: true
+        effectiveToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowInlineCatalogCreate:
+          type: boolean
+          default: false
+        requirements:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JobProfileRequirementRequest'
+        functions:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JobProfileFunctionRequest'
+        relations:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JobProfileRelationRequest'
+        competencies:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JobProfileCompetencyRequest'
+        trainings:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JobProfileTrainingRequest'
+        compensations:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JobProfileCompensationRequest'
+        benefits:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JobProfileBenefitRequest'
+        workingConditions:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JobProfileWorkingConditionRequest'
+        dependentPositions:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/JobProfileDependentPositionRequest'
+    JobProfileUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/JobProfileUpsertRequest'
+        - type: object
+          required:
+            - concurrencyToken
+          properties:
+            concurrencyToken:
+              type: string
+              format: uuid
+    JobProfileContractResponse:
+      type: object
+      description: Partial checked-in contract for the job profile aggregate. Runtime Swagger still exposes the exhaustive nested response shape.
+      required:
+        - id
+        - companyId
+        - code
+        - title
+        - status
+        - version
+        - orgUnitId
+        - orgUnitName
+        - isActive
+        - concurrencyToken
+        - createdAtUtc
+      properties:
+        id:
+          type: string
+          format: uuid
+        companyId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobProfileStatus'
+        version:
+          type: integer
+          format: int32
+        orgUnitId:
+          type: string
+          format: uuid
+        orgUnitName:
+          type: string
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PositionSlotCreateRequest:
+      type: object
+      required:
+        - code
+        - jobProfilePublicId
+        - status
+        - maxEmployees
+        - occupiedEmployees
+        - effectiveFromUtc
+      properties:
+        code:
+          type: string
+          maxLength: 50
+          example: PS-FIN-001
+        title:
+          type: string
+          nullable: true
+          maxLength: 180
+        jobProfilePublicId:
+          type: string
+          format: uuid
+          description: The linked job profile. `OrgUnit` and `CostCenterCode` are derived from this profile and must not be sent explicitly.
+        workCenterPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        directDependencyPositionSlotPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        functionalDependencyPositionSlotPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          $ref: '#/components/schemas/PositionSlotStatus'
+        maxEmployees:
+          type: integer
+          format: int32
+          minimum: 1
+        occupiedEmployees:
+          type: integer
+          format: int32
+          minimum: 0
+        effectiveFromUtc:
+          type: string
+          format: date-time
+        effectiveToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+          maxLength: 2000
+    PositionSlotUpdateRequest:
+      type: object
+      required:
+        - code
+        - jobProfilePublicId
+        - maxEmployees
+        - effectiveFromUtc
+        - concurrencyToken
+      properties:
+        code:
+          type: string
+          maxLength: 50
+          example: PS-FIN-001
+        title:
+          type: string
+          nullable: true
+          maxLength: 180
+        jobProfilePublicId:
+          type: string
+          format: uuid
+          description: The linked job profile. Updating it changes the derived `OrgUnit` and `CostCenterCode` exposed by the slot.
+        workCenterPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        maxEmployees:
+          type: integer
+          format: int32
+          minimum: 1
+        effectiveFromUtc:
+          type: string
+          format: date-time
+        effectiveToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+          maxLength: 2000
+        concurrencyToken:
+          type: string
+          format: uuid
+    PositionSlotContractResponse:
+      type: object
+      description: Partial checked-in contract for position slot create/update responses. `orgUnitId`, `orgUnitName` and `costCenterCode` are inferred from the linked job profile.
+      required:
+        - id
+        - companyId
+        - code
+        - status
+        - jobProfileId
+        - jobProfileCode
+        - jobProfileTitle
+        - orgUnitId
+        - orgUnitName
+        - maxEmployees
+        - occupiedEmployees
+        - effectiveFromUtc
+        - isActive
+        - concurrencyToken
+        - createdAtUtc
+      properties:
+        id:
+          type: string
+          format: uuid
+        companyId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        title:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/PositionSlotStatus'
+        jobProfileId:
+          type: string
+          format: uuid
+        jobProfileCode:
+          type: string
+        jobProfileTitle:
+          type: string
+        orgUnitId:
+          type: string
+          format: uuid
+        orgUnitName:
+          type: string
+        workCenterId:
+          type: string
+          format: uuid
+          nullable: true
+        workCenterName:
+          type: string
+          nullable: true
+        costCenterCode:
+          type: string
+          nullable: true
+          description: Derived from `jobProfile.orgUnit.costCenterCode`.
+        maxEmployees:
+          type: integer
+          format: int32
+        occupiedEmployees:
+          type: integer
+          format: int32
+        effectiveFromUtc:
+          type: string
+          format: date-time
+        effectiveToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
 paths:
+  /api/audit/logs:
+    get:
+      tags:
+        - audit
+      operationId: ListAuditLogs
+      summary: List tenant audit logs
+      description: Returns a paged audit log list scoped to the active tenant. `totalCount` is computed after applying every server-side filter, including `EntityPublicId`.
+      security:
+        - Bearer: []
+      parameters:
+        - name: fromUtc
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: toUtc
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: ActorUserPublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: EntityPublicId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Public identifier of the audited subject entity. This follows the backend public contract standard; `EntityId` is not part of the public API.
+        - name: entityType
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Canonical audit entity type such as `User`, `Role`, `JobProfile` or `OrgUnit`.
+        - name: eventType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Paged tenant audit log list after applying all filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedAuditLogSummaryResponse'
+        '400':
+          description: Validation error, such as an empty GUID or an unknown audit catalog value.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have audit log read access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/audit/logs/{publicId}:
+    get:
+      tags:
+        - audit
+      operationId: GetAuditLogByPublicId
+      summary: Get tenant audit log detail
+      description: Returns the complete audit log detail for a single public identifier in the active tenant.
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Audit log detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogDetailResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The audit log belongs to another tenant or the user lacks permission.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Audit log not found in the active tenant.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/account/companies/legal-representative-document-types:
     get:
       tags:
@@ -3297,6 +4272,165 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/account/internal-catalogs:
+    get:
+      tags:
+        - account-internal-catalogs
+      operationId: GetAccountInternalCatalogDefinitions
+      summary: List global internal catalog definitions for a context
+      description: Returns the reusable manifest that drives frontend rendering for search, select and free-text requirement inputs without requiring an active tenant.
+      security:
+        - Bearer: []
+      parameters:
+        - name: context
+          in: query
+          required: true
+          schema:
+            type: string
+            example: job-profile.requirements
+      responses:
+        '200':
+          description: Internal catalog definitions returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternalCatalogDefinitionResponse'
+        '400':
+          description: Validation error for the requested context.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested internal catalog context was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/internal-catalogs/{catalogKey}/values:
+    get:
+      tags:
+        - account-internal-catalogs
+      operationId: SearchAccountInternalCatalogValues
+      summary: Search values inside a global internal catalog
+      security:
+        - Bearer: []
+      parameters:
+        - name: catalogKey
+          in: path
+          required: true
+          schema:
+            type: string
+            example: job-profile.requirements.certification
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+            example: Azure AI Fundamentals
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        '200':
+          description: Matching internal catalog values returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+        '400':
+          description: Validation error for the supplied query.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested internal catalog key was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - account-internal-catalogs
+      operationId: CreateAccountInternalCatalogValue
+      summary: Create or reuse a global internal catalog value
+      description: Creates a new value for a search-based internal catalog, reuses exact matches, and rejects near duplicates when the similarity threshold reaches 0.90 or above.
+      security:
+        - Bearer: []
+      parameters:
+        - name: catalogKey
+          in: path
+          required: true
+          schema:
+            type: string
+            example: job-profile.requirements.certification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInternalCatalogValueRequest'
+      responses:
+        '200':
+          description: An exact existing internal catalog value was reused.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+        '201':
+          description: A new internal catalog value was created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalCatalogValueSuggestionResponse'
+        '400':
+          description: Validation error for the supplied value.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested internal catalog key was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: A near-duplicate value already exists and suggestions are returned in the problem details extension.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/InternalCatalogConflictProblemDetails'
   /api/platform/auth/login:
     post:
       tags:
@@ -5204,7 +6338,269 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyId}/job-profiles:
+    post:
+      tags:
+        - job-and-competency-design
+      operationId: CreateJobProfile
+      summary: Create a job profile
+      description: Creates a tenant-scoped job profile. `orgUnitPublicId` is required for every job profile, including drafts.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobProfileUpsertRequest'
+      responses:
+        '201':
+          description: Job profile created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileContractResponse'
+        '400':
+          description: Validation error, including missing `orgUnitPublicId` or invalid nested payload items.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Referenced resources such as `orgUnitPublicId`, `reportsToJobProfilePublicId` or other related catalog ids were not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicate code, dependency cycle or invalid state transition.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation such as invalid effective dates or publish invariants enforced during the write.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{id}:
+    put:
+      tags:
+        - job-and-competency-design
+      operationId: UpdateJobProfile
+      summary: Replace a job profile
+      description: Replaces the mutable job profile payload. `orgUnitPublicId` remains mandatory on every update.
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobProfileUpdateRequest'
+      responses:
+        '200':
+          description: Job profile updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileContractResponse'
+        '400':
+          description: Validation error, including missing `orgUnitPublicId`, missing `concurrencyToken` or invalid nested payload items.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile or one of its referenced resources was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as stale concurrency token, duplicate code, dependency cycle or editing an archived profile.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation such as publish requirements or invalid effective dates.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyId}/position-slots:
+    post:
+      tags:
+        - job-and-competency-design
+      operationId: CreatePositionSlot
+      summary: Create a position slot
+      description: Creates a tenant-scoped position slot. The request no longer accepts `orgUnitPublicId` or `costCenterCode`; both values are inferred from the selected job profile.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PositionSlotCreateRequest'
+      responses:
+        '201':
+          description: Position slot created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionSlotContractResponse'
+        '400':
+          description: Validation error, such as invalid identifiers, missing required fields or invalid occupancy/effective date inputs.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage position slots or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The selected `jobProfilePublicId`, `workCenterPublicId` or dependency position slot was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicate code, dependency cycle or status/occupancy mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: The selected job profile does not resolve an org unit, contract type or valid active cost center derived from its org unit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/position-slots/{id}:
+    put:
+      tags:
+        - job-and-competency-design
+      operationId: UpdatePositionSlot
+      summary: Replace the core position slot payload
+      description: Updates the core position slot data. Changing `jobProfilePublicId` also changes the derived `orgUnitId`, `orgUnitName` and `costCenterCode` exposed by the slot.
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PositionSlotUpdateRequest'
+      responses:
+        '200':
+          description: Position slot updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionSlotContractResponse'
+        '400':
+          description: Validation error, such as invalid identifiers, missing `concurrencyToken` or invalid effective date inputs.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage position slots or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target position slot, the selected job profile or the selected work center was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as stale concurrency token or duplicate code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: The selected job profile does not resolve an org unit, contract type or valid active cost center derived from its org unit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 tags:
+  - name: audit
+    description: Tenant-scoped audit log list and detail endpoints.
   - name: auth
     description: Authentication and session lifecycle.
   - name: account-companies
@@ -5221,6 +6617,8 @@ tags:
     description: Global commercial plan catalog administration from the platform backoffice.
   - name: platform-subscriptions
     description: Global company subscription, plan-change and company add-on administration from the platform backoffice.
+  - name: job-and-competency-design
+    description: Checked-in supplement for job profile and position slot write contracts with inherited org unit and cost center behavior.
   - name: personnel-files
     description: Personnel file lifecycle and subsections.
 x-documentation-status: partial-manual-supplement

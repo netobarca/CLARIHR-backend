@@ -45,6 +45,7 @@ public sealed record GetAuditLogsQuery(
     DateTime? FromUtc = null,
     DateTime? ToUtc = null,
     Guid? ActorUserId = null,
+    Guid? EntityId = null,
     string? EntityType = null,
     string? EventType = null,
     string? Search = null,
@@ -66,6 +67,10 @@ internal sealed class GetAuditLogsQueryValidator : AbstractValidator<GetAuditLog
         RuleFor(query => query.ActorUserId)
             .NotEqual(Guid.Empty)
             .When(static query => query.ActorUserId.HasValue);
+
+        RuleFor(query => query.EntityId)
+            .NotEqual(Guid.Empty)
+            .When(static query => query.EntityId.HasValue);
 
         RuleFor(query => query.EntityType)
             .MaximumLength(50)
@@ -118,6 +123,7 @@ internal sealed class GetAuditLogsQueryHandler(
             query.FromUtc,
             query.ToUtc,
             query.ActorUserId,
+            query.EntityId,
             NormalizeEntityType(query.EntityType),
             NormalizeEventType(query.EventType),
             query.Search,

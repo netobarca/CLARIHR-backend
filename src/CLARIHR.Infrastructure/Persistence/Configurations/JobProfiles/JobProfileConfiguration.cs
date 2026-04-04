@@ -45,7 +45,8 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
             .HasMaxLength(4000);
 
         builder.Property(profile => profile.OrgUnitId)
-            .HasColumnName("org_unit_id");
+            .HasColumnName("org_unit_id")
+            .IsRequired();
 
         builder.Property(profile => profile.ReportsToJobProfileId)
             .HasColumnName("reports_to_job_profile_id");

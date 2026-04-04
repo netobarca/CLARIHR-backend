@@ -98,6 +98,9 @@ internal sealed class OrgUnitConfiguration : IEntityTypeConfiguration<OrgUnit>
         builder.HasIndex(orgUnit => new { orgUnit.TenantId, orgUnit.FunctionalAreaCatalogItemId })
             .HasDatabaseName("ix_org_units__tenant_functional_area_catalog_item");
 
+        builder.HasIndex(orgUnit => new { orgUnit.TenantId, orgUnit.CostCenterCode })
+            .HasDatabaseName("ix_org_units__tenant_cost_center_code");
+
         builder.HasOne<OrgUnit>()
             .WithMany()
             .HasForeignKey(orgUnit => orgUnit.ParentId)

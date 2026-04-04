@@ -138,8 +138,12 @@ public sealed record PositionSlotExportRow(
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
 
-public sealed record PositionSlotContractTypeLookup(
+public sealed record PositionSlotJobProfileLookup(
+    long InternalJobProfileId,
     Guid JobProfileId,
+    Guid? OrgUnitId,
+    string? OrgUnitName,
+    string? CostCenterCode,
     Guid? PositionCategoryId,
     Guid? PositionCategoryClassificationId,
     Guid? ContractTypeId,
@@ -183,9 +187,7 @@ public sealed record CreatePositionSlotCommand(
     string Code,
     string? Title,
     Guid JobProfileId,
-    Guid OrgUnitId,
     Guid? WorkCenterId,
-    string? CostCenterCode,
     Guid? DirectDependencyPositionSlotId,
     Guid? FunctionalDependencyPositionSlotId,
     PositionSlotStatus Status,
@@ -201,9 +203,7 @@ public sealed record UpdatePositionSlotCommand(
     string Code,
     string? Title,
     Guid JobProfileId,
-    Guid OrgUnitId,
     Guid? WorkCenterId,
-    string? CostCenterCode,
     int MaxEmployees,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
@@ -308,11 +308,9 @@ internal sealed class CreatePositionSlotCommandValidator : AbstractValidator<Cre
             .WithMessage("Code format is invalid.");
         RuleFor(command => command.Title).MaximumLength(180);
         RuleFor(command => command.JobProfileId).NotEmpty();
-        RuleFor(command => command.OrgUnitId).NotEmpty();
         RuleFor(command => command.WorkCenterId)
             .NotEqual(Guid.Empty)
             .When(static command => command.WorkCenterId.HasValue);
-        RuleFor(command => command.CostCenterCode).MaximumLength(100);
         RuleFor(command => command.DirectDependencyPositionSlotId)
             .NotEqual(Guid.Empty)
             .When(static command => command.DirectDependencyPositionSlotId.HasValue);
@@ -344,11 +342,9 @@ internal sealed class UpdatePositionSlotCommandValidator : AbstractValidator<Upd
             .WithMessage("Code format is invalid.");
         RuleFor(command => command.Title).MaximumLength(180);
         RuleFor(command => command.JobProfileId).NotEmpty();
-        RuleFor(command => command.OrgUnitId).NotEmpty();
         RuleFor(command => command.WorkCenterId)
             .NotEqual(Guid.Empty)
             .When(static command => command.WorkCenterId.HasValue);
-        RuleFor(command => command.CostCenterCode).MaximumLength(100);
         RuleFor(command => command.MaxEmployees).GreaterThanOrEqualTo(1);
         RuleFor(command => command.EffectiveFromUtc).NotEqual(default(DateTime));
         RuleFor(command => command)
@@ -553,29 +549,18 @@ internal sealed class CreatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.CodeConflict);
         }
 
-        var jobProfileIdResult = await PositionSlotCommandSupport.ResolveJobProfileInternalIdAsync(
+        var jobProfileLookupResult = await PositionSlotCommandSupport.ResolveJobProfileLookupAsync(
             command.CompanyId,
             command.JobProfileId,
             authorizationService,
             repository,
             RbacPermissionAction.Create,
             cancellationToken);
-        if (jobProfileIdResult.IsFailure)
+        if (jobProfileLookupResult.IsFailure)
         {
-            return Result<PositionSlotResponse>.Failure(jobProfileIdResult.Error);
+            return Result<PositionSlotResponse>.Failure(jobProfileLookupResult.Error);
         }
-
-        var orgUnitIdResult = await PositionSlotCommandSupport.ResolveOrgUnitInternalIdAsync(
-            command.CompanyId,
-            command.OrgUnitId,
-            authorizationService,
-            repository,
-            RbacPermissionAction.Create,
-            cancellationToken);
-        if (orgUnitIdResult.IsFailure)
-        {
-            return Result<PositionSlotResponse>.Failure(orgUnitIdResult.Error);
-        }
+        var jobProfileLookup = jobProfileLookupResult.Value;
 
         var workCenterIdResult = await PositionSlotCommandSupport.ResolveWorkCenterInternalIdAsync(
             command.CompanyId,
@@ -589,18 +574,19 @@ internal sealed class CreatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(workCenterIdResult.Error);
         }
 
-        var contractTypeLookup = await repository.GetContractTypeByJobProfileAsync(
-            command.CompanyId,
-            command.JobProfileId,
-            cancellationToken);
-        if (contractTypeLookup is null || !contractTypeLookup.ContractTypeId.HasValue)
+        if (!jobProfileLookup.OrgUnitId.HasValue)
+        {
+            return Result<PositionSlotResponse>.Failure(PositionSlotErrors.JobProfileOrgUnitNotConfigured);
+        }
+
+        if (!jobProfileLookup.ContractTypeId.HasValue)
         {
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.ContractTypeNotResolved);
         }
 
         var isFixedTerm = PositionSlotContractTypeRules.IsFixedTerm(
-            contractTypeLookup.ContractTypeCode,
-            contractTypeLookup.ContractTypeName);
+            jobProfileLookup.ContractTypeCode,
+            jobProfileLookup.ContractTypeName);
 
         var directDependencyResult = await PositionSlotCommandSupport.ResolveDependencyInternalIdAsync(
             command.CompanyId,
@@ -626,10 +612,10 @@ internal sealed class CreatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(functionalDependencyResult.Error);
         }
 
-        if (!string.IsNullOrWhiteSpace(command.CostCenterCode) &&
+        if (!string.IsNullOrWhiteSpace(jobProfileLookup.CostCenterCode) &&
             !await costCenterRepository.ExistsActiveByCodeAsync(
                 command.CompanyId,
-                command.CostCenterCode.Trim().ToUpperInvariant(),
+                jobProfileLookup.CostCenterCode.Trim().ToUpperInvariant(),
                 cancellationToken))
         {
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.CostCenterInvalid);
@@ -641,10 +627,8 @@ internal sealed class CreatePositionSlotCommandHandler(
             slot = PositionSlot.Create(
                 command.Code,
                 command.Title,
-                jobProfileIdResult.Value,
-                orgUnitIdResult.Value,
+                jobProfileLookup.InternalJobProfileId,
                 workCenterIdResult.Value,
-                command.CostCenterCode,
                 directDependencyResult.Value,
                 functionalDependencyResult.Value,
                 command.Status,
@@ -735,29 +719,18 @@ internal sealed class UpdatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.CodeConflict);
         }
 
-        var jobProfileIdResult = await PositionSlotCommandSupport.ResolveJobProfileInternalIdAsync(
+        var jobProfileLookupResult = await PositionSlotCommandSupport.ResolveJobProfileLookupAsync(
             slot.TenantId,
             command.JobProfileId,
             authorizationService,
             repository,
             RbacPermissionAction.Update,
             cancellationToken);
-        if (jobProfileIdResult.IsFailure)
+        if (jobProfileLookupResult.IsFailure)
         {
-            return Result<PositionSlotResponse>.Failure(jobProfileIdResult.Error);
+            return Result<PositionSlotResponse>.Failure(jobProfileLookupResult.Error);
         }
-
-        var orgUnitIdResult = await PositionSlotCommandSupport.ResolveOrgUnitInternalIdAsync(
-            slot.TenantId,
-            command.OrgUnitId,
-            authorizationService,
-            repository,
-            RbacPermissionAction.Update,
-            cancellationToken);
-        if (orgUnitIdResult.IsFailure)
-        {
-            return Result<PositionSlotResponse>.Failure(orgUnitIdResult.Error);
-        }
+        var jobProfileLookup = jobProfileLookupResult.Value;
 
         var workCenterIdResult = await PositionSlotCommandSupport.ResolveWorkCenterInternalIdAsync(
             slot.TenantId,
@@ -771,23 +744,24 @@ internal sealed class UpdatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(workCenterIdResult.Error);
         }
 
-        var contractTypeLookup = await repository.GetContractTypeByJobProfileAsync(
-            slot.TenantId,
-            command.JobProfileId,
-            cancellationToken);
-        if (contractTypeLookup is null || !contractTypeLookup.ContractTypeId.HasValue)
+        if (!jobProfileLookup.OrgUnitId.HasValue)
+        {
+            return Result<PositionSlotResponse>.Failure(PositionSlotErrors.JobProfileOrgUnitNotConfigured);
+        }
+
+        if (!jobProfileLookup.ContractTypeId.HasValue)
         {
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.ContractTypeNotResolved);
         }
 
         var isFixedTerm = PositionSlotContractTypeRules.IsFixedTerm(
-            contractTypeLookup.ContractTypeCode,
-            contractTypeLookup.ContractTypeName);
+            jobProfileLookup.ContractTypeCode,
+            jobProfileLookup.ContractTypeName);
 
-        if (!string.IsNullOrWhiteSpace(command.CostCenterCode) &&
+        if (!string.IsNullOrWhiteSpace(jobProfileLookup.CostCenterCode) &&
             !await costCenterRepository.ExistsActiveByCodeAsync(
                 slot.TenantId,
-                command.CostCenterCode.Trim().ToUpperInvariant(),
+                jobProfileLookup.CostCenterCode.Trim().ToUpperInvariant(),
                 cancellationToken))
         {
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.CostCenterInvalid);
@@ -802,10 +776,8 @@ internal sealed class UpdatePositionSlotCommandHandler(
             slot.UpdateCore(
                 command.Code,
                 command.Title,
-                jobProfileIdResult.Value,
-                orgUnitIdResult.Value,
+                jobProfileLookup.InternalJobProfileId,
                 workCenterIdResult.Value,
-                command.CostCenterCode,
                 command.MaxEmployees,
                 isFixedTerm,
                 command.EffectiveFromUtc,
@@ -1361,7 +1333,7 @@ internal static class PositionSlotCommandSupport
         return PositionSlotErrors.CapacityRuleViolation;
     }
 
-    public static async Task<Result<long>> ResolveJobProfileInternalIdAsync(
+    public static async Task<Result<PositionSlotJobProfileLookup>> ResolveJobProfileLookupAsync(
         Guid tenantId,
         Guid jobProfileId,
         IPositionSlotAuthorizationService authorizationService,
@@ -1369,36 +1341,16 @@ internal static class PositionSlotCommandSupport
         RbacPermissionAction action,
         CancellationToken cancellationToken)
     {
-        var internalId = await repository.ResolveJobProfileIdAsync(tenantId, jobProfileId, cancellationToken);
-        if (internalId.HasValue)
+        var lookup = await repository.GetJobProfileLookupAsync(tenantId, jobProfileId, cancellationToken);
+        if (lookup is not null)
         {
-            return Result<long>.Success(internalId.Value);
+            return Result<PositionSlotJobProfileLookup>.Success(lookup);
         }
 
-        return Result<long>.Failure(
+        return Result<PositionSlotJobProfileLookup>.Failure(
             await repository.JobProfileExistsOutsideTenantAsync(jobProfileId, cancellationToken)
                 ? authorizationService.TenantMismatch(action)
                 : PositionSlotErrors.JobProfileNotFound);
-    }
-
-    public static async Task<Result<long>> ResolveOrgUnitInternalIdAsync(
-        Guid tenantId,
-        Guid orgUnitId,
-        IPositionSlotAuthorizationService authorizationService,
-        IPositionSlotRepository repository,
-        RbacPermissionAction action,
-        CancellationToken cancellationToken)
-    {
-        var internalId = await repository.ResolveOrgUnitIdAsync(tenantId, orgUnitId, cancellationToken);
-        if (internalId.HasValue)
-        {
-            return Result<long>.Success(internalId.Value);
-        }
-
-        return Result<long>.Failure(
-            await repository.OrgUnitExistsOutsideTenantAsync(orgUnitId, cancellationToken)
-                ? authorizationService.TenantMismatch(action)
-                : PositionSlotErrors.OrgUnitNotFound);
     }
 
     public static async Task<Result<long?>> ResolveWorkCenterInternalIdAsync(

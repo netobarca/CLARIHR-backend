@@ -1,0 +1,464 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.OrgUnits.Common;
+using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
+using CLARIHR.Domain.InternalCatalogs;
+using CLARIHR.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace CLARIHR.Api.IntegrationTests;
+
+public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicationFactory factory)
+    : IClassFixture<IntegrationTestWebApplicationFactory>
+{
+    private const string RequirementCatalogContext = "job-profile.requirements";
+    private const string CertificationCatalogKey = "job-profile.requirements.certification";
+    private const string KnowledgeCatalogKey = "job-profile.requirements.knowledge";
+    private static readonly Guid SeedActorUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
+
+    [Fact]
+    public async Task InternalCatalogDefinitions_WithAuthenticatedUserWithoutTenant_ShouldReturnManifest()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.AuthenticatedWithoutTenant(scenario.ActorUserId));
+
+        var response = await client.GetAsync($"/api/account/internal-catalogs?context={RequirementCatalogContext}");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<InternalCatalogDefinitionItem>>(JsonOptions);
+        Assert.NotNull(payload);
+
+        var certification = Assert.Single(payload!, item => item.Identifier == "Certification");
+        Assert.Equal("Search", certification.RenderType);
+        Assert.Equal(CertificationCatalogKey, certification.CatalogKey);
+        Assert.True(certification.AllowCreate);
+
+        var experience = Assert.Single(payload, item => item.Identifier == "Experience");
+        Assert.Equal("FreeText", experience.RenderType);
+        Assert.Null(experience.CatalogKey);
+    }
+
+    [Fact]
+    public async Task InternalCatalogSearch_ShouldBeGlobalCrossTenantAndRestrictedByCatalogKey()
+    {
+        var scenario = await factory.ResetDatabaseAsync(dbContext =>
+        {
+            dbContext.InternalCatalogValues.AddRange(
+                InternalCatalogValue.Create(CertificationCatalogKey, "Azure AI Fundamentals", SeedActorUserId),
+                InternalCatalogValue.Create(KnowledgeCatalogKey, "Azure AI Fundamentals", SeedActorUserId));
+            return Task.CompletedTask;
+        });
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.OtherTenantId));
+
+        var response = await client.GetAsync(
+            $"/api/account/internal-catalogs/{CertificationCatalogKey}/values?q={Uri.EscapeDataString("Azure AI Fundamentals")}");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<InternalCatalogValueSuggestionItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        var match = Assert.Single(payload!);
+        Assert.Equal("Azure AI Fundamentals", match.Value);
+    }
+
+    [Fact]
+    public async Task InternalCatalogCreate_WhenSimilarValueExists_ShouldReturnConflictWithSuggestions()
+    {
+        var scenario = await factory.ResetDatabaseAsync(dbContext =>
+        {
+            dbContext.InternalCatalogValues.Add(
+                InternalCatalogValue.Create(CertificationCatalogKey, "Azure AI Fundamentals A", SeedActorUserId));
+            return Task.CompletedTask;
+        });
+        using var client = factory.CreateClientFor(TestUserContext.AuthenticatedWithoutTenant(scenario.ActorUserId));
+
+        var response = await client.PostJsonAsync(
+            $"/api/account/internal-catalogs/{CertificationCatalogKey}/values",
+            new { value = "Azure AI Fundamentals" });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        using var problemDocument = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(problemDocument.RootElement.TryGetProperty("suggestions", out var suggestions));
+        Assert.Equal(JsonValueKind.Array, suggestions.ValueKind);
+        Assert.NotEmpty(suggestions.EnumerateArray());
+    }
+
+    [Fact]
+    public async Task JobProfiles_CreateAndUpdate_WithSearchRequirements_ShouldPopulateGlobalInternalCatalogs()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var createdProfile = await CreateJobProfileAsync(
+            client,
+            scenario.TenantId,
+            "JP-INT-001",
+            "Perfil Catalogo",
+            requirementType: "Certification",
+            description: "Azure AI Fundamentals");
+
+        await UpdateJobProfileAsync(
+            client,
+            createdProfile,
+            scenario.TenantId,
+            requirementType: "Knowledge",
+            description: "Machine Learning");
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var values = await dbContext.InternalCatalogValues
+            .AsNoTracking()
+            .OrderBy(value => value.CatalogKey)
+            .ThenBy(value => value.Value)
+            .Select(value => new { value.CatalogKey, value.Value, value.UsageCount })
+            .ToListAsync();
+
+        Assert.Contains(values, value => value.CatalogKey == CertificationCatalogKey && value.Value == "Azure AI Fundamentals" && value.UsageCount == 1);
+        Assert.Contains(values, value => value.CatalogKey == KnowledgeCatalogKey && value.Value == "Machine Learning" && value.UsageCount == 1);
+    }
+
+    [Fact]
+    public async Task JobProfiles_CreateAndUpdate_WithFreeTextRequirements_ShouldNotPopulateGlobalInternalCatalogs()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var createdProfile = await CreateJobProfileAsync(
+            client,
+            scenario.TenantId,
+            "JP-INT-002",
+            "Perfil Texto Libre",
+            requirementType: "Experience",
+            description: "5 years");
+
+        await UpdateJobProfileAsync(
+            client,
+            createdProfile,
+            scenario.TenantId,
+            requirementType: "Other",
+            description: "Licencia de conducir");
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var count = await dbContext.InternalCatalogValues.CountAsync();
+
+        Assert.Equal(0, count);
+    }
+
+    private static TestUserContext CreateJobProfileAdminContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(
+            scenario.ActorUserId,
+            scenario.TenantId,
+            JobProfilePermissionCodes.Admin,
+            PositionDescriptionCatalogPermissionCodes.Admin,
+            OrgUnitPermissionCodes.Admin);
+
+    private async Task<JobProfileItem> CreateJobProfileAsync(
+        HttpClient client,
+        Guid companyId,
+        string code,
+        string title,
+        string requirementType,
+        string description)
+    {
+        var positionCategory = await EnsureDefaultPositionCategoryAsync(client, companyId);
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/job-profiles", new
+        {
+            code,
+            title,
+            objective = "Objetivo",
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
+            positionCategoryPublicId = positionCategory.Id,
+            strategicObjectiveCatalogItemPublicId = (Guid?)null,
+            assignedWorkEquipmentCatalogItemPublicId = (Guid?)null,
+            responsibilityCatalogItemPublicId = (Guid?)null,
+            decisionScope = "Operacion",
+            assignedResources = "Equipo",
+            responsibilities = "Responsabilidades",
+            benefitsSummary = "Ley",
+            workingConditionSummary = "Presencial",
+            marketSalaryReference = "Mercado",
+            valuationNotes = "Notas",
+            effectiveFromUtc = (DateTime?)null,
+            effectiveToUtc = (DateTime?)null,
+            allowInlineCatalogCreate = false,
+            requirements = new[]
+            {
+                new
+                {
+                    requirementType,
+                    requirementTypeCatalogItemPublicId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
+                    catalogCode = (string?)null,
+                    catalogName = (string?)null,
+                    description,
+                    sortOrder = 1
+                }
+            },
+            functions = new[]
+            {
+                new
+                {
+                    functionType = "General",
+                    frequencyCatalogItemPublicId = (Guid?)null,
+                    description = "Funcion",
+                    sortOrder = 1
+                }
+            },
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensations = Array.Empty<object>(),
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = Array.Empty<object>()
+        });
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(payload);
+        return payload!;
+    }
+
+    private async Task UpdateJobProfileAsync(
+        HttpClient client,
+        JobProfileItem profile,
+        Guid companyId,
+        string requirementType,
+        string description)
+    {
+        var positionCategory = await EnsureDefaultPositionCategoryAsync(client, companyId);
+
+        var response = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
+        {
+            code = profile.Code,
+            title = profile.Title,
+            objective = "Objetivo",
+            orgUnitPublicId = (Guid?)null,
+            reportsToJobProfilePublicId = (Guid?)null,
+            positionCategoryPublicId = positionCategory.Id,
+            strategicObjectiveCatalogItemPublicId = (Guid?)null,
+            assignedWorkEquipmentCatalogItemPublicId = (Guid?)null,
+            responsibilityCatalogItemPublicId = (Guid?)null,
+            decisionScope = "Operacion",
+            assignedResources = "Equipo",
+            responsibilities = "Responsabilidades",
+            benefitsSummary = "Ley",
+            workingConditionSummary = "Presencial",
+            marketSalaryReference = "Mercado",
+            valuationNotes = "Notas",
+            effectiveFromUtc = (DateTime?)null,
+            effectiveToUtc = (DateTime?)null,
+            allowInlineCatalogCreate = false,
+            requirements = new[]
+            {
+                new
+                {
+                    requirementType,
+                    catalogItemPublicId = (Guid?)null,
+                    catalogCode = (string?)null,
+                    catalogName = (string?)null,
+                    description,
+                    sortOrder = 1
+                }
+            },
+            functions = new[]
+            {
+                new
+                {
+                    functionType = "General",
+                    description = "Funcion",
+                    sortOrder = 1
+                }
+            },
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensations = Array.Empty<object>(),
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = Array.Empty<object>(),
+            concurrencyToken = profile.ConcurrencyToken
+        });
+        response.EnsureSuccessStatusCode();
+    }
+
+    private async Task<OrgStructureCatalogItem> EnsureOrgUnitTypeAsync(HttpClient client, Guid companyId, string code)
+    {
+        var listResponse = await client.GetAsync(
+            $"/api/v1/companies/{companyId}/org-structure-catalogs/unit-types?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgStructureCatalogItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+
+        var existing = listPayload!.Items.FirstOrDefault(item => item.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/org-structure-catalogs/unit-types", new
+        {
+            code,
+            name = code,
+            description = (string?)null,
+            sortOrder = 10
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var created = await createResponse.Content.ReadFromJsonAsync<OrgStructureCatalogItem>(JsonOptions);
+        Assert.NotNull(created);
+        return created!;
+    }
+
+    private async Task<PositionDescriptionCatalogItem> EnsurePositionDescriptionCatalogItemAsync(
+        HttpClient client,
+        Guid companyId,
+        string routeSegment,
+        string code)
+    {
+        var listResponse = await client.GetAsync(
+            $"/api/v1/companies/{companyId}/{routeSegment}?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<PositionDescriptionCatalogItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+
+        var existing = listPayload!.Items.FirstOrDefault(item => item.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/{routeSegment}", new
+        {
+            code,
+            name = code,
+            description = (string?)null,
+            sortOrder = 10
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var created = await createResponse.Content.ReadFromJsonAsync<PositionDescriptionCatalogItem>(JsonOptions);
+        Assert.NotNull(created);
+        return created!;
+    }
+
+    private async Task<PositionCategoryClassificationItem> EnsurePositionCategoryClassificationAsync(
+        HttpClient client,
+        Guid companyId,
+        string code,
+        Guid positionFunctionTypeId,
+        Guid positionContractTypeId,
+        Guid orgUnitTypeId)
+    {
+        var listResponse = await client.GetAsync(
+            $"/api/v1/companies/{companyId}/position-category-classifications?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<PositionCategoryClassificationItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+
+        var existing = listPayload!.Items.FirstOrDefault(item => item.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/position-category-classifications", new
+        {
+            code,
+            name = code,
+            description = (string?)null,
+            positionFunctionTypeId,
+            positionContractTypeId,
+            orgUnitTypeId,
+            sortOrder = 10
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var created = await createResponse.Content.ReadFromJsonAsync<PositionCategoryClassificationItem>(JsonOptions);
+        Assert.NotNull(created);
+        return created!;
+    }
+
+    private async Task<PositionCategoryItem> EnsurePositionCategoryAsync(
+        HttpClient client,
+        Guid companyId,
+        string code,
+        Guid classificationId)
+    {
+        var listResponse = await client.GetAsync(
+            $"/api/v1/companies/{companyId}/position-categories?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<PositionCategoryItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+
+        var existing = listPayload!.Items.FirstOrDefault(item => item.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/position-categories", new
+        {
+            code,
+            name = code,
+            description = (string?)null,
+            classificationId,
+            sortOrder = 10
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var created = await createResponse.Content.ReadFromJsonAsync<PositionCategoryItem>(JsonOptions);
+        Assert.NotNull(created);
+        return created!;
+    }
+
+    private async Task<PositionCategoryItem> EnsureDefaultPositionCategoryAsync(HttpClient client, Guid companyId)
+    {
+        var orgUnitType = await EnsureOrgUnitTypeAsync(client, companyId, "Direccion");
+        var functionType = await EnsurePositionDescriptionCatalogItemAsync(client, companyId, "position-function-types", "FUNC-BASE");
+        var contractType = await EnsurePositionDescriptionCatalogItemAsync(client, companyId, "position-contract-types", "CON-BASE");
+        var classification = await EnsurePositionCategoryClassificationAsync(
+            client,
+            companyId,
+            "CLASS-BASE",
+            functionType.Id,
+            contractType.Id,
+            orgUnitType.Id);
+
+        return await EnsurePositionCategoryAsync(client, companyId, "CAT-BASE", classification.Id);
+    }
+
+    private sealed record InternalCatalogDefinitionItem(
+        string Context,
+        string Identifier,
+        string Label,
+        string RenderType,
+        string? CatalogKey,
+        bool AllowCreate,
+        int MinQueryLength);
+
+    private sealed record InternalCatalogValueSuggestionItem(Guid Id, string Value, double Score);
+
+    private sealed record PagedResponseEnvelope<TItem>(IReadOnlyCollection<TItem> Items);
+
+    private sealed record JobProfileItem(Guid Id, string Code, string Title, Guid ConcurrencyToken);
+
+    private sealed record OrgStructureCatalogItem(Guid Id, string Code);
+
+    private sealed record PositionDescriptionCatalogItem(Guid Id, string Code);
+
+    private sealed record PositionCategoryClassificationItem(Guid Id, string Code);
+
+    private sealed record PositionCategoryItem(Guid Id, string Code);
+}
