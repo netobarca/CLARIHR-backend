@@ -36,17 +36,24 @@ public partial class RequireJobProfileOrgUnitAndDerivePositionSlotOrgUnit : Migr
             """
             DO $$
             BEGIN
-                IF EXISTS (SELECT 1 FROM job_profiles WHERE org_unit_id IS NULL) THEN
-                    RAISE EXCEPTION 'Cannot apply migration RequireJobProfileOrgUnitAndDerivePositionSlotOrgUnit because one or more job_profiles rows have org_unit_id = NULL.';
-                END IF;
-            END
-            $$;
-            """);
+                UPDATE job_profiles profile
+                SET org_unit_id = inferred.org_unit_id
+                FROM (
+                    SELECT
+                        slot.job_profile_id,
+                        MIN(slot.org_unit_id) AS org_unit_id
+                    FROM position_slots slot
+                    JOIN job_profiles source_profile ON source_profile.id = slot.job_profile_id
+                    JOIN org_units org_unit ON org_unit.id = slot.org_unit_id
+                    WHERE source_profile.org_unit_id IS NULL
+                      AND slot.tenant_id = source_profile.tenant_id
+                      AND org_unit.tenant_id = source_profile.tenant_id
+                    GROUP BY slot.job_profile_id
+                    HAVING COUNT(DISTINCT slot.org_unit_id) = 1
+                ) AS inferred
+                WHERE profile.id = inferred.job_profile_id
+                  AND profile.org_unit_id IS NULL;
 
-        migrationBuilder.Sql(
-            """
-            DO $$
-            BEGIN
                 IF EXISTS (
                     SELECT 1
                     FROM position_slots
@@ -54,6 +61,10 @@ public partial class RequireJobProfileOrgUnitAndDerivePositionSlotOrgUnit : Migr
                     HAVING COUNT(DISTINCT org_unit_id) > 1
                 ) THEN
                     RAISE EXCEPTION 'Cannot apply migration RequireJobProfileOrgUnitAndDerivePositionSlotOrgUnit because at least one job profile has position slots in multiple organization units.';
+                END IF;
+
+                IF EXISTS (SELECT 1 FROM job_profiles WHERE org_unit_id IS NULL) THEN
+                    RAISE EXCEPTION 'Cannot apply migration RequireJobProfileOrgUnitAndDerivePositionSlotOrgUnit because one or more job_profiles rows still have org_unit_id = NULL after automatic backfill. Complete the missing organization unit assignments and rerun the migration.';
                 END IF;
             END
             $$;
