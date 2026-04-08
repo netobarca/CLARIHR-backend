@@ -4,4 +4,5 @@ obj/
 .idea/
 .vs/
 logs/
+publish/
 .claude/
