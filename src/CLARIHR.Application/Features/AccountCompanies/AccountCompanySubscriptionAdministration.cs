@@ -5,9 +5,11 @@ using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Platform;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.PlatformSubscriptions;
 using CLARIHR.Application.Features.PlatformSubscriptions.Common;
@@ -62,7 +64,8 @@ internal sealed class GetOwnedCompanySubscriptionPlansQueryHandler(
     IUserRepository userRepository,
     ICompanyRepository companyRepository,
     ICompanySubscriptionRepository subscriptionRepository,
-    ICommercialPlanRepository commercialPlanRepository)
+    ICommercialPlanRepository commercialPlanRepository,
+    IPlatformOperatorRepository platformOperatorRepository)
     : IQueryHandler<GetOwnedCompanySubscriptionPlansQuery, IReadOnlyCollection<AccountCompanySubscriptionPlanResponse>>
 {
     public async Task<Result<IReadOnlyCollection<AccountCompanySubscriptionPlanResponse>>> Handle(
@@ -90,8 +93,14 @@ internal sealed class GetOwnedCompanySubscriptionPlansQueryHandler(
             return Result<IReadOnlyCollection<AccountCompanySubscriptionPlanResponse>>.Failure(PlatformSubscriptionErrors.SubscriptionNotFound);
         }
 
+        var canAccessMasterPlan = await AccountCompanySubscriptionHelper.CanAccessMasterPlanAsync(
+            ownershipResult.Value.Owner.PublicId,
+            platformOperatorRepository,
+            cancellationToken);
+
         var plans = await commercialPlanRepository.ListActiveAsync(cancellationToken);
         var response = plans
+            .Where(plan => canAccessMasterPlan || !AccountCompanySubscriptionHelper.IsMasterPlan(plan))
             .Select(plan => AccountCompanySubscriptionHelper.MapPlan(
                 plan,
                 isCurrent: plan.Id == currentSubscription.CommercialPlanId))
@@ -112,7 +121,8 @@ internal sealed class PreviewOwnedCompanySubscriptionPlanChangeQueryHandler(
     IPersonnelFileRepository personnelFileRepository,
     ICommercialAddonRepository commercialAddonRepository,
     IPlanEntitlementService planEntitlementService,
-    IDateTimeProvider dateTimeProvider)
+    IDateTimeProvider dateTimeProvider,
+    IPlatformOperatorRepository platformOperatorRepository)
     : IQueryHandler<PreviewOwnedCompanySubscriptionPlanChangeQuery, AccountCompanySubscriptionPlanPreviewResponse>
 {
     public async Task<Result<AccountCompanySubscriptionPlanPreviewResponse>> Handle(
@@ -150,6 +160,17 @@ internal sealed class PreviewOwnedCompanySubscriptionPlanChangeQueryHandler(
             return Result<AccountCompanySubscriptionPlanPreviewResponse>.Failure(resolution.Error);
         }
 
+        var accessResult = await AccountCompanySubscriptionHelper.EnsureMasterPlanAccessAsync(
+            ownershipResult.Value.Owner.PublicId,
+            resolution.Value.TargetPlan,
+            platformOperatorRepository,
+            cancellationToken);
+
+        if (accessResult.IsFailure)
+        {
+            return Result<AccountCompanySubscriptionPlanPreviewResponse>.Failure(accessResult.Error);
+        }
+
         var preview = await AccountCompanySubscriptionHelper.BuildPlanPreviewAsync(
             resolution.Value,
             subscriptionRepository,
@@ -174,7 +195,8 @@ internal sealed class ChangeOwnedCompanySubscriptionCommandHandler(
     IPlanEntitlementService planEntitlementService,
     IAuditService auditService,
     IDateTimeProvider dateTimeProvider,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IPlatformOperatorRepository platformOperatorRepository)
     : ICommandHandler<ChangeOwnedCompanySubscriptionCommand, AccountCompanySubscriptionOverviewResponse>
 {
     public async Task<Result<AccountCompanySubscriptionOverviewResponse>> Handle(
@@ -217,6 +239,17 @@ internal sealed class ChangeOwnedCompanySubscriptionCommandHandler(
         }
 
         var context = resolution.Value;
+        var accessResult = await AccountCompanySubscriptionHelper.EnsureMasterPlanAccessAsync(
+            owner.PublicId,
+            context.TargetPlan,
+            platformOperatorRepository,
+            cancellationToken);
+
+        if (accessResult.IsFailure)
+        {
+            return Result<AccountCompanySubscriptionOverviewResponse>.Failure(accessResult.Error);
+        }
+
         if (!context.IsEligible)
         {
             return Result<AccountCompanySubscriptionOverviewResponse>.Failure(context.PrimaryError);
@@ -900,6 +933,36 @@ internal static class AccountCompanySubscriptionHelper
 
             companyAddon.RestoreStatus(CompanyAddonStatus.Inactive, utcNow);
         }
+    }
+
+    public static bool IsMasterPlan(CommercialPlan plan) =>
+        string.Equals(plan.Code, ProvisioningConstants.MasterPlanCode, StringComparison.Ordinal);
+
+    public static async Task<bool> CanAccessMasterPlanAsync(
+        Guid userPublicId,
+        IPlatformOperatorRepository platformOperatorRepository,
+        CancellationToken cancellationToken) =>
+        await platformOperatorRepository.GetActiveByUserPublicIdAsync(userPublicId, cancellationToken) is not null;
+
+    public static async Task<Result> EnsureMasterPlanAccessAsync(
+        Guid userPublicId,
+        CommercialPlan targetPlan,
+        IPlatformOperatorRepository platformOperatorRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!IsMasterPlan(targetPlan))
+        {
+            return Result.Success();
+        }
+
+        var canAccessMasterPlan = await CanAccessMasterPlanAsync(
+            userPublicId,
+            platformOperatorRepository,
+            cancellationToken);
+
+        return canAccessMasterPlan
+            ? Result.Success()
+            : Result.Failure(AccountCompanyErrors.MasterPlanForbidden);
     }
 
     public static AccountCompanySubscriptionPlanResponse MapPlan(CommercialPlan plan, bool isCurrent)

@@ -2,6 +2,7 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.Policies;
@@ -13,11 +14,14 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Application.Features.OrgStructureCatalogs;
 using CLARIHR.Application.Features.OrgStructureCatalogs.Common;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
+using CLARIHR.Domain.IdentityAccess;
 using Microsoft.Extensions.Logging;
 
 namespace CLARIHR.Application.Features.AccountCompanies;
@@ -521,6 +525,11 @@ internal sealed class SwitchActiveCompanyCommandHandler(
     IUserRepository userRepository,
     ICompanyRepository companyRepository,
     IUserCompanyRepository userCompanyRepository,
+    IIamAdministrationRepository iamRepository,
+    ICompanySubscriptionRepository subscriptionRepository,
+    ICommercialPlanRepository commercialPlanRepository,
+    ICommercialAddonRepository commercialAddonRepository,
+    IPlanEntitlementService planEntitlementService,
     ITokenService tokenService,
     IAuditService auditService,
     IUnitOfWork unitOfWork)
@@ -573,6 +582,21 @@ internal sealed class SwitchActiveCompanyCommandHandler(
                 return Result<SwitchActiveCompanyResponse>.Failure(tokenResult.Error);
             }
 
+            var accessContext = await AccountCompanyAccessContextBuilder.BuildAsync(
+                currentUserResult.Value,
+                company,
+                iamRepository,
+                subscriptionRepository,
+                commercialPlanRepository,
+                commercialAddonRepository,
+                planEntitlementService,
+                cancellationToken);
+            if (accessContext is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<SwitchActiveCompanyResponse>.Failure(AccountCompanyErrors.CompanyNotFound);
+            }
+
             await auditService.LogForTenantAsync(
                 company.PublicId,
                 new AuditLogEntry(
@@ -591,13 +615,213 @@ internal sealed class SwitchActiveCompanyCommandHandler(
                 tokenResult.Value.AccessToken,
                 tokenResult.Value.RefreshToken,
                 tokenResult.Value.ExpiresIn,
-                new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.CountryCode, company.Status)));
+                new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.CountryCode, company.Status),
+                accessContext));
         }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+}
+
+internal sealed class GetOwnedCompanyAccessContextQueryHandler(
+    ICurrentUserService currentUserService,
+    IUserRepository userRepository,
+    ICompanyRepository companyRepository,
+    IIamAdministrationRepository iamRepository,
+    ICompanySubscriptionRepository subscriptionRepository,
+    ICommercialPlanRepository commercialPlanRepository,
+    ICommercialAddonRepository commercialAddonRepository,
+    IPlanEntitlementService planEntitlementService)
+    : IQueryHandler<GetOwnedCompanyAccessContextQuery, AccountCompanyAccessContextResponse>
+{
+    public async Task<Result<AccountCompanyAccessContextResponse>> Handle(
+        GetOwnedCompanyAccessContextQuery query,
+        CancellationToken cancellationToken)
+    {
+        var ownershipResult = await AccountCompanySubscriptionHelper.ResolveOwnershipAsync(
+            currentUserService,
+            userRepository,
+            companyRepository,
+            query.CompanyId,
+            cancellationToken);
+
+        if (ownershipResult.IsFailure)
+        {
+            return Result<AccountCompanyAccessContextResponse>.Failure(ownershipResult.Error);
+        }
+
+        var accessContext = await AccountCompanyAccessContextBuilder.BuildAsync(
+            ownershipResult.Value.Owner,
+            ownershipResult.Value.Company,
+            iamRepository,
+            subscriptionRepository,
+            commercialPlanRepository,
+            commercialAddonRepository,
+            planEntitlementService,
+            cancellationToken);
+
+        return accessContext is null
+            ? Result<AccountCompanyAccessContextResponse>.Failure(AccountCompanyErrors.CompanyNotFound)
+            : Result<AccountCompanyAccessContextResponse>.Success(accessContext);
+    }
+}
+
+internal sealed class GetOwnedCompanyRoleBuilderCatalogQueryHandler(
+    ICurrentUserService currentUserService,
+    IUserRepository userRepository,
+    ICompanyRepository companyRepository,
+    IIamAdministrationRepository iamRepository,
+    ICompanySubscriptionRepository subscriptionRepository,
+    ICommercialPlanRepository commercialPlanRepository,
+    ICommercialAddonRepository commercialAddonRepository,
+    IPlanEntitlementService planEntitlementService)
+    : IQueryHandler<GetOwnedCompanyRoleBuilderCatalogQuery, AccountCompanyRoleBuilderCatalogResponse>
+{
+    private static readonly string[] SupportedAccessStates = ["hidden", "masked", "readonly", "editable"];
+
+    public async Task<Result<AccountCompanyRoleBuilderCatalogResponse>> Handle(
+        GetOwnedCompanyRoleBuilderCatalogQuery query,
+        CancellationToken cancellationToken)
+    {
+        var ownershipResult = await AccountCompanySubscriptionHelper.ResolveOwnershipAsync(
+            currentUserService,
+            userRepository,
+            companyRepository,
+            query.CompanyId,
+            cancellationToken);
+
+        if (ownershipResult.IsFailure)
+        {
+            return Result<AccountCompanyRoleBuilderCatalogResponse>.Failure(ownershipResult.Error);
+        }
+
+        var accessContext = await AccountCompanyAccessContextBuilder.BuildAsync(
+            ownershipResult.Value.Owner,
+            ownershipResult.Value.Company,
+            iamRepository,
+            subscriptionRepository,
+            commercialPlanRepository,
+            commercialAddonRepository,
+            planEntitlementService,
+            cancellationToken);
+
+        if (accessContext is null)
+        {
+            return Result<AccountCompanyRoleBuilderCatalogResponse>.Failure(AccountCompanyErrors.CompanyNotFound);
+        }
+
+        var fieldPoliciesCatalog = FieldCatalogRegistry.Definitions
+            .OrderBy(static definition => definition.ResourceKey, StringComparer.Ordinal)
+            .ThenBy(static definition => definition.DisplayName, StringComparer.Ordinal)
+            .Select(static definition => new AccountCompanyFieldPolicyCatalogItemResponse(
+                definition.ResourceKey,
+                definition.FieldKey,
+                definition.DisplayName,
+                definition.DataType,
+                definition.IsSensitive,
+                SupportedAccessStates))
+            .ToArray();
+
+        var scopeTypes = AuthorizationScopeCatalog.All
+            .Select(static definition => new AccountCompanyAccessScopeTypeResponse(
+                definition.ScopeType,
+                definition.DisplayName,
+                definition.Description))
+            .ToArray();
+
+        return Result<AccountCompanyRoleBuilderCatalogResponse>.Success(
+            new AccountCompanyRoleBuilderCatalogResponse(
+                accessContext.EffectiveModules,
+                accessContext.EffectiveCapabilities,
+                accessContext.CurrentUserAccess.Permissions.Where(static permission => !permission.IsDormant).ToArray(),
+                fieldPoliciesCatalog,
+                scopeTypes));
+    }
+}
+
+internal sealed class GetOwnedCompanyResourcePolicyQueryHandler(
+    ICurrentUserService currentUserService,
+    IUserRepository userRepository,
+    ICompanyRepository companyRepository,
+    ITenantContext tenantContext,
+    IFieldPermissionService fieldPermissionService,
+    IRbacAuthorizationService rbacAuthorizationService)
+    : IQueryHandler<GetOwnedCompanyResourcePolicyQuery, AccountCompanyResourcePolicyResponse>
+{
+    public async Task<Result<AccountCompanyResourcePolicyResponse>> Handle(
+        GetOwnedCompanyResourcePolicyQuery query,
+        CancellationToken cancellationToken)
+    {
+        var ownershipResult = await AccountCompanySubscriptionHelper.ResolveOwnershipAsync(
+            currentUserService,
+            userRepository,
+            companyRepository,
+            query.CompanyId,
+            cancellationToken);
+
+        if (ownershipResult.IsFailure)
+        {
+            return Result<AccountCompanyResourcePolicyResponse>.Failure(ownershipResult.Error);
+        }
+
+        if (!tenantContext.TenantId.HasValue || tenantContext.TenantId.Value != query.CompanyId)
+        {
+            return Result<AccountCompanyResourcePolicyResponse>.Failure(AccountCompanyErrors.ActiveCompanySwitchForbidden);
+        }
+
+        if (!PermissionMatrixCatalog.TryGet(query.ResourceKey, out _))
+        {
+            return Result<AccountCompanyResourcePolicyResponse>.Failure(
+                ErrorCatalog.Validation(new Dictionary<string, string[]>
+                {
+                    [nameof(query.ResourceKey)] = [$"Unknown resource key '{query.ResourceKey}'."]
+                }));
+        }
+
+        var fieldProfileResult = await fieldPermissionService.GetCurrentUserAccessProfileAsync(query.ResourceKey, cancellationToken);
+        if (fieldProfileResult.IsFailure)
+        {
+            return Result<AccountCompanyResourcePolicyResponse>.Failure(fieldProfileResult.Error);
+        }
+
+        var actionPolicy = new AccountCompanyActionPolicyResponse(
+            CanAccess: (await rbacAuthorizationService.AuthorizeAsync(query.ResourceKey, RbacPermissionAction.Access, cancellationToken)).IsSuccess,
+            CanRead: (await rbacAuthorizationService.AuthorizeAsync(query.ResourceKey, RbacPermissionAction.Read, cancellationToken)).IsSuccess,
+            CanCreate: (await rbacAuthorizationService.AuthorizeAsync(query.ResourceKey, RbacPermissionAction.Create, cancellationToken)).IsSuccess,
+            CanUpdate: (await rbacAuthorizationService.AuthorizeAsync(query.ResourceKey, RbacPermissionAction.Update, cancellationToken)).IsSuccess,
+            CanDelete: (await rbacAuthorizationService.AuthorizeAsync(query.ResourceKey, RbacPermissionAction.Delete, cancellationToken)).IsSuccess);
+
+        var fieldStates = FieldCatalogRegistry.GetResourceFields(query.ResourceKey)
+            .OrderBy(static field => field.DisplayName, StringComparer.Ordinal)
+            .Select(field =>
+            {
+                var rule = fieldProfileResult.Value.GetRule(field.FieldKey);
+                var access = !rule.IsVisible
+                    ? "hidden"
+                    : rule.IsMasked
+                        ? "masked"
+                        : rule.IsEditable
+                            ? "editable"
+                            : "readonly";
+
+                return new AccountCompanyFieldPolicyStateResponse(
+                    field.FieldKey,
+                    field.PropertyName,
+                    field.DisplayName,
+                    access,
+                    rule.IsRequired,
+                    field.IsSensitive);
+            })
+            .ToArray();
+
+        return Result<AccountCompanyResourcePolicyResponse>.Success(
+            new AccountCompanyResourcePolicyResponse(
+                query.ResourceKey,
+                actionPolicy,
+                fieldStates));
     }
 }
 
@@ -635,4 +859,207 @@ internal static class AccountCompanyActorResolver
             ? Result<Company>.Success(company)
             : Result<Company>.Failure(AccountCompanyErrors.OwnershipForbidden);
     }
+}
+
+internal static class AccountCompanyAccessContextBuilder
+{
+    private static readonly string[] CompanyScopeTypes = [AuthorizationScopeTypes.Company];
+
+    public static async Task<AccountCompanyAccessContextResponse?> BuildAsync(
+        User actor,
+        Company company,
+        IIamAdministrationRepository iamRepository,
+        ICompanySubscriptionRepository subscriptionRepository,
+        ICommercialPlanRepository commercialPlanRepository,
+        ICommercialAddonRepository commercialAddonRepository,
+        IPlanEntitlementService planEntitlementService,
+        CancellationToken cancellationToken)
+    {
+        var currentSubscription = await subscriptionRepository.GetActiveByCompanyIdAsync(company.Id, cancellationToken);
+        if (currentSubscription is null)
+        {
+            return null;
+        }
+
+        var currentPlan = await commercialPlanRepository.GetByInternalIdAsync(
+            currentSubscription.CommercialPlanId,
+            cancellationToken);
+        if (currentPlan is null)
+        {
+            return null;
+        }
+
+        var activeAddons = await AccountCompanySubscriptionHelper.GetActiveAddonsAsync(
+            company,
+            subscriptionRepository,
+            commercialAddonRepository,
+            cancellationToken);
+
+        var effectiveCapabilities = await planEntitlementService.GetEffectiveCapabilitiesAsync(company.PublicId, cancellationToken);
+        var effectiveModules = await planEntitlementService.GetEffectiveModulesAsync(company.PublicId, cancellationToken);
+        var effectiveCapabilityResponses = effectiveCapabilities
+            .Select(MapEffectiveCapability)
+            .ToArray();
+        var effectiveModuleResponses = effectiveModules
+            .Select(MapEffectiveModule)
+            .ToArray();
+
+        var effectiveCapabilityCodes = effectiveCapabilities
+            .Select(static capability => capability.CapabilityCode)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
+            company.PublicId,
+            actor.PublicId,
+            includeRoles: true,
+            cancellationToken);
+
+        var roles = iamUser?.RoleAssignments
+            .OrderBy(static assignment => assignment.Role.Name, StringComparer.Ordinal)
+            .Select(static assignment => new AccountCompanyAccessRoleResponse(
+                assignment.Role.PublicId,
+                assignment.Role.Name,
+                assignment.Role.Description,
+                assignment.Role.IsSystemRole))
+            .DistinctBy(static role => role.Id)
+            .ToArray() ?? Array.Empty<AccountCompanyAccessRoleResponse>();
+
+        var permissions = iamUser?.RoleAssignments
+            .SelectMany(static assignment => assignment.Role.PermissionAssignments)
+            .Select(static assignment => assignment.Permission)
+            .GroupBy(static permission => permission.PublicId)
+            .Select(group => MapPermission(group.First(), effectiveCapabilityCodes))
+            .OrderBy(static permission => permission.Code, StringComparer.Ordinal)
+            .ToArray() ?? Array.Empty<AccountCompanyAccessPermissionResponse>();
+
+        var scopes = permissions
+            .Where(static permission => !permission.IsDormant)
+            .Select(permission => new AccountCompanyPermissionScopeResponse(
+                permission.Code,
+                AuthorizationScopeTypes.Company,
+                [company.PublicId.ToString()],
+                IsImplicit: true))
+            .ToArray();
+
+        var commercialContext = new AccountCompanyCommercialContextResponse(
+            new AccountCompanyAccessSubscriptionContextResponse(
+                currentPlan.PublicId,
+                currentPlan.Code,
+                currentPlan.Name,
+                currentPlan.Description,
+                currentPlan.Entitlements
+                    .Where(static entitlement => entitlement.IsEnabled)
+                    .Select(static entitlement => ResolveCapabilityCode(entitlement.CapabilityCode, entitlement.ModuleKey))
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(static capabilityCode => capabilityCode, StringComparer.Ordinal)
+                    .ToArray()),
+            activeAddons
+                .Select(addon => new AccountCompanyAccessAddonContextResponse(
+                    addon.CommercialAddonId,
+                    addon.Code,
+                    addon.Name,
+                    addon.Description,
+                    addon.ModuleKeys
+                        .Select(static moduleKey => CommercialCapabilityCatalog.GetByModuleKey(moduleKey).Code)
+                        .Distinct(StringComparer.Ordinal)
+                        .OrderBy(static capabilityCode => capabilityCode, StringComparer.Ordinal)
+                        .ToArray()))
+                .ToArray());
+
+        return new AccountCompanyAccessContextResponse(
+            new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.CountryCode, company.Status),
+            commercialContext,
+            effectiveCapabilityResponses,
+            effectiveModuleResponses,
+            new AccountCompanyCurrentUserAccessResponse(roles, permissions, scopes));
+    }
+
+    private static AccountCompanyEffectiveCapabilityResponse MapEffectiveCapability(EffectiveCommercialCapabilityGrant grant)
+    {
+        var definition = CommercialCapabilityCatalog.Get(grant.CapabilityCode);
+        var source = grant.GrantedByPlan && grant.GrantedByAddon
+            ? "plan+addon"
+            : grant.GrantedByPlan
+                ? "plan"
+                : "addon";
+
+        return new AccountCompanyEffectiveCapabilityResponse(
+            grant.CapabilityCode,
+            grant.ModuleKey,
+            definition.DisplayName,
+            definition.Description,
+            source,
+            grant.GrantedByPlan,
+            grant.GrantedByAddon);
+    }
+
+    private static AccountCompanyEffectiveModuleResponse MapEffectiveModule(EffectiveCommercialModuleGrant grant)
+    {
+        var definition = CommercialModuleCatalog.Get(grant.ModuleKey);
+        var source = grant.GrantedByPlan && grant.GrantedByAddon
+            ? "plan+addon"
+            : grant.GrantedByPlan
+                ? "plan"
+                : "addon";
+
+        return new AccountCompanyEffectiveModuleResponse(
+            grant.ModuleKey,
+            definition.DisplayName,
+            definition.Description,
+            source,
+            grant.GrantedByPlan,
+            grant.GrantedByAddon);
+    }
+
+    private static AccountCompanyAccessPermissionResponse MapPermission(
+        IamPermission permission,
+        IReadOnlySet<string> effectiveCapabilityCodes)
+    {
+        var capabilityCodes = ResolveCapabilityCodes(permission);
+        var isDormant = capabilityCodes.Count > 0 && capabilityCodes.All(capabilityCode => !effectiveCapabilityCodes.Contains(capabilityCode));
+
+        return new AccountCompanyAccessPermissionResponse(
+            permission.PublicId,
+            permission.Code,
+            permission.Name,
+            permission.Description,
+            permission.Module,
+            permission.Screen,
+            permission.Kind,
+            permission.Action,
+            permission.FieldName,
+            permission.FieldAccess,
+            capabilityCodes,
+            isDormant,
+            CompanyScopeTypes);
+    }
+
+    private static IReadOnlyCollection<string> ResolveCapabilityCodes(IamPermission permission)
+    {
+        var capabilityCodes = new HashSet<string>(StringComparer.Ordinal);
+
+        if (CommercialModuleCatalog.IsKnown(permission.Module))
+        {
+            capabilityCodes.Add(CommercialCapabilityCatalog.GetByModuleKey(permission.Module).Code);
+        }
+
+        if (PermissionMatrixCatalog.TryGet(permission.Screen, out var definition))
+        {
+            capabilityCodes.Add(CommercialCapabilityCatalog.GetByModuleKey(definition.PlanModuleKey).Code);
+        }
+
+        if (string.Equals(permission.NormalizedCode, IdentityPermissionCodes.ManageAdministration.ToUpperInvariant(), StringComparison.Ordinal))
+        {
+            capabilityCodes.Add(CommercialCapabilityCatalog.GetByModuleKey(CommercialModuleKeys.Rbac).Code);
+        }
+
+        return capabilityCodes
+            .OrderBy(static capabilityCode => capabilityCode, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string ResolveCapabilityCode(string? capabilityCode, string moduleKey) =>
+        string.IsNullOrWhiteSpace(capabilityCode)
+            ? CommercialCapabilityCatalog.GetByModuleKey(moduleKey).Code
+            : CommercialCapabilityCatalog.NormalizeKnownCode(capabilityCode);
 }

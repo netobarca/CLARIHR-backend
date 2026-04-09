@@ -5,11 +5,21 @@ public sealed record EffectiveCommercialModuleGrant(
     bool GrantedByPlan,
     bool GrantedByAddon);
 
+public sealed record EffectiveCommercialCapabilityGrant(
+    string CapabilityCode,
+    string ModuleKey,
+    bool GrantedByPlan,
+    bool GrantedByAddon);
+
 public interface IPlanEntitlementService
 {
-    Task EnsureFreePlanDefaultsAsync(CancellationToken cancellationToken);
+    Task EnsureSystemPlanDefaultsAsync(CancellationToken cancellationToken);
 
     Task<bool> IsModuleEnabledAsync(Guid companyPublicId, string moduleKey, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<EffectiveCommercialCapabilityGrant>> GetEffectiveCapabilitiesAsync(
+        Guid companyPublicId,
+        CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<EffectiveCommercialModuleGrant>> GetEffectiveModulesAsync(
         Guid companyPublicId,

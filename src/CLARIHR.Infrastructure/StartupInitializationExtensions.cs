@@ -1,7 +1,9 @@
-using CLARIHR.Infrastructure.IdentityAccess;
 using CLARIHR.Infrastructure.LegalRepresentatives;
 using CLARIHR.Infrastructure.Persistence;
+using CLARIHR.Application.Abstractions.Companies;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -25,16 +27,21 @@ public static class StartupInitializationExtensions
             {
                 using var scope = services.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var backfillService = scope.ServiceProvider.GetRequiredService<RbacCatalogBackfillService>();
                 var documentTypeCatalogSeedService = scope.ServiceProvider.GetRequiredService<LegalRepresentativeDocumentTypeCatalogSeedService>();
                 var positionTitleCatalogSeedService = scope.ServiceProvider.GetRequiredService<LegalRepresentativePositionTitleCatalogSeedService>();
                 var representationTypeCatalogSeedService = scope.ServiceProvider.GetRequiredService<LegalRepresentativeRepresentationTypeCatalogSeedService>();
+                var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
+
+                if (await ShouldRebuildDevelopmentDatabaseAsync(dbContext, isDevelopment, logger, cancellationToken))
+                {
+                    await ResetDevelopmentSchemaAsync(dbContext, logger, cancellationToken);
+                }
 
                 await dbContext.Database.MigrateAsync(cancellationToken);
-                await backfillService.EnsureSeededAsync(cancellationToken);
                 await documentTypeCatalogSeedService.EnsureSeededAsync(cancellationToken);
                 await positionTitleCatalogSeedService.EnsureSeededAsync(cancellationToken);
                 await representationTypeCatalogSeedService.EnsureSeededAsync(cancellationToken);
+                await planEntitlementService.EnsureSystemPlanDefaultsAsync(cancellationToken);
 
                 if (isDevelopment)
                 {
@@ -72,4 +79,158 @@ public static class StartupInitializationExtensions
     private static bool IsInitializationUnavailable(Exception exception) =>
         exception is NpgsqlException ||
         exception is DbUpdateException { InnerException: NpgsqlException };
+
+    private static async Task<bool> ShouldRebuildDevelopmentDatabaseAsync(
+        ApplicationDbContext dbContext,
+        bool isDevelopment,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        if (!isDevelopment)
+        {
+            return false;
+        }
+
+        var databaseCreator = dbContext.Database.GetService<IRelationalDatabaseCreator>();
+        if (!await databaseCreator.ExistsAsync(cancellationToken))
+        {
+            return false;
+        }
+
+        var definedMigrations = dbContext.Database.GetMigrations().ToArray();
+        if (definedMigrations.Length != 1)
+        {
+            return false;
+        }
+
+        if (await HasDeprecatedLegacyAuthorizationTablesAsync(dbContext, cancellationToken))
+        {
+            logger.LogWarning(
+                "Development database reset triggered because deprecated legacy authorization tables were found in database {Database}.",
+                dbContext.Database.GetDbConnection().Database);
+            return true;
+        }
+
+        var appliedMigrations = (await dbContext.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
+        if (appliedMigrations.Length == 1 &&
+            string.Equals(appliedMigrations[0], definedMigrations[0], StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (appliedMigrations.Length == 0 && !await HasUserTablesAsync(dbContext, cancellationToken))
+        {
+            return false;
+        }
+
+        logger.LogWarning(
+            "Development database reset triggered. Applied migrations [{Applied}] do not match the single current baseline migration {CurrentMigration}.",
+            appliedMigrations.Length == 0 ? "none" : string.Join(", ", appliedMigrations),
+            definedMigrations[0]);
+
+        return true;
+    }
+
+    private static async Task<bool> HasUserTablesAsync(ApplicationDbContext dbContext, CancellationToken cancellationToken)
+    {
+        var connection = dbContext.Database.GetDbConnection();
+        var shouldClose = connection.State != System.Data.ConnectionState.Open;
+
+        try
+        {
+            if (shouldClose)
+            {
+                await connection.OpenAsync(cancellationToken);
+            }
+
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public'
+                      AND table_type = 'BASE TABLE'
+                      AND table_name <> '__EFMigrationsHistory')
+                """;
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return result is true || (result is bool boolResult && boolResult);
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
+            }
+        }
+    }
+
+    private static async Task<bool> HasDeprecatedLegacyAuthorizationTablesAsync(
+        ApplicationDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var deprecatedTables = new[]
+        {
+            "field_catalog",
+            "field_permission_audit_logs",
+            "rbac_permission_audit_logs",
+            "rbac_resource_catalog"
+        };
+
+        var connection = dbContext.Database.GetDbConnection();
+        var shouldClose = connection.State != System.Data.ConnectionState.Open;
+
+        try
+        {
+            if (shouldClose)
+            {
+                await connection.OpenAsync(cancellationToken);
+            }
+
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public'
+                      AND table_name = ANY (@tableNames))
+                """;
+
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "tableNames";
+            parameter.Value = deprecatedTables;
+            command.Parameters.Add(parameter);
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return result is true || (result is bool boolResult && boolResult);
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
+            }
+        }
+    }
+
+    private static async Task ResetDevelopmentSchemaAsync(
+        ApplicationDbContext dbContext,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        logger.LogWarning(
+            "Resetting development schema in database {Database}. Existing public schema objects will be dropped and recreated.",
+            dbContext.Database.GetDbConnection().Database);
+
+        await dbContext.Database.ExecuteSqlRawAsync(
+            """
+            DROP SCHEMA IF EXISTS public CASCADE;
+            CREATE SCHEMA public;
+            GRANT ALL ON SCHEMA public TO CURRENT_USER;
+            GRANT ALL ON SCHEMA public TO PUBLIC;
+            """,
+            cancellationToken);
+    }
 }

@@ -133,6 +133,10 @@ internal sealed class CommercialAddonEntitlementConfiguration : IEntityTypeConfi
             .HasColumnName("addon_code")
             .HasMaxLength(40);
 
+        builder.Property(entitlement => entitlement.CapabilityCode)
+            .HasColumnName("capability_code")
+            .HasMaxLength(80);
+
         builder.Property(entitlement => entitlement.ModuleKey)
             .HasColumnName("module_key")
             .HasMaxLength(60);
@@ -149,5 +153,9 @@ internal sealed class CommercialAddonEntitlementConfiguration : IEntityTypeConfi
         builder.HasIndex(entitlement => new { entitlement.CommercialAddonId, entitlement.ModuleKey })
             .IsUnique()
             .HasDatabaseName("uq_commercial_addon_entitlements__addon_module");
+
+        builder.HasIndex(entitlement => new { entitlement.CommercialAddonId, entitlement.CapabilityCode })
+            .IsUnique()
+            .HasDatabaseName("uq_commercial_addon_entitlements__addon_capability");
     }
 }

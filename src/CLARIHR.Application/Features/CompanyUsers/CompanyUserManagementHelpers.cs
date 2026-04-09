@@ -41,8 +41,8 @@ internal static class CompanyUserManagementHelpers
 
     public static IReadOnlyCollection<string> GetChangedUpdateFieldKeys(
         User user,
-        UserCompanyMembership membership,
-        IamRole desiredRole,
+        IReadOnlyCollection<IamRole> desiredRoles,
+        IReadOnlyCollection<CompanyUserRoleResponse> currentRoles,
         UpdateCompanyUserCommand command)
     {
         var changedFields = new List<string>(3);
@@ -57,7 +57,16 @@ internal static class CompanyUserManagementHelpers
             changedFields.Add(CompanyUserFieldKeys.LastName);
         }
 
-        if (membership.RoleId != desiredRole.Id)
+        var desiredRoleIds = desiredRoles
+            .Select(static role => role.PublicId)
+            .OrderBy(static roleId => roleId, Comparer<Guid>.Default)
+            .ToArray();
+        var currentRoleIds = currentRoles
+            .Select(static role => role.Id)
+            .OrderBy(static roleId => roleId, Comparer<Guid>.Default)
+            .ToArray();
+
+        if (!desiredRoleIds.SequenceEqual(currentRoleIds))
         {
             changedFields.Add(CompanyUserFieldKeys.Role);
         }
@@ -86,10 +95,7 @@ internal static class CompanyUserManagementHelpers
             fieldSerializationService.SerializeString(fieldAccessProfile.GetRule(CompanyUserFieldKeys.Email), response.Email),
             fieldSerializationService.SerializeString(fieldAccessProfile.GetRule(CompanyUserFieldKeys.FirstName), response.FirstName),
             fieldSerializationService.SerializeString(fieldAccessProfile.GetRule(CompanyUserFieldKeys.LastName), response.LastName),
-            response.RoleId.HasValue
-                ? fieldSerializationService.SerializeGuid(fieldAccessProfile.GetRule(CompanyUserFieldKeys.Role), response.RoleId.Value)
-                : null,
-            fieldSerializationService.SerializeString(fieldAccessProfile.GetRule(CompanyUserFieldKeys.Role), response.Role),
+            FilterRoles(response.Roles, fieldAccessProfile.GetRule(CompanyUserFieldKeys.Role)),
             response.Status.HasValue
                 ? fieldSerializationService.SerializeEnum(fieldAccessProfile.GetRule(CompanyUserFieldKeys.Status), response.Status.Value)
                 : null,
@@ -104,10 +110,7 @@ internal static class CompanyUserManagementHelpers
             fieldSerializationService.SerializeString(fieldAccessProfile.GetRule(CompanyUserFieldKeys.Email), response.Email),
             fieldSerializationService.SerializeString(fieldAccessProfile.GetRule(CompanyUserFieldKeys.FirstName), response.FirstName),
             fieldSerializationService.SerializeString(fieldAccessProfile.GetRule(CompanyUserFieldKeys.LastName), response.LastName),
-            response.RoleId.HasValue
-                ? fieldSerializationService.SerializeGuid(fieldAccessProfile.GetRule(CompanyUserFieldKeys.Role), response.RoleId.Value)
-                : null,
-            fieldSerializationService.SerializeString(fieldAccessProfile.GetRule(CompanyUserFieldKeys.Role), response.Role),
+            FilterRoles(response.Roles, fieldAccessProfile.GetRule(CompanyUserFieldKeys.Role)),
             response.Status.HasValue
                 ? fieldSerializationService.SerializeEnum(fieldAccessProfile.GetRule(CompanyUserFieldKeys.Status), response.Status.Value)
                 : null);
@@ -140,4 +143,11 @@ internal static class CompanyUserManagementHelpers
                     InactivateAllowed: canManageUsers))
         };
     }
+
+    private static IReadOnlyCollection<CompanyUserRoleResponse> FilterRoles(
+        IReadOnlyCollection<CompanyUserRoleResponse> roles,
+        FieldAccessRule rule) =>
+        rule.IsVisible
+            ? roles
+            : Array.Empty<CompanyUserRoleResponse>();
 }

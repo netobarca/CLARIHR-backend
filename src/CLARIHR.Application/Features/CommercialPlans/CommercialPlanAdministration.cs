@@ -9,6 +9,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CommercialPlans.Common;
+using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Companies;
 using Microsoft.Extensions.Logging;
 
@@ -180,13 +181,17 @@ internal sealed class UpdateCommercialPlanCommandHandler(
         try
         {
             var before = CommercialPlanMapper.Map(plan);
+            var moduleKeys = plan.IsSystemPlan &&
+                             string.Equals(plan.Code, ProvisioningConstants.MasterPlanCode, StringComparison.Ordinal)
+                ? CommercialModuleCatalog.DefaultMasterModuleKeys
+                : command.ModuleKeys;
             plan.Update(
                 command.Code,
                 command.Name,
                 command.Description,
                 command.BaseMonthlyFee,
                 command.PricePerActiveEmployee,
-                command.ModuleKeys,
+                moduleKeys,
                 CommercialPlanMapper.ToLimitData(command.Limits),
                 dateTimeProvider.UtcNow);
 

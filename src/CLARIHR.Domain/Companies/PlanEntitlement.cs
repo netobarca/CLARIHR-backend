@@ -8,10 +8,11 @@ public sealed class PlanEntitlement : AuditableEntity
     {
     }
 
-    private PlanEntitlement(string planCode, string moduleKey, bool isEnabled)
+    private PlanEntitlement(string planCode, string capabilityCode, bool isEnabled)
     {
         PlanCode = CompanyNormalization.NormalizePlanCode(planCode);
-        ModuleKey = CommercialModuleCatalog.NormalizeKnownKey(moduleKey);
+        CapabilityCode = CommercialCapabilityCatalog.NormalizeKnownCode(capabilityCode);
+        ModuleKey = CommercialCapabilityCatalog.Get(CapabilityCode).ModuleKey;
         IsEnabled = isEnabled;
     }
 
@@ -19,10 +20,15 @@ public sealed class PlanEntitlement : AuditableEntity
 
     public string PlanCode { get; private set; } = string.Empty;
 
+    public string CapabilityCode { get; private set; } = string.Empty;
+
     public string ModuleKey { get; private set; } = string.Empty;
 
     public bool IsEnabled { get; private set; }
 
     public static PlanEntitlement Create(string planCode, string moduleKey, bool isEnabled = true) =>
-        new(planCode, moduleKey, isEnabled);
+        new(planCode, CommercialCapabilityCatalog.GetByModuleKey(moduleKey).Code, isEnabled);
+
+    public static PlanEntitlement CreateForCapability(string planCode, string capabilityCode, bool isEnabled = true) =>
+        new(planCode, capabilityCode, isEnabled);
 }

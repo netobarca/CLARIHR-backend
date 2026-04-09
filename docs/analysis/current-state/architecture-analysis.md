@@ -91,7 +91,7 @@ Eso significa que, en backend, los add-ons no estan realmente "fuera" de `effect
 
 La tension arquitectonica no esta en la ausencia total de union, sino en la falta de una fuente canonica simple para gobernar el modelo comercial y su traduccion a acceso:
 
-- `FREE` conserva una base muy amplia de modulos habilitados, lo que debilita la diferenciacion comercial real entre planes.
+- la remediacion actual mantiene `MASTER` como plan interno sincronizado al catalogo completo y deja `FREE` con la misma cobertura modular para evitar bloqueos operativos por plan; aun asi, la regla sigue repartida entre seeds, migraciones, provisioning y handlers owner.
 - el marketplace y la consulta de add-ons elegibles no usan compatibilidad ni redundancia por modulo como criterio de elegibilidad; hoy filtran principalmente por estado y no propiedad previa.
 - la vista de suscripcion expone por separado `CurrentPlan.ModuleKeys`, `ActiveAddons.ModuleKeys` y `EffectiveModules`, lo cual es util, pero deja la interpretacion comercial repartida entre varias superficies.
 - el modulo `USERS` termina gobernado de forma indirecta a traves de `RBAC_USERS` y `PermissionMatrixCatalog`, lo que funciona tecnicamente, pero aumenta el costo mental para entender por que una capacidad esta o no habilitada.

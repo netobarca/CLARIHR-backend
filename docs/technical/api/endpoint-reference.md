@@ -10,7 +10,7 @@ Este documento es la referencia humana inicial de la API actual. No intenta dupl
 - flujos criticos
 - comportamientos observables relevantes
 
-El repositorio expone actualmente `346` endpoints en `38` controladores, distribuidos entre la Core API tenant-scoped y la Platform Backoffice API.
+El repositorio expone actualmente una Core API tenant-scoped y una Platform Backoffice API. Swagger runtime en Development es la fuente canonica del inventario exacto de endpoints y controladores vigentes.
 
 ## 2. Modelo de autenticacion y tenant
 
@@ -26,7 +26,7 @@ El acceso publico se limita intencionalmente a:
 
 ### 2.2 Core API autenticada
 
-Las rutas del core (`/api/account/*`, `/api/company/*`, `/api/iam/*`, `/api/rbac/*`, `/api/audit/*` y `/api/v1/*`) aceptan solo tokens emitidos con `client_type=core`.
+Las rutas del core (`/api/account/*`, `/api/company/*`, `/api/audit/*` y `/api/v1/*`) aceptan solo tokens emitidos con `client_type=core`.
 
 ### 2.3 Platform backoffice autenticado
 
@@ -97,9 +97,7 @@ Reglas observables:
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables |
 | Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar, cambiar plan, administrar add-ons y listar suscripciones empresariales globales |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
-| IAM users | `IamUsersController` | `/api/iam/users*` | administracion de usuarios a nivel IAM |
-| IAM roles | `IamRolesController` | `/api/iam/roles*` | CRUD de roles, clonacion, matrices y asignaciones |
-| IAM permissions / RBAC | `IamPermissionsController`, `RbacController` | `/api/iam/permissions*`, `/api/rbac*` | catalogo de permisos, matrices, permisos por campo y auditoria RBAC |
+| Account company authorization | `AccountCompaniesController`, `AccountCompanyAuthorizationController` | `/api/account/companies/{companyPublicId}/access-context`, `/api/account/companies/{companyPublicId}/authorization*` | contexto de acceso, catalogo filtrado, roles, grants y policies del tenant |
 | Audit | `AuditController` | `/api/audit*` | consulta y detalle de logs de auditoria |
 | Org structure catalogs | `OrgStructureCatalogsController` | `/api/account/org-structure-catalogs/*`, `/api/v1/companies/{companyPublicId}/org-structure-catalogs/*` | tipos de compania, tipos de unidad y areas funcionales |
 | Locations | `LocationHierarchyController`, `LocationLevelsController`, `LocationGroupsController`, `WorkCenterTypesController`, `WorkCentersController` | `/api/v1/companies/{companyPublicId}/location-*`, `/api/v1/companies/{companyPublicId}/work-*` | modelo geografico del tenant, grupos y work centers |
@@ -161,9 +159,10 @@ Comportamiento observable:
 - `ReadOnly` puede consultar add-ons, planes, overview, historial e historial de estados; `Admin` puede mutar catalogos, reemplazar suscripciones y cambiar estados manualmente
 - el catalogo de add-ons globales se administra solo desde `/api/platform/commercial-addons`; la Core API no expone este recurso
 - `/api/platform/commercial-modules` expone el catalogo canonico de modulos comerciales que la plataforma puede asignar a planes y add-ons; no acepta claves arbitrarias
-- cada plan define `fee` mensual base, precio por empleado activo, estado, limites configurables y `moduleKeys`; `FREE` sigue siendo plan de sistema, pero sus modulos ya no son fijos
+- cada plan define `fee` mensual base, precio por empleado activo, estado, limites configurables y `moduleKeys`; `FREE` y `MASTER` son planes de sistema y ambos quedan visibles en backoffice
 - cada add-on define `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity`, `status` y `moduleKeys`, con reglas distintas para `Massive` y `Specialized`
-- `FREE` existe sembrado como plan de sistema para el provisioning actual, no puede renombrarse ni inactivarse, y cualquier empresa nueva sigue provisionandose contra ese plan
+- `FREE` existe sembrado como plan de sistema para el provisioning actual, no puede renombrarse ni inactivarse, y cualquier empresa nueva sigue provisionandose contra ese plan con el catalogo modular completo actualmente alineado a `MASTER`
+- `MASTER` existe como plan de sistema interno reservado para CLARI, mantiene precio `0` y siempre se resincroniza con el catalogo completo de modulos conocidos
 - la vista previa y la activacion aceptan `expiresAtUtc` opcional y resuelven un estado inicial `Active` o `Scheduled` segun la fecha de inicio
 - los cambios de plan usan el patron `preview + create + history + cancel`; calculan `Immediate`, `SpecificDate` o `NextBillingCycle`, conservan snapshot del plan actual y objetivo, y el processor aplica automaticamente los cambios vencidos
 - los add-ons por empresa usan el mismo patron `preview + create + history + cancel`, distinguen estado actual por empresa de estado del catalogo y admiten activacion o desactivacion con fecha inmediata, especifica o siguiente ciclo de billing
@@ -192,22 +191,27 @@ Endpoints representativos de escritura:
 - `POST /api/v1/companies/{companyPublicId}/org-units`
 - `PATCH /api/v1/org-units/{publicId}/move`
 
-### 4.5 IAM y permisos por campo
+### 4.5 Authorization tenant-scoped
 
 Endpoints representativos:
 
-- `GET /api/iam/roles`
-- `POST /api/iam/roles`
-- `PUT /api/iam/roles/{rolePublicId}/permission-matrix`
-- `GET /api/rbac/resources`
-- `GET /api/rbac/roles/{rolePublicId}/field-permissions`
-- `PUT /api/rbac/roles/{rolePublicId}/field-permissions`
-- `GET /api/rbac/audit`
+- `GET /api/account/companies/{companyPublicId}/access-context`
+- `GET /api/account/companies/{companyPublicId}/authorization/role-builder-catalog`
+- `GET /api/account/companies/{companyPublicId}/authorization/roles`
+- `POST /api/account/companies/{companyPublicId}/authorization/roles`
+- `GET /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
+- `PUT /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
+- `GET /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
+- `PUT /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
+- `PUT /api/account/companies/{companyPublicId}/authorization/users/{userPublicId}/roles`
+- `GET /api/account/companies/{companyPublicId}/authorization/resource-policies/{resourceKey}`
 
 Comportamiento observable:
 
-- la plataforma soporta permisos por recurso, accion y overrides por campo
-- los cambios RBAC son auditables
+- la autorizacion visible del tenant se resuelve desde un `access-context` por compania
+- el owner opera con un catalogo filtrado por compania para construir roles y grants
+- la API publica ya no expone superficies legacy separadas de autorizacion
+- las respuestas de policies por recurso siguen siendo responsibility del backend y no del frontend
 
 ### 4.6 Personnel files
 
@@ -275,45 +279,42 @@ Comportamiento observable:
 
 La profundizacion modular se ira completando por iteraciones. Esta version ya documenta varios modulos base del sistema y sigue avanzando por bloques funcionales.
 
-### 5.1 IAM
+### 5.1 Authorization
 
 #### 5.1.1 Alcance
 
 Este bloque cubre la administracion de acceso del tenant activo e incluye:
 
 - `CompanyUsersController` con base `/api/company/users`
-- `IamUsersController` con base `/api/iam/users`
-- `IamRolesController` con base `/api/iam/roles`
-- `IamPermissionsController` con base `/api/iam/permissions`
-- `RbacController` con base `/api/rbac`
+- `AccountCompaniesController` para `access-context`, `role-builder-catalog` y `resource-policies`
+- `AccountCompanyAuthorizationController` con base `/api/account/companies/{companyPublicId}/authorization`
 
-Aunque `CompanyUsersController` no usa el prefijo `/api/iam`, forma parte del dominio funcional IAM porque administra membresias de usuarios del tenant, invitaciones, sincronizacion con roles y permisos por campo sobre `RBAC_USERS`.
+`CompanyUsersController` sigue resolviendo el lifecycle operativo del usuario del tenant. La administracion de roles, grants y policies ya no se publica como `IAM/RBAC` legacy, sino como superficie company-scoped de `authorization`.
 
 #### 5.1.2 Proposito funcional en CLARIHR
 
-El modulo IAM sirve para:
+El modulo de autorizacion sirve para:
 
 - administrar quien puede entrar y operar dentro de la compania activa
-- definir roles del tenant y sus permisos
-- exponer el catalogo de recursos RBAC que el frontend usa para matrices y pantallas de seguridad
-- administrar permisos por campo para respuestas y formularios sensibles
-- auditar cambios de permisos y matrices
+- resolver el `access-context` de la compania activa
+- definir roles del tenant y sus grants
+- exponer un `role-builder-catalog` filtrado para frontend
+- resolver `resource-policies` para recursos sensibles
+- separar claramente lifecycle de usuarios de la administracion de autorizacion
 
-En la practica, `api/company/users` resuelve la administracion funcional de usuarios del tenant, mientras que `api/iam/*` y `api/rbac/*` resuelven el plano tecnico de roles, permisos y matrices de autorizacion.
+En la practica, `api/company/users` resuelve la administracion funcional de usuarios del tenant, mientras que `/api/account/companies/{companyPublicId}/authorization/*` resuelve el plano tecnico de roles, grants y policies.
 
 #### 5.1.3 Modelo operativo y reglas transversales del modulo
 
-- El scope es tenant-scoped implicito. No usa `companyId` en la ruta; depende del tenant activo del token despues de `company switch`.
-- Si no existe tenant activo, las operaciones sensibles fallan con errores del tipo `company_users.tenant.required`, `iam.tenant.required` o `TENANT_MISMATCH`, segun el caso.
-- El modulo combina permisos de pantalla por accion y permisos por campo. Los recursos base observables son `RBAC_USERS`, `RBAC_ROLES`, `RBAC_PERMISSIONS` y `AUDIT_LOGS`.
-- El gating por plan se evalua por pantalla. `RBAC_USERS` depende del plan module `USERS`. `RBAC_ROLES`, `RBAC_PERMISSIONS` y `AUDIT_LOGS` dependen del plan module `RBAC`.
-- Un usuario con `ManageAdministration` o con el permiso `manage` especifico de la pantalla puede bypassear la matriz granular de esa pantalla.
-- Las respuestas y escrituras de `CompanyUsersController` respetan permisos por campo. Los campos afectados hoy son `RBAC_USERS.EMAIL`, `RBAC_USERS.FIRST_NAME`, `RBAC_USERS.LAST_NAME`, `RBAC_USERS.ROLE` y `RBAC_USERS.STATUS`.
-- Los roles de sistema (`IsSystemRole = true`) son protegidos. No pueden modificarse ni eliminarse.
-- El tenant siempre debe conservar al menos un administrador activo. Esa invariante se protege al cambiar roles, usuarios asignados a roles, matrices de permisos y usuarios de compania.
-- Los cambios de roles, invitaciones, matrices RBAC y field permissions generan auditoria.
+- El lifecycle de usuarios (`/api/company/users`) sigue tenant-scoped implicito por el tenant activo del token despues de `company switch`.
+- La nueva superficie de autorizacion es company-scoped explicita y exige `companyPublicId` en la ruta.
+- `access-context` expone capacidades efectivas, modulos efectivos, roles, permisos y scopes del usuario para esa compania.
+- `role-builder-catalog` devuelve solo el catalogo filtrado y util para la compania activa.
+- Los roles de sistema (`IsSystemRole = true`) siguen protegidos y no pueden modificarse desde Core.
+- `resource-policies` son responsabilidad del backend y se consultan por `resourceKey`.
+- El tenant siempre debe conservar al menos un administrador activo en las operaciones que cambian roles o usuarios.
 
-#### 5.1.4 Errores observables relevantes en IAM
+#### 5.1.4 Errores observables relevantes en authorization
 
 - `UNAUTHENTICATED`: `401`, autenticacion requerida.
 - `RBAC_DENIED`: `403`, el usuario autenticado no tiene permiso para la accion pedida.
@@ -321,8 +322,8 @@ En la practica, `api/company/users` resuelve la administracion funcional de usua
 - `FIELD_EDIT_FORBIDDEN`: `403`, la pantalla esta permitida pero uno o mas campos del payload no pueden editarse.
 - `iam.roles.protected_role.forbidden` o `iam.roles.protected_role.delete_forbidden`: `403`, el rol es de sistema.
 - `iam.roles.last_administrator_required` o `company_users.last_admin_required`: `409`, el cambio dejaria al tenant sin administrador activo.
-- `iam.users.email_conflict`, `iam.roles.name_conflict`, `iam.permissions.code_conflict`: `409`, ya existe el valor unico dentro del tenant.
-- `iam.users.not_found`, `iam.roles.not_found`, `iam.permissions.not_found`, `company_users.user.not_found`: `404`, el recurso no existe en el tenant actual.
+- `iam.roles.name_conflict`: `409`, ya existe el valor unico dentro del tenant.
+- `iam.roles.not_found`, `company_users.user.not_found`: `404`, el recurso no existe en el tenant actual.
 
 #### 5.1.5 `CompanyUsersController` - usuarios operativos del tenant
 
@@ -394,282 +395,106 @@ Reglas comunes:
 - Errores relevantes: `company_users.reset_invitation.external_user_not_supported`, `TENANT_MISMATCH`.
 - Observaciones: solo aplica a usuarios `Local`; revoca tokens de invitacion previos, emite uno nuevo y envia correo con `CompanyUserInvitationEmailKind.ResetInvitation`.
 
-#### 5.1.6 `IamUsersController` - usuarios IAM del tenant
+#### 5.1.6 `AccountCompanyAuthorizationController` - roles y grants del tenant
 
-Base route: `/api/iam/users`
+Base route: `/api/account/companies/{companyPublicId}/authorization`
 
-Usar este controlador cuando se necesita administrar la entidad IAM del tenant directamente, no la invitacion/membresia operativa. Su foco es el usuario IAM y su conjunto de roles.
-
-Contratos principales:
-
-- `IamUserSummaryResponse`: `id`, `email`, `firstName`, `lastName`, `isActive`, `roleCount`
-- `IamUserResponse`: `id`, `email`, `firstName`, `lastName`, `isActive`, `roles[]`
-
-Reglas comunes:
-
-- Todas las rutas usan el recurso `RBAC_USERS`.
-- `Create` y `SyncRoles` trabajan sobre la entidad IAM pura; no generan workflow de invitacion ni correo.
-- Los `roleIds` se normalizan a un conjunto distinto.
-
-##### `POST /api/iam/users`
-
-- Proposito: crear un usuario IAM directamente en el tenant activo.
-- Autorizacion: `RBAC_USERS:Create`.
-- Request body: `firstName`, `lastName`, `email`, `isActive` y `roleIds`.
-- Validaciones: `firstName` y `lastName` obligatorios, `email` valido, `roleIds` sin `Guid.Empty`.
-- Response: `201 Created` con `IamUserResponse`.
-- Errores relevantes: `iam.users.email_conflict`, `iam.roles.collection_not_found`.
-- Observaciones: la operacion solo crea el usuario IAM, asigna roles y registra auditoria `UserCreated`; no dispara workflow de invitacion ni correo.
-
-##### `GET /api/iam/users`
-
-- Proposito: listar usuarios IAM del tenant.
-- Autorizacion: `RBAC_USERS:Read`.
-- Query: `pageNumber`, `pageSize`, `search`.
-- Validaciones: `pageNumber > 0`, `pageSize` entre `1` y `100`, `search` maximo `100`.
-- Response: `PagedResponse<IamUserSummaryResponse>`.
-
-##### `GET /api/iam/users/{userId}`
-
-- Proposito: obtener el detalle IAM de un usuario.
-- Autorizacion: `RBAC_USERS:Read`.
-- Response: `IamUserResponse`.
-- Errores relevantes: `iam.users.not_found`, `TENANT_MISMATCH`.
-
-##### `PUT /api/iam/users/{userId}/roles`
-
-- Proposito: reemplazar el conjunto completo de roles asignados a un usuario IAM.
-- Autorizacion: `RBAC_USERS:Update`.
-- Request body: `{ "roleIds": [...] }`.
-- Response: `IamUserResponse`.
-- Errores relevantes: `iam.roles.collection_not_found`, `iam.roles.last_administrator_required`, `TENANT_MISMATCH`.
-- Observaciones: un array vacio es valido para limpiar roles, pero si el usuario activo es el ultimo administrador efectivo del tenant la operacion falla con conflicto.
-
-#### 5.1.7 `IamRolesController` - roles del tenant
-
-Base route: `/api/iam/roles`
-
-Este controlador administra el catalogo de roles del tenant, sus asignaciones crudas y su matriz de permisos. Es la pieza central de RBAC a nivel de rol.
+Este controlador administra el catalogo operativo de roles del tenant, sus grants y la asignacion de roles a usuarios, siempre en el contexto de una compania explicita.
 
 Contratos principales:
 
-- `IamRoleSummaryResponse`: `id`, `name`, `description`, `isSystemRole`, `permissionCount`, `userCount`
-- `IamRoleResponse`: `id`, `name`, `description`, `isSystemRole`, `userCount`, `permissions[]`
-- `RolePermissionMatrixResponse`: `roleId`, `roleName`, `isSystemRole`, `screens[]`
+- `AuthorizationRoleSummaryResponse`: `id`, `name`, `description`, `isSystemRole`, `grantCount`, `userCount`
+- `AuthorizationRoleResponse`: `id`, `name`, `description`, `isSystemRole`, `userCount`, `grants[]`
+- `AuthorizationRoleGrantsResponse`: `roleId`, `roleName`, `isSystemRole`, `grants[]`
+- `AuthorizationUserRolesResponse`: `userId`, `email`, `firstName`, `lastName`, `isActive`, `roles[]`
 
 Reglas comunes:
 
-- CRUD base usa `RBAC_ROLES`.
-- La matriz y la sincronizacion de permisos usan permisos sobre `RBAC_PERMISSIONS`.
+- CRUD base usa la superficie `authorization/roles`.
+- Los grants se sincronizan por `permissionIds` del catalogo filtrado visible para esa compania.
 - Los nombres de rol son unicos por tenant.
 - Los roles de sistema no pueden modificarse ni borrarse.
-- El sistema no permite dejar al tenant sin administrador activo o sin administrador de seguridad RBAC.
+- El sistema no permite dejar al tenant sin administrador activo.
 
-##### `POST /api/iam/roles`
+##### `GET /api/account/companies/{companyPublicId}/authorization/roles`
+
+- Proposito: listar roles del tenant para la compania indicada.
+- Autorizacion: tenant activo coincidente con `companyPublicId`.
+- Query: `pageNumber`, `pageSize`, `search`, `includeAllowedActions`.
+- Response: `PagedResponse<AuthorizationRoleSummaryResponse>`.
+
+##### `POST /api/account/companies/{companyPublicId}/authorization/roles`
 
 - Proposito: crear un rol nuevo con permisos iniciales opcionales.
-- Autorizacion: `RBAC_ROLES:Create`.
+- Autorizacion: tenant activo coincidente con `companyPublicId`.
 - Request body: `name`, `description`, `permissionIds`.
-- Validaciones: `name` obligatorio, maximo `100`; `description` maximo `500`.
-- Response: `201 Created` con `IamRoleResponse`.
+- Response: `201 Created` con `AuthorizationRoleResponse`.
 - Errores relevantes: `iam.roles.name_conflict`, `iam.permissions.collection_not_found`.
 
-##### `GET /api/iam/roles`
-
-- Proposito: listar roles del tenant.
-- Autorizacion: `RBAC_ROLES:Read`.
-- Query: `pageNumber`, `pageSize`, `search`.
-- Response: `PagedResponse<IamRoleSummaryResponse>`.
-
-##### `GET /api/iam/roles/{roleId}`
+##### `GET /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
 
 - Proposito: obtener el detalle de un rol.
-- Autorizacion: `RBAC_ROLES:Read`.
-- Response: `IamRoleResponse`.
+- Autorizacion: tenant activo coincidente con `companyPublicId`.
+- Response: `AuthorizationRoleResponse`.
 - Errores relevantes: `iam.roles.not_found`, `TENANT_MISMATCH`.
 
-##### `PUT /api/iam/roles/{roleId}`
+##### `PUT /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
 
 - Proposito: actualizar nombre y descripcion del rol.
-- Autorizacion: `RBAC_ROLES:Update`.
+- Autorizacion: tenant activo coincidente con `companyPublicId`.
 - Request body: `name`, `description`.
-- Response: `IamRoleResponse`.
+- Response: `AuthorizationRoleResponse`.
 - Errores relevantes: `iam.roles.name_conflict`, `iam.roles.protected_role.forbidden`, `TENANT_MISMATCH`.
 
-##### `POST /api/iam/roles/{roleId}/clone`
-
-- Proposito: clonar un rol existente conservando su set actual de permisos.
-- Autorizacion: `RBAC_ROLES:Create`.
-- Request body: `name`, `description`, ambos opcionales.
-- Response: `201 Created` con `IamRoleResponse`.
-- Errores relevantes: `iam.roles.name_conflict`, `TENANT_MISMATCH`.
-- Observaciones: si no se envia `name`, el backend intenta generar `"{Role} Copy"`, luego `"{Role} Copy 2"`, etc.
-
-##### `GET /api/iam/roles/{roleId}/permission-matrix`
-
-- Proposito: obtener la matriz de permisos por pantalla del rol.
-- Autorizacion: `RBAC_PERMISSIONS:Read`.
-- Response: `RolePermissionMatrixResponse`.
-- Observaciones: cada `screen` devuelve `resourceKey`, `displayName`, `module`, `screen`, `managedByOverride` y el estado de `access/read/create/update/delete`; cada accion reporta si esta soportada y si esta concedida.
-
-##### `PUT /api/iam/roles/{roleId}/permission-matrix`
-
-- Proposito: reemplazar la matriz de permisos por pantalla para el subconjunto de recursos enviado.
-- Autorizacion: `RBAC_PERMISSIONS:Update`.
-- Request body: `{ "screens": [{ "resourceKey", "access", "read", "create", "update", "delete" }] }`.
-- Validaciones: al menos una pantalla, sin duplicados, `resourceKey` conocido, no pedir acciones no soportadas por la pantalla.
-- Response: `RolePermissionMatrixResponse`.
-- Errores relevantes: `iam.roles.protected_role.forbidden`, `iam.roles.last_administrator_required`, `TENANT_MISMATCH`.
-- Observaciones: si faltan permisos matriciales en catalogo, el backend los crea automaticamente; cada cambio genera audit logs RBAC por recurso afectado.
-
-##### `DELETE /api/iam/roles/{roleId}`
+##### `DELETE /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}`
 
 - Proposito: eliminar un rol.
-- Autorizacion: `RBAC_ROLES:Delete`.
+- Autorizacion: tenant activo coincidente con `companyPublicId`.
 - Response: `204 No Content`.
 - Errores relevantes: `iam.roles.protected_role.delete_forbidden`, `iam.roles.in_use`, `TENANT_MISMATCH`.
 - Observaciones: no se puede borrar un rol que aun tenga usuarios asignados.
 
-##### `PUT /api/iam/roles/{roleId}/permissions`
+##### `GET /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
 
-- Proposito: sincronizar el set crudo de permisos asignados al rol por `permissionId`.
-- Autorizacion: `RBAC_PERMISSIONS:Update`.
+- Proposito: obtener el set actual de grants asignados al rol.
+- Autorizacion: tenant activo coincidente con `companyPublicId`.
+- Response: `AuthorizationRoleGrantsResponse`.
+
+##### `PUT /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
+
+- Proposito: sincronizar el set de grants asignados al rol por `permissionId`.
+- Autorizacion: tenant activo coincidente con `companyPublicId`.
 - Request body: `{ "permissionIds": [...] }`.
-- Response: `IamRoleResponse`.
+- Response: `AuthorizationRoleGrantsResponse`.
 - Errores relevantes: `iam.permissions.collection_not_found`, `iam.roles.protected_role.forbidden`, `iam.roles.last_administrator_required`.
-- Observaciones: esta ruta es mas baja a nivel contrato que `permission-matrix`; trabaja con IDs de permisos y no con acciones por recurso.
 
-##### `PUT /api/iam/roles/{roleId}/users`
+##### `PUT /api/account/companies/{companyPublicId}/authorization/users/{userPublicId}/roles`
 
-- Proposito: sincronizar el conjunto completo de usuarios asignados al rol.
-- Autorizacion: `RBAC_ROLES:Update`.
-- Request body: `{ "userIds": [...] }`.
-- Response: `IamRoleResponse`.
-- Errores relevantes: `iam.users.collection_not_found`, `iam.roles.last_administrator_required`, `TENANT_MISMATCH`.
-- Observaciones: agregar y remover usuarios se hace como reemplazo completo del set; el guard de ultimo administrador se evalua antes de guardar.
+- Proposito: sincronizar el conjunto completo de roles asignados a un usuario dentro de la compania activa.
+- Autorizacion: tenant activo coincidente con `companyPublicId`.
+- Request body: `{ "roleIds": [...] }`.
+- Response: `AuthorizationUserRolesResponse`.
+- Errores relevantes: `iam.roles.collection_not_found`, `iam.roles.last_administrator_required`, `TENANT_MISMATCH`.
 
-#### 5.1.8 `IamPermissionsController` - catalogo de permisos IAM
+#### 5.1.7 `AccountCompaniesController` - contexto y catalogos de autorizacion
 
-Base route: `/api/iam/permissions`
+Rutas relevantes:
 
-Este controlador administra el catalogo de permisos disponibles en el tenant. Es mas cercano al modelo tecnico de permisos que al modelo de matrices para frontend.
+- `GET /api/account/companies/{companyPublicId}/access-context`
+- `GET /api/account/companies/{companyPublicId}/authorization/role-builder-catalog`
+- `GET /api/account/companies/{companyPublicId}/authorization/resource-policies/{resourceKey}`
 
-Contrato principal:
+Comportamiento observable:
 
-- `IamPermissionSummaryResponse` e `IamPermissionResponse`: `publicId`, `code`, `normalizedCode`, `name`, `description`, `module`, `screen`, `kind`, `action`, `fieldName`, `fieldAccess`
+- `access-context` devuelve el contexto de acceso efectivo para la compania solicitada.
+- `role-builder-catalog` devuelve el catalogo que el frontend puede usar para construir roles del tenant.
+- `resource-policies` expone la policy resuelta por recurso sensible para consumo de frontend.
 
-Reglas comunes:
-
-- Todas las rutas usan `RBAC_PERMISSIONS`.
-- Hoy existen endpoints de crear, listar y consultar; no hay `update` ni `delete`.
-- `Kind = ScreenAction` obliga `action` y prohbe `fieldName`/`fieldAccess`.
-- `Kind = Field` obliga `fieldName` y `fieldAccess`, y prohbe `action`.
-
-##### `POST /api/iam/permissions`
-
-- Proposito: crear un permiso IAM nuevo.
-- Autorizacion: `RBAC_PERMISSIONS:Create`.
-- Request body: `name`, `description`, `code`, `module`, `screen`, `kind`, `action`, `fieldName`, `fieldAccess`.
-- Response: `201 Created` con `IamPermissionResponse`.
-- Errores relevantes: `iam.permissions.code_conflict`.
-- Observaciones: si `code` no se envia, el backend lo genera desde `module/screen/action` o `module/screen/fieldName/fieldAccess` con slug normalizado.
-
-##### `GET /api/iam/permissions`
-
-- Proposito: listar permisos IAM del tenant.
-- Autorizacion: `RBAC_PERMISSIONS:Read`.
-- Query: `pageNumber`, `pageSize`, `search`.
-- Response: `PagedResponse<IamPermissionSummaryResponse>`.
-
-##### `GET /api/iam/permissions/{permissionPublicId}`
-
-- Proposito: obtener el detalle de un permiso IAM.
-- Autorizacion: `RBAC_PERMISSIONS:Read`.
-- Response: `IamPermissionResponse`.
-- Errores relevantes: `iam.permissions.not_found`, `TENANT_MISMATCH`.
-
-#### 5.1.9 `RbacController` - recursos, field permissions y auditoria RBAC
-
-Base route: `/api/rbac`
-
-Este controlador expone la vista que el frontend necesita para construir matrices y permisos por campo. En varios casos es una proyeccion mas ergonomica del mismo caso de uso que ya existe en `/api/iam/roles/{roleId}/permission-matrix`.
-
-Contratos principales:
-
-- `RbacResourcesResponse`: `items[]` con `resourceKey` y `displayName`
-- `RbacRolePermissionsResponse`: `roleId`, `roleName`, `isSystemRole`, `permissions[]`
-- `RoleFieldPermissionsResponse`: `roleId`, `roleName`, `resourceKey`, `fields[]`
-- `PagedResponse<RbacPermissionAuditEntryResponse>` para auditoria RBAC
-
-Reglas comunes:
-
-- Todas las rutas usan `RBAC_PERMISSIONS` con `Read` o `Update`.
-- `resourceKey` acepta claves de recurso del catalogo RBAC, por ejemplo `RBAC_USERS`, `RBAC_ROLES`, `RBAC_PERMISSIONS`, `AUDIT_LOGS`.
-- Para field permissions, el rol objetivo debe tener `Access` sobre el recurso antes de poder configurar overrides de campo.
-
-##### `GET /api/rbac/resources`
-
-- Proposito: devolver el catalogo de recursos RBAC visibles para matrices.
-- Autorizacion: `RBAC_PERMISSIONS:Read`.
-- Response: `RbacResourcesResponse`.
-- Observaciones: si hay recursos activos persistidos en base, usa ese catalogo; si no, cae al catalogo estatico de `PermissionMatrixCatalog`.
-
-##### `GET /api/rbac/resources/{resourceKey}/fields`
-
-- Proposito: devolver el catalogo de campos configurables para un recurso RBAC.
-- Autorizacion: `RBAC_PERMISSIONS:Read`.
-- Response: `ResourceFieldsResponse`.
-- Errores relevantes: `400` si `resourceKey` es desconocido.
-- Observaciones: solo devuelve campos configurables; hoy `RBAC_USERS` expone `EMAIL`, `FIRST_NAME`, `LAST_NAME`, `ROLE` y `STATUS`.
-
-##### `GET /api/rbac/roles/{roleId}/permissions`
-
-- Proposito: obtener una vista plana de permisos RBAC por recurso para un rol.
-- Autorizacion: `RBAC_PERMISSIONS:Read`.
-- Response: `RbacRolePermissionsResponse`.
-- Observaciones: es una proyeccion del mismo caso de uso que alimenta `GET /api/iam/roles/{roleId}/permission-matrix`, pero en shape mas simple para frontend.
-
-##### `PUT /api/rbac/roles/{roleId}/permissions`
-
-- Proposito: actualizar permisos RBAC por recurso usando un contrato plano.
-- Autorizacion: `RBAC_PERMISSIONS:Update`.
-- Request body: `{ "permissions": [{ "resourceKey", "hasAccess", "canRead", "canCreate", "canUpdate", "canDelete" }] }`.
-- Response: `RbacRolePermissionsResponse`.
-- Errores relevantes: `400` por `resourceKey` desconocido, `iam.roles.protected_role.forbidden`, `iam.roles.last_administrator_required`.
-- Observaciones: internamente reutiliza `UpdateRolePermissionMatrixCommand`; es otra superficie del mismo caso de uso.
-
-##### `GET /api/rbac/roles/{roleId}/field-permissions`
-
-- Proposito: obtener los overrides efectivos de campo para un rol sobre un recurso.
-- Autorizacion: `RBAC_PERMISSIONS:Read`.
-- Query: `resourceKey`.
-- Response: `RoleFieldPermissionsResponse`.
-- Errores relevantes: `400` por `resourceKey` desconocido, `iam.field_permissions.resource_access_required`, `TENANT_MISMATCH`.
-- Observaciones: la respuesta devuelve solo campos configurables e incluye `isVisible`, `isEditable`, `isRequired`, `isMasked` e `isReadOnly`.
-
-##### `PUT /api/rbac/roles/{roleId}/field-permissions`
-
-- Proposito: crear o actualizar overrides de permisos por campo para un rol.
-- Autorizacion: `RBAC_PERMISSIONS:Update`.
-- Request body: `{ "resourceKey": "...", "fields": [{ "fieldKey", "isVisible", "isEditable", "isRequired", "isMasked" }] }`.
-- Response: `RoleFieldPermissionsResponse`.
-- Errores relevantes: `400` si hay `fieldKey` duplicados o no configurables, `iam.roles.protected_role.forbidden`, `iam.field_permissions.resource_access_required`, `TENANT_MISMATCH`.
-- Observaciones: persiste overrides tenant-scoped, limpia cache de overrides del rol/recurso y registra auditoria dedicada de field permissions.
-
-##### `GET /api/rbac/audit`
-
-- Proposito: consultar auditoria de cambios RBAC por rol y recurso.
-- Autorizacion: `RBAC_PERMISSIONS:Read`.
-- Query: `roleId`, `resourceKey`, `from`, `to`, `page`, `pageSize`.
-- Validaciones: `page > 0`, `pageSize` entre `1` y `100`, `from <= to`, `resourceKey` conocido si se envia.
-- Response: `PagedResponse<RbacPermissionAuditEntryResponse>`.
-- Observaciones: cada item devuelve `before` y `after` con `HasAccess/CanRead/CanCreate/CanUpdate/CanDelete`, mas `changedByUserId` y `changedAtUtc`.
-
-#### 5.1.10 `AuditController` - auditoria funcional del tenant
+#### 5.1.8 `AuditController` - auditoria funcional del tenant
 
 Base route: `/api/audit/logs`
 
-Este controlador expone la auditoria funcional del tenant activo para entidades del negocio y de seguridad. A diferencia de `/api/rbac/audit`, aqui el sujeto principal es la entidad auditada y no la matriz RBAC.
+Este controlador expone la auditoria funcional del tenant activo para entidades del negocio y de seguridad. Aqui el sujeto principal es la entidad auditada y no la configuracion de grants o policies.
 
 Contratos principales:
 
@@ -701,20 +526,13 @@ Reglas comunes:
 - Errores relevantes: `TENANT_MISMATCH`, `AUDIT_LOG_NOT_FOUND`.
 - Observaciones: el detalle incluye `before`, `after`, `diff`, metadatos del actor y contexto tecnico (`ipAddress`, `userAgent`) cuando existen.
 
-#### 5.1.11 Relacion entre superficies IAM
+#### 5.1.9 Relacion entre superficies de usuarios y authorization
 
 - `api/company/users` resuelve membresia, invitacion y lifecycle operativo del usuario dentro de una compania.
-- `api/iam/users` resuelve la entidad IAM y sus roles.
-- `api/iam/roles` resuelve el catalogo de roles y su administracion principal.
-- `api/iam/permissions` resuelve el catalogo tecnico de permisos.
-- `api/rbac` resuelve vistas de frontend para matrices, field permissions y auditoria.
+- `api/account/companies/{companyPublicId}/authorization/*` resuelve roles, grants, policies y asignacion de roles a usuarios.
+- `api/account/companies/{companyPublicId}/access-context` resuelve el contexto efectivo de acceso.
 
-La superposicion mas importante es esta:
-
-- `/api/iam/roles/{roleId}/permission-matrix`
-- `/api/rbac/roles/{roleId}/permissions`
-
-Ambas rutas actualizan o consultan la misma realidad RBAC, pero con contratos distintos: una orientada a matriz por pantalla y otra a lista plana por recurso.
+No existe ya una superficie publica separada legacy para frontend Core fuera del espacio `authorization`.
 
 ### 5.2 Auth
 
@@ -1011,7 +829,7 @@ Contratos principales:
 - Autenticacion: `Bearer` requerido con token `core`.
 - Response: `IReadOnlyCollection<AccountCompanySubscriptionPlanResponse>`.
 - Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND`.
-- Observaciones: incluye `FREE` para downgrade controlado y expone `moduleKeys` resueltos para UI.
+- Observaciones: incluye `FREE` para downgrade controlado, expone `moduleKeys` resueltos para UI y oculta `MASTER` salvo que el owner autenticado tambien tenga un `PlatformOperator` activo.
 
 ##### `POST /api/account/companies/{publicId}/subscription/preview`
 
@@ -1019,8 +837,8 @@ Contratos principales:
 - Autenticacion: `Bearer` requerido con token `core`.
 - Request body: `commercialPlanPublicId`.
 - Response: `AccountCompanySubscriptionPlanPreviewResponse`.
-- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`.
-- Observaciones: devuelve diffs de modulos agregados/removidos y advierte si un downgrade a `FREE` desactivaria add-ons activos.
+- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `ACCOUNT_COMPANY_SUBSCRIPTION_MASTER_FORBIDDEN`.
+- Observaciones: devuelve diffs de modulos agregados/removidos, advierte si un downgrade a `FREE` desactivaria add-ons activos y rechaza `MASTER` para owners que no sean operadores activos de CLARI.
 
 ##### `PUT /api/account/companies/{publicId}/subscription`
 
@@ -1028,8 +846,8 @@ Contratos principales:
 - Autenticacion: `Bearer` requerido con token `core`.
 - Request body: `commercialPlanPublicId`, `observations`.
 - Response: `AccountCompanySubscriptionOverviewResponse`.
-- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_LEGAL_REPRESENTATIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_ADMINISTRATOR`.
-- Observaciones: un downgrade a `FREE` desactiva en la misma transaccion todos los add-ons activos de la empresa.
+- Errores relevantes: `COMPANY_NOT_FOUND`, `COMPANY_OWNERSHIP_FORBIDDEN`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND`, `PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_LEGAL_REPRESENTATIVE`, `PLATFORM_COMPANY_SUBSCRIPTION_MISSING_ADMINISTRATOR`, `ACCOUNT_COMPANY_SUBSCRIPTION_MASTER_FORBIDDEN`.
+- Observaciones: un downgrade a `FREE` desactiva en la misma transaccion todos los add-ons activos de la empresa; `MASTER` solo puede aplicarse desde owner cuando el actor tambien es `PlatformOperator` activo.
 
 ##### `GET /api/account/companies/{publicId}/subscription/addons`
 
@@ -1190,11 +1008,13 @@ No resuelve aun versionamiento de precios, activacion de add-ons por empresa, de
 - `create` de add-on registra `code`, `name`, `description`, `type`, `billingModel`, `measurementUnit`, `unitPrice`, `minimumQuantity`, `minimumMonthlyFee`, `periodicity` y `status`.
 - `update` de add-on modifica datos comerciales editables; no actualiza `status`.
 - `list` de planes soporta paginacion, filtro por `status` y busqueda libre `q` sobre codigo y nombre.
-- `create` registra `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status` y `limits`.
-- `update` reemplaza completamente la coleccion de limites del plan; no actualiza `status`.
+- `create` registra `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `moduleKeys` y `limits`.
+- `update` reemplaza completamente `moduleKeys` y `limits`; no actualiza `status`.
 - Las transiciones de estado se hacen solo con `activate` e `inactivate`.
-- `FREE` existe sembrado como `system plan`, con precios `0` y lista de limites vacia.
+- `FREE` existe sembrado como `system plan`, con precios `0`, lista de limites vacia y el mismo catalogo modular completo que `MASTER` en la semilla actual.
+- `MASTER` existe sembrado como `system plan` interno, con precios `0`, lista de limites vacia y todos los modulos comerciales conocidos.
 - Los planes de sistema no pueden cambiar `code` o `name`, y tampoco pueden inactivarse.
+- Si se intenta actualizar `MASTER` con un subconjunto de `moduleKeys`, el backend persiste igualmente el catalogo completo.
 - La suscripcion activa de una empresa nunca se edita in-place: el backoffice cancela la fila activa y crea una nueva con snapshot de `planCode`, `planName`, `baseMonthlyFee` y `pricePerActiveEmployee`.
 - `PlanEntitlement` y la resolucion de modulos siguen viviendo a nivel del plan comercial relacionado; no hay versionamiento comercial en esta fase.
 - Las escrituras globales registran `PlatformAuditLog` durable con actor, entidad y payload antes/despues cuando aplica.
@@ -1257,8 +1077,8 @@ Base route: `/api/platform/commercial-plans`
 
 Contratos principales:
 
-- `CommercialPlanSummaryResponse`: `publicId`, `code`, `normalizedCode`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `isSystemPlan`, `createdAtUtc`, `modifiedAtUtc`
-- `CommercialPlanResponse`: agrega `concurrencyToken` y `limits`
+- `CommercialPlanSummaryResponse`: `publicId`, `code`, `normalizedCode`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `isSystemPlan`, `moduleCount`, `createdAtUtc`, `modifiedAtUtc`
+- `CommercialPlanResponse`: agrega `moduleKeys`, `moduleCount`, `concurrencyToken` y `limits`
 - `CommercialPlanLimitInput`: `code`, `value`
 - `CommercialPlanLimitResponse`: `code`, `normalizedCode`, `value`
 
@@ -1269,7 +1089,7 @@ Contratos principales:
 - Query: `status`, `q`, `page`, `pageSize`.
 - Validaciones: `page > 0`, `pageSize` entre `1` y `100`, `q` maximo `150`.
 - Response: `PagedResponse<CommercialPlanSummaryResponse>`.
-- Observaciones: no exige tenant activo; ordena por `name` y luego `code`.
+- Observaciones: no exige tenant activo; ordena por `name` y luego `code`; expone tanto `FREE` como `MASTER` como planes de sistema activos.
 
 ##### `GET /api/platform/commercial-plans/{publicId}`
 
@@ -1277,26 +1097,26 @@ Contratos principales:
 - Autenticacion: `Bearer` requerido con token `platform`.
 - Response: `CommercialPlanResponse`.
 - Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`.
-- Observaciones: `limits` siempre se devuelve como coleccion, aunque este vacia.
+- Observaciones: `moduleKeys` y `limits` siempre se devuelven como colecciones, aunque esten vacias.
 
 ##### `POST /api/platform/commercial-plans`
 
 - Proposito: registrar un nuevo plan comercial global.
 - Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
-- Request body: `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `limits`.
+- Request body: `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `status`, `moduleKeys`, `limits`.
 - Validaciones base: `code` obligatorio maximo `40`; `name` obligatorio maximo `150`; `description` maximo `500`; montos y limites no negativos; maximo `2` decimales; `limits[].code` obligatorio maximo `80`.
 - Response: `201 Created` con `CommercialPlanResponse`.
 - Errores relevantes: `COMMERCIAL_PLAN_CODE_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
-- Observaciones: `limits` puede venir vacio; el `status` inicial puede registrarse como `Draft`, `Active` o `Inactive`.
+- Observaciones: `moduleKeys` y `limits` pueden venir vacios; el `status` inicial puede registrarse como `Draft`, `Active` o `Inactive`.
 
 ##### `PUT /api/platform/commercial-plans/{publicId}`
 
 - Proposito: actualizar datos base de un plan comercial existente.
 - Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
-- Request body: `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `limits`, `concurrencyToken`.
+- Request body: `code`, `name`, `description`, `baseMonthlyFee`, `pricePerActiveEmployee`, `moduleKeys`, `limits`, `concurrencyToken`.
 - Response: `CommercialPlanResponse`.
 - Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `COMMERCIAL_PLAN_CODE_CONFLICT`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_SYSTEM_RENAME_FORBIDDEN`, `PLATFORM_ACCESS_FORBIDDEN`.
-- Observaciones: la coleccion `limits` reemplaza completamente la configuracion anterior y `status` no se modifica por esta ruta.
+- Observaciones: las colecciones `moduleKeys` y `limits` reemplazan completamente la configuracion anterior, salvo en `MASTER`, donde `moduleKeys` siempre se normaliza al catalogo completo; `status` no se modifica por esta ruta.
 
 ##### `PATCH /api/platform/commercial-plans/{publicId}/activate`
 
@@ -1314,7 +1134,7 @@ Contratos principales:
 - Request body: `concurrencyToken`.
 - Response: `CommercialPlanResponse`.
 - Errores relevantes: `COMMERCIAL_PLAN_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_PLAN_ALREADY_INACTIVE`, `COMMERCIAL_PLAN_SYSTEM_INACTIVATION_FORBIDDEN`, `PLATFORM_ACCESS_FORBIDDEN`.
-- Observaciones: `FREE` no puede inactivarse mientras siga siendo el plan canonico del provisioning.
+- Observaciones: `FREE` y `MASTER` no pueden inactivarse mientras sigan siendo planes de sistema del catalogo.
 
 #### 5.3A.7 `CommercialAddonsController`
 
@@ -1560,7 +1380,7 @@ Base route: `/api/platform/company-subscriptions`
 #### 5.3A.10 Relacion con provisioning y entitlements
 
 - `CompanyProvisioningService` resuelve formalmente el plan comercial `FREE` y crea la suscripcion inicial desde ese agregado global.
-- `PlanEntitlementService` sigue resolviendo modulos y limites desde el plan comercial relacionado a la suscripcion activa.
+- `PlanEntitlementService` resincroniza `FREE` y `MASTER` como planes de sistema, resuelve modulos y limites desde el plan comercial relacionado a la suscripcion activa y garantiza que `MASTER` cubra siempre todo el catalogo comercial conocido.
 - `AccountCompanySummaryResponse` y `AccountCompanyDetailResponse` mantienen `planCode` como compatibilidad de contrato, pero ese valor sale del snapshot de la suscripcion activa.
 - `Company.IsBillable` solo se activa cuando la empresa tiene una suscripcion comercial `Active` no sistema; una fila `Scheduled` no la vuelve facturable antes de tiempo.
 
@@ -2813,9 +2633,10 @@ Observaciones funcionales:
 - `WorkCenterId`, dependencias directas/funcionales, `EffectiveToUtc` y `Notes` son opcionales.
 - `OrgUnitId` y `CostCenterCode` ya no forman parte del request de `create/update`.
 - `JobProfileId` se resuelve por tenant, no por estado; el API no exige que el perfil este publicado para crear una plaza.
-- la validacion critica real no es el estado del perfil sino que ese perfil resuelva una `OrgUnit` valida y un tipo de contrato activo.
-- `ContractType` no viene del cliente y se infiere desde la clasificacion del job profile.
+- la validacion critica real no es el estado del perfil sino que ese perfil resuelva una `OrgUnit` valida y, si la `OrgUnit` deriva `CostCenterCode`, que ese centro de costo exista activo.
+- `ContractType` no viene del cliente y se infiere desde la clasificacion del job profile cuando esa relacion existe.
 - la bandera interna `IsFixedTerm` se infiere automaticamente por heuristica de `contractTypeCode/contractTypeName` con tokens como `TEMP`, `FIXED`, `PLAZO` o `FIJO`.
+- si el `JobProfile` no resuelve `ContractType`, la plaza igual se crea o actualiza y expone `ContractType = null`; internamente `IsFixedTerm` cae a `false`.
 - si la `OrgUnit` del job profile tiene `CostCenterCode`, ese codigo debe existir activo dentro del tenant; si no existe o esta inactivo, `create/update` responde `POSITION_SLOT_COST_CENTER_INVALID` (`422`).
 - `Vacant` exige `OccupiedEmployees = 0`.
 - `Occupied` exige `OccupiedEmployees > 0`.

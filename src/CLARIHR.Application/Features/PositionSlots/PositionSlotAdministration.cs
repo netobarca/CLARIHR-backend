@@ -318,13 +318,13 @@ internal sealed class CreatePositionSlotCommandValidator : AbstractValidator<Cre
             .NotEqual(Guid.Empty)
             .When(static command => command.FunctionalDependencyPositionSlotId.HasValue);
         RuleFor(command => command.MaxEmployees).GreaterThanOrEqualTo(1);
-        RuleFor(command => command.OccupiedEmployees).GreaterThanOrEqualTo(0);
-        RuleFor(command => command)
-            .Must(static command => command.OccupiedEmployees <= command.MaxEmployees)
+        RuleFor(command => command.OccupiedEmployees)
+            .GreaterThanOrEqualTo(0)
+            .LessThanOrEqualTo(command => command.MaxEmployees)
             .WithMessage("OccupiedEmployees must be less than or equal to MaxEmployees.");
         RuleFor(command => command.EffectiveFromUtc).NotEqual(default(DateTime));
-        RuleFor(command => command)
-            .Must(static command => !command.EffectiveToUtc.HasValue || command.EffectiveToUtc.Value >= command.EffectiveFromUtc)
+        RuleFor(command => command.EffectiveToUtc)
+            .Must((command, effectiveToUtc) => !effectiveToUtc.HasValue || effectiveToUtc.Value >= command.EffectiveFromUtc)
             .WithMessage("EffectiveToUtc must be greater than or equal to EffectiveFromUtc.");
         RuleFor(command => command.Notes).MaximumLength(2000);
     }
@@ -347,8 +347,8 @@ internal sealed class UpdatePositionSlotCommandValidator : AbstractValidator<Upd
             .When(static command => command.WorkCenterId.HasValue);
         RuleFor(command => command.MaxEmployees).GreaterThanOrEqualTo(1);
         RuleFor(command => command.EffectiveFromUtc).NotEqual(default(DateTime));
-        RuleFor(command => command)
-            .Must(static command => !command.EffectiveToUtc.HasValue || command.EffectiveToUtc.Value >= command.EffectiveFromUtc)
+        RuleFor(command => command.EffectiveToUtc)
+            .Must((command, effectiveToUtc) => !effectiveToUtc.HasValue || effectiveToUtc.Value >= command.EffectiveFromUtc)
             .WithMessage("EffectiveToUtc must be greater than or equal to EffectiveFromUtc.");
         RuleFor(command => command.Notes).MaximumLength(2000);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
@@ -579,12 +579,8 @@ internal sealed class CreatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.JobProfileOrgUnitNotConfigured);
         }
 
-        if (!jobProfileLookup.ContractTypeId.HasValue)
-        {
-            return Result<PositionSlotResponse>.Failure(PositionSlotErrors.ContractTypeNotResolved);
-        }
-
-        var isFixedTerm = PositionSlotContractTypeRules.IsFixedTerm(
+        var isFixedTerm = jobProfileLookup.ContractTypeId.HasValue &&
+            PositionSlotContractTypeRules.IsFixedTerm(
             jobProfileLookup.ContractTypeCode,
             jobProfileLookup.ContractTypeName);
 
@@ -749,12 +745,8 @@ internal sealed class UpdatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.JobProfileOrgUnitNotConfigured);
         }
 
-        if (!jobProfileLookup.ContractTypeId.HasValue)
-        {
-            return Result<PositionSlotResponse>.Failure(PositionSlotErrors.ContractTypeNotResolved);
-        }
-
-        var isFixedTerm = PositionSlotContractTypeRules.IsFixedTerm(
+        var isFixedTerm = jobProfileLookup.ContractTypeId.HasValue &&
+            PositionSlotContractTypeRules.IsFixedTerm(
             jobProfileLookup.ContractTypeCode,
             jobProfileLookup.ContractTypeName);
 

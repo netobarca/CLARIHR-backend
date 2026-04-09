@@ -7,6 +7,7 @@ using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Domain.Auth;
+using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -19,6 +20,7 @@ internal sealed class JwtTokenService(
     IDateTimeProvider dateTimeProvider,
     IUserRepository userRepository,
     IUserCompanyRepository userCompanyRepository,
+    IIamAdministrationRepository iamRepository,
     IRefreshTokenRepository refreshTokenRepository,
     IRefreshTokenHasher refreshTokenHasher,
     ILogger<JwtTokenService> logger) : ITokenService
@@ -236,10 +238,45 @@ internal sealed class JwtTokenService(
 
         claims.Add(new Claim("tid", tenantId.Value.ToString()));
 
-        var role = await userCompanyRepository.GetRoleNormalizedNameAsync(user.Id, tenantId.Value, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(role))
+        var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
+            tenantId.Value,
+            user.PublicId,
+            includeRoles: true,
+            cancellationToken);
+        if (iamUser is not null)
         {
-            claims.Add(new Claim("role", role));
+            var roleClaims = iamUser.RoleAssignments
+                .Select(static assignment => assignment.Role.NormalizedName)
+                .Where(static role => !string.IsNullOrWhiteSpace(role))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static role => role, StringComparer.Ordinal);
+
+            foreach (var role in roleClaims)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+                claims.Add(new Claim("role", role));
+            }
+
+            var permissionClaims = iamUser.RoleAssignments
+                .SelectMany(static assignment => assignment.Role.PermissionAssignments)
+                .Select(static assignment => assignment.Permission.NormalizedCode)
+                .Where(static permission => !string.IsNullOrWhiteSpace(permission))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(static permission => permission, StringComparer.Ordinal);
+
+            foreach (var permission in permissionClaims)
+            {
+                claims.Add(new Claim("permission", permission));
+            }
+
+            return claims;
+        }
+
+        var fallbackRole = await userCompanyRepository.GetRoleNormalizedNameAsync(user.Id, tenantId.Value, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(fallbackRole))
+        {
+            claims.Add(new Claim(ClaimTypes.Role, fallbackRole));
+            claims.Add(new Claim("role", fallbackRole));
         }
 
         return claims;

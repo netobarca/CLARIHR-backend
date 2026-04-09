@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.Tenancy;
@@ -12,13 +13,18 @@ using CLARIHR.Application.Features.AccountCompanies;
 using CLARIHR.Application.Features.AccountCompanies.Common;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CompanyUsers;
+using CLARIHR.Application.Features.CommercialAddons;
+using CLARIHR.Application.Features.CommercialPlans;
+using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Countries;
 using CLARIHR.Application.Features.OrgStructureCatalogs;
+using CLARIHR.Application.Features.PlatformSubscriptions;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
+using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.LegalRepresentatives;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -251,6 +257,13 @@ public sealed class AccountCompanyAdministrationTests
         membershipRepository.Add(UserCompanyMembership.Create(user.Id, companyA.Id, roleId: 10, isPrimary: true));
         membershipRepository.Add(UserCompanyMembership.Create(user.Id, companyB.Id, roleId: 11, isPrimary: false));
 
+        var plan = CreateCommercialPlan(
+            ProvisioningConstants.FreePlanCode,
+            "Free",
+            [CommercialModuleKeys.Rbac]);
+        var subscriptionRepository = new TestCompanySubscriptionRepository(
+            companyB.PublicId,
+            CreateActiveSubscription(companyB, plan));
         var tokenService = new TestTokenService();
         var auditService = new TestAuditService();
 
@@ -259,6 +272,17 @@ public sealed class AccountCompanyAdministrationTests
             userRepository,
             companyRepository,
             membershipRepository,
+            new TestIamAdministrationRepository(),
+            subscriptionRepository,
+            new TestCommercialPlanRepository(plan),
+            new TestCommercialAddonRepository(),
+            new TestPlanEntitlementService(companyB.PublicId, [
+                new EffectiveCommercialCapabilityGrant(
+                    CommercialCapabilityCatalog.GetByModuleKey(CommercialModuleKeys.Rbac).Code,
+                    CommercialModuleKeys.Rbac,
+                    GrantedByPlan: true,
+                    GrantedByAddon: false)
+            ]),
             tokenService,
             auditService,
             new TestUnitOfWork());
@@ -271,6 +295,43 @@ public sealed class AccountCompanyAdministrationTests
         Assert.Contains(membershipRepository.Items, item => item.CompanyId == companyB.Id && item.IsPrimary);
         Assert.DoesNotContain(membershipRepository.Items, item => item.CompanyId == companyA.Id && item.IsPrimary);
         Assert.Equal(AuditEventTypes.ActiveCompanySwitched, Assert.Single(auditService.Entries).Entry.EventType);
+        Assert.Equal(
+            CommercialCapabilityCatalog.GetByModuleKey(CommercialModuleKeys.Rbac).Code,
+            Assert.Single(result.Value.AccessContext.EffectiveCapabilities).CapabilityCode);
+    }
+
+    private static CommercialPlan CreateCommercialPlan(
+        string code,
+        string name,
+        IReadOnlyCollection<string> moduleKeys)
+    {
+        var plan = CommercialPlan.Create(
+            code,
+            name,
+            description: null,
+            baseMonthlyFee: 0m,
+            pricePerActiveEmployee: 0m,
+            CommercialPlanStatus.Active,
+            isSystemPlan: true,
+            moduleKeys,
+            limits: [],
+            initialVersionEffectiveFromUtc: CreatedAtUtc.Date);
+
+        SetEntityId(plan, Random.Shared.NextInt64(1, 1000));
+        SetEntityId(plan.Versions.Single(), Random.Shared.NextInt64(1001, 2000));
+
+        return plan;
+    }
+
+    private static CompanySubscription CreateActiveSubscription(Company company, CommercialPlan plan)
+    {
+        var subscription = CompanySubscription.Activate(
+            company.Id,
+            plan,
+            CreatedAtUtc.Date);
+
+        SetEntityId(subscription, Random.Shared.NextInt64(2001, 3000));
+        return subscription;
     }
 
     private static User CreatePersistedUser(Guid publicId, string email)
@@ -574,6 +635,368 @@ public sealed class AccountCompanyAdministrationTests
     {
         public Task<bool> HasCapacityForAnotherActiveCompanyAsync(Guid ownerUserPublicId, CancellationToken cancellationToken) =>
             Task.FromResult(hasCapacity);
+    }
+
+    private sealed class TestIamAdministrationRepository : IIamAdministrationRepository
+    {
+        public void AddUser(IamUser user) => throw new NotSupportedException();
+
+        public void AddRole(IamRole role) => throw new NotSupportedException();
+
+        public void RemoveRole(IamRole role) => throw new NotSupportedException();
+
+        public void AddPermission(IamPermission permission) => throw new NotSupportedException();
+
+        public Task<bool> UserEmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task<bool> RoleNameExistsAsync(string normalizedRoleName, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task<bool> UserPublicIdExistsAsync(Guid userId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task<bool> RolePublicIdExistsAsync(Guid roleId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task<IamUser?> FindUserByPublicIdAsync(Guid userId, bool includeRoles, CancellationToken cancellationToken) =>
+            Task.FromResult<IamUser?>(null);
+
+        public Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(
+            Guid tenantId,
+            Guid linkedUserPublicId,
+            bool includeRoles,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IamUser?>(null);
+
+        public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) =>
+            Task.FromResult<IamRole?>(null);
+
+        public Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamRole>>([]);
+
+        public Task<IReadOnlyList<IamUser>> GetUsersByPublicIdsAsync(IReadOnlyCollection<Guid> userIds, bool includeRoles, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamUser>>([]);
+
+        public Task<IReadOnlyList<IamUser>> GetUsersAssignedToRoleAsync(Guid roleId, bool includeRoles, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamUser>>([]);
+
+        public Task<IReadOnlyList<IamUser>> GetActiveUsersAsync(bool includeRoles, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamUser>>([]);
+
+        public Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>([]);
+
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByNormalizedCodesAsync(
+            IReadOnlyCollection<string> normalizedPermissionCodes,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamPermission>>([]);
+
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByPublicIdsAsync(
+            IReadOnlyCollection<Guid> permissionIds,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamPermission>>([]);
+
+        public Task<PagedResponse<IamUserSummaryResponse>> GetUsersAsync(
+            int pageNumber,
+            int pageSize,
+            string? search,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IamUserResponse?> GetUserAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<PagedResponse<IamRoleSummaryResponse>> GetRolesAsync(
+            int pageNumber,
+            int pageSize,
+            string? search,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IamRoleResponse?> GetRoleAsync(Guid roleId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(0);
+    }
+
+    private sealed class TestCompanySubscriptionRepository(Guid companyPublicId, CompanySubscription? activeSubscription) : ICompanySubscriptionRepository
+    {
+        public void Add(CompanySubscription subscription) => throw new NotSupportedException();
+
+        public void AddStatusChangeRequest(CompanySubscriptionStatusChangeRequest statusChangeRequest) => throw new NotSupportedException();
+
+        public void AddPlanChange(CompanySubscriptionPlanChange planChange) => throw new NotSupportedException();
+
+        public void AddCompanyAddon(CompanyCommercialAddon companyAddon) => throw new NotSupportedException();
+
+        public void AddCompanyAddonChange(CompanyCommercialAddonChange companyAddonChange) => throw new NotSupportedException();
+
+        public Task<CompanySubscription?> GetActiveByCompanyIdAsync(long companyId, CancellationToken cancellationToken) =>
+            Task.FromResult(activeSubscription?.CompanyId == companyId ? activeSubscription : null);
+
+        public Task<CompanySubscription?> GetCurrentByCompanyIdAsync(long companyId, CancellationToken cancellationToken) =>
+            Task.FromResult(activeSubscription?.CompanyId == companyId ? activeSubscription : null);
+
+        public Task<CompanySubscription?> GetScheduledByCompanyIdAsync(long companyId, CancellationToken cancellationToken) =>
+            Task.FromResult<CompanySubscription?>(null);
+
+        public Task<CompanySubscription?> GetActiveByCompanyPublicIdAsync(Guid requestedCompanyPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult(requestedCompanyPublicId == companyPublicId ? activeSubscription : null);
+
+        public Task<CompanySubscription?> GetByCompanyAndSubscriptionPublicIdAsync(
+            Guid requestedCompanyPublicId,
+            Guid subscriptionPublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CompanySubscription?>(null);
+
+        public Task<PlatformCompanySubscriptionOverviewResponse?> GetOverviewByCompanyPublicIdAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<PagedResponse<PlatformCompanySubscriptionResponse>> SearchByCompanyPublicIdAsync(
+            Guid companyPublicId,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<PagedResponse<PlatformCompanySubscriptionListItemResponse>> SearchAsync(
+            SubscriptionStatus? status,
+            string? search,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<PagedResponse<PlatformCompanySubscriptionStatusTransitionResponse>> SearchStatusHistoryAsync(
+            Guid companyPublicId,
+            Guid subscriptionPublicId,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<PagedResponse<PlatformCompanySubscriptionPlanChangeResponse>> SearchPlanChangesByCompanyPublicIdAsync(
+            Guid companyPublicId,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<PagedResponse<PlatformCompanyAddonResponse>> SearchCompanyAddonsByCompanyPublicIdAsync(
+            Guid requestedCompanyPublicId,
+            CompanyAddonStatus? status,
+            string? search,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PagedResponse<PlatformCompanyAddonResponse>([], pageNumber, pageSize, 0));
+
+        public Task<PagedResponse<PlatformCompanyEligibleAddonResponse>> SearchEligibleAddonsByCompanyPublicIdAsync(
+            Guid companyPublicId,
+            CommercialAddonType? type,
+            string? search,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<PagedResponse<PlatformCompanyAddonChangeResponse>> SearchAddonChangesByCompanyPublicIdAsync(
+            Guid companyPublicId,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyCollection<Guid>> GetDueScheduledSubscriptionIdsAsync(
+            DateTime utcNow,
+            int take,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>([]);
+
+        public Task<IReadOnlyCollection<Guid>> GetDueScheduledStatusChangeRequestIdsAsync(
+            DateTime utcNow,
+            int take,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>([]);
+
+        public Task<IReadOnlyCollection<Guid>> GetDueScheduledPlanChangeIdsAsync(
+            DateTime utcNow,
+            int take,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>([]);
+
+        public Task<IReadOnlyCollection<Guid>> GetDueScheduledAddonChangeIdsAsync(
+            DateTime utcNow,
+            int take,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>([]);
+
+        public Task<IReadOnlyCollection<Guid>> GetDueExpiringSubscriptionIdsAsync(
+            DateTime utcNow,
+            int take,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>([]);
+
+        public Task<CompanySubscription?> GetByPublicIdAsync(Guid subscriptionPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult<CompanySubscription?>(null);
+
+        public Task<CompanySubscriptionStatusChangeRequest?> GetStatusChangeRequestByPublicIdAsync(
+            Guid statusChangeRequestPublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CompanySubscriptionStatusChangeRequest?>(null);
+
+        public Task<CompanySubscriptionStatusChangeRequest?> GetScheduledStatusChangeRequestBySubscriptionIdAsync(
+            long companySubscriptionId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CompanySubscriptionStatusChangeRequest?>(null);
+
+        public Task<CompanySubscriptionPlanChange?> GetPlanChangeByPublicIdAsync(Guid planChangePublicId, CancellationToken cancellationToken) =>
+            Task.FromResult<CompanySubscriptionPlanChange?>(null);
+
+        public Task<CompanySubscriptionPlanChange?> GetPlanChangeByCompanyAndPublicIdAsync(
+            Guid companyPublicId,
+            Guid planChangePublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CompanySubscriptionPlanChange?>(null);
+
+        public Task<CompanySubscriptionPlanChange?> GetScheduledPlanChangeByCompanyIdAsync(long companyId, CancellationToken cancellationToken) =>
+            Task.FromResult<CompanySubscriptionPlanChange?>(null);
+
+        public Task<CompanyCommercialAddon?> GetCompanyAddonByCompanyAndAddonPublicIdAsync(
+            Guid companyPublicId,
+            Guid commercialAddonPublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CompanyCommercialAddon?>(null);
+
+        public Task<CompanyCommercialAddon?> GetCompanyAddonByCompanyIdAndAddonIdAsync(
+            long companyId,
+            long commercialAddonId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CompanyCommercialAddon?>(null);
+
+        public Task<CompanyCommercialAddonChange?> GetAddonChangeByPublicIdAsync(Guid addonChangePublicId, CancellationToken cancellationToken) =>
+            Task.FromResult<CompanyCommercialAddonChange?>(null);
+
+        public Task<CompanyCommercialAddonChange?> GetAddonChangeByCompanyAndPublicIdAsync(
+            Guid companyPublicId,
+            Guid addonChangePublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CompanyCommercialAddonChange?>(null);
+
+        public Task<CompanyCommercialAddonChange?> GetScheduledAddonChangeByCompanyAndAddonIdAsync(
+            long companyId,
+            long commercialAddonId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CompanyCommercialAddonChange?>(null);
+
+        public Task<PlatformCompanySubscriptionResponse?> GetResponseByPublicIdAsync(
+            Guid companyPublicId,
+            Guid subscriptionPublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<PlatformCompanySubscriptionResponse?>(null);
+
+        public Task<PlatformCompanySubscriptionPlanChangeResponse?> GetPlanChangeResponseByPublicIdAsync(
+            Guid companyPublicId,
+            Guid planChangePublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<PlatformCompanySubscriptionPlanChangeResponse?>(null);
+
+        public Task<PlatformCompanyAddonChangeResponse?> GetAddonChangeResponseByPublicIdAsync(
+            Guid companyPublicId,
+            Guid addonChangePublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<PlatformCompanyAddonChangeResponse?>(null);
+
+        public Task<string?> GetActivePlanCodeAsync(Guid requestedCompanyPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult(requestedCompanyPublicId == companyPublicId ? activeSubscription?.PlanCode : null);
+    }
+
+    private sealed class TestCommercialPlanRepository(CommercialPlan? plan) : ICommercialPlanRepository
+    {
+        public void Add(CommercialPlan commercialPlan) => throw new NotSupportedException();
+
+        public Task<CommercialPlan?> GetByInternalIdAsync(long commercialPlanId, CancellationToken cancellationToken) =>
+            Task.FromResult(plan?.Id == commercialPlanId ? plan : null);
+
+        public Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken) =>
+            Task.FromResult(plan?.PublicId == commercialPlanId ? plan : null);
+
+        public Task<CommercialPlanVersion?> GetEffectiveVersionAsync(
+            Guid commercialPlanId,
+            DateTime effectiveAtUtc,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(plan?.PublicId == commercialPlanId ? plan.GetVersionEffectiveOn(effectiveAtUtc) : null);
+
+        public Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken) =>
+            Task.FromResult(plan?.NormalizedCode == normalizedCode ? plan : null);
+
+        public Task<bool> IsSystemPlanAsync(long commercialPlanId, CancellationToken cancellationToken) =>
+            Task.FromResult(plan?.Id == commercialPlanId && plan.IsSystemPlan);
+
+        public Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
+            Task.FromResult(plan is not null && plan.NormalizedCode == normalizedCode && excludingId != plan.Id);
+
+        public Task<PagedResponse<CommercialPlanSummaryResponse>> SearchAsync(
+            CommercialPlanStatus? status,
+            string? search,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class TestCommercialAddonRepository : ICommercialAddonRepository
+    {
+        public void Add(CommercialAddon addon) => throw new NotSupportedException();
+
+        public Task<CommercialAddon?> GetByIdAsync(Guid commercialAddonId, CancellationToken cancellationToken) =>
+            Task.FromResult<CommercialAddon?>(null);
+
+        public Task<bool> CodeExistsAsync(string normalizedCode, long? excludingId, CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
+        public Task<PagedResponse<CommercialAddonSummaryResponse>> SearchAsync(
+            CommercialAddonType? type,
+            CommercialAddonBillingModel? billingModel,
+            CommercialAddonStatus? status,
+            string? search,
+            int pageNumber,
+            int pageSize,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class TestPlanEntitlementService(
+        Guid companyPublicId,
+        IReadOnlyCollection<EffectiveCommercialCapabilityGrant> effectiveCapabilities) : IPlanEntitlementService
+    {
+        private readonly IReadOnlyCollection<EffectiveCommercialModuleGrant> _effectiveModules = effectiveCapabilities
+            .GroupBy(static capability => capability.ModuleKey, StringComparer.Ordinal)
+            .Select(group => new EffectiveCommercialModuleGrant(
+                group.Key,
+                group.Any(static capability => capability.GrantedByPlan),
+                group.Any(static capability => capability.GrantedByAddon)))
+            .ToArray();
+
+        public Task EnsureSystemPlanDefaultsAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<bool> IsModuleEnabledAsync(Guid requestedCompanyPublicId, string moduleKey, CancellationToken cancellationToken) =>
+            Task.FromResult(
+                requestedCompanyPublicId == companyPublicId &&
+                _effectiveModules.Any(module => string.Equals(module.ModuleKey, moduleKey, StringComparison.Ordinal)));
+
+        public Task<IReadOnlyCollection<EffectiveCommercialCapabilityGrant>> GetEffectiveCapabilitiesAsync(
+            Guid requestedCompanyPublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(
+                requestedCompanyPublicId == companyPublicId
+                    ? effectiveCapabilities
+                    : (IReadOnlyCollection<EffectiveCommercialCapabilityGrant>)Array.Empty<EffectiveCommercialCapabilityGrant>());
+
+        public Task<IReadOnlyCollection<EffectiveCommercialModuleGrant>> GetEffectiveModulesAsync(
+            Guid requestedCompanyPublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(
+                requestedCompanyPublicId == companyPublicId
+                    ? _effectiveModules
+                    : (IReadOnlyCollection<EffectiveCommercialModuleGrant>)Array.Empty<EffectiveCommercialModuleGrant>());
     }
 
     private sealed class TestCompanyProvisioningService(TestCompanyRepository companyRepository, ProvisionedCompanyResult? nextResult) : ICompanyProvisioningService

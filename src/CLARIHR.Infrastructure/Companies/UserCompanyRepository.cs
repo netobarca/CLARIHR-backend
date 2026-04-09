@@ -5,7 +5,6 @@ using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
-using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -62,8 +61,44 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 (membership, _) => membership)
             .SingleOrDefaultAsync(membership => membership.UserId == userId, cancellationToken);
 
-    public Task<string?> GetRoleNormalizedNameAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
-        dbContext.UserCompanyMemberships
+    public async Task<string?> GetRoleNormalizedNameAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
+    {
+        var linkedUserPublicId = await dbContext.UserCompanyMemberships
+            .AsNoTracking()
+            .Where(membership => membership.UserId == userId)
+            .Join(
+                dbContext.Companies.AsNoTracking().Where(company => company.PublicId == companyPublicId),
+                membership => membership.CompanyId,
+                company => company.Id,
+                (membership, _) => membership.UserId)
+            .Join(
+                dbContext.AuthUsers.AsNoTracking(),
+                membershipUserId => membershipUserId,
+                user => user.Id,
+                (_, user) => (Guid?)user.PublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (linkedUserPublicId.HasValue)
+        {
+            var normalizedRoleNames = await dbContext.IamUsers
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(user =>
+                    user.TenantId == companyPublicId &&
+                    user.LinkedUserPublicId == linkedUserPublicId.Value)
+                .SelectMany(user => user.RoleAssignments)
+                .Select(assignment => assignment.Role.NormalizedName)
+                .Distinct()
+                .OrderBy(role => role, StringComparer.Ordinal)
+                .ToListAsync(cancellationToken);
+
+            if (normalizedRoleNames.Count > 0)
+            {
+                return normalizedRoleNames[0];
+            }
+        }
+
+        return await dbContext.UserCompanyMemberships
             .AsNoTracking()
             .Where(membership => membership.UserId == userId)
             .Join(
@@ -79,6 +114,7 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 role => role.Id,
                 (_, role) => role.NormalizedName)
             .SingleOrDefaultAsync(cancellationToken);
+    }
 
     public Task<UserCompanyMembership?> FindByUserPublicIdAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
         dbContext.UserCompanyMemberships
@@ -118,32 +154,10 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 (_, _) => true)
             .AnyAsync(cancellationToken);
 
-    public Task<bool> HasAnyActiveAdministratorAsync(Guid companyPublicId, CancellationToken cancellationToken)
+    public async Task<bool> HasAnyActiveAdministratorAsync(Guid companyPublicId, CancellationToken cancellationToken)
     {
-        var normalizedManageUsers = CompanyUserPermissionCodes.ManageUsers.ToUpperInvariant();
-        var normalizedManageAdministration = IdentityPermissionCodes.ManageAdministration.ToUpperInvariant();
-
-        return dbContext.UserCompanyMemberships
-            .AsNoTracking()
-            .Where(membership => membership.Status == UserCompanyStatus.Active)
-            .Join(
-                dbContext.Companies.AsNoTracking().Where(company => company.PublicId == companyPublicId),
-                membership => membership.CompanyId,
-                company => company.Id,
-                (membership, _) => membership)
-            .Join(
-                dbContext.AuthUsers.AsNoTracking().Where(user => user.Status == UserStatus.Active),
-                membership => membership.UserId,
-                user => user.Id,
-                (membership, user) => new { membership.RoleId, UserPublicId = user.PublicId })
-            .Join(
-                dbContext.IamRoles.AsNoTracking(),
-                item => item.RoleId,
-                role => role.Id,
-                (item, role) => role)
-            .AnyAsync(role => role.PermissionAssignments.Any(assignment =>
-                assignment.Permission.NormalizedCode == normalizedManageUsers ||
-                assignment.Permission.NormalizedCode == normalizedManageAdministration), cancellationToken);
+        var adminUsers = await GetActiveAdministratorUserIdsAsync(companyPublicId, cancellationToken);
+        return adminUsers.Count > 0;
     }
 
     public async Task SetPrimaryCompanyAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken)
@@ -158,8 +172,6 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
             return;
         }
 
-        // Clear the current primary first to avoid violating the partial unique index
-        // while switching the flag to another membership in the same transaction.
         _ = await dbContext.UserCompanyMemberships
             .Where(membership =>
                 membership.UserId == userId &&
@@ -185,35 +197,8 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
 
     public async Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken)
     {
-        var normalizedManageUsers = CompanyUserPermissionCodes.ManageUsers.ToUpperInvariant();
-        var normalizedManageAdministration = IdentityPermissionCodes.ManageAdministration.ToUpperInvariant();
-
-        var adminUsers = await dbContext.UserCompanyMemberships
-            .AsNoTracking()
-            .Where(membership => membership.Status == UserCompanyStatus.Active)
-            .Join(
-                dbContext.Companies.Where(company => company.PublicId == companyPublicId),
-                membership => membership.CompanyId,
-                company => company.Id,
-                (membership, _) => membership)
-            .Join(
-                dbContext.AuthUsers.Where(user => user.Status == UserStatus.Active),
-                membership => membership.UserId,
-                user => user.Id,
-                (membership, user) => new { membership.RoleId, user.PublicId })
-            .Join(
-                dbContext.IamRoles.AsNoTracking(),
-                item => item.RoleId,
-                role => role.Id,
-                (item, role) => new { item.PublicId, Role = role })
-            .Where(item => item.Role.PermissionAssignments.Any(assignment =>
-                assignment.Permission.NormalizedCode == normalizedManageUsers ||
-                assignment.Permission.NormalizedCode == normalizedManageAdministration))
-            .Select(item => item.PublicId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        return adminUsers.Count == 1 && adminUsers[0] == userPublicId;
+        var adminUsers = await GetActiveAdministratorUserIdsAsync(companyPublicId, cancellationToken);
+        return adminUsers.Count == 1 && adminUsers.First() == userPublicId;
     }
 
     public async Task<PagedResponse<CompanyUserSummaryResponse>> GetUsersAsync(
@@ -236,60 +221,79 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 dbContext.AuthUsers.AsNoTracking(),
                 membership => membership.UserId,
                 user => user.Id,
-                (membership, user) => new { Membership = membership, User = user })
-            .Join(
-                dbContext.IamRoles.AsNoTracking(),
-                item => item.Membership.RoleId,
-                role => role.Id,
-                (item, role) => new
+                (membership, user) => new
                 {
-                    item.Membership,
-                    item.User,
-                    Role = role
+                    user.PublicId,
+                    user.Email,
+                    user.FirstName,
+                    user.LastName,
+                    user.NormalizedEmail,
+                    user.Status,
+                    membership.RoleId
                 });
 
         if (status.HasValue)
         {
-            query = query.Where(item => item.User.Status == status.Value);
+            query = query.Where(item => item.Status == status.Value);
         }
 
         if (roleId.HasValue)
         {
-            query = query.Where(item => item.Role.PublicId == roleId.Value);
+            query = query.Where(item =>
+                dbContext.IamUsers
+                    .IgnoreQueryFilters()
+                    .Any(iamUser =>
+                        iamUser.TenantId == companyPublicId &&
+                        iamUser.LinkedUserPublicId == item.PublicId &&
+                        iamUser.RoleAssignments.Any(assignment => assignment.Role.PublicId == roleId.Value)) ||
+                dbContext.IamRoles
+                    .IgnoreQueryFilters()
+                    .Any(role => role.Id == item.RoleId && role.PublicId == roleId.Value));
         }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var normalizedSearch = search.Trim().ToUpperInvariant();
             query = query.Where(item =>
-                item.User.NormalizedEmail.Contains(normalizedSearch) ||
-                item.User.FirstName.ToUpper().Contains(normalizedSearch) ||
-                item.User.LastName.ToUpper().Contains(normalizedSearch));
+                item.NormalizedEmail.Contains(normalizedSearch) ||
+                item.FirstName.ToUpper().Contains(normalizedSearch) ||
+                item.LastName.ToUpper().Contains(normalizedSearch));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
 
-        var items = await query
-            .OrderBy(item => item.User.LastName)
-            .ThenBy(item => item.User.FirstName)
-            .ThenBy(item => item.User.Email)
+        var pageItems = await query
+            .OrderBy(item => item.LastName)
+            .ThenBy(item => item.FirstName)
+            .ThenBy(item => item.Email)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(item => new CompanyUserSummaryResponse(
-                item.User.PublicId,
-                item.User.Email,
-                item.User.FirstName,
-                item.User.LastName,
-                item.Role.PublicId,
-                item.Role.Name,
-                item.User.Status))
             .ToListAsync(cancellationToken);
+
+        var roleLookup = await GetRoleLookupAsync(
+            companyPublicId,
+            pageItems.Select(static item => item.PublicId).ToArray(),
+            cancellationToken);
+        var fallbackRoles = await GetFallbackRoleLookupAsync(
+            pageItems.Select(static item => item.RoleId).Distinct().ToArray(),
+            cancellationToken);
+
+        var items = pageItems
+            .Select(item => new CompanyUserSummaryResponse(
+                item.PublicId,
+                item.Email,
+                item.FirstName,
+                item.LastName,
+                ResolveRoles(roleLookup, fallbackRoles, item.PublicId, item.RoleId),
+                item.Status))
+            .ToArray();
 
         return new PagedResponse<CompanyUserSummaryResponse>(items, pageNumber, pageSize, totalCount);
     }
 
-    public Task<CompanyUserResponse?> GetUserAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
-        dbContext.UserCompanyMemberships
+    public async Task<CompanyUserResponse?> GetUserAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken)
+    {
+        var item = await dbContext.UserCompanyMemberships
             .AsNoTracking()
             .Join(
                 dbContext.Companies.AsNoTracking().Where(company => company.PublicId == companyPublicId),
@@ -300,25 +304,174 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 dbContext.AuthUsers.AsNoTracking(),
                 membership => membership.UserId,
                 user => user.Id,
-                (membership, user) => new { Membership = membership, User = user })
-            .Join(
-                dbContext.IamRoles.AsNoTracking(),
-                item => item.Membership.RoleId,
-                role => role.Id,
-                (item, role) => new
+                (membership, user) => new
                 {
-                    item.Membership,
-                    item.User,
-                    Role = role
+                    user.PublicId,
+                    user.Email,
+                    user.FirstName,
+                    user.LastName,
+                    user.Status,
+                    membership.RoleId
                 })
-            .Where(item => item.User.PublicId == userPublicId)
-            .Select(item => new CompanyUserResponse(
-                item.User.PublicId,
-                item.User.Email,
-                item.User.FirstName,
-                item.User.LastName,
-                item.Role.PublicId,
-                item.Role.Name,
-                item.User.Status))
-            .SingleOrDefaultAsync(cancellationToken);
+            .SingleOrDefaultAsync(item => item.PublicId == userPublicId, cancellationToken);
+
+        if (item is null)
+        {
+            return null;
+        }
+
+        var roleLookup = await GetRoleLookupAsync(companyPublicId, [item.PublicId], cancellationToken);
+        var fallbackRoles = await GetFallbackRoleLookupAsync([item.RoleId], cancellationToken);
+
+        return new CompanyUserResponse(
+            item.PublicId,
+            item.Email,
+            item.FirstName,
+            item.LastName,
+            ResolveRoles(roleLookup, fallbackRoles, item.PublicId, item.RoleId),
+            item.Status);
+    }
+
+    private async Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(
+        Guid companyPublicId,
+        CancellationToken cancellationToken)
+    {
+        var normalizedManageUsers = CompanyUserPermissionCodes.ManageUsers.ToUpperInvariant();
+        var normalizedManageAdministration = IdentityPermissionCodes.ManageAdministration.ToUpperInvariant();
+        var activeMemberUserIds = await dbContext.UserCompanyMemberships
+            .AsNoTracking()
+            .Where(membership => membership.Status == UserCompanyStatus.Active)
+            .Join(
+                dbContext.Companies.AsNoTracking().Where(company => company.PublicId == companyPublicId),
+                membership => membership.CompanyId,
+                company => company.Id,
+                (membership, _) => membership)
+            .Join(
+                dbContext.AuthUsers.AsNoTracking().Where(user => user.Status == UserStatus.Active),
+                membership => membership.UserId,
+                user => user.Id,
+                (membership, user) => new { membership.RoleId, user.PublicId })
+            .ToListAsync(cancellationToken);
+
+        var activeUserPublicIds = activeMemberUserIds
+            .Select(static item => item.PublicId)
+            .Distinct()
+            .ToArray();
+
+        if (activeUserPublicIds.Length == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var iamAdminUsers = await dbContext.IamUsers
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(user =>
+                user.TenantId == companyPublicId &&
+                user.IsActive &&
+                user.LinkedUserPublicId.HasValue &&
+                activeUserPublicIds.Contains(user.LinkedUserPublicId.Value))
+            .Where(user => user.RoleAssignments.Any(assignment =>
+                assignment.Role.PermissionAssignments.Any(permissionAssignment =>
+                    permissionAssignment.Permission.NormalizedCode == normalizedManageUsers ||
+                    permissionAssignment.Permission.NormalizedCode == normalizedManageAdministration)))
+            .Select(user => user.LinkedUserPublicId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (iamAdminUsers.Count > 0)
+        {
+            return iamAdminUsers;
+        }
+
+        return activeMemberUserIds
+            .Where(item => dbContext.IamRoles
+                .IgnoreQueryFilters()
+                .Any(role =>
+                    role.Id == item.RoleId &&
+                    role.PermissionAssignments.Any(assignment =>
+                        assignment.Permission.NormalizedCode == normalizedManageUsers ||
+                        assignment.Permission.NormalizedCode == normalizedManageAdministration)))
+            .Select(static item => item.PublicId)
+            .Distinct()
+            .ToArray();
+    }
+
+    private async Task<Dictionary<Guid, IReadOnlyCollection<CompanyUserRoleResponse>>> GetRoleLookupAsync(
+        Guid companyPublicId,
+        IReadOnlyCollection<Guid> userPublicIds,
+        CancellationToken cancellationToken)
+    {
+        if (userPublicIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyCollection<CompanyUserRoleResponse>>();
+        }
+
+        var assignments = await dbContext.IamUsers
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(user =>
+                user.TenantId == companyPublicId &&
+                user.LinkedUserPublicId.HasValue &&
+                userPublicIds.Contains(user.LinkedUserPublicId.Value))
+            .SelectMany(user => user.RoleAssignments.Select(assignment => new
+            {
+                UserPublicId = user.LinkedUserPublicId!.Value,
+                Role = new CompanyUserRoleResponse(
+                    assignment.Role.PublicId,
+                    assignment.Role.Name,
+                    assignment.Role.Description,
+                    assignment.Role.IsSystemRole)
+            }))
+            .ToListAsync(cancellationToken);
+
+        return assignments
+            .GroupBy(static item => item.UserPublicId)
+            .ToDictionary(
+                static group => group.Key,
+                static group => (IReadOnlyCollection<CompanyUserRoleResponse>)group
+                    .Select(static item => item.Role)
+                    .DistinctBy(static role => role.Id)
+                    .OrderBy(static role => role.Name, StringComparer.Ordinal)
+                    .ToArray());
+    }
+
+    private async Task<Dictionary<long, CompanyUserRoleResponse>> GetFallbackRoleLookupAsync(
+        IReadOnlyCollection<long> roleIds,
+        CancellationToken cancellationToken)
+    {
+        if (roleIds.Count == 0)
+        {
+            return new Dictionary<long, CompanyUserRoleResponse>();
+        }
+
+        return await dbContext.IamRoles
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(role => roleIds.Contains(role.Id))
+            .ToDictionaryAsync(
+                role => role.Id,
+                role => new CompanyUserRoleResponse(
+                    role.PublicId,
+                    role.Name,
+                    role.Description,
+                    role.IsSystemRole),
+                cancellationToken);
+    }
+
+    private static IReadOnlyCollection<CompanyUserRoleResponse> ResolveRoles(
+        IReadOnlyDictionary<Guid, IReadOnlyCollection<CompanyUserRoleResponse>> roleLookup,
+        IReadOnlyDictionary<long, CompanyUserRoleResponse> fallbackRoles,
+        Guid userPublicId,
+        long fallbackRoleId)
+    {
+        if (roleLookup.TryGetValue(userPublicId, out var roles) && roles.Count > 0)
+        {
+            return roles;
+        }
+
+        return fallbackRoles.TryGetValue(fallbackRoleId, out var fallbackRole)
+            ? [fallbackRole]
+            : Array.Empty<CompanyUserRoleResponse>();
+    }
 }

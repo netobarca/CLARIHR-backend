@@ -8,12 +8,23 @@ namespace CLARIHR.Infrastructure.Companies;
 
 internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : IPlanEntitlementService
 {
-    public async Task EnsureFreePlanDefaultsAsync(CancellationToken cancellationToken)
+    public async Task EnsureSystemPlanDefaultsAsync(CancellationToken cancellationToken)
+    {
+        await EnsureFreePlanDefaultsAsync(cancellationToken);
+        await EnsureMasterPlanDefaultsAsync(cancellationToken);
+    }
+
+    private async Task EnsureFreePlanDefaultsAsync(CancellationToken cancellationToken)
     {
         var normalizedPlanCode = ProvisioningConstants.FreePlanCode.ToUpperInvariant();
+        var desiredModuleKeys = CommercialModuleCatalog.DefaultFreeModuleKeys
+            .OrderBy(static moduleKey => moduleKey, StringComparer.Ordinal)
+            .ToArray();
 
         var commercialPlan = await dbContext.CommercialPlans
             .Include(plan => plan.Entitlements)
+            .Include(plan => plan.Limits)
+            .Include(plan => plan.Versions)
             .SingleOrDefaultAsync(
             plan => plan.NormalizedCode == normalizedPlanCode,
             cancellationToken);
@@ -22,28 +33,135 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
         {
             commercialPlan = CommercialPlan.Create(
                 ProvisioningConstants.FreePlanCode,
-                "Free",
-                "Canonical free commercial plan used during provisioning.",
+                ProvisioningConstants.FreePlanName,
+                ProvisioningConstants.FreePlanDescription,
                 baseMonthlyFee: 0m,
                 pricePerActiveEmployee: 0m,
                 CommercialPlanStatus.Active,
                 isSystemPlan: true,
-                CommercialModuleCatalog.DefaultFreeModuleKeys,
+                desiredModuleKeys,
                 limits: []);
             dbContext.CommercialPlans.Add(commercialPlan);
             _ = await dbContext.SaveChangesAsync(cancellationToken);
             return;
         }
 
-        if (commercialPlan.Entitlements.Count > 0)
+        var hasChanges = false;
+        if (!commercialPlan.IsSystemPlan)
+        {
+            dbContext.Entry(commercialPlan).Property(plan => plan.IsSystemPlan).CurrentValue = true;
+            hasChanges = true;
+        }
+
+        if (commercialPlan.Status != CommercialPlanStatus.Active)
+        {
+            commercialPlan.Activate();
+            hasChanges = true;
+        }
+
+        var currentEnabledModuleKeys = commercialPlan.Entitlements
+            .Where(entitlement => entitlement.IsEnabled)
+            .Select(entitlement => entitlement.ModuleKey)
+            .OrderBy(static moduleKey => moduleKey, StringComparer.Ordinal)
+            .ToArray();
+
+        var requiresCatalogSync =
+            !string.Equals(commercialPlan.Name, ProvisioningConstants.FreePlanName, StringComparison.Ordinal) ||
+            !string.Equals(commercialPlan.Description, ProvisioningConstants.FreePlanDescription, StringComparison.Ordinal) ||
+            commercialPlan.BaseMonthlyFee != 0m ||
+            commercialPlan.PricePerActiveEmployee != 0m ||
+            commercialPlan.Limits.Count > 0 ||
+            !currentEnabledModuleKeys.SequenceEqual(desiredModuleKeys, StringComparer.Ordinal);
+
+        if (!requiresCatalogSync && !hasChanges)
         {
             return;
         }
 
-        foreach (var moduleKey in CommercialModuleCatalog.DefaultFreeModuleKeys)
+        commercialPlan.Update(
+            ProvisioningConstants.FreePlanCode,
+            ProvisioningConstants.FreePlanName,
+            ProvisioningConstants.FreePlanDescription,
+            baseMonthlyFee: 0m,
+            pricePerActiveEmployee: 0m,
+            desiredModuleKeys,
+            limits: []);
+
+        _ = await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureMasterPlanDefaultsAsync(CancellationToken cancellationToken)
+    {
+        var normalizedPlanCode = ProvisioningConstants.MasterPlanCode.ToUpperInvariant();
+        var desiredModuleKeys = CommercialModuleCatalog.DefaultMasterModuleKeys
+            .OrderBy(static moduleKey => moduleKey, StringComparer.Ordinal)
+            .ToArray();
+
+        var commercialPlan = await dbContext.CommercialPlans
+            .Include(plan => plan.Entitlements)
+            .Include(plan => plan.Limits)
+            .Include(plan => plan.Versions)
+            .SingleOrDefaultAsync(
+                plan => plan.NormalizedCode == normalizedPlanCode,
+                cancellationToken);
+
+        if (commercialPlan is null)
         {
-            dbContext.PlanEntitlements.Add(PlanEntitlement.Create(commercialPlan.Code, moduleKey, isEnabled: true));
+            commercialPlan = CommercialPlan.Create(
+                ProvisioningConstants.MasterPlanCode,
+                ProvisioningConstants.MasterPlanName,
+                ProvisioningConstants.MasterPlanDescription,
+                baseMonthlyFee: 0m,
+                pricePerActiveEmployee: 0m,
+                CommercialPlanStatus.Active,
+                isSystemPlan: true,
+                desiredModuleKeys,
+                limits: []);
+            dbContext.CommercialPlans.Add(commercialPlan);
+            _ = await dbContext.SaveChangesAsync(cancellationToken);
+            return;
         }
+
+        var hasChanges = false;
+        if (!commercialPlan.IsSystemPlan)
+        {
+            dbContext.Entry(commercialPlan).Property(plan => plan.IsSystemPlan).CurrentValue = true;
+            hasChanges = true;
+        }
+
+        if (commercialPlan.Status != CommercialPlanStatus.Active)
+        {
+            commercialPlan.Activate();
+            hasChanges = true;
+        }
+
+        var currentEnabledModuleKeys = commercialPlan.Entitlements
+            .Where(entitlement => entitlement.IsEnabled)
+            .Select(entitlement => entitlement.ModuleKey)
+            .OrderBy(static moduleKey => moduleKey, StringComparer.Ordinal)
+            .ToArray();
+
+        var requiresCatalogSync =
+            !string.Equals(commercialPlan.Name, ProvisioningConstants.MasterPlanName, StringComparison.Ordinal) ||
+            !string.Equals(commercialPlan.Description, ProvisioningConstants.MasterPlanDescription, StringComparison.Ordinal) ||
+            commercialPlan.BaseMonthlyFee != 0m ||
+            commercialPlan.PricePerActiveEmployee != 0m ||
+            commercialPlan.Limits.Count > 0 ||
+            !currentEnabledModuleKeys.SequenceEqual(desiredModuleKeys, StringComparer.Ordinal);
+
+        if (!requiresCatalogSync && !hasChanges)
+        {
+            return;
+        }
+
+        commercialPlan.Update(
+            ProvisioningConstants.MasterPlanCode,
+            ProvisioningConstants.MasterPlanName,
+            ProvisioningConstants.MasterPlanDescription,
+            baseMonthlyFee: 0m,
+            pricePerActiveEmployee: 0m,
+            desiredModuleKeys,
+            limits: []);
 
         _ = await dbContext.SaveChangesAsync(cancellationToken);
     }
@@ -56,7 +174,7 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
             entitlement => string.Equals(entitlement.ModuleKey, normalizedModuleKey, StringComparison.Ordinal));
     }
 
-    public async Task<IReadOnlyCollection<EffectiveCommercialModuleGrant>> GetEffectiveModulesAsync(
+    public async Task<IReadOnlyCollection<EffectiveCommercialCapabilityGrant>> GetEffectiveCapabilitiesAsync(
         Guid companyPublicId,
         CancellationToken cancellationToken)
     {
@@ -75,48 +193,112 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
 
         if (subscriptionContext is null)
         {
-            return Array.Empty<EffectiveCommercialModuleGrant>();
+            return Array.Empty<EffectiveCommercialCapabilityGrant>();
         }
 
-        var planModuleKeys = await dbContext.PlanEntitlements
+        var planCapabilities = await dbContext.PlanEntitlements
             .AsNoTracking()
             .Where(entitlement =>
                 entitlement.CommercialPlanId == subscriptionContext.CommercialPlanId &&
                 entitlement.IsEnabled)
-            .Select(entitlement => entitlement.ModuleKey)
+            .Select(entitlement => new
+            {
+                entitlement.CapabilityCode,
+                entitlement.ModuleKey
+            })
             .ToListAsync(cancellationToken);
 
-        var addonModuleKeys = await (
+        var addonCapabilities = await (
             from companyAddon in dbContext.CompanyCommercialAddons.AsNoTracking()
             join entitlement in dbContext.CommercialAddonEntitlements.AsNoTracking()
                 on companyAddon.CommercialAddonId equals entitlement.CommercialAddonId
             where companyAddon.CompanyId == subscriptionContext.Id &&
                   companyAddon.Status == CompanyAddonStatus.Active &&
                   entitlement.IsEnabled
-            select entitlement.ModuleKey)
+            select new
+            {
+                entitlement.CapabilityCode,
+                entitlement.ModuleKey
+            })
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        var grants = new Dictionary<string, EffectiveCommercialModuleGrant>(StringComparer.Ordinal);
+        var grants = new Dictionary<string, EffectiveCommercialCapabilityGrant>(StringComparer.Ordinal);
 
-        foreach (var moduleKey in planModuleKeys)
+        foreach (var entitlement in planCapabilities)
         {
-            grants[moduleKey] = new EffectiveCommercialModuleGrant(moduleKey, GrantedByPlan: true, GrantedByAddon: false);
+            var capabilityCode = ResolveCapabilityCode(entitlement.CapabilityCode, entitlement.ModuleKey);
+            var moduleKey = ResolveModuleKey(capabilityCode, entitlement.ModuleKey);
+            grants[capabilityCode] = new EffectiveCommercialCapabilityGrant(
+                capabilityCode,
+                moduleKey,
+                GrantedByPlan: true,
+                GrantedByAddon: false);
         }
 
-        foreach (var moduleKey in addonModuleKeys)
+        foreach (var entitlement in addonCapabilities)
         {
-            if (grants.TryGetValue(moduleKey, out var currentGrant))
+            var capabilityCode = ResolveCapabilityCode(entitlement.CapabilityCode, entitlement.ModuleKey);
+            var moduleKey = ResolveModuleKey(capabilityCode, entitlement.ModuleKey);
+            if (grants.TryGetValue(capabilityCode, out var currentGrant))
             {
-                grants[moduleKey] = currentGrant with { GrantedByAddon = true };
+                grants[capabilityCode] = currentGrant with { GrantedByAddon = true };
                 continue;
             }
 
-            grants[moduleKey] = new EffectiveCommercialModuleGrant(moduleKey, GrantedByPlan: false, GrantedByAddon: true);
+            grants[capabilityCode] = new EffectiveCommercialCapabilityGrant(
+                capabilityCode,
+                moduleKey,
+                GrantedByPlan: false,
+                GrantedByAddon: true);
+        }
+
+        return grants.Values
+            .OrderBy(grant => grant.CapabilityCode, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    public async Task<IReadOnlyCollection<EffectiveCommercialModuleGrant>> GetEffectiveModulesAsync(
+        Guid companyPublicId,
+        CancellationToken cancellationToken)
+    {
+        var effectiveCapabilities = await GetEffectiveCapabilitiesAsync(companyPublicId, cancellationToken);
+        var grants = new Dictionary<string, EffectiveCommercialModuleGrant>(StringComparer.Ordinal);
+
+        foreach (var capability in effectiveCapabilities.Where(static capability => capability.GrantedByPlan))
+        {
+            grants[capability.ModuleKey] = new EffectiveCommercialModuleGrant(
+                capability.ModuleKey,
+                GrantedByPlan: true,
+                GrantedByAddon: false);
+        }
+
+        foreach (var capability in effectiveCapabilities.Where(static capability => capability.GrantedByAddon))
+        {
+            if (grants.TryGetValue(capability.ModuleKey, out var currentGrant))
+            {
+                grants[capability.ModuleKey] = currentGrant with { GrantedByAddon = true };
+                continue;
+            }
+
+            grants[capability.ModuleKey] = new EffectiveCommercialModuleGrant(
+                capability.ModuleKey,
+                GrantedByPlan: false,
+                GrantedByAddon: true);
         }
 
         return grants.Values
             .OrderBy(grant => grant.ModuleKey, StringComparer.Ordinal)
             .ToArray();
     }
+
+    private static string ResolveCapabilityCode(string capabilityCode, string moduleKey) =>
+        string.IsNullOrWhiteSpace(capabilityCode)
+            ? CommercialCapabilityCatalog.GetByModuleKey(moduleKey).Code
+            : CommercialCapabilityCatalog.NormalizeKnownCode(capabilityCode);
+
+    private static string ResolveModuleKey(string capabilityCode, string moduleKey) =>
+        string.IsNullOrWhiteSpace(moduleKey)
+            ? CommercialCapabilityCatalog.Get(capabilityCode).ModuleKey
+            : CommercialModuleCatalog.NormalizeKnownKey(moduleKey);
 }

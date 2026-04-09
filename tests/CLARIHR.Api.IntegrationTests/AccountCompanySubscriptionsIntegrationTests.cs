@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using CLARIHR.Domain.Companies;
+using CLARIHR.Domain.Platform;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,6 +12,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
     : IClassFixture<IntegrationTestWebApplicationFactory>
 {
     private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
+    private static readonly Guid SeedActorUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     [Fact]
     public async Task AccountCompanySubscription_OwnerFlow_ShouldUpgradeAcquireAddonAndDowngradeToFree()
@@ -90,6 +92,7 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
         var plans = await plansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<AccountCompanySubscriptionPlanEnvelope>>(JsonOptions);
         Assert.NotNull(plans);
         Assert.Contains(plans!, static plan => plan.Code == "FREE");
+        Assert.DoesNotContain(plans!, static plan => plan.Code == "MASTER");
         Assert.Contains(
             plans!,
             static plan =>
@@ -202,6 +205,102 @@ public sealed class AccountCompanySubscriptionsIntegrationTests(IntegrationTestW
         var response = await client.GetAsync($"/api/account/companies/{scenario.TenantId}/subscription");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AccountCompanySubscription_OwnerWithoutPlatformOperator_ShouldRejectMasterPreviewAndChange()
+    {
+        Guid masterPlanPublicId = Guid.Empty;
+
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            masterPlanPublicId = await dbContext.CommercialPlans
+                .Where(plan => plan.NormalizedCode == "MASTER")
+                .Select(plan => plan.PublicId)
+                .SingleAsync();
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var plansResponse = await client.GetAsync($"/api/account/companies/{scenario.TenantId}/subscription/plans");
+        plansResponse.EnsureSuccessStatusCode();
+
+        var plans = await plansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<AccountCompanySubscriptionPlanEnvelope>>(JsonOptions);
+        Assert.NotNull(plans);
+        Assert.DoesNotContain(plans!, static plan => plan.Code == "MASTER");
+
+        var previewResponse = await client.PostJsonAsync(
+            $"/api/account/companies/{scenario.TenantId}/subscription/preview",
+            new { commercialPlanId = masterPlanPublicId });
+        await AssertProblemDetailsAsync(
+            previewResponse,
+            HttpStatusCode.Forbidden,
+            "ACCOUNT_COMPANY_SUBSCRIPTION_MASTER_FORBIDDEN");
+
+        var changeResponse = await client.PutJsonAsync(
+            $"/api/account/companies/{scenario.TenantId}/subscription",
+            new
+            {
+                commercialPlanId = masterPlanPublicId,
+                observations = "Attempt MASTER without platform operator"
+            });
+        await AssertProblemDetailsAsync(
+            changeResponse,
+            HttpStatusCode.Forbidden,
+            "ACCOUNT_COMPANY_SUBSCRIPTION_MASTER_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task AccountCompanySubscription_OwnerPlatformOperator_ShouldSeeAndPreviewMaster()
+    {
+        Guid masterPlanPublicId = Guid.Empty;
+
+        var scenario = await factory.ResetDatabaseAsync(async dbContext =>
+        {
+            masterPlanPublicId = await dbContext.CommercialPlans
+                .Where(plan => plan.NormalizedCode == "MASTER")
+                .Select(plan => plan.PublicId)
+                .SingleAsync();
+
+            var actorUser = await dbContext.AuthUsers
+                .SingleAsync(user => user.PublicId == SeedActorUserId);
+            dbContext.PlatformOperators.Add(PlatformOperator.Create(actorUser.Id, PlatformOperatorRole.Admin));
+        });
+
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var plansResponse = await client.GetAsync($"/api/account/companies/{scenario.TenantId}/subscription/plans");
+        plansResponse.EnsureSuccessStatusCode();
+
+        var plans = await plansResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<AccountCompanySubscriptionPlanEnvelope>>(JsonOptions);
+        Assert.NotNull(plans);
+        var masterPlan = Assert.Single(plans!, plan => plan.Code == "MASTER");
+        Assert.Equal(CommercialModuleCatalog.DefaultMasterModuleKeys.Count, masterPlan.ModuleCount);
+        Assert.Equal(
+            CommercialModuleCatalog.DefaultMasterModuleKeys.OrderBy(static key => key, StringComparer.Ordinal),
+            masterPlan.ModuleKeys.OrderBy(static key => key, StringComparer.Ordinal));
+
+        var previewResponse = await client.PostJsonAsync(
+            $"/api/account/companies/{scenario.TenantId}/subscription/preview",
+            new { commercialPlanId = masterPlanPublicId });
+        previewResponse.EnsureSuccessStatusCode();
+
+        var preview = await previewResponse.Content.ReadFromJsonAsync<AccountCompanyPlanPreviewEnvelope>(JsonOptions);
+        Assert.NotNull(preview);
+        Assert.Equal("MASTER", preview!.TargetPlan.Code);
+        Assert.True(preview.IsEligible);
+    }
+
+    private static async Task AssertProblemDetailsAsync(
+        HttpResponseMessage response,
+        HttpStatusCode expectedStatusCode,
+        string expectedCode)
+    {
+        Assert.Equal(expectedStatusCode, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal((int)expectedStatusCode, document.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal(expectedCode, document.RootElement.GetProperty("code").GetString());
     }
 
     private sealed record AccountCompanySubscriptionOverviewEnvelope(

@@ -70,26 +70,8 @@ internal sealed class FieldAccessProfileService(
         string resourceKey,
         CancellationToken cancellationToken)
     {
-        var inCode = FieldCatalogRegistry.GetResourceFields(resourceKey);
-        if (inCode.Count > 0)
-        {
-            return inCode;
-        }
-
-        var normalizedResourceKey = resourceKey.Trim().ToUpperInvariant();
-        return await dbContext.FieldCatalogEntries
-            .AsNoTracking()
-            .Where(entry => entry.NormalizedResourceKey == normalizedResourceKey)
-            .OrderBy(entry => entry.DisplayName)
-            .Select(entry => new FieldCatalogDefinition(
-                entry.FieldKey,
-                entry.ResourceKey,
-                entry.PropertyName,
-                entry.DisplayName,
-                entry.DataType,
-                entry.IsConfigurable,
-                entry.IsSensitive))
-            .ToListAsync(cancellationToken);
+        await Task.CompletedTask;
+        return FieldCatalogRegistry.GetResourceFields(resourceKey);
     }
 
     private async Task<IReadOnlyDictionary<string, FieldPermissionOverrideState>> GetRoleOverridesAsync(

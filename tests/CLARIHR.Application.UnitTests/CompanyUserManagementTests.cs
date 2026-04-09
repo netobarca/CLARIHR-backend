@@ -87,7 +87,7 @@ public sealed class CompanyUserManagementTests
             NullLogger<CreateCompanyUserCommandHandler>.Instance);
 
         var result = await handler.Handle(
-            new CreateCompanyUserCommand("ana@acme.test", "Ana", "Mendoza", standardRole.PublicId),
+            new CreateCompanyUserCommand("ana@acme.test", "Ana", "Mendoza", [standardRole.PublicId]),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -100,7 +100,9 @@ public sealed class CompanyUserManagementTests
         Assert.False(iamRepository.Users[0].IsActive);
         Assert.Single(invitationTokenRepository.Items);
         Assert.Single(emailService.Messages);
-        Assert.Equal(standardRole.PublicId, result.Value.User.RoleId);
+        Assert.Collection(
+            result.Value.User.Roles,
+            assignedRole => Assert.Equal(standardRole.PublicId, assignedRole.Id));
         Assert.True(unitOfWork.Transaction.CommitCalled);
         Assert.Single(auditService.Entries);
         Assert.Equal(AuditEventTypes.UserInvited, auditService.Entries[0].EventType);
@@ -142,7 +144,7 @@ public sealed class CompanyUserManagementTests
             NullLogger<UpdateCompanyUserCommandHandler>.Instance);
 
         var result = await handler.Handle(
-            new UpdateCompanyUserCommand(user.PublicId, "Carla", "Mendoza", nextRole.PublicId),
+            new UpdateCompanyUserCommand(user.PublicId, "Carla", "Mendoza", [nextRole.PublicId]),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -218,7 +220,7 @@ public sealed class CompanyUserManagementTests
             NullLogger<CreateCompanyUserCommandHandler>.Instance);
 
         var result = await handler.Handle(
-            new CreateCompanyUserCommand("ana@acme.test", "Ana", "Mendoza", Guid.NewGuid()),
+            new CreateCompanyUserCommand("ana@acme.test", "Ana", "Mendoza", [Guid.NewGuid()]),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -257,7 +259,7 @@ public sealed class CompanyUserManagementTests
             NullLogger<CreateCompanyUserCommandHandler>.Instance);
 
         var result = await handler.Handle(
-            new CreateCompanyUserCommand("ana@acme.test", "Ana", "Mendoza", role.PublicId),
+            new CreateCompanyUserCommand("ana@acme.test", "Ana", "Mendoza", [role.PublicId]),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -505,7 +507,7 @@ public sealed class CompanyUserManagementTests
             NullLogger<UpdateCompanyUserCommandHandler>.Instance);
 
         var result = await handler.Handle(
-            new UpdateCompanyUserCommand(otherUser.PublicId, "Bruno", "Tenant", currentRole.PublicId),
+            new UpdateCompanyUserCommand(otherUser.PublicId, "Bruno", "Tenant", [currentRole.PublicId]),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -554,7 +556,7 @@ public sealed class CompanyUserManagementTests
             NullLogger<UpdateCompanyUserCommandHandler>.Instance);
 
         var result = await handler.Handle(
-            new UpdateCompanyUserCommand(user.PublicId, "Carla", "Mendoza", currentRole.PublicId),
+            new UpdateCompanyUserCommand(user.PublicId, "Carla", "Mendoza", [currentRole.PublicId]),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -994,8 +996,7 @@ public sealed class CompanyUserManagementTests
                     item.User.Email,
                     item.User.FirstName,
                     item.User.LastName,
-                    item.Role.PublicId,
-                    item.Role.Name,
+                    [ToRoleResponse(item.Role)],
                     item.User.Status))
                 .ToArray();
 
@@ -1012,8 +1013,7 @@ public sealed class CompanyUserManagementTests
                     item.User.Email,
                     item.User.FirstName,
                     item.User.LastName,
-                    item.Role.PublicId,
-                    item.Role.Name,
+                    [ToRoleResponse(item.Role)],
                     item.User.Status));
         }
 
@@ -1046,6 +1046,9 @@ public sealed class CompanyUserManagementTests
                 assignment.Permission.NormalizedCode == CompanyUserPermissionCodes.ManageUsers.ToUpperInvariant() ||
                 assignment.Permission.NormalizedCode == IdentityPermissionCodes.ManageAdministration.ToUpperInvariant());
         }
+
+        private static CompanyUserRoleResponse ToRoleResponse(IamRole role) =>
+            new(role.PublicId, role.Name, role.Description, role.IsSystemRole);
 
         private sealed record QueryItem(UserCompanyMembership Membership, User User, IamRole Role);
     }
@@ -1110,24 +1113,6 @@ public sealed class CompanyUserManagementTests
 
     private sealed class TestFieldPermissionService(FieldAccessProfile profile) : IFieldPermissionService
     {
-        public Task<Result<ResourceFieldsResponse>> GetResourceFieldsAsync(
-            string resourceKey,
-            CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
-
-        public Task<Result<RoleFieldPermissionsResponse>> GetRoleFieldPermissionsAsync(
-            Guid roleId,
-            string resourceKey,
-            CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
-
-        public Task<Result<RoleFieldPermissionsResponse>> UpsertRoleFieldPermissionsAsync(
-            Guid roleId,
-            string resourceKey,
-            IReadOnlyCollection<RoleFieldPermissionUpdateModel> fields,
-            CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
-
         public Task<Result<FieldAccessProfile>> GetCurrentUserAccessProfileAsync(
             string resourceKey,
             CancellationToken cancellationToken) =>
@@ -1214,24 +1199,15 @@ public sealed class CompanyUserManagementTests
             Permissions.Add(permission);
         }
 
-        public void AddPermissionAuditLog(RbacPermissionAuditLog auditLog)
-        {
-        }
-
         public Task<bool> UserEmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) => Task.FromResult(false);
 
         public Task<bool> RoleNameExistsAsync(string normalizedRoleName, CancellationToken cancellationToken) => Task.FromResult(false);
-
-        public Task<bool> PermissionCodeExistsAsync(string normalizedPermissionCode, CancellationToken cancellationToken) => Task.FromResult(false);
 
         public Task<bool> UserPublicIdExistsAsync(Guid userId, CancellationToken cancellationToken) =>
             Task.FromResult(Users.Any(user => user.PublicId == userId));
 
         public Task<bool> RolePublicIdExistsAsync(Guid roleId, CancellationToken cancellationToken) =>
             Task.FromResult(Roles.Any(role => role.PublicId == roleId));
-
-        public Task<bool> PermissionPublicIdExistsAsync(Guid permissionId, CancellationToken cancellationToken) =>
-            Task.FromResult(Permissions.Any(permission => permission.PublicId == permissionId));
 
         public Task<IamUser?> FindUserByPublicIdAsync(Guid userId, bool includeRoles, CancellationToken cancellationToken) =>
             Task.FromResult(Users.SingleOrDefault(user => user.PublicId == userId));
@@ -1248,9 +1224,6 @@ public sealed class CompanyUserManagementTests
 
         public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) =>
             Task.FromResult(Roles.SingleOrDefault(role => role.PublicId == roleId));
-
-        public Task<IamPermission?> FindPermissionByPublicIdAsync(Guid permissionId, CancellationToken cancellationToken) =>
-            Task.FromResult(Permissions.SingleOrDefault(permission => permission.PublicId == permissionId));
 
         public Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<IamRole>>(Roles.Where(role => roleIds.Contains(role.PublicId)).ToArray());
@@ -1308,25 +1281,6 @@ public sealed class CompanyUserManagementTests
 
         public Task<IamRoleResponse?> GetRoleAsync(Guid roleId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
-
-        public Task<PagedResponse<IamPermissionSummaryResponse>> GetPermissionsAsync(int pageNumber, int pageSize, string? search, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
-
-        public Task<IamPermissionResponse?> GetPermissionAsync(Guid permissionId, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
-
-        public Task<IReadOnlyList<RbacResource>> GetActiveRbacResourcesAsync(CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<RbacResource>>([]);
-
-        public Task<PagedResponse<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(
-            Guid? roleId,
-            string? normalizedResourceKey,
-            DateTime? fromUtc,
-            DateTime? toUtc,
-            int pageNumber,
-            int pageSize,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(new PagedResponse<RbacPermissionAuditLog>([], pageNumber, pageSize, 0));
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(1);
     }

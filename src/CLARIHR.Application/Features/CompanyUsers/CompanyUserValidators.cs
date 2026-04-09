@@ -44,8 +44,15 @@ internal sealed class CreateCompanyUserCommandValidator : AbstractValidator<Crea
             .Must(AuthValidationRules.BeValidPersonName)
             .WithMessage("Last name contains invalid characters.");
 
-        RuleFor(command => command.RoleId)
+        RuleFor(command => command.RoleIds)
             .NotEmpty();
+
+        RuleForEach(command => command.RoleIds)
+            .NotEmpty();
+
+        RuleFor(command => command.RoleIds)
+            .Must(static roleIds => roleIds.Distinct().Count() == roleIds.Count)
+            .WithMessage("Role ids must be unique.");
     }
 }
 
@@ -68,8 +75,15 @@ internal sealed class UpdateCompanyUserCommandValidator : AbstractValidator<Upda
             .Must(AuthValidationRules.BeValidPersonName)
             .WithMessage("Last name contains invalid characters.");
 
-        RuleFor(command => command.RoleId)
+        RuleFor(command => command.RoleIds)
             .NotEmpty();
+
+        RuleForEach(command => command.RoleIds)
+            .NotEmpty();
+
+        RuleFor(command => command.RoleIds)
+            .Must(static roleIds => roleIds.Distinct().Count() == roleIds.Count)
+            .WithMessage("Role ids must be unique.");
     }
 }
 

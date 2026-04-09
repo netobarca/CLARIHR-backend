@@ -41,11 +41,13 @@ public static class CommercialModuleCatalog
         new(CommercialModuleKeys.PersonnelFiles, "Personnel Files", "Expedientes de personal y operacion asociada.")
     ];
 
-    // Preserve the historical bootstrap access surface for FREE tenants while
-    // moving the source of truth to editable plan entitlements.
-    public static readonly IReadOnlyCollection<string> DefaultFreeModuleKeys = All
+    private static readonly IReadOnlyCollection<string> DefaultFullAccessModuleKeys = All
         .Select(static definition => definition.ModuleKey)
         .ToArray();
+
+    public static readonly IReadOnlyCollection<string> DefaultFreeModuleKeys = DefaultFullAccessModuleKeys;
+
+    public static readonly IReadOnlyCollection<string> DefaultMasterModuleKeys = DefaultFullAccessModuleKeys;
 
     private static readonly IReadOnlyDictionary<string, CommercialModuleDefinition> ByKey =
         All.ToDictionary(static definition => definition.ModuleKey, static definition => definition, StringComparer.Ordinal);

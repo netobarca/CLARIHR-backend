@@ -68,19 +68,32 @@ internal sealed class UpdateCompanyUserCommandHandler(
         }
 
         var currentState = await userCompanyRepository.GetUserAsync(companyPublicId, command.UserId, cancellationToken);
-        var role = await iamRepository.FindRoleByPublicIdAsync(command.RoleId, includePermissions: true, cancellationToken);
-        if (role is null)
+        var requestedRoleIds = command.RoleIds
+            .Distinct()
+            .ToArray();
+        var roles = await iamRepository.GetRolesByPublicIdsAsync(requestedRoleIds, cancellationToken);
+        if (roles.Count != requestedRoleIds.Length)
         {
             return Result<CompanyUserResponse>.Failure(CompanyUserErrors.RoleNotFound);
         }
 
+        var rolesByPublicId = roles.ToDictionary(static role => role.PublicId);
+        var desiredRoles = requestedRoleIds
+            .Select(roleId => rolesByPublicId[roleId])
+            .ToArray();
+        var primaryRole = desiredRoles[0];
+
         if (await userCompanyRepository.IsLastActiveAdministratorAsync(companyPublicId, command.UserId, cancellationToken) &&
-            !CompanyUserManagementHelpers.IsAdministrativeRole(role))
+            !desiredRoles.Any(CompanyUserManagementHelpers.IsAdministrativeRole))
         {
             return Result<CompanyUserResponse>.Failure(CompanyUserErrors.LastActiveAdministratorRequired);
         }
 
-        var changedFields = CompanyUserManagementHelpers.GetChangedUpdateFieldKeys(user, membership, role, command);
+        var changedFields = CompanyUserManagementHelpers.GetChangedUpdateFieldKeys(
+            user,
+            desiredRoles,
+            currentState?.Roles ?? Array.Empty<CompanyUserRoleResponse>(),
+            command);
         var fieldAuthorizationResult = await rbacAuthorizationService.AuthorizeFieldsAsync(
             CompanyUserFieldKeys.ResourceKey,
             RbacPermissionAction.Update,
@@ -93,22 +106,20 @@ internal sealed class UpdateCompanyUserCommandHandler(
 
         var beforeFirstName = currentState?.FirstName ?? user.FirstName;
         var beforeLastName = currentState?.LastName ?? user.LastName;
-        var beforeRoleId = currentState?.RoleId ?? role.PublicId;
-        var beforeRoleName = currentState?.Role ?? role.Name;
+        var beforeRoles = currentState?.Roles ?? Array.Empty<CompanyUserRoleResponse>();
         var beforeSnapshot = currentState is null
-            ? CompanyUserAuditMapper.CreateSnapshot(user, membership, role)
+            ? CompanyUserAuditMapper.CreateSnapshot(user, membership, desiredRoles)
             : CompanyUserAuditMapper.CreateSnapshot(
                 user.PublicId,
                 currentState.Email ?? user.Email,
                 currentState.FirstName ?? user.FirstName,
                 currentState.LastName ?? user.LastName,
-                currentState.RoleId ?? role.PublicId,
-                currentState.Role ?? role.Name,
+                currentState.Roles,
                 currentState.Status?.ToString() ?? user.Status.ToString(),
                 membership.Status.ToString());
 
         user.UpdateProfile(command.FirstName, command.LastName);
-        membership.ChangeRole(role.Id);
+        membership.ChangeRole(primaryRole.Id);
 
         var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
             companyPublicId,
@@ -124,7 +135,7 @@ internal sealed class UpdateCompanyUserCommandHandler(
                 user.Email,
                 user.Status == UserStatus.Active);
             iamUser.SetTenantId(companyPublicId);
-            iamUser.SyncRoles([role]);
+            iamUser.SyncRoles(desiredRoles);
             CompanyUserManagementHelpers.StampTenant(iamUser.RoleAssignments, companyPublicId);
             iamRepository.AddUser(iamUser);
         }
@@ -132,7 +143,7 @@ internal sealed class UpdateCompanyUserCommandHandler(
         {
             iamUser.UpdateProfile(user.FirstName, user.LastName);
             iamUser.SetActive(user.Status == UserStatus.Active);
-            iamUser.SyncRoles([role]);
+            iamUser.SyncRoles(desiredRoles);
             CompanyUserManagementHelpers.StampTenant(iamUser.RoleAssignments, companyPublicId);
         }
 
@@ -145,25 +156,23 @@ internal sealed class UpdateCompanyUserCommandHandler(
                 AuditActions.Update,
                 $"Updated user {user.Email}.",
                 beforeSnapshot,
-                CompanyUserAuditMapper.CreateSnapshot(user, membership, role),
+                CompanyUserAuditMapper.CreateSnapshot(user, membership, desiredRoles),
                 CompanyUserAuditMapper.CreateUpdateDiff(
                     beforeFirstName,
                     user.FirstName,
                     beforeLastName,
                     user.LastName,
-                    beforeRoleId,
-                    role.PublicId,
-                    beforeRoleName,
-                    role.Name)),
+                    beforeRoles,
+                    CompanyUserAuditMapper.MapRoles(desiredRoles))),
             cancellationToken);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation(
-            "CompanyUserUpdated tenant {TenantId} user {UserPublicId} role {RolePublicId}",
+            "CompanyUserUpdated tenant {TenantId} user {UserPublicId} roleCount {RoleCount}",
             companyPublicId,
             user.PublicId,
-            role.PublicId);
+            desiredRoles.Length);
 
         var response = await userCompanyRepository.GetUserAsync(companyPublicId, user.PublicId, cancellationToken);
         return response is null

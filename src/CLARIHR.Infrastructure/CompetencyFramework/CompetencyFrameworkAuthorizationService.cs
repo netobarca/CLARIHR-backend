@@ -6,6 +6,7 @@ using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
+using CLARIHR.Infrastructure.Authorization;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -69,23 +70,12 @@ internal sealed class CompetencyFrameworkAuthorizationService(
             return Result.Failure(AuthorizationErrors.Unauthenticated);
         }
 
-        var isAuthorized = await
-            (from membership in dbContext.UserCompanyMemberships.AsNoTracking()
-             join user in dbContext.AuthUsers.AsNoTracking() on membership.UserId equals user.Id
-             join company in dbContext.Companies.AsNoTracking() on membership.CompanyId equals company.Id
-             join role in dbContext.IamRoles.AsNoTracking()
-                    .Include(role => role.PermissionAssignments)
-                    .ThenInclude(assignment => assignment.Permission)
-                 on membership.RoleId equals role.Id
-             where user.PublicId == currentUserPublicId &&
-                   user.Status == UserStatus.Active &&
-                   membership.Status == UserCompanyStatus.Active &&
-                   company.PublicId == companyId
-             select role)
-            .AnyAsync(
-                role => role.PermissionAssignments.Any(assignment =>
-                    requiredClaims.Contains(assignment.Permission.NormalizedCode)),
-                cancellationToken);
+        var isAuthorized = await TenantPermissionGrantEvaluator.HasAnyRequiredPermissionAsync(
+            dbContext,
+            companyId,
+            currentUserPublicId,
+            requiredClaims,
+            cancellationToken);
 
         return isAuthorized
             ? Result.Success()

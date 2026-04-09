@@ -70,7 +70,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         Assert.Equal(companyRepository.Items[0].PublicId, legalRepresentativeRepository.Items[0].TenantId);
         Assert.True(legalRepresentativeRepository.Items[0].IsPrimary == true);
         Assert.Equal(2, iamRepository.Roles.Count);
-        Assert.Contains(iamRepository.Roles, role => role.Name == ProvisioningConstants.CompanyAdminRoleName && role.IsSystemRole);
+        var adminRole = Assert.Single(iamRepository.Roles, role => role.Name == ProvisioningConstants.CompanyAdminRoleName && role.IsSystemRole);
         Assert.Contains(iamRepository.Roles, role => role.Name == ProvisioningConstants.StandardUserRoleName && role.IsSystemRole);
         Assert.Equal(
             ProvisioningConstants.CompanyAdminPermissions.Length + PermissionMatrixCatalog.AllMatrixCodes.Count,
@@ -97,6 +97,9 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             iamRepository.Permissions,
             permission => permission.TenantId == companyRepository.Items[0].PublicId &&
                           permission.NormalizedCode == "WORKCENTERS.ADMIN");
+        Assert.Equal(
+            iamRepository.Permissions.Select(static permission => permission.Id).OrderBy(static id => id),
+            adminRole.PermissionAssignments.Select(static assignment => assignment.PermissionId).OrderBy(static id => id));
         Assert.Single(iamRepository.Users);
         Assert.Equal(user.PublicId, iamRepository.Users[0].LinkedUserPublicId);
         Assert.Single(userCompanyRepository.Items);
@@ -1010,21 +1013,14 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             Permissions.Add(permission);
         }
 
-        public void AddPermissionAuditLog(RbacPermissionAuditLog auditLog)
-        {
-        }
-
         public Task<bool> UserEmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> RoleNameExistsAsync(string normalizedRoleName, CancellationToken cancellationToken) => Task.FromResult(false);
-        public Task<bool> PermissionCodeExistsAsync(string normalizedPermissionCode, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> UserPublicIdExistsAsync(Guid userId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<bool> RolePublicIdExistsAsync(Guid roleId, CancellationToken cancellationToken) => Task.FromResult(false);
-        public Task<bool> PermissionPublicIdExistsAsync(Guid permissionId, CancellationToken cancellationToken) => Task.FromResult(false);
         public Task<IamUser?> FindUserByPublicIdAsync(Guid userId, bool includeRoles, CancellationToken cancellationToken) => Task.FromResult<IamUser?>(null);
         public Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(Guid tenantId, Guid linkedUserPublicId, bool includeRoles, CancellationToken cancellationToken) =>
             Task.FromResult<IamUser?>(Users.SingleOrDefault(user => user.TenantId == tenantId && user.LinkedUserPublicId == linkedUserPublicId));
         public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) => Task.FromResult<IamRole?>(null);
-        public Task<IamPermission?> FindPermissionByPublicIdAsync(Guid permissionId, CancellationToken cancellationToken) => Task.FromResult<IamPermission?>(null);
         public Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<IamRole>>([]);
         public Task<IReadOnlyList<IamUser>> GetUsersByPublicIdsAsync(IReadOnlyCollection<Guid> userIds, bool includeRoles, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<IamUser>>([]);
         public Task<IReadOnlyList<IamUser>> GetUsersAssignedToRoleAsync(Guid roleId, bool includeRoles, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<IamUser>>([]);
@@ -1036,10 +1032,6 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task<IamUserResponse?> GetUserAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PagedResponse<IamRoleSummaryResponse>> GetRolesAsync(int pageNumber, int pageSize, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IamRoleResponse?> GetRoleAsync(Guid roleId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<PagedResponse<IamPermissionSummaryResponse>> GetPermissionsAsync(int pageNumber, int pageSize, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IamPermissionResponse?> GetPermissionAsync(Guid permissionId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyList<RbacResource>> GetActiveRbacResourcesAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<RbacResource>>([]);
-        public Task<PagedResponse<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(Guid? roleId, string? normalizedResourceKey, DateTime? fromUtc, DateTime? toUtc, int pageNumber, int pageSize, CancellationToken cancellationToken) => Task.FromResult(new PagedResponse<RbacPermissionAuditLog>([], pageNumber, pageSize, 0));
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(1);
     }
 
@@ -1136,7 +1128,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
     {
         public int EnsureCalls { get; private set; }
 
-        public Task EnsureFreePlanDefaultsAsync(CancellationToken cancellationToken)
+        public Task EnsureSystemPlanDefaultsAsync(CancellationToken cancellationToken)
         {
             EnsureCalls++;
             return Task.CompletedTask;
@@ -1144,14 +1136,24 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
 
         public Task<bool> IsModuleEnabledAsync(Guid companyPublicId, string moduleKey, CancellationToken cancellationToken) =>
             Task.FromResult(true);
+
+        public Task<IReadOnlyCollection<EffectiveCommercialCapabilityGrant>> GetEffectiveCapabilitiesAsync(
+            Guid companyPublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<EffectiveCommercialCapabilityGrant>>([]);
     }
 
     private sealed class ThrowingPlanEntitlementService : IPlanEntitlementService
     {
-        public Task EnsureFreePlanDefaultsAsync(CancellationToken cancellationToken) =>
+        public Task EnsureSystemPlanDefaultsAsync(CancellationToken cancellationToken) =>
             throw new InvalidOperationException("boom");
 
         public Task<bool> IsModuleEnabledAsync(Guid companyPublicId, string moduleKey, CancellationToken cancellationToken) =>
             Task.FromResult(true);
+
+        public Task<IReadOnlyCollection<EffectiveCommercialCapabilityGrant>> GetEffectiveCapabilitiesAsync(
+            Guid companyPublicId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<EffectiveCommercialCapabilityGrant>>([]);
     }
 }

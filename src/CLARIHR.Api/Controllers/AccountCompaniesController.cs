@@ -39,16 +39,57 @@ public sealed class AccountCompaniesController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("{companyId:guid}")]
+    [HttpGet("{companyPublicId:guid}")]
     [ProducesResponseType<AccountCompanyDetailResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<AccountCompanyDetailResponse>> GetById(
-        Guid companyId,
+        Guid companyPublicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetOwnedCompanyByIdQuery(companyId), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetOwnedCompanyByIdQuery(companyPublicId), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("{companyPublicId:guid}/access-context")]
+    [ProducesResponseType<AccountCompanyAccessContextResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AccountCompanyAccessContextResponse>> GetAccessContext(
+        Guid companyPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetOwnedCompanyAccessContextQuery(companyPublicId), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("{companyPublicId:guid}/authorization/role-builder-catalog")]
+    [ProducesResponseType<AccountCompanyRoleBuilderCatalogResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AccountCompanyRoleBuilderCatalogResponse>> GetRoleBuilderCatalog(
+        Guid companyPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetOwnedCompanyRoleBuilderCatalogQuery(companyPublicId), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("{companyPublicId:guid}/authorization/resource-policies/{resourceKey}")]
+    [ProducesResponseType<AccountCompanyResourcePolicyResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AccountCompanyResourcePolicyResponse>> GetResourcePolicy(
+        Guid companyPublicId,
+        string resourceKey,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetOwnedCompanyResourcePolicyQuery(companyPublicId, resourceKey), cancellationToken);
         return this.ToActionResult(result);
     }
 
@@ -139,10 +180,10 @@ public sealed class AccountCompaniesController(
             return this.ToActionResult(Result<AccountCompanyDetailResponse>.Failure(result.Error));
         }
 
-        return CreatedAtAction(nameof(GetById), new { publicId = result.Value.PublicId }, result.Value);
+        return CreatedAtAction(nameof(GetById), new { companyPublicId = result.Value.PublicId }, result.Value);
     }
 
-    [HttpPut("{companyId:guid}")]
+    [HttpPut("{companyPublicId:guid}")]
     [ProducesResponseType<AccountCompanyDetailResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -150,56 +191,56 @@ public sealed class AccountCompaniesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<AccountCompanyDetailResponse>> Update(
-        Guid companyId,
+        Guid companyPublicId,
         [FromBody] UpdateAccountCompanyRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new UpdateAccountCompanyCommand(companyId, request.Name, request.CompanyTypePublicId),
+            new UpdateAccountCompanyCommand(companyPublicId, request.Name, request.CompanyTypePublicId),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("{companyId:guid}/archive")]
+    [HttpPatch("{companyPublicId:guid}/archive")]
     [ProducesResponseType<AccountCompanyDetailResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<AccountCompanyDetailResponse>> Archive(
-        Guid companyId,
+        Guid companyPublicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await commandDispatcher.SendAsync(new ArchiveAccountCompanyCommand(companyId), cancellationToken);
+        var result = await commandDispatcher.SendAsync(new ArchiveAccountCompanyCommand(companyPublicId), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("{companyId:guid}/reactivate")]
+    [HttpPatch("{companyPublicId:guid}/reactivate")]
     [ProducesResponseType<AccountCompanyDetailResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<AccountCompanyDetailResponse>> Reactivate(
-        Guid companyId,
+        Guid companyPublicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await commandDispatcher.SendAsync(new ReactivateAccountCompanyCommand(companyId), cancellationToken);
+        var result = await commandDispatcher.SendAsync(new ReactivateAccountCompanyCommand(companyPublicId), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpPost("{companyId:guid}/switch")]
+    [HttpPost("{companyPublicId:guid}/switch")]
     [ProducesResponseType<SwitchActiveCompanyResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<SwitchActiveCompanyResponse>> Switch(
-        Guid companyId,
+        Guid companyPublicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await commandDispatcher.SendAsync(new SwitchActiveCompanyCommand(companyId), cancellationToken);
+        var result = await commandDispatcher.SendAsync(new SwitchActiveCompanyCommand(companyPublicId), cancellationToken);
         return this.ToActionResult(result);
     }
 

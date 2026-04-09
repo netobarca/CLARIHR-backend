@@ -24,6 +24,11 @@ public static class AccountCompanyErrors
         "You do not have permission to manage this company.",
         ErrorType.Forbidden);
 
+    public static readonly Error MasterPlanForbidden = new(
+        "ACCOUNT_COMPANY_SUBSCRIPTION_MASTER_FORBIDDEN",
+        "The MASTER subscription is reserved for CLARI operators.",
+        ErrorType.Forbidden);
+
     public static readonly Error CompanyLimitReached = new(
         "COMPANY_LIMIT_REACHED",
         "The current account cannot create additional active companies.",

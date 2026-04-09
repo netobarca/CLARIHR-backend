@@ -46,7 +46,7 @@ public sealed class CompanyUsersController(
                 request.Email,
                 request.FirstName,
                 request.LastName,
-                request.RolePublicId),
+                request.RolePublicIds),
             cancellationToken);
 
         if (result.IsFailure)
@@ -76,7 +76,7 @@ public sealed class CompanyUsersController(
                 userId,
                 request.FirstName,
                 request.LastName,
-                request.RolePublicId),
+                request.RolePublicIds),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -133,10 +133,10 @@ public sealed class CompanyUsersController(
         string Email,
         string FirstName,
         string LastName,
-        Guid RolePublicId);
+        IReadOnlyCollection<Guid> RolePublicIds);
 
     public sealed record UpdateCompanyUserRequest(
         string FirstName,
         string LastName,
-        Guid RolePublicId);
+        IReadOnlyCollection<Guid> RolePublicIds);
 }

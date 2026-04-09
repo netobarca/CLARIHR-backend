@@ -1,4 +1,7 @@
 using CLARIHR.Application.Features.Provisioning.Common;
+using CLARIHR.Domain.Companies;
+using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Infrastructure;
 using CLARIHR.Infrastructure.Persistence;
@@ -84,6 +87,72 @@ public sealed class RbacCatalogBackfillIntegrationTests(IntegrationTestWebApplic
 
         Assert.All(CompanyUserPermissionCodes, code => Assert.Contains(code, repairedCodes));
         Assert.Equal(tenantPermissionCount, repairedAdminRole.PermissionAssignments.Count);
+    }
+
+    [Fact]
+    public async Task InfrastructureInitialization_ShouldRestoreFreePlanModules_ForLegacyFreeTenants()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+
+        using (var mutationScope = factory.Services.CreateScope())
+        {
+            var dbContext = mutationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var freePlan = await dbContext.CommercialPlans
+                .Include(plan => plan.Entitlements)
+                .SingleAsync(plan => plan.NormalizedCode == ProvisioningConstants.FreePlanCode);
+
+            var entitlementsToRemove = freePlan.Entitlements
+                .Where(entitlement =>
+                    entitlement.ModuleKey == CommercialModuleKeys.Rbac ||
+                    entitlement.ModuleKey == CommercialModuleKeys.PersonnelFiles)
+                .ToArray();
+
+            dbContext.PlanEntitlements.RemoveRange(entitlementsToRemove);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var rolesClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.SecurityAdminUserId,
+                scenario.TenantId,
+                IdentityPermissionCodes.ManageAdministration));
+        var customFieldsClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.SecurityAdminUserId,
+                scenario.TenantId,
+                PersonnelFilePermissionCodes.Read));
+
+        var rolesDeniedResponse = await rolesClient.GetAsync("/api/iam/roles?pageNumber=1&pageSize=20");
+        var customFieldsDeniedResponse = await customFieldsClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-custom-field-definitions");
+
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, rolesDeniedResponse.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, customFieldsDeniedResponse.StatusCode);
+
+        await factory.Services.InitializeInfrastructureAsync(NullLogger.Instance);
+
+        using (var verificationScope = factory.Services.CreateScope())
+        {
+            var dbContext = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var freePlanModules = await dbContext.PlanEntitlements
+                .AsNoTracking()
+                .Where(entitlement =>
+                    entitlement.PlanCode == ProvisioningConstants.FreePlanCode &&
+                    entitlement.IsEnabled)
+                .Select(entitlement => entitlement.ModuleKey)
+                .ToListAsync();
+
+            Assert.Equal(
+                CommercialModuleCatalog.DefaultFreeModuleKeys.OrderBy(static moduleKey => moduleKey, StringComparer.Ordinal),
+                freePlanModules.OrderBy(static moduleKey => moduleKey, StringComparer.Ordinal));
+        }
+
+        var rolesRecoveredResponse = await rolesClient.GetAsync("/api/iam/roles?pageNumber=1&pageSize=20");
+        var customFieldsRecoveredResponse = await customFieldsClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/personnel-custom-field-definitions");
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, rolesRecoveredResponse.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, customFieldsRecoveredResponse.StatusCode);
     }
 
     private static async Task<IamRole> LoadAdminRoleAsync(ApplicationDbContext dbContext, Guid tenantId)

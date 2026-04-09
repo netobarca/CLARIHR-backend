@@ -109,8 +109,7 @@ internal sealed class DeactivateCompanyUserCommandHandler(
                         currentState.Email ?? user.Email,
                         currentState.FirstName ?? user.FirstName,
                         currentState.LastName ?? user.LastName,
-                        currentState.RoleId ?? Guid.Empty,
-                        currentState.Role ?? string.Empty,
+                        currentState.Roles,
                         beforeStatus,
                         beforeMembershipStatus),
                 CompanyUserAuditMapper.CreateSnapshot(
@@ -118,8 +117,7 @@ internal sealed class DeactivateCompanyUserCommandHandler(
                     currentState?.Email ?? user.Email,
                     currentState?.FirstName ?? user.FirstName,
                     currentState?.LastName ?? user.LastName,
-                    currentState?.RoleId ?? Guid.Empty,
-                    currentState?.Role ?? string.Empty,
+                    currentState?.Roles ?? Array.Empty<CompanyUserRoleResponse>(),
                     user.Status.ToString(),
                     membership.Status.ToString()),
                 CompanyUserAuditMapper.CreateStatusDiff(

@@ -32,7 +32,6 @@ public sealed class PositionSlot : TenantEntity
 
         ValidateCapacity(maxEmployees, occupiedEmployees);
         ValidateDateRange(effectiveFromUtc, effectiveToUtc);
-        ValidateStatusConsistency(status, occupiedEmployees);
 
         PublicId = publicId;
         SetCode(code);
@@ -48,7 +47,11 @@ public sealed class PositionSlot : TenantEntity
         EffectiveFromUtc = effectiveFromUtc;
         EffectiveToUtc = effectiveToUtc;
         Notes = PositionSlotNormalization.CleanOptional(notes);
-        IsActive = status != PositionSlotStatus.Suspended;
+        
+        EnsureStatusConsistency();
+        ValidateCapacity(MaxEmployees, OccupiedEmployees);
+
+        IsActive = Status != PositionSlotStatus.Suspended;
         ConcurrencyToken = Guid.NewGuid();
     }
 
@@ -196,10 +199,10 @@ public sealed class PositionSlot : TenantEntity
 
     public void ChangeStatus(PositionSlotStatus status)
     {
-        ValidateStatusConsistency(status, OccupiedEmployees);
-
         Status = status;
-        IsActive = status != PositionSlotStatus.Suspended;
+        EnsureStatusConsistency();
+        
+        IsActive = Status != PositionSlotStatus.Suspended;
         RefreshConcurrencyToken();
     }
 
@@ -248,16 +251,15 @@ public sealed class PositionSlot : TenantEntity
         }
     }
 
-    private static void ValidateStatusConsistency(PositionSlotStatus status, int occupiedEmployees)
+    private void EnsureStatusConsistency()
     {
-        if (status == PositionSlotStatus.Vacant && occupiedEmployees != 0)
+        if (Status == PositionSlotStatus.Vacant && OccupiedEmployees != 0)
         {
-            throw new InvalidOperationException("Vacant status requires OccupiedEmployees equal to zero.");
+            OccupiedEmployees = 0;
         }
-
-        if (status == PositionSlotStatus.Occupied && occupiedEmployees == 0)
+        else if (Status == PositionSlotStatus.Occupied && OccupiedEmployees == 0)
         {
-            throw new InvalidOperationException("Occupied status requires OccupiedEmployees greater than zero.");
+            OccupiedEmployees = 1;
         }
     }
 

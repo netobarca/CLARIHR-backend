@@ -3,12 +3,15 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.Auth.Common;
+using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Infrastructure.Auth;
 using CLARIHR.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -189,6 +192,7 @@ public sealed class JwtTokenServiceTests
             new FixedDateTimeProvider(new DateTime(2026, 2, 28, 18, 0, 0, DateTimeKind.Utc)),
             userRepository,
             userCompanyRepository,
+            new TestIamAdministrationRepository(),
             refreshTokenRepository,
             new RefreshTokenHasher(),
             NullLogger<JwtTokenService>.Instance);
@@ -357,6 +361,85 @@ public sealed class JwtTokenServiceTests
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class TestIamAdministrationRepository : IIamAdministrationRepository
+    {
+        public void AddUser(IamUser user) => throw new NotSupportedException();
+
+        public void AddRole(IamRole role) => throw new NotSupportedException();
+
+        public void RemoveRole(IamRole role) => throw new NotSupportedException();
+
+        public void AddPermission(IamPermission permission) => throw new NotSupportedException();
+
+        public Task<bool> UserEmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task<bool> RoleNameExistsAsync(string normalizedRoleName, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task<bool> UserPublicIdExistsAsync(Guid userId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task<bool> RolePublicIdExistsAsync(Guid roleId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task<IamUser?> FindUserByPublicIdAsync(Guid userId, bool includeRoles, CancellationToken cancellationToken) =>
+            Task.FromResult<IamUser?>(null);
+
+        public Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(
+            Guid tenantId,
+            Guid linkedUserPublicId,
+            bool includeRoles,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IamUser?>(null);
+
+        public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) =>
+            Task.FromResult<IamRole?>(null);
+
+        public Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamRole>>([]);
+
+        public Task<IReadOnlyList<IamUser>> GetUsersByPublicIdsAsync(IReadOnlyCollection<Guid> userIds, bool includeRoles, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamUser>>([]);
+
+        public Task<IReadOnlyList<IamUser>> GetUsersAssignedToRoleAsync(Guid roleId, bool includeRoles, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamUser>>([]);
+
+        public Task<IReadOnlyList<IamUser>> GetActiveUsersAsync(bool includeRoles, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamUser>>([]);
+
+        public Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>([]);
+
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByNormalizedCodesAsync(
+            IReadOnlyCollection<string> normalizedPermissionCodes,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamPermission>>([]);
+
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByPublicIdsAsync(
+            IReadOnlyCollection<Guid> permissionIds,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamPermission>>([]);
+
+        public Task<PagedResponse<IamUserSummaryResponse>> GetUsersAsync(
+            int pageNumber,
+            int pageSize,
+            string? search,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IamUserResponse?> GetUserAsync(Guid userId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<PagedResponse<IamRoleSummaryResponse>> GetRolesAsync(
+            int pageNumber,
+            int pageSize,
+            string? search,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IamRoleResponse?> GetRoleAsync(Guid roleId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(0);
     }
 
 }

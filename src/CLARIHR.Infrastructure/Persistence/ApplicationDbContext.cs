@@ -80,15 +80,7 @@ public sealed class ApplicationDbContext(
 
     public DbSet<IamRolePermissionAssignment> IamRolePermissionAssignments => Set<IamRolePermissionAssignment>();
 
-    public DbSet<RbacResource> RbacResources => Set<RbacResource>();
-
-    public DbSet<RbacPermissionAuditLog> RbacPermissionAuditLogs => Set<RbacPermissionAuditLog>();
-
-    public DbSet<FieldCatalogEntry> FieldCatalogEntries => Set<FieldCatalogEntry>();
-
     public DbSet<RoleFieldPermission> RoleFieldPermissions => Set<RoleFieldPermission>();
-
-    public DbSet<FieldPermissionAuditLog> FieldPermissionAuditLogs => Set<FieldPermissionAuditLog>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
