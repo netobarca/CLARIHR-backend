@@ -3921,6 +3921,7 @@ paths:
         - account-company-subscriptions
       operationId: ChangeOwnedCompanySubscription
       summary: Apply an immediate owner-initiated plan change
+      description: Applies an immediate owner-driven plan replacement. Downgrading to `FREE` deactivates active add-ons in the same transaction; `MASTER` remains reserved for CLARI operators and returns `403` for regular owners.
       security:
         - Bearer: []
       parameters:
@@ -3956,7 +3957,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user does not own the company.
+          description: The authenticated user does not own the company or is not allowed to target the reserved `MASTER` plan.
           content:
             application/problem+json:
               schema:
@@ -3979,6 +3980,7 @@ paths:
         - account-company-subscriptions
       operationId: GetOwnedCompanySubscriptionPlans
       summary: List active commercial plans visible to the owner
+      description: Returns active plans visible to the authenticated owner. `FREE` remains visible for controlled downgrades, while `MASTER` is listed only when the same actor also has an active `PlatformOperator`.
       security:
         - Bearer: []
       parameters:
@@ -4004,7 +4006,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user does not own the company.
+          description: The authenticated user does not own the company or is not allowed to target the reserved `MASTER` plan.
           content:
             application/problem+json:
               schema:
@@ -4021,6 +4023,7 @@ paths:
         - account-company-subscriptions
       operationId: PreviewOwnedCompanySubscriptionPlanChange
       summary: Preview an immediate owner-initiated plan change
+      description: Computes the immediate plan-change preview for an owned company. `MASTER` is reserved for CLARI operators and returns `403` when the authenticated owner does not also have an active `PlatformOperator`.
       security:
         - Bearer: []
       parameters:
@@ -4056,7 +4059,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user does not own the company.
+          description: The authenticated user does not own the company or is not allowed to target the reserved `MASTER` plan.
           content:
             application/problem+json:
               schema:
@@ -4899,7 +4902,7 @@ paths:
         - commercial-plans
       operationId: SearchCommercialPlans
       summary: List global commercial plans
-      description: Returns the paged catalog of global commercial plans. Requires an authenticated platform token and does not depend on tenant context.
+      description: Returns the paged catalog of global commercial plans. Requires an authenticated platform token, does not depend on tenant context, and includes the protected system plans `FREE` and `MASTER`.
       security:
         - Bearer: []
       parameters:
@@ -4961,7 +4964,7 @@ paths:
         - commercial-plans
       operationId: CreateCommercialPlan
       summary: Create a global commercial plan
-      description: Creates a reusable global commercial plan for future company subscriptions. Requires an authenticated platform token with admin access and does not depend on tenant context.
+      description: Creates a reusable global commercial plan for future company subscriptions. Requires an authenticated platform token with admin access and does not depend on tenant context. System plans `FREE` and `MASTER` remain seeded and protected.
       security:
         - Bearer: []
       requestBody:
@@ -5046,6 +5049,7 @@ paths:
         - commercial-plans
       operationId: UpdateCommercialPlan
       summary: Update a global commercial plan
+      description: Updates the editable commercial metadata, modules, and limits for a global plan. For the protected system plan `MASTER`, the backend always persists the full commercial module catalog even if a smaller `moduleKeys` set is sent.
       security:
         - Bearer: []
       parameters:
@@ -5162,6 +5166,7 @@ paths:
         - commercial-plans
       operationId: InactivateCommercialPlan
       summary: Inactivate a global commercial plan
+      description: Inactivates an editable commercial plan. Protected system plans such as `FREE` and `MASTER` cannot be inactivated.
       security:
         - Bearer: []
       parameters:
@@ -6528,7 +6533,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
-          description: The selected job profile does not resolve an org unit, contract type or valid active cost center derived from its org unit.
+          description: The selected job profile does not resolve an org unit or a valid active cost center derived from its org unit.
           content:
             application/problem+json:
               schema:
@@ -6593,7 +6598,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
-          description: The selected job profile does not resolve an org unit, contract type or valid active cost center derived from its org unit.
+          description: The selected job profile does not resolve an org unit or a valid active cost center derived from its org unit.
           content:
             application/problem+json:
               schema:

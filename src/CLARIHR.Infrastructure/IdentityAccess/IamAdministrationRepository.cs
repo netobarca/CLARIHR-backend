@@ -18,16 +18,11 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
 
     public void AddPermission(IamPermission permission) => dbContext.IamPermissions.Add(permission);
 
-    public void AddPermissionAuditLog(RbacPermissionAuditLog auditLog) => dbContext.RbacPermissionAuditLogs.Add(auditLog);
-
     public Task<bool> UserEmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) =>
         dbContext.IamUsers.AnyAsync(user => user.NormalizedEmail == normalizedEmail, cancellationToken);
 
     public Task<bool> RoleNameExistsAsync(string normalizedRoleName, CancellationToken cancellationToken) =>
         dbContext.IamRoles.AnyAsync(role => role.NormalizedName == normalizedRoleName, cancellationToken);
-
-    public Task<bool> PermissionCodeExistsAsync(string normalizedPermissionCode, CancellationToken cancellationToken) =>
-        dbContext.IamPermissions.AnyAsync(permission => permission.NormalizedCode == normalizedPermissionCode, cancellationToken);
 
     public Task<bool> UserPublicIdExistsAsync(Guid userId, CancellationToken cancellationToken) =>
         dbContext.IamUsers
@@ -38,11 +33,6 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
         dbContext.IamRoles
             .IgnoreQueryFilters()
             .AnyAsync(role => role.PublicId == roleId, cancellationToken);
-
-    public Task<bool> PermissionPublicIdExistsAsync(Guid permissionId, CancellationToken cancellationToken) =>
-        dbContext.IamPermissions
-            .IgnoreQueryFilters()
-            .AnyAsync(permission => permission.PublicId == permissionId, cancellationToken);
 
     public Task<IamUser?> FindUserByPublicIdAsync(Guid userId, bool includeRoles, CancellationToken cancellationToken)
     {
@@ -93,9 +83,6 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
 
         return query.SingleOrDefaultAsync(role => role.PublicId == roleId, cancellationToken);
     }
-
-    public Task<IamPermission?> FindPermissionByPublicIdAsync(Guid permissionId, CancellationToken cancellationToken) =>
-        dbContext.IamPermissions.SingleOrDefaultAsync(permission => permission.PublicId == permissionId, cancellationToken);
 
     public async Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(
         IReadOnlyCollection<Guid> roleIds,
@@ -330,115 +317,6 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
                         assignment.Permission.FieldAccess))
                     .ToArray()))
             .SingleOrDefaultAsync(cancellationToken);
-
-    public async Task<PagedResponse<IamPermissionSummaryResponse>> GetPermissionsAsync(
-        int pageNumber,
-        int pageSize,
-        string? search,
-        CancellationToken cancellationToken)
-    {
-        var query = dbContext.IamPermissions.AsNoTracking();
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var normalizedSearch = Normalize(search);
-            query = query.Where(permission =>
-                permission.NormalizedCode.Contains(normalizedSearch) ||
-                permission.NormalizedModule.Contains(normalizedSearch) ||
-                permission.NormalizedScreen.Contains(normalizedSearch) ||
-                permission.Name.ToUpper().Contains(normalizedSearch));
-        }
-
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .OrderBy(permission => permission.Module)
-            .ThenBy(permission => permission.Screen)
-            .ThenBy(permission => permission.Code)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .Select(permission => new IamPermissionSummaryResponse(
-                permission.PublicId,
-                permission.Code,
-                permission.Name,
-                permission.Description,
-                permission.Module,
-                permission.Screen,
-                permission.Kind,
-                permission.Action,
-                permission.FieldName,
-                permission.FieldAccess))
-            .ToListAsync(cancellationToken);
-
-        return new PagedResponse<IamPermissionSummaryResponse>(items, pageNumber, pageSize, totalCount);
-    }
-
-    public Task<IamPermissionResponse?> GetPermissionAsync(Guid permissionId, CancellationToken cancellationToken) =>
-        dbContext.IamPermissions
-            .AsNoTracking()
-            .Where(permission => permission.PublicId == permissionId)
-            .Select(permission => new IamPermissionResponse(
-                permission.PublicId,
-                permission.Code,
-                permission.Name,
-                permission.Description,
-                permission.Module,
-                permission.Screen,
-                permission.Kind,
-                permission.Action,
-                permission.FieldName,
-                permission.FieldAccess))
-            .SingleOrDefaultAsync(cancellationToken);
-
-    public async Task<IReadOnlyList<RbacResource>> GetActiveRbacResourcesAsync(CancellationToken cancellationToken)
-    {
-        return await dbContext.RbacResources
-            .AsNoTracking()
-            .Where(resource => resource.IsActive)
-            .OrderBy(resource => resource.DisplayName)
-            .ToListAsync(cancellationToken);
-    }
-
-    public async Task<PagedResponse<RbacPermissionAuditLog>> GetPermissionAuditLogsAsync(
-        Guid? roleId,
-        string? normalizedResourceKey,
-        DateTime? fromUtc,
-        DateTime? toUtc,
-        int pageNumber,
-        int pageSize,
-        CancellationToken cancellationToken)
-    {
-        var query = dbContext.RbacPermissionAuditLogs.AsNoTracking();
-
-        if (roleId.HasValue)
-        {
-            query = query.Where(log => log.RolePublicId == roleId.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(normalizedResourceKey))
-        {
-            query = query.Where(log => log.NormalizedResourceKey == normalizedResourceKey);
-        }
-
-        if (fromUtc.HasValue)
-        {
-            query = query.Where(log => log.ChangedAtUtc >= fromUtc.Value);
-        }
-
-        if (toUtc.HasValue)
-        {
-            query = query.Where(log => log.ChangedAtUtc <= toUtc.Value);
-        }
-
-        var totalCount = await query.CountAsync(cancellationToken);
-        var items = await query
-            .OrderByDescending(log => log.ChangedAtUtc)
-            .ThenByDescending(log => log.Id)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        return new PagedResponse<RbacPermissionAuditLog>(items, pageNumber, pageSize, totalCount);
-    }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);

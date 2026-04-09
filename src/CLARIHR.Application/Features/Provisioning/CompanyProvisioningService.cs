@@ -41,7 +41,7 @@ internal sealed class CompanyProvisioningService(
             return Result<ProvisionedCompanyResult>.Failure(ProvisioningErrors.UserNotFound);
         }
 
-        await planEntitlementService.EnsureFreePlanDefaultsAsync(cancellationToken);
+        await planEntitlementService.EnsureSystemPlanDefaultsAsync(cancellationToken);
 
         var freePlan = await commercialPlanRepository.GetByNormalizedCodeAsync(
             ProvisioningConstants.FreePlanCode.ToUpperInvariant(),
@@ -98,8 +98,9 @@ internal sealed class CompanyProvisioningService(
 
         var adminPermissions = CreateAdminPermissions(company.PublicId);
         var matrixPermissions = CreateMatrixPermissions(company.PublicId);
+        var tenantPermissions = adminPermissions.Concat(matrixPermissions).ToArray();
 
-        foreach (var permission in adminPermissions.Concat(matrixPermissions))
+        foreach (var permission in tenantPermissions)
         {
             iamRepository.AddPermission(permission);
         }
@@ -111,7 +112,7 @@ internal sealed class CompanyProvisioningService(
             "Administrador inicial del tenant.",
             isSystemRole: true);
         adminRole.SetTenantId(company.PublicId);
-        adminRole.SyncPermissions(adminPermissions);
+        adminRole.SyncPermissions(tenantPermissions);
         StampTenant(adminRole.PermissionAssignments, company.PublicId);
 
         var standardRole = IamRole.Create(

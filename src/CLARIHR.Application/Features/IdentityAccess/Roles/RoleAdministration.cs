@@ -3,7 +3,6 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
-using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
@@ -527,8 +526,7 @@ internal sealed class SyncIamRolePermissionsCommandHandler(
     IIamAdministrationRepository repository,
     IIamAdministrationAuthorizationService authorizationService,
     ICurrentUserService currentUserService,
-    ITenantContext tenantContext,
-    IDateTimeProvider dateTimeProvider,
+    IAuditService auditService,
     ILogger<SyncIamRolePermissionsCommandHandler> logger)
     : ICommandHandler<SyncIamRolePermissionsCommand, IamRoleResponse>
 {
@@ -577,46 +575,53 @@ internal sealed class SyncIamRolePermissionsCommandHandler(
         var currentPermissions = role.PermissionAssignments
             .Select(static assignment => assignment.Permission)
             .ToArray();
-        var beforeStates = RbacPermissionChangeTracker.CaptureStates(currentPermissions);
         var activeUsers = await repository.GetActiveUsersAsync(includeRoles: true, cancellationToken);
         if (RoleAdministrationGuards.WouldRemoveLastRbacSecurityAdministrator(role, permissions, activeUsers))
         {
             return Result<IamRoleResponse>.Failure(IdentityAccessErrors.LastAdministratorRequired);
         }
 
+        var beforeSnapshot = IdentityAccessAuditMapper.CreateRoleSnapshot(
+            role.PublicId,
+            role.Name,
+            role.Description,
+            role.IsSystemRole,
+            currentPermissions);
         var currentPermissionCodes = role.PermissionAssignments
             .Select(static assignment => assignment.Permission.NormalizedCode)
             .ToHashSet(StringComparer.Ordinal);
-        var afterStates = RbacPermissionChangeTracker.CaptureStates(permissions);
-        var changedScreens = PermissionMatrixCatalog.Screens
-            .Where(definition => beforeStates[definition.ScreenKey] != afterStates[definition.ScreenKey])
-            .Select(static definition => definition.ScreenKey)
-            .ToArray();
-        var auditLogs = RbacPermissionChangeTracker.CreateAuditLogs(
-            role.PublicId,
-            actorUserId.Value,
-            dateTimeProvider.UtcNow,
-            changedScreens,
-            beforeStates,
-            afterStates);
 
         role.SyncPermissions(permissions);
-        foreach (var auditLog in auditLogs)
-        {
-            repository.AddPermissionAuditLog(auditLog);
-        }
-
-        _ = await repository.SaveChangesAsync(cancellationToken);
 
         var updatedPermissionCodes = permissions
             .Select(static permission => permission.NormalizedCode)
             .ToHashSet(StringComparer.Ordinal);
+        var afterSnapshot = IdentityAccessAuditMapper.CreateRoleSnapshot(
+            role.PublicId,
+            role.Name,
+            role.Description,
+            role.IsSystemRole,
+            permissions);
+
+        await auditService.LogAsync(
+            new AuditLogEntry(
+                AuditEventTypes.RoleResourcePermissionsUpdated,
+                AuditEntityTypes.Role,
+                role.PublicId,
+                EntityKey: role.Name,
+                AuditActions.Update,
+                $"Updated grants for role {role.Name}.",
+                Before: beforeSnapshot,
+                After: afterSnapshot,
+                Diff: CreateRolePermissionDiff(currentPermissionCodes, updatedPermissionCodes)),
+            cancellationToken);
+
+        _ = await repository.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation(
-            "RBAC role permissions updated for role {RoleId} by {ActorUserId} in tenant {TenantId}. Added {AddedPermissionCodes}. Removed {RemovedPermissionCodes}",
+            "Authorization grants updated for role {RoleId} by {ActorUserId}. Added {AddedPermissionCodes}. Removed {RemovedPermissionCodes}",
             role.PublicId,
             currentUserService.UserId,
-            tenantContext.TenantId,
             updatedPermissionCodes.Except(currentPermissionCodes, StringComparer.Ordinal).ToArray(),
             currentPermissionCodes.Except(updatedPermissionCodes, StringComparer.Ordinal).ToArray());
 
@@ -628,6 +633,16 @@ internal sealed class SyncIamRolePermissionsCommandHandler(
 
     private static Guid? TryParseCurrentUserId(string? currentUserId) =>
         Guid.TryParse(currentUserId, out var actorUserId) ? actorUserId : null;
+
+    private static IReadOnlyDictionary<string, object> CreateRolePermissionDiff(
+        IReadOnlyCollection<string> beforePermissionCodes,
+        IReadOnlyCollection<string> afterPermissionCodes) =>
+        new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["permissionCodes"] = AuditPayloads.Change(
+                beforePermissionCodes.OrderBy(static code => code).ToArray(),
+                afterPermissionCodes.OrderBy(static code => code).ToArray())
+        };
 }
 
 internal sealed class SyncIamRoleUsersCommandHandler(

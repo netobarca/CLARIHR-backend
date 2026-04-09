@@ -8,6 +8,8 @@ La estrategia de pruebas del backend es mejor de lo que reflejaba la version ant
 - `6` integration tests dirigidos aprobados para Platform Backoffice API de suscripciones empresariales
 - `7` unit tests dirigidos aprobados para catalogos internos globales
 - `5` integration tests dirigidos aprobados para catalogos internos globales y autopoblado desde `JobProfiles`
+- `20` unit tests dirigidos aprobados para gobernanza comercial de planes y provisioning owner, incluyendo el guard de `MASTER`
+- `9` integration tests dirigidos aprobados para seeds/migraciones comerciales y visibilidad owner/backoffice de `FREE` y `MASTER`
 - `dotnet build` limpio con `0 warnings`
 - el suite completo aun conserva fallas previas no relacionadas en normalizacion y algunos escenarios legacy de integracion
 
@@ -74,7 +76,7 @@ Hay pruebas de tenant mismatch y permisos en modulos sensibles, incluyendo audit
 
 ### 3.3 El flujo global de plataforma si esta ejercitado
 
-`BackofficeCommercialAddonsIntegrationTests`, `BackofficeCommercialPlansIntegrationTests`, `BackofficeCompanySubscriptionsIntegrationTests` y `PlatformAuthenticationIntegrationTests` ejercitan el login del backoffice, el CRUD de add-ons y planes globales, el reemplazo de suscripciones empresariales, la separacion de audiencias `core/platform`, el rol `ReadOnly` y la auditoria durable de plataforma en writes globales. Desde HU-BILL-007 y HU-BILL-010, esa cobertura de suscripciones tambien valida suspension, preview de reactivacion, reactivacion inmediata o programada, `pendingStatusChange` en overview, conflicto por duplicado pendiente, consulta de historial de estados, expiracion automatica y bloqueo de cambios manuales para operadores `ReadOnly`. Desde HU-BILL-004, la cobertura de add-ons incluye configuraciones `Massive` y `Specialized`, filtros por `type` y `billingModel`, y compatibilidad de lectura para filas masivas preexistentes.
+`BackofficeCommercialAddonsIntegrationTests`, `BackofficeCommercialPlansIntegrationTests`, `BackofficeCompanySubscriptionsIntegrationTests`, `AccountCompanySubscriptionsIntegrationTests` y `PlatformAuthenticationIntegrationTests` ejercitan el login del backoffice, el CRUD de add-ons y planes globales, el reemplazo de suscripciones empresariales, la separacion de audiencias `core/platform`, el rol `ReadOnly` y la auditoria durable de plataforma en writes globales. Desde HU-BILL-007 y HU-BILL-010, esa cobertura de suscripciones tambien valida suspension, preview de reactivacion, reactivacion inmediata o programada, `pendingStatusChange` en overview, conflicto por duplicado pendiente, consulta de historial de estados, expiracion automatica y bloqueo de cambios manuales para operadores `ReadOnly`. La remediacion de abril agrega coverage explicita para seeds/migraciones de `FREE` y `MASTER`, visibilidad owner filtrada por `PlatformOperator`, rechazo `403` del plan `MASTER` para owners normales y proteccion de `MASTER` contra recortes manuales de `moduleKeys`. Desde HU-BILL-004, la cobertura de add-ons incluye configuraciones `Massive` y `Specialized`, filtros por `type` y `billingModel`, y compatibilidad de lectura para filas masivas preexistentes.
 
 ### 3.4 Los catalogos internos globales ya tienen cobertura dirigida
 

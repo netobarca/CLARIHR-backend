@@ -80,7 +80,7 @@ public sealed class PositionSlotDomainTests
     }
 
     [Fact]
-    public void PositionSlot_ChangeStatus_WhenInvalidForOccupancy_ShouldThrow()
+    public void PositionSlot_ChangeStatus_ShouldAutoCorrectOccupancy()
     {
         var slot = PositionSlot.Create(
             code: "PS-001",
@@ -97,7 +97,15 @@ public sealed class PositionSlotDomainTests
             effectiveToUtc: null,
             notes: null);
 
-        Assert.Throws<InvalidOperationException>(() => slot.ChangeStatus(PositionSlotStatus.Vacant));
+        slot.ChangeStatus(PositionSlotStatus.Vacant);
+
+        Assert.Equal(PositionSlotStatus.Vacant, slot.Status);
+        Assert.Equal(0, slot.OccupiedEmployees);
+
+        slot.ChangeStatus(PositionSlotStatus.Occupied);
+
+        Assert.Equal(PositionSlotStatus.Occupied, slot.Status);
+        Assert.Equal(1, slot.OccupiedEmployees);
     }
 
     [Fact]

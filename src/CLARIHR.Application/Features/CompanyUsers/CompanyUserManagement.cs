@@ -5,13 +5,18 @@ using CLARIHR.Domain.Auth;
 
 namespace CLARIHR.Application.Features.CompanyUsers;
 
+public sealed record CompanyUserRoleResponse(
+    Guid Id,
+    string Name,
+    string? Description,
+    bool IsSystemRole);
+
 public sealed record CompanyUserSummaryResponse(
     Guid Id,
     string? Email,
     string? FirstName,
     string? LastName,
-    Guid? RoleId,
-    string? Role,
+    IReadOnlyCollection<CompanyUserRoleResponse> Roles,
     UserStatus? Status,
     AllowedActionsResponse? AllowedActions = null);
 
@@ -20,8 +25,7 @@ public sealed record CompanyUserResponse(
     string? Email,
     string? FirstName,
     string? LastName,
-    Guid? RoleId,
-    string? Role,
+    IReadOnlyCollection<CompanyUserRoleResponse> Roles,
     UserStatus? Status);
 
 public sealed record CompanyUserInvitationResponse(
@@ -40,13 +44,13 @@ public sealed record CreateCompanyUserCommand(
     string Email,
     string FirstName,
     string LastName,
-    Guid RoleId) : ICommand<CompanyUserInvitationResponse>;
+    IReadOnlyCollection<Guid> RoleIds) : ICommand<CompanyUserInvitationResponse>;
 
 public sealed record UpdateCompanyUserCommand(
     Guid UserId,
     string FirstName,
     string LastName,
-    Guid RoleId) : ICommand<CompanyUserResponse>;
+    IReadOnlyCollection<Guid> RoleIds) : ICommand<CompanyUserResponse>;
 
 public sealed record DeactivateCompanyUserCommand(Guid UserId) : ICommand<CompanyUserResponse>;
 

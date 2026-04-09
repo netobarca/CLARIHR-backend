@@ -5,6 +5,11 @@ namespace CLARIHR.Application.Features.Provisioning.Common;
 public static class ProvisioningConstants
 {
     public const string FreePlanCode = "FREE";
+    public const string MasterPlanCode = "MASTER";
+    public const string FreePlanName = "Free";
+    public const string MasterPlanName = "Master";
+    public const string FreePlanDescription = "Public baseline commercial plan used during standard provisioning.";
+    public const string MasterPlanDescription = "Internal master commercial plan reserved for CLARI operators.";
     public const string RbacModuleKey = CommercialModuleKeys.Rbac;
     public const string UsersModuleKey = CommercialModuleKeys.Users;
     public const string OrgStructureCatalogsModuleKey = CommercialModuleKeys.OrgStructureCatalogs;
@@ -22,6 +27,8 @@ public static class ProvisioningConstants
     public const string StandardUserRoleName = "Usuario Estándar";
 
     public static readonly string[] FreePlanEnabledModules = CommercialModuleCatalog.DefaultFreeModuleKeys.ToArray();
+    public static readonly string[] MasterPlanEnabledModules = CommercialModuleCatalog.DefaultMasterModuleKeys.ToArray();
+    public static readonly string[] EnterpriseLegacyPlanAliases = ["ENTERPRISE_LEGACY", "ENTERPRISE-LEGACY", "ENTERPRISE LEGACY"];
 
     public static readonly ProvisioningPermissionDefinition[] CompanyAdminPermissions =
     [

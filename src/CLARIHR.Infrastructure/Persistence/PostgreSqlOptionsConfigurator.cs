@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace CLARIHR.Infrastructure.Persistence;
 
@@ -14,7 +15,9 @@ internal static class PostgreSqlOptionsConfigurator
             return;
         }
 
-        if (TryUseNpgsql(optionsBuilder, connectionString))
+        var normalizedConnectionString = NormalizeConnectionString(connectionString);
+
+        if (TryUseNpgsql(optionsBuilder, normalizedConnectionString))
         {
             return;
         }
@@ -72,5 +75,51 @@ internal static class PostgreSqlOptionsConfigurator
         {
             return false;
         }
+    }
+
+    private static string NormalizeConnectionString(string connectionString)
+    {
+        try
+        {
+            var builder = new NpgsqlConnectionStringBuilder(connectionString);
+            if (!ShouldForceSsl(builder, connectionString))
+            {
+                return builder.ConnectionString;
+            }
+
+            builder.SslMode = SslMode.Require;
+
+            return builder.ConnectionString;
+        }
+        catch (ArgumentException)
+        {
+            return connectionString;
+        }
+    }
+
+    private static bool ShouldForceSsl(NpgsqlConnectionStringBuilder builder, string connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(builder.Host) || IsLocalHost(builder.Host))
+        {
+            return false;
+        }
+
+        return !ContainsKey(connectionString, "Ssl Mode") &&
+               !ContainsKey(connectionString, "SslMode");
+    }
+
+    private static bool ContainsKey(string connectionString, string key) =>
+        connectionString.Contains($"{key}=", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsLocalHost(string host)
+    {
+        if (host.StartsWith('/'))
+        {
+            return true;
+        }
+
+        return string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(host, "::1", StringComparison.OrdinalIgnoreCase);
     }
 }

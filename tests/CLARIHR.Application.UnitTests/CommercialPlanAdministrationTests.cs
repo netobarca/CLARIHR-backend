@@ -10,6 +10,7 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CommercialPlans;
 using CLARIHR.Application.Features.CommercialPlans.Common;
+using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -169,6 +170,51 @@ public sealed class CommercialPlanAdministrationTests
     }
 
     [Fact]
+    public async Task Update_WhenMasterSystemPlanIsTrimmed_ShouldRestoreFullCatalogModules()
+    {
+        var repository = new TestCommercialPlanRepository();
+        var plan = CreatePlan(
+            ProvisioningConstants.MasterPlanCode,
+            ProvisioningConstants.MasterPlanName,
+            CommercialPlanStatus.Active,
+            id: 35,
+            isSystemPlan: true,
+            moduleKeys: [CommercialModuleKeys.Users]);
+        repository.Add(plan);
+
+        var handler = new UpdateCommercialPlanCommandHandler(
+            new TestPlatformAuthorizationService(Result.Success()),
+            repository,
+            new TestPlatformAuditService(),
+            new TestCurrentUserService(),
+            new FixedDateTimeProvider(DateTime.Parse("2026-04-02T12:00:00Z").ToUniversalTime()),
+            new TestUnitOfWork(),
+            NullLogger<UpdateCommercialPlanCommandHandler>.Instance);
+
+        var result = await handler.Handle(
+            new UpdateCommercialPlanCommand(
+                plan.PublicId,
+                ProvisioningConstants.MasterPlanCode,
+                ProvisioningConstants.MasterPlanName,
+                "Internal master plan",
+                0m,
+                0m,
+                [CommercialModuleKeys.Users],
+                [],
+                plan.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(
+            CommercialModuleCatalog.DefaultMasterModuleKeys.OrderBy(static key => key, StringComparer.Ordinal),
+            plan.Entitlements
+                .Where(static entitlement => entitlement.IsEnabled)
+                .Select(static entitlement => entitlement.ModuleKey)
+                .OrderBy(static key => key, StringComparer.Ordinal));
+        Assert.Equal(CommercialModuleCatalog.DefaultMasterModuleKeys.Count, result.Value.ModuleCount);
+    }
+
+    [Fact]
     public async Task Update_WhenSystemPlanCodeOrNameChanges_ShouldReturnConflict()
     {
         var repository = new TestCommercialPlanRepository();
@@ -252,6 +298,7 @@ public sealed class CommercialPlanAdministrationTests
         CommercialPlanStatus status,
         long id,
         bool isSystemPlan = false,
+        IEnumerable<string>? moduleKeys = null,
         IEnumerable<(string LimitCode, decimal Value)>? limits = null)
     {
         var plan = CommercialPlan.Create(
@@ -262,6 +309,7 @@ public sealed class CommercialPlanAdministrationTests
             2m,
             status,
             isSystemPlan,
+            moduleKeys ?? [],
             limits ?? []);
 
         SetEntityId(plan, id);

@@ -48,6 +48,7 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
   `CLARIHR.Backoffice.Api/Program.cs` exige `client_type=platform` en el backoffice y valida una audiencia separada.
   `JwtTokenService.cs` ahora emite tokens `core` y `platform` distintos, sin `tid` en los tokens de plataforma.
   `PlatformOperator` persiste el acceso global de plataforma en base de datos y `PlatformAuthAdministration.cs` lo exige para login y refresh del backoffice.
+  La superficie owner de suscripciones tambien reutiliza `PlatformOperator` para ocultar y bloquear el plan interno `MASTER`; un token `core` de owner por si solo ya no puede ver ni seleccionar ese plan reservado para CLARI.
   `PlatformAuthenticationIntegrationTests` valida que el login core nunca emite privilegios de plataforma, que un usuario sin `PlatformOperator` recibe `PLATFORM_ACCESS_FORBIDDEN`, y que los tokens `core` y `platform` no cruzan APIs.
 - Residual operativo:
   el bootstrap inicial del primer operador ahora depende del comando `bootstrap-platform-operator`; ese paso deja de ser una brecha de runtime, pero requiere control operativo y trazabilidad de quien lo ejecuta.

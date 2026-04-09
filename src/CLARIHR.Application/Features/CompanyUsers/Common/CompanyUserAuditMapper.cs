@@ -7,14 +7,16 @@ namespace CLARIHR.Application.Features.CompanyUsers.Common;
 
 internal static class CompanyUserAuditMapper
 {
-    public static object CreateSnapshot(User user, UserCompanyMembership membership, IamRole role) =>
+    public static object CreateSnapshot(
+        User user,
+        UserCompanyMembership membership,
+        IReadOnlyCollection<IamRole> roles) =>
         CreateSnapshot(
             user.PublicId,
             user.Email,
             user.FirstName,
             user.LastName,
-            role.PublicId,
-            role.Name,
+            MapRoles(roles),
             user.Status.ToString(),
             membership.Status.ToString());
 
@@ -23,8 +25,7 @@ internal static class CompanyUserAuditMapper
         string email,
         string firstName,
         string lastName,
-        Guid roleId,
-        string roleName,
+        IReadOnlyCollection<CompanyUserRoleResponse> roles,
         string status,
         string membershipStatus) =>
         new
@@ -33,8 +34,7 @@ internal static class CompanyUserAuditMapper
             email,
             firstName,
             lastName,
-            roleId,
-            roleName,
+            roles,
             status,
             membershipStatus
         };
@@ -42,15 +42,14 @@ internal static class CompanyUserAuditMapper
     public static object CreateInvitationSnapshot(
         User user,
         UserCompanyMembership membership,
-        IamRole role,
+        IReadOnlyCollection<IamRole> roles,
         DateTime invitationExpiresUtc) =>
         CreateInvitationSnapshot(
             user.PublicId,
             user.Email,
             user.FirstName,
             user.LastName,
-            role.PublicId,
-            role.Name,
+            MapRoles(roles),
             user.Status.ToString(),
             membership.Status.ToString(),
             invitationExpiresUtc);
@@ -60,8 +59,7 @@ internal static class CompanyUserAuditMapper
         string email,
         string firstName,
         string lastName,
-        Guid roleId,
-        string roleName,
+        IReadOnlyCollection<CompanyUserRoleResponse> roles,
         string status,
         string membershipStatus,
         DateTime invitationExpiresUtc) =>
@@ -71,8 +69,7 @@ internal static class CompanyUserAuditMapper
             email,
             firstName,
             lastName,
-            roleId,
-            roleName,
+            roles,
             status,
             membershipStatus,
             invitationExpiresUtc
@@ -83,10 +80,8 @@ internal static class CompanyUserAuditMapper
         string afterFirstName,
         string beforeLastName,
         string afterLastName,
-        Guid beforeRoleId,
-        Guid afterRoleId,
-        string beforeRoleName,
-        string afterRoleName)
+        IReadOnlyCollection<CompanyUserRoleResponse> beforeRoles,
+        IReadOnlyCollection<CompanyUserRoleResponse> afterRoles)
     {
         var diff = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
@@ -100,10 +95,20 @@ internal static class CompanyUserAuditMapper
             diff["lastName"] = AuditPayloads.Change(beforeLastName, afterLastName);
         }
 
-        if (beforeRoleId != afterRoleId)
+        var beforeRoleIds = beforeRoles
+            .Select(static role => role.Id)
+            .OrderBy(static roleId => roleId, Comparer<Guid>.Default)
+            .ToArray();
+        var afterRoleIds = afterRoles
+            .Select(static role => role.Id)
+            .OrderBy(static roleId => roleId, Comparer<Guid>.Default)
+            .ToArray();
+
+        if (!beforeRoleIds.SequenceEqual(afterRoleIds))
         {
-            diff["roleId"] = AuditPayloads.Change(beforeRoleId, afterRoleId);
-            diff["roleName"] = AuditPayloads.Change(beforeRoleName, afterRoleName);
+            diff["roles"] = AuditPayloads.Change(
+                beforeRoles.Select(static role => role.Name).ToArray(),
+                afterRoles.Select(static role => role.Name).ToArray());
         }
 
         return diff;
@@ -123,4 +128,14 @@ internal static class CompanyUserAuditMapper
 
         return diff;
     }
+
+    public static IReadOnlyCollection<CompanyUserRoleResponse> MapRoles(IEnumerable<IamRole> roles) =>
+        roles
+            .OrderBy(static role => role.Name, StringComparer.Ordinal)
+            .Select(static role => new CompanyUserRoleResponse(
+                role.PublicId,
+                role.Name,
+                role.Description,
+                role.IsSystemRole))
+            .ToArray();
 }

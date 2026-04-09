@@ -24,17 +24,40 @@ public sealed class MigrationSeedingIntegrationTests(IntegrationTestWebApplicati
 
         var seededPlanEntitlements = await dbContext.PlanEntitlements
             .AsNoTracking()
-            .OrderBy(entitlement => entitlement.ModuleKey)
+            .OrderBy(entitlement => entitlement.PlanCode)
+            .ThenBy(entitlement => entitlement.ModuleKey)
             .Select(entitlement => new { entitlement.PlanCode, entitlement.ModuleKey, entitlement.IsEnabled })
             .ToListAsync();
-        Assert.Equal(ProvisioningConstants.FreePlanEnabledModules.Length, seededPlanEntitlements.Count);
+        Assert.Equal(
+            ProvisioningConstants.FreePlanEnabledModules.Length + ProvisioningConstants.MasterPlanEnabledModules.Length,
+            seededPlanEntitlements.Count);
+
+        var freePlanEntitlements = seededPlanEntitlements
+            .Where(entitlement => entitlement.PlanCode == ProvisioningConstants.FreePlanCode)
+            .ToArray();
+        Assert.Equal(ProvisioningConstants.FreePlanEnabledModules.Length, freePlanEntitlements.Length);
         Assert.All(
             ProvisioningConstants.FreePlanEnabledModules,
             moduleKey => Assert.Contains(
-                seededPlanEntitlements,
+                freePlanEntitlements,
                 entitlement => entitlement.PlanCode == ProvisioningConstants.FreePlanCode &&
                                entitlement.ModuleKey == moduleKey &&
                                entitlement.IsEnabled));
+
+        var masterPlanEntitlements = seededPlanEntitlements
+            .Where(entitlement => entitlement.PlanCode == ProvisioningConstants.MasterPlanCode)
+            .ToArray();
+        Assert.Equal(ProvisioningConstants.MasterPlanEnabledModules.Length, masterPlanEntitlements.Length);
+        Assert.All(
+            ProvisioningConstants.MasterPlanEnabledModules,
+            moduleKey => Assert.Contains(
+                masterPlanEntitlements,
+                entitlement => entitlement.PlanCode == ProvisioningConstants.MasterPlanCode &&
+                               entitlement.ModuleKey == moduleKey &&
+                               entitlement.IsEnabled));
+        Assert.Equal(
+            freePlanEntitlements.Select(entitlement => entitlement.ModuleKey).OrderBy(static key => key, StringComparer.Ordinal),
+            masterPlanEntitlements.Select(entitlement => entitlement.ModuleKey).OrderBy(static key => key, StringComparer.Ordinal));
 
         var freeCommercialPlan = await dbContext.CommercialPlans
             .AsNoTracking()
@@ -44,11 +67,34 @@ public sealed class MigrationSeedingIntegrationTests(IntegrationTestWebApplicati
         Assert.Equal(0m, freeCommercialPlan.BaseMonthlyFee);
         Assert.Equal(0m, freeCommercialPlan.PricePerActiveEmployee);
 
+        var masterCommercialPlan = await dbContext.CommercialPlans
+            .AsNoTracking()
+            .SingleAsync(plan => plan.Code == ProvisioningConstants.MasterPlanCode);
+        Assert.Equal(CommercialPlanStatus.Active, masterCommercialPlan.Status);
+        Assert.True(masterCommercialPlan.IsSystemPlan);
+        Assert.Equal(0m, masterCommercialPlan.BaseMonthlyFee);
+        Assert.Equal(0m, masterCommercialPlan.PricePerActiveEmployee);
+
         var freeCommercialPlanLimits = await dbContext.CommercialPlanLimits
             .AsNoTracking()
             .Where(limit => limit.CommercialPlanId == freeCommercialPlan.Id)
             .ToListAsync();
         Assert.Empty(freeCommercialPlanLimits);
+
+        var masterCommercialPlanLimits = await dbContext.CommercialPlanLimits
+            .AsNoTracking()
+            .Where(limit => limit.CommercialPlanId == masterCommercialPlan.Id)
+            .ToListAsync();
+        Assert.Empty(masterCommercialPlanLimits);
+
+        var legacyPlanAliases = ProvisioningConstants.EnterpriseLegacyPlanAliases
+            .Select(alias => alias.ToUpperInvariant())
+            .ToHashSet(StringComparer.Ordinal);
+        var legacyPlans = await dbContext.CommercialPlans
+            .AsNoTracking()
+            .Where(plan => legacyPlanAliases.Contains(plan.NormalizedCode))
+            .ToListAsync();
+        Assert.Empty(legacyPlans);
 
         var seededResources = await dbContext.RbacResources
             .AsNoTracking()

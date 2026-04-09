@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260402170125_AddCompanySubscriptionVersioningAndScheduling")]
-    partial class AddCompanySubscriptionVersioningAndScheduling
+    [Migration("20260409021844_InitialCurrentState")]
+    partial class InitialCurrentState
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -436,6 +436,71 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("commercial_addons", (string)null);
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CommercialAddonEntitlement", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AddonCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("addon_code");
+
+                    b.Property<string>("CapabilityCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("capability_code");
+
+                    b.Property<long>("CommercialAddonId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("commercial_addon_id");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_enabled");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("ModuleKey")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("module_key");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_commercial_addon_entitlements");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_commercial_addon_entitlements__public_id");
+
+                    b.HasIndex("CommercialAddonId", "CapabilityCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_commercial_addon_entitlements__addon_capability");
+
+                    b.HasIndex("CommercialAddonId", "ModuleKey")
+                        .IsUnique()
+                        .HasDatabaseName("uq_commercial_addon_entitlements__addon_module");
+
+                    b.ToTable("commercial_addon_entitlements", (string)null);
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Companies.CommercialPlan", b =>
                 {
                     b.Property<long>("Id")
@@ -538,7 +603,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Code = "FREE",
                             ConcurrencyToken = new Guid("00000000-0000-0000-0000-000000000902"),
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Canonical free commercial plan used during provisioning.",
+                            Description = "Public baseline commercial plan used during standard provisioning.",
                             IsSystemPlan = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Free",
@@ -546,6 +611,23 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedName = "FREE",
                             PricePerActiveEmployee = 0m,
                             PublicId = new Guid("00000000-0000-0000-0000-000000000901"),
+                            Status = "Active"
+                        },
+                        new
+                        {
+                            Id = -3002L,
+                            BaseMonthlyFee = 0m,
+                            Code = "MASTER",
+                            ConcurrencyToken = new Guid("00000000-0000-0000-0000-000000000904"),
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Internal master commercial plan reserved for CLARI operators.",
+                            IsSystemPlan = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Master",
+                            NormalizedCode = "MASTER",
+                            NormalizedName = "MASTER",
+                            PricePerActiveEmployee = 0m,
+                            PublicId = new Guid("00000000-0000-0000-0000-000000000903"),
                             Status = "Active"
                         });
                 });
@@ -680,6 +762,19 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             PricePerActiveEmployee = 0m,
                             PublicId = new Guid("cf0c879c-d6c7-3d5d-d1cf-903ef0f66cfb"),
                             VersionNumber = 1
+                        },
+                        new
+                        {
+                            Id = -3003L,
+                            BaseMonthlyFee = 0m,
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CurrencyCode = "USD",
+                            EffectiveFromUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PricePerActiveEmployee = 0m,
+                            PublicId = new Guid("552d115b-6eb1-044d-900a-6d1e339b96aa"),
+                            VersionNumber = 1
                         });
                 });
 
@@ -768,6 +863,332 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("companies", (string)null);
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanyCommercialAddon", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AddonCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("addon_code");
+
+                    b.Property<string>("AddonName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("addon_name");
+
+                    b.Property<string>("AddonType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("addon_type");
+
+                    b.Property<string>("BillingModel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("billing_model");
+
+                    b.Property<long>("CommercialAddonId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("commercial_addon_id");
+
+                    b.Property<long>("CompanyId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("company_id");
+
+                    b.Property<long>("CompanySubscriptionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("company_subscription_id");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency_code");
+
+                    b.Property<string>("MeasurementUnit")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("measurement_unit");
+
+                    b.Property<decimal?>("MinimumMonthlyFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("minimum_monthly_fee");
+
+                    b.Property<int?>("MinimumQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("minimum_quantity");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Periodicity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("periodicity");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("StatusEffectiveDateUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("status_effective_date_utc");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("unit_price");
+
+                    b.HasKey("Id")
+                        .HasName("pk_company_commercial_addons");
+
+                    b.HasIndex("CommercialAddonId");
+
+                    b.HasIndex("CompanySubscriptionId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_commercial_addons__public_id");
+
+                    b.HasIndex("CompanyId", "CommercialAddonId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_commercial_addons__company_addon");
+
+                    b.HasIndex("CompanyId", "Status")
+                        .HasDatabaseName("ix_company_commercial_addons__company_status");
+
+                    b.ToTable("company_commercial_addons", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanyCommercialAddonChange", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("action");
+
+                    b.Property<string>("AddonCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("addon_code");
+
+                    b.Property<string>("AddonName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("addon_name");
+
+                    b.Property<string>("AddonType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("addon_type");
+
+                    b.Property<DateTime?>("AppliedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("applied_at_utc");
+
+                    b.Property<Guid?>("AppliedSubscriptionPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("applied_subscription_public_id");
+
+                    b.Property<string>("BillingModel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("billing_model");
+
+                    b.Property<string>("CancellationObservations")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("cancellation_observations");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at_utc");
+
+                    b.Property<Guid?>("CancelledByUserPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cancelled_by_user_public_id");
+
+                    b.Property<long>("CommercialAddonId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("commercial_addon_id");
+
+                    b.Property<long>("CompanyId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("company_id");
+
+                    b.Property<long>("CompanySubscriptionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("company_subscription_id");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency_code");
+
+                    b.Property<DateTime>("EffectiveDateUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_date_utc");
+
+                    b.Property<decimal>("EstimatedNextChargeImpact")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("estimated_next_charge_impact");
+
+                    b.Property<string>("MeasurementUnit")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("measurement_unit");
+
+                    b.Property<decimal?>("MinimumMonthlyFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("minimum_monthly_fee");
+
+                    b.Property<int?>("MinimumQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("minimum_quantity");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("mode");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Observations")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("observations");
+
+                    b.Property<string>("Periodicity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("periodicity");
+
+                    b.Property<string>("PreviousStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("previous_status");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("QuantityBasis")
+                        .HasColumnType("integer")
+                        .HasColumnName("quantity_basis");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("reason_code");
+
+                    b.Property<DateTime?>("RejectedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rejected_at_utc");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("rejection_reason");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at_utc");
+
+                    b.Property<Guid?>("RequestedByUserPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by_user_public_id");
+
+                    b.Property<string>("ResultingStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("resulting_status");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("unit_price");
+
+                    b.HasKey("Id")
+                        .HasName("pk_company_commercial_addon_changes");
+
+                    b.HasIndex("CommercialAddonId");
+
+                    b.HasIndex("CompanySubscriptionId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_commercial_addon_changes__public_id");
+
+                    b.HasIndex("CompanyId", "RequestedAtUtc")
+                        .HasDatabaseName("ix_company_commercial_addon_changes__company_requested");
+
+                    b.HasIndex("Status", "EffectiveDateUtc")
+                        .HasDatabaseName("ix_company_commercial_addon_changes__status_effective_date");
+
+                    b.HasIndex(new[] { "CompanyId", "CommercialAddonId", "Status" }, "company_commercial_addon_changes_pending_status_idx")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_commercial_addon_changes__company_addon_scheduled")
+                        .HasFilter("status = 'Scheduled'");
+
+                    b.ToTable("company_commercial_addon_changes", (string)null);
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscription", b =>
                 {
                     b.Property<long>("Id")
@@ -812,9 +1233,30 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(3)")
                         .HasColumnName("currency_code");
 
+                    b.Property<string>("CurrentStatusObservations")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("current_status_observations");
+
+                    b.Property<string>("CurrentStatusOrigin")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("current_status_origin");
+
+                    b.Property<string>("CurrentStatusReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("current_status_reason_code");
+
                     b.Property<DateTime?>("EndDateUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_date_utc");
+
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
 
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -861,6 +1303,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
+                    b.Property<DateTime>("StatusChangedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("status_changed_at_utc");
+
                     b.HasKey("Id")
                         .HasName("pk_company_subscriptions");
 
@@ -874,15 +1320,424 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_company_subscriptions__public_id");
 
-                    b.HasIndex("CompanyId", "Status")
-                        .IsUnique()
-                        .HasDatabaseName("uq_company_subscriptions__company_scheduled")
-                        .HasFilter("status = 'Scheduled'");
+                    b.HasIndex("CompanyId", "StatusChangedAtUtc")
+                        .HasDatabaseName("ix_company_subscriptions__company_status_changed");
 
                     b.HasIndex("Status", "StartDateUtc")
                         .HasDatabaseName("ix_company_subscriptions__status_start_date");
 
+                    b.HasIndex(new[] { "CompanyId", "Status" }, "company_subscription_live_status_idx")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_subscriptions__company_live")
+                        .HasFilter("status IN ('Draft', 'Trial', 'Active', 'Suspended')");
+
+                    b.HasIndex(new[] { "CompanyId", "Status" }, "company_subscription_scheduled_status_idx")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_subscriptions__company_scheduled")
+                        .HasFilter("status = 'Scheduled'");
+
                     b.ToTable("company_subscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscriptionPlanChange", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("ActiveEmployeeCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("active_employee_count");
+
+                    b.Property<DateTime?>("AppliedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("applied_at_utc");
+
+                    b.Property<Guid?>("AppliedSubscriptionPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("applied_subscription_public_id");
+
+                    b.Property<string>("CancellationObservations")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("cancellation_observations");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at_utc");
+
+                    b.Property<Guid?>("CancelledByUserPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cancelled_by_user_public_id");
+
+                    b.Property<long>("CompanyId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("company_id");
+
+                    b.Property<long>("CompanySubscriptionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("company_subscription_id");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<decimal>("CurrentBaseMonthlyFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("current_base_monthly_fee");
+
+                    b.Property<long?>("CurrentCommercialPlanId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("current_commercial_plan_id");
+
+                    b.Property<long?>("CurrentCommercialPlanVersionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("current_commercial_plan_version_id");
+
+                    b.Property<string>("CurrentCurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("current_currency_code");
+
+                    b.Property<string>("CurrentPeriodicity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("current_periodicity");
+
+                    b.Property<string>("CurrentPlanCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("current_plan_code");
+
+                    b.Property<string>("CurrentPlanName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("current_plan_name");
+
+                    b.Property<int>("CurrentPlanVersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_plan_version_number");
+
+                    b.Property<decimal>("CurrentPricePerActiveEmployee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("current_price_per_active_employee");
+
+                    b.Property<DateTime>("EffectiveDateUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_date_utc");
+
+                    b.Property<decimal>("EstimatedNextCharge")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("estimated_next_charge");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("mode");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Observations")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("observations");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("reason_code");
+
+                    b.Property<DateTime?>("RejectedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rejected_at_utc");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("rejection_reason");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at_utc");
+
+                    b.Property<Guid?>("RequestedByUserPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by_user_public_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<decimal>("TargetBaseMonthlyFee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("target_base_monthly_fee");
+
+                    b.Property<long>("TargetCommercialPlanId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("target_commercial_plan_id");
+
+                    b.Property<long>("TargetCommercialPlanVersionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("target_commercial_plan_version_id");
+
+                    b.Property<string>("TargetCurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("target_currency_code");
+
+                    b.Property<string>("TargetPeriodicity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("target_periodicity");
+
+                    b.Property<string>("TargetPlanCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("target_plan_code");
+
+                    b.Property<string>("TargetPlanName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("target_plan_name");
+
+                    b.Property<int>("TargetPlanVersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("target_plan_version_number");
+
+                    b.Property<decimal>("TargetPricePerActiveEmployee")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("target_price_per_active_employee");
+
+                    b.HasKey("Id")
+                        .HasName("pk_company_subscription_plan_changes");
+
+                    b.HasIndex("CompanySubscriptionId")
+                        .HasDatabaseName("ix_company_subscription_plan_changes__subscription_id");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_subscription_plan_changes__public_id");
+
+                    b.HasIndex("TargetCommercialPlanId");
+
+                    b.HasIndex("TargetCommercialPlanVersionId");
+
+                    b.HasIndex("CompanyId", "RequestedAtUtc")
+                        .HasDatabaseName("ix_company_subscription_plan_changes__company_requested");
+
+                    b.HasIndex("Status", "EffectiveDateUtc")
+                        .HasDatabaseName("ix_company_subscription_plan_changes__status_effective_date");
+
+                    b.HasIndex(new[] { "CompanyId", "Status" }, "company_subscription_plan_changes_pending_status_idx")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_subscription_plan_changes__company_scheduled")
+                        .HasFilter("status = 'Scheduled'");
+
+                    b.ToTable("company_subscription_plan_changes", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscriptionStatusChangeRequest", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("AppliedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("applied_at_utc");
+
+                    b.Property<long>("CompanyId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("company_id");
+
+                    b.Property<long>("CompanySubscriptionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("company_subscription_id");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<string>("CurrentStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("current_status");
+
+                    b.Property<DateTime>("EffectiveDateUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_date_utc");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Observations")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("observations");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("reason_code");
+
+                    b.Property<DateTime?>("RejectedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rejected_at_utc");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("rejection_reason");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at_utc");
+
+                    b.Property<Guid?>("RequestedByUserPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by_user_public_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TargetStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("target_status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_company_subscription_status_change_requests");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_subscription_status_change_requests__public_id");
+
+                    b.HasIndex("CompanyId", "RequestedAtUtc")
+                        .HasDatabaseName("ix_company_subscription_status_change_requests__company_requested");
+
+                    b.HasIndex("Status", "EffectiveDateUtc")
+                        .HasDatabaseName("ix_company_subscription_status_change_requests__status_effective_date");
+
+                    b.HasIndex(new[] { "CompanySubscriptionId", "Status" }, "company_subscription_status_change_requests_pending_status_idx")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_subscription_status_change_requests__subscription_scheduled")
+                        .HasFilter("status = 'Scheduled'");
+
+                    b.ToTable("company_subscription_status_change_requests", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscriptionStatusTransition", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid?>("ActorUserPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_public_id");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("changed_at_utc");
+
+                    b.Property<long>("CompanySubscriptionId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("company_subscription_id");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("NewStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("new_status");
+
+                    b.Property<string>("Observations")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("observations");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("origin");
+
+                    b.Property<string>("PreviousStatus")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("previous_status");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("reason_code");
+
+                    b.HasKey("Id")
+                        .HasName("pk_company_subscription_status_transitions");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_subscription_status_transitions__public_id");
+
+                    b.HasIndex("CompanySubscriptionId", "ChangedAtUtc")
+                        .HasDatabaseName("ix_company_subscription_status_transitions__subscription_changed");
+
+                    b.ToTable("company_subscription_status_transitions", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.Companies.InvitationToken", b =>
@@ -960,6 +1815,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("CapabilityCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("capability_code");
+
                     b.Property<long>("CommercialPlanId")
                         .HasColumnType("bigint")
                         .HasColumnName("commercial_plan_id");
@@ -999,6 +1860,10 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_plan_entitlements__public_id");
 
+                    b.HasIndex("CommercialPlanId", "CapabilityCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_plan_entitlements__plan_capability");
+
                     b.HasIndex("CommercialPlanId", "ModuleKey")
                         .IsUnique()
                         .HasDatabaseName("uq_plan_entitlements__plan_module");
@@ -1009,35 +1874,314 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -1000L,
+                            CapabilityCode = "RBAC_ADMINISTRATION",
                             CommercialPlanId = -3000L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsEnabled = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             ModuleKey = "RBAC",
                             PlanCode = "FREE",
-                            PublicId = new Guid("cf3f6862-a265-9d0a-0887-8b4df6b9846f")
+                            PublicId = new Guid("a61c47db-3437-7c9e-2e59-4c7f4307db4e")
                         },
                         new
                         {
                             Id = -1001L,
+                            CapabilityCode = "USER_ADMINISTRATION",
                             CommercialPlanId = -3000L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsEnabled = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             ModuleKey = "USERS",
                             PlanCode = "FREE",
-                            PublicId = new Guid("56c7165e-db4e-49ae-34da-5ce197c6e65d")
+                            PublicId = new Guid("0fb82b8d-88f9-c60d-32ff-cff37eded5bf")
                         },
                         new
                         {
                             Id = -1002L,
+                            CapabilityCode = "ORG_STRUCTURE_CATALOG_ADMINISTRATION",
                             CommercialPlanId = -3000L,
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsEnabled = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             ModuleKey = "ORG_STRUCTURE_CATALOGS",
                             PlanCode = "FREE",
-                            PublicId = new Guid("0de9b273-f61d-0f2b-084b-0e28cf98f2a3")
+                            PublicId = new Guid("f9ee6521-5825-7481-8913-ef3347b50090")
+                        },
+                        new
+                        {
+                            Id = -1003L,
+                            CapabilityCode = "POSITION_DESCRIPTION_CATALOG_ADMINISTRATION",
+                            CommercialPlanId = -3000L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "POSITION_DESCRIPTION_CATALOGS",
+                            PlanCode = "FREE",
+                            PublicId = new Guid("b18eff5b-d656-75d9-8f0b-07fc0e31786a")
+                        },
+                        new
+                        {
+                            Id = -1004L,
+                            CapabilityCode = "JOB_PROFILE_ADMINISTRATION",
+                            CommercialPlanId = -3000L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "JOB_PROFILES",
+                            PlanCode = "FREE",
+                            PublicId = new Guid("27cc2bc1-05fa-4ddd-cb03-d0af8081134b")
+                        },
+                        new
+                        {
+                            Id = -1005L,
+                            CapabilityCode = "POSITION_SLOT_ADMINISTRATION",
+                            CommercialPlanId = -3000L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "POSITION_SLOTS",
+                            PlanCode = "FREE",
+                            PublicId = new Guid("e1625c56-41e3-ccbc-c99e-aef37dd894f5")
+                        },
+                        new
+                        {
+                            Id = -1006L,
+                            CapabilityCode = "SALARY_TABULATOR_ADMINISTRATION",
+                            CommercialPlanId = -3000L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "SALARY_TABULATOR",
+                            PlanCode = "FREE",
+                            PublicId = new Guid("fd24c2f1-15a3-05a8-9114-a7a803e8fbb1")
+                        },
+                        new
+                        {
+                            Id = -1007L,
+                            CapabilityCode = "COST_CENTER_ADMINISTRATION",
+                            CommercialPlanId = -3000L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "COST_CENTERS",
+                            PlanCode = "FREE",
+                            PublicId = new Guid("1eeb2560-cace-5e46-b011-abd3d9f1dada")
+                        },
+                        new
+                        {
+                            Id = -1008L,
+                            CapabilityCode = "LEGAL_REPRESENTATIVE_ADMINISTRATION",
+                            CommercialPlanId = -3000L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "LEGAL_REPRESENTATIVES",
+                            PlanCode = "FREE",
+                            PublicId = new Guid("4b8b66bd-7d2d-b8ad-22a3-d9494e3f89c8")
+                        },
+                        new
+                        {
+                            Id = -1009L,
+                            CapabilityCode = "COMPETENCY_FRAMEWORK_ADMINISTRATION",
+                            CommercialPlanId = -3000L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "COMPETENCY_FRAMEWORK",
+                            PlanCode = "FREE",
+                            PublicId = new Guid("7eafe939-b1c7-d816-ecd2-f526567ea98a")
+                        },
+                        new
+                        {
+                            Id = -1010L,
+                            CapabilityCode = "ORG_UNIT_ADMINISTRATION",
+                            CommercialPlanId = -3000L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "ORG_UNITS",
+                            PlanCode = "FREE",
+                            PublicId = new Guid("bbf1bc58-712b-e451-6b68-581ba2a6ec21")
+                        },
+                        new
+                        {
+                            Id = -1011L,
+                            CapabilityCode = "LOCATION_ADMINISTRATION",
+                            CommercialPlanId = -3000L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "LOCATIONS",
+                            PlanCode = "FREE",
+                            PublicId = new Guid("78e49355-1212-0692-663c-a70f1102e3f2")
+                        },
+                        new
+                        {
+                            Id = -1012L,
+                            CapabilityCode = "PERSONNEL_FILE_ADMINISTRATION",
+                            CommercialPlanId = -3000L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "PERSONNEL_FILES",
+                            PlanCode = "FREE",
+                            PublicId = new Guid("8e126af7-5d0b-c25d-cb58-ef07e2cab19d")
+                        },
+                        new
+                        {
+                            Id = -2000L,
+                            CapabilityCode = "RBAC_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "RBAC",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("8d59b8a4-2562-f046-9255-768e0d7bf4e1")
+                        },
+                        new
+                        {
+                            Id = -2001L,
+                            CapabilityCode = "USER_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "USERS",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("6042e2fd-0d1d-c1d2-6597-3b1e988d6d27")
+                        },
+                        new
+                        {
+                            Id = -2002L,
+                            CapabilityCode = "ORG_STRUCTURE_CATALOG_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "ORG_STRUCTURE_CATALOGS",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("82297e8a-996e-db0f-a8fe-fe4d26364162")
+                        },
+                        new
+                        {
+                            Id = -2003L,
+                            CapabilityCode = "POSITION_DESCRIPTION_CATALOG_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "POSITION_DESCRIPTION_CATALOGS",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("eec34f8c-156c-acde-5728-f78cfb6d9633")
+                        },
+                        new
+                        {
+                            Id = -2004L,
+                            CapabilityCode = "JOB_PROFILE_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "JOB_PROFILES",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("9ec4d948-fd2c-4f33-f824-99732549df99")
+                        },
+                        new
+                        {
+                            Id = -2005L,
+                            CapabilityCode = "POSITION_SLOT_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "POSITION_SLOTS",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("c6f5cfac-5cc0-0f88-0d69-7bc97b9f5d38")
+                        },
+                        new
+                        {
+                            Id = -2006L,
+                            CapabilityCode = "SALARY_TABULATOR_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "SALARY_TABULATOR",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("df8a53e6-e05a-a85e-af5f-90aef47de2ef")
+                        },
+                        new
+                        {
+                            Id = -2007L,
+                            CapabilityCode = "COST_CENTER_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "COST_CENTERS",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("44f2ca8b-acf6-9bd9-7793-87a398c54074")
+                        },
+                        new
+                        {
+                            Id = -2008L,
+                            CapabilityCode = "LEGAL_REPRESENTATIVE_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "LEGAL_REPRESENTATIVES",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("bb22c032-1146-d619-7e53-a484a391bbe8")
+                        },
+                        new
+                        {
+                            Id = -2009L,
+                            CapabilityCode = "COMPETENCY_FRAMEWORK_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "COMPETENCY_FRAMEWORK",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("c8835d4a-43e8-4183-c80f-bd4e9feec5b2")
+                        },
+                        new
+                        {
+                            Id = -2010L,
+                            CapabilityCode = "ORG_UNIT_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "ORG_UNITS",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("f000855e-5ae9-04e3-af1e-9cfdaff37166")
+                        },
+                        new
+                        {
+                            Id = -2011L,
+                            CapabilityCode = "LOCATION_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "LOCATIONS",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("45ff0c5a-7232-a848-0880-88c97fae88ba")
+                        },
+                        new
+                        {
+                            Id = -2012L,
+                            CapabilityCode = "PERSONNEL_FILE_ADMINISTRATION",
+                            CommercialPlanId = -3002L,
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsEnabled = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ModuleKey = "PERSONNEL_FILES",
+                            PlanCode = "MASTER",
+                            PublicId = new Guid("15d2e7bb-a6d3-d838-b287-fad1894f09bc")
                         });
                 });
 
@@ -1598,278 +2742,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("cost_centers", (string)null);
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.IdentityAccess.FieldCatalogEntry", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<string>("DataType")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("data_type");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("display_name");
-
-                    b.Property<string>("FieldKey")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("field_key");
-
-                    b.Property<bool>("IsConfigurable")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_configurable");
-
-                    b.Property<bool>("IsSensitive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_sensitive");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("NormalizedFieldKey")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("normalized_field_key");
-
-                    b.Property<string>("NormalizedPropertyName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("normalized_property_name");
-
-                    b.Property<string>("NormalizedResourceKey")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("normalized_resource_key");
-
-                    b.Property<string>("PropertyName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("property_name");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<string>("ResourceKey")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("resource_key");
-
-                    b.HasKey("Id")
-                        .HasName("pk_field_catalog");
-
-                    b.HasIndex("NormalizedFieldKey")
-                        .IsUnique()
-                        .HasDatabaseName("uq_field_catalog__normalized_field_key");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_field_catalog__public_id");
-
-                    b.HasIndex("NormalizedResourceKey", "IsConfigurable")
-                        .HasDatabaseName("ix_field_catalog__resource_configurable");
-
-                    b.ToTable("field_catalog", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = -2000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DataType = "guid",
-                            DisplayName = "Internal Id",
-                            FieldKey = "RBAC_USERS.ID",
-                            IsConfigurable = false,
-                            IsSensitive = false,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedFieldKey = "RBAC_USERS.ID",
-                            NormalizedPropertyName = "ID",
-                            NormalizedResourceKey = "RBAC_USERS",
-                            PropertyName = "Id",
-                            PublicId = new Guid("02c89b42-3b79-73a1-c892-7b460e3d8bbb"),
-                            ResourceKey = "RBAC_USERS"
-                        },
-                        new
-                        {
-                            Id = -2001L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DataType = "string",
-                            DisplayName = "Email",
-                            FieldKey = "RBAC_USERS.EMAIL",
-                            IsConfigurable = true,
-                            IsSensitive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedFieldKey = "RBAC_USERS.EMAIL",
-                            NormalizedPropertyName = "EMAIL",
-                            NormalizedResourceKey = "RBAC_USERS",
-                            PropertyName = "Email",
-                            PublicId = new Guid("15738a62-f6ae-5413-1617-5ee27cbc3e3f"),
-                            ResourceKey = "RBAC_USERS"
-                        },
-                        new
-                        {
-                            Id = -2002L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DataType = "string",
-                            DisplayName = "First Name",
-                            FieldKey = "RBAC_USERS.FIRST_NAME",
-                            IsConfigurable = true,
-                            IsSensitive = false,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedFieldKey = "RBAC_USERS.FIRST_NAME",
-                            NormalizedPropertyName = "FIRSTNAME",
-                            NormalizedResourceKey = "RBAC_USERS",
-                            PropertyName = "FirstName",
-                            PublicId = new Guid("7304e673-22e5-0015-01c2-10c87345aeba"),
-                            ResourceKey = "RBAC_USERS"
-                        },
-                        new
-                        {
-                            Id = -2003L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DataType = "string",
-                            DisplayName = "Last Name",
-                            FieldKey = "RBAC_USERS.LAST_NAME",
-                            IsConfigurable = true,
-                            IsSensitive = false,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedFieldKey = "RBAC_USERS.LAST_NAME",
-                            NormalizedPropertyName = "LASTNAME",
-                            NormalizedResourceKey = "RBAC_USERS",
-                            PropertyName = "LastName",
-                            PublicId = new Guid("c5e8f1bc-cb9a-bb5d-a00b-36c184478cd9"),
-                            ResourceKey = "RBAC_USERS"
-                        },
-                        new
-                        {
-                            Id = -2004L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DataType = "lookup",
-                            DisplayName = "Role",
-                            FieldKey = "RBAC_USERS.ROLE",
-                            IsConfigurable = true,
-                            IsSensitive = false,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedFieldKey = "RBAC_USERS.ROLE",
-                            NormalizedPropertyName = "ROLE",
-                            NormalizedResourceKey = "RBAC_USERS",
-                            PropertyName = "Role",
-                            PublicId = new Guid("e1acf680-98cf-d7c5-ac64-3e7cf80ba54f"),
-                            ResourceKey = "RBAC_USERS"
-                        },
-                        new
-                        {
-                            Id = -2005L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DataType = "enum",
-                            DisplayName = "Status",
-                            FieldKey = "RBAC_USERS.STATUS",
-                            IsConfigurable = true,
-                            IsSensitive = false,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedFieldKey = "RBAC_USERS.STATUS",
-                            NormalizedPropertyName = "STATUS",
-                            NormalizedResourceKey = "RBAC_USERS",
-                            PropertyName = "Status",
-                            PublicId = new Guid("d9fce2a1-ccba-1839-d33e-01708142d245"),
-                            ResourceKey = "RBAC_USERS"
-                        });
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.IdentityAccess.FieldPermissionAuditLog", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("AfterJson")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("after_json");
-
-                    b.Property<string>("BeforeJson")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("before_json");
-
-                    b.Property<DateTime>("ChangedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("changed_at_utc");
-
-                    b.Property<Guid>("ChangedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("changed_by_user_id");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<string>("FieldKey")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("field_key");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("NormalizedFieldKey")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("normalized_field_key");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<Guid>("RolePublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("role_public_id");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_field_permission_audit_logs");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_field_permission_audit_logs__public_id");
-
-                    b.HasIndex("TenantId", "NormalizedFieldKey", "ChangedAtUtc")
-                        .HasDatabaseName("ix_field_permission_audit_logs__tenant_field_changed_at");
-
-                    b.HasIndex("TenantId", "RolePublicId", "ChangedAtUtc")
-                        .HasDatabaseName("ix_field_permission_audit_logs__tenant_role_changed_at");
-
-                    b.ToTable("field_permission_audit_logs", (string)null);
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.IdentityAccess.IamPermission", b =>
                 {
                     b.Property<long>("Id")
@@ -2233,194 +3105,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("iam_user_role_assignments", (string)null);
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.IdentityAccess.RbacPermissionAuditLog", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("AfterJson")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("after_json");
-
-                    b.Property<string>("BeforeJson")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("before_json");
-
-                    b.Property<string>("ChangeType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("change_type");
-
-                    b.Property<DateTime>("ChangedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("changed_at_utc");
-
-                    b.Property<Guid>("ChangedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("changed_by_user_id");
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("NormalizedResourceKey")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("normalized_resource_key");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<string>("ResourceKey")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("resource_key");
-
-                    b.Property<Guid>("RolePublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("role_public_id");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_rbac_permission_audit_logs");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_rbac_permission_audit_logs__public_id");
-
-                    b.HasIndex("TenantId", "NormalizedResourceKey", "ChangedAtUtc")
-                        .HasDatabaseName("ix_rbac_permission_audit_logs__tenant_resource_changed_at");
-
-                    b.HasIndex("TenantId", "RolePublicId", "ChangedAtUtc")
-                        .HasDatabaseName("ix_rbac_permission_audit_logs__tenant_role_changed_at");
-
-                    b.ToTable("rbac_permission_audit_logs", (string)null);
-                });
-
-            modelBuilder.Entity("CLARIHR.Domain.IdentityAccess.RbacResource", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("CreatedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_utc");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("display_name");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<DateTime?>("ModifiedUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_utc");
-
-                    b.Property<string>("NormalizedResourceKey")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("normalized_resource_key");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<string>("ResourceKey")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("resource_key");
-
-                    b.HasKey("Id")
-                        .HasName("pk_rbac_resource_catalog");
-
-                    b.HasIndex("NormalizedResourceKey")
-                        .IsUnique()
-                        .HasDatabaseName("uq_rbac_resource_catalog__normalized_resource_key");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_rbac_resource_catalog__public_id");
-
-                    b.HasIndex("ResourceKey")
-                        .IsUnique()
-                        .HasDatabaseName("uq_rbac_resource_catalog__resource_key");
-
-                    b.ToTable("rbac_resource_catalog", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = -4000L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DisplayName = "Users",
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedResourceKey = "RBAC_USERS",
-                            PublicId = new Guid("5d74f73d-1f26-3217-c60d-c292d161afc9"),
-                            ResourceKey = "RBAC_USERS"
-                        },
-                        new
-                        {
-                            Id = -4001L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DisplayName = "Roles",
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedResourceKey = "RBAC_ROLES",
-                            PublicId = new Guid("9c0d9736-80f9-4fbb-cbbb-69fd92622fd8"),
-                            ResourceKey = "RBAC_ROLES"
-                        },
-                        new
-                        {
-                            Id = -4002L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DisplayName = "Permissions",
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedResourceKey = "RBAC_PERMISSIONS",
-                            PublicId = new Guid("e605fc76-88fc-769c-73d3-16265ab8f1d9"),
-                            ResourceKey = "RBAC_PERMISSIONS"
-                        },
-                        new
-                        {
-                            Id = -4003L,
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DisplayName = "Audit Logs",
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            NormalizedResourceKey = "AUDIT_LOGS",
-                            PublicId = new Guid("1e3ad680-bc6e-d527-7260-489be62dc118"),
-                            ResourceKey = "AUDIT_LOGS"
-                        });
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.IdentityAccess.RoleFieldPermission", b =>
                 {
                     b.Property<long>("Id")
@@ -2501,6 +3185,78 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("uq_role_field_permissions__tenant_role_field");
 
                     b.ToTable("role_field_permissions", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.InternalCatalogs.InternalCatalogValue", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CatalogKey")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("catalog_key");
+
+                    b.Property<Guid>("CreatedByUserPublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_public_id");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("LastUsedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at_utc");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("NormalizedValue")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_value");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("UsageCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("usage_count");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("value");
+
+                    b.HasKey("Id")
+                        .HasName("pk_internal_catalog_values");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_internal_catalog_values__public_id");
+
+                    b.HasIndex("CatalogKey", "IsActive")
+                        .HasDatabaseName("ix_internal_catalog_values__catalog_key_active");
+
+                    b.HasIndex("CatalogKey", "NormalizedValue")
+                        .IsUnique()
+                        .HasDatabaseName("uq_internal_catalog_values__catalog_key_normalized_value");
+
+                    b.ToTable("internal_catalog_values", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.JobProfiles.JobCatalogItem", b =>
@@ -2672,7 +3428,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(4000)")
                         .HasColumnName("objective");
 
-                    b.Property<long?>("OrgUnitId")
+                    b.Property<long>("OrgUnitId")
                         .HasColumnType("bigint")
                         .HasColumnName("org_unit_id");
 
@@ -8062,6 +8818,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_org_units__public_id");
 
+                    b.HasIndex("TenantId", "CostCenterCode")
+                        .HasDatabaseName("ix_org_units__tenant_cost_center_code");
+
                     b.HasIndex("TenantId", "FunctionalAreaCatalogItemId")
                         .HasDatabaseName("ix_org_units__tenant_functional_area_catalog_item");
 
@@ -11729,11 +12488,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
-                    b.Property<string>("CostCenterCode")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("cost_center_code");
-
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -11789,10 +12543,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("occupied_employees");
 
-                    b.Property<long>("OrgUnitId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("org_unit_id");
-
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid")
                         .HasColumnName("public_id");
@@ -11825,8 +12575,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("JobProfileId");
 
-                    b.HasIndex("OrgUnitId");
-
                     b.HasIndex("PublicId")
                         .IsUnique()
                         .HasDatabaseName("uq_position_slots__public_id");
@@ -11845,9 +12593,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "NormalizedCode")
                         .IsUnique()
                         .HasDatabaseName("uq_position_slots__tenant_code");
-
-                    b.HasIndex("TenantId", "OrgUnitId")
-                        .HasDatabaseName("ix_position_slots__tenant_org_unit");
 
                     b.HasIndex("TenantId", "Status")
                         .HasDatabaseName("ix_position_slots__tenant_status");
@@ -12184,6 +12929,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_auth_refresh_tokens__auth_users");
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CommercialAddonEntitlement", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Companies.CommercialAddon", null)
+                        .WithMany("Entitlements")
+                        .HasForeignKey("CommercialAddonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_commercial_addon_entitlements__commercial_addons");
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Companies.CommercialPlanLimit", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Companies.CommercialPlan", null)
@@ -12220,6 +12975,54 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_companies__country_catalog_item");
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanyCommercialAddon", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Companies.CommercialAddon", null)
+                        .WithMany()
+                        .HasForeignKey("CommercialAddonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_commercial_addons__commercial_addons");
+
+                    b.HasOne("CLARIHR.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_commercial_addons__companies");
+
+                    b.HasOne("CLARIHR.Domain.Companies.CompanySubscription", null)
+                        .WithMany()
+                        .HasForeignKey("CompanySubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_commercial_addons__company_subscriptions");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanyCommercialAddonChange", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Companies.CommercialAddon", null)
+                        .WithMany()
+                        .HasForeignKey("CommercialAddonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_commercial_addon_changes__commercial_addons");
+
+                    b.HasOne("CLARIHR.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_commercial_addon_changes__companies");
+
+                    b.HasOne("CLARIHR.Domain.Companies.CompanySubscription", null)
+                        .WithMany()
+                        .HasForeignKey("CompanySubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_commercial_addon_changes__company_subscriptions");
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscription", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Companies.CommercialPlan", null)
@@ -12244,6 +13047,66 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_company_subscriptions__companies");
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscriptionPlanChange", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_subscription_plan_changes__companies");
+
+                    b.HasOne("CLARIHR.Domain.Companies.CompanySubscription", null)
+                        .WithMany()
+                        .HasForeignKey("CompanySubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_subscription_plan_changes__company_subscriptions");
+
+                    b.HasOne("CLARIHR.Domain.Companies.CommercialPlan", null)
+                        .WithMany()
+                        .HasForeignKey("TargetCommercialPlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_subscription_plan_changes__target_commercial_plans");
+
+                    b.HasOne("CLARIHR.Domain.Companies.CommercialPlanVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TargetCommercialPlanVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_subscription_plan_changes__target_plan_versions");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscriptionStatusChangeRequest", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_subscription_status_change_requests__companies");
+
+                    b.HasOne("CLARIHR.Domain.Companies.CompanySubscription", null)
+                        .WithMany()
+                        .HasForeignKey("CompanySubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_subscription_status_change_requests__company_subscriptions");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscriptionStatusTransition", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Companies.CompanySubscription", "CompanySubscription")
+                        .WithMany("StatusTransitions")
+                        .HasForeignKey("CompanySubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_subscription_status_transitions__company_subscriptions");
+
+                    b.Navigation("CompanySubscription");
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Companies.InvitationToken", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Companies.Company", null)
@@ -12264,7 +13127,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CLARIHR.Domain.Companies.PlanEntitlement", b =>
                 {
                     b.HasOne("CLARIHR.Domain.Companies.CommercialPlan", null)
-                        .WithMany()
+                        .WithMany("Entitlements")
                         .HasForeignKey("CommercialPlanId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
@@ -12445,6 +13308,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("OrgUnitId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
                         .HasConstraintName("fk_job_profiles__org_unit");
 
                     b.HasOne("CLARIHR.Domain.PositionDescriptionCatalogs.PositionCategory", null)
@@ -13169,13 +14033,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_position_slots__job_profile");
 
-                    b.HasOne("CLARIHR.Domain.OrgUnits.OrgUnit", null)
-                        .WithMany()
-                        .HasForeignKey("OrgUnitId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_position_slots__org_unit");
-
                     b.HasOne("CLARIHR.Domain.Locations.WorkCenter", null)
                         .WithMany()
                         .HasForeignKey("WorkCenterId")
@@ -13195,11 +14052,23 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Navigation("SalaryTabulatorChangeRequest");
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CommercialAddon", b =>
+                {
+                    b.Navigation("Entitlements");
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.Companies.CommercialPlan", b =>
                 {
+                    b.Navigation("Entitlements");
+
                     b.Navigation("Limits");
 
                     b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Companies.CompanySubscription", b =>
+                {
+                    b.Navigation("StatusTransitions");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.CompetencyFramework.CompetencyConduct", b =>

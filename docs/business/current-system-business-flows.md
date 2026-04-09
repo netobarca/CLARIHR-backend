@@ -81,9 +81,11 @@ El provisioning actual deja creada la base operativa minima del tenant:
 
 1. Un operador de plataforma autenticado entra al backoffice por `api/platform/auth/login`.
 2. Con ese token `platform`, administra planes globales desde `api/platform/commercial-plans`.
-3. El sistema permite registrar `name`, `code`, `description`, `fee` mensual base, precio por empleado activo, estado y limites incluidos.
-4. Los planes quedan disponibles como catalogo reutilizable para futuras suscripciones empresariales.
-5. El plan `FREE` existe como plan de sistema sembrado y permanece protegido porque el provisioning actual depende de ese codigo.
+3. El sistema permite registrar `name`, `code`, `description`, `fee` mensual base, precio por empleado activo, estado, modulos y limites incluidos.
+4. El catalogo mantiene dos planes de sistema con precio `0`: `FREE`, usado por el provisioning owner, y `MASTER`, reservado para CLARI como plan interno.
+5. `FREE` conserva el codigo canonico del provisioning y ahora arranca con el mismo catalogo completo de modulos que `MASTER` para no bloquear operacion por plan durante el onboarding owner.
+6. `MASTER` siempre se resincroniza con todo el catalogo de modulos conocido, de modo que nuevos modulos comerciales queden habilitados automaticamente para CLARI sin depender de seeds manuales adicionales.
+7. Cualquier referencia legacy `Enterprise legacy` se normaliza a `FREE` durante la migracion de datos y el plan legacy deja de existir en el catalogo.
 
 ### 5.5 Catalogo comercial de add-ons globales
 
@@ -110,6 +112,14 @@ El provisioning actual deja creada la base operativa minima del tenant:
 12. Sobre una suscripcion activa elegible, el operador tambien puede gestionar cambios de plan desde `.../subscription/plan-changes`: preview, solicitud, historial y cancelacion de cambios programados. El backend conserva snapshot del plan actual y del plan objetivo, calcula la fecha efectiva (`Immediate`, `SpecificDate` o `NextBillingCycle`) y evita conflictos con cambios pendientes.
 13. La misma superficie `platform` ahora administra add-ons por empresa desde `.../subscription/addons`, `.../subscription/addons/eligible` y `.../subscription/addon-changes`. El flujo permite consultar add-ons activos o pendientes, ver catalogo elegible, previsualizar una activacion o desactivacion, crear el cambio, revisar historial y cancelar cambios programados.
 14. La gestion de add-ons es comercial-only en esta version: conserva estado por empresa (`Inactive`, `PendingActivation`, `Active`, `PendingDeactivation`), fecha efectiva, motivo, historial y auditoria durable, pero todavia no modifica entitlements operativos, seats, volumen, prorrateo ni cobro final. Un proceso de fondo aplica automaticamente las activaciones o desactivaciones programadas cuando vence su fecha.
+
+### 5.7 Autoservicio owner sobre suscripciones
+
+1. El owner consulta su overview comercial desde `GET /api/account/companies/{companyPublicId}/subscription` y siempre ve el plan realmente activo, incluso si la empresa ya esta en `MASTER`.
+2. Cuando el owner pide `GET /api/account/companies/{companyPublicId}/subscription/plans`, el backend lista planes activos visibles para ese actor: `FREE` sigue disponible para downgrade y `MASTER` solo aparece si el usuario autenticado tambien tiene un `PlatformOperator` activo.
+3. El owner puede usar `POST .../subscription/preview` y `PUT .../subscription` para cambios inmediatos, pero un intento directo hacia `MASTER` sin ese `PlatformOperator` activo falla con `403`.
+4. El marketplace owner sigue bloqueado unicamente cuando el plan activo es `FREE`; `MASTER` no introduce un bloqueo adicional de add-ons por si mismo.
+5. Si el owner baja a `FREE`, la misma transaccion desactiva todos los add-ons activos para mantener coherencia entre el inventario comercial owner y el estado efectivo de add-ons de la empresa.
 
 ## 6. Flujo de administracion de estructura organizacional
 

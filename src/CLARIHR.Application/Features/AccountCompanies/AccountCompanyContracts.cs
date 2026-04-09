@@ -60,7 +60,8 @@ public sealed record SwitchActiveCompanyResponse(
     string AccessToken,
     string? RefreshToken,
     int ExpiresIn,
-    ActiveCompanyDto ActiveCompany);
+    ActiveCompanyDto ActiveCompany,
+    AccountCompanyAccessContextResponse AccessContext);
 
 public sealed record CompanyOwnershipCountFilter(
     CompanyStatus[] Statuses);

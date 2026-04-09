@@ -76,11 +76,20 @@ internal sealed class CreateCompanyUserCommandHandler(
             return Result<CompanyUserInvitationResponse>.Failure(CompanyUserErrors.CompanyNotFound);
         }
 
-        var role = await iamRepository.FindRoleByPublicIdAsync(command.RoleId, includePermissions: true, cancellationToken);
-        if (role is null)
+        var requestedRoleIds = command.RoleIds
+            .Distinct()
+            .ToArray();
+        var roles = await iamRepository.GetRolesByPublicIdsAsync(requestedRoleIds, cancellationToken);
+        if (roles.Count != requestedRoleIds.Length)
         {
             return Result<CompanyUserInvitationResponse>.Failure(CompanyUserErrors.RoleNotFound);
         }
+
+        var rolesByPublicId = roles.ToDictionary(static role => role.PublicId);
+        var orderedRoles = requestedRoleIds
+            .Select(roleId => rolesByPublicId[roleId])
+            .ToArray();
+        var primaryRole = orderedRoles[0];
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 
@@ -117,7 +126,7 @@ internal sealed class CreateCompanyUserCommandHandler(
         var membership = UserCompanyMembership.Create(
             user.Id,
             company.Id,
-            role.Id,
+            primaryRole.Id,
             isPrimary: !await userCompanyRepository.HasAnyMembershipAsync(user.Id, cancellationToken));
         userCompanyRepository.Add(membership);
 
@@ -135,7 +144,7 @@ internal sealed class CreateCompanyUserCommandHandler(
                 user.Email,
                 isActive: user.Status == UserStatus.Active);
             iamUser.SetTenantId(companyPublicId);
-            iamUser.SyncRoles([role]);
+            iamUser.SyncRoles(orderedRoles);
             CompanyUserManagementHelpers.StampTenant(iamUser.RoleAssignments, companyPublicId);
             iamRepository.AddUser(iamUser);
         }
@@ -143,7 +152,7 @@ internal sealed class CreateCompanyUserCommandHandler(
         {
             iamUser.UpdateProfile(user.FirstName, user.LastName);
             iamUser.SetActive(user.Status == UserStatus.Active);
-            iamUser.SyncRoles([role]);
+            iamUser.SyncRoles(orderedRoles);
             CompanyUserManagementHelpers.StampTenant(iamUser.RoleAssignments, companyPublicId);
         }
 
@@ -166,7 +175,7 @@ internal sealed class CreateCompanyUserCommandHandler(
                 EntityKey: user.Email,
                 AuditActions.Invite,
                 $"Invited user {user.Email}.",
-                After: CompanyUserAuditMapper.CreateInvitationSnapshot(user, membership, role, invitationExpiresUtc)),
+                After: CompanyUserAuditMapper.CreateInvitationSnapshot(user, membership, orderedRoles, invitationExpiresUtc)),
             cancellationToken);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -185,10 +194,10 @@ internal sealed class CreateCompanyUserCommandHandler(
         await transaction.CommitAsync(cancellationToken);
 
         logger.LogInformation(
-            "CompanyUserInvited tenant {TenantId} user {UserPublicId} role {RolePublicId}",
+            "CompanyUserInvited tenant {TenantId} user {UserPublicId} roleCount {RoleCount}",
             companyPublicId,
             user.PublicId,
-            role.PublicId);
+            orderedRoles.Length);
 
         var response = await userCompanyRepository.GetUserAsync(companyPublicId, user.PublicId, cancellationToken);
         return response is null

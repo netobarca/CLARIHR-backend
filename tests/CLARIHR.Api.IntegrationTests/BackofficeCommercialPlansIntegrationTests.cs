@@ -57,7 +57,9 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
         var initialList = await initialListResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<CommercialPlanSummaryEnvelope>>(JsonOptions);
         Assert.NotNull(initialList);
         Assert.Contains(initialList!.Items, static item => item.Code == "FREE" && item.IsSystemPlan);
+        Assert.Contains(initialList.Items, static item => item.Code == "MASTER" && item.IsSystemPlan);
         Assert.Contains(initialList.Items, static item => item.Code == "FREE" && item.ModuleCount >= 1);
+        Assert.Contains(initialList.Items, static item => item.Code == "MASTER" && item.ModuleCount >= 1);
 
         var createResponse = await client.PostJsonAsync("/api/platform/commercial-plans", new
         {
