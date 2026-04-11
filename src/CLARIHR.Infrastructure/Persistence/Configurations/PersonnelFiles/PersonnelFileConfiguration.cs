@@ -20,6 +20,10 @@ internal sealed class PersonnelFileConfiguration : IEntityTypeConfiguration<Pers
             .HasColumnName("record_type")
             .HasConversion<string>()
             .HasMaxLength(20);
+        builder.Property(file => file.LifecycleStatus)
+            .HasColumnName("lifecycle_status")
+            .HasConversion<string>()
+            .HasMaxLength(20);
         builder.Property(file => file.FirstName).HasColumnName("first_name").HasMaxLength(100);
         builder.Property(file => file.LastName).HasColumnName("last_name").HasMaxLength(100);
         builder.Property(file => file.FullName).HasColumnName("full_name").HasMaxLength(201);
@@ -37,6 +41,8 @@ internal sealed class PersonnelFileConfiguration : IEntityTypeConfiguration<Pers
         builder.Property(file => file.BirthMunicipality).HasColumnName("birth_municipality").HasMaxLength(120);
         builder.Property(file => file.PhotoUrl).HasColumnName("photo_url").HasMaxLength(1000);
         builder.Property(file => file.OrgUnitPublicId).HasColumnName("org_unit_public_id");
+        builder.Property(file => file.AssignedPositionSlotPublicId).HasColumnName("assigned_position_slot_public_id");
+        builder.Property(file => file.LinkedUserPublicId).HasColumnName("linked_user_public_id");
         builder.Property(file => file.CustomDataJson).HasColumnName("custom_data").HasColumnType("jsonb");
         builder.Property(file => file.IsActive).HasColumnName("is_active");
         builder.Property(file => file.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
@@ -53,8 +59,19 @@ internal sealed class PersonnelFileConfiguration : IEntityTypeConfiguration<Pers
         builder.HasIndex(file => new { file.TenantId, file.RecordType, file.IsActive })
             .HasDatabaseName("ix_personnel_files__tenant_type_active");
 
+        builder.HasIndex(file => new { file.TenantId, file.LifecycleStatus, file.RecordType })
+            .HasDatabaseName("ix_personnel_files__tenant_lifecycle_type");
+
         builder.HasIndex(file => new { file.TenantId, file.OrgUnitPublicId })
             .HasDatabaseName("ix_personnel_files__tenant_org_unit");
+
+        builder.HasIndex(file => new { file.TenantId, file.AssignedPositionSlotPublicId })
+            .HasDatabaseName("ix_personnel_files__tenant_assigned_position_slot");
+
+        builder.HasIndex(file => new { file.TenantId, file.LinkedUserPublicId })
+            .IsUnique()
+            .HasFilter("linked_user_public_id is not null")
+            .HasDatabaseName("uq_personnel_files__tenant_linked_user");
 
         builder.HasMany(file => file.Identifications)
             .WithOne(item => item.PersonnelFile)

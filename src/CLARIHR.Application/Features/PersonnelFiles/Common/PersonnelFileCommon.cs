@@ -167,10 +167,40 @@ public static class PersonnelFileErrors
         "The requested operation is not allowed for the current personnel file state.",
         ErrorType.UnprocessableEntity);
 
-    public static readonly Error HireEndpointRequired = new(
-        "PERSONNEL_FILE_HIRE_ENDPOINT_REQUIRED",
-        "Candidate to employee conversion is only allowed through the hire endpoint.",
+    public static readonly Error RecordTypeTransitionNotAllowed = new(
+        "PERSONNEL_FILE_RECORD_TYPE_TRANSITION_NOT_ALLOWED",
+        "Personnel file record type transitions are not allowed in this module.",
         ErrorType.UnprocessableEntity);
+
+    public static readonly Error ProvisioningFieldsLocked = new(
+        "PERSONNEL_FILE_PROVISIONING_FIELDS_LOCKED",
+        "Assigned position slot and institutional email cannot be changed after completion.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error FinalizeRequiresInstitutionalEmail = new(
+        "PERSONNEL_FILE_FINALIZE_REQUIRES_INSTITUTIONAL_EMAIL",
+        "An institutional email is required to finalize the personnel file.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error FinalizeRequiresAssignedPositionSlot = new(
+        "PERSONNEL_FILE_FINALIZE_REQUIRES_POSITION_SLOT",
+        "An assigned position slot is required to finalize the personnel file.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error FinalizeRequiresPositionSlotRole = new(
+        "PERSONNEL_FILE_FINALIZE_REQUIRES_POSITION_SLOT_ROLE",
+        "The assigned position slot must have a valid role configured before finalizing the personnel file.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error FinalizeOnlyEmployee = new(
+        "PERSONNEL_FILE_FINALIZE_ONLY_EMPLOYEE",
+        "Only employee personnel files can be finalized.",
+        ErrorType.UnprocessableEntity);
+
+    public static readonly Error LinkedUserConflict = new(
+        "PERSONNEL_FILE_LINKED_USER_CONFLICT",
+        "The institutional email is already linked to a different personnel file.",
+        ErrorType.Conflict);
 
     public static readonly Error EffectiveDatesInvalid = new(
         "PERSONNEL_FILE_EFFECTIVE_DATES_INVALID",

@@ -98,7 +98,7 @@ public static class StartupInitializationExtensions
         }
 
         var definedMigrations = dbContext.Database.GetMigrations().ToArray();
-        if (definedMigrations.Length != 1)
+        if (definedMigrations.Length == 0)
         {
             return false;
         }
@@ -112,21 +112,40 @@ public static class StartupInitializationExtensions
         }
 
         var appliedMigrations = (await dbContext.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
-        if (appliedMigrations.Length == 1 &&
-            string.Equals(appliedMigrations[0], definedMigrations[0], StringComparison.Ordinal))
-        {
-            return false;
-        }
-
         if (appliedMigrations.Length == 0 && !await HasUserTablesAsync(dbContext, cancellationToken))
         {
             return false;
         }
 
+        if (HasAlignedMigrationHistory(appliedMigrations, definedMigrations))
+        {
+            return false;
+        }
+
         logger.LogWarning(
-            "Development database reset triggered. Applied migrations [{Applied}] do not match the single current baseline migration {CurrentMigration}.",
+            "Development database reset triggered. Applied migrations [{Applied}] do not align with current migration history [{Defined}].",
             appliedMigrations.Length == 0 ? "none" : string.Join(", ", appliedMigrations),
-            definedMigrations[0]);
+            string.Join(", ", definedMigrations));
+
+        return true;
+    }
+
+    private static bool HasAlignedMigrationHistory(
+        IReadOnlyList<string> appliedMigrations,
+        IReadOnlyList<string> definedMigrations)
+    {
+        if (appliedMigrations.Count > definedMigrations.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < appliedMigrations.Count; index++)
+        {
+            if (!string.Equals(appliedMigrations[index], definedMigrations[index], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
 
         return true;
     }

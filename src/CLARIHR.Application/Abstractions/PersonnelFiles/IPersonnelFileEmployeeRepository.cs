@@ -10,16 +10,28 @@ public interface IPersonnelFileEmployeeRepository
         PersonnelFileEmployeeProfile profile,
         CancellationToken cancellationToken);
 
+    Task<PersonnelFileEmployeeProfileResponse?> GetEmployeeProfileAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>> ReplaceEmploymentAssignmentsAsync(
         long personnelFileInternalId,
         Guid tenantId,
         IReadOnlyCollection<PersonnelFileEmploymentAssignment> entities,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>> GetEmploymentAssignmentsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> ReplaceContractHistoryAsync(
         long personnelFileInternalId,
         Guid tenantId,
         IReadOnlyCollection<PersonnelFileContractHistory> entities,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> GetContractHistoryAsync(
+        Guid personnelFileId,
         CancellationToken cancellationToken);
 
     Task<PersonnelFilePositionHierarchyResponse> GetPositionHierarchyAsync(
@@ -32,10 +44,18 @@ public interface IPersonnelFileEmployeeRepository
         IReadOnlyCollection<PersonnelFileSalaryItem> entities,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<PersonnelFileSalaryItemResponse>> GetSalaryItemsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>> ReplaceAdditionalBenefitsAsync(
         long personnelFileInternalId,
         Guid tenantId,
         IReadOnlyCollection<PersonnelFileAdditionalBenefit> entities,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>> GetAdditionalBenefitsAsync(
+        Guid personnelFileId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>> ReplacePaymentMethodsAsync(
@@ -44,10 +64,18 @@ public interface IPersonnelFileEmployeeRepository
         IReadOnlyCollection<PersonnelFilePaymentMethod> entities,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>> GetPaymentMethodsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>> ReplaceAuthorizationSubstitutionsAsync(
         long personnelFileInternalId,
         Guid tenantId,
         IReadOnlyCollection<PersonnelFileAuthorizationSubstitution> entities,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>> GetAuthorizationSubstitutionsAsync(
+        Guid personnelFileId,
         CancellationToken cancellationToken);
 
     Task<PersonnelFilePersonnelActionResponse> AddPersonnelActionAsync(
@@ -114,16 +142,28 @@ public interface IPersonnelFileEmployeeRepository
         IReadOnlyCollection<PersonnelFileAssetAccess> entities,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<PersonnelFileAssetAccessResponse>> GetAssetsAccessesAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileInsuranceResponse>> ReplaceInsurancesAsync(
         long personnelFileInternalId,
         Guid tenantId,
         IReadOnlyCollection<PersonnelFileInsurance> entities,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<PersonnelFileInsuranceResponse>> GetInsurancesAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>> ReplaceMedicalClaimsAsync(
         long personnelFileInternalId,
         Guid tenantId,
         IReadOnlyCollection<PersonnelFileMedicalClaim> entities,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>> GetMedicalClaimsAsync(
+        Guid personnelFileId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>> ReplacePerformanceEvaluationsAsync(

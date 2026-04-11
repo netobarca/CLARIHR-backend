@@ -1,5 +1,7 @@
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.CostCenters;
+using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.Errors;
@@ -7,11 +9,15 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CostCenters;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Application.Features.PositionSlots;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Domain.CostCenters;
+using CLARIHR.Domain.Common;
+using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.PositionSlots;
 using FluentValidation.TestHelper;
+using System.Reflection;
 
 namespace CLARIHR.Application.UnitTests;
 
@@ -26,6 +32,7 @@ public sealed class PositionSlotAdministrationTests
             Code: "PS-VAL",
             Title: "Plaza",
             JobProfileId: Guid.Parse("20202020-2020-2020-2020-202020202020"),
+            RoleId: null,
             WorkCenterId: null,
             DirectDependencyPositionSlotId: null,
             FunctionalDependencyPositionSlotId: null,
@@ -52,6 +59,7 @@ public sealed class PositionSlotAdministrationTests
             Code: "PS-DATE",
             Title: "Plaza",
             JobProfileId: Guid.Parse("40404040-4040-4040-4040-404040404040"),
+            RoleId: null,
             WorkCenterId: null,
             DirectDependencyPositionSlotId: null,
             FunctionalDependencyPositionSlotId: null,
@@ -92,6 +100,7 @@ public sealed class PositionSlotAdministrationTests
         var handler = new CreatePositionSlotCommandHandler(
             new AllowPositionSlotAuthorizationService(),
             repository,
+            new TestIamAdministrationRepository(),
             new TestCostCenterRepository(),
             new NoOpAuditService(),
             unitOfWork);
@@ -102,6 +111,7 @@ public sealed class PositionSlotAdministrationTests
                 "PS-001",
                 "Plaza",
                 jobProfileId,
+                RoleId: null,
                 WorkCenterId: null,
                 DirectDependencyPositionSlotId: null,
                 FunctionalDependencyPositionSlotId: null,
@@ -133,6 +143,7 @@ public sealed class PositionSlotAdministrationTests
             "PS-UPD",
             "Plaza original",
             jobProfileId: 20,
+            roleId: null,
             workCenterId: null,
             directDependencyPositionSlotId: null,
             functionalDependencyPositionSlotId: null,
@@ -173,6 +184,8 @@ public sealed class PositionSlotAdministrationTests
         var handler = new UpdatePositionSlotCommandHandler(
             new AllowPositionSlotAuthorizationService(),
             repository,
+            new TestIamAdministrationRepository(),
+            new TestCompanyUserProvisioningService(),
             new TestCostCenterRepository(),
             new NoOpAuditService(),
             new FixedTenantContext(companyId),
@@ -184,6 +197,7 @@ public sealed class PositionSlotAdministrationTests
                 "PS-UPD",
                 "Plaza actualizada",
                 replacementJobProfileId,
+                RoleId: null,
                 WorkCenterId: null,
                 MaxEmployees: 5,
                 EffectiveFromUtc: new DateTime(2026, 4, 10, 0, 0, 0, DateTimeKind.Utc),
@@ -197,6 +211,81 @@ public sealed class PositionSlotAdministrationTests
         Assert.False(slot.IsFixedTerm);
         Assert.Null(result.Value.ContractTypeId);
         Assert.True(unitOfWork.Transaction.CommitCalled);
+    }
+
+    [Fact]
+    public async Task Update_WhenRoleChanges_ShouldSyncLinkedUsersForAssignedSlot()
+    {
+        var companyId = Guid.Parse("12121212-1212-1212-1212-121212121212");
+        var jobProfileId = Guid.Parse("23232323-2323-2323-2323-232323232323");
+        var orgUnitId = Guid.Parse("34343434-3434-3434-3434-343434343434");
+        var repository = new TestPositionSlotRepository();
+        var slot = PositionSlot.Create(
+            "PS-ROLE",
+            "Plaza con rol",
+            jobProfileId: 50,
+            roleId: null,
+            workCenterId: null,
+            directDependencyPositionSlotId: null,
+            functionalDependencyPositionSlotId: null,
+            status: PositionSlotStatus.Vacant,
+            maxEmployees: 1,
+            occupiedEmployees: 0,
+            isFixedTerm: false,
+            effectiveFromUtc: new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            effectiveToUtc: null,
+            notes: null);
+        slot.SetTenantId(companyId);
+        repository.AddExisting(slot);
+        repository.RegisterLookup(new PositionSlotJobProfileLookup(
+            InternalJobProfileId: 50,
+            JobProfileId: jobProfileId,
+            OrgUnitId: orgUnitId,
+            OrgUnitName: "Tecnologia",
+            CostCenterCode: null,
+            PositionCategoryId: null,
+            PositionCategoryClassificationId: null,
+            ContractTypeId: null,
+            ContractTypeCode: null,
+            ContractTypeName: null));
+
+        var iamRepository = new TestIamAdministrationRepository();
+        var role = IamRole.Create("Supervisor", "Supervisor role", isSystemRole: false);
+        role.SetTenantId(companyId);
+        iamRepository.AddRole(role);
+        repository.RegisterRole(role.Id, role.PublicId, role.Name);
+
+        var provisioningService = new TestCompanyUserProvisioningService();
+        var handler = new UpdatePositionSlotCommandHandler(
+            new AllowPositionSlotAuthorizationService(),
+            repository,
+            iamRepository,
+            provisioningService,
+            new TestCostCenterRepository(),
+            new NoOpAuditService(),
+            new FixedTenantContext(companyId),
+            new TestUnitOfWork());
+
+        var result = await handler.Handle(
+            new UpdatePositionSlotCommand(
+                slot.PublicId,
+                "PS-ROLE",
+                "Plaza con rol",
+                jobProfileId,
+                RoleId: role.PublicId,
+                WorkCenterId: null,
+                MaxEmployees: 1,
+                EffectiveFromUtc: new DateTime(2026, 4, 10, 0, 0, 0, DateTimeKind.Utc),
+                EffectiveToUtc: null,
+                Notes: null,
+                ConcurrencyToken: slot.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(provisioningService.LastSyncRequest);
+        Assert.Equal(companyId, provisioningService.LastSyncRequest!.Value.CompanyPublicId);
+        Assert.Equal(slot.PublicId, provisioningService.LastSyncRequest.Value.AssignedPositionSlotId);
+        Assert.Equal(role.PublicId, provisioningService.LastSyncRequest.Value.RoleId);
     }
 
     private sealed class AllowPositionSlotAuthorizationService : IPositionSlotAuthorizationService
@@ -228,6 +317,7 @@ public sealed class PositionSlotAdministrationTests
         private readonly Dictionary<Guid, PositionSlot> _slots = [];
         private readonly Dictionary<Guid, PositionSlotJobProfileLookup> _lookupsByPublicId = [];
         private readonly Dictionary<long, PositionSlotJobProfileLookup> _lookupsByInternalId = [];
+        private readonly Dictionary<long, (Guid PublicId, string? Name)> _rolesByInternalId = [];
 
         public PositionSlot? LastAddedSlot { get; private set; }
 
@@ -236,6 +326,9 @@ public sealed class PositionSlotAdministrationTests
             _lookupsByPublicId[lookup.JobProfileId] = lookup;
             _lookupsByInternalId[lookup.InternalJobProfileId] = lookup;
         }
+
+        public void RegisterRole(long internalRoleId, Guid rolePublicId, string? roleName) =>
+            _rolesByInternalId[internalRoleId] = (rolePublicId, roleName);
 
         public void AddExisting(PositionSlot slot)
         {
@@ -301,6 +394,9 @@ public sealed class PositionSlotAdministrationTests
             }
 
             _ = _lookupsByInternalId.TryGetValue(slot.JobProfileId, out var lookup);
+            var role = slot.RoleId.HasValue && _rolesByInternalId.TryGetValue(slot.RoleId.Value, out var registeredRole)
+                ? registeredRole
+                : ((Guid PublicId, string? Name)?)null;
             var response = new PositionSlotResponse(
                 Id: slot.PublicId,
                 CompanyId: slot.TenantId,
@@ -310,6 +406,8 @@ public sealed class PositionSlotAdministrationTests
                 JobProfileId: lookup?.JobProfileId ?? Guid.Empty,
                 JobProfileCode: lookup?.JobProfileId.ToString("D") ?? "UNKNOWN",
                 JobProfileTitle: "Perfil",
+                RoleId: role?.PublicId,
+                RoleName: role?.Name,
                 OrgUnitId: lookup?.OrgUnitId ?? Guid.Empty,
                 OrgUnitName: lookup?.OrgUnitName ?? "Sin unidad",
                 WorkCenterId: null,
@@ -356,6 +454,72 @@ public sealed class PositionSlotAdministrationTests
             Guid jobProfileId,
             CancellationToken cancellationToken) =>
             Task.FromResult(_lookupsByPublicId.TryGetValue(jobProfileId, out var lookup) ? lookup : null);
+    }
+
+    private sealed class TestIamAdministrationRepository : IIamAdministrationRepository
+    {
+        public void AddUser(IamUser user) => throw new NotSupportedException();
+        private long _nextRoleId = 1;
+        public List<IamRole> Roles { get; } = [];
+        public void AddRole(IamRole role)
+        {
+            if (role.Id == 0)
+            {
+                SetEntityId(role, _nextRoleId++);
+            }
+
+            Roles.Add(role);
+        }
+        public void RemoveRole(IamRole role) => throw new NotSupportedException();
+        public void AddPermission(IamPermission permission) => throw new NotSupportedException();
+        public Task<bool> UserEmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> RoleNameExistsAsync(string normalizedRoleName, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> UserPublicIdExistsAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> RolePublicIdExistsAsync(Guid roleId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IamUser?> FindUserByPublicIdAsync(Guid userId, bool includeRoles, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(Guid tenantId, Guid linkedUserPublicId, bool includeRoles, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) =>
+            Task.FromResult<IamRole?>(Roles.SingleOrDefault(role => role.PublicId == roleId));
+        public Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamRole>>(Roles.Where(role => roleIds.Contains(role.PublicId)).ToArray());
+        public Task<IReadOnlyList<IamUser>> GetUsersByPublicIdsAsync(IReadOnlyCollection<Guid> userIds, bool includeRoles, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<IamUser>> GetUsersAssignedToRoleAsync(Guid roleId, bool includeRoles, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<IamUser>> GetActiveUsersAsync(bool includeRoles, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByNormalizedCodesAsync(IReadOnlyCollection<string> normalizedPermissionCodes, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByPublicIdsAsync(IReadOnlyCollection<Guid> permissionIds, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PagedResponse<IamUserSummaryResponse>> GetUsersAsync(int pageNumber, int pageSize, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IamUserResponse?> GetUserAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PagedResponse<IamRoleSummaryResponse>> GetRolesAsync(int pageNumber, int pageSize, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IamRoleResponse?> GetRoleAsync(Guid roleId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class TestCompanyUserProvisioningService : ICompanyUserProvisioningService
+    {
+        public (Guid CompanyPublicId, Guid AssignedPositionSlotId, Guid RoleId)? LastSyncRequest { get; private set; }
+
+        public Task<Result<CompanyUserProvisioningResult>> ProvisionAsync(
+            CompanyUserProvisioningRequest request,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<Result<int>> SyncRoleAssignmentsForPositionSlotAsync(
+            Guid companyPublicId,
+            Guid assignedPositionSlotId,
+            Guid roleId,
+            CancellationToken cancellationToken)
+        {
+            LastSyncRequest = (companyPublicId, assignedPositionSlotId, roleId);
+            return Task.FromResult(Result<int>.Success(0));
+        }
+    }
+
+    private static void SetEntityId(Entity entity, long id)
+    {
+        typeof(Entity)
+            .GetProperty(nameof(Entity.Id), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
+            .GetSetMethod(nonPublic: true)!
+            .Invoke(entity, [id]);
     }
 
     private sealed class TestCostCenterRepository : ICostCenterRepository

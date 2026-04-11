@@ -116,6 +116,7 @@ Reglas observables:
 - `POST /api/auth/external`: crea o autentica un usuario mediante proveedor externo
 - `POST /api/auth/login`: inicia sesion local
 - `POST /api/auth/refresh`: rota la sesion usando un refresh token
+- `POST /api/auth/company-user-invitations/accept`: activa un usuario invitado por compania y define su contrasena final
 - `POST /api/auth/logout`: revoca la sesion autenticada
 
 ### 4.2 Onboarding de compania
@@ -225,20 +226,34 @@ Core:
 
 Profile:
 
+- `GET /api/v1/personnel-files/{publicId}/personal-info`
 - `PUT /api/v1/personnel-files/{publicId}/personal-info`
+- `GET /api/v1/personnel-files/{publicId}/identifications`
 - `PUT /api/v1/personnel-files/{publicId}/identifications`
+- `GET /api/v1/personnel-files/{publicId}/family-members`
 - `PUT /api/v1/personnel-files/{publicId}/family-members`
+- `GET /api/v1/personnel-files/{publicId}/educations`
 - `PUT /api/v1/personnel-files/{publicId}/educations`
 
 Employment:
 
-- `POST /api/v1/personnel-files/{publicId}/hire`
+- `POST /api/v1/personnel-files/{publicId}/finalize`
+- `GET /api/v1/personnel-files/{publicId}/employee-profile`
 - `PUT /api/v1/personnel-files/{publicId}/employee-profile`
+- `GET /api/v1/personnel-files/{publicId}/employment-assignments`
+- `GET /api/v1/personnel-files/{publicId}/contract-history`
+- `GET /api/v1/personnel-files/{publicId}/authorization-substitutions`
+- `GET /api/v1/personnel-files/{publicId}/assets-accesses`
 - `GET /api/v1/personnel-files/{publicId}/personnel-actions`
 
 Compensation:
 
+- `GET /api/v1/personnel-files/{publicId}/salary-items`
 - `PUT /api/v1/personnel-files/{publicId}/salary-items`
+- `GET /api/v1/personnel-files/{publicId}/additional-benefits`
+- `GET /api/v1/personnel-files/{publicId}/payment-methods`
+- `GET /api/v1/personnel-files/{publicId}/insurances`
+- `GET /api/v1/personnel-files/{publicId}/medical-claims`
 - `GET /api/v1/personnel-files/{publicId}/payroll-transactions/export`
 - `PUT /api/v1/personnel-files/{publicId}/bank-accounts`
 
@@ -257,7 +272,8 @@ Documents and reporting:
 Comportamiento observable:
 
 - la mayoria de actualizaciones por seccion reemplazan el payload completo de la subseccion
-- `hire` es una transicion funcional dedicada, no solo una edicion del tipo de registro
+- los expedientes ahora nacen en `Draft` y la transicion funcional dedicada del modulo es `finalize`
+- `finalize` crea o reutiliza automaticamente el usuario de compania vinculado al expediente y emite la invitacion de activacion
 - los endpoints de reporting y export existen tanto a nivel tenant como a nivel recurso
 - la profundizacion completa del modulo esta en `5.10 Personnel files`
 
@@ -551,6 +567,7 @@ Incluye:
 - `POST /api/auth/external`
 - `POST /api/auth/login`
 - `POST /api/auth/refresh`
+- `POST /api/auth/company-user-invitations/accept`
 - `POST /api/auth/logout`
 
 #### 5.2.2 Proposito funcional en CLARIHR
@@ -561,13 +578,14 @@ El modulo `Auth` sirve para:
 - autenticar usuarios locales
 - autenticar o registrar usuarios via proveedor externo
 - emitir y rotar pares `access token` + `refresh token`
+- activar usuarios de compania invitados con contrasena temporal
 - cerrar sesion invalidando tokens de refresco
 
 Este modulo no administra companias ni permisos RBAC. Su responsabilidad termina en emitir identidad autenticada. El contexto tenant llega despues, cuando el usuario ya tiene membresias y selecciona compania activa.
 
 #### 5.2.3 Modelo operativo y reglas transversales del modulo
 
-- `register`, `external`, `login` y `refresh` son publicos (`AllowAnonymous`).
+- `register`, `external`, `login`, `refresh` y `company-user-invitations/accept` son publicos (`AllowAnonymous`).
 - `logout` requiere `Bearer` valido.
 - La respuesta canonica del modulo es `AuthResponse`: `accessToken`, `refreshToken`, `expiresIn`, `user`.
 - `user` devuelve `id`, `email`, `firstName`, `lastName` y `authProvider`.
@@ -575,8 +593,10 @@ Este modulo no administra companias ni permisos RBAC. Su responsabilidad termina
 - El `access token` siempre incluye identidad basica (`sub`, email, nombre, `auth_provider`, `user_status`). Cuando el token queda asociado a un tenant, tambien incluye `tid` y el claim `role` tenant-scoped con el nombre normalizado del rol activo para esa compania.
 - Un usuario recien registrado que aun no tiene compania recibe token sin tenant activo.
 - `login` solo permite usuarios `Local` y `Active`.
+- `company-user-invitations/accept` solo aplica a usuarios `Local` pendientes de activacion con un token de invitacion activo.
 - `external` hoy solo soporta `Google` en runtime; `Microsoft` y `Apple` existen en el enum `AuthProvider`, pero hoy no tienen provider service configurado.
 - `refresh` rota el refresh token en cada uso valido. Si detecta reutilizacion de un token ya rotado, revoca la familia completa.
+- `company-user-invitations/accept` reemplaza la contrasena temporal, activa la cuenta local, reactiva la membresia tenant-scoped y devuelve una sesion ya emitida para la compania de la invitacion.
 - `logout` revoca todos los refresh tokens del usuario autenticado, no solo uno.
 
 #### 5.2.4 Errores observables relevantes en Auth
@@ -591,6 +611,7 @@ Este modulo no administra companias ni permisos RBAC. Su responsabilidad termina
 - `auth.external.email_link_not_allowed`: `409`, el backend no puede autovincular por email el usuario existente.
 - `auth.user_not_active`: `401`, la cuenta existe pero no esta activa para flujo externo.
 - `auth.refresh.invalid_token`: `401`, el refresh token es invalido, expiro o fue revocado.
+- `auth.invitation.invalid_token`: `401`, el token de invitacion no existe, expiro, fue revocado o ya se uso.
 - `auth.logout.invalid_current_user`: `401`, el contexto autenticado no puede resolverse a un usuario valido.
 - `auth.token_configuration_invalid`: `500`, JWT no esta configurado correctamente.
 
@@ -604,6 +625,7 @@ Contratos principales:
 - `RegisterExternalRequest`: `provider`, `idToken`, `country`, `source`
 - `LoginRequest`: `email`, `password`
 - `RefreshTokenRequest`: `refreshToken`
+- `AcceptCompanyUserInvitationRequest`: `token`, `password`
 - `AuthResponse`: `accessToken`, `refreshToken`, `expiresIn`, `user`
 
 ##### `POST /api/auth/register`
@@ -645,6 +667,16 @@ Contratos principales:
 - Response: `200 OK` con `AuthResponse`.
 - Errores relevantes: `auth.refresh.invalid_token`, `auth.token_configuration_invalid`.
 - Observaciones: cada refresh exitoso invalida el refresh token anterior y emite uno nuevo; si se intenta reutilizar un token ya rotado, el backend revoca toda la familia de refresh tokens asociada.
+
+##### `POST /api/auth/company-user-invitations/accept`
+
+- Proposito: activar un usuario de compania invitado y definir su contrasena final.
+- Autenticacion: publica.
+- Request body: `token`, `password`.
+- Validaciones: `token` obligatorio maximo `500`; `password` usa la misma politica fuerte del registro local.
+- Response: `200 OK` con `AuthResponse`.
+- Errores relevantes: `common.validation`, `auth.invitation.invalid_token`, `auth.token_configuration_invalid`.
+- Observaciones: el backend marca el token como usado, activa al usuario local e `IamUser` tenant-scoped asociado, reactiva la membresia y devuelve una sesion ya contextualizada al tenant de la invitacion.
 
 ##### `POST /api/auth/logout`
 
@@ -2321,6 +2353,7 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - `PositionSlotStatus` hoy expone `Vacant`, `Occupied` y `Suspended`.
 - `POST/PUT /job-profiles` exige `OrgUnitPublicId`; ya no existen perfiles de puesto sin unidad organizativa.
 - `POST/PUT /position-slots` ya no aceptan `OrgUnitPublicId` ni `CostCenterCode`; ambos valores se infieren desde `JobProfile -> OrgUnit`.
+- `POST/PUT /position-slots` aceptan `RolePublicId` opcional; si se envia debe resolver un rol valido del catalogo IAM del mismo tenant.
 - En `PositionSlots`, el tipo de contrato no lo envia el cliente: se deriva desde `JobProfile -> PositionCategory -> PositionCategoryClassification -> PositionContractType`.
 
 #### 5.9.4 Autorizacion observable
@@ -2405,6 +2438,7 @@ Errores relevantes en `PositionSlots`:
 - `POSITION_SLOT_NOT_FOUND`: `404`, la plaza solicitada no existe en el scope correcto.
 - `POSITION_SLOT_JOB_PROFILE_NOT_FOUND`: `404`, el job profile referenciado no se pudo resolver.
 - `POSITION_SLOT_WORK_CENTER_NOT_FOUND`: `404`, el `WorkCenter` referenciado no se pudo resolver.
+- `POSITION_SLOT_ROLE_NOT_FOUND`: `404`, el rol referenciado para la plaza no existe en el tenant activo.
 - `POSITION_SLOT_DEPENDENCY_NOT_FOUND`: `404`, la plaza usada como dependencia no se pudo resolver.
 - `POSITION_SLOT_JOB_PROFILE_ORG_UNIT_NOT_CONFIGURED`: `422`, el job profile referenciado no resuelve una `OrgUnit`; es un guardrail defensivo para datos legacy o inconsistentes.
 - `POSITION_SLOT_CONTRACT_TYPE_NOT_RESOLVED`: `422`, el job profile no resuelve un tipo de contrato activo.
@@ -2633,9 +2667,10 @@ Observaciones funcionales:
 - `q` busca por `slot code`, `slot title`, `job profile`, `org unit` y `work center`.
 - el orden observable del listado es `Code`, luego `Title`.
 - el detail devuelve referencias resueltas a `JobProfile`, `OrgUnit`, `WorkCenter`, `DirectDependency`, `FunctionalDependency`, `PositionCategory`, `PositionCategoryClassification` y `ContractType`.
+- el detail y los listados tambien exponen `RoleId` y `RoleName` cuando la plaza tiene un rol configurado.
 - `OrgUnit` y `CostCenterCode` visibles en listados, detalle, grafo y exportes se derivan siempre desde `JobProfile -> OrgUnit`.
 - `create` exige `Code`, `JobProfileId`, `Status`, `MaxEmployees`, `OccupiedEmployees` y `EffectiveFromUtc`.
-- `WorkCenterId`, dependencias directas/funcionales, `EffectiveToUtc` y `Notes` son opcionales.
+- `WorkCenterId`, `RoleId`, dependencias directas/funcionales, `EffectiveToUtc` y `Notes` son opcionales.
 - `OrgUnitId` y `CostCenterCode` ya no forman parte del request de `create/update`.
 - `JobProfileId` se resuelve por tenant, no por estado; el API no exige que el perfil este publicado para crear una plaza.
 - la validacion critica real no es el estado del perfil sino que ese perfil resuelva una `OrgUnit` valida y, si la `OrgUnit` deriva `CostCenterCode`, que ese centro de costo exista activo.
@@ -2647,6 +2682,7 @@ Observaciones funcionales:
 - `Occupied` exige `OccupiedEmployees > 0`.
 - `Suspended` no cambia la ocupacion existente, pero pone `IsActive = false`.
 - `PUT /position-slots/{id}` actualiza solo el nucleo de la plaza; no cambia ni `Status` ni `OccupiedEmployees`. Si cambia `JobProfileId`, tambien cambian la `OrgUnit` y el `CostCenterCode` derivados.
+- si cambia el rol configurado de la plaza, el backend resincroniza el rol tenant-scoped de los usuarios ya vinculados a expedientes completados que usan esa plaza.
 - `PATCH /position-slots/{id}/status` cambia solo el estado y revalida consistencia contra la ocupacion actual.
 - `PATCH /position-slots/{id}/occupancy` cambia solo `OccupiedEmployees` y recalcula automaticamente el estado a `Vacant` u `Occupied`.
 - una plaza `Suspended` no puede usar el endpoint de `occupancy`.
@@ -2705,7 +2741,7 @@ Familias de rutas:
 - `/api/v1/personnel-files/{id}/trainings`
 - `/api/v1/personnel-files/{id}/previous-employments`
 - `/api/v1/personnel-files/{id}/references`
-- `/api/v1/personnel-files/{id}/hire`
+- `/api/v1/personnel-files/{id}/finalize`
 - `/api/v1/personnel-files/{id}/employee-profile`
 - `/api/v1/personnel-files/{id}/employment-assignments`
 - `/api/v1/personnel-files/{id}/contract-history`
@@ -2745,7 +2781,7 @@ Familias de rutas:
 
 - alta y consulta del expediente
 - llenado del perfil personal, familiar y curricular
-- transicion formal de candidato a empleado
+- finalizacion formal de expedientes de empleado y aprovisionamiento de usuario
 - mantenimiento de informacion laboral, compensacion y talento
 - almacenamiento de documentos y observaciones
 - catalogos propios del modulo
@@ -2774,8 +2810,12 @@ En terminos de negocio, este bloque une dos mundos:
 - En `Profile`, cada `PUT` reemplaza la coleccion completa de la subseccion y devuelve el `PersonnelFileResponse` completo con el nuevo `ConcurrencyToken` del expediente.
 - En `Employment`, `Compensation` y `Talent`, las escrituras tambien usan el `ConcurrencyToken` del expediente padre, pero la respuesta suele ser una coleccion o un `employee profile`, no el expediente completo.
 - El efecto observable de ese diseno es que el cliente normalmente necesita releer `/api/v1/personnel-files/{id}` antes de encadenar otra mutacion file-scoped sobre el mismo expediente.
-- Los endpoints de `Employment`, `Compensation` y `Talent` son de uso exclusivo para expedientes con `RecordType = Employee`.
-- `hire` es la unica transicion permitida de `Candidate` a `Employee`; no puede hacerse desde `personal-info`.
+- Todo expediente nuevo nace con `LifecycleStatus = Draft`.
+- Si `RecordType = Employee`, `AssignedPositionSlotId` es obligatorio desde `create` y `personal-info`; si `RecordType = Candidate`, ese campo no se permite.
+- `RecordType` no puede cambiarse dentro de `personnel files`; la transicion funcional del modulo es `finalize`, no una conversion `Candidate -> Employee`.
+- `finalize` solo aplica a expedientes `Employee` en `Draft`, exige `InstitutionalEmail`, plaza asignada y que la plaza tenga un rol valido configurado.
+- Despues de `Completed`, `InstitutionalEmail` y `AssignedPositionSlotId` quedan bloqueados en `personal-info`.
+- Los endpoints de `Employment`, `Compensation` y `Talent` son de uso exclusivo para expedientes `Employee` ya completados.
 - `GET /api/v1/personnel-files/{id}` y `GET /print` solo cubren el agregado base del expediente:
 - datos personales y curriculares
 - cuentas bancarias
@@ -2813,7 +2853,13 @@ Errores funcionales del expediente:
 
 - `PERSONNEL_FILE_IDENTIFICATION_CONFLICT`: `409`, otra persona del tenant ya usa la misma identificacion.
 - `PERSONNEL_FILE_STATE_RULE_VIOLATION`: `422`, la operacion no aplica al estado o tipo actual del expediente.
-- `PERSONNEL_FILE_HIRE_ENDPOINT_REQUIRED`: `422`, se intento convertir un candidato a empleado desde `personal-info`.
+- `PERSONNEL_FILE_RECORD_TYPE_TRANSITION_NOT_ALLOWED`: `422`, se intento cambiar `RecordType` dentro del modulo.
+- `PERSONNEL_FILE_PROVISIONING_FIELDS_LOCKED`: `422`, se intento cambiar `InstitutionalEmail` o `AssignedPositionSlotId` despues de completar el expediente.
+- `PERSONNEL_FILE_FINALIZE_REQUIRES_INSTITUTIONAL_EMAIL`: `422`, falta el correo institucional requerido para aprovisionar el usuario.
+- `PERSONNEL_FILE_FINALIZE_REQUIRES_POSITION_SLOT`: `422`, falta la plaza asignada requerida para finalizar.
+- `PERSONNEL_FILE_FINALIZE_REQUIRES_POSITION_SLOT_ROLE`: `422`, la plaza asignada no tiene un rol valido configurado.
+- `PERSONNEL_FILE_FINALIZE_ONLY_EMPLOYEE`: `422`, solo un expediente `Employee` puede finalizarse.
+- `PERSONNEL_FILE_LINKED_USER_CONFLICT`: `409`, el correo institucional ya esta vinculado a otro expediente.
 - `PERSONNEL_FILE_EFFECTIVE_DATES_INVALID`: `422`, hay rangos de fechas invalidos en identifications, associations, trainings, previous employments u otras subsecciones con vigencias.
 - `PERSONNEL_FILE_FAMILY_MEMBER_RULE_VIOLATION`: `422`, campos condicionales de familiares no cumplen las reglas visibles del dominio.
 - `PERSONNEL_CUSTOM_DATA_INVALID`: `400`, el JSON de custom data no es valido o no coincide con los tipos configurados.
@@ -2859,12 +2905,15 @@ Uso principal:
 Observaciones funcionales:
 
 - `RecordType` hoy expone `Candidate` y `Employee`.
+- `LifecycleStatus` hoy expone `Draft` y `Completed`.
 - `create` exige al menos una identificacion inicial.
 - `create` valida formato de nombres, emails y telefonos, valida custom fields activos y evita duplicidad tenant-wide de identificaciones.
+- `create` acepta `AssignedPositionSlotId`; es obligatorio para `Employee` y no se permite para `Candidate`.
 - `search` soporta filtros `isActive`, `recordType`, `orgUnitId`, `minAge`, `maxAge`, `maritalStatus`, `nationality`, `profession`, `createdFromUtc`, `createdToUtc`, `q`, `sortBy`, `sortDirection`, `page`, `pageSize` e `includeAllowedActions`.
 - `search` usa como orden default `FullName ASC`.
 - `search` acepta estos `sortBy`: `fullname`, `firstname`, `lastname`, `birthdate`, `age`, `recordtype`, `maritalstatus`, `nationality`, `profession`, `orgunitid`, `isactive`, `createdatutc`, `modifiedatutc`.
 - `search` busca por nombre completo normalizado y por numero de identificacion.
+- listados, detalle y exportes exponen `LifecycleStatus`, `AssignedPositionSlotId` y `LinkedUserId`.
 - `get by id` devuelve el agregado base del expediente con identificaciones, direcciones, contactos, familiares, hobbies, relaciones, bank accounts, asociaciones, educacion, idiomas, trainings, previous employments, referencias, documentos y observaciones.
 - `get by id` no devuelve `employee profile`, asignaciones, contract history, personnel actions, payroll transactions, seguros, evaluaciones ni concursos.
 - `activate` e `inactivate` son transiciones soft-state y requieren `ConcurrencyToken`.
@@ -2873,18 +2922,31 @@ Observaciones funcionales:
 
 Route family:
 
+- `GET /api/v1/personnel-files/{id}/personal-info`
 - `PUT /api/v1/personnel-files/{id}/personal-info`
+- `GET /api/v1/personnel-files/{id}/identifications`
 - `PUT /api/v1/personnel-files/{id}/identifications`
+- `GET /api/v1/personnel-files/{id}/addresses`
 - `PUT /api/v1/personnel-files/{id}/addresses`
+- `GET /api/v1/personnel-files/{id}/emergency-contacts`
 - `PUT /api/v1/personnel-files/{id}/emergency-contacts`
+- `GET /api/v1/personnel-files/{id}/family-members`
 - `PUT /api/v1/personnel-files/{id}/family-members`
+- `GET /api/v1/personnel-files/{id}/hobbies`
 - `PUT /api/v1/personnel-files/{id}/hobbies`
+- `GET /api/v1/personnel-files/{id}/employee-relations`
 - `PUT /api/v1/personnel-files/{id}/employee-relations`
+- `GET /api/v1/personnel-files/{id}/associations`
 - `PUT /api/v1/personnel-files/{id}/associations`
+- `GET /api/v1/personnel-files/{id}/educations`
 - `PUT /api/v1/personnel-files/{id}/educations`
+- `GET /api/v1/personnel-files/{id}/languages`
 - `PUT /api/v1/personnel-files/{id}/languages`
+- `GET /api/v1/personnel-files/{id}/trainings`
 - `PUT /api/v1/personnel-files/{id}/trainings`
+- `GET /api/v1/personnel-files/{id}/previous-employments`
 - `PUT /api/v1/personnel-files/{id}/previous-employments`
+- `GET /api/v1/personnel-files/{id}/references`
 - `PUT /api/v1/personnel-files/{id}/references`
 
 Uso principal:
@@ -2893,9 +2955,12 @@ Uso principal:
 
 Observaciones funcionales:
 
-- Todos los endpoints de `Profile` usan el `ConcurrencyToken` del expediente y devuelven el `PersonnelFileResponse` completo.
+- Los endpoints `GET` de `Profile` devuelven el bloque solicitado sin exigir `ConcurrencyToken`; `personal-info` responde con el bloque escalar del expediente y las demas rutas responden la coleccion completa del subrecurso.
+- Todos los endpoints `PUT` de `Profile` usan el `ConcurrencyToken` del expediente y devuelven el `PersonnelFileResponse` completo.
 - Todos los `PUT` de colecciones son de reemplazo total de la subseccion.
-- `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite `Candidate -> Employee`.
+- `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite transiciones de `RecordType`.
+- `personal-info` tambien actualiza `AssignedPositionSlotId` mientras el expediente sigue en `Draft`; al completar el expediente, `AssignedPositionSlotId` e `InstitutionalEmail` quedan bloqueados.
+- si `RecordType = Employee`, `AssignedPositionSlotId` sigue siendo obligatorio; si `RecordType = Candidate`, no puede enviarse.
 - `identifications` revalida unicidad tenant-wide por `IdentificationType + IdentificationNumber` normalizado.
 - `family-members` exige consistencia entre banderas condicionales y datos dependientes:
 - si `IsStudying=true`, se esperan `StudyPlace` y `AcademicLevel`
@@ -2911,30 +2976,36 @@ Observaciones funcionales:
 
 Route family:
 
-- `POST /api/v1/personnel-files/{id}/hire`
+- `POST /api/v1/personnel-files/{id}/finalize`
+- `GET /api/v1/personnel-files/{id}/employee-profile`
 - `PUT /api/v1/personnel-files/{id}/employee-profile`
+- `GET /api/v1/personnel-files/{id}/employment-assignments`
 - `PUT /api/v1/personnel-files/{id}/employment-assignments`
+- `GET /api/v1/personnel-files/{id}/contract-history`
 - `PUT /api/v1/personnel-files/{id}/contract-history`
 - `GET /api/v1/personnel-files/{id}/position-hierarchy`
+- `GET /api/v1/personnel-files/{id}/authorization-substitutions`
 - `PUT /api/v1/personnel-files/{id}/authorization-substitutions`
 - `POST /api/v1/personnel-files/{id}/personnel-actions`
 - `GET /api/v1/personnel-files/{id}/personnel-actions`
 - `GET /api/v1/personnel-files/{id}/personnel-actions/export`
+- `GET /api/v1/personnel-files/{id}/assets-accesses`
 - `PUT /api/v1/personnel-files/{id}/assets-accesses`
 
 Uso principal:
 
-- formalizar la contratacion
+- completar el expediente de empleado y aprovisionar su usuario
 - mantener la capa laboral del expediente
 - consultar y exportar movimientos laborales
 
 Observaciones funcionales:
 
-- Todo el bloque, salvo `hire`, exige que el expediente ya sea `Employee`; si no, responde `PERSONNEL_FILE_STATE_RULE_VIOLATION`.
-- `hire` exige que el expediente sea `Candidate`; si ya no lo es, tambien responde `PERSONNEL_FILE_STATE_RULE_VIOLATION`.
-- `hire` cambia el `RecordType` del expediente a `Employee` y crea el `employee profile` inicial.
-- en `hire`, `ContractStartDate` se inicializa con `HireDate` y `OrgUnitId` hereda el `OrgUnit` actual del expediente.
+- `finalize` exige que el expediente sea `Employee`, siga en `Draft`, tenga `InstitutionalEmail`, plaza asignada y que la plaza tenga un rol IAM valido.
+- `finalize` cambia el expediente a `Completed`, crea o reutiliza el usuario de compania, deja la cuenta local en `PendingActivation`, emite invitacion y vincula opcionalmente el usuario al expediente.
+- Todo el resto del bloque exige que el expediente ya sea un `Employee` completado; si no, responde `PERSONNEL_FILE_STATE_RULE_VIOLATION`.
+- Los endpoints `GET` del bloque devuelven el subrecurso solicitado sin exigir `ConcurrencyToken`.
 - `employee-profile` hace upsert del perfil laboral y permite vincular `PositionSlotId`, `JobProfileId`, `OrgUnitId`, `WorkCenterId`, `CostCenterId`, vigencias contractuales y `VacationConfigurationJson`.
+- la creacion del usuario ya no depende del `employee-profile`; ese subrecurso queda para datos laborales posteriores a `finalize`.
 - `employment-assignments`, `contract-history`, `authorization-substitutions` y `assets-accesses` reemplazan la coleccion completa de ese subrecurso.
 - `position-hierarchy` devuelve `ImmediateSupervisorPersonnelFileId`, `ImmediateSupervisorName` y la coleccion de subordinados.
 - `personnel-actions` agrega un evento individual de personal con fechas efectivas, monto opcional, moneda, descripcion y referencia.
@@ -2949,13 +3020,18 @@ Observaciones funcionales:
 
 Route family:
 
+- `GET /api/v1/personnel-files/{id}/salary-items`
 - `PUT /api/v1/personnel-files/{id}/salary-items`
+- `GET /api/v1/personnel-files/{id}/additional-benefits`
 - `PUT /api/v1/personnel-files/{id}/additional-benefits`
+- `GET /api/v1/personnel-files/{id}/payment-methods`
 - `PUT /api/v1/personnel-files/{id}/payment-methods`
 - `PUT /api/v1/personnel-files/{id}/payroll-transactions`
 - `GET /api/v1/personnel-files/{id}/payroll-transactions`
 - `GET /api/v1/personnel-files/{id}/payroll-transactions/export`
+- `GET /api/v1/personnel-files/{id}/insurances`
 - `PUT /api/v1/personnel-files/{id}/insurances`
+- `GET /api/v1/personnel-files/{id}/medical-claims`
 - `PUT /api/v1/personnel-files/{id}/medical-claims`
 - `PUT /api/v1/personnel-files/{id}/bank-accounts`
 
@@ -2966,6 +3042,7 @@ Uso principal:
 Observaciones funcionales:
 
 - Todo el bloque exige que el expediente sea `Employee`.
+- Los endpoints `GET` del bloque devuelven la coleccion completa del subrecurso y no exigen `ConcurrencyToken`.
 - Todos los `PUT` son de reemplazo total de la subseccion.
 - `salary-items` mantiene rubros salariales con vigencias, tipo de ingreso, rubrica, moneda y periodo de pago.
 - `additional-benefits` mantiene beneficios adicionales activos o historicos.
@@ -3018,6 +3095,7 @@ Observaciones funcionales:
 
 Route family:
 
+- `GET /api/v1/personnel-files/{id}/documents`
 - `POST /api/v1/personnel-files/{id}/documents`
 - `PATCH /api/v1/personnel-file-documents/{documentId}/inactivate`
 - `GET /api/v1/personnel-file-documents/{documentId}/download`
@@ -3032,6 +3110,9 @@ Uso principal:
 
 Observaciones funcionales:
 
+- `GET /documents` devuelve una lista liviana de `PersonnelFileDocumentMetadataResponse` sin `FileData`.
+- `GET /documents` es la vista recomendada para renderizar listados o previews de adjuntos antes de descargar un binario puntual.
+- `GET /documents` ordena por `CreatedAtUtc` descendente.
 - `upload document` usa `multipart/form-data`.
 - `upload document` exige archivo no vacio y usa el `ConcurrencyToken` actual del expediente.
 - `upload document` calcula y persiste `sha256` del binario cargado.

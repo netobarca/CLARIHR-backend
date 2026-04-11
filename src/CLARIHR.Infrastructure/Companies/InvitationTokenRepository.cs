@@ -9,6 +9,23 @@ internal sealed class InvitationTokenRepository(ApplicationDbContext dbContext) 
 {
     public void Add(InvitationToken invitationToken) => dbContext.InvitationTokens.Add(invitationToken);
 
+    public Task<InvitationTokenResolution?> GetActiveByHashAsync(
+        string tokenHash,
+        DateTime utcNow,
+        CancellationToken cancellationToken) =>
+        dbContext.InvitationTokens
+            .Where(invitationToken =>
+                invitationToken.TokenHash == tokenHash &&
+                !invitationToken.IsUsed &&
+                invitationToken.RevokedUtc == null &&
+                invitationToken.ExpirationUtc > utcNow)
+            .Join(
+                dbContext.Companies,
+                invitationToken => invitationToken.CompanyId,
+                company => company.Id,
+                (invitationToken, company) => new InvitationTokenResolution(invitationToken, company.PublicId))
+            .SingleOrDefaultAsync(cancellationToken);
+
     public async Task RevokeActiveTokensAsync(long userId, long companyId, DateTime revokedUtc, CancellationToken cancellationToken)
     {
         var activeTokens = await dbContext.InvitationTokens

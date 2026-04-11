@@ -22,6 +22,7 @@ public sealed record CreatePersonnelFileRequest(
     string? BirthMunicipality,
     string? PhotoUrl,
     Guid? OrgUnitPublicId,
+    Guid? AssignedPositionSlotPublicId,
     string? CustomDataJson,
     IReadOnlyCollection<IdentificationItemRequest> Identifications);
 
@@ -42,18 +43,11 @@ public sealed record UpdatePersonnelFilePersonalInfoRequest(
     string? BirthMunicipality,
     string? PhotoUrl,
     Guid? OrgUnitPublicId,
+    Guid? AssignedPositionSlotPublicId,
     string? CustomDataJson,
     Guid ConcurrencyToken);
 
-public sealed record HirePersonnelFileRequest(
-    string EmployeeCode,
-    string EmploymentStatusCode,
-    bool IsEmploymentActive,
-    string ContractTypeCode,
-    DateTime HireDate,
-    string? WorkdayCode,
-    string? PayrollTypeCode,
-    Guid ConcurrencyToken);
+public sealed record FinalizePersonnelFileRequest(Guid ConcurrencyToken);
 
 public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     string EmployeeCode,

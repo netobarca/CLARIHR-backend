@@ -47,6 +47,11 @@ public static class PositionSlotErrors
         "The selected work center could not be found.",
         ErrorType.NotFound);
 
+    public static readonly Error RoleNotFound = new(
+        "POSITION_SLOT_ROLE_NOT_FOUND",
+        "The selected role could not be found.",
+        ErrorType.NotFound);
+
     public static readonly Error JobProfileOrgUnitNotConfigured = new(
         "POSITION_SLOT_JOB_PROFILE_ORG_UNIT_NOT_CONFIGURED",
         "The selected job profile does not have an organization unit configured.",

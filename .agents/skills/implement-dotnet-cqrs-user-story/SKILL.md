@@ -110,6 +110,12 @@ Alinea la solución al foundation document y al diseño correcto del sistema, mi
 - `code` y `normalizedCode` deben quedar normalizados en `UPPERCASE`; no se debe preservar mixed case.
 - Las búsquedas, unicidad e integraciones internas deben resolver por `normalizedCode` y traducir a `Id` interno solo dentro del backend.
 
+## 5.8 Migraciones EF Core
+- Si la tarea cambia entidades persistidas, configuraciones EF, relaciones, índices, `DbSet`, columnas, constraints o cualquier parte del modelo, debes revisar migraciones.
+- No dar por cerrada una HU con cambios de modelo y sin migración EF correspondiente.
+- No silenciar `PendingModelChangesWarning` para “hacer que arranque”; la salida correcta es alinear modelo, snapshot y migración.
+- Ejecutar `dotnet ef` con una versión compatible con los paquetes EF Core del repositorio. Si el CLI disponible no coincide, instalar temporalmente la versión correcta antes de generar la migración.
+
 ---
 
 ## 6. Entradas mínimas esperadas
@@ -193,10 +199,20 @@ Asegurarte de que:
 - los listados sean paginados,
 - no existan consultas obviamente deficientes.
 
-## Paso 8. Agregar pruebas
+## Paso 8. Resolver migraciones y schema
+Si hubo cambios de modelo persistido:
+
+- generar la migración en `src/CLARIHR.Infrastructure/Persistence/Migrations`,
+- revisar manualmente el archivo generado antes de darlo por bueno,
+- corregir defaults, backfills, índices, nombres y data migration cuando EF genere algo incompleto o riesgoso,
+- verificar que el snapshot quede alineado,
+- confirmar con `dotnet ef migrations has-pending-model-changes` que no quedan cambios pendientes,
+- aplicar la migración en el entorno local usado para validar (`dotnet ef database update` o el flujo de arranque que ejecute `MigrateAsync()`).
+
+## Paso 9. Agregar pruebas
 Agregar o actualizar pruebas unitarias relevantes.
 
-## Paso 9. Preparar salida documental
+## Paso 10. Preparar salida documental
 Identificar qué documentos vivos y qué archivo HU deberán actualizarse al cerrar la historia.  
 No cerrar la HU sin trazabilidad mínima.
 
@@ -442,6 +458,8 @@ Antes de considerar la HU implementada, revisar:
 - [ ] Las validaciones están completas
 - [ ] Los errores están bien manejados
 - [ ] Existen pruebas suficientes
+- [ ] Si hubo cambios persistidos, la migración EF quedó generada y revisada
+- [ ] Si hubo cambios persistidos, `has-pending-model-changes` ya no reporta diferencias
 - [ ] Los flujos públicos resuelven recursos por `PublicId`
 - [ ] Ningún contrato o export público expone `id` o `internalId`
 - [ ] Todo `code`/`normalizedCode` observable está en `UPPERCASE`
@@ -458,3 +476,12 @@ Usar como base:
 dotnet restore
 dotnet build
 dotnet test
+```
+
+Si hubo cambios de modelo EF, agregar como mínimo:
+
+```bash
+dotnet ef migrations add <NombreMigration> --project src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --startup-project src/CLARIHR.Api/CLARIHR.Api.csproj
+dotnet ef migrations has-pending-model-changes --project src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --startup-project src/CLARIHR.Api/CLARIHR.Api.csproj --no-build
+dotnet ef database update --project src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --startup-project src/CLARIHR.Api/CLARIHR.Api.csproj
+```

@@ -2,6 +2,7 @@ using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PositionSlots;
 using CLARIHR.Domain.PositionSlots;
+using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -73,6 +74,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             from slot in dbContext.Set<PositionSlot>().AsNoTracking()
             join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
             join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
+            join role in dbContext.IamRoles.AsNoTracking() on slot.RoleId equals role.Id into roleGroup
+            from role in roleGroup.DefaultIfEmpty()
             join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
             from workCenter in workCenterGroup.DefaultIfEmpty()
             join positionCategory in dbContext.PositionCategories.AsNoTracking()
@@ -89,6 +92,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             {
                 Slot = slot,
                 JobProfile = jobProfile,
+                Role = role,
                 OrgUnit = orgUnit,
                 WorkCenter = workCenter,
                 PositionCategory = positionCategory,
@@ -149,6 +153,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 item.JobProfile.PublicId,
                 item.JobProfile.Code,
                 item.JobProfile.Title,
+                item.Role != null ? item.Role.PublicId : null,
+                item.Role != null ? item.Role.Name : null,
                 item.OrgUnit.PublicId,
                 item.OrgUnit.Name,
                 item.WorkCenter != null ? item.WorkCenter.PublicId : null,
@@ -173,6 +179,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         (from slot in dbContext.Set<PositionSlot>().AsNoTracking()
          join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
          join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
+         join role in dbContext.IamRoles.AsNoTracking() on slot.RoleId equals role.Id into roleGroup
+         from role in roleGroup.DefaultIfEmpty()
          join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
          from workCenter in workCenterGroup.DefaultIfEmpty()
          join directDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.DirectDependencyPositionSlotId equals directDependency.Id into directGroup
@@ -198,6 +206,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
              jobProfile.PublicId,
              jobProfile.Code,
              jobProfile.Title,
+             role != null ? role.PublicId : null,
+             role != null ? role.Name : null,
              orgUnit.PublicId,
              orgUnit.Name,
              workCenter != null ? workCenter.PublicId : null,
@@ -229,6 +239,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             (from slot in dbContext.Set<PositionSlot>().AsNoTracking()
              join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
              join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
+             join role in dbContext.IamRoles.AsNoTracking() on slot.RoleId equals role.Id into roleGroup
+             from role in roleGroup.DefaultIfEmpty()
              join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
             from workCenter in workCenterGroup.DefaultIfEmpty()
              join positionCategory in dbContext.PositionCategories.AsNoTracking()
@@ -288,6 +300,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             from slot in dbContext.Set<PositionSlot>().AsNoTracking()
             join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
             join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
+            join role in dbContext.IamRoles.AsNoTracking() on slot.RoleId equals role.Id into roleGroup
+            from role in roleGroup.DefaultIfEmpty()
             join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
             from workCenter in workCenterGroup.DefaultIfEmpty()
             join directDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.DirectDependencyPositionSlotId equals directDependency.Id into directGroup
@@ -308,6 +322,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
             {
                 Slot = slot,
                 JobProfile = jobProfile,
+                Role = role,
                 OrgUnit = orgUnit,
                 WorkCenter = workCenter,
                 DirectDependency = directDependency,
@@ -364,6 +379,8 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 item.Slot.Status,
                 item.JobProfile.Code,
                 item.JobProfile.Title,
+                item.Role != null ? item.Role.PublicId : null,
+                item.Role != null ? item.Role.Name : null,
                 item.OrgUnit.Code,
                 item.OrgUnit.Name,
                 item.WorkCenter != null ? item.WorkCenter.Code : null,

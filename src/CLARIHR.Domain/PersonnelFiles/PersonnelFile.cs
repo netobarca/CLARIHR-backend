@@ -42,10 +42,12 @@ public sealed class PersonnelFile : TenantEntity
         string? birthMunicipality,
         string? photoUrl,
         Guid? orgUnitPublicId,
+        Guid? assignedPositionSlotPublicId,
         string? customDataJson)
     {
         PublicId = publicId;
         RecordType = recordType;
+        LifecycleStatus = PersonnelFileLifecycleStatus.Draft;
         SetName(firstName, lastName);
         BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
         MaritalStatus = PersonnelFileNormalization.CleanOptional(maritalStatus);
@@ -60,12 +62,15 @@ public sealed class PersonnelFile : TenantEntity
         BirthMunicipality = PersonnelFileNormalization.CleanOptional(birthMunicipality);
         PhotoUrl = PersonnelFileNormalization.CleanOptional(photoUrl);
         OrgUnitPublicId = orgUnitPublicId;
+        AssignedPositionSlotPublicId = assignedPositionSlotPublicId;
         CustomDataJson = PersonnelFileNormalization.CleanOptional(customDataJson);
         IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
 
     public PersonnelFileRecordType RecordType { get; private set; }
+
+    public PersonnelFileLifecycleStatus LifecycleStatus { get; private set; }
 
     public string FirstName { get; private set; } = string.Empty;
 
@@ -101,11 +106,19 @@ public sealed class PersonnelFile : TenantEntity
 
     public Guid? OrgUnitPublicId { get; private set; }
 
+    public Guid? AssignedPositionSlotPublicId { get; private set; }
+
+    public Guid? LinkedUserPublicId { get; private set; }
+
     public string? CustomDataJson { get; private set; }
 
     public bool IsActive { get; private set; }
 
     public Guid ConcurrencyToken { get; private set; }
+
+    public bool IsCompletedEmployee =>
+        RecordType == PersonnelFileRecordType.Employee &&
+        LifecycleStatus == PersonnelFileLifecycleStatus.Completed;
 
     public IReadOnlyCollection<PersonnelFileIdentification> Identifications => _identifications;
 
@@ -154,6 +167,7 @@ public sealed class PersonnelFile : TenantEntity
         string? birthMunicipality,
         string? photoUrl,
         Guid? orgUnitPublicId,
+        Guid? assignedPositionSlotPublicId,
         string? customDataJson,
         IReadOnlyCollection<PersonnelFileIdentification>? identifications = null)
     {
@@ -175,6 +189,7 @@ public sealed class PersonnelFile : TenantEntity
             birthMunicipality,
             photoUrl,
             orgUnitPublicId,
+            assignedPositionSlotPublicId,
             customDataJson);
 
         if (identifications is not null)
@@ -202,8 +217,23 @@ public sealed class PersonnelFile : TenantEntity
         string? birthMunicipality,
         string? photoUrl,
         Guid? orgUnitPublicId,
+        Guid? assignedPositionSlotPublicId,
         string? customDataJson)
     {
+        var normalizedInstitutionalEmail = PersonnelFileNormalization.CleanOptional(institutionalEmail);
+        if (LifecycleStatus == PersonnelFileLifecycleStatus.Completed)
+        {
+            if (!string.Equals(InstitutionalEmail, normalizedInstitutionalEmail, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("InstitutionalEmail cannot be changed after personnel file completion.");
+            }
+
+            if (AssignedPositionSlotPublicId != assignedPositionSlotPublicId)
+            {
+                throw new InvalidOperationException("AssignedPositionSlotPublicId cannot be changed after personnel file completion.");
+            }
+        }
+
         RecordType = recordType;
         SetName(firstName, lastName);
         BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
@@ -211,7 +241,7 @@ public sealed class PersonnelFile : TenantEntity
         Profession = PersonnelFileNormalization.CleanOptional(profession);
         Nationality = PersonnelFileNormalization.CleanOptional(nationality);
         PersonalEmail = PersonnelFileNormalization.CleanOptional(personalEmail);
-        InstitutionalEmail = PersonnelFileNormalization.CleanOptional(institutionalEmail);
+        InstitutionalEmail = normalizedInstitutionalEmail;
         PersonalPhone = PersonnelFileNormalization.CleanOptional(personalPhone);
         InstitutionalPhone = PersonnelFileNormalization.CleanOptional(institutionalPhone);
         BirthCountry = PersonnelFileNormalization.CleanOptional(birthCountry);
@@ -219,7 +249,20 @@ public sealed class PersonnelFile : TenantEntity
         BirthMunicipality = PersonnelFileNormalization.CleanOptional(birthMunicipality);
         PhotoUrl = PersonnelFileNormalization.CleanOptional(photoUrl);
         OrgUnitPublicId = orgUnitPublicId;
+        AssignedPositionSlotPublicId = assignedPositionSlotPublicId;
         CustomDataJson = PersonnelFileNormalization.CleanOptional(customDataJson);
+        RefreshConcurrencyToken();
+    }
+
+    public void Complete(Guid linkedUserPublicId)
+    {
+        if (linkedUserPublicId == Guid.Empty)
+        {
+            throw new ArgumentException("Linked user public id is required.", nameof(linkedUserPublicId));
+        }
+
+        LifecycleStatus = PersonnelFileLifecycleStatus.Completed;
+        LinkedUserPublicId = linkedUserPublicId;
         RefreshConcurrencyToken();
     }
 

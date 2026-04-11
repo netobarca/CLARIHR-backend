@@ -1,6 +1,7 @@
 using System.Reflection;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.Provisioning;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,7 @@ public static class DependencyInjection
         services.AddScoped<ICommandDispatcher, RequestDispatcher>();
         services.AddScoped<IQueryDispatcher, RequestDispatcher>();
         services.AddScoped<ICompanyProvisioningService, CompanyProvisioningService>();
+        services.AddScoped<ICompanyUserProvisioningService, CompanyUserProvisioningService>();
 
         RegisterHandlers(services, assembly, typeof(ICommandHandler<,>));
         RegisterHandlers(services, assembly, typeof(IQueryHandler<,>));

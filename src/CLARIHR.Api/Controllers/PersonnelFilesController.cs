@@ -49,6 +49,7 @@ public sealed class PersonnelFilesController(
                 request.BirthMunicipality,
                 request.PhotoUrl,
                 request.OrgUnitPublicId,
+                request.AssignedPositionSlotPublicId,
                 request.CustomDataJson,
                 request.Identifications.Select(item => new IdentificationInput(
                     item.IdentificationType,

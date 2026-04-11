@@ -28,7 +28,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       URLS: http://+:8080
-      Database__ConnectionString: Host=postgres;Port=5432;Database=clarihr;Username=postgres;Password=postgres
+      Database__ConnectionString: Host=postgres;Port=5432;Database=clarihr;Username=postgres;Password=postgres;Ssl Mode=Disable
       Authentication__Google__ClientId: 16268587172-qd30l0j2rr0dlapn75ggkdvmmei7m9dg.apps.googleusercontent.com
       Authentication__Jwt__Issuer: clarihr-local
       Authentication__Jwt__Audience: clarihr-local
