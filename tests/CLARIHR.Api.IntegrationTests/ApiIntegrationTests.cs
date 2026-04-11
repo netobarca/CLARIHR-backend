@@ -4661,6 +4661,29 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task AuditLogs_WithLegacyEntityIdAlias_ShouldReturnOnlyMatchingEntityAndAlignedTotalCount()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateUserContext(
+            scenario,
+            (RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync(
+            $"/api/audit/logs?EntityId={scenario.TargetUserId}&EntityType=User&page=1&pageSize=20");
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<AuditLogSummaryItem>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(1, payload!.TotalCount);
+
+        var item = Assert.Single(payload.Items);
+        Assert.Equal("USER_UPDATED", item.EventType);
+        Assert.Equal("User", item.EntityType);
+        Assert.Equal(scenario.TargetUserId, item.EntityId);
+    }
+
+    [Fact]
     public async Task IamUsers_Create_WithPermission_ShouldReturnCreatedUser()
     {
         var scenario = await factory.ResetDatabaseAsync();
