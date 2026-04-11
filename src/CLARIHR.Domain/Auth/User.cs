@@ -125,6 +125,25 @@ public sealed class User : AuditableEntity
             source,
             UserStatus.PendingActivation);
 
+    public static User InviteLocalWithTemporaryPassword(
+        string firstName,
+        string lastName,
+        string email,
+        string temporaryPasswordHash,
+        string? country,
+        string? source) =>
+        new(
+            Guid.NewGuid(),
+            firstName,
+            lastName,
+            email,
+            temporaryPasswordHash,
+            AuthProvider.Local,
+            providerUserId: null,
+            country,
+            source,
+            UserStatus.PendingActivation);
+
     public bool IsLinkedTo(AuthProvider authProvider, string providerUserId) =>
         AuthProvider == authProvider &&
         string.Equals(ProviderUserId, AuthNormalization.Clean(providerUserId, nameof(providerUserId)), StringComparison.Ordinal);
@@ -156,6 +175,28 @@ public sealed class User : AuditableEntity
     {
         FirstName = AuthNormalization.Clean(firstName, nameof(firstName));
         LastName = AuthNormalization.Clean(lastName, nameof(lastName));
+    }
+
+    public void SetPendingActivationPassword(string passwordHash)
+    {
+        if (AuthProvider != AuthProvider.Local)
+        {
+            throw new InvalidOperationException("Pending activation passwords are only supported for local users.");
+        }
+
+        PasswordHash = AuthNormalization.Clean(passwordHash, nameof(passwordHash));
+        Status = UserStatus.PendingActivation;
+    }
+
+    public void CompleteLocalActivation(string passwordHash)
+    {
+        if (AuthProvider != AuthProvider.Local)
+        {
+            throw new InvalidOperationException("Local activation is only supported for local users.");
+        }
+
+        PasswordHash = AuthNormalization.Clean(passwordHash, nameof(passwordHash));
+        Status = UserStatus.Active;
     }
 
     public void Deactivate() => Status = UserStatus.Inactive;

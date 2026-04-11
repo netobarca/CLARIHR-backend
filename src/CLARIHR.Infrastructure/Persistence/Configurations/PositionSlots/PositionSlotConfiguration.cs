@@ -1,6 +1,7 @@
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.PositionSlots;
+using CLARIHR.Domain.IdentityAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -38,6 +39,9 @@ internal sealed class PositionSlotConfiguration : IEntityTypeConfiguration<Posit
 
         builder.Property(slot => slot.JobProfileId)
             .HasColumnName("job_profile_id");
+
+        builder.Property(slot => slot.RoleId)
+            .HasColumnName("role_id");
 
         builder.Property(slot => slot.WorkCenterId)
             .HasColumnName("work_center_id");
@@ -99,6 +103,9 @@ internal sealed class PositionSlotConfiguration : IEntityTypeConfiguration<Posit
         builder.HasIndex(slot => new { slot.TenantId, slot.JobProfileId })
             .HasDatabaseName("ix_position_slots__tenant_job_profile");
 
+        builder.HasIndex(slot => new { slot.TenantId, slot.RoleId })
+            .HasDatabaseName("ix_position_slots__tenant_role");
+
         builder.HasIndex(slot => new { slot.TenantId, slot.WorkCenterId })
             .HasDatabaseName("ix_position_slots__tenant_work_center");
 
@@ -113,6 +120,12 @@ internal sealed class PositionSlotConfiguration : IEntityTypeConfiguration<Posit
             .HasForeignKey(slot => slot.JobProfileId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_position_slots__job_profile");
+
+        builder.HasOne<IamRole>()
+            .WithMany()
+            .HasForeignKey(slot => slot.RoleId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_position_slots__role");
 
         builder.HasOne<WorkCenter>()
             .WithMany()

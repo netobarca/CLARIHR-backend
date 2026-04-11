@@ -53,9 +53,8 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
 
     public Task<UserCompanyMembership?> GetMembershipAsync(long userId, Guid companyPublicId, CancellationToken cancellationToken) =>
         dbContext.UserCompanyMemberships
-            .AsNoTracking()
             .Join(
-                dbContext.Companies.AsNoTracking().Where(company => company.PublicId == companyPublicId),
+                dbContext.Companies.Where(company => company.PublicId == companyPublicId),
                 membership => membership.CompanyId,
                 company => company.Id,
                 (membership, _) => membership)

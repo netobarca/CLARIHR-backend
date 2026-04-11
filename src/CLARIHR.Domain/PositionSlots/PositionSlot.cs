@@ -13,6 +13,7 @@ public sealed class PositionSlot : TenantEntity
         string code,
         string? title,
         long jobProfileId,
+        long? roleId,
         long? workCenterId,
         long? directDependencyPositionSlotId,
         long? functionalDependencyPositionSlotId,
@@ -30,6 +31,11 @@ public sealed class PositionSlot : TenantEntity
             EnsurePositiveId(workCenterId.Value, nameof(workCenterId));
         }
 
+        if (roleId.HasValue)
+        {
+            EnsurePositiveId(roleId.Value, nameof(roleId));
+        }
+
         ValidateCapacity(maxEmployees, occupiedEmployees);
         ValidateDateRange(effectiveFromUtc, effectiveToUtc);
 
@@ -37,6 +43,7 @@ public sealed class PositionSlot : TenantEntity
         SetCode(code);
         Title = PositionSlotNormalization.CleanOptional(title);
         JobProfileId = jobProfileId;
+        RoleId = roleId;
         WorkCenterId = workCenterId;
         DirectDependencyPositionSlotId = directDependencyPositionSlotId;
         FunctionalDependencyPositionSlotId = functionalDependencyPositionSlotId;
@@ -62,6 +69,8 @@ public sealed class PositionSlot : TenantEntity
     public string? Title { get; private set; }
 
     public long JobProfileId { get; private set; }
+
+    public long? RoleId { get; private set; }
 
     public long? WorkCenterId { get; private set; }
 
@@ -91,6 +100,7 @@ public sealed class PositionSlot : TenantEntity
         string code,
         string? title,
         long jobProfileId,
+        long? roleId,
         long? workCenterId,
         long? directDependencyPositionSlotId,
         long? functionalDependencyPositionSlotId,
@@ -106,6 +116,7 @@ public sealed class PositionSlot : TenantEntity
             code,
             title,
             jobProfileId,
+            roleId,
             workCenterId,
             directDependencyPositionSlotId,
             functionalDependencyPositionSlotId,
@@ -121,6 +132,7 @@ public sealed class PositionSlot : TenantEntity
         string code,
         string? title,
         long jobProfileId,
+        long? roleId,
         long? workCenterId,
         int maxEmployees,
         bool isFixedTerm,
@@ -134,12 +146,18 @@ public sealed class PositionSlot : TenantEntity
             EnsurePositiveId(workCenterId.Value, nameof(workCenterId));
         }
 
+        if (roleId.HasValue)
+        {
+            EnsurePositiveId(roleId.Value, nameof(roleId));
+        }
+
         ValidateCapacity(maxEmployees, OccupiedEmployees);
         ValidateDateRange(effectiveFromUtc, effectiveToUtc);
 
         SetCode(code);
         Title = PositionSlotNormalization.CleanOptional(title);
         JobProfileId = jobProfileId;
+        RoleId = roleId;
         WorkCenterId = workCenterId;
         MaxEmployees = maxEmployees;
         IsFixedTerm = isFixedTerm;

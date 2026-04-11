@@ -289,6 +289,7 @@ public sealed class PositionSlotsController(
                 request.Code,
                 request.Title,
                 request.JobProfilePublicId,
+                request.RolePublicId,
                 request.WorkCenterPublicId,
                 request.DirectDependencyPositionSlotPublicId,
                 request.FunctionalDependencyPositionSlotPublicId,
@@ -324,6 +325,7 @@ public sealed class PositionSlotsController(
                 request.Code,
                 request.Title,
                 request.JobProfilePublicId,
+                request.RolePublicId,
                 request.WorkCenterPublicId,
                 request.MaxEmployees,
                 request.EffectiveFromUtc,
@@ -401,7 +403,7 @@ public sealed class PositionSlotsController(
     {
         var lines = new List<string>
         {
-            "PublicId,Code,Title,Status,JobProfileCode,JobProfileTitle,OrgUnitCode,OrgUnitName,WorkCenterCode,WorkCenterName,CostCenterCode,DirectDependencyCode,FunctionalDependencyCode,ContractTypePublicId,ContractTypeCode,ContractTypeName,MaxEmployees,OccupiedEmployees,EffectiveFromUtc,EffectiveToUtc,IsActive,CreatedAtUtc,ModifiedAtUtc"
+            "PublicId,Code,Title,Status,JobProfileCode,JobProfileTitle,RolePublicId,RoleName,OrgUnitCode,OrgUnitName,WorkCenterCode,WorkCenterName,CostCenterCode,DirectDependencyCode,FunctionalDependencyCode,ContractTypePublicId,ContractTypeCode,ContractTypeName,MaxEmployees,OccupiedEmployees,EffectiveFromUtc,EffectiveToUtc,IsActive,CreatedAtUtc,ModifiedAtUtc"
         };
 
         lines.AddRange(rows.Select(row => string.Join(",",
@@ -411,6 +413,8 @@ public sealed class PositionSlotsController(
             EscapeCsv(row.Status.ToString()),
             EscapeCsv(row.JobProfileCode),
             EscapeCsv(row.JobProfileTitle),
+            EscapeCsv(row.RoleId?.ToString()),
+            EscapeCsv(row.RoleName),
             EscapeCsv(row.OrgUnitCode),
             EscapeCsv(row.OrgUnitName),
             EscapeCsv(row.WorkCenterCode),
@@ -548,6 +552,8 @@ public sealed class PositionSlotsController(
             "Status",
             "JobProfileCode",
             "JobProfileTitle",
+            "RolePublicId",
+            "RoleName",
             "OrgUnitCode",
             "OrgUnitName",
             "WorkCenterCode",
@@ -585,6 +591,8 @@ public sealed class PositionSlotsController(
             sheetRows.Append(Cell(row.Status.ToString()));
             sheetRows.Append(Cell(row.JobProfileCode));
             sheetRows.Append(Cell(row.JobProfileTitle));
+            sheetRows.Append(Cell(row.RoleId?.ToString()));
+            sheetRows.Append(Cell(row.RoleName));
             sheetRows.Append(Cell(row.OrgUnitCode));
             sheetRows.Append(Cell(row.OrgUnitName));
             sheetRows.Append(Cell(row.WorkCenterCode));
@@ -701,6 +709,7 @@ public sealed class PositionSlotsController(
         string Code,
         string? Title,
         Guid JobProfilePublicId,
+        Guid? RolePublicId,
         Guid? WorkCenterPublicId,
         Guid? DirectDependencyPositionSlotPublicId,
         Guid? FunctionalDependencyPositionSlotPublicId,
@@ -715,6 +724,7 @@ public sealed class PositionSlotsController(
         string Code,
         string? Title,
         Guid JobProfilePublicId,
+        Guid? RolePublicId,
         Guid? WorkCenterPublicId,
         int MaxEmployees,
         DateTime EffectiveFromUtc,

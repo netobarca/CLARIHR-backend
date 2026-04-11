@@ -48,6 +48,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return Map(existing);
     }
 
+    public async Task<PersonnelFileEmployeeProfileResponse?> GetEmployeeProfileAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileEmployeeProfile>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(entry => entry.PersonnelFile.PublicId == personnelFileId, cancellationToken);
+
+        return item is null ? null : Map(item);
+    }
+
     public Task<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>> ReplaceEmploymentAssignmentsAsync(
         long personnelFileInternalId,
         Guid tenantId,
@@ -61,6 +72,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             map: Map,
             cancellationToken);
 
+    public async Task<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>> GetEmploymentAssignmentsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.IsPrimary)
+            .ThenBy(item => item.StartDate)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
+
     public Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> ReplaceContractHistoryAsync(
         long personnelFileInternalId,
         Guid tenantId,
@@ -73,6 +95,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             orderBy: items => items.OrderByDescending(item => item.ContractDate),
             map: Map,
             cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> GetContractHistoryAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileContractHistory>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.ContractDate)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
 
     public async Task<PersonnelFilePositionHierarchyResponse> GetPositionHierarchyAsync(
         Guid personnelFileId,
@@ -126,6 +158,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             map: Map,
             cancellationToken);
 
+    public async Task<IReadOnlyCollection<PersonnelFileSalaryItemResponse>> GetSalaryItemsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileSalaryItem>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.IsActive)
+            .ThenBy(item => item.StartDate)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
+
     public Task<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>> ReplaceAdditionalBenefitsAsync(
         long personnelFileInternalId,
         Guid tenantId,
@@ -138,6 +181,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             orderBy: items => items.OrderByDescending(item => item.IsActive).ThenBy(item => item.BenefitTypeCode),
             map: Map,
             cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>> GetAdditionalBenefitsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileAdditionalBenefit>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.IsActive)
+            .ThenBy(item => item.BenefitTypeCode)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
 
     public Task<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>> ReplacePaymentMethodsAsync(
         long personnelFileInternalId,
@@ -152,6 +206,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             map: Map,
             cancellationToken);
 
+    public async Task<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>> GetPaymentMethodsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFilePaymentMethod>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.IsPrimary)
+            .ThenBy(item => item.EffectiveFromUtc)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
+
     public Task<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>> ReplaceAuthorizationSubstitutionsAsync(
         long personnelFileInternalId,
         Guid tenantId,
@@ -164,6 +229,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             orderBy: items => items.OrderByDescending(item => item.IsActive).ThenBy(item => item.StartDate),
             map: Map,
             cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>> GetAuthorizationSubstitutionsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileAuthorizationSubstitution>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.IsActive)
+            .ThenBy(item => item.StartDate)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
 
     public Task<PersonnelFilePersonnelActionResponse> AddPersonnelActionAsync(
         PersonnelFilePersonnelAction entity,
@@ -321,6 +397,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             map: Map,
             cancellationToken);
 
+    public async Task<IReadOnlyCollection<PersonnelFileAssetAccessResponse>> GetAssetsAccessesAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileAssetAccess>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.IsActive)
+            .ThenBy(item => item.StartDateUtc)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
+
     public async Task<IReadOnlyCollection<PersonnelFileInsuranceResponse>> ReplaceInsurancesAsync(
         long personnelFileInternalId,
         Guid tenantId,
@@ -342,6 +429,21 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .ToArray();
     }
 
+    public async Task<IReadOnlyCollection<PersonnelFileInsuranceResponse>> GetInsurancesAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken)
+    {
+        var items = await dbContext.Set<PersonnelFileInsurance>()
+            .AsNoTracking()
+            .Include(item => item.Beneficiaries)
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.IsActive)
+            .ThenBy(item => item.InsuranceCode)
+            .ToListAsync(cancellationToken);
+
+        return items.Select(Map).ToArray();
+    }
+
     public Task<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>> ReplaceMedicalClaimsAsync(
         long personnelFileInternalId,
         Guid tenantId,
@@ -354,6 +456,16 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             orderBy: items => items.OrderByDescending(item => item.ClaimDateUtc),
             map: Map,
             cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>> GetMedicalClaimsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileMedicalClaim>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.ClaimDateUtc)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
 
     public Task<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>> ReplacePerformanceEvaluationsAsync(
         long personnelFileInternalId,

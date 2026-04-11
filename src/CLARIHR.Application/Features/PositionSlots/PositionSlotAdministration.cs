@@ -1,5 +1,7 @@
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.CostCenters;
+using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.PositionSlots;
@@ -24,6 +26,8 @@ public sealed record PositionSlotListItemResponse(
     Guid JobProfileId,
     string JobProfileCode,
     string JobProfileTitle,
+    Guid? RoleId,
+    string? RoleName,
     Guid OrgUnitId,
     string OrgUnitName,
     Guid? WorkCenterId,
@@ -50,6 +54,8 @@ public sealed record PositionSlotResponse(
     Guid JobProfileId,
     string JobProfileCode,
     string JobProfileTitle,
+    Guid? RoleId,
+    string? RoleName,
     Guid OrgUnitId,
     string OrgUnitName,
     Guid? WorkCenterId,
@@ -120,6 +126,8 @@ public sealed record PositionSlotExportRow(
     PositionSlotStatus Status,
     string JobProfileCode,
     string JobProfileTitle,
+    Guid? RoleId,
+    string? RoleName,
     string OrgUnitCode,
     string OrgUnitName,
     string? WorkCenterCode,
@@ -187,6 +195,7 @@ public sealed record CreatePositionSlotCommand(
     string Code,
     string? Title,
     Guid JobProfileId,
+    Guid? RoleId,
     Guid? WorkCenterId,
     Guid? DirectDependencyPositionSlotId,
     Guid? FunctionalDependencyPositionSlotId,
@@ -203,6 +212,7 @@ public sealed record UpdatePositionSlotCommand(
     string Code,
     string? Title,
     Guid JobProfileId,
+    Guid? RoleId,
     Guid? WorkCenterId,
     int MaxEmployees,
     DateTime EffectiveFromUtc,
@@ -308,6 +318,9 @@ internal sealed class CreatePositionSlotCommandValidator : AbstractValidator<Cre
             .WithMessage("Code format is invalid.");
         RuleFor(command => command.Title).MaximumLength(180);
         RuleFor(command => command.JobProfileId).NotEmpty();
+        RuleFor(command => command.RoleId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.RoleId.HasValue);
         RuleFor(command => command.WorkCenterId)
             .NotEqual(Guid.Empty)
             .When(static command => command.WorkCenterId.HasValue);
@@ -342,6 +355,9 @@ internal sealed class UpdatePositionSlotCommandValidator : AbstractValidator<Upd
             .WithMessage("Code format is invalid.");
         RuleFor(command => command.Title).MaximumLength(180);
         RuleFor(command => command.JobProfileId).NotEmpty();
+        RuleFor(command => command.RoleId)
+            .NotEqual(Guid.Empty)
+            .When(static command => command.RoleId.HasValue);
         RuleFor(command => command.WorkCenterId)
             .NotEqual(Guid.Empty)
             .When(static command => command.WorkCenterId.HasValue);
@@ -531,6 +547,7 @@ internal sealed class GetPositionSlotExportRowsQueryHandler(
 internal sealed class CreatePositionSlotCommandHandler(
     IPositionSlotAuthorizationService authorizationService,
     IPositionSlotRepository repository,
+    IIamAdministrationRepository iamRepository,
     ICostCenterRepository costCenterRepository,
     IAuditService auditService,
     IUnitOfWork unitOfWork)
@@ -572,6 +589,15 @@ internal sealed class CreatePositionSlotCommandHandler(
         if (workCenterIdResult.IsFailure)
         {
             return Result<PositionSlotResponse>.Failure(workCenterIdResult.Error);
+        }
+
+        var roleIdResult = await PositionSlotCommandSupport.ResolveRoleInternalIdAsync(
+            command.RoleId,
+            iamRepository,
+            cancellationToken);
+        if (roleIdResult.IsFailure)
+        {
+            return Result<PositionSlotResponse>.Failure(roleIdResult.Error);
         }
 
         if (!jobProfileLookup.OrgUnitId.HasValue)
@@ -624,6 +650,7 @@ internal sealed class CreatePositionSlotCommandHandler(
                 command.Code,
                 command.Title,
                 jobProfileLookup.InternalJobProfileId,
+                roleIdResult.Value,
                 workCenterIdResult.Value,
                 directDependencyResult.Value,
                 functionalDependencyResult.Value,
@@ -677,6 +704,8 @@ internal sealed class CreatePositionSlotCommandHandler(
 internal sealed class UpdatePositionSlotCommandHandler(
     IPositionSlotAuthorizationService authorizationService,
     IPositionSlotRepository repository,
+    IIamAdministrationRepository iamRepository,
+    ICompanyUserProvisioningService companyUserProvisioningService,
     ICostCenterRepository costCenterRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
@@ -740,6 +769,15 @@ internal sealed class UpdatePositionSlotCommandHandler(
             return Result<PositionSlotResponse>.Failure(workCenterIdResult.Error);
         }
 
+        var roleIdResult = await PositionSlotCommandSupport.ResolveRoleInternalIdAsync(
+            command.RoleId,
+            iamRepository,
+            cancellationToken);
+        if (roleIdResult.IsFailure)
+        {
+            return Result<PositionSlotResponse>.Failure(roleIdResult.Error);
+        }
+
         if (!jobProfileLookup.OrgUnitId.HasValue)
         {
             return Result<PositionSlotResponse>.Failure(PositionSlotErrors.JobProfileOrgUnitNotConfigured);
@@ -769,6 +807,7 @@ internal sealed class UpdatePositionSlotCommandHandler(
                 command.Code,
                 command.Title,
                 jobProfileLookup.InternalJobProfileId,
+                roleIdResult.Value,
                 workCenterIdResult.Value,
                 command.MaxEmployees,
                 isFixedTerm,
@@ -779,6 +818,22 @@ internal sealed class UpdatePositionSlotCommandHandler(
 
             var after = await repository.GetResponseByIdAsync(slot.PublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Position slot response could not be resolved after update.");
+
+            if (before.RoleId != after.RoleId && after.RoleId.HasValue)
+            {
+                var syncResult = await companyUserProvisioningService.SyncRoleAssignmentsForPositionSlotAsync(
+                    slot.TenantId,
+                    slot.PublicId,
+                    after.RoleId.Value,
+                    cancellationToken);
+                if (syncResult.IsFailure)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Result<PositionSlotResponse>.Failure(syncResult.Error);
+                }
+
+                _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -1368,6 +1423,22 @@ internal static class PositionSlotCommandSupport
             await repository.WorkCenterExistsOutsideTenantAsync(workCenterId.Value, cancellationToken)
                 ? authorizationService.TenantMismatch(action)
                 : PositionSlotErrors.WorkCenterNotFound);
+    }
+
+    public static async Task<Result<long?>> ResolveRoleInternalIdAsync(
+        Guid? roleId,
+        IIamAdministrationRepository iamRepository,
+        CancellationToken cancellationToken)
+    {
+        if (!roleId.HasValue)
+        {
+            return Result<long?>.Success(null);
+        }
+
+        var role = await iamRepository.FindRoleByPublicIdAsync(roleId.Value, includePermissions: false, cancellationToken);
+        return role is null
+            ? Result<long?>.Failure(PositionSlotErrors.RoleNotFound)
+            : Result<long?>.Success(role.Id);
     }
 
     public static async Task<Result<long?>> ResolveDependencyInternalIdAsync(

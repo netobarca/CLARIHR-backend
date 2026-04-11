@@ -14,6 +14,8 @@ public interface IPersonnelFileRepository
 
     Task<PersonnelFile?> GetByIdAsync(Guid personnelFileId, CancellationToken cancellationToken);
 
+    Task<PersonnelFile?> GetByLinkedUserIdAsync(Guid tenantId, Guid linkedUserPublicId, CancellationToken cancellationToken);
+
     Task<bool> ExistsOutsideTenantAsync(Guid personnelFileId, CancellationToken cancellationToken);
 
     Task<bool> IdentificationExistsAsync(
@@ -43,6 +45,60 @@ public interface IPersonnelFileRepository
         CancellationToken cancellationToken);
 
     Task<PersonnelFileResponse?> GetResponseByIdAsync(Guid personnelFileId, CancellationToken cancellationToken);
+
+    Task<PersonnelFilePersonalInfoResponse?> GetPersonalInfoAsync(Guid personnelFileId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileIdentificationResponse>> GetIdentificationsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileAddressResponse>> GetAddressesAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>> GetEmergencyContactsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>> GetFamilyMembersAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileHobbyResponse>> GetHobbiesAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileEducationResponse>> GetEducationsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileLanguageResponse>> GetLanguagesAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileTrainingResponse>> GetTrainingsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>> GetPreviousEmploymentsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileReferenceResponse>> GetReferencesAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> GetDocumentsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(
         Guid tenantId,
@@ -106,4 +162,9 @@ public interface IPersonnelFileRepository
     Task<PersonnelFileCustomFieldDefinition?> GetCustomFieldDefinitionByIdAsync(Guid id, CancellationToken cancellationToken);
 
     Task<bool> CustomFieldKeyExistsAsync(Guid tenantId, string normalizedKey, long? excludingId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<Guid>> GetLinkedUserIdsByAssignedPositionSlotAsync(
+        Guid tenantId,
+        Guid assignedPositionSlotId,
+        CancellationToken cancellationToken);
 }

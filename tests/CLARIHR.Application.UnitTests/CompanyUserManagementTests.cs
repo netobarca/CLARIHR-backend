@@ -9,6 +9,8 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.AccountCompanies;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.Auth.AcceptInvitation;
+using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Application.Features.IdentityAccess.Contracts;
@@ -394,6 +396,93 @@ public sealed class CompanyUserManagementTests
         Assert.NotNull(invitationTokenRepository.Items[0].RevokedUtc);
         Assert.Single(emailService.Messages);
         Assert.True(unitOfWork.Transaction.CommitCalled);
+    }
+
+    [Fact]
+    public async Task Handle_WhenAcceptingInvitation_ShouldActivateUserMembershipAndIamUser()
+    {
+        var userRepository = new TestUserRepository();
+        var companyRepository = SeedCompanyRepository(TenantId, "Acme HR");
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository, userRepository, iamRepository);
+        var invitationTokenRepository = new TestInvitationTokenRepository();
+        var passwordHasher = new TestPasswordHasher();
+        var tokenService = new TestTokenService();
+        var auditService = CreateAuditService();
+        var unitOfWork = new TestUnitOfWork();
+        var utcNow = new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc);
+
+        var user = CreatePersistedInvitedUser("invitee@acme.test");
+        userRepository.Seed(user);
+
+        var role = CreateRole(iamRepository, TenantId, "Usuario Estandar");
+        var membership = UserCompanyMembership.Create(user.Id, companyRepository.Items[0].Id, role.Id, isPrimary: true);
+        membership.Deactivate();
+        userCompanyRepository.Add(membership);
+
+        var iamUser = IamUser.CreateLinked(user.PublicId, user.FirstName, user.LastName, user.Email, isActive: false);
+        iamUser.SetTenantId(TenantId);
+        iamUser.SyncRoles([role]);
+        SetTenantOnAssignments(iamUser.RoleAssignments, TenantId);
+        iamRepository.AddUser(iamUser);
+
+        invitationTokenRepository.RegisterCompany(companyRepository.Items[0].Id, companyRepository.Items[0].PublicId);
+        invitationTokenRepository.Add(InvitationToken.Issue(
+            user.Id,
+            companyRepository.Items[0].Id,
+            "HASH::raw-token",
+            utcNow.AddHours(24)));
+
+        var handler = new AcceptCompanyUserInvitationCommandHandler(
+            userRepository,
+            userCompanyRepository,
+            iamRepository,
+            invitationTokenRepository,
+            new TestInvitationTokenHasher(),
+            passwordHasher,
+            tokenService,
+            new FixedDateTimeProvider(utcNow),
+            auditService,
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new AcceptCompanyUserInvitationCommand("raw-token", "StrongPass123!"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(UserStatus.Active, user.Status);
+        Assert.Equal("HASH::StrongPass123!", user.PasswordHash);
+        Assert.Equal(UserCompanyStatus.Active, membership.Status);
+        Assert.True(iamUser.IsActive);
+        Assert.True(invitationTokenRepository.Items.Single().IsUsed);
+        Assert.Equal(TenantId, tokenService.LastTenantId);
+        Assert.Equal("access-token", result.Value.AccessToken);
+        Assert.Equal("refresh-token", result.Value.RefreshToken);
+        Assert.Equal(AuditEventTypes.UserActivated, auditService.Entries.Single().EventType);
+        Assert.True(unitOfWork.Transaction.CommitCalled);
+    }
+
+    [Fact]
+    public async Task Handle_WhenInvitationTokenIsInvalid_ShouldReturnUnauthorized()
+    {
+        var handler = new AcceptCompanyUserInvitationCommandHandler(
+            new TestUserRepository(),
+            new TestUserCompanyRepository(new TestCompanyRepository(), new TestUserRepository(), new TestIamAdministrationRepository()),
+            new TestIamAdministrationRepository(),
+            new TestInvitationTokenRepository(),
+            new TestInvitationTokenHasher(),
+            new TestPasswordHasher(),
+            new TestTokenService(),
+            new FixedDateTimeProvider(new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)),
+            CreateAuditService(),
+            new TestUnitOfWork());
+
+        var result = await handler.Handle(
+            new AcceptCompanyUserInvitationCommand("missing-token", "StrongPass123!"),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(AuthErrors.InvitationTokenInvalid.Code, result.Error.Code);
     }
 
     [Fact]
@@ -1056,8 +1145,11 @@ public sealed class CompanyUserManagementTests
     private sealed class TestInvitationTokenRepository : IInvitationTokenRepository
     {
         private long _nextId = 1;
+        private readonly Dictionary<long, Guid> _companyPublicIds = [];
 
         public List<InvitationToken> Items { get; } = [];
+
+        public void RegisterCompany(long companyId, Guid companyPublicId) => _companyPublicIds[companyId] = companyPublicId;
 
         public void Add(InvitationToken invitationToken)
         {
@@ -1068,6 +1160,24 @@ public sealed class CompanyUserManagementTests
 
             Items.Add(invitationToken);
         }
+
+        public Task<InvitationTokenResolution?> GetActiveByHashAsync(
+            string tokenHash,
+            DateTime utcNow,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<InvitationTokenResolution?>(
+                Items
+                    .Where(item =>
+                        item.TokenHash == tokenHash &&
+                        !item.IsUsed &&
+                        item.RevokedUtc is null &&
+                        item.ExpirationUtc > utcNow)
+                    .Select(item => new InvitationTokenResolution(
+                        item,
+                        _companyPublicIds.TryGetValue(item.CompanyId, out var companyPublicId)
+                            ? companyPublicId
+                            : Guid.Empty))
+                    .SingleOrDefault());
 
         public Task RevokeActiveTokensAsync(long userId, long companyId, DateTime revokedUtc, CancellationToken cancellationToken)
         {
@@ -1082,6 +1192,36 @@ public sealed class CompanyUserManagementTests
 
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class TestPasswordHasher : IPasswordHasher
+    {
+        public string Hash(string password) => $"HASH::{password}";
+
+        public bool Verify(string password, string passwordHash) => Hash(password) == passwordHash;
+    }
+
+    private sealed class TestTokenService : ITokenService
+    {
+        public Guid? LastTenantId { get; private set; }
+
+        public Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken)
+        {
+            LastTenantId = tenantId;
+            return Task.FromResult(Result<AuthTokenResult>.Success(new AuthTokenResult("access-token", "refresh-token", 3600)));
+        }
+
+        public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<Result<RefreshTokenExchangeResult>> RefreshAsync(
+            string refreshToken,
+            AuthClientType clientType,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class TestRefreshTokenRepository : IRefreshTokenRepository

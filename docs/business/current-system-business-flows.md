@@ -147,9 +147,10 @@ El provisioning actual deja creada la base operativa minima del tenant:
 
 ### 7.1 Usuarios y membresias
 
-1. El tenant invita usuarios de compania.
-2. Puede actualizar nombre, rol, reactivar, desactivar y reenviar invitaciones.
-3. El acceso queda siempre limitado al tenant activo.
+1. El tenant puede crear usuarios de compania de forma individual o aprovisionarlos automaticamente al finalizar un expediente de empleado.
+2. En ambos casos el backend genera una invitacion con contrasena temporal y deja al usuario en estado pendiente de activacion.
+3. El usuario debe definir su contrasena final antes de poder entrar al sistema.
+4. El acceso queda siempre limitado al tenant activo y al rol tenant-scoped vigente para esa membresia.
 
 ### 7.2 Roles, permisos y permisos por campo
 
@@ -177,16 +178,18 @@ El provisioning actual deja creada la base operativa minima del tenant:
 ### 8.3 Position slots
 
 1. El tenant crea posiciones reales dentro de la estructura.
-2. Puede consultar grafo, exportes, dependencias y ocupacion.
-3. Estas posiciones alimentan la contratacion y asignacion laboral.
+2. Cada plaza puede configurarse con un rol tenant-scoped valido tomado del catalogo de roles.
+3. Puede consultar grafo, exportes, dependencias y ocupacion.
+4. Estas posiciones alimentan la asignacion laboral y el aprovisionamiento automatico de usuarios.
 
 ## 9. Flujo de expediente de personal
 
 ### 9.1 Alta del expediente
 
 1. RRHH crea un `personnel file` para una persona dentro de una compania.
-2. El expediente nace con informacion base e identificaciones iniciales.
-3. Desde ese momento el sistema puede completar el resto de secciones.
+2. El expediente siempre nace en estado `Draft` con informacion base e identificaciones iniciales.
+3. Si el expediente es de tipo `Employee`, desde el alta debe quedar asociada una plaza; si es `Candidate`, la plaza no aplica dentro de este modulo.
+4. Desde ese momento el sistema puede completar el resto de secciones.
 
 ### 9.2 Perfil del expediente
 
@@ -206,15 +209,17 @@ El expediente se completa por bloques:
 - empleos previos
 - referencias
 
-### 9.3 Transicion a relacion laboral
+### 9.3 Finalizacion del expediente y aprovisionamiento de usuario
 
-1. Un expediente puede representar candidato o empleado segun `RecordType`.
-2. El cambio funcional de candidato a empleado no ocurre por simple edicion del perfil.
-3. La transicion formal se ejecuta por el endpoint `hire`, que crea la capa laboral del expediente.
+1. Solo un expediente `Employee` en estado `Draft` puede finalizarse dentro de `personnel files`.
+2. La finalizacion exige correo institucional, plaza asignada y que la plaza tenga un rol valido configurado desde el catalogo IAM del tenant.
+3. La transicion formal se ejecuta por un comando o endpoint explicito de finalizacion, que cambia el expediente a `Completed`.
+4. Durante esa finalizacion el backend crea o reutiliza automaticamente el usuario de compania, le asigna el rol de la plaza, genera contrasena temporal y emite la invitacion para activacion.
+5. El expediente puede quedar vinculado opcionalmente a un usuario; tambien siguen existiendo usuarios creados de forma individual sin expediente asociado.
 
 ### 9.4 Vida laboral del expediente
 
-Una vez contratado, RRHH puede mantener:
+Una vez completado el expediente, RRHH puede mantener:
 
 - perfil laboral
 - asignaciones de empleo
@@ -223,6 +228,8 @@ Una vez contratado, RRHH puede mantener:
 - sustituciones de autorizacion
 - acciones de personal
 - activos y accesos asignados
+
+El usuario aprovisionado desde el expediente solo puede ingresar despues de aceptar la invitacion y definir su contrasena final; a partir de ese momento ve las opciones del sistema segun el rol heredado de la plaza.
 
 ### 9.5 Compensacion del expediente
 

@@ -59,6 +59,11 @@ public static class AuthErrors
         "The authenticated user context is invalid.",
         ErrorType.Unauthorized);
 
+    public static readonly Error InvitationTokenInvalid = new(
+        "auth.invitation.invalid_token",
+        "The invitation token is invalid or expired.",
+        ErrorType.Unauthorized);
+
     public static readonly Error TokenConfigurationInvalid = new(
         "auth.token_configuration_invalid",
         "JWT token generation is not configured correctly.",

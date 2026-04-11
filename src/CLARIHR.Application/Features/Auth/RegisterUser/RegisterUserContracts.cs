@@ -10,6 +10,10 @@ public sealed record RegisterUserRequest(
     string? Country,
     string? Source);
 
+public sealed record AcceptCompanyUserInvitationRequest(
+    string Token,
+    string Password);
+
 public sealed record UserDto(
     Guid Id,
     string Email,

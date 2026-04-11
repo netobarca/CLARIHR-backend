@@ -86,12 +86,12 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 - Estado: `Confirmado`
 - Nuevo respecto a la auditoria anterior: `No`
 - Impacto real:
-  eleva el riesgo de credential stuffing, password spraying, abuso de refresh tokens y automatizacion agresiva de registro/login.
+  eleva el riesgo de credential stuffing, password spraying, abuso de refresh tokens y automatizacion agresiva de registro, login o activacion de invitaciones.
 - Precondiciones:
   ninguna adicional; basta con exponer la API a trafico no confiable.
 - Evidencia:
   [Program.cs#L66](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Program.cs#L66) a [Program.cs#L105](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Program.cs#L105) no muestran `AddRateLimiter`, `UseRateLimiter` ni middleware equivalente.
-  [AuthController.cs#L18](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L18), [AuthController.cs#L45](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L45), [AuthController.cs#L76](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L76) y [AuthController.cs#L95](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L95) exponen `register`, `external`, `login` y `refresh` como anonimos.
+  [AuthController.cs#L18](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L18), [AuthController.cs#L45](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L45), [AuthController.cs#L76](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L76), [AuthController.cs#L95](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L95) y [AuthController.cs#L97](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L97) exponen `register`, `external`, `login`, `refresh` y `company-user-invitations/accept` como anonimos.
   [LoginCommand.cs#L34](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/Auth/Login/LoginCommand.cs#L34) falla por credenciales invalidas sin contador, enfriamiento o lockout.
 - Cobertura actual:
   no se observa cobertura automatica para rate limiting, lockout, retrasos progresivos ni abuso de `refresh`.
@@ -197,6 +197,7 @@ Cobertura positiva visible:
 
 - tokens y refresh rotation con reuse detection
 - separacion de audiencias y `client_type` entre core y backoffice
+- aprovisionamiento explicito de usuarios desde `PersonnelFiles` con rol tenant-scoped derivado de la plaza y activacion diferida por invitacion
 - tenant mismatch en auditoria
 - CRUD global de `CommercialPlan` y `CommercialAddon` sin tenant
 - login de backoffice bloqueado sin `PlatformOperator`
@@ -205,7 +206,7 @@ Cobertura positiva visible:
 Huecos de prueba que aumentan riesgo real:
 
 - no hay pruebas de redaccion de PII real de RRHH en auditoria
-- no hay pruebas de rate limiting, lockout o throttling de auth
+- no hay pruebas de rate limiting, lockout o throttling de auth, incluyendo `company-user-invitations/accept`
 - no hay pruebas de spoofing o confianza de `X-Forwarded-*`
 - no hay pruebas de auditoria durable para cada mutacion del CRUD de `CommercialPlan`
 - no hay snapshots o validacion automatica del contrato OpenAPI versionado

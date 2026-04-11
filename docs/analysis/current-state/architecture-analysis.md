@@ -78,7 +78,19 @@ Desde marzo de 2026 el backend endurecio la gobernanza contractual con una conve
 
 La garantia ya no depende solo de disciplina manual: hay convenciones de modelo, transformacion central de contratos y pruebas de guardrail sobre Swagger y `ApplicationDbContext`.
 
-### 4.6 Modelo comercial y acceso efectivo: coherente, pero no canonico
+### 4.6 Aprovisionamiento reusable de usuarios tenant-scoped
+
+Desde el 11 de abril de 2026, el aprovisionamiento de usuarios tenant-scoped ya no depende solo de `CompanyUsersController`. El backend extrae esa responsabilidad a `CompanyUserProvisioningService` para reutilizarla desde invitaciones directas, finalizacion de expedientes y futuros modulos.
+
+La decision deja tres efectos arquitectonicos vigentes:
+
+- `PersonnelFile` ya no mezcla contratacion con provisioning implicito; mantiene `LifecycleStatus = Draft|Completed`, `AssignedPositionSlotPublicId` y `LinkedUserPublicId` para orquestar la finalizacion explicita.
+- `PositionSlot.RoleId` pasa a ser la fuente de verdad del rol tenant-scoped que debe recibir el usuario aprovisionado desde un expediente.
+- cambiar el rol de una plaza ya no es solo un cambio de catalogo; dispara resincronizacion de membresia e `IamUser` para los usuarios vinculados a expedientes completados sobre esa plaza.
+
+La arquitectura resultante sigue siendo Clean/CQRS, pero introduce una dependencia funcional deliberada entre `PersonnelFiles`, `PositionSlots`, `CompanyUsers`, `Auth` e `IdentityAccess` mediada por un servicio de application reutilizable, no por triggers ni logica en controller.
+
+### 4.7 Modelo comercial y acceso efectivo: coherente, pero no canonico
 
 La auditoria puntual sobre suscripciones, add-ons, permisos y accesos confirma que el backend ya tiene una cadena tecnica real de enforcement:
 

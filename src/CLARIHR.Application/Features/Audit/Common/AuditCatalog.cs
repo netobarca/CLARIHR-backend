@@ -6,6 +6,7 @@ public static class AuditEventTypes
     public const string UserUpdated = "USER_UPDATED";
     public const string UserDeactivated = "USER_DEACTIVATED";
     public const string UserReactivated = "USER_REACTIVATED";
+    public const string UserActivated = "USER_ACTIVATED";
     public const string UserInvited = "USER_INVITED";
     public const string UserInvitationReset = "USER_INVITATION_RESET";
     public const string RoleCreated = "ROLE_CREATED";
@@ -94,6 +95,7 @@ public static class AuditEventTypes
     public const string LegalRepresentativeSetPrimary = "LEGAL_REPRESENTATIVE_SET_PRIMARY";
     public const string PersonnelFileCreated = "PERSONNEL_FILE_CREATED";
     public const string PersonnelFileUpdated = "PERSONNEL_FILE_UPDATED";
+    public const string PersonnelFileCompleted = "PERSONNEL_FILE_COMPLETED";
     public const string PersonnelFileActivated = "PERSONNEL_FILE_ACTIVATED";
     public const string PersonnelFileInactivated = "PERSONNEL_FILE_INACTIVATED";
     public const string PersonnelFileDocumentUploaded = "PERSONNEL_FILE_DOCUMENT_UPLOADED";
@@ -128,6 +130,7 @@ public static class AuditEventTypes
         UserUpdated,
         UserDeactivated,
         UserReactivated,
+        UserActivated,
         UserInvited,
         UserInvitationReset,
         RoleCreated,
@@ -216,6 +219,7 @@ public static class AuditEventTypes
         LegalRepresentativeSetPrimary,
         PersonnelFileCreated,
         PersonnelFileUpdated,
+        PersonnelFileCompleted,
         PersonnelFileActivated,
         PersonnelFileInactivated,
         PersonnelFileDocumentUploaded,

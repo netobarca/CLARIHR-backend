@@ -2,7 +2,7 @@
 
 ## 1. Resumen ejecutivo
 
-La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La validacion actualizada del **3 de abril de 2026** verifico:
+La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La validacion actualizada al **11 de abril de 2026** verifico:
 
 - `5` unit tests dirigidos aprobados para manejo de estados de suscripcion empresarial
 - `6` integration tests dirigidos aprobados para Platform Backoffice API de suscripciones empresariales
@@ -10,6 +10,7 @@ La estrategia de pruebas del backend es mejor de lo que reflejaba la version ant
 - `5` integration tests dirigidos aprobados para catalogos internos globales y autopoblado desde `JobProfiles`
 - `20` unit tests dirigidos aprobados para gobernanza comercial de planes y provisioning owner, incluyendo el guard de `MASTER`
 - `9` integration tests dirigidos aprobados para seeds/migraciones comerciales y visibilidad owner/backoffice de `FREE` y `MASTER`
+- `3` unit tests dirigidos aprobados para aceptacion de invitaciones de usuarios de compania y resincronizacion de rol por plaza
 - `dotnet build` limpio con `0 warnings`
 - el suite completo aun conserva fallas previas no relacionadas en normalizacion y algunos escenarios legacy de integracion
 
@@ -27,6 +28,7 @@ Cobertura visible sobre:
 - auth separada `core` / `platform`
 - refresh tokens
 - provisionamiento
+- aceptacion de invitaciones de usuarios de compania
 - dispatchers y dependency injection
 - tenancy
 - autorizacion RBAC
@@ -40,6 +42,7 @@ Cobertura visible sobre:
 - catalogo global `CommercialPlan`
 - reemplazo de suscripciones empresariales
 - ciclo de vida de estados de suscripcion empresarial, incluyendo suspension, reactivacion, cancelacion, expiracion y politica de capacidades por estado
+- finalizacion de expedientes y resincronizacion de rol tenant-scoped desde `PositionSlots`
 - catalogos internos globales para requisitos de `JobProfiles`, incluyendo normalizacion, thresholds `0.70/0.90`, reuse exacto y reuse por similitud en uso
 
 ### 2.2 Integration tests
@@ -68,6 +71,7 @@ Hay cobertura para:
 - emision del claim `client_type` para tokens `core` y `platform`
 - rotacion de refresh token
 - deteccion de reuse en la familia de refresh tokens
+- activacion de usuarios invitados con token de invitacion valido
 - rechazo cruzado de tokens entre Core API y Backoffice API
 
 ### 3.2 Tenant y permisos si tienen pruebas visibles
@@ -113,6 +117,7 @@ No se observa cobertura para:
 - lockout
 - throttling por IP o identidad
 - abuso del flujo de `refresh`
+- abuso del endpoint `company-user-invitations/accept`
 
 ### 4.4 No hay pruebas para confianza de `X-Forwarded-*`
 

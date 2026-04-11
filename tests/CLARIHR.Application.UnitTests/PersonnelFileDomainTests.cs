@@ -27,6 +27,7 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoUrl: null,
             orgUnitPublicId: null,
+            assignedPositionSlotPublicId: null,
             customDataJson: null,
             identifications:
             [
@@ -59,6 +60,7 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoUrl: null,
             orgUnitPublicId: null,
+            assignedPositionSlotPublicId: null,
             customDataJson: null,
             identifications:
             [
@@ -84,6 +86,7 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoUrl: null,
             orgUnitPublicId: Guid.NewGuid(),
+            assignedPositionSlotPublicId: Guid.NewGuid(),
             customDataJson: "{\"shirt_size\":\"M\"}");
 
         Assert.NotEqual(initialToken, file.ConcurrencyToken);
@@ -99,6 +102,83 @@ public sealed class PersonnelFileDomainTests
             new DateTime(2026, 1, 9),
             issuer: null,
             isPrimary: false));
+    }
+
+    [Fact]
+    public void PersonnelFile_Complete_ShouldSetLifecycleAndLinkedUser()
+    {
+        var file = PersonnelFile.Create(
+            PersonnelFileRecordType.Employee,
+            "Ana",
+            "Mendoza",
+            new DateTime(1990, 1, 1),
+            maritalStatus: null,
+            profession: null,
+            nationality: null,
+            personalEmail: null,
+            institutionalEmail: "ana@clarihr.test",
+            personalPhone: null,
+            institutionalPhone: null,
+            birthCountry: null,
+            birthDepartment: null,
+            birthMunicipality: null,
+            photoUrl: null,
+            orgUnitPublicId: null,
+            assignedPositionSlotPublicId: Guid.NewGuid(),
+            customDataJson: null);
+
+        var linkedUserId = Guid.NewGuid();
+
+        file.Complete(linkedUserId);
+
+        Assert.Equal(PersonnelFileLifecycleStatus.Completed, file.LifecycleStatus);
+        Assert.Equal(linkedUserId, file.LinkedUserPublicId);
+        Assert.True(file.IsCompletedEmployee);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdatePersonalInfo_WhenCompletedChangesProvisioningFields_ShouldThrow()
+    {
+        var file = PersonnelFile.Create(
+            PersonnelFileRecordType.Employee,
+            "Ana",
+            "Mendoza",
+            new DateTime(1990, 1, 1),
+            maritalStatus: null,
+            profession: null,
+            nationality: null,
+            personalEmail: null,
+            institutionalEmail: "ana@clarihr.test",
+            personalPhone: null,
+            institutionalPhone: null,
+            birthCountry: null,
+            birthDepartment: null,
+            birthMunicipality: null,
+            photoUrl: null,
+            orgUnitPublicId: null,
+            assignedPositionSlotPublicId: Guid.NewGuid(),
+            customDataJson: null);
+        file.Complete(Guid.NewGuid());
+
+        Assert.Throws<InvalidOperationException>(() => file.UpdatePersonalInfo(
+            PersonnelFileRecordType.Employee,
+            "Ana",
+            "Mendoza",
+            new DateTime(1990, 1, 1),
+            maritalStatus: null,
+            profession: null,
+            nationality: null,
+            personalEmail: null,
+            institutionalEmail: "other@clarihr.test",
+            personalPhone: null,
+            institutionalPhone: null,
+            birthCountry: null,
+            birthDepartment: null,
+            birthMunicipality: null,
+            photoUrl: null,
+            orgUnitPublicId: null,
+            assignedPositionSlotPublicId: Guid.NewGuid(),
+            customDataJson: null));
     }
 
     [Fact]

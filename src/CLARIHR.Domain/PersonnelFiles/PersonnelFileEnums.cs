@@ -6,6 +6,12 @@ public enum PersonnelFileRecordType
     Employee = 2
 }
 
+public enum PersonnelFileLifecycleStatus
+{
+    Draft = 1,
+    Completed = 2
+}
+
 public enum PersonnelCustomFieldType
 {
     String = 1,

@@ -27,6 +27,20 @@ public sealed class PersonnelFileCompensationController(
     IAuditService auditService,
     IUnitOfWork unitOfWork) : ControllerBase
 {
+    [HttpGet("api/v1/personnel-files/{id:guid}/salary-items")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>> GetSalaryItems(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileSalaryItemsQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPut("api/v1/personnel-files/{id:guid}/salary-items")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -58,6 +72,20 @@ public sealed class PersonnelFileCompensationController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{id:guid}/additional-benefits")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>> GetAdditionalBenefits(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileAdditionalBenefitsQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPut("api/v1/personnel-files/{id:guid}/additional-benefits")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -83,6 +111,20 @@ public sealed class PersonnelFileCompensationController(
                 request.ConcurrencyToken),
             cancellationToken);
 
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{id:guid}/payment-methods")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>> GetPaymentMethods(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFilePaymentMethodsQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 
@@ -313,6 +355,20 @@ public sealed class PersonnelFileCompensationController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{id:guid}/insurances")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileInsuranceResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>> GetInsurances(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileInsurancesQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPut("api/v1/personnel-files/{id:guid}/medical-claims")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -346,6 +402,20 @@ public sealed class PersonnelFileCompensationController(
                 request.ConcurrencyToken),
             cancellationToken);
 
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{id:guid}/medical-claims")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>> GetMedicalClaims(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileMedicalClaimsQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 

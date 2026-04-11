@@ -1094,6 +1094,67 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task PersonnelFiles_GetDocuments_ShouldReturnLightweightMetadataWithoutDownloadingFiles()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Claudia", "Mendez", "DUI", "06666666-6");
+
+        using var olderUploadContent = new MultipartFormDataContent();
+        olderUploadContent.Add(new StringContent("CONSTANCIA"), "documentType");
+        olderUploadContent.Add(new StringContent("Documento mas antiguo"), "observations");
+        olderUploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
+
+        var olderFileBytes = Encoding.UTF8.GetBytes("older preview payload");
+        var olderFileContent = new ByteArrayContent(olderFileBytes);
+        olderFileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        olderUploadContent.Add(olderFileContent, "file", "older.txt");
+
+        var olderUploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", olderUploadContent);
+        Assert.Equal(HttpStatusCode.Created, olderUploadResponse.StatusCode);
+        var olderDocument = await olderUploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        Assert.NotNull(olderDocument);
+
+        var personnelFileResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        personnelFileResponse.EnsureSuccessStatusCode();
+        var personnelFile = await personnelFileResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        Assert.NotNull(personnelFile);
+
+        using var newerUploadContent = new MultipartFormDataContent();
+        newerUploadContent.Add(new StringContent("DIPLOMA"), "documentType");
+        newerUploadContent.Add(new StringContent("Documento mas reciente"), "observations");
+        newerUploadContent.Add(new StringContent(personnelFile!.ConcurrencyToken.ToString()), "concurrencyToken");
+
+        var newerFileBytes = Encoding.UTF8.GetBytes("newer preview payload");
+        var newerFileContent = new ByteArrayContent(newerFileBytes);
+        newerFileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        newerUploadContent.Add(newerFileContent, "file", "newer.pdf");
+
+        var newerUploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", newerUploadContent);
+        Assert.Equal(HttpStatusCode.Created, newerUploadResponse.StatusCode);
+        var newerDocument = await newerUploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        Assert.NotNull(newerDocument);
+
+        var documentsResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/documents");
+        documentsResponse.EnsureSuccessStatusCode();
+
+        var documents = await documentsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileDocumentDetailItem>>(JsonOptions);
+        Assert.NotNull(documents);
+
+        var documentItems = documents!.ToArray();
+        Assert.Equal(2, documentItems.Length);
+        Assert.Equal(newerDocument!.Id, documentItems[0].Id);
+        Assert.Equal("DIPLOMA", documentItems[0].DocumentType);
+        Assert.Equal("newer.pdf", documentItems[0].FileName);
+        Assert.Equal("application/pdf", documentItems[0].ContentType);
+        Assert.Equal(newerFileBytes.Length, documentItems[0].SizeBytes);
+        Assert.True(documentItems[0].IsActive);
+        Assert.Equal(olderDocument!.Id, documentItems[1].Id);
+        Assert.Equal("older.txt", documentItems[1].FileName);
+    }
+
+    [Fact]
     public async Task PersonnelFiles_CurriculumSections_ShouldReplaceAndReturnUpdatedSections()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -5813,6 +5874,21 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         int SizeBytes,
         bool IsActive,
         Guid ConcurrencyToken);
+
+    private sealed record PersonnelFileDocumentDetailItem(
+        Guid Id,
+        string DocumentType,
+        string? Observations,
+        DateTime? DeliveryDate,
+        DateTime? LoanDate,
+        DateTime? ReturnDate,
+        string FileName,
+        string ContentType,
+        int SizeBytes,
+        bool IsActive,
+        Guid ConcurrencyToken,
+        DateTime CreatedAtUtc,
+        DateTime? ModifiedAtUtc);
 
     private sealed record PersonnelFileEducationItem(
         Guid Id,

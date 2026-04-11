@@ -1,4 +1,5 @@
 using CLARIHR.Api.Common;
+using CLARIHR.Application.Features.Auth.AcceptInvitation;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.External;
@@ -85,6 +86,25 @@ public sealed class AuthController(ICommandDispatcher commandDispatcher) : Contr
     {
         var result = await commandDispatcher.SendAsync(
             new LoginCommand(request.Email, request.Password),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(Result<AuthResponse>.Failure(result.Error))
+            : Ok(result.Value);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("company-user-invitations/accept")]
+    [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<AuthResponse>> AcceptCompanyUserInvitation(
+        [FromBody] AcceptCompanyUserInvitationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new AcceptCompanyUserInvitationCommand(request.Token, request.Password),
             cancellationToken);
 
         return result.IsFailure

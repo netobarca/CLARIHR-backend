@@ -11,8 +11,22 @@ namespace CLARIHR.Api.Controllers;
 [ApiController]
 [Authorize]
 public sealed class PersonnelFileProfileController(
-    ICommandDispatcher commandDispatcher) : ControllerBase
+    ICommandDispatcher commandDispatcher,
+    IQueryDispatcher queryDispatcher) : ControllerBase
 {
+    [HttpGet("api/v1/personnel-files/{id:guid}/personal-info")]
+    [ProducesResponseType<PersonnelFilePersonalInfoResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PersonnelFilePersonalInfoResponse>> GetPersonalInfo(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFilePersonalInfoQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPut("api/v1/personnel-files/{id:guid}/personal-info")]
     [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -44,10 +58,24 @@ public sealed class PersonnelFileProfileController(
                 request.BirthMunicipality,
                 request.PhotoUrl,
                 request.OrgUnitPublicId,
+                request.AssignedPositionSlotPublicId,
                 request.CustomDataJson,
                 request.ConcurrencyToken),
             cancellationToken);
 
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{id:guid}/identifications")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileIdentificationResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileIdentificationResponse>>> GetIdentifications(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileIdentificationsQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 
@@ -79,6 +107,19 @@ public sealed class PersonnelFileProfileController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{id:guid}/addresses")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileAddressResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileAddressResponse>>> GetAddresses(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileAddressesQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPut("api/v1/personnel-files/{id:guid}/addresses")]
     [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -107,6 +148,19 @@ public sealed class PersonnelFileProfileController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{id:guid}/emergency-contacts")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>>> GetEmergencyContacts(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileEmergencyContactsQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPut("api/v1/personnel-files/{id:guid}/emergency-contacts")]
     [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -131,6 +185,19 @@ public sealed class PersonnelFileProfileController(
                 request.ConcurrencyToken),
             cancellationToken);
 
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{id:guid}/family-members")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>> GetFamilyMembers(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileFamilyMembersQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 
@@ -179,6 +246,19 @@ public sealed class PersonnelFileProfileController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{id:guid}/hobbies")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileHobbyResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileHobbyResponse>>> GetHobbies(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileHobbiesQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPut("api/v1/personnel-files/{id:guid}/hobbies")]
     [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -201,6 +281,19 @@ public sealed class PersonnelFileProfileController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{id:guid}/employee-relations")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>> GetEmployeeRelations(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileEmployeeRelationsQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPut("api/v1/personnel-files/{id:guid}/employee-relations")]
     [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -220,6 +313,19 @@ public sealed class PersonnelFileProfileController(
                 request.ConcurrencyToken),
             cancellationToken);
 
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{id:guid}/associations")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileAssociationResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>> GetAssociations(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileAssociationsQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 
@@ -247,6 +353,19 @@ public sealed class PersonnelFileProfileController(
                 request.ConcurrencyToken),
             cancellationToken);
 
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{id:guid}/educations")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileEducationResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>> GetEducations(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileEducationsQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 
@@ -287,6 +406,19 @@ public sealed class PersonnelFileProfileController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{id:guid}/languages")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileLanguageResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileLanguageResponse>>> GetLanguages(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileLanguagesQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPut("api/v1/personnel-files/{id:guid}/languages")]
     [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -312,6 +444,19 @@ public sealed class PersonnelFileProfileController(
                 request.ConcurrencyToken),
             cancellationToken);
 
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{id:guid}/trainings")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileTrainingResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileTrainingResponse>>> GetTrainings(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileTrainingsQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 
@@ -354,6 +499,19 @@ public sealed class PersonnelFileProfileController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{id:guid}/previous-employments")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>>> GetPreviousEmployments(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFilePreviousEmploymentsQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPut("api/v1/personnel-files/{id:guid}/previous-employments")]
     [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -386,6 +544,19 @@ public sealed class PersonnelFileProfileController(
                 request.ConcurrencyToken),
             cancellationToken);
 
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{id:guid}/references")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileReferenceResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileReferenceResponse>>> GetReferences(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileReferencesQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 
