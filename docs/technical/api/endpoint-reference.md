@@ -427,7 +427,8 @@ Reglas comunes:
 
 - Proposito: crear un rol nuevo con permisos iniciales opcionales.
 - Autorizacion: tenant activo coincidente con `companyPublicId`.
-- Request body: `name`, `description`, `permissionIds`.
+- Request body: `name`, `description`, `permissionPublicIds`.
+- Compatibilidad: tambien acepta `permissionIds` en integraciones legacy de frontend.
 - Response: `201 Created` con `AuthorizationRoleResponse`.
 - Errores relevantes: `iam.roles.name_conflict`, `iam.permissions.collection_not_found`.
 
@@ -462,9 +463,10 @@ Reglas comunes:
 
 ##### `PUT /api/account/companies/{companyPublicId}/authorization/roles/{rolePublicId}/grants`
 
-- Proposito: sincronizar el set de grants asignados al rol por `permissionId`.
+- Proposito: sincronizar el set de grants asignados al rol por `permissionPublicId`.
 - Autorizacion: tenant activo coincidente con `companyPublicId`.
-- Request body: `{ "permissionIds": [...] }`.
+- Request body: `{ "permissionPublicIds": [...] }`.
+- Compatibilidad: tambien acepta `{ "permissionIds": [...] }` para clientes legacy.
 - Response: `AuthorizationRoleGrantsResponse`.
 - Errores relevantes: `iam.permissions.collection_not_found`, `iam.roles.protected_role.forbidden`, `iam.roles.last_administrator_required`.
 
@@ -472,7 +474,8 @@ Reglas comunes:
 
 - Proposito: sincronizar el conjunto completo de roles asignados a un usuario dentro de la compania activa.
 - Autorizacion: tenant activo coincidente con `companyPublicId`.
-- Request body: `{ "roleIds": [...] }`.
+- Request body: `{ "rolePublicIds": [...] }`.
+- Compatibilidad: tambien acepta `{ "roleIds": [...] }` para clientes legacy.
 - Response: `AuthorizationUserRolesResponse`.
 - Errores relevantes: `iam.roles.collection_not_found`, `iam.roles.last_administrator_required`, `TENANT_MISMATCH`.
 
@@ -508,15 +511,17 @@ Reglas comunes:
 - Los identificadores publicos siguen el estandar transversal del backend: cuando se filtra por GUID publico se usa `EntityPublicId`, no `EntityId`.
 - `EntityType` acepta los valores normalizados del catalogo de auditoria, por ejemplo `User`, `Role`, `JobProfile`, `OrgUnit`, `PositionSlot`, `CostCenter`.
 - `totalCount` se calcula despues de aplicar todos los filtros server-side, incluido `EntityPublicId`, para que la paginacion del frontend quede alineada con la misma consulta.
+- Por compatibilidad, el backend tambien acepta `ActorUserId` y `EntityId` en query string y los normaliza al contrato publico `ActorUserPublicId` y `EntityPublicId` antes de consultar.
 
 ##### `GET /api/audit/logs`
 
 - Proposito: listar logs de auditoria del tenant activo.
 - Autorizacion: `AUDIT_LOGS:Read`.
 - Query: `fromUtc`, `toUtc`, `ActorUserPublicId`, `EntityPublicId`, `entityType`, `eventType`, `search`, `page`, `pageSize`.
-- Validaciones: `page > 0`, `pageSize` entre `1` y `100`, `ActorUserPublicId` y `EntityPublicId` no pueden ser `Guid.Empty`, `entityType` y `eventType` deben existir en sus catalogos, `fromUtc <= toUtc`.
+- Compatibilidad: tambien se aceptan `ActorUserId` y `EntityId` como aliases legacy del query string.
+- Validaciones: `page > 0`, `pageSize` entre `1` y `100`, `ActorUserPublicId`/`ActorUserId` y `EntityPublicId`/`EntityId` no pueden ser `Guid.Empty`, `entityType` y `eventType` deben existir en sus catalogos, `fromUtc <= toUtc`.
 - Response: `PagedResponse<AuditLogSummaryResponse>`.
-- Observaciones: `EntityPublicId` filtra por el sujeto auditado; combinarlo con `entityType` evita ambiguedad entre tipos distintos que pudieran compartir el mismo GUID publico en ambientes sinteticos o seeds.
+- Observaciones: `EntityPublicId` filtra por el sujeto auditado; combinarlo con `entityType` evita ambiguedad entre tipos distintos que pudieran compartir el mismo GUID publico en ambientes sinteticos o seeds. Si se reciben aliases legacy, el backend los normaliza al mismo filtro efectivo antes de ejecutar la consulta.
 
 ##### `GET /api/audit/logs/{publicId}`
 

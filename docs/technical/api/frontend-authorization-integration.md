@@ -178,15 +178,16 @@ Flujo recomendado:
 
 1. Pedir `role-builder-catalog`.
 2. Renderizar el arbol o lista de grants usando `availablePermissions`.
-3. Crear el rol con `name`, `description` y opcionalmente `permissionIds`.
+3. Crear el rol con `name`, `description` y opcionalmente `permissionPublicIds`.
 4. Para editar grants, usar `GET role grants` y luego `PUT role grants`.
 5. Si `isSystemRole = true`, frontend debe renderizar el rol como no editable y no eliminable.
 
 Importante:
 
-- frontend debe usar los `id` de `availablePermissions` como `permissionIds`
+- frontend debe usar los `publicId` de `availablePermissions` como `permissionPublicIds`
 - frontend no debe permitir seleccionar permisos fuera de `availablePermissions`
 - `availablePermissions` ya viene filtrado por capacidades efectivas y permisos delegables del actor
+- el backend tambien acepta `permissionIds` y `roleIds` como alias legacy para compatibilidad, pero nuevas integraciones deben usar `permissionPublicIds` y `rolePublicIds`
 
 ## 4.6 Asignacion de roles a usuarios
 
@@ -493,7 +494,7 @@ Body:
 {
   "name": "People Admin",
   "description": "Administra usuarios operativos",
-  "permissionIds": [
+  "permissionPublicIds": [
     "22222222-2222-2222-2222-222222222222",
     "33333333-3333-3333-3333-333333333333"
   ]
@@ -506,7 +507,7 @@ Body:
 
 Respuesta:
 
-- `id`
+- `publicId`
 - `name`
 - `description`
 - `isSystemRole`
@@ -532,14 +533,14 @@ Body:
 
 Respuesta:
 
-- `id`
-- `name`
+- `rolePublicId`
+- `roleName`
 - `isSystemRole`
 - `grants`
 
 Cada grant incluye:
 
-- `id`
+- `publicId`
 - `code`
 - `name`
 - `description`
@@ -563,7 +564,7 @@ Body:
 
 ```json
 {
-  "permissionIds": [
+  "permissionPublicIds": [
     "22222222-2222-2222-2222-222222222222",
     "33333333-3333-3333-3333-333333333333"
   ]
@@ -582,7 +583,7 @@ Body:
 
 ```json
 {
-  "roleIds": [
+  "rolePublicIds": [
     "44444444-4444-4444-4444-444444444444",
     "55555555-5555-5555-5555-555555555555"
   ]

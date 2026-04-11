@@ -26,16 +26,21 @@ public static class LoggingConfigurationExtensions
 
         return new LoggerConfiguration()
             .MinimumLevel.Is(logLevel)
+            .MinimumLevel.Override("CLARIHR", hostEnvironment.EnvironmentName == "Development"
+                ? LogEventLevel.Debug
+                : logLevel)
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+            .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+            .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Information)
+            .MinimumLevel.Override("Microsoft.AspNetCore.HostFiltering", LogEventLevel.Warning)
+            .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+            .MinimumLevel.Override("System", LogEventLevel.Warning)
             .Enrich.FromLogContext()
             .Enrich.WithProperty("Environment", hostEnvironment.EnvironmentName)
             .Enrich.WithProperty("ProcessId", System.Diagnostics.Process.GetCurrentProcess().Id)
             .Enrich.When(
                 logEvent => logEvent.Exception != null,
                 enricher => enricher.WithProperty("HasException", true))
-            .Filter.ByExcluding(logEvent =>
-                // Reduce EF Core query noise in development logs.
-                hostEnvironment.EnvironmentName == "Development" && 
-                logEvent.MessageTemplate.Text.Contains("SELECT", StringComparison.OrdinalIgnoreCase))
             .WriteTo.Console(new JsonFormatter())
             .WriteTo.File(
                 new JsonFormatter(),

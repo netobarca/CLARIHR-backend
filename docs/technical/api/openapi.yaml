@@ -3589,13 +3589,14 @@ paths:
           schema:
             type: string
             format: uuid
+          description: Public identifier of the audit actor. Compatibility aliases `ActorUserId` and `actorUserId` are also accepted in query string.
         - name: EntityPublicId
           in: query
           required: false
           schema:
             type: string
             format: uuid
-          description: Public identifier of the audited subject entity. This follows the backend public contract standard; `EntityId` is not part of the public API.
+          description: Public identifier of the audited subject entity. This follows the backend public contract standard. Compatibility aliases `EntityId` and `entityId` are also accepted in query string and normalized server-side.
         - name: entityType
           in: query
           required: false

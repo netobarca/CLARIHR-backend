@@ -274,16 +274,31 @@ public sealed class AccountCompanyAuthorizationController(
             permission.FieldName,
             permission.FieldAccess?.ToString());
 
-    public sealed record CreateAuthorizationRoleRequest(
-        string Name,
-        string? Description,
-        IReadOnlyCollection<Guid>? PermissionIds = null);
+    public sealed class CreateAuthorizationRoleRequest
+    {
+        public string Name { get; init; } = null!;
 
-    public sealed record UpdateAuthorizationRoleRequest(string Name, string? Description);
+        public string? Description { get; init; }
 
-    public sealed record UpdateAuthorizationRoleGrantsRequest(IReadOnlyCollection<Guid> PermissionIds);
+        public IReadOnlyCollection<Guid>? PermissionIds { get; init; }
+    }
 
-    public sealed record SyncAuthorizationUserRolesRequest(IReadOnlyCollection<Guid> RoleIds);
+    public sealed class UpdateAuthorizationRoleRequest
+    {
+        public string Name { get; init; } = null!;
+
+        public string? Description { get; init; }
+    }
+
+    public sealed class UpdateAuthorizationRoleGrantsRequest
+    {
+        public IReadOnlyCollection<Guid> PermissionIds { get; init; } = null!;
+    }
+
+    public sealed class SyncAuthorizationUserRolesRequest
+    {
+        public IReadOnlyCollection<Guid> RoleIds { get; init; } = null!;
+    }
 
     public sealed record AuthorizationRoleSummaryResponse(
         Guid Id,
