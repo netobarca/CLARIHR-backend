@@ -1,4 +1,5 @@
 using CLARIHR.Application.Features.Locations.Common;
+using CLARIHR.Domain.Locations;
 
 namespace CLARIHR.Infrastructure.Locations;
 
@@ -24,16 +25,20 @@ internal static class CountryLocationTemplateRegistry
                 LocationValidationRules.ElSalvadorCountryCode,
                 LocationValidationRules.ElSalvadorCountryName,
                 "Pais",
-                [
-                    new CountryLocationNode(
-                        "SS",
-                        "San Salvador",
+                ElSalvadorTerritorialCatalog.Departments
+                    .Select(static department => new CountryLocationNode(
+                        department.Code,
+                        department.Name,
                         "Departamento",
-                        [
-                            new CountryLocationNode("APOPA", "Apopa", "Municipio", []),
-                            new CountryLocationNode("MEJICANOS", "Mejicanos", "Municipio", [])
-                        ])
-                ]));
+                        ElSalvadorTerritorialCatalog.Municipalities
+                            .Where(municipality => municipality.DepartmentCode == department.Code)
+                            .Select(static municipality => new CountryLocationNode(
+                                municipality.Code,
+                                municipality.Name,
+                                "Municipio",
+                                []))
+                            .ToArray()))
+                    .ToArray()));
 }
 
 internal sealed record CountryLocationTemplate(

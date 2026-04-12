@@ -93,6 +93,79 @@ public sealed class PersonnelFileDomainTests
     }
 
     [Fact]
+    public void PersonnelFile_Create_ShouldNormalizeReferenceCatalogCodes()
+    {
+        var file = PersonnelFile.Create(
+            PersonnelFileRecordType.Candidate,
+            "Sara",
+            "Mendoza",
+            new DateTime(1991, 2, 2),
+            maritalStatus: " soltero_a ",
+            profession: " analista_de_datos ",
+            nationality: "SV",
+            personalEmail: null,
+            institutionalEmail: null,
+            personalPhone: null,
+            institutionalPhone: null,
+            birthCountry: " sv ",
+            birthDepartment: " san_salvador ",
+            birthMunicipality: " san_salvador_centro ",
+            photoUrl: null,
+            orgUnitPublicId: null,
+            assignedPositionSlotPublicId: null,
+            customDataJson: null,
+            identifications:
+            [
+                PersonnelFileIdentification.Create(" dui ", "01234567-8", null, null, null, true)
+            ]);
+
+        Assert.Equal("SOLTERO_A", file.MaritalStatus);
+        Assert.Equal("ANALISTA_DE_DATOS", file.Profession);
+        Assert.Equal("SV", file.BirthCountry);
+        Assert.Equal("SAN_SALVADOR", file.BirthDepartment);
+        Assert.Equal("SAN_SALVADOR_CENTRO", file.BirthMunicipality);
+        Assert.Equal("DUI", Assert.Single(file.Identifications).IdentificationType);
+    }
+
+    [Fact]
+    public void PersonnelFile_ReplaceIdentifications_ShouldRemovePreviousRows()
+    {
+        var file = PersonnelFile.Create(
+            PersonnelFileRecordType.Candidate,
+            "Oscar",
+            "Ruiz",
+            new DateTime(1993, 3, 3),
+            maritalStatus: null,
+            profession: null,
+            nationality: null,
+            personalEmail: null,
+            institutionalEmail: null,
+            personalPhone: null,
+            institutionalPhone: null,
+            birthCountry: null,
+            birthDepartment: null,
+            birthMunicipality: null,
+            photoUrl: null,
+            orgUnitPublicId: null,
+            assignedPositionSlotPublicId: null,
+            customDataJson: null,
+            identifications:
+            [
+                PersonnelFileIdentification.Create("DUI", "01234567-8", null, null, null, true)
+            ]);
+        file.SetTenantId(Guid.NewGuid());
+
+        file.ReplaceIdentifications(
+        [
+            PersonnelFileIdentification.Create("NIT", "0614-123456-101-1", null, null, null, true)
+        ]);
+
+        var replacement = Assert.Single(file.Identifications);
+        Assert.Equal("NIT", replacement.IdentificationType);
+        Assert.Equal("0614-123456-101-1", replacement.IdentificationNumber);
+    }
+
+    [Fact]
     public void PersonnelFileIdentification_Create_WithInvalidDates_ShouldThrow()
     {
         _ = Assert.Throws<InvalidOperationException>(() => PersonnelFileIdentification.Create(

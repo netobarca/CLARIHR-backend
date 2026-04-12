@@ -70,7 +70,7 @@ public sealed class PersonnelFileDocumentsController(
             : StatusCode(StatusCodes.Status201Created, result.Value);
     }
 
-    [HttpPatch("api/v1/personnel-file-documents/{documentId:guid}/inactivate")]
+    [HttpPatch("api/v1/personnel-files/documents/{documentId:guid}/inactivate")]
     [ProducesResponseType<PersonnelFileDocumentMetadataResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -88,7 +88,7 @@ public sealed class PersonnelFileDocumentsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-file-documents/{documentId:guid}/download")]
+    [HttpGet("api/v1/personnel-files/documents/{documentId:guid}/download")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]

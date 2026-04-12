@@ -265,7 +265,7 @@ Talent:
 Documents and reporting:
 
 - `POST /api/v1/personnel-files/{publicId}/documents`
-- `GET /api/v1/personnel-file-documents/{documentPublicId}/download`
+- `GET /api/v1/personnel-files/documents/{documentPublicId}/download`
 - `GET /api/v1/personnel-files/{publicId}/print`
 - `POST /api/v1/companies/{companyPublicId}/personnel-files/dynamic-query`
 
@@ -2769,9 +2769,14 @@ Familias de rutas:
 - `/api/v1/companies/{companyId}/personnel-files/dynamic-query`
 - `/api/v1/companies/{companyId}/personnel-files/export`
 - `/api/v1/companies/{companyId}/personnel-files/analytics/summary`
-- `/api/v1/personnel-file-documents/{documentId}/inactivate`
-- `/api/v1/personnel-file-documents/{documentId}/download`
+- `/api/v1/personnel-files/documents/{documentId}/inactivate`
+- `/api/v1/personnel-files/documents/{documentId}/download`
 - `/api/v1/companies/{companyId}/personnel-catalogs/{category}`
+- `/api/v1/companies/{companyId}/personnel-reference-catalogs/professions`
+- `/api/v1/companies/{companyId}/personnel-reference-catalogs/marital-statuses`
+- `/api/v1/companies/{companyId}/personnel-reference-catalogs/identification-types`
+- `/api/v1/companies/{companyId}/personnel-reference-catalogs/departments`
+- `/api/v1/companies/{companyId}/personnel-reference-catalogs/municipalities`
 - `/api/v1/companies/{companyId}/personnel-custom-field-definitions`
 - `/api/v1/personnel-custom-field-definitions/{id}`
 
@@ -2907,12 +2912,15 @@ Observaciones funcionales:
 - `RecordType` hoy expone `Candidate` y `Employee`.
 - `LifecycleStatus` hoy expone `Draft` y `Completed`.
 - `create` exige al menos una identificacion inicial.
-- `create` valida formato de nombres, emails y telefonos, valida custom fields activos y evita duplicidad tenant-wide de identificaciones.
+- `create` valida formato de nombres, emails y telefonos, valida custom fields activos, valida codigos activos de catalogo y evita duplicidad tenant-wide de identificaciones.
+- `create` y `personal-info` reciben codigos de catalogo en `maritalStatusCode`, `professionCode`, `birthCountryCode`, `birthDepartmentCode`, `birthMunicipalityCode` e `identificationTypeCode`; ya no aceptan texto libre para esos campos.
+- `create` y `personal-info` exigen consistencia geografica por jerarquia: `birthDepartmentCode` requiere `birthCountryCode`; `birthMunicipalityCode` requiere `birthDepartmentCode`; en esta fase `Department/Municipality` solo aplica para `birthCountryCode=SV`.
 - `create` acepta `AssignedPositionSlotId`; es obligatorio para `Employee` y no se permite para `Candidate`.
 - `search` soporta filtros `isActive`, `recordType`, `orgUnitId`, `minAge`, `maxAge`, `maritalStatus`, `nationality`, `profession`, `createdFromUtc`, `createdToUtc`, `q`, `sortBy`, `sortDirection`, `page`, `pageSize` e `includeAllowedActions`.
 - `search` usa como orden default `FullName ASC`.
 - `search` acepta estos `sortBy`: `fullname`, `firstname`, `lastname`, `birthdate`, `age`, `recordtype`, `maritalstatus`, `nationality`, `profession`, `orgunitid`, `isactive`, `createdatutc`, `modifiedatutc`.
 - `search` busca por nombre completo normalizado y por numero de identificacion.
+- listados y detalle exponen pares `Code + Name` resueltos para `MaritalStatus`, `Profession`, `BirthCountry`, `BirthDepartment`, `BirthMunicipality` e `IdentificationType`.
 - listados, detalle y exportes exponen `LifecycleStatus`, `AssignedPositionSlotId` y `LinkedUserId`.
 - `get by id` devuelve el agregado base del expediente con identificaciones, direcciones, contactos, familiares, hobbies, relaciones, bank accounts, asociaciones, educacion, idiomas, trainings, previous employments, referencias, documentos y observaciones.
 - `get by id` no devuelve `employee profile`, asignaciones, contract history, personnel actions, payroll transactions, seguros, evaluaciones ni concursos.
@@ -2961,7 +2969,8 @@ Observaciones funcionales:
 - `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite transiciones de `RecordType`.
 - `personal-info` tambien actualiza `AssignedPositionSlotId` mientras el expediente sigue en `Draft`; al completar el expediente, `AssignedPositionSlotId` e `InstitutionalEmail` quedan bloqueados.
 - si `RecordType = Employee`, `AssignedPositionSlotId` sigue siendo obligatorio; si `RecordType = Candidate`, no puede enviarse.
-- `identifications` revalida unicidad tenant-wide por `IdentificationType + IdentificationNumber` normalizado.
+- `personal-info` valida que `maritalStatusCode`, `professionCode`, `birthCountryCode`, `birthDepartmentCode` y `birthMunicipalityCode` existan y esten activos segun catalogo global de referencia.
+- `identifications` valida que `identificationTypeCode` exista y este activo, y revalida unicidad tenant-wide por `IdentificationTypeCode + IdentificationNumber` normalizado.
 - `family-members` exige consistencia entre banderas condicionales y datos dependientes:
 - si `IsStudying=true`, se esperan `StudyPlace` y `AcademicLevel`
 - si `IsWorking=true`, se esperan `Workplace` y `JobTitle`
@@ -3097,8 +3106,8 @@ Route family:
 
 - `GET /api/v1/personnel-files/{id}/documents`
 - `POST /api/v1/personnel-files/{id}/documents`
-- `PATCH /api/v1/personnel-file-documents/{documentId}/inactivate`
-- `GET /api/v1/personnel-file-documents/{documentId}/download`
+- `PATCH /api/v1/personnel-files/documents/{documentId}/inactivate`
+- `GET /api/v1/personnel-files/documents/{documentId}/download`
 - `POST /api/v1/personnel-files/{id}/observations`
 
 Uso principal:
@@ -3132,6 +3141,11 @@ Observaciones funcionales:
 Route family:
 
 - `GET /api/v1/companies/{companyId}/personnel-catalogs/{category}`
+- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/professions`
+- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/marital-statuses`
+- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/identification-types`
+- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/departments?countryCode=SV`
+- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/municipalities?countryCode=SV&departmentCode=<CODE>`
 - `GET /api/v1/companies/{companyId}/personnel-custom-field-definitions`
 - `POST /api/v1/companies/{companyId}/personnel-custom-field-definitions`
 - `PUT /api/v1/personnel-custom-field-definitions/{id}`
@@ -3145,6 +3159,11 @@ Observaciones funcionales:
 
 - `personnel-catalogs/{category}` es read-only y devuelve solo items activos.
 - `personnel-catalogs/{category}` ordena por `SortOrder`, luego `Name`.
+- `personnel-reference-catalogs/*` es read-only, global de sistema y no tenant-editable en esta fase.
+- `professions`, `marital-statuses` e `identification-types` responden catalogos activos para `SV`.
+- `departments` y `municipalities` usan jerarquia `Department -> Municipality`; para `SV` la semilla vigente es `14` departamentos y `44` municipios.
+- `countries` se reusa desde `GET /api/account/companies/countries`; no existe endpoint duplicado de paises en `personnel-reference-catalogs`.
+- `nationality` permanece fuera de catalogo en esta HU y sigue como campo libre.
 - `personnel-custom-field-definitions` soporta filtro opcional `isActive`.
 - `PersonnelCustomFieldType` hoy expone `String`, `Number`, `Date`, `Bool` y `Select`.
 - `create/update custom-field-definition` valida `Key` con la misma regex de codigos del modulo, exige `Label`, `SortOrder >= 0` y limita `OptionsJson` a `12000` caracteres.

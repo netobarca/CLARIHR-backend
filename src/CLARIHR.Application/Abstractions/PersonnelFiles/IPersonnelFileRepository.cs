@@ -105,10 +105,30 @@ public interface IPersonnelFileRepository
         string category,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(
+        string countryCode,
+        string category,
+        string? parentCode,
+        CancellationToken cancellationToken);
+
     Task<bool> CatalogCodeIsActiveAsync(
         Guid tenantId,
         string category,
         string code,
+        CancellationToken cancellationToken);
+
+    Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken);
+
+    Task<bool> ReferenceCatalogCodeIsActiveAsync(
+        string countryCode,
+        string category,
+        string code,
+        CancellationToken cancellationToken);
+
+    Task<bool> ReferenceMunicipalityBelongsToDepartmentAsync(
+        string countryCode,
+        string departmentCode,
+        string municipalityCode,
         CancellationToken cancellationToken);
 
     Task<PersonnelFileDocumentDownloadResponse?> GetDocumentDownloadByIdAsync(Guid documentId, CancellationToken cancellationToken);

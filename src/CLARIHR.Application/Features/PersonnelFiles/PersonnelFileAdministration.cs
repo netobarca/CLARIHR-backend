@@ -13,6 +13,7 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using FluentValidation;
@@ -27,6 +28,10 @@ public sealed record PersonnelFileListItemResponse(
     string FullName,
     DateTime BirthDate,
     int Age,
+    string? MaritalStatusCode,
+    string? MaritalStatusName,
+    string? ProfessionCode,
+    string? ProfessionName,
     Guid? OrgUnitId,
     Guid? AssignedPositionSlotId,
     Guid? LinkedUserId,
@@ -38,12 +43,17 @@ public sealed record PersonnelFileListItemResponse(
 
 public sealed record PersonnelFileIdentificationResponse(
     Guid Id,
-    string IdentificationType,
+    string IdentificationTypeCode,
+    string? IdentificationTypeName,
     string IdentificationNumber,
     DateTime? IssuedDate,
     DateTime? ExpiryDate,
     string? Issuer,
     bool IsPrimary);
+
+public sealed record PersonnelReferenceValueResponse(
+    string Code,
+    string Name);
 
 public sealed record PersonnelFileAddressResponse(
     Guid Id,
@@ -209,16 +219,21 @@ public sealed record PersonnelFilePersonalInfoResponse(
     string FullName,
     DateTime BirthDate,
     int Age,
-    string? MaritalStatus,
-    string? Profession,
+    string? MaritalStatusCode,
+    string? MaritalStatusName,
+    string? ProfessionCode,
+    string? ProfessionName,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
     string? PersonalPhone,
     string? InstitutionalPhone,
-    string? BirthCountry,
-    string? BirthDepartment,
-    string? BirthMunicipality,
+    string? BirthCountryCode,
+    string? BirthCountryName,
+    string? BirthDepartmentCode,
+    string? BirthDepartmentName,
+    string? BirthMunicipalityCode,
+    string? BirthMunicipalityName,
     string? PhotoUrl,
     Guid? OrgUnitId,
     Guid? AssignedPositionSlotId,
@@ -239,16 +254,21 @@ public sealed record PersonnelFileResponse(
     string FullName,
     DateTime BirthDate,
     int Age,
-    string? MaritalStatus,
-    string? Profession,
+    string? MaritalStatusCode,
+    string? MaritalStatusName,
+    string? ProfessionCode,
+    string? ProfessionName,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
     string? PersonalPhone,
     string? InstitutionalPhone,
-    string? BirthCountry,
-    string? BirthDepartment,
-    string? BirthMunicipality,
+    string? BirthCountryCode,
+    string? BirthCountryName,
+    string? BirthDepartmentCode,
+    string? BirthDepartmentName,
+    string? BirthMunicipalityCode,
+    string? BirthMunicipalityName,
     string? PhotoUrl,
     Guid? OrgUnitId,
     Guid? AssignedPositionSlotId,
@@ -282,6 +302,12 @@ public sealed record PersonnelCatalogItemResponse(
     string Name,
     bool IsSystem,
     bool IsActive,
+    int SortOrder);
+
+public sealed record PersonnelReferenceCatalogItemResponse(
+    Guid Id,
+    string Code,
+    string Name,
     int SortOrder);
 
 public sealed record PersonnelFileDocumentDownloadResponse(
@@ -429,6 +455,12 @@ public sealed record GetPersonnelFilePrintQuery(
 
 public sealed record GetPersonnelCatalogItemsQuery(Guid CompanyId, string Category) : IQuery<IReadOnlyCollection<PersonnelCatalogItemResponse>>;
 
+public sealed record GetPersonnelReferenceCatalogItemsQuery(
+    Guid CompanyId,
+    string CountryCode,
+    string Category,
+    string? ParentCode = null) : IQuery<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>;
+
 public sealed record ExportPersonnelFilesQuery(
     Guid CompanyId,
     bool? IsActive,
@@ -477,16 +509,16 @@ public sealed record CreatePersonnelFileCommand(
     string FirstName,
     string LastName,
     DateTime BirthDate,
-    string? MaritalStatus,
-    string? Profession,
+    string? MaritalStatusCode,
+    string? ProfessionCode,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
     string? PersonalPhone,
     string? InstitutionalPhone,
-    string? BirthCountry,
-    string? BirthDepartment,
-    string? BirthMunicipality,
+    string? BirthCountryCode,
+    string? BirthDepartmentCode,
+    string? BirthMunicipalityCode,
     string? PhotoUrl,
     Guid? OrgUnitId,
     Guid? AssignedPositionSlotId,
@@ -500,16 +532,16 @@ public sealed record UpdatePersonnelFilePersonalInfoCommand(
     string FirstName,
     string LastName,
     DateTime BirthDate,
-    string? MaritalStatus,
-    string? Profession,
+    string? MaritalStatusCode,
+    string? ProfessionCode,
     string? Nationality,
     string? PersonalEmail,
     string? InstitutionalEmail,
     string? PersonalPhone,
     string? InstitutionalPhone,
-    string? BirthCountry,
-    string? BirthDepartment,
-    string? BirthMunicipality,
+    string? BirthCountryCode,
+    string? BirthDepartmentCode,
+    string? BirthMunicipalityCode,
     string? PhotoUrl,
     Guid? OrgUnitId,
     Guid? AssignedPositionSlotId,
@@ -644,7 +676,7 @@ public sealed record UpdatePersonnelCustomFieldDefinitionCommand(
     : ICommand<PersonnelCustomFieldDefinitionResponse>;
 
 public sealed record IdentificationInput(
-    string IdentificationType,
+    string IdentificationTypeCode,
     string IdentificationNumber,
     DateTime? IssuedDate,
     DateTime? ExpiryDate,
@@ -942,6 +974,29 @@ internal sealed class GetPersonnelCatalogItemsQueryValidator : AbstractValidator
     }
 }
 
+internal sealed class GetPersonnelReferenceCatalogItemsQueryValidator : AbstractValidator<GetPersonnelReferenceCatalogItemsQuery>
+{
+    public GetPersonnelReferenceCatalogItemsQueryValidator()
+    {
+        RuleFor(query => query.CompanyId).NotEmpty();
+        RuleFor(query => query.CountryCode)
+            .NotEmpty()
+            .MaximumLength(3)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .WithMessage("CountryCode format is invalid.");
+        RuleFor(query => query.Category)
+            .NotEmpty()
+            .MaximumLength(80)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .WithMessage("Category format is invalid.");
+        RuleFor(query => query.ParentCode)
+            .MaximumLength(120)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(query => !string.IsNullOrWhiteSpace(query.ParentCode))
+            .WithMessage("ParentCode format is invalid.");
+    }
+}
+
 internal sealed class ExportPersonnelFilesQueryValidator : AbstractValidator<ExportPersonnelFilesQuery>
 {
     public ExportPersonnelFilesQueryValidator()
@@ -1068,6 +1123,31 @@ internal sealed class CreatePersonnelFileCommandValidator : AbstractValidator<Cr
             .Must(PersonnelFileValidationRules.IsValidPhone)
             .When(command => !string.IsNullOrWhiteSpace(command.InstitutionalPhone))
             .WithMessage("InstitutionalPhone format is invalid.");
+        RuleFor(command => command.MaritalStatusCode)
+            .MaximumLength(80)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.MaritalStatusCode))
+            .WithMessage("MaritalStatusCode format is invalid.");
+        RuleFor(command => command.ProfessionCode)
+            .MaximumLength(120)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.ProfessionCode))
+            .WithMessage("ProfessionCode format is invalid.");
+        RuleFor(command => command.BirthCountryCode)
+            .MaximumLength(3)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.BirthCountryCode))
+            .WithMessage("BirthCountryCode format is invalid.");
+        RuleFor(command => command.BirthDepartmentCode)
+            .MaximumLength(120)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.BirthDepartmentCode))
+            .WithMessage("BirthDepartmentCode format is invalid.");
+        RuleFor(command => command.BirthMunicipalityCode)
+            .MaximumLength(120)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.BirthMunicipalityCode))
+            .WithMessage("BirthMunicipalityCode format is invalid.");
         RuleFor(command => command)
             .Must(static command => command.RecordType != PersonnelFileRecordType.Employee || command.AssignedPositionSlotId.HasValue)
             .WithMessage("AssignedPositionSlotId is required for employee personnel files.");
@@ -1096,6 +1176,31 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandValidator : Abstract
         RuleFor(command => command.BirthDate).NotEmpty();
         RuleFor(command => command.PersonalEmail).EmailAddress().When(command => !string.IsNullOrWhiteSpace(command.PersonalEmail));
         RuleFor(command => command.InstitutionalEmail).EmailAddress().When(command => !string.IsNullOrWhiteSpace(command.InstitutionalEmail));
+        RuleFor(command => command.MaritalStatusCode)
+            .MaximumLength(80)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.MaritalStatusCode))
+            .WithMessage("MaritalStatusCode format is invalid.");
+        RuleFor(command => command.ProfessionCode)
+            .MaximumLength(120)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.ProfessionCode))
+            .WithMessage("ProfessionCode format is invalid.");
+        RuleFor(command => command.BirthCountryCode)
+            .MaximumLength(3)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.BirthCountryCode))
+            .WithMessage("BirthCountryCode format is invalid.");
+        RuleFor(command => command.BirthDepartmentCode)
+            .MaximumLength(120)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.BirthDepartmentCode))
+            .WithMessage("BirthDepartmentCode format is invalid.");
+        RuleFor(command => command.BirthMunicipalityCode)
+            .MaximumLength(120)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .When(command => !string.IsNullOrWhiteSpace(command.BirthMunicipalityCode))
+            .WithMessage("BirthMunicipalityCode format is invalid.");
         RuleFor(command => command.AssignedPositionSlotId)
             .NotEqual(Guid.Empty)
             .When(static command => command.AssignedPositionSlotId.HasValue);
@@ -1338,7 +1443,11 @@ internal sealed class IdentificationInputValidator : AbstractValidator<Identific
 {
     public IdentificationInputValidator()
     {
-        RuleFor(input => input.IdentificationType).NotEmpty().MaximumLength(80);
+        RuleFor(input => input.IdentificationTypeCode)
+            .NotEmpty()
+            .MaximumLength(80)
+            .Must(PersonnelFileValidationRules.IsValidCode)
+            .WithMessage("IdentificationTypeCode format is invalid.");
         RuleFor(input => input.IdentificationNumber)
             .NotEmpty()
             .MaximumLength(80)
@@ -1758,6 +1867,200 @@ internal static class PersonnelCurriculumCatalogValidation
                 new Dictionary<string, string[]>
                 {
                     [fieldName] = [$"Catalog code '{code}' is not active for category '{category}'."]
+                });
+    }
+}
+
+internal static class PersonnelReferenceCatalogValidation
+{
+    public static async Task<Error> ValidatePersonalInfoCodesAsync(
+        IPersonnelFileRepository repository,
+        string? maritalStatusCode,
+        string? professionCode,
+        string? birthCountryCode,
+        string? birthDepartmentCode,
+        string? birthMunicipalityCode,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(maritalStatusCode))
+        {
+            var statusError = await ValidateOptionalReferenceCodeAsync(
+                repository,
+                "maritalStatusCode",
+                LocationValidationRules.ElSalvadorCountryCode,
+                PersonnelReferenceCatalogCategories.MaritalStatus,
+                maritalStatusCode,
+                cancellationToken);
+            if (statusError != Error.None)
+            {
+                return statusError;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(professionCode))
+        {
+            var professionError = await ValidateOptionalReferenceCodeAsync(
+                repository,
+                "professionCode",
+                LocationValidationRules.ElSalvadorCountryCode,
+                PersonnelReferenceCatalogCategories.Profession,
+                professionCode,
+                cancellationToken);
+            if (professionError != Error.None)
+            {
+                return professionError;
+            }
+        }
+
+        return await ValidateBirthLocationAsync(
+            repository,
+            birthCountryCode,
+            birthDepartmentCode,
+            birthMunicipalityCode,
+            cancellationToken);
+    }
+
+    public static Task<Error> ValidateIdentificationTypeCodeAsync(
+        IPersonnelFileRepository repository,
+        string identificationTypeCode,
+        CancellationToken cancellationToken) =>
+        ValidateOptionalReferenceCodeAsync(
+            repository,
+            "identificationTypeCode",
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.IdentificationType,
+            identificationTypeCode,
+            cancellationToken);
+
+    private static async Task<Error> ValidateBirthLocationAsync(
+        IPersonnelFileRepository repository,
+        string? birthCountryCode,
+        string? birthDepartmentCode,
+        string? birthMunicipalityCode,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCountry = string.IsNullOrWhiteSpace(birthCountryCode)
+            ? null
+            : birthCountryCode.Trim().ToUpperInvariant();
+        var normalizedDepartment = string.IsNullOrWhiteSpace(birthDepartmentCode)
+            ? null
+            : birthDepartmentCode.Trim().ToUpperInvariant();
+        var normalizedMunicipality = string.IsNullOrWhiteSpace(birthMunicipalityCode)
+            ? null
+            : birthMunicipalityCode.Trim().ToUpperInvariant();
+
+        if (normalizedDepartment is not null && normalizedCountry is null)
+        {
+            return ErrorCatalog.Validation(
+                new Dictionary<string, string[]>
+                {
+                    ["birthCountryCode"] = ["BirthCountryCode is required when BirthDepartmentCode is provided."]
+                });
+        }
+
+        if (normalizedMunicipality is not null && normalizedDepartment is null)
+        {
+            return ErrorCatalog.Validation(
+                new Dictionary<string, string[]>
+                {
+                    ["birthDepartmentCode"] = ["BirthDepartmentCode is required when BirthMunicipalityCode is provided."]
+                });
+        }
+
+        if (normalizedCountry is null)
+        {
+            return Error.None;
+        }
+
+        if (!await repository.CountryCodeIsActiveAsync(normalizedCountry, cancellationToken))
+        {
+            return ErrorCatalog.Validation(
+                new Dictionary<string, string[]>
+                {
+                    ["birthCountryCode"] = [$"Country code '{normalizedCountry}' is not active."]
+                });
+        }
+
+        if (normalizedDepartment is null && normalizedMunicipality is null)
+        {
+            return Error.None;
+        }
+
+        if (normalizedCountry != LocationValidationRules.ElSalvadorCountryCode)
+        {
+            return ErrorCatalog.Validation(
+                new Dictionary<string, string[]>
+                {
+                    ["birthCountryCode"] = ["Birth department and municipality catalogs are only available for country code 'SV' in this phase."]
+                });
+        }
+
+        if (normalizedDepartment is not null &&
+            !await repository.ReferenceCatalogCodeIsActiveAsync(
+                normalizedCountry,
+                PersonnelReferenceCatalogCategories.Department,
+                normalizedDepartment,
+                cancellationToken))
+        {
+            return ErrorCatalog.Validation(
+                new Dictionary<string, string[]>
+                {
+                    ["birthDepartmentCode"] = [$"Catalog code '{normalizedDepartment}' is not active for category '{PersonnelReferenceCatalogCategories.Department}'."]
+                });
+        }
+
+        if (normalizedMunicipality is not null &&
+            !await repository.ReferenceCatalogCodeIsActiveAsync(
+                normalizedCountry,
+                PersonnelReferenceCatalogCategories.Municipality,
+                normalizedMunicipality,
+                cancellationToken))
+        {
+            return ErrorCatalog.Validation(
+                new Dictionary<string, string[]>
+                {
+                    ["birthMunicipalityCode"] = [$"Catalog code '{normalizedMunicipality}' is not active for category '{PersonnelReferenceCatalogCategories.Municipality}'."]
+                });
+        }
+
+        if (normalizedDepartment is not null &&
+            normalizedMunicipality is not null &&
+            !await repository.ReferenceMunicipalityBelongsToDepartmentAsync(
+                normalizedCountry,
+                normalizedDepartment,
+                normalizedMunicipality,
+                cancellationToken))
+        {
+            return ErrorCatalog.Validation(
+                new Dictionary<string, string[]>
+                {
+                    ["birthMunicipalityCode"] = ["BirthMunicipalityCode does not belong to the selected BirthDepartmentCode."]
+                });
+        }
+
+        return Error.None;
+    }
+
+    private static async Task<Error> ValidateOptionalReferenceCodeAsync(
+        IPersonnelFileRepository repository,
+        string fieldName,
+        string countryCode,
+        string category,
+        string? code,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return Error.None;
+        }
+
+        var isActive = await repository.ReferenceCatalogCodeIsActiveAsync(countryCode, category, code, cancellationToken);
+        return isActive
+            ? Error.None
+            : ErrorCatalog.Validation(
+                new Dictionary<string, string[]>
+                {
+                    [fieldName] = [$"Catalog code '{code.Trim().ToUpperInvariant()}' is not active for category '{category}'."]
                 });
     }
 }
@@ -2323,6 +2626,30 @@ internal sealed class GetPersonnelCatalogItemsQueryHandler(
     }
 }
 
+internal sealed class GetPersonnelReferenceCatalogItemsQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository)
+    : IQueryHandler<GetPersonnelReferenceCatalogItemsQuery, IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>
+{
+    public async Task<Result<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>> Handle(
+        GetPersonnelReferenceCatalogItemsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(query.CompanyId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>.Failure(authorizationResult.Error);
+        }
+
+        var items = await repository.GetReferenceCatalogItemsAsync(
+            query.CountryCode,
+            query.Category,
+            query.ParentCode,
+            cancellationToken);
+        return Result<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>.Success(items);
+    }
+}
+
 internal sealed class ExportPersonnelFilesQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository)
@@ -2554,13 +2881,36 @@ internal sealed class CreatePersonnelFileCommandHandler(
             return Result<PersonnelFileResponse>.Failure(customDataValidation);
         }
 
+        var personalInfoCatalogValidation = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
+            repository,
+            command.MaritalStatusCode,
+            command.ProfessionCode,
+            command.BirthCountryCode,
+            command.BirthDepartmentCode,
+            command.BirthMunicipalityCode,
+            cancellationToken);
+        if (personalInfoCatalogValidation != Error.None)
+        {
+            return Result<PersonnelFileResponse>.Failure(personalInfoCatalogValidation);
+        }
+
         var identificationEntities = new List<PersonnelFileIdentification>();
         foreach (var identification in command.Identifications)
         {
+            var normalizedIdentificationTypeCode = identification.IdentificationTypeCode.Trim().ToUpperInvariant();
+            var identificationTypeValidation = await PersonnelReferenceCatalogValidation.ValidateIdentificationTypeCodeAsync(
+                repository,
+                normalizedIdentificationTypeCode,
+                cancellationToken);
+            if (identificationTypeValidation != Error.None)
+            {
+                return Result<PersonnelFileResponse>.Failure(identificationTypeValidation);
+            }
+
             var normalized = identification.IdentificationNumber.Trim().ToUpperInvariant();
             var exists = await repository.IdentificationExistsAsync(
                 command.CompanyId,
-                identification.IdentificationType,
+                normalizedIdentificationTypeCode,
                 normalized,
                 excludingPersonnelFileId: null,
                 cancellationToken);
@@ -2570,7 +2920,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
             }
 
             identificationEntities.Add(PersonnelFileIdentification.Create(
-                identification.IdentificationType,
+                normalizedIdentificationTypeCode,
                 identification.IdentificationNumber,
                 identification.IssuedDate,
                 identification.ExpiryDate,
@@ -2583,16 +2933,16 @@ internal sealed class CreatePersonnelFileCommandHandler(
             command.FirstName,
             command.LastName,
             command.BirthDate,
-            command.MaritalStatus,
-            command.Profession,
+            command.MaritalStatusCode,
+            command.ProfessionCode,
             command.Nationality,
             command.PersonalEmail,
             command.InstitutionalEmail,
             command.PersonalPhone,
             command.InstitutionalPhone,
-            command.BirthCountry,
-            command.BirthDepartment,
-            command.BirthMunicipality,
+            command.BirthCountryCode,
+            command.BirthDepartmentCode,
+            command.BirthMunicipalityCode,
             command.PhotoUrl,
             command.OrgUnitId,
             command.AssignedPositionSlotId,
@@ -2686,6 +3036,19 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
             return Result<PersonnelFileResponse>.Failure(customDataValidation);
         }
 
+        var personalInfoCatalogValidation = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
+            repository,
+            command.MaritalStatusCode,
+            command.ProfessionCode,
+            command.BirthCountryCode,
+            command.BirthDepartmentCode,
+            command.BirthMunicipalityCode,
+            cancellationToken);
+        if (personalInfoCatalogValidation != Error.None)
+        {
+            return Result<PersonnelFileResponse>.Failure(personalInfoCatalogValidation);
+        }
+
         var before = await repository.GetResponseByIdAsync(personnelFile.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Personnel file response could not be resolved before update.");
 
@@ -2699,16 +3062,16 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
                     command.FirstName,
                     command.LastName,
                     command.BirthDate,
-                    command.MaritalStatus,
-                    command.Profession,
+                    command.MaritalStatusCode,
+                    command.ProfessionCode,
                     command.Nationality,
                     command.PersonalEmail,
                     command.InstitutionalEmail,
                     command.PersonalPhone,
                     command.InstitutionalPhone,
-                    command.BirthCountry,
-                    command.BirthDepartment,
-                    command.BirthMunicipality,
+                    command.BirthCountryCode,
+                    command.BirthDepartmentCode,
+                    command.BirthMunicipalityCode,
                     command.PhotoUrl,
                     command.OrgUnitId,
                     command.AssignedPositionSlotId,
@@ -2861,10 +3224,20 @@ internal sealed class ReplacePersonnelFileIdentificationsCommandHandler(
         var entities = new List<PersonnelFileIdentification>();
         foreach (var item in command.Identifications)
         {
+            var normalizedIdentificationTypeCode = item.IdentificationTypeCode.Trim().ToUpperInvariant();
+            var identificationTypeValidation = await PersonnelReferenceCatalogValidation.ValidateIdentificationTypeCodeAsync(
+                repository,
+                normalizedIdentificationTypeCode,
+                cancellationToken);
+            if (identificationTypeValidation != Error.None)
+            {
+                return Result<PersonnelFileResponse>.Failure(identificationTypeValidation);
+            }
+
             var normalized = item.IdentificationNumber.Trim().ToUpperInvariant();
             if (await repository.IdentificationExistsAsync(
                     personnelFile!.TenantId,
-                    item.IdentificationType,
+                    normalizedIdentificationTypeCode,
                     normalized,
                     personnelFile.Id,
                     cancellationToken))
@@ -2873,7 +3246,7 @@ internal sealed class ReplacePersonnelFileIdentificationsCommandHandler(
             }
 
             entities.Add(PersonnelFileIdentification.Create(
-                item.IdentificationType,
+                normalizedIdentificationTypeCode,
                 item.IdentificationNumber,
                 item.IssuedDate,
                 item.ExpiryDate,

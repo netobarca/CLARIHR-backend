@@ -71,6 +71,8 @@ El provisioning actual deja creada la base operativa minima del tenant:
 - grupos de locations por plantilla de pais cuando existe una plantilla detallada, o un nivel generico minimo cuando el pais solo requiere bootstrap basico
 - metadatos iniciales requeridos para operar la estructura
 
+Para `SV`, la plantilla estructurada vigente siembra `14` departamentos y `44` municipios para mantener consistencia entre onboarding y expedientes de personal.
+
 ### 5.3 Cambio de compania activa
 
 1. El usuario selecciona una compania de las que posee o administra.
@@ -188,8 +190,11 @@ El provisioning actual deja creada la base operativa minima del tenant:
 
 1. RRHH crea un `personnel file` para una persona dentro de una compania.
 2. El expediente siempre nace en estado `Draft` con informacion base e identificaciones iniciales.
-3. Si el expediente es de tipo `Employee`, desde el alta debe quedar asociada una plaza; si es `Candidate`, la plaza no aplica dentro de este modulo.
-4. Desde ese momento el sistema puede completar el resto de secciones.
+3. Los campos de profesion, estado civil, lugar de nacimiento e identificaciones del bloque personal se capturan por codigo de catalogo (`maritalStatusCode`, `professionCode`, `birthCountryCode`, `birthDepartmentCode`, `birthMunicipalityCode`, `identificationTypeCode`) y se validan contra catalogos read-only del sistema.
+4. En geografia de nacimiento, `birthDepartmentCode` requiere `birthCountryCode` y `birthMunicipalityCode` requiere `birthDepartmentCode`; en esta fase la cascada departamento/municipio esta habilitada para `SV`.
+5. `nationality` permanece fuera de catalogo en esta fase y sigue como campo libre.
+6. Si el expediente es de tipo `Employee`, desde el alta debe quedar asociada una plaza; si es `Candidate`, la plaza no aplica dentro de este modulo.
+7. Desde ese momento el sistema puede completar el resto de secciones.
 
 ### 9.2 Perfil del expediente
 
@@ -208,6 +213,14 @@ El expediente se completa por bloques:
 - capacitaciones
 - empleos previos
 - referencias
+
+Para poblar selects del bloque personal e identificaciones, RRHH usa endpoints read-only de referencia por compania:
+
+- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/professions`
+- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/marital-statuses`
+- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/identification-types`
+- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/departments?countryCode=SV`
+- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/municipalities?countryCode=SV&departmentCode=<CODE>`
 
 ### 9.3 Finalizacion del expediente y aprovisionamiento de usuario
 

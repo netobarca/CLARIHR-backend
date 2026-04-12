@@ -28,6 +28,84 @@ public sealed class PersonnelFileAdministrationController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-reference-catalogs/professions")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>> GetProfessionReferenceCatalog(
+        Guid companyId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelReferenceCatalogItemsQuery(companyId, "SV", "Profession"),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-reference-catalogs/marital-statuses")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>> GetMaritalStatusReferenceCatalog(
+        Guid companyId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelReferenceCatalogItemsQuery(companyId, "SV", "MaritalStatus"),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-reference-catalogs/identification-types")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>> GetIdentificationTypeReferenceCatalog(
+        Guid companyId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelReferenceCatalogItemsQuery(companyId, "SV", "IdentificationType"),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-reference-catalogs/departments")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>> GetDepartmentReferenceCatalog(
+        Guid companyId,
+        [FromQuery] string countryCode,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelReferenceCatalogItemsQuery(companyId, countryCode, "Department"),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-reference-catalogs/municipalities")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>> GetMunicipalityReferenceCatalog(
+        Guid companyId,
+        [FromQuery] string countryCode,
+        [FromQuery] string departmentCode,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelReferenceCatalogItemsQuery(companyId, countryCode, "Municipality", departmentCode),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpGet("api/v1/companies/{companyId:guid}/personnel-custom-field-definitions")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]

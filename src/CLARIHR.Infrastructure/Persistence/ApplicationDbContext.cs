@@ -186,6 +186,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelCatalogItem> PersonnelCatalogItems => Set<PersonnelCatalogItem>();
 
+    public DbSet<PersonnelReferenceCatalogItem> PersonnelReferenceCatalogItems => Set<PersonnelReferenceCatalogItem>();
+
     public DbSet<PersonnelFileEmployeeProfile> PersonnelFileEmployeeProfiles => Set<PersonnelFileEmployeeProfile>();
 
     public DbSet<PersonnelFileEmploymentAssignment> PersonnelFileEmploymentAssignments => Set<PersonnelFileEmploymentAssignment>();
