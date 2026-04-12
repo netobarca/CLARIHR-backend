@@ -848,13 +848,14 @@ components:
     PersonnelFileIdentificationItemRequest:
       type: object
       required:
-        - identificationType
+        - identificationTypeCode
         - identificationNumber
         - isPrimary
       properties:
-        identificationType:
+        identificationTypeCode:
           type: string
           maxLength: 80
+          description: Catalog code from `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/identification-types`.
         identificationNumber:
           type: string
           maxLength: 100
@@ -892,12 +893,14 @@ components:
         birthDate:
           type: string
           format: date-time
-        maritalStatus:
+        maritalStatusCode:
           type: string
           nullable: true
-        profession:
+          description: Catalog code from `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/marital-statuses`.
+        professionCode:
           type: string
           nullable: true
+          description: Catalog code from `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/professions`.
         nationality:
           type: string
           nullable: true
@@ -915,15 +918,18 @@ components:
         institutionalPhone:
           type: string
           nullable: true
-        birthCountry:
+        birthCountryCode:
           type: string
           nullable: true
-        birthDepartment:
+          description: Country code from `GET /api/account/companies/countries`.
+        birthDepartmentCode:
           type: string
           nullable: true
-        birthMunicipality:
+          description: Catalog code from `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/departments?countryCode=SV`.
+        birthMunicipalityCode:
           type: string
           nullable: true
+          description: Catalog code from `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/municipalities?countryCode=SV&departmentCode=<CODE>`.
         photoUrl:
           type: string
           nullable: true
@@ -992,6 +998,36 @@ components:
         age:
           type: integer
           format: int32
+        maritalStatusCode:
+          type: string
+          nullable: true
+        maritalStatusName:
+          type: string
+          nullable: true
+        professionCode:
+          type: string
+          nullable: true
+        professionName:
+          type: string
+          nullable: true
+        birthCountryCode:
+          type: string
+          nullable: true
+        birthCountryName:
+          type: string
+          nullable: true
+        birthDepartmentCode:
+          type: string
+          nullable: true
+        birthDepartmentName:
+          type: string
+          nullable: true
+        birthMunicipalityCode:
+          type: string
+          nullable: true
+        birthMunicipalityName:
+          type: string
+          nullable: true
         institutionalEmail:
           type: string
           format: email
@@ -1020,6 +1056,52 @@ components:
           type: string
           format: date-time
           nullable: true
+        identifications:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              identificationTypeCode:
+                type: string
+              identificationTypeName:
+                type: string
+                nullable: true
+              identificationNumber:
+                type: string
+              issuedDate:
+                type: string
+                format: date-time
+                nullable: true
+              expiryDate:
+                type: string
+                format: date-time
+                nullable: true
+              issuer:
+                type: string
+                nullable: true
+              isPrimary:
+                type: boolean
+    PersonnelReferenceCatalogItemResponse:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - sortOrder
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
     PersonnelFileDocumentMetadataResponse:
       type: object
       required:
@@ -4870,6 +4952,234 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyId}/personnel-reference-catalogs/professions:
+    get:
+      tags:
+        - personnel-reference-catalogs
+      operationId: GetPersonnelReferenceProfessions
+      summary: List profession catalog items for personnel files
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Active profession catalog items for El Salvador.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyId}/personnel-reference-catalogs/marital-statuses:
+    get:
+      tags:
+        - personnel-reference-catalogs
+      operationId: GetPersonnelReferenceMaritalStatuses
+      summary: List marital status catalog items for personnel files
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Active marital status catalog items for El Salvador.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyId}/personnel-reference-catalogs/identification-types:
+    get:
+      tags:
+        - personnel-reference-catalogs
+      operationId: GetPersonnelReferenceIdentificationTypes
+      summary: List identification type catalog items for personnel files
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Active identification type catalog items for El Salvador.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyId}/personnel-reference-catalogs/departments:
+    get:
+      tags:
+        - personnel-reference-catalogs
+      operationId: GetPersonnelReferenceDepartments
+      summary: List department catalog items for a country
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: countryCode
+          in: query
+          required: true
+          schema:
+            type: string
+          example: SV
+      responses:
+        '200':
+          description: Active department catalog items for the requested country.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyId}/personnel-reference-catalogs/municipalities:
+    get:
+      tags:
+        - personnel-reference-catalogs
+      operationId: GetPersonnelReferenceMunicipalities
+      summary: List municipality catalog items for a country and department
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: countryCode
+          in: query
+          required: true
+          schema:
+            type: string
+          example: SV
+        - name: departmentCode
+          in: query
+          required: true
+          schema:
+            type: string
+          example: SAN_SALVADOR
+      responses:
+        '200':
+          description: Active municipality catalog items for the requested country and department.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/personnel-files/{id}/documents:
     get:
       tags:
@@ -5001,6 +5311,107 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Business-rule violation, such as invalid document dates.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/documents/{documentId}/inactivate:
+    patch:
+      tags:
+        - personnel-files
+      operationId: InactivatePersonnelFileDocument
+      summary: Inactivate a personnel file document
+      description: Performs a logical inactivation of the selected personnel file document using the document concurrency token.
+      security:
+        - Bearer: []
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConcurrencyRequest'
+      responses:
+        '200':
+          description: Document inactivated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileDocumentMetadataResponse'
+        '400':
+          description: Validation error, such as missing concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target document was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/documents/{documentId}/download:
+    get:
+      tags:
+        - personnel-files
+      operationId: DownloadPersonnelFileDocument
+      summary: Download a personnel file document
+      description: Streams the binary payload for a previously uploaded personnel file document.
+      security:
+        - Bearer: []
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Document downloaded successfully.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target document was not found in the tenant scope.
           content:
             application/problem+json:
               schema:
@@ -7327,5 +7738,7 @@ tags:
     description: Checked-in supplement for job profile and position slot write contracts with inherited org unit and cost center behavior.
   - name: personnel-files
     description: Personnel file lifecycle and subsections.
+  - name: personnel-reference-catalogs
+    description: Read-only reference catalogs used by personal-info and identification fields in personnel files.
 x-documentation-status: partial-manual-supplement
 x-runtime-openapi-source: /swagger/v1/swagger.json

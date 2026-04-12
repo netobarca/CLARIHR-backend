@@ -1,5 +1,6 @@
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.PersonnelFiles;
@@ -109,6 +110,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 file.LifecycleStatus,
                 file.FullName,
                 file.BirthDate,
+                file.MaritalStatus,
+                file.Profession,
                 file.OrgUnitPublicId,
                 file.AssignedPositionSlotPublicId,
                 file.LinkedUserPublicId,
@@ -119,6 +122,17 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             })
             .ToListAsync(cancellationToken);
 
+        var maritalStatusNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.MaritalStatus,
+            rows.Select(static row => row.MaritalStatus),
+            cancellationToken);
+        var professionNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.Profession,
+            rows.Select(static row => row.Profession),
+            cancellationToken);
+
         var items = rows
             .Select(file => new PersonnelFileListItemResponse(
                 file.PublicId,
@@ -128,6 +142,10 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 file.FullName,
                 file.BirthDate,
                 PersonnelFileValidationRules.CalculateAge(file.BirthDate, DateTime.UtcNow),
+                file.MaritalStatus,
+                TryResolveName(maritalStatusNames, file.MaritalStatus),
+                file.Profession,
+                TryResolveName(professionNames, file.Profession),
                 file.OrgUnitPublicId,
                 file.AssignedPositionSlotPublicId,
                 file.LinkedUserPublicId,
@@ -166,6 +184,33 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             return null;
         }
 
+        var maritalStatusNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.MaritalStatus,
+            [file.MaritalStatus],
+            cancellationToken);
+        var professionNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.Profession,
+            [file.Profession],
+            cancellationToken);
+        var identificationTypeNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.IdentificationType,
+            file.Identifications.Select(static item => item.IdentificationType),
+            cancellationToken);
+        var birthCountryNames = await ResolveCountryNamesByCodeAsync([file.BirthCountry], cancellationToken);
+        var birthDepartmentNames = await ResolveReferenceNamesByCodeAsync(
+            file.BirthCountry ?? LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.Department,
+            [file.BirthDepartment],
+            cancellationToken);
+        var birthMunicipalityNames = await ResolveReferenceNamesByCodeAsync(
+            file.BirthCountry ?? LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.Municipality,
+            [file.BirthMunicipality],
+            cancellationToken);
+
         return new PersonnelFileResponse(
             file.PublicId,
             file.TenantId,
@@ -177,15 +222,20 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             file.BirthDate,
             PersonnelFileValidationRules.CalculateAge(file.BirthDate, DateTime.UtcNow),
             file.MaritalStatus,
+            TryResolveName(maritalStatusNames, file.MaritalStatus),
             file.Profession,
+            TryResolveName(professionNames, file.Profession),
             file.Nationality,
             file.PersonalEmail,
             file.InstitutionalEmail,
             file.PersonalPhone,
             file.InstitutionalPhone,
             file.BirthCountry,
+            TryResolveName(birthCountryNames, file.BirthCountry),
             file.BirthDepartment,
+            TryResolveName(birthDepartmentNames, file.BirthDepartment),
             file.BirthMunicipality,
+            TryResolveName(birthMunicipalityNames, file.BirthMunicipality),
             file.PhotoUrl,
             file.OrgUnitPublicId,
             file.AssignedPositionSlotPublicId,
@@ -202,6 +252,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 .Select(item => new PersonnelFileIdentificationResponse(
                     item.PublicId,
                     item.IdentificationType,
+                    TryResolveName(identificationTypeNames, item.IdentificationType),
                     item.IdentificationNumber,
                     item.IssuedDate,
                     item.ExpiryDate,
@@ -397,59 +448,115 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 .ToArray());
     }
 
-    public Task<PersonnelFilePersonalInfoResponse?> GetPersonalInfoAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
-        dbContext.Set<PersonnelFile>()
+    public async Task<PersonnelFilePersonalInfoResponse?> GetPersonalInfoAsync(Guid personnelFileId, CancellationToken cancellationToken)
+    {
+        var file = await dbContext.Set<PersonnelFile>()
             .AsNoTracking()
-            .Where(file => file.PublicId == personnelFileId)
-            .Select(file => new PersonnelFilePersonalInfoResponse(
-                file.PublicId,
-                file.TenantId,
-                file.RecordType,
-                file.LifecycleStatus,
-                file.FirstName,
-                file.LastName,
-                file.FullName,
-                file.BirthDate,
-                PersonnelFileValidationRules.CalculateAge(file.BirthDate, DateTime.UtcNow),
-                file.MaritalStatus,
-                file.Profession,
-                file.Nationality,
-                file.PersonalEmail,
-                file.InstitutionalEmail,
-                file.PersonalPhone,
-                file.InstitutionalPhone,
-                file.BirthCountry,
-                file.BirthDepartment,
-                file.BirthMunicipality,
-                file.PhotoUrl,
-                file.OrgUnitPublicId,
-                file.AssignedPositionSlotPublicId,
-                file.LinkedUserPublicId,
-                file.CustomDataJson,
-                file.IsActive,
-                file.ConcurrencyToken,
-                file.CreatedUtc,
-                file.ModifiedUtc))
-            .SingleOrDefaultAsync(cancellationToken);
+            .SingleOrDefaultAsync(item => item.PublicId == personnelFileId, cancellationToken);
+
+        if (file is null)
+        {
+            return null;
+        }
+
+        var maritalStatusNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.MaritalStatus,
+            [file.MaritalStatus],
+            cancellationToken);
+        var professionNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.Profession,
+            [file.Profession],
+            cancellationToken);
+        var birthCountryNames = await ResolveCountryNamesByCodeAsync([file.BirthCountry], cancellationToken);
+        var birthDepartmentNames = await ResolveReferenceNamesByCodeAsync(
+            file.BirthCountry ?? LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.Department,
+            [file.BirthDepartment],
+            cancellationToken);
+        var birthMunicipalityNames = await ResolveReferenceNamesByCodeAsync(
+            file.BirthCountry ?? LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.Municipality,
+            [file.BirthMunicipality],
+            cancellationToken);
+
+        return new PersonnelFilePersonalInfoResponse(
+            file.PublicId,
+            file.TenantId,
+            file.RecordType,
+            file.LifecycleStatus,
+            file.FirstName,
+            file.LastName,
+            file.FullName,
+            file.BirthDate,
+            PersonnelFileValidationRules.CalculateAge(file.BirthDate, DateTime.UtcNow),
+            file.MaritalStatus,
+            TryResolveName(maritalStatusNames, file.MaritalStatus),
+            file.Profession,
+            TryResolveName(professionNames, file.Profession),
+            file.Nationality,
+            file.PersonalEmail,
+            file.InstitutionalEmail,
+            file.PersonalPhone,
+            file.InstitutionalPhone,
+            file.BirthCountry,
+            TryResolveName(birthCountryNames, file.BirthCountry),
+            file.BirthDepartment,
+            TryResolveName(birthDepartmentNames, file.BirthDepartment),
+            file.BirthMunicipality,
+            TryResolveName(birthMunicipalityNames, file.BirthMunicipality),
+            file.PhotoUrl,
+            file.OrgUnitPublicId,
+            file.AssignedPositionSlotPublicId,
+            file.LinkedUserPublicId,
+            file.CustomDataJson,
+            file.IsActive,
+            file.ConcurrencyToken,
+            file.CreatedUtc,
+            file.ModifiedUtc);
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFileIdentificationResponse>> GetIdentificationsAsync(
         Guid personnelFileId,
-        CancellationToken cancellationToken) =>
-        await dbContext.Set<PersonnelFileIdentification>()
+        CancellationToken cancellationToken)
+    {
+        var rows = await dbContext.Set<PersonnelFileIdentification>()
             .AsNoTracking()
             .Where(item => item.PersonnelFile.PublicId == personnelFileId)
             .OrderByDescending(item => item.IsPrimary)
             .ThenBy(item => item.IdentificationType)
             .ThenBy(item => item.IdentificationNumber)
-            .Select(item => new PersonnelFileIdentificationResponse(
+            .Select(item => new
+            {
                 item.PublicId,
                 item.IdentificationType,
                 item.IdentificationNumber,
                 item.IssuedDate,
                 item.ExpiryDate,
                 item.Issuer,
+                item.IsPrimary
+            })
+            .ToListAsync(cancellationToken);
+
+        var identificationTypeNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.IdentificationType,
+            rows.Select(static item => item.IdentificationType),
+            cancellationToken);
+
+        return rows
+            .Select(item => new PersonnelFileIdentificationResponse(
+                item.PublicId,
+                item.IdentificationType,
+                TryResolveName(identificationTypeNames, item.IdentificationType),
+                item.IdentificationNumber,
+                item.IssuedDate,
+                item.ExpiryDate,
+                item.Issuer,
                 item.IsPrimary))
-            .ToArrayAsync(cancellationToken);
+            .ToArray();
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFileAddressResponse>> GetAddressesAsync(
         Guid personnelFileId,
@@ -717,6 +824,51 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .ContinueWith(static task => (IReadOnlyCollection<PersonnelCatalogItemResponse>)task.Result, cancellationToken);
     }
 
+    public Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(
+        string countryCode,
+        string category,
+        string? parentCode,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCountry = countryCode.Trim().ToUpperInvariant();
+        var normalizedCategory = category.Trim().ToUpperInvariant();
+        var normalizedParentCode = string.IsNullOrWhiteSpace(parentCode)
+            ? null
+            : parentCode.Trim().ToUpperInvariant();
+
+        var query = dbContext.Set<PersonnelReferenceCatalogItem>()
+            .AsNoTracking()
+            .Where(item =>
+                item.IsActive &&
+                item.CountryCode == normalizedCountry &&
+                item.Category.ToUpper() == normalizedCategory);
+
+        if (normalizedParentCode is not null)
+        {
+            query = query.Where(item =>
+                item.ParentId.HasValue &&
+                dbContext.Set<PersonnelReferenceCatalogItem>().Any(parent =>
+                    parent.Id == item.ParentId.Value &&
+                    parent.CountryCode == normalizedCountry &&
+                    parent.NormalizedCode == normalizedParentCode));
+        }
+        else
+        {
+            query = query.Where(item => !item.ParentId.HasValue);
+        }
+
+        return query
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new PersonnelReferenceCatalogItemResponse(
+                item.PublicId,
+                item.Code,
+                item.Name,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken)
+            .ContinueWith(static task => (IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>)task.Result, cancellationToken);
+    }
+
     public Task<bool> CatalogCodeIsActiveAsync(
         Guid tenantId,
         string category,
@@ -734,6 +886,66 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                         item.Category.ToUpper() == normalizedCategory &&
                         item.NormalizedCode == normalizedCode,
                 cancellationToken);
+    }
+
+    public Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken)
+    {
+        var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();
+
+        return dbContext.CountryCatalogItems
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.IsActive && item.NormalizedCode == normalizedCountryCode,
+                cancellationToken);
+    }
+
+    public Task<bool> ReferenceCatalogCodeIsActiveAsync(
+        string countryCode,
+        string category,
+        string code,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();
+        var normalizedCategory = category.Trim().ToUpperInvariant();
+        var normalizedCode = code.Trim().ToUpperInvariant();
+
+        return dbContext.Set<PersonnelReferenceCatalogItem>()
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.IsActive &&
+                        item.CountryCode == normalizedCountryCode &&
+                        item.Category.ToUpper() == normalizedCategory &&
+                        item.NormalizedCode == normalizedCode,
+                cancellationToken);
+    }
+
+    public Task<bool> ReferenceMunicipalityBelongsToDepartmentAsync(
+        string countryCode,
+        string departmentCode,
+        string municipalityCode,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCountryCode = countryCode.Trim().ToUpperInvariant();
+        var normalizedDepartmentCode = departmentCode.Trim().ToUpperInvariant();
+        var normalizedMunicipalityCode = municipalityCode.Trim().ToUpperInvariant();
+        var departmentCategory = PersonnelReferenceCatalogCategories.Department.ToUpperInvariant();
+        var municipalityCategory = PersonnelReferenceCatalogCategories.Municipality.ToUpperInvariant();
+
+        var query =
+            from municipality in dbContext.Set<PersonnelReferenceCatalogItem>().AsNoTracking()
+            join department in dbContext.Set<PersonnelReferenceCatalogItem>().AsNoTracking()
+                on municipality.ParentId equals department.Id
+            where municipality.IsActive &&
+                  department.IsActive &&
+                  municipality.CountryCode == normalizedCountryCode &&
+                  department.CountryCode == normalizedCountryCode &&
+                  municipality.Category.ToUpper() == municipalityCategory &&
+                  department.Category.ToUpper() == departmentCategory &&
+                  municipality.NormalizedCode == normalizedMunicipalityCode &&
+                  department.NormalizedCode == normalizedDepartmentCode
+            select municipality.Id;
+
+        return query.AnyAsync(cancellationToken);
     }
 
     public Task<PersonnelFileDocumentDownloadResponse?> GetDocumentDownloadByIdAsync(Guid documentId, CancellationToken cancellationToken) =>
@@ -803,6 +1015,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 file.LifecycleStatus,
                 file.FullName,
                 file.BirthDate,
+                file.MaritalStatus,
+                file.Profession,
                 file.OrgUnitPublicId,
                 file.AssignedPositionSlotPublicId,
                 file.LinkedUserPublicId,
@@ -813,6 +1027,17 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             })
             .ToListAsync(cancellationToken);
 
+        var maritalStatusNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.MaritalStatus,
+            rows.Select(static row => row.MaritalStatus),
+            cancellationToken);
+        var professionNames = await ResolveReferenceNamesByCodeAsync(
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.Profession,
+            rows.Select(static row => row.Profession),
+            cancellationToken);
+
         var items = rows
             .Select(file => new PersonnelFileListItemResponse(
                 file.PublicId,
@@ -822,6 +1047,10 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 file.FullName,
                 file.BirthDate,
                 PersonnelFileValidationRules.CalculateAge(file.BirthDate, DateTime.UtcNow),
+                file.MaritalStatus,
+                TryResolveName(maritalStatusNames, file.MaritalStatus),
+                file.Profession,
+                TryResolveName(professionNames, file.Profession),
                 file.OrgUnitPublicId,
                 file.AssignedPositionSlotPublicId,
                 file.LinkedUserPublicId,
@@ -1575,4 +1804,75 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .Select(file => file.LinkedUserPublicId!.Value)
             .Distinct()
             .ToArrayAsync(cancellationToken);
+
+    private async Task<Dictionary<string, string>> ResolveReferenceNamesByCodeAsync(
+        string countryCode,
+        string category,
+        IEnumerable<string?> codes,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCodes = codes
+            .Where(static code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (normalizedCodes.Length == 0)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+
+        var normalizedCountry = countryCode.Trim().ToUpperInvariant();
+        var normalizedCategory = category.Trim().ToUpperInvariant();
+
+        return await dbContext.Set<PersonnelReferenceCatalogItem>()
+            .AsNoTracking()
+            .Where(item =>
+                item.IsActive &&
+                item.CountryCode == normalizedCountry &&
+                item.Category.ToUpper() == normalizedCategory &&
+                normalizedCodes.Contains(item.NormalizedCode))
+            .ToDictionaryAsync(
+                static item => item.NormalizedCode,
+                static item => item.Name,
+                StringComparer.Ordinal,
+                cancellationToken);
+    }
+
+    private async Task<Dictionary<string, string>> ResolveCountryNamesByCodeAsync(
+        IEnumerable<string?> codes,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCodes = codes
+            .Where(static code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (normalizedCodes.Length == 0)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+
+        return await dbContext.CountryCatalogItems
+            .AsNoTracking()
+            .Where(item => item.IsActive && normalizedCodes.Contains(item.NormalizedCode))
+            .ToDictionaryAsync(
+                static item => item.NormalizedCode,
+                static item => item.Name,
+                StringComparer.Ordinal,
+                cancellationToken);
+    }
+
+    private static string? TryResolveName(
+        IReadOnlyDictionary<string, string> lookup,
+        string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return null;
+        }
+
+        return lookup.TryGetValue(code.Trim().ToUpperInvariant(), out var name) ? name : null;
+    }
 }

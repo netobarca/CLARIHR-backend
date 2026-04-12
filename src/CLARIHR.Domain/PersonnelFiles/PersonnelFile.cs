@@ -50,16 +50,16 @@ public sealed class PersonnelFile : TenantEntity
         LifecycleStatus = PersonnelFileLifecycleStatus.Draft;
         SetName(firstName, lastName);
         BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
-        MaritalStatus = PersonnelFileNormalization.CleanOptional(maritalStatus);
-        Profession = PersonnelFileNormalization.CleanOptional(profession);
+        MaritalStatus = NormalizeOptionalCode(maritalStatus);
+        Profession = NormalizeOptionalCode(profession);
         Nationality = PersonnelFileNormalization.CleanOptional(nationality);
         PersonalEmail = PersonnelFileNormalization.CleanOptional(personalEmail);
         InstitutionalEmail = PersonnelFileNormalization.CleanOptional(institutionalEmail);
         PersonalPhone = PersonnelFileNormalization.CleanOptional(personalPhone);
         InstitutionalPhone = PersonnelFileNormalization.CleanOptional(institutionalPhone);
-        BirthCountry = PersonnelFileNormalization.CleanOptional(birthCountry);
-        BirthDepartment = PersonnelFileNormalization.CleanOptional(birthDepartment);
-        BirthMunicipality = PersonnelFileNormalization.CleanOptional(birthMunicipality);
+        BirthCountry = NormalizeOptionalCode(birthCountry);
+        BirthDepartment = NormalizeOptionalCode(birthDepartment);
+        BirthMunicipality = NormalizeOptionalCode(birthMunicipality);
         PhotoUrl = PersonnelFileNormalization.CleanOptional(photoUrl);
         OrgUnitPublicId = orgUnitPublicId;
         AssignedPositionSlotPublicId = assignedPositionSlotPublicId;
@@ -237,16 +237,16 @@ public sealed class PersonnelFile : TenantEntity
         RecordType = recordType;
         SetName(firstName, lastName);
         BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
-        MaritalStatus = PersonnelFileNormalization.CleanOptional(maritalStatus);
-        Profession = PersonnelFileNormalization.CleanOptional(profession);
+        MaritalStatus = NormalizeOptionalCode(maritalStatus);
+        Profession = NormalizeOptionalCode(profession);
         Nationality = PersonnelFileNormalization.CleanOptional(nationality);
         PersonalEmail = PersonnelFileNormalization.CleanOptional(personalEmail);
         InstitutionalEmail = normalizedInstitutionalEmail;
         PersonalPhone = PersonnelFileNormalization.CleanOptional(personalPhone);
         InstitutionalPhone = PersonnelFileNormalization.CleanOptional(institutionalPhone);
-        BirthCountry = PersonnelFileNormalization.CleanOptional(birthCountry);
-        BirthDepartment = PersonnelFileNormalization.CleanOptional(birthDepartment);
-        BirthMunicipality = PersonnelFileNormalization.CleanOptional(birthMunicipality);
+        BirthCountry = NormalizeOptionalCode(birthCountry);
+        BirthDepartment = NormalizeOptionalCode(birthDepartment);
+        BirthMunicipality = NormalizeOptionalCode(birthMunicipality);
         PhotoUrl = PersonnelFileNormalization.CleanOptional(photoUrl);
         OrgUnitPublicId = orgUnitPublicId;
         AssignedPositionSlotPublicId = assignedPositionSlotPublicId;
@@ -457,6 +457,12 @@ public sealed class PersonnelFile : TenantEntity
     }
 
     private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
+
+    private static string? NormalizeOptionalCode(string? value)
+    {
+        var cleaned = PersonnelFileNormalization.CleanOptional(value);
+        return cleaned is null ? null : PersonnelFileNormalization.NormalizeCode(cleaned);
+    }
 }
 
 public sealed class PersonnelFileIdentification : TenantEntity
@@ -479,7 +485,7 @@ public sealed class PersonnelFileIdentification : TenantEntity
         }
 
         PublicId = Guid.NewGuid();
-        IdentificationType = PersonnelFileNormalization.Clean(identificationType, nameof(identificationType));
+        IdentificationType = PersonnelFileNormalization.NormalizeCode(identificationType);
         IdentificationNumber = PersonnelFileNormalization.Clean(identificationNumber, nameof(identificationNumber));
         NormalizedIdentificationNumber = PersonnelFileNormalization.NormalizeCode(identificationNumber);
         IssuedDate = PersonnelFileNormalization.NormalizeDate(issuedDate);

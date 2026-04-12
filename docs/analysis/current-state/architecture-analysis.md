@@ -108,6 +108,21 @@ La tension arquitectonica no esta en la ausencia total de union, sino en la falt
 - la vista de suscripcion expone por separado `CurrentPlan.ModuleKeys`, `ActiveAddons.ModuleKeys` y `EffectiveModules`, lo cual es util, pero deja la interpretacion comercial repartida entre varias superficies.
 - el modulo `USERS` termina gobernado de forma indirecta a traves de `RBAC_USERS` y `PermissionMatrixCatalog`, lo que funciona tecnicamente, pero aumenta el costo mental para entender por que una capacidad esta o no habilitada.
 
+### 4.8 Catalogos de referencia del expediente personal como semilla global
+
+Desde el 12 de abril de 2026, `PersonnelFiles` agrega un catalogo global read-only (`personnel_reference_catalog_items`) para desacoplar el bloque personal de texto libre en campos criticos de expediente.
+
+Decisiones vigentes del cambio:
+
+- se reutiliza `country_catalog` como fuente canonica de pais; no se crea un catalogo paralelo de paises
+- se introduce un catalogo global por `country + category + code` con relacion padre-hijo para `Department -> Municipality`
+- la semilla productiva queda en `HasData + migracion EF`, no en seeds de desarrollo o pruebas
+- el contrato publico de escritura para bloque personal e identificaciones migra a codigos de catalogo
+- el contrato publico de lectura expone `Code + Name` resuelto en listados, detalle e identificaciones
+- la geografia `SV` queda sincronizada entre onboarding y expediente con la misma semilla territorial oficial (`14` departamentos y `44` municipios)
+
+Arquitectonicamente, esta decision reduce drift funcional entre frontend, onboarding y expediente, y mueve la gobernanza de opciones criticas a una fuente deterministica versionada por migracion.
+
 ## 5. Tensiones confirmadas por la reevaluacion
 
 ### 5.1 Gobernanza dificil por amplitud de superficie

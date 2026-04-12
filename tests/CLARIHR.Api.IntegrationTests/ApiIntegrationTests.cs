@@ -135,6 +135,59 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task Onboarding_CreateCompanyForSV_ShouldSeedTerritorialTreeWith14DepartmentsAnd44Municipalities()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var anonymousClient = factory.CreateClient();
+
+        var email = $"onboarding.locations.{Guid.NewGuid():N}@clarihr.test";
+        var registerResponse = await anonymousClient.PostJsonAsync("/api/auth/register", new
+        {
+            firstName = "Onboarding",
+            lastName = "Locations",
+            email,
+            password = "StrongPass123!",
+            country = "SV",
+            source = "integration-tests"
+        });
+        Assert.Equal(HttpStatusCode.Created, registerResponse.StatusCode);
+
+        var registerPayload = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
+        Assert.NotNull(registerPayload);
+
+        using var accountClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(registerPayload!.User.Id, scenario.TenantId));
+
+        var createCompanyResponse = await accountClient.PostJsonAsync("/api/account/companies", new
+        {
+            name = "Onboarding Locations Company",
+            countryCode = "SV",
+            initialLegalRepresentative = CreateInitialLegalRepresentativePayload()
+        });
+        Assert.Equal(HttpStatusCode.Created, createCompanyResponse.StatusCode);
+
+        var companyPayload = await createCompanyResponse.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(companyPayload);
+
+        using var locationsClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                registerPayload.User.Id,
+                companyPayload!.PublicId,
+                LocationPermissionCodes.Read));
+
+        var locationTree = await GetLocationGroupTreeAsync(locationsClient, companyPayload.PublicId);
+        var countryNode = Assert.Single(locationTree);
+        Assert.Equal("SV", countryNode.Code);
+
+        var departments = countryNode.Children.ToArray();
+        Assert.Equal(14, departments.Length);
+        var municipalities = departments.SelectMany(static department => department.Children).ToArray();
+        Assert.Equal(44, municipalities.Length);
+        Assert.Contains(departments, department => department.Code == "SAN_SALVADOR");
+        Assert.Contains(municipalities, municipality => municipality.Code == "SAN_SALVADOR_CENTRO");
+    }
+
+    [Fact]
     public async Task Login_ShouldReturnTokens_WhenCredentialsAreValid()
     {
         await factory.ResetDatabaseAsync();
@@ -972,16 +1025,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             firstName = "Maria",
             lastName = "Rodriguez",
             birthDate = new DateTime(1992, 5, 6),
-            maritalStatus = "SINGLE",
-            profession = "Analyst",
+            maritalStatusCode = "SOLTERO_A",
+            professionCode = "ANALISTA_DE_DATOS",
             nationality = "SV",
             personalEmail = "maria.rodriguez@test.com",
             institutionalEmail = (string?)null,
             personalPhone = "+50370000001",
             institutionalPhone = (string?)null,
-            birthCountry = "SV",
-            birthDepartment = "San Salvador",
-            birthMunicipality = "San Salvador",
+            birthCountryCode = "SV",
+            birthDepartmentCode = "SAN_SALVADOR",
+            birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
             photoUrl = (string?)null,
             orgUnitPublicId = (Guid?)null,
             customDataJson = "{ \"shirt_size\": \"M\" }",
@@ -989,7 +1042,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             {
                 new
                 {
-                    identificationType = "DUI",
+                    identificationTypeCode = "DUI",
                     identificationNumber = "01234567-8",
                     issuedDate = (DateTime?)null,
                     expiryDate = (DateTime?)null,
@@ -1011,7 +1064,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var file = await getResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
         Assert.NotNull(file);
         Assert.Single(file!.Identifications);
-        Assert.Equal("DUI", file.Identifications.First().IdentificationType);
+        Assert.Equal("DUI", file.Identifications.First().IdentificationTypeCode);
     }
 
     [Fact]
@@ -1028,16 +1081,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 firstName,
                 lastName = "Lopez",
                 birthDate = new DateTime(1991, 1, 1),
-                maritalStatus = "SINGLE",
-                profession = "Analyst",
+                maritalStatusCode = "SOLTERO_A",
+                professionCode = "ANALISTA_DE_DATOS",
                 nationality = "SV",
                 personalEmail = (string?)null,
                 institutionalEmail = (string?)null,
                 personalPhone = "+50370000002",
                 institutionalPhone = (string?)null,
-                birthCountry = "SV",
-                birthDepartment = "La Libertad",
-                birthMunicipality = "Santa Tecla",
+                birthCountryCode = "SV",
+                birthDepartmentCode = "LA_LIBERTAD",
+                birthMunicipalityCode = "LA_LIBERTAD_SUR",
                 photoUrl = (string?)null,
                 orgUnitPublicId = (Guid?)null,
                 customDataJson = (string?)null,
@@ -1045,7 +1098,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 {
                     new
                     {
-                        identificationType = "DUI",
+                        identificationTypeCode = "DUI",
                         identificationNumber = "09999999-9",
                         issuedDate = (DateTime?)null,
                         expiryDate = (DateTime?)null,
@@ -1061,6 +1114,251 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var secondResponse = await CreateAsync("Beatriz");
         await AssertProblemDetailsAsync(secondResponse, HttpStatusCode.Conflict, "PERSONNEL_FILE_IDENTIFICATION_CONFLICT");
+    }
+
+    [Fact]
+    public async Task PersonnelReferenceCatalogs_Get_ShouldReturnSeededElSalvadorCatalogs()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var professionsResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-reference-catalogs/professions");
+        professionsResponse.EnsureSuccessStatusCode();
+        var professions = await professionsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
+        Assert.NotNull(professions);
+        Assert.Equal(35, professions!.Count);
+        Assert.Contains(professions, item => item.Code == "ANALISTA_DE_DATOS" && item.Name == "Analista de datos");
+
+        var maritalStatusesResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-reference-catalogs/marital-statuses");
+        maritalStatusesResponse.EnsureSuccessStatusCode();
+        var maritalStatuses = await maritalStatusesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
+        Assert.NotNull(maritalStatuses);
+        Assert.Equal(6, maritalStatuses!.Count);
+        Assert.Contains(maritalStatuses, item => item.Code == "SOLTERO_A" && item.Name == "Soltero/a");
+
+        var identificationTypesResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-reference-catalogs/identification-types");
+        identificationTypesResponse.EnsureSuccessStatusCode();
+        var identificationTypes = await identificationTypesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
+        Assert.NotNull(identificationTypes);
+        Assert.Equal(4, identificationTypes!.Count);
+        Assert.Contains(identificationTypes, item => item.Code == "DUI" && item.Name == "DUI");
+        Assert.Contains(identificationTypes, item => item.Code == "PASSPORT" && item.Name == "Pasaporte");
+
+        var departmentsResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-reference-catalogs/departments?countryCode=SV");
+        departmentsResponse.EnsureSuccessStatusCode();
+        var departments = await departmentsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
+        Assert.NotNull(departments);
+        Assert.Equal(14, departments!.Count);
+        Assert.Contains(departments, item => item.Code == "SAN_SALVADOR" && item.Name == "San Salvador");
+
+        var municipalitiesResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-reference-catalogs/municipalities?countryCode=SV&departmentCode=SAN_SALVADOR");
+        municipalitiesResponse.EnsureSuccessStatusCode();
+        var municipalities = await municipalitiesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
+        Assert.NotNull(municipalities);
+        Assert.Equal(5, municipalities!.Count);
+        Assert.Contains(municipalities, item => item.Code == "SAN_SALVADOR_CENTRO" && item.Name == "San Salvador Centro");
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Create_WithInvalidCatalogCodes_ShouldReturnValidation()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var invalidProfessionResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
+        {
+            recordType = "Candidate",
+            firstName = "Lidia",
+            lastName = "Lopez",
+            birthDate = new DateTime(1994, 4, 20),
+            maritalStatusCode = "SOLTERO_A",
+            professionCode = "INVALID_PROFESSION",
+            nationality = "SV",
+            personalEmail = (string?)null,
+            institutionalEmail = (string?)null,
+            personalPhone = "+50370000010",
+            institutionalPhone = (string?)null,
+            birthCountryCode = "SV",
+            birthDepartmentCode = "SAN_SALVADOR",
+            birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
+            photoUrl = (string?)null,
+            orgUnitPublicId = (Guid?)null,
+            customDataJson = (string?)null,
+            identifications = new[]
+            {
+                new
+                {
+                    identificationTypeCode = "DUI",
+                    identificationNumber = "09811111-1",
+                    issuedDate = (DateTime?)null,
+                    expiryDate = (DateTime?)null,
+                    issuer = (string?)null,
+                    isPrimary = true
+                }
+            }
+        });
+
+        await AssertProblemDetailsAsync(invalidProfessionResponse, HttpStatusCode.BadRequest, "common.validation");
+
+        var invalidIdentificationTypeResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
+        {
+            recordType = "Candidate",
+            firstName = "Marta",
+            lastName = "Castillo",
+            birthDate = new DateTime(1991, 3, 11),
+            maritalStatusCode = "SOLTERO_A",
+            professionCode = "ANALISTA_DE_DATOS",
+            nationality = "SV",
+            personalEmail = (string?)null,
+            institutionalEmail = (string?)null,
+            personalPhone = "+50370000011",
+            institutionalPhone = (string?)null,
+            birthCountryCode = "SV",
+            birthDepartmentCode = "SAN_SALVADOR",
+            birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
+            photoUrl = (string?)null,
+            orgUnitPublicId = (Guid?)null,
+            customDataJson = (string?)null,
+            identifications = new[]
+            {
+                new
+                {
+                    identificationTypeCode = "UNKNOWN_DOCUMENT",
+                    identificationNumber = "09822222-2",
+                    issuedDate = (DateTime?)null,
+                    expiryDate = (DateTime?)null,
+                    issuer = (string?)null,
+                    isPrimary = true
+                }
+            }
+        });
+
+        await AssertProblemDetailsAsync(invalidIdentificationTypeResponse, HttpStatusCode.BadRequest, "common.validation");
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Create_WithInvalidBirthHierarchy_ShouldReturnValidation()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var missingCountryResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
+        {
+            recordType = "Candidate",
+            firstName = "Silvia",
+            lastName = "Rivas",
+            birthDate = new DateTime(1990, 1, 30),
+            maritalStatusCode = "SOLTERO_A",
+            professionCode = "ANALISTA_DE_DATOS",
+            nationality = "SV",
+            personalEmail = (string?)null,
+            institutionalEmail = (string?)null,
+            personalPhone = "+50370000012",
+            institutionalPhone = (string?)null,
+            birthCountryCode = (string?)null,
+            birthDepartmentCode = "SAN_SALVADOR",
+            birthMunicipalityCode = (string?)null,
+            photoUrl = (string?)null,
+            orgUnitPublicId = (Guid?)null,
+            customDataJson = (string?)null,
+            identifications = new[]
+            {
+                new
+                {
+                    identificationTypeCode = "DUI",
+                    identificationNumber = "09833333-3",
+                    issuedDate = (DateTime?)null,
+                    expiryDate = (DateTime?)null,
+                    issuer = (string?)null,
+                    isPrimary = true
+                }
+            }
+        });
+        await AssertProblemDetailsAsync(missingCountryResponse, HttpStatusCode.BadRequest, "common.validation");
+
+        var mismatchedMunicipalityResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
+        {
+            recordType = "Candidate",
+            firstName = "Teresa",
+            lastName = "Molina",
+            birthDate = new DateTime(1993, 8, 15),
+            maritalStatusCode = "SOLTERO_A",
+            professionCode = "ANALISTA_DE_DATOS",
+            nationality = "SV",
+            personalEmail = (string?)null,
+            institutionalEmail = (string?)null,
+            personalPhone = "+50370000013",
+            institutionalPhone = (string?)null,
+            birthCountryCode = "SV",
+            birthDepartmentCode = "LA_LIBERTAD",
+            birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
+            photoUrl = (string?)null,
+            orgUnitPublicId = (Guid?)null,
+            customDataJson = (string?)null,
+            identifications = new[]
+            {
+                new
+                {
+                    identificationTypeCode = "DUI",
+                    identificationNumber = "09844444-4",
+                    issuedDate = (DateTime?)null,
+                    expiryDate = (DateTime?)null,
+                    issuer = (string?)null,
+                    isPrimary = true
+                }
+            }
+        });
+        await AssertProblemDetailsAsync(mismatchedMunicipalityResponse, HttpStatusCode.BadRequest, "common.validation");
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Get_ShouldResolveReferenceCatalogNamesInDetailAndList()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(
+            client,
+            scenario.TenantId,
+            "Rosa",
+            "Alvarado",
+            "DUI",
+            "09855555-5",
+            profession: "ANALISTA_DE_DATOS",
+            maritalStatus: "SOLTERO_A");
+
+        var detailResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        detailResponse.EnsureSuccessStatusCode();
+        using var detailDocument = JsonDocument.Parse(await detailResponse.Content.ReadAsStringAsync());
+        var detail = detailDocument.RootElement;
+
+        Assert.Equal("SOLTERO_A", detail.GetProperty("maritalStatusCode").GetString());
+        Assert.Equal("Soltero/a", detail.GetProperty("maritalStatusName").GetString());
+        Assert.Equal("ANALISTA_DE_DATOS", detail.GetProperty("professionCode").GetString());
+        Assert.Equal("Analista de datos", detail.GetProperty("professionName").GetString());
+        Assert.Equal("SV", detail.GetProperty("birthCountryCode").GetString());
+        Assert.Equal("El Salvador", detail.GetProperty("birthCountryName").GetString());
+        Assert.Equal("SAN_SALVADOR", detail.GetProperty("birthDepartmentCode").GetString());
+        Assert.Equal("San Salvador", detail.GetProperty("birthDepartmentName").GetString());
+        Assert.Equal("SAN_SALVADOR_CENTRO", detail.GetProperty("birthMunicipalityCode").GetString());
+        Assert.Equal("San Salvador Centro", detail.GetProperty("birthMunicipalityName").GetString());
+
+        var identifications = detail.GetProperty("identifications");
+        Assert.True(identifications.GetArrayLength() > 0);
+        var firstIdentification = identifications[0];
+        Assert.Equal("DUI", firstIdentification.GetProperty("identificationTypeCode").GetString());
+        Assert.Equal("DUI", firstIdentification.GetProperty("identificationTypeName").GetString());
+
+        var listResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files?q=09855555-5&page=1&pageSize=20");
+        listResponse.EnsureSuccessStatusCode();
+        using var listDocument = JsonDocument.Parse(await listResponse.Content.ReadAsStringAsync());
+        var listItems = listDocument.RootElement.GetProperty("items");
+        var listedItem = listItems.EnumerateArray().Single(item => item.GetProperty("id").GetGuid() == created.Id);
+
+        Assert.Equal("SOLTERO_A", listedItem.GetProperty("maritalStatusCode").GetString());
+        Assert.Equal("Soltero/a", listedItem.GetProperty("maritalStatusName").GetString());
+        Assert.Equal("ANALISTA_DE_DATOS", listedItem.GetProperty("professionCode").GetString());
+        Assert.Equal("Analista de datos", listedItem.GetProperty("professionName").GetString());
     }
 
     [Fact]
@@ -1086,7 +1384,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var document = await uploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
         Assert.NotNull(document);
 
-        var downloadResponse = await client.GetAsync($"/api/v1/personnel-file-documents/{document!.Id}/download");
+        var downloadResponse = await client.GetAsync($"/api/v1/personnel-files/documents/{document!.Id}/download");
         downloadResponse.EnsureSuccessStatusCode();
         Assert.Equal("text/plain", downloadResponse.Content.Headers.ContentType?.MediaType);
         var downloaded = await downloadResponse.Content.ReadAsByteArrayAsync();
@@ -1366,11 +1664,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
-        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Ana", "Lopez", "DUI", "02222222-2", profession: "Tester");
-        var designer = await CreatePersonnelFileAsync(client, scenario.TenantId, "Brenda", "Garcia", "DUI", "01111111-1", profession: "Designer");
+        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Ana", "Lopez", "DUI", "02222222-2", profession: "TECNICO_A_DE_SOPORTE");
+        var designer = await CreatePersonnelFileAsync(client, scenario.TenantId, "Brenda", "Garcia", "DUI", "01111111-1", profession: "DISENADOR_A_GRAFICO_A");
 
         var response = await client.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/personnel-files?profession=Designer&sortBy=createdAtUtc&sortDirection=Desc&page=1&pageSize=20");
+            $"/api/v1/companies/{scenario.TenantId}/personnel-files?profession=DISENADOR_A_GRAFICO_A&sortBy=createdAtUtc&sortDirection=Desc&page=1&pageSize=20");
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<PersonnelFileListProjectionItem>>(JsonOptions);
@@ -1386,11 +1684,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
-        var tester = await CreatePersonnelFileAsync(client, scenario.TenantId, "Raul", "Navas", "DUI", "06666666-6", profession: "Tester");
-        var designer = await CreatePersonnelFileAsync(client, scenario.TenantId, "Sonia", "Mendez", "DUI", "07777777-0", profession: "Designer");
+        var tester = await CreatePersonnelFileAsync(client, scenario.TenantId, "Raul", "Navas", "DUI", "06666666-6", profession: "TECNICO_A_DE_SOPORTE");
+        var designer = await CreatePersonnelFileAsync(client, scenario.TenantId, "Sonia", "Mendez", "DUI", "07777777-0", profession: "DISENADOR_A_GRAFICO_A");
 
         var response = await client.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/personnel-files/export?format=csv&profession=Designer&sortBy=fullName&sortDirection=Asc");
+            $"/api/v1/companies/{scenario.TenantId}/personnel-files/export?format=csv&profession=DISENADOR_A_GRAFICO_A&sortBy=fullName&sortDirection=Asc");
         response.EnsureSuccessStatusCode();
         Assert.Equal("text/csv", response.Content.Headers.ContentType?.MediaType);
 
@@ -1405,9 +1703,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
-        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Luis", "Alfaro", "DUI", "01010101-1", profession: "Engineer", maritalStatus: "SINGLE", nationality: "SV");
-        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Marta", "Ayala", "DUI", "02020202-2", profession: "Engineer", maritalStatus: "SINGLE", nationality: "SV");
-        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Nora", "Zelaya", "DUI", "03030303-3", profession: "Designer", maritalStatus: "MARRIED", nationality: "GT");
+        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Luis", "Alfaro", "DUI", "01010101-1", profession: "INGENIERO_A_EN_SISTEMAS", maritalStatus: "SOLTERO_A", nationality: "SV");
+        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Marta", "Ayala", "DUI", "02020202-2", profession: "INGENIERO_A_CIVIL", maritalStatus: "SOLTERO_A", nationality: "SV");
+        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Nora", "Zelaya", "DUI", "03030303-3", profession: "DISENADOR_A_GRAFICO_A", maritalStatus: "CASADO_A", nationality: "GT");
 
         var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files/dynamic-query", new
         {
@@ -1433,8 +1731,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(3, payload.Items.Count);
 
         var maritalStatus = payload.Groups.Single(group => string.Equals(group.Field, "maritalstatus", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(maritalStatus.Buckets, bucket => bucket.Key == "SINGLE" && bucket.Count == 2);
-        Assert.Contains(maritalStatus.Buckets, bucket => bucket.Key == "MARRIED" && bucket.Count == 1);
+        Assert.Contains(maritalStatus.Buckets, bucket => bucket.Key == "SOLTERO_A" && bucket.Count == 2);
+        Assert.Contains(maritalStatus.Buckets, bucket => bucket.Key == "CASADO_A" && bucket.Count == 1);
 
         var nationality = payload.Groups.Single(group => string.Equals(group.Field, "nationality", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(nationality.Buckets, bucket => bucket.Key == "SV" && bucket.Count == 2);
@@ -5369,8 +5667,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string lastName,
         string identificationType,
         string identificationNumber,
-        string profession = "Tester",
-        string maritalStatus = "SINGLE",
+        string profession = "ANALISTA_DE_DATOS",
+        string maritalStatus = "SOLTERO_A",
         string nationality = "SV")
     {
         var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/personnel-files", new
@@ -5379,16 +5677,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             firstName,
             lastName,
             birthDate = new DateTime(1990, 3, 3),
-            maritalStatus,
-            profession,
+            maritalStatusCode = maritalStatus,
+            professionCode = profession,
             nationality,
             personalEmail = (string?)null,
             institutionalEmail = (string?)null,
             personalPhone = "+50370001000",
             institutionalPhone = (string?)null,
-            birthCountry = "SV",
-            birthDepartment = "San Salvador",
-            birthMunicipality = "San Salvador",
+            birthCountryCode = "SV",
+            birthDepartmentCode = "SAN_SALVADOR",
+            birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
             photoUrl = (string?)null,
             orgUnitPublicId = (Guid?)null,
             customDataJson = (string?)null,
@@ -5396,7 +5694,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             {
                 new
                 {
-                    identificationType,
+                    identificationTypeCode = identificationType,
                     identificationNumber,
                     issuedDate = (DateTime?)null,
                     expiryDate = (DateTime?)null,
@@ -5862,9 +6160,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
     private sealed record PersonnelFileIdentificationItem(
         Guid Id,
-        string IdentificationType,
+        string IdentificationTypeCode,
+        string? IdentificationTypeName,
         string IdentificationNumber,
         bool IsPrimary);
+
+    private sealed record PersonnelReferenceCatalogLookupItem(
+        Guid Id,
+        string Code,
+        string Name,
+        int SortOrder);
 
     private sealed record PersonnelFileDocumentItem(
         Guid Id,
