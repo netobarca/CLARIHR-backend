@@ -266,6 +266,13 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
+    public void CompleteWithoutLinkedUser()
+    {
+        LifecycleStatus = PersonnelFileLifecycleStatus.Completed;
+        LinkedUserPublicId = null;
+        RefreshConcurrencyToken();
+    }
+
     public void ReplaceIdentifications(IEnumerable<PersonnelFileIdentification> items)
     {
         _identifications.Clear();

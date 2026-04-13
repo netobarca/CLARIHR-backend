@@ -1161,16 +1161,66 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+        createUserAccount:
+          type: boolean
+          nullable: true
+          description: When omitted, defaults to true. Set false to complete the personnel file without auto-provisioning a company user.
+    FinalizePersonnelFilePreviewRequest:
+      type: object
+      properties:
+        createUserAccount:
+          type: boolean
+          nullable: true
+          description: When omitted, defaults to true. Controls whether preview enforces account-provisioning checks.
+    FinalizePersonnelFilePreviewIssueResponse:
+      type: object
+      required:
+        - code
+        - message
+        - section
+        - fieldKey
+        - isBlocking
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        section:
+          type: string
+        fieldKey:
+          type: string
+        isBlocking:
+          type: boolean
+    FinalizePersonnelFilePreviewResponse:
+      type: object
+      required:
+        - personnelFileId
+        - createUserAccount
+        - isEligible
+        - issues
+      properties:
+        personnelFileId:
+          type: string
+          format: uuid
+        createUserAccount:
+          type: boolean
+        isEligible:
+          type: boolean
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinalizePersonnelFilePreviewIssueResponse'
     FinalizePersonnelFileResponse:
       type: object
       required:
         - personnelFile
-        - user
       properties:
         personnelFile:
           $ref: '#/components/schemas/PersonnelFileContractResponse'
         user:
-          $ref: '#/components/schemas/CompanyUserResponse'
+          allOf:
+            - $ref: '#/components/schemas/CompanyUserResponse'
+          nullable: true
         invitationExpiresUtc:
           type: string
           format: date-time
@@ -5486,8 +5536,8 @@ paths:
       tags:
         - personnel-files
       operationId: FinalizePersonnelFile
-      summary: Complete an employee personnel file and provision its user
-      description: Completes a draft employee personnel file, validates the configured slot role, creates or reuses the company user and issues the temporary activation invitation.
+      summary: Complete an employee personnel file with optional user provisioning
+      description: Completes a draft employee personnel file. When createUserAccount is true (or omitted), validates the configured slot role, creates or reuses the company user and issues the temporary activation invitation; when false, completes without provisioning a user.
       security:
         - Bearer: []
       parameters:
@@ -5505,7 +5555,7 @@ paths:
               $ref: '#/components/schemas/FinalizePersonnelFileRequest'
       responses:
         '200':
-          description: Personnel file completed and company user provisioned successfully.
+          description: Personnel file completed successfully. Company-user provisioning data is returned only when createUserAccount is true (or omitted).
           content:
             application/json:
               schema:
@@ -5541,7 +5591,60 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
-          description: Business-rule violation, such as trying to finalize a non-employee file, missing institutional email, missing slot or missing slot role.
+          description: Business-rule violation, such as trying to finalize a non-employee file, missing institutional email, missing slot, or missing slot role when createUserAccount is true.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{id}/finalize/preview:
+    post:
+      tags:
+        - personnel-files
+      operationId: PreviewFinalizePersonnelFile
+      summary: Validate if an employee personnel file is ready to finalize
+      description: Evaluates the same functional rules used by finalize and returns eligibility plus blocking issues for frontend pre-check workflows.
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinalizePersonnelFilePreviewRequest'
+      responses:
+        '200':
+          description: Finalization readiness evaluated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinalizePersonnelFilePreviewResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The personnel file was not found in the tenant scope.
           content:
             application/problem+json:
               schema:

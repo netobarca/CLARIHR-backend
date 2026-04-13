@@ -237,6 +237,7 @@ Profile:
 
 Employment:
 
+- `POST /api/v1/personnel-files/{publicId}/finalize/preview`
 - `POST /api/v1/personnel-files/{publicId}/finalize`
 - `GET /api/v1/personnel-files/{publicId}/employee-profile`
 - `PUT /api/v1/personnel-files/{publicId}/employee-profile`
@@ -273,7 +274,8 @@ Comportamiento observable:
 
 - la mayoria de actualizaciones por seccion reemplazan el payload completo de la subseccion
 - los expedientes ahora nacen en `Draft` y la transicion funcional dedicada del modulo es `finalize`
-- `finalize` crea o reutiliza automaticamente el usuario de compania vinculado al expediente y emite la invitacion de activacion
+- `finalize/preview` permite al frontend validar readiness antes de cerrar el expediente y devuelve `isEligible` con issues bloqueantes sin ejecutar cambios
+- `finalize` permite decidir si se aprovisiona usuario de compania en ese momento; con la opcion activa crea/reutiliza el usuario y emite invitacion, con la opcion desactivada completa el expediente sin crear cuenta
 - los endpoints de reporting y export existen tanto a nivel tenant como a nivel recurso
 - la profundizacion completa del modulo esta en `5.10 Personnel files`
 
@@ -2741,6 +2743,7 @@ Familias de rutas:
 - `/api/v1/personnel-files/{id}/trainings`
 - `/api/v1/personnel-files/{id}/previous-employments`
 - `/api/v1/personnel-files/{id}/references`
+- `/api/v1/personnel-files/{id}/finalize/preview`
 - `/api/v1/personnel-files/{id}/finalize`
 - `/api/v1/personnel-files/{id}/employee-profile`
 - `/api/v1/personnel-files/{id}/employment-assignments`
@@ -2818,7 +2821,7 @@ En terminos de negocio, este bloque une dos mundos:
 - Todo expediente nuevo nace con `LifecycleStatus = Draft`.
 - Si `RecordType = Employee`, `AssignedPositionSlotId` es obligatorio desde `create` y `personal-info`; si `RecordType = Candidate`, ese campo no se permite.
 - `RecordType` no puede cambiarse dentro de `personnel files`; la transicion funcional del modulo es `finalize`, no una conversion `Candidate -> Employee`.
-- `finalize` solo aplica a expedientes `Employee` en `Draft`, exige `InstitutionalEmail`, plaza asignada y que la plaza tenga un rol valido configurado.
+- `finalize` solo aplica a expedientes `Employee` en `Draft`, exige `InstitutionalEmail` y plaza asignada; el rol IAM valido de la plaza solo se exige cuando `createUserAccount = true`.
 - Despues de `Completed`, `InstitutionalEmail` y `AssignedPositionSlotId` quedan bloqueados en `personal-info`.
 - Los endpoints de `Employment`, `Compensation` y `Talent` son de uso exclusivo para expedientes `Employee` ya completados.
 - `GET /api/v1/personnel-files/{id}` y `GET /print` solo cubren el agregado base del expediente:
@@ -2862,7 +2865,7 @@ Errores funcionales del expediente:
 - `PERSONNEL_FILE_PROVISIONING_FIELDS_LOCKED`: `422`, se intento cambiar `InstitutionalEmail` o `AssignedPositionSlotId` despues de completar el expediente.
 - `PERSONNEL_FILE_FINALIZE_REQUIRES_INSTITUTIONAL_EMAIL`: `422`, falta el correo institucional requerido para aprovisionar el usuario.
 - `PERSONNEL_FILE_FINALIZE_REQUIRES_POSITION_SLOT`: `422`, falta la plaza asignada requerida para finalizar.
-- `PERSONNEL_FILE_FINALIZE_REQUIRES_POSITION_SLOT_ROLE`: `422`, la plaza asignada no tiene un rol valido configurado.
+- `PERSONNEL_FILE_FINALIZE_REQUIRES_POSITION_SLOT_ROLE`: `422`, la plaza asignada no tiene un rol valido configurado cuando `finalize` intenta crear cuenta de usuario.
 - `PERSONNEL_FILE_FINALIZE_ONLY_EMPLOYEE`: `422`, solo un expediente `Employee` puede finalizarse.
 - `PERSONNEL_FILE_LINKED_USER_CONFLICT`: `409`, el correo institucional ya esta vinculado a otro expediente.
 - `PERSONNEL_FILE_EFFECTIVE_DATES_INVALID`: `422`, hay rangos de fechas invalidos en identifications, associations, trainings, previous employments u otras subsecciones con vigencias.
@@ -2985,6 +2988,7 @@ Observaciones funcionales:
 
 Route family:
 
+- `POST /api/v1/personnel-files/{id}/finalize/preview`
 - `POST /api/v1/personnel-files/{id}/finalize`
 - `GET /api/v1/personnel-files/{id}/employee-profile`
 - `PUT /api/v1/personnel-files/{id}/employee-profile`
@@ -3009,8 +3013,9 @@ Uso principal:
 
 Observaciones funcionales:
 
-- `finalize` exige que el expediente sea `Employee`, siga en `Draft`, tenga `InstitutionalEmail`, plaza asignada y que la plaza tenga un rol IAM valido.
-- `finalize` cambia el expediente a `Completed`, crea o reutiliza el usuario de compania, deja la cuenta local en `PendingActivation`, emite invitacion y vincula opcionalmente el usuario al expediente.
+- `finalize/preview` usa `createUserAccount` (default `true`) y devuelve `isEligible` + `issues` para prerevisar bloqueos antes de ejecutar `finalize`.
+- `finalize` exige que el expediente sea `Employee`, siga en `Draft`, tenga `InstitutionalEmail` y plaza asignada; la validacion de rol IAM de la plaza aplica solo cuando `createUserAccount = true`.
+- `finalize` cambia el expediente a `Completed`; cuando `createUserAccount = true` crea o reutiliza el usuario de compania, deja la cuenta local en `PendingActivation`, emite invitacion y vincula el usuario al expediente, y cuando `createUserAccount = false` completa sin aprovisionar usuario.
 - Todo el resto del bloque exige que el expediente ya sea un `Employee` completado; si no, responde `PERSONNEL_FILE_STATE_RULE_VIOLATION`.
 - Los endpoints `GET` del bloque devuelven el subrecurso solicitado sin exigir `ConcurrencyToken`.
 - `employee-profile` hace upsert del perfil laboral y permite vincular `PositionSlotId`, `JobProfileId`, `OrgUnitId`, `WorkCenterId`, `CostCenterId`, vigencias contractuales y `VacationConfigurationJson`.

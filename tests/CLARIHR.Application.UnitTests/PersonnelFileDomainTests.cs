@@ -210,6 +210,39 @@ public sealed class PersonnelFileDomainTests
     }
 
     [Fact]
+    public void PersonnelFile_CompleteWithoutLinkedUser_ShouldSetLifecycleAndKeepLinkedUserNull()
+    {
+        var file = PersonnelFile.Create(
+            PersonnelFileRecordType.Employee,
+            "Ana",
+            "Mendoza",
+            new DateTime(1990, 1, 1),
+            maritalStatus: null,
+            profession: null,
+            nationality: null,
+            personalEmail: null,
+            institutionalEmail: "ana@clarihr.test",
+            personalPhone: null,
+            institutionalPhone: null,
+            birthCountry: null,
+            birthDepartment: null,
+            birthMunicipality: null,
+            photoUrl: null,
+            orgUnitPublicId: null,
+            assignedPositionSlotPublicId: Guid.NewGuid(),
+            customDataJson: null);
+
+        var initialToken = file.ConcurrencyToken;
+
+        file.CompleteWithoutLinkedUser();
+
+        Assert.Equal(PersonnelFileLifecycleStatus.Completed, file.LifecycleStatus);
+        Assert.Null(file.LinkedUserPublicId);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+        Assert.True(file.IsCompletedEmployee);
+    }
+
+    [Fact]
     public void PersonnelFile_UpdatePersonalInfo_WhenCompletedChangesProvisioningFields_ShouldThrow()
     {
         var file = PersonnelFile.Create(

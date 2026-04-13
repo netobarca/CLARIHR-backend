@@ -13,19 +13,41 @@ using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Application.Features.PositionSlots;
 using CLARIHR.Application.Features.PositionSlots.Common;
+using CLARIHR.Domain.Auth;
+using CLARIHR.Domain.PersonnelFiles;
+using CLARIHR.Domain.PositionSlots;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
 
 public sealed record FinalizePersonnelFileResponse(
     PersonnelFileResponse PersonnelFile,
-    CompanyUserResponse User,
+    CompanyUserResponse? User,
     DateTime? InvitationExpiresUtc);
 
 public sealed record FinalizePersonnelFileCommand(
     Guid PersonnelFileId,
-    Guid ConcurrencyToken) : ICommand<FinalizePersonnelFileResponse>;
+    Guid ConcurrencyToken,
+    bool CreateUserAccount) : ICommand<FinalizePersonnelFileResponse>;
+
+public sealed record FinalizePersonnelFilePreviewIssueResponse(
+    string Code,
+    string Message,
+    string Section,
+    string FieldKey,
+    bool IsBlocking);
+
+public sealed record FinalizePersonnelFilePreviewResponse(
+    Guid PersonnelFileId,
+    bool CreateUserAccount,
+    bool IsEligible,
+    IReadOnlyCollection<FinalizePersonnelFilePreviewIssueResponse> Issues);
+
+public sealed record PreviewFinalizePersonnelFileQuery(
+    Guid PersonnelFileId,
+    bool CreateUserAccount) : IQuery<FinalizePersonnelFilePreviewResponse>;
 
 internal sealed class FinalizePersonnelFileCommandValidator : AbstractValidator<FinalizePersonnelFileCommand>
 {
@@ -33,6 +55,14 @@ internal sealed class FinalizePersonnelFileCommandValidator : AbstractValidator<
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PreviewFinalizePersonnelFileQueryValidator : AbstractValidator<PreviewFinalizePersonnelFileQuery>
+{
+    public PreviewFinalizePersonnelFileQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
     }
 }
 
@@ -77,50 +107,19 @@ internal sealed class FinalizePersonnelFileCommandHandler(
             return Result<FinalizePersonnelFileResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
-        if (personnelFile.RecordType != CLARIHR.Domain.PersonnelFiles.PersonnelFileRecordType.Employee)
+        var validation = await FinalizePersonnelFileValidationResolver.ValidateAsync(
+            tenantId,
+            personnelFile,
+            command.CreateUserAccount,
+            includeRelatedResourceTenantMismatch: true,
+            authorizationService,
+            positionSlotRepository,
+            personnelFileRepository,
+            userRepository,
+            cancellationToken);
+        if (!validation.IsEligible)
         {
-            return Result<FinalizePersonnelFileResponse>.Failure(PersonnelFileErrors.FinalizeOnlyEmployee);
-        }
-
-        if (personnelFile.LifecycleStatus != CLARIHR.Domain.PersonnelFiles.PersonnelFileLifecycleStatus.Draft ||
-            personnelFile.LinkedUserPublicId.HasValue)
-        {
-            return Result<FinalizePersonnelFileResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
-        }
-
-        if (string.IsNullOrWhiteSpace(personnelFile.InstitutionalEmail))
-        {
-            return Result<FinalizePersonnelFileResponse>.Failure(PersonnelFileErrors.FinalizeRequiresInstitutionalEmail);
-        }
-
-        if (!personnelFile.AssignedPositionSlotPublicId.HasValue)
-        {
-            return Result<FinalizePersonnelFileResponse>.Failure(PersonnelFileErrors.FinalizeRequiresAssignedPositionSlot);
-        }
-
-        var slot = await positionSlotRepository.GetByIdAsync(personnelFile.AssignedPositionSlotPublicId.Value, cancellationToken);
-        if (slot is null)
-        {
-            return Result<FinalizePersonnelFileResponse>.Failure(
-                await positionSlotRepository.ExistsOutsideTenantAsync(personnelFile.AssignedPositionSlotPublicId.Value, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionSlotErrors.PositionSlotNotFound);
-        }
-
-        var slotResponse = await positionSlotRepository.GetResponseByIdAsync(slot.PublicId, cancellationToken);
-        if (slotResponse?.RoleId is null)
-        {
-            return Result<FinalizePersonnelFileResponse>.Failure(PersonnelFileErrors.FinalizeRequiresPositionSlotRole);
-        }
-
-        var existingUser = await userRepository.GetByEmailAsync(personnelFile.InstitutionalEmail, cancellationToken);
-        if (existingUser is not null)
-        {
-            var linkedPersonnelFile = await personnelFileRepository.GetByLinkedUserIdAsync(tenantId, existingUser.PublicId, cancellationToken);
-            if (linkedPersonnelFile is not null && linkedPersonnelFile.PublicId != personnelFile.PublicId)
-            {
-                return Result<FinalizePersonnelFileResponse>.Failure(PersonnelFileErrors.LinkedUserConflict);
-            }
+            return Result<FinalizePersonnelFileResponse>.Failure(validation.PrimaryError);
         }
 
         var before = await personnelFileRepository.GetResponseByIdAsync(personnelFile.PublicId, cancellationToken)
@@ -129,24 +128,36 @@ internal sealed class FinalizePersonnelFileCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            var provisioningResult = await companyUserProvisioningService.ProvisionAsync(
-                new CompanyUserProvisioningRequest(
-                    tenantId,
-                    personnelFile.InstitutionalEmail!,
-                    personnelFile.FirstName,
-                    personnelFile.LastName,
-                    slotResponse.RoleId.Value,
-                    Country: null,
-                    Source: "personnel-file-finalization",
-                    AllowExistingMembershipReuse: true),
-                cancellationToken);
-            if (provisioningResult.IsFailure)
+            CompanyUserResponse? userResponse = null;
+            DateTime? invitationExpiresUtc = null;
+            if (command.CreateUserAccount)
             {
-                await transaction.RollbackAsync(cancellationToken);
-                return Result<FinalizePersonnelFileResponse>.Failure(provisioningResult.Error);
+                var provisioningResult = await companyUserProvisioningService.ProvisionAsync(
+                    new CompanyUserProvisioningRequest(
+                        tenantId,
+                        personnelFile.InstitutionalEmail!,
+                        personnelFile.FirstName,
+                        personnelFile.LastName,
+                        validation.ResolvedRoleId!.Value,
+                        Country: null,
+                        Source: "personnel-file-finalization",
+                        AllowExistingMembershipReuse: true),
+                    cancellationToken);
+                if (provisioningResult.IsFailure)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Result<FinalizePersonnelFileResponse>.Failure(provisioningResult.Error);
+                }
+
+                personnelFile.Complete(provisioningResult.Value.User.PublicId);
+                userResponse = provisioningResult.Value.UserResponse;
+                invitationExpiresUtc = provisioningResult.Value.InvitationExpiresUtc;
+            }
+            else
+            {
+                personnelFile.CompleteWithoutLinkedUser();
             }
 
-            personnelFile.Complete(provisioningResult.Value.User.PublicId);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await personnelFileRepository.GetResponseByIdAsync(personnelFile.PublicId, cancellationToken)
@@ -169,8 +180,8 @@ internal sealed class FinalizePersonnelFileCommandHandler(
             return Result<FinalizePersonnelFileResponse>.Success(
                 new FinalizePersonnelFileResponse(
                     after,
-                    provisioningResult.Value.UserResponse,
-                    provisioningResult.Value.InvitationExpiresUtc));
+                    userResponse,
+                    invitationExpiresUtc));
         }
         catch
         {
@@ -178,4 +189,167 @@ internal sealed class FinalizePersonnelFileCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class PreviewFinalizePersonnelFileQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPositionSlotRepository positionSlotRepository,
+    IUserRepository userRepository,
+    ITenantContext tenantContext)
+    : IQueryHandler<PreviewFinalizePersonnelFileQuery, FinalizePersonnelFilePreviewResponse>
+{
+    public async Task<Result<FinalizePersonnelFilePreviewResponse>> Handle(
+        PreviewFinalizePersonnelFileQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<FinalizePersonnelFilePreviewResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var tenantId = tenantContext.TenantId.Value;
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<FinalizePersonnelFilePreviewResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await personnelFileRepository.GetByIdAsync(query.PersonnelFileId, cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<FinalizePersonnelFilePreviewResponse>.Failure(
+                await personnelFileRepository.ExistsOutsideTenantAsync(query.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        var validation = await FinalizePersonnelFileValidationResolver.ValidateAsync(
+            tenantId,
+            personnelFile,
+            query.CreateUserAccount,
+            includeRelatedResourceTenantMismatch: false,
+            authorizationService,
+            positionSlotRepository,
+            personnelFileRepository,
+            userRepository,
+            cancellationToken);
+
+        return Result<FinalizePersonnelFilePreviewResponse>.Success(
+            new FinalizePersonnelFilePreviewResponse(
+                personnelFile.PublicId,
+                query.CreateUserAccount,
+                validation.IsEligible,
+                validation.Issues
+                    .Select(static issue => new FinalizePersonnelFilePreviewIssueResponse(
+                        issue.Error.Code,
+                        issue.Error.Message,
+                        issue.Section,
+                        issue.FieldKey,
+                        issue.IsBlocking))
+                    .ToArray()));
+    }
+}
+
+internal sealed record FinalizePersonnelFileValidationResult(
+    IReadOnlyCollection<FinalizePersonnelFileValidationIssue> Issues,
+    Guid? ResolvedRoleId)
+{
+    public bool IsEligible => Issues.Count == 0;
+
+    public Error PrimaryError => Issues.Count == 0 ? Error.None : Issues.First().Error;
+}
+
+internal sealed record FinalizePersonnelFileValidationIssue(
+    Error Error,
+    string Section,
+    string FieldKey,
+    bool IsBlocking = true);
+
+internal static class FinalizePersonnelFileValidationResolver
+{
+    public static async Task<FinalizePersonnelFileValidationResult> ValidateAsync(
+        Guid tenantId,
+        PersonnelFile personnelFile,
+        bool createUserAccount,
+        bool includeRelatedResourceTenantMismatch,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPositionSlotRepository positionSlotRepository,
+        IPersonnelFileRepository personnelFileRepository,
+        IUserRepository userRepository,
+        CancellationToken cancellationToken)
+    {
+        var issues = new List<FinalizePersonnelFileValidationIssue>();
+        if (personnelFile.RecordType != PersonnelFileRecordType.Employee)
+        {
+            issues.Add(CreateIssue(PersonnelFileErrors.FinalizeOnlyEmployee, "personnel-file", "recordType"));
+            return new FinalizePersonnelFileValidationResult(issues, ResolvedRoleId: null);
+        }
+
+        if (personnelFile.LifecycleStatus != PersonnelFileLifecycleStatus.Draft || personnelFile.LinkedUserPublicId.HasValue)
+        {
+            issues.Add(CreateIssue(PersonnelFileErrors.StateRuleViolation, "personnel-file", "lifecycleStatus"));
+            return new FinalizePersonnelFileValidationResult(issues, ResolvedRoleId: null);
+        }
+
+        if (string.IsNullOrWhiteSpace(personnelFile.InstitutionalEmail))
+        {
+            issues.Add(CreateIssue(PersonnelFileErrors.FinalizeRequiresInstitutionalEmail, "personnel-file", "institutionalEmail"));
+        }
+
+        if (!personnelFile.AssignedPositionSlotPublicId.HasValue)
+        {
+            issues.Add(CreateIssue(PersonnelFileErrors.FinalizeRequiresAssignedPositionSlot, "employment", "assignedPositionSlotPublicId"));
+            return new FinalizePersonnelFileValidationResult(issues, ResolvedRoleId: null);
+        }
+
+        var slotPublicId = personnelFile.AssignedPositionSlotPublicId.Value;
+        var slot = await positionSlotRepository.GetByIdAsync(slotPublicId, cancellationToken);
+        if (slot is null)
+        {
+            if (includeRelatedResourceTenantMismatch &&
+                await positionSlotRepository.ExistsOutsideTenantAsync(slotPublicId, cancellationToken))
+            {
+                issues.Add(CreateIssue(authorizationService.TenantMismatch(RbacPermissionAction.Update), "employment", "assignedPositionSlotPublicId"));
+            }
+            else
+            {
+                issues.Add(CreateIssue(PositionSlotErrors.PositionSlotNotFound, "employment", "assignedPositionSlotPublicId"));
+            }
+
+            return new FinalizePersonnelFileValidationResult(issues, ResolvedRoleId: null);
+        }
+
+        Guid? resolvedRoleId = null;
+        if (createUserAccount)
+        {
+            var slotResponse = await positionSlotRepository.GetResponseByIdAsync(slot.PublicId, cancellationToken);
+            if (slotResponse?.RoleId is null)
+            {
+                issues.Add(CreateIssue(PersonnelFileErrors.FinalizeRequiresPositionSlotRole, "employment", "assignedPositionSlotPublicId"));
+            }
+            else
+            {
+                resolvedRoleId = slotResponse.RoleId.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(personnelFile.InstitutionalEmail))
+            {
+                var existingUser = await userRepository.GetByEmailAsync(personnelFile.InstitutionalEmail, cancellationToken);
+                if (existingUser is not null)
+                {
+                    var linkedPersonnelFile = await personnelFileRepository.GetByLinkedUserIdAsync(tenantId, existingUser.PublicId, cancellationToken);
+                    if (linkedPersonnelFile is not null && linkedPersonnelFile.PublicId != personnelFile.PublicId)
+                    {
+                        issues.Add(CreateIssue(PersonnelFileErrors.LinkedUserConflict, "personnel-file", "institutionalEmail"));
+                    }
+                }
+            }
+        }
+
+        return new FinalizePersonnelFileValidationResult(issues, resolvedRoleId);
+    }
+
+    private static FinalizePersonnelFileValidationIssue CreateIssue(Error error, string section, string fieldKey) =>
+        new(error, section, fieldKey);
 }
