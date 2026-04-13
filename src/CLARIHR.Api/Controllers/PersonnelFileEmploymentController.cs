@@ -55,9 +55,26 @@ public sealed class PersonnelFileEmploymentController(
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new FinalizePersonnelFileCommand(id, request.ConcurrencyToken),
+            new FinalizePersonnelFileCommand(id, request.ConcurrencyToken, request.CreateUserAccount ?? true),
             cancellationToken);
 
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("api/v1/personnel-files/{id:guid}/finalize/preview")]
+    [ProducesResponseType<FinalizePersonnelFilePreviewResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<FinalizePersonnelFilePreviewResponse>> PreviewFinalize(
+        Guid id,
+        [FromBody] FinalizePersonnelFilePreviewRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new PreviewFinalizePersonnelFileQuery(id, request.CreateUserAccount ?? true),
+            cancellationToken);
         return this.ToActionResult(result);
     }
 
