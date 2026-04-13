@@ -66,7 +66,7 @@ public static class StartupInitializationExtensions
             {
                 logger.LogError(
                     exception,
-                    "Infrastructure initialization failed after {MaxAttempts} attempts. The application will stop so Docker can restart it cleanly.",
+                    "Infrastructure initialization failed after {MaxAttempts} attempts. The application will stop and must be restarted after PostgreSQL is available.",
                     InitializationMaxAttempts);
 
                 throw;
