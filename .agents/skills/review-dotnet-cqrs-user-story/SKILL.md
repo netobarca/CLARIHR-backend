@@ -52,7 +52,7 @@ No usar esta skill para:
 - implementar la HU desde cero,
 - crear únicamente unit tests,
 - cerrar únicamente la documentación,
-- hacer una migración masiva de arquitectura del repositorio completo,
+- hacer una reestructuración masiva de arquitectura del repositorio completo,
 - documentar decisiones formales tipo ADR sin un cambio concreto que revisar,
 - hacer pruebas de carga reales.
 
