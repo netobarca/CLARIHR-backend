@@ -48,7 +48,6 @@ public sealed record UpdatePersonnelFilePersonalInfoRequest(
     Guid ConcurrencyToken);
 
 public sealed record FinalizePersonnelFileRequest(Guid ConcurrencyToken, bool? CreateUserAccount);
-public sealed record FinalizePersonnelFilePreviewRequest(bool? CreateUserAccount);
 
 public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     string EmployeeCode,

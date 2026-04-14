@@ -61,7 +61,7 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResult(result);
     }
 
-    [HttpPost("api/v1/personnel-files/{id:guid}/finalize/preview")]
+    [HttpGet("api/v1/personnel-files/{id:guid}/finalize/preview")]
     [ProducesResponseType<FinalizePersonnelFilePreviewResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -69,11 +69,11 @@ public sealed class PersonnelFileEmploymentController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<FinalizePersonnelFilePreviewResponse>> PreviewFinalize(
         Guid id,
-        [FromBody] FinalizePersonnelFilePreviewRequest request,
+        [FromQuery] bool? createUserAccount = null,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new PreviewFinalizePersonnelFileQuery(id, request.CreateUserAccount ?? true),
+            new PreviewFinalizePersonnelFileQuery(id, createUserAccount ?? true),
             cancellationToken);
         return this.ToActionResult(result);
     }
