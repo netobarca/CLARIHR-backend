@@ -113,7 +113,7 @@ LogJwtConfiguration(app.Logger, app.Configuration);
 
 await app.Services.InitializeInfrastructureAsync(app.Logger, app.Environment.IsDevelopment());
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Enabled"))
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>

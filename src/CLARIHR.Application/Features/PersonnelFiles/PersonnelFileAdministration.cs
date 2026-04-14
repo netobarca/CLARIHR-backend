@@ -1112,7 +1112,8 @@ internal sealed class CreatePersonnelFileCommandValidator : AbstractValidator<Cr
         RuleFor(command => command.InstitutionalEmail).EmailAddress().When(command => !string.IsNullOrWhiteSpace(command.InstitutionalEmail));
         RuleFor(command => command.AssignedPositionSlotId)
             .NotEqual(Guid.Empty)
-            .When(static command => command.AssignedPositionSlotId.HasValue);
+            .When(static command => command.AssignedPositionSlotId.HasValue)
+            .OverridePropertyName("assignedPositionSlotPublicId");
         RuleFor(command => command.PersonalPhone)
             .MaximumLength(40)
             .Must(PersonnelFileValidationRules.IsValidPhone)
@@ -1148,12 +1149,16 @@ internal sealed class CreatePersonnelFileCommandValidator : AbstractValidator<Cr
             .Must(PersonnelFileValidationRules.IsValidCode)
             .When(command => !string.IsNullOrWhiteSpace(command.BirthMunicipalityCode))
             .WithMessage("BirthMunicipalityCode format is invalid.");
-        RuleFor(command => command)
-            .Must(static command => command.RecordType != PersonnelFileRecordType.Employee || command.AssignedPositionSlotId.HasValue)
-            .WithMessage("AssignedPositionSlotId is required for employee personnel files.");
-        RuleFor(command => command)
-            .Must(static command => command.RecordType != PersonnelFileRecordType.Candidate || !command.AssignedPositionSlotId.HasValue)
-            .WithMessage("AssignedPositionSlotId is not allowed for candidate personnel files.");
+        RuleFor(command => command.AssignedPositionSlotId)
+            .NotNull()
+            .When(static command => command.RecordType == PersonnelFileRecordType.Employee)
+            .WithMessage("AssignedPositionSlotPublicId is required for employee personnel files.")
+            .OverridePropertyName("assignedPositionSlotPublicId");
+        RuleFor(command => command.AssignedPositionSlotId)
+            .Must((command, assignedPositionSlotId) =>
+                command.RecordType != PersonnelFileRecordType.Candidate || !assignedPositionSlotId.HasValue)
+            .WithMessage("AssignedPositionSlotPublicId is not allowed for candidate personnel files.")
+            .OverridePropertyName("assignedPositionSlotPublicId");
         RuleFor(command => command.Identifications).NotEmpty();
     }
 }
@@ -1203,13 +1208,18 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandValidator : Abstract
             .WithMessage("BirthMunicipalityCode format is invalid.");
         RuleFor(command => command.AssignedPositionSlotId)
             .NotEqual(Guid.Empty)
-            .When(static command => command.AssignedPositionSlotId.HasValue);
-        RuleFor(command => command)
-            .Must(static command => command.RecordType != PersonnelFileRecordType.Employee || command.AssignedPositionSlotId.HasValue)
-            .WithMessage("AssignedPositionSlotId is required for employee personnel files.");
-        RuleFor(command => command)
-            .Must(static command => command.RecordType != PersonnelFileRecordType.Candidate || !command.AssignedPositionSlotId.HasValue)
-            .WithMessage("AssignedPositionSlotId is not allowed for candidate personnel files.");
+            .When(static command => command.AssignedPositionSlotId.HasValue)
+            .OverridePropertyName("assignedPositionSlotPublicId");
+        RuleFor(command => command.AssignedPositionSlotId)
+            .NotNull()
+            .When(static command => command.RecordType == PersonnelFileRecordType.Employee)
+            .WithMessage("AssignedPositionSlotPublicId is required for employee personnel files.")
+            .OverridePropertyName("assignedPositionSlotPublicId");
+        RuleFor(command => command.AssignedPositionSlotId)
+            .Must((command, assignedPositionSlotId) =>
+                command.RecordType != PersonnelFileRecordType.Candidate || !assignedPositionSlotId.HasValue)
+            .WithMessage("AssignedPositionSlotPublicId is not allowed for candidate personnel files.")
+            .OverridePropertyName("assignedPositionSlotPublicId");
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }

@@ -54,11 +54,35 @@ public sealed class PersonnelFileEmploymentControllerTests
 
         _ = await controller.PreviewFinalize(
             Guid.NewGuid(),
-            new FinalizePersonnelFilePreviewRequest(CreateUserAccount: null),
+            createUserAccount: null,
             CancellationToken.None);
 
         Assert.NotNull(queryDispatcher.LastQuery);
         Assert.True(queryDispatcher.LastQuery!.CreateUserAccount);
+    }
+
+    [Fact]
+    public async Task PreviewFinalize_WhenCreateUserAccountIsProvided_ShouldUseProvidedValue()
+    {
+        var commandDispatcher = new CaptureFinalizeCommandDispatcher();
+        var queryDispatcher = new CapturePreviewQueryDispatcher();
+        var controller = new PersonnelFileEmploymentController(
+            commandDispatcher,
+            queryDispatcher,
+            new NoOpAuditService(),
+            new NoOpUnitOfWork());
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext()
+        };
+
+        _ = await controller.PreviewFinalize(
+            Guid.NewGuid(),
+            createUserAccount: false,
+            CancellationToken.None);
+
+        Assert.NotNull(queryDispatcher.LastQuery);
+        Assert.False(queryDispatcher.LastQuery!.CreateUserAccount);
     }
 
     private sealed class CaptureFinalizeCommandDispatcher : ICommandDispatcher

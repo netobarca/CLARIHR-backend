@@ -1165,13 +1165,6 @@ components:
           type: boolean
           nullable: true
           description: When omitted, defaults to true. Set false to complete the personnel file without auto-provisioning a company user.
-    FinalizePersonnelFilePreviewRequest:
-      type: object
-      properties:
-        createUserAccount:
-          type: boolean
-          nullable: true
-          description: When omitted, defaults to true. Controls whether preview enforces account-provisioning checks.
     FinalizePersonnelFilePreviewIssueResponse:
       type: object
       required:
@@ -5597,7 +5590,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
   /api/v1/personnel-files/{id}/finalize/preview:
-    post:
+    get:
       tags:
         - personnel-files
       operationId: PreviewFinalizePersonnelFile
@@ -5612,12 +5605,12 @@ paths:
           schema:
             type: string
             format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FinalizePersonnelFilePreviewRequest'
+        - name: createUserAccount
+          in: query
+          required: false
+          description: When omitted, defaults to true. Set false to skip account-provisioning checks in preview.
+          schema:
+            type: boolean
       responses:
         '200':
           description: Finalization readiness evaluated successfully.
@@ -5626,7 +5619,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/FinalizePersonnelFilePreviewResponse'
         '400':
-          description: Validation error.
+          description: Validation error, such as invalid query parameter format.
           content:
             application/problem+json:
               schema:

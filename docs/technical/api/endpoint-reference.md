@@ -237,7 +237,7 @@ Profile:
 
 Employment:
 
-- `POST /api/v1/personnel-files/{publicId}/finalize/preview`
+- `GET /api/v1/personnel-files/{publicId}/finalize/preview`
 - `POST /api/v1/personnel-files/{publicId}/finalize`
 - `GET /api/v1/personnel-files/{publicId}/employee-profile`
 - `PUT /api/v1/personnel-files/{publicId}/employee-profile`
@@ -274,7 +274,7 @@ Comportamiento observable:
 
 - la mayoria de actualizaciones por seccion reemplazan el payload completo de la subseccion
 - los expedientes ahora nacen en `Draft` y la transicion funcional dedicada del modulo es `finalize`
-- `finalize/preview` permite al frontend validar readiness antes de cerrar el expediente y devuelve `isEligible` con issues bloqueantes sin ejecutar cambios
+- `finalize/preview` permite al frontend validar readiness antes de cerrar el expediente y devuelve `isEligible` con issues bloqueantes sin ejecutar cambios; `createUserAccount` viaja como query param opcional (default `true`)
 - `finalize` permite decidir si se aprovisiona usuario de compania en ese momento; con la opcion activa crea/reutiliza el usuario y emite invitacion, con la opcion desactivada completa el expediente sin crear cuenta
 - los endpoints de reporting y export existen tanto a nivel tenant como a nivel recurso
 - la profundizacion completa del modulo esta en `5.10 Personnel files`
@@ -2988,7 +2988,7 @@ Observaciones funcionales:
 
 Route family:
 
-- `POST /api/v1/personnel-files/{id}/finalize/preview`
+- `GET /api/v1/personnel-files/{id}/finalize/preview`
 - `POST /api/v1/personnel-files/{id}/finalize`
 - `GET /api/v1/personnel-files/{id}/employee-profile`
 - `PUT /api/v1/personnel-files/{id}/employee-profile`
@@ -3013,7 +3013,7 @@ Uso principal:
 
 Observaciones funcionales:
 
-- `finalize/preview` usa `createUserAccount` (default `true`) y devuelve `isEligible` + `issues` para prerevisar bloqueos antes de ejecutar `finalize`.
+- `finalize/preview` usa `createUserAccount` como query param opcional (default `true`) y devuelve `isEligible` + `issues` para prerevisar bloqueos antes de ejecutar `finalize`.
 - `finalize` exige que el expediente sea `Employee`, siga en `Draft`, tenga `InstitutionalEmail` y plaza asignada; la validacion de rol IAM de la plaza aplica solo cuando `createUserAccount = true`.
 - `finalize` cambia el expediente a `Completed`; cuando `createUserAccount = true` crea o reutiliza el usuario de compania, deja la cuenta local en `PendingActivation`, emite invitacion y vincula el usuario al expediente, y cuando `createUserAccount = false` completa sin aprovisionar usuario.
 - Todo el resto del bloque exige que el expediente ya sea un `Employee` completado; si no, responde `PERSONNEL_FILE_STATE_RULE_VIOLATION`.
