@@ -2778,6 +2778,7 @@ Familias de rutas:
 - `/api/v1/companies/{companyId}/personnel-reference-catalogs/professions`
 - `/api/v1/companies/{companyId}/personnel-reference-catalogs/marital-statuses`
 - `/api/v1/companies/{companyId}/personnel-reference-catalogs/identification-types`
+- `/api/v1/companies/{companyId}/personnel-reference-catalogs/kinships`
 - `/api/v1/companies/{companyId}/personnel-reference-catalogs/departments`
 - `/api/v1/companies/{companyId}/personnel-reference-catalogs/municipalities`
 - `/api/v1/companies/{companyId}/personnel-custom-field-definitions`
@@ -2980,6 +2981,7 @@ Observaciones funcionales:
 - si `IsStudying=true`, se esperan `StudyPlace` y `AcademicLevel`
 - si `IsWorking=true`, se esperan `Workplace` y `JobTitle`
 - si `IsDeceased=true`, se espera `DeceasedDate`
+- `family-members` usa `kinshipCode` (ya no texto libre) y valida contra `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/kinships`.
 - `educations`, `languages`, `trainings`, `previous-employments` y `references` validan codigos contra catalogos activos del modulo.
 - Los catalogos curriculares observables usados desde este bloque incluyen `CurriculumEducationStatus`, `CurriculumStudyType`, `CurriculumShift`, `CurriculumModality`, `CurriculumLanguage`, `CurriculumLanguageLevel`, `CurriculumTrainingType`, `CurriculumDurationUnit`, `CurriculumReferenceType`, `Country` y `Currency`.
 - `educations` exige `EndDate` cuando `IsCurrentlyStudying=false` y evita `ApprovedSubjects > TotalSubjects`.
@@ -3152,6 +3154,7 @@ Route family:
 - `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/professions`
 - `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/marital-statuses`
 - `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/identification-types`
+- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/kinships`
 - `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/departments?countryCode=SV`
 - `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/municipalities?countryCode=SV&departmentCode=<CODE>`
 - `GET /api/v1/companies/{companyId}/personnel-custom-field-definitions`
@@ -3168,7 +3171,7 @@ Observaciones funcionales:
 - `personnel-catalogs/{category}` es read-only y devuelve solo items activos.
 - `personnel-catalogs/{category}` ordena por `SortOrder`, luego `Name`.
 - `personnel-reference-catalogs/*` es read-only, global de sistema y no tenant-editable en esta fase.
-- `professions`, `marital-statuses` e `identification-types` responden catalogos activos para `SV`.
+- `professions`, `marital-statuses`, `identification-types` y `kinships` responden catalogos activos para `SV`.
 - `departments` y `municipalities` usan jerarquia `Department -> Municipality`; para `SV` la semilla vigente es `14` departamentos y `44` municipios.
 - `countries` se reusa desde `GET /api/account/companies/countries`; no existe endpoint duplicado de paises en `personnel-reference-catalogs`.
 - `nationality` permanece fuera de catalogo en esta HU y sigue como campo libre.

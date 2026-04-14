@@ -1144,6 +1144,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Contains(identificationTypes, item => item.Code == "DUI" && item.Name == "DUI");
         Assert.Contains(identificationTypes, item => item.Code == "PASSPORT" && item.Name == "Pasaporte");
 
+        var kinshipsResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-reference-catalogs/kinships");
+        kinshipsResponse.EnsureSuccessStatusCode();
+        var kinships = await kinshipsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
+        Assert.NotNull(kinships);
+        Assert.Equal(10, kinships!.Count);
+        Assert.Contains(kinships, item => item.Code == "HERMANO_A" && item.Name == "Hermano/a");
+
         var departmentsResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-reference-catalogs/departments?countryCode=SV");
         departmentsResponse.EnsureSuccessStatusCode();
         var departments = await departmentsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelReferenceCatalogLookupItem>>(JsonOptions);
@@ -1234,6 +1241,114 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
 
         await AssertProblemDetailsAsync(invalidIdentificationTypeResponse, HttpStatusCode.BadRequest, "common.validation");
+    }
+
+    [Fact]
+    public async Task PersonnelFileFamilyMembers_Replace_WithValidKinshipCode_ShouldPersist()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(
+            client,
+            scenario.TenantId,
+            "Carlos",
+            "Ramirez",
+            "DUI",
+            "09877777-1");
+
+        var replaceResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/family-members", new
+        {
+            items = new[]
+            {
+                new
+                {
+                    firstName = "Luis",
+                    lastName = "Ramirez",
+                    kinshipCode = "HERMANO_A",
+                    nationality = "SV",
+                    birthDate = new DateTime(2000, 7, 15),
+                    sex = "Male",
+                    maritalStatus = (string?)null,
+                    occupation = (string?)null,
+                    documentType = (string?)null,
+                    documentNumber = (string?)null,
+                    phone = (string?)null,
+                    isStudying = false,
+                    studyPlace = (string?)null,
+                    academicLevel = (string?)null,
+                    isBeneficiary = false,
+                    isWorking = false,
+                    workplace = (string?)null,
+                    jobTitle = (string?)null,
+                    workPhone = (string?)null,
+                    salary = (decimal?)null,
+                    isDeceased = false,
+                    deceasedDate = (DateTime?)null
+                }
+            },
+            concurrencyToken = created.ConcurrencyToken
+        });
+
+        replaceResponse.EnsureSuccessStatusCode();
+
+        var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/family-members");
+        getResponse.EnsureSuccessStatusCode();
+
+        var familyMembers = await getResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileFamilyMemberItem>>(JsonOptions);
+        Assert.NotNull(familyMembers);
+        var member = Assert.Single(familyMembers!);
+        Assert.Equal("HERMANO_A", member.KinshipCode);
+    }
+
+    [Fact]
+    public async Task PersonnelFileFamilyMembers_Replace_WithInvalidKinshipCode_ShouldReturnValidation()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(
+            client,
+            scenario.TenantId,
+            "Elena",
+            "Molina",
+            "DUI",
+            "09877777-2");
+
+        var replaceResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/family-members", new
+        {
+            items = new[]
+            {
+                new
+                {
+                    firstName = "Marcos",
+                    lastName = "Molina",
+                    kinshipCode = "UNKNOWN_KINSHIP",
+                    nationality = "SV",
+                    birthDate = new DateTime(2001, 1, 5),
+                    sex = "Male",
+                    maritalStatus = (string?)null,
+                    occupation = (string?)null,
+                    documentType = (string?)null,
+                    documentNumber = (string?)null,
+                    phone = (string?)null,
+                    isStudying = false,
+                    studyPlace = (string?)null,
+                    academicLevel = (string?)null,
+                    isBeneficiary = false,
+                    isWorking = false,
+                    workplace = (string?)null,
+                    jobTitle = (string?)null,
+                    workPhone = (string?)null,
+                    salary = (decimal?)null,
+                    isDeceased = false,
+                    deceasedDate = (DateTime?)null
+                }
+            },
+            concurrencyToken = created.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(replaceResponse, HttpStatusCode.BadRequest, "common.validation");
     }
 
     [Fact]
@@ -6230,6 +6345,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string PersonName,
         string ReferenceTypeCode,
         decimal KnownTimeYears);
+
+    private sealed record PersonnelFileFamilyMemberItem(
+        Guid Id,
+        string FirstName,
+        string LastName,
+        string FullName,
+        string KinshipCode);
 
     private sealed record PersonnelFileListProjectionItem(
         Guid Id,

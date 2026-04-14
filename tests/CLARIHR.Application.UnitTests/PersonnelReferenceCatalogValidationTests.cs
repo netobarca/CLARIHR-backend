@@ -108,6 +108,37 @@ public sealed class PersonnelReferenceCatalogValidationTests
         Assert.Contains("identificationTypeCode", error.ValidationErrors!.Keys);
     }
 
+    [Fact]
+    public async Task ValidateKinshipCodeAsync_WhenCodeIsActive_ShouldReturnNone()
+    {
+        var repository = new TestPersonnelFileRepository();
+        repository.AddActiveReferenceCode("SV", PersonnelReferenceCatalogCategories.Kinship, "HERMANO_A");
+
+        var error = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
+            repository,
+            "items[0].beneficiaries[0].kinshipCode",
+            "HERMANO_A",
+            CancellationToken.None);
+
+        Assert.Equal(Error.None, error);
+    }
+
+    [Fact]
+    public async Task ValidateKinshipCodeAsync_WhenCodeIsInactive_ShouldReturnValidationError()
+    {
+        var repository = new TestPersonnelFileRepository();
+
+        var error = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
+            repository,
+            "items[0].beneficiaries[0].kinshipCode",
+            "UNKNOWN_KINSHIP",
+            CancellationToken.None);
+
+        Assert.Equal("common.validation", error.Code);
+        Assert.NotNull(error.ValidationErrors);
+        Assert.Contains("items[0].beneficiaries[0].kinshipCode", error.ValidationErrors!.Keys);
+    }
+
     private sealed class TestPersonnelFileRepository : IPersonnelFileRepository
     {
         private readonly HashSet<string> _activeCountries = new(StringComparer.Ordinal);

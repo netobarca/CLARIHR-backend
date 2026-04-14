@@ -306,7 +306,7 @@ public sealed record ReplaceEmergencyContactsRequest(
 public sealed record FamilyMemberItemRequest(
     string FirstName,
     string LastName,
-    string Relationship,
+    string KinshipCode,
     string? Nationality,
     DateTime? BirthDate,
     PersonnelFamilyMemberSex Sex,

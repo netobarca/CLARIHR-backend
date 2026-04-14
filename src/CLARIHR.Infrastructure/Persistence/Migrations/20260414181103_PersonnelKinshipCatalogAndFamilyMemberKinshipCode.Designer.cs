@@ -3,6 +3,7 @@ using System;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260414181103_PersonnelKinshipCatalogAndFamilyMemberKinshipCode")]
+    partial class PersonnelKinshipCatalogAndFamilyMemberKinshipCode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -12799,920 +12802,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = -9545L,
-                            Category = "Department",
-                            Code = "AHUACHAPAN",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ahuachapan",
-                            NormalizedCode = "AHUACHAPAN",
-                            NormalizedName = "AHUACHAPAN",
-                            PublicId = new Guid("826f83fe-d9fa-8099-d797-f7e41d76ba21"),
-                            SortOrder = 10
-                        },
-                        new
-                        {
-                            Id = -9546L,
-                            Category = "Department",
-                            Code = "SANTA_ANA",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Santa Ana",
-                            NormalizedCode = "SANTA_ANA",
-                            NormalizedName = "SANTA ANA",
-                            PublicId = new Guid("3c9a4157-236b-e697-efa5-77f3d866b63a"),
-                            SortOrder = 20
-                        },
-                        new
-                        {
-                            Id = -9547L,
-                            Category = "Department",
-                            Code = "SONSONATE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sonsonate",
-                            NormalizedCode = "SONSONATE",
-                            NormalizedName = "SONSONATE",
-                            PublicId = new Guid("a75ff0b3-75ef-23c0-9ab8-972d41a1e721"),
-                            SortOrder = 30
-                        },
-                        new
-                        {
-                            Id = -9548L,
-                            Category = "Department",
-                            Code = "CHALATENANGO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Chalatenango",
-                            NormalizedCode = "CHALATENANGO",
-                            NormalizedName = "CHALATENANGO",
-                            PublicId = new Guid("96b4270c-8cf1-6d8e-ebbe-188483c6ecbd"),
-                            SortOrder = 40
-                        },
-                        new
-                        {
-                            Id = -9549L,
-                            Category = "Department",
-                            Code = "LA_LIBERTAD",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad",
-                            NormalizedCode = "LA_LIBERTAD",
-                            NormalizedName = "LA LIBERTAD",
-                            PublicId = new Guid("a571ab57-603a-27bb-c1e1-251be5644ff7"),
-                            SortOrder = 50
-                        },
-                        new
-                        {
-                            Id = -9550L,
-                            Category = "Department",
-                            Code = "SAN_SALVADOR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador",
-                            NormalizedCode = "SAN_SALVADOR",
-                            NormalizedName = "SAN SALVADOR",
-                            PublicId = new Guid("469719a6-f18d-9130-4f8f-d5ff4930d901"),
-                            SortOrder = 60
-                        },
-                        new
-                        {
-                            Id = -9551L,
-                            Category = "Department",
-                            Code = "CUSCATLAN",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cuscatlan",
-                            NormalizedCode = "CUSCATLAN",
-                            NormalizedName = "CUSCATLAN",
-                            PublicId = new Guid("70a87347-c4d0-4b7a-3ee9-8e8b296c7c15"),
-                            SortOrder = 70
-                        },
-                        new
-                        {
-                            Id = -9552L,
-                            Category = "Department",
-                            Code = "LA_PAZ",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Paz",
-                            NormalizedCode = "LA_PAZ",
-                            NormalizedName = "LA PAZ",
-                            PublicId = new Guid("b30fbd9e-4f6c-558f-6bcd-89ac10eb8f03"),
-                            SortOrder = 80
-                        },
-                        new
-                        {
-                            Id = -9553L,
-                            Category = "Department",
-                            Code = "CABANAS",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cabanas",
-                            NormalizedCode = "CABANAS",
-                            NormalizedName = "CABANAS",
-                            PublicId = new Guid("6ea44b4e-40d5-af33-0e11-f96be6a26c7d"),
-                            SortOrder = 90
-                        },
-                        new
-                        {
-                            Id = -9554L,
-                            Category = "Department",
-                            Code = "SAN_VICENTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Vicente",
-                            NormalizedCode = "SAN_VICENTE",
-                            NormalizedName = "SAN VICENTE",
-                            PublicId = new Guid("0fc50ec4-63e3-7530-bafb-57faa3b7f6e6"),
-                            SortOrder = 100
-                        },
-                        new
-                        {
-                            Id = -9555L,
-                            Category = "Department",
-                            Code = "USULUTAN",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Usulutan",
-                            NormalizedCode = "USULUTAN",
-                            NormalizedName = "USULUTAN",
-                            PublicId = new Guid("ee60ece2-c729-1491-8eeb-1ce18c25630a"),
-                            SortOrder = 110
-                        },
-                        new
-                        {
-                            Id = -9556L,
-                            Category = "Department",
-                            Code = "SAN_MIGUEL",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Miguel",
-                            NormalizedCode = "SAN_MIGUEL",
-                            NormalizedName = "SAN MIGUEL",
-                            PublicId = new Guid("875f7799-39da-ae3e-4e00-1f14b19d4502"),
-                            SortOrder = 120
-                        },
-                        new
-                        {
-                            Id = -9557L,
-                            Category = "Department",
-                            Code = "MORAZAN",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Morazan",
-                            NormalizedCode = "MORAZAN",
-                            NormalizedName = "MORAZAN",
-                            PublicId = new Guid("26bef224-a0cf-d000-0da6-f9a4dd414dad"),
-                            SortOrder = 130
-                        },
-                        new
-                        {
-                            Id = -9558L,
-                            Category = "Department",
-                            Code = "LA_UNION",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Union",
-                            NormalizedCode = "LA_UNION",
-                            NormalizedName = "LA UNION",
-                            PublicId = new Guid("d7b593da-5576-7607-0a5c-2f6f83647650"),
-                            SortOrder = 140
-                        },
-                        new
-                        {
-                            Id = -9559L,
-                            Category = "Municipality",
-                            Code = "AHUACHAPAN_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ahuachapan Centro",
-                            NormalizedCode = "AHUACHAPAN_CENTRO",
-                            NormalizedName = "AHUACHAPAN CENTRO",
-                            ParentId = -9545L,
-                            PublicId = new Guid("5098d63f-ff11-7438-ef22-ff4cc73faaad"),
-                            SortOrder = 10
-                        },
-                        new
-                        {
-                            Id = -9560L,
-                            Category = "Municipality",
-                            Code = "AHUACHAPAN_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ahuachapan Norte",
-                            NormalizedCode = "AHUACHAPAN_NORTE",
-                            NormalizedName = "AHUACHAPAN NORTE",
-                            ParentId = -9545L,
-                            PublicId = new Guid("0c70ff03-4303-7aff-8ad0-b5a6a133cafe"),
-                            SortOrder = 20
-                        },
-                        new
-                        {
-                            Id = -9561L,
-                            Category = "Municipality",
-                            Code = "AHUACHAPAN_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ahuachapan Sur",
-                            NormalizedCode = "AHUACHAPAN_SUR",
-                            NormalizedName = "AHUACHAPAN SUR",
-                            ParentId = -9545L,
-                            PublicId = new Guid("7886e88f-35d2-9060-2da9-1f974c98abb0"),
-                            SortOrder = 30
-                        },
-                        new
-                        {
-                            Id = -9562L,
-                            Category = "Municipality",
-                            Code = "SANTA_ANA_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Santa Ana Centro",
-                            NormalizedCode = "SANTA_ANA_CENTRO",
-                            NormalizedName = "SANTA ANA CENTRO",
-                            ParentId = -9546L,
-                            PublicId = new Guid("474ca046-1414-ba2d-287b-8d71b2789950"),
-                            SortOrder = 40
-                        },
-                        new
-                        {
-                            Id = -9563L,
-                            Category = "Municipality",
-                            Code = "SANTA_ANA_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Santa Ana Este",
-                            NormalizedCode = "SANTA_ANA_ESTE",
-                            NormalizedName = "SANTA ANA ESTE",
-                            ParentId = -9546L,
-                            PublicId = new Guid("ac6d4692-a2c6-4aa4-5dff-f8666d58cf49"),
-                            SortOrder = 50
-                        },
-                        new
-                        {
-                            Id = -9564L,
-                            Category = "Municipality",
-                            Code = "SANTA_ANA_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Santa Ana Norte",
-                            NormalizedCode = "SANTA_ANA_NORTE",
-                            NormalizedName = "SANTA ANA NORTE",
-                            ParentId = -9546L,
-                            PublicId = new Guid("646012c2-b7fc-e605-99fb-1a6b1f684ca9"),
-                            SortOrder = 60
-                        },
-                        new
-                        {
-                            Id = -9565L,
-                            Category = "Municipality",
-                            Code = "SANTA_ANA_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Santa Ana Oeste",
-                            NormalizedCode = "SANTA_ANA_OESTE",
-                            NormalizedName = "SANTA ANA OESTE",
-                            ParentId = -9546L,
-                            PublicId = new Guid("fc7b8586-5f6d-c6c6-09ef-51c105c5df12"),
-                            SortOrder = 70
-                        },
-                        new
-                        {
-                            Id = -9566L,
-                            Category = "Municipality",
-                            Code = "SONSONATE_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sonsonate Centro",
-                            NormalizedCode = "SONSONATE_CENTRO",
-                            NormalizedName = "SONSONATE CENTRO",
-                            ParentId = -9547L,
-                            PublicId = new Guid("fa3396e0-4cc7-c845-038c-38ab7990496e"),
-                            SortOrder = 80
-                        },
-                        new
-                        {
-                            Id = -9567L,
-                            Category = "Municipality",
-                            Code = "SONSONATE_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sonsonate Este",
-                            NormalizedCode = "SONSONATE_ESTE",
-                            NormalizedName = "SONSONATE ESTE",
-                            ParentId = -9547L,
-                            PublicId = new Guid("10462cda-cb6e-79e0-df9d-90216d15ff3f"),
-                            SortOrder = 90
-                        },
-                        new
-                        {
-                            Id = -9568L,
-                            Category = "Municipality",
-                            Code = "SONSONATE_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sonsonate Norte",
-                            NormalizedCode = "SONSONATE_NORTE",
-                            NormalizedName = "SONSONATE NORTE",
-                            ParentId = -9547L,
-                            PublicId = new Guid("1f325e3b-5118-bb0d-3283-e7cde310d59a"),
-                            SortOrder = 100
-                        },
-                        new
-                        {
-                            Id = -9569L,
-                            Category = "Municipality",
-                            Code = "SONSONATE_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sonsonate Oeste",
-                            NormalizedCode = "SONSONATE_OESTE",
-                            NormalizedName = "SONSONATE OESTE",
-                            ParentId = -9547L,
-                            PublicId = new Guid("4035134f-f0a2-c914-1de8-494161a86665"),
-                            SortOrder = 110
-                        },
-                        new
-                        {
-                            Id = -9570L,
-                            Category = "Municipality",
-                            Code = "CHALATENANGO_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Chalatenango Centro",
-                            NormalizedCode = "CHALATENANGO_CENTRO",
-                            NormalizedName = "CHALATENANGO CENTRO",
-                            ParentId = -9548L,
-                            PublicId = new Guid("297defd0-137d-2b16-f424-ce1625f75975"),
-                            SortOrder = 120
-                        },
-                        new
-                        {
-                            Id = -9571L,
-                            Category = "Municipality",
-                            Code = "CHALATENANGO_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Chalatenango Norte",
-                            NormalizedCode = "CHALATENANGO_NORTE",
-                            NormalizedName = "CHALATENANGO NORTE",
-                            ParentId = -9548L,
-                            PublicId = new Guid("3dcb46ae-8fe2-66e8-ccde-19036a1afd46"),
-                            SortOrder = 130
-                        },
-                        new
-                        {
-                            Id = -9572L,
-                            Category = "Municipality",
-                            Code = "CHALATENANGO_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Chalatenango Sur",
-                            NormalizedCode = "CHALATENANGO_SUR",
-                            NormalizedName = "CHALATENANGO SUR",
-                            ParentId = -9548L,
-                            PublicId = new Guid("91295538-d3c6-3645-cfe5-710f958dece9"),
-                            SortOrder = 140
-                        },
-                        new
-                        {
-                            Id = -9573L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Centro",
-                            NormalizedCode = "LA_LIBERTAD_CENTRO",
-                            NormalizedName = "LA LIBERTAD CENTRO",
-                            ParentId = -9549L,
-                            PublicId = new Guid("0bd5b137-5fd3-2887-9c19-fadeb9d4a8ad"),
-                            SortOrder = 150
-                        },
-                        new
-                        {
-                            Id = -9574L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_COSTA",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Costa",
-                            NormalizedCode = "LA_LIBERTAD_COSTA",
-                            NormalizedName = "LA LIBERTAD COSTA",
-                            ParentId = -9549L,
-                            PublicId = new Guid("f88ed89a-7b1b-cc8f-93d8-868786567d3b"),
-                            SortOrder = 160
-                        },
-                        new
-                        {
-                            Id = -9575L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Este",
-                            NormalizedCode = "LA_LIBERTAD_ESTE",
-                            NormalizedName = "LA LIBERTAD ESTE",
-                            ParentId = -9549L,
-                            PublicId = new Guid("86109d7a-d637-8e6f-5586-69a1f29ac3b1"),
-                            SortOrder = 170
-                        },
-                        new
-                        {
-                            Id = -9576L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Norte",
-                            NormalizedCode = "LA_LIBERTAD_NORTE",
-                            NormalizedName = "LA LIBERTAD NORTE",
-                            ParentId = -9549L,
-                            PublicId = new Guid("47b9b87e-43cc-fe85-a9ab-a89c91b04492"),
-                            SortOrder = 180
-                        },
-                        new
-                        {
-                            Id = -9577L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Sur",
-                            NormalizedCode = "LA_LIBERTAD_SUR",
-                            NormalizedName = "LA LIBERTAD SUR",
-                            ParentId = -9549L,
-                            PublicId = new Guid("377187d3-439a-26e6-8f6a-9f780a92d9a8"),
-                            SortOrder = 190
-                        },
-                        new
-                        {
-                            Id = -9578L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Oeste",
-                            NormalizedCode = "LA_LIBERTAD_OESTE",
-                            NormalizedName = "LA LIBERTAD OESTE",
-                            ParentId = -9549L,
-                            PublicId = new Guid("21596f6b-c061-9b3e-7022-a6af0072a2f6"),
-                            SortOrder = 200
-                        },
-                        new
-                        {
-                            Id = -9579L,
-                            Category = "Municipality",
-                            Code = "SAN_SALVADOR_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador Centro",
-                            NormalizedCode = "SAN_SALVADOR_CENTRO",
-                            NormalizedName = "SAN SALVADOR CENTRO",
-                            ParentId = -9550L,
-                            PublicId = new Guid("22ff05df-546a-3b6e-9bc5-3cc187c58bcf"),
-                            SortOrder = 210
-                        },
-                        new
-                        {
-                            Id = -9580L,
-                            Category = "Municipality",
-                            Code = "SAN_SALVADOR_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador Este",
-                            NormalizedCode = "SAN_SALVADOR_ESTE",
-                            NormalizedName = "SAN SALVADOR ESTE",
-                            ParentId = -9550L,
-                            PublicId = new Guid("fc5949f4-fd33-84b5-632e-9071f11516f5"),
-                            SortOrder = 220
-                        },
-                        new
-                        {
-                            Id = -9581L,
-                            Category = "Municipality",
-                            Code = "SAN_SALVADOR_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador Norte",
-                            NormalizedCode = "SAN_SALVADOR_NORTE",
-                            NormalizedName = "SAN SALVADOR NORTE",
-                            ParentId = -9550L,
-                            PublicId = new Guid("d9077bc3-2bd8-2a6d-9bb2-d51ae4389073"),
-                            SortOrder = 230
-                        },
-                        new
-                        {
-                            Id = -9582L,
-                            Category = "Municipality",
-                            Code = "SAN_SALVADOR_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador Oeste",
-                            NormalizedCode = "SAN_SALVADOR_OESTE",
-                            NormalizedName = "SAN SALVADOR OESTE",
-                            ParentId = -9550L,
-                            PublicId = new Guid("aa9585e6-00cb-d4d7-2179-42ea67731f68"),
-                            SortOrder = 240
-                        },
-                        new
-                        {
-                            Id = -9583L,
-                            Category = "Municipality",
-                            Code = "SAN_SALVADOR_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador Sur",
-                            NormalizedCode = "SAN_SALVADOR_SUR",
-                            NormalizedName = "SAN SALVADOR SUR",
-                            ParentId = -9550L,
-                            PublicId = new Guid("4f6ea9f2-b97e-d956-37f9-db1d196bb2bc"),
-                            SortOrder = 250
-                        },
-                        new
-                        {
-                            Id = -9584L,
-                            Category = "Municipality",
-                            Code = "CUSCATLAN_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cuscatlan Norte",
-                            NormalizedCode = "CUSCATLAN_NORTE",
-                            NormalizedName = "CUSCATLAN NORTE",
-                            ParentId = -9551L,
-                            PublicId = new Guid("935a0a70-2f52-2e82-fa7b-1352b1329cee"),
-                            SortOrder = 260
-                        },
-                        new
-                        {
-                            Id = -9585L,
-                            Category = "Municipality",
-                            Code = "CUSCATLAN_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cuscatlan Sur",
-                            NormalizedCode = "CUSCATLAN_SUR",
-                            NormalizedName = "CUSCATLAN SUR",
-                            ParentId = -9551L,
-                            PublicId = new Guid("12172ffa-fbab-ec24-dab5-db7ea5017724"),
-                            SortOrder = 270
-                        },
-                        new
-                        {
-                            Id = -9586L,
-                            Category = "Municipality",
-                            Code = "LA_PAZ_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Paz Centro",
-                            NormalizedCode = "LA_PAZ_CENTRO",
-                            NormalizedName = "LA PAZ CENTRO",
-                            ParentId = -9552L,
-                            PublicId = new Guid("55968795-3f06-e37f-c742-ca4cbd0c3161"),
-                            SortOrder = 280
-                        },
-                        new
-                        {
-                            Id = -9587L,
-                            Category = "Municipality",
-                            Code = "LA_PAZ_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Paz Este",
-                            NormalizedCode = "LA_PAZ_ESTE",
-                            NormalizedName = "LA PAZ ESTE",
-                            ParentId = -9552L,
-                            PublicId = new Guid("254fa9e4-050e-20af-35da-46123574b3a4"),
-                            SortOrder = 290
-                        },
-                        new
-                        {
-                            Id = -9588L,
-                            Category = "Municipality",
-                            Code = "LA_PAZ_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Paz Oeste",
-                            NormalizedCode = "LA_PAZ_OESTE",
-                            NormalizedName = "LA PAZ OESTE",
-                            ParentId = -9552L,
-                            PublicId = new Guid("5ea16ce2-3e7b-185c-d051-00252130b70d"),
-                            SortOrder = 300
-                        },
-                        new
-                        {
-                            Id = -9589L,
-                            Category = "Municipality",
-                            Code = "CABANAS_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cabanas Este",
-                            NormalizedCode = "CABANAS_ESTE",
-                            NormalizedName = "CABANAS ESTE",
-                            ParentId = -9553L,
-                            PublicId = new Guid("34928e6b-b58b-7668-2ae0-75c497d36135"),
-                            SortOrder = 310
-                        },
-                        new
-                        {
-                            Id = -9590L,
-                            Category = "Municipality",
-                            Code = "CABANAS_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cabanas Oeste",
-                            NormalizedCode = "CABANAS_OESTE",
-                            NormalizedName = "CABANAS OESTE",
-                            ParentId = -9553L,
-                            PublicId = new Guid("64c10baa-c354-fdef-2531-87350b4c20e6"),
-                            SortOrder = 320
-                        },
-                        new
-                        {
-                            Id = -9591L,
-                            Category = "Municipality",
-                            Code = "SAN_VICENTE_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Vicente Norte",
-                            NormalizedCode = "SAN_VICENTE_NORTE",
-                            NormalizedName = "SAN VICENTE NORTE",
-                            ParentId = -9554L,
-                            PublicId = new Guid("f0bc6e25-e812-c633-0655-e940a10379d7"),
-                            SortOrder = 330
-                        },
-                        new
-                        {
-                            Id = -9592L,
-                            Category = "Municipality",
-                            Code = "SAN_VICENTE_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Vicente Sur",
-                            NormalizedCode = "SAN_VICENTE_SUR",
-                            NormalizedName = "SAN VICENTE SUR",
-                            ParentId = -9554L,
-                            PublicId = new Guid("82433873-97a1-63e4-a561-c8ec0fbfd8be"),
-                            SortOrder = 340
-                        },
-                        new
-                        {
-                            Id = -9593L,
-                            Category = "Municipality",
-                            Code = "USULUTAN_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Usulutan Este",
-                            NormalizedCode = "USULUTAN_ESTE",
-                            NormalizedName = "USULUTAN ESTE",
-                            ParentId = -9555L,
-                            PublicId = new Guid("f37dd9f1-132c-309e-b867-879ccddddfe5"),
-                            SortOrder = 350
-                        },
-                        new
-                        {
-                            Id = -9594L,
-                            Category = "Municipality",
-                            Code = "USULUTAN_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Usulutan Norte",
-                            NormalizedCode = "USULUTAN_NORTE",
-                            NormalizedName = "USULUTAN NORTE",
-                            ParentId = -9555L,
-                            PublicId = new Guid("2b9fae9b-b0b9-c0d3-4c72-092c21fbb0e8"),
-                            SortOrder = 360
-                        },
-                        new
-                        {
-                            Id = -9595L,
-                            Category = "Municipality",
-                            Code = "USULUTAN_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Usulutan Oeste",
-                            NormalizedCode = "USULUTAN_OESTE",
-                            NormalizedName = "USULUTAN OESTE",
-                            ParentId = -9555L,
-                            PublicId = new Guid("af6e6ba9-6412-8641-1f5f-6c41f58af49d"),
-                            SortOrder = 370
-                        },
-                        new
-                        {
-                            Id = -9596L,
-                            Category = "Municipality",
-                            Code = "SAN_MIGUEL_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Miguel Centro",
-                            NormalizedCode = "SAN_MIGUEL_CENTRO",
-                            NormalizedName = "SAN MIGUEL CENTRO",
-                            ParentId = -9556L,
-                            PublicId = new Guid("65572591-c834-c010-e652-5b141933677d"),
-                            SortOrder = 380
-                        },
-                        new
-                        {
-                            Id = -9597L,
-                            Category = "Municipality",
-                            Code = "SAN_MIGUEL_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Miguel Norte",
-                            NormalizedCode = "SAN_MIGUEL_NORTE",
-                            NormalizedName = "SAN MIGUEL NORTE",
-                            ParentId = -9556L,
-                            PublicId = new Guid("6d53dc05-15c4-e632-1d83-da15d12782b6"),
-                            SortOrder = 390
-                        },
-                        new
-                        {
-                            Id = -9598L,
-                            Category = "Municipality",
-                            Code = "SAN_MIGUEL_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Miguel Oeste",
-                            NormalizedCode = "SAN_MIGUEL_OESTE",
-                            NormalizedName = "SAN MIGUEL OESTE",
-                            ParentId = -9556L,
-                            PublicId = new Guid("56c60522-63e7-1481-bdbe-81cc44416f7d"),
-                            SortOrder = 400
-                        },
-                        new
-                        {
-                            Id = -9599L,
-                            Category = "Municipality",
-                            Code = "MORAZAN_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Morazan Norte",
-                            NormalizedCode = "MORAZAN_NORTE",
-                            NormalizedName = "MORAZAN NORTE",
-                            ParentId = -9557L,
-                            PublicId = new Guid("dd429a5b-7c70-6fd9-ac08-645afc424ac8"),
-                            SortOrder = 410
-                        },
-                        new
-                        {
-                            Id = -9600L,
-                            Category = "Municipality",
-                            Code = "MORAZAN_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Morazan Sur",
-                            NormalizedCode = "MORAZAN_SUR",
-                            NormalizedName = "MORAZAN SUR",
-                            ParentId = -9557L,
-                            PublicId = new Guid("f374ea70-a6d9-4153-f6bf-aa8cb3139d85"),
-                            SortOrder = 420
-                        },
-                        new
-                        {
-                            Id = -9601L,
-                            Category = "Municipality",
-                            Code = "LA_UNION_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Union Norte",
-                            NormalizedCode = "LA_UNION_NORTE",
-                            NormalizedName = "LA UNION NORTE",
-                            ParentId = -9558L,
-                            PublicId = new Guid("fe0b1dda-ade1-e230-ee89-fcf88ecb508c"),
-                            SortOrder = 430
-                        },
-                        new
-                        {
-                            Id = -9602L,
-                            Category = "Municipality",
-                            Code = "LA_UNION_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Union Sur",
-                            NormalizedCode = "LA_UNION_SUR",
-                            NormalizedName = "LA UNION SUR",
-                            ParentId = -9558L,
-                            PublicId = new Guid("afbd8039-2edb-5ff7-26a3-d62fdf9e66dc"),
-                            SortOrder = 440
-                        },
-                        new
-                        {
-                            Id = -9603L,
                             Category = "Kinship",
                             Code = "CONYUGE",
                             CountryCode = "SV",
@@ -13727,7 +12816,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            Id = -9604L,
+                            Id = -9546L,
                             Category = "Kinship",
                             Code = "PAREJA",
                             CountryCode = "SV",
@@ -13742,7 +12831,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            Id = -9605L,
+                            Id = -9547L,
                             Category = "Kinship",
                             Code = "PADRE",
                             CountryCode = "SV",
@@ -13757,7 +12846,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            Id = -9606L,
+                            Id = -9548L,
                             Category = "Kinship",
                             Code = "MADRE",
                             CountryCode = "SV",
@@ -13772,7 +12861,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            Id = -9607L,
+                            Id = -9549L,
                             Category = "Kinship",
                             Code = "HIJO_A",
                             CountryCode = "SV",
@@ -13787,7 +12876,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            Id = -9608L,
+                            Id = -9550L,
                             Category = "Kinship",
                             Code = "HERMANO_A",
                             CountryCode = "SV",
@@ -13802,7 +12891,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            Id = -9609L,
+                            Id = -9551L,
                             Category = "Kinship",
                             Code = "ABUELO_A",
                             CountryCode = "SV",
@@ -13817,7 +12906,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            Id = -9610L,
+                            Id = -9552L,
                             Category = "Kinship",
                             Code = "NIETO_A",
                             CountryCode = "SV",
@@ -13832,7 +12921,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            Id = -9611L,
+                            Id = -9553L,
                             Category = "Kinship",
                             Code = "TIO_A",
                             CountryCode = "SV",
@@ -13847,7 +12936,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
-                            Id = -9612L,
+                            Id = -9554L,
                             Category = "Kinship",
                             Code = "OTRO",
                             CountryCode = "SV",
@@ -13859,6 +12948,920 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             NormalizedName = "OTRO",
                             PublicId = new Guid("f488c015-109f-d1fc-5d91-2270ae305efe"),
                             SortOrder = 100
+                        },
+                        new
+                        {
+                            Id = -9555L,
+                            Category = "Department",
+                            Code = "AHUACHAPAN",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Ahuachapan",
+                            NormalizedCode = "AHUACHAPAN",
+                            NormalizedName = "AHUACHAPAN",
+                            PublicId = new Guid("826f83fe-d9fa-8099-d797-f7e41d76ba21"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9556L,
+                            Category = "Department",
+                            Code = "SANTA_ANA",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Santa Ana",
+                            NormalizedCode = "SANTA_ANA",
+                            NormalizedName = "SANTA ANA",
+                            PublicId = new Guid("3c9a4157-236b-e697-efa5-77f3d866b63a"),
+                            SortOrder = 20
+                        },
+                        new
+                        {
+                            Id = -9557L,
+                            Category = "Department",
+                            Code = "SONSONATE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Sonsonate",
+                            NormalizedCode = "SONSONATE",
+                            NormalizedName = "SONSONATE",
+                            PublicId = new Guid("a75ff0b3-75ef-23c0-9ab8-972d41a1e721"),
+                            SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9558L,
+                            Category = "Department",
+                            Code = "CHALATENANGO",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Chalatenango",
+                            NormalizedCode = "CHALATENANGO",
+                            NormalizedName = "CHALATENANGO",
+                            PublicId = new Guid("96b4270c-8cf1-6d8e-ebbe-188483c6ecbd"),
+                            SortOrder = 40
+                        },
+                        new
+                        {
+                            Id = -9559L,
+                            Category = "Department",
+                            Code = "LA_LIBERTAD",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Libertad",
+                            NormalizedCode = "LA_LIBERTAD",
+                            NormalizedName = "LA LIBERTAD",
+                            PublicId = new Guid("a571ab57-603a-27bb-c1e1-251be5644ff7"),
+                            SortOrder = 50
+                        },
+                        new
+                        {
+                            Id = -9560L,
+                            Category = "Department",
+                            Code = "SAN_SALVADOR",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Salvador",
+                            NormalizedCode = "SAN_SALVADOR",
+                            NormalizedName = "SAN SALVADOR",
+                            PublicId = new Guid("469719a6-f18d-9130-4f8f-d5ff4930d901"),
+                            SortOrder = 60
+                        },
+                        new
+                        {
+                            Id = -9561L,
+                            Category = "Department",
+                            Code = "CUSCATLAN",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Cuscatlan",
+                            NormalizedCode = "CUSCATLAN",
+                            NormalizedName = "CUSCATLAN",
+                            PublicId = new Guid("70a87347-c4d0-4b7a-3ee9-8e8b296c7c15"),
+                            SortOrder = 70
+                        },
+                        new
+                        {
+                            Id = -9562L,
+                            Category = "Department",
+                            Code = "LA_PAZ",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Paz",
+                            NormalizedCode = "LA_PAZ",
+                            NormalizedName = "LA PAZ",
+                            PublicId = new Guid("b30fbd9e-4f6c-558f-6bcd-89ac10eb8f03"),
+                            SortOrder = 80
+                        },
+                        new
+                        {
+                            Id = -9563L,
+                            Category = "Department",
+                            Code = "CABANAS",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Cabanas",
+                            NormalizedCode = "CABANAS",
+                            NormalizedName = "CABANAS",
+                            PublicId = new Guid("6ea44b4e-40d5-af33-0e11-f96be6a26c7d"),
+                            SortOrder = 90
+                        },
+                        new
+                        {
+                            Id = -9564L,
+                            Category = "Department",
+                            Code = "SAN_VICENTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Vicente",
+                            NormalizedCode = "SAN_VICENTE",
+                            NormalizedName = "SAN VICENTE",
+                            PublicId = new Guid("0fc50ec4-63e3-7530-bafb-57faa3b7f6e6"),
+                            SortOrder = 100
+                        },
+                        new
+                        {
+                            Id = -9565L,
+                            Category = "Department",
+                            Code = "USULUTAN",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Usulutan",
+                            NormalizedCode = "USULUTAN",
+                            NormalizedName = "USULUTAN",
+                            PublicId = new Guid("ee60ece2-c729-1491-8eeb-1ce18c25630a"),
+                            SortOrder = 110
+                        },
+                        new
+                        {
+                            Id = -9566L,
+                            Category = "Department",
+                            Code = "SAN_MIGUEL",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Miguel",
+                            NormalizedCode = "SAN_MIGUEL",
+                            NormalizedName = "SAN MIGUEL",
+                            PublicId = new Guid("875f7799-39da-ae3e-4e00-1f14b19d4502"),
+                            SortOrder = 120
+                        },
+                        new
+                        {
+                            Id = -9567L,
+                            Category = "Department",
+                            Code = "MORAZAN",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Morazan",
+                            NormalizedCode = "MORAZAN",
+                            NormalizedName = "MORAZAN",
+                            PublicId = new Guid("26bef224-a0cf-d000-0da6-f9a4dd414dad"),
+                            SortOrder = 130
+                        },
+                        new
+                        {
+                            Id = -9568L,
+                            Category = "Department",
+                            Code = "LA_UNION",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Union",
+                            NormalizedCode = "LA_UNION",
+                            NormalizedName = "LA UNION",
+                            PublicId = new Guid("d7b593da-5576-7607-0a5c-2f6f83647650"),
+                            SortOrder = 140
+                        },
+                        new
+                        {
+                            Id = -9569L,
+                            Category = "Municipality",
+                            Code = "AHUACHAPAN_CENTRO",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Ahuachapan Centro",
+                            NormalizedCode = "AHUACHAPAN_CENTRO",
+                            NormalizedName = "AHUACHAPAN CENTRO",
+                            ParentId = -9555L,
+                            PublicId = new Guid("5098d63f-ff11-7438-ef22-ff4cc73faaad"),
+                            SortOrder = 10
+                        },
+                        new
+                        {
+                            Id = -9570L,
+                            Category = "Municipality",
+                            Code = "AHUACHAPAN_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Ahuachapan Norte",
+                            NormalizedCode = "AHUACHAPAN_NORTE",
+                            NormalizedName = "AHUACHAPAN NORTE",
+                            ParentId = -9555L,
+                            PublicId = new Guid("0c70ff03-4303-7aff-8ad0-b5a6a133cafe"),
+                            SortOrder = 20
+                        },
+                        new
+                        {
+                            Id = -9571L,
+                            Category = "Municipality",
+                            Code = "AHUACHAPAN_SUR",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Ahuachapan Sur",
+                            NormalizedCode = "AHUACHAPAN_SUR",
+                            NormalizedName = "AHUACHAPAN SUR",
+                            ParentId = -9555L,
+                            PublicId = new Guid("7886e88f-35d2-9060-2da9-1f974c98abb0"),
+                            SortOrder = 30
+                        },
+                        new
+                        {
+                            Id = -9572L,
+                            Category = "Municipality",
+                            Code = "SANTA_ANA_CENTRO",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Santa Ana Centro",
+                            NormalizedCode = "SANTA_ANA_CENTRO",
+                            NormalizedName = "SANTA ANA CENTRO",
+                            ParentId = -9556L,
+                            PublicId = new Guid("474ca046-1414-ba2d-287b-8d71b2789950"),
+                            SortOrder = 40
+                        },
+                        new
+                        {
+                            Id = -9573L,
+                            Category = "Municipality",
+                            Code = "SANTA_ANA_ESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Santa Ana Este",
+                            NormalizedCode = "SANTA_ANA_ESTE",
+                            NormalizedName = "SANTA ANA ESTE",
+                            ParentId = -9556L,
+                            PublicId = new Guid("ac6d4692-a2c6-4aa4-5dff-f8666d58cf49"),
+                            SortOrder = 50
+                        },
+                        new
+                        {
+                            Id = -9574L,
+                            Category = "Municipality",
+                            Code = "SANTA_ANA_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Santa Ana Norte",
+                            NormalizedCode = "SANTA_ANA_NORTE",
+                            NormalizedName = "SANTA ANA NORTE",
+                            ParentId = -9556L,
+                            PublicId = new Guid("646012c2-b7fc-e605-99fb-1a6b1f684ca9"),
+                            SortOrder = 60
+                        },
+                        new
+                        {
+                            Id = -9575L,
+                            Category = "Municipality",
+                            Code = "SANTA_ANA_OESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Santa Ana Oeste",
+                            NormalizedCode = "SANTA_ANA_OESTE",
+                            NormalizedName = "SANTA ANA OESTE",
+                            ParentId = -9556L,
+                            PublicId = new Guid("fc7b8586-5f6d-c6c6-09ef-51c105c5df12"),
+                            SortOrder = 70
+                        },
+                        new
+                        {
+                            Id = -9576L,
+                            Category = "Municipality",
+                            Code = "SONSONATE_CENTRO",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Sonsonate Centro",
+                            NormalizedCode = "SONSONATE_CENTRO",
+                            NormalizedName = "SONSONATE CENTRO",
+                            ParentId = -9557L,
+                            PublicId = new Guid("fa3396e0-4cc7-c845-038c-38ab7990496e"),
+                            SortOrder = 80
+                        },
+                        new
+                        {
+                            Id = -9577L,
+                            Category = "Municipality",
+                            Code = "SONSONATE_ESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Sonsonate Este",
+                            NormalizedCode = "SONSONATE_ESTE",
+                            NormalizedName = "SONSONATE ESTE",
+                            ParentId = -9557L,
+                            PublicId = new Guid("10462cda-cb6e-79e0-df9d-90216d15ff3f"),
+                            SortOrder = 90
+                        },
+                        new
+                        {
+                            Id = -9578L,
+                            Category = "Municipality",
+                            Code = "SONSONATE_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Sonsonate Norte",
+                            NormalizedCode = "SONSONATE_NORTE",
+                            NormalizedName = "SONSONATE NORTE",
+                            ParentId = -9557L,
+                            PublicId = new Guid("1f325e3b-5118-bb0d-3283-e7cde310d59a"),
+                            SortOrder = 100
+                        },
+                        new
+                        {
+                            Id = -9579L,
+                            Category = "Municipality",
+                            Code = "SONSONATE_OESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Sonsonate Oeste",
+                            NormalizedCode = "SONSONATE_OESTE",
+                            NormalizedName = "SONSONATE OESTE",
+                            ParentId = -9557L,
+                            PublicId = new Guid("4035134f-f0a2-c914-1de8-494161a86665"),
+                            SortOrder = 110
+                        },
+                        new
+                        {
+                            Id = -9580L,
+                            Category = "Municipality",
+                            Code = "CHALATENANGO_CENTRO",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Chalatenango Centro",
+                            NormalizedCode = "CHALATENANGO_CENTRO",
+                            NormalizedName = "CHALATENANGO CENTRO",
+                            ParentId = -9558L,
+                            PublicId = new Guid("297defd0-137d-2b16-f424-ce1625f75975"),
+                            SortOrder = 120
+                        },
+                        new
+                        {
+                            Id = -9581L,
+                            Category = "Municipality",
+                            Code = "CHALATENANGO_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Chalatenango Norte",
+                            NormalizedCode = "CHALATENANGO_NORTE",
+                            NormalizedName = "CHALATENANGO NORTE",
+                            ParentId = -9558L,
+                            PublicId = new Guid("3dcb46ae-8fe2-66e8-ccde-19036a1afd46"),
+                            SortOrder = 130
+                        },
+                        new
+                        {
+                            Id = -9582L,
+                            Category = "Municipality",
+                            Code = "CHALATENANGO_SUR",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Chalatenango Sur",
+                            NormalizedCode = "CHALATENANGO_SUR",
+                            NormalizedName = "CHALATENANGO SUR",
+                            ParentId = -9558L,
+                            PublicId = new Guid("91295538-d3c6-3645-cfe5-710f958dece9"),
+                            SortOrder = 140
+                        },
+                        new
+                        {
+                            Id = -9583L,
+                            Category = "Municipality",
+                            Code = "LA_LIBERTAD_CENTRO",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Libertad Centro",
+                            NormalizedCode = "LA_LIBERTAD_CENTRO",
+                            NormalizedName = "LA LIBERTAD CENTRO",
+                            ParentId = -9559L,
+                            PublicId = new Guid("0bd5b137-5fd3-2887-9c19-fadeb9d4a8ad"),
+                            SortOrder = 150
+                        },
+                        new
+                        {
+                            Id = -9584L,
+                            Category = "Municipality",
+                            Code = "LA_LIBERTAD_COSTA",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Libertad Costa",
+                            NormalizedCode = "LA_LIBERTAD_COSTA",
+                            NormalizedName = "LA LIBERTAD COSTA",
+                            ParentId = -9559L,
+                            PublicId = new Guid("f88ed89a-7b1b-cc8f-93d8-868786567d3b"),
+                            SortOrder = 160
+                        },
+                        new
+                        {
+                            Id = -9585L,
+                            Category = "Municipality",
+                            Code = "LA_LIBERTAD_ESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Libertad Este",
+                            NormalizedCode = "LA_LIBERTAD_ESTE",
+                            NormalizedName = "LA LIBERTAD ESTE",
+                            ParentId = -9559L,
+                            PublicId = new Guid("86109d7a-d637-8e6f-5586-69a1f29ac3b1"),
+                            SortOrder = 170
+                        },
+                        new
+                        {
+                            Id = -9586L,
+                            Category = "Municipality",
+                            Code = "LA_LIBERTAD_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Libertad Norte",
+                            NormalizedCode = "LA_LIBERTAD_NORTE",
+                            NormalizedName = "LA LIBERTAD NORTE",
+                            ParentId = -9559L,
+                            PublicId = new Guid("47b9b87e-43cc-fe85-a9ab-a89c91b04492"),
+                            SortOrder = 180
+                        },
+                        new
+                        {
+                            Id = -9587L,
+                            Category = "Municipality",
+                            Code = "LA_LIBERTAD_SUR",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Libertad Sur",
+                            NormalizedCode = "LA_LIBERTAD_SUR",
+                            NormalizedName = "LA LIBERTAD SUR",
+                            ParentId = -9559L,
+                            PublicId = new Guid("377187d3-439a-26e6-8f6a-9f780a92d9a8"),
+                            SortOrder = 190
+                        },
+                        new
+                        {
+                            Id = -9588L,
+                            Category = "Municipality",
+                            Code = "LA_LIBERTAD_OESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Libertad Oeste",
+                            NormalizedCode = "LA_LIBERTAD_OESTE",
+                            NormalizedName = "LA LIBERTAD OESTE",
+                            ParentId = -9559L,
+                            PublicId = new Guid("21596f6b-c061-9b3e-7022-a6af0072a2f6"),
+                            SortOrder = 200
+                        },
+                        new
+                        {
+                            Id = -9589L,
+                            Category = "Municipality",
+                            Code = "SAN_SALVADOR_CENTRO",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Salvador Centro",
+                            NormalizedCode = "SAN_SALVADOR_CENTRO",
+                            NormalizedName = "SAN SALVADOR CENTRO",
+                            ParentId = -9560L,
+                            PublicId = new Guid("22ff05df-546a-3b6e-9bc5-3cc187c58bcf"),
+                            SortOrder = 210
+                        },
+                        new
+                        {
+                            Id = -9590L,
+                            Category = "Municipality",
+                            Code = "SAN_SALVADOR_ESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Salvador Este",
+                            NormalizedCode = "SAN_SALVADOR_ESTE",
+                            NormalizedName = "SAN SALVADOR ESTE",
+                            ParentId = -9560L,
+                            PublicId = new Guid("fc5949f4-fd33-84b5-632e-9071f11516f5"),
+                            SortOrder = 220
+                        },
+                        new
+                        {
+                            Id = -9591L,
+                            Category = "Municipality",
+                            Code = "SAN_SALVADOR_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Salvador Norte",
+                            NormalizedCode = "SAN_SALVADOR_NORTE",
+                            NormalizedName = "SAN SALVADOR NORTE",
+                            ParentId = -9560L,
+                            PublicId = new Guid("d9077bc3-2bd8-2a6d-9bb2-d51ae4389073"),
+                            SortOrder = 230
+                        },
+                        new
+                        {
+                            Id = -9592L,
+                            Category = "Municipality",
+                            Code = "SAN_SALVADOR_OESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Salvador Oeste",
+                            NormalizedCode = "SAN_SALVADOR_OESTE",
+                            NormalizedName = "SAN SALVADOR OESTE",
+                            ParentId = -9560L,
+                            PublicId = new Guid("aa9585e6-00cb-d4d7-2179-42ea67731f68"),
+                            SortOrder = 240
+                        },
+                        new
+                        {
+                            Id = -9593L,
+                            Category = "Municipality",
+                            Code = "SAN_SALVADOR_SUR",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Salvador Sur",
+                            NormalizedCode = "SAN_SALVADOR_SUR",
+                            NormalizedName = "SAN SALVADOR SUR",
+                            ParentId = -9560L,
+                            PublicId = new Guid("4f6ea9f2-b97e-d956-37f9-db1d196bb2bc"),
+                            SortOrder = 250
+                        },
+                        new
+                        {
+                            Id = -9594L,
+                            Category = "Municipality",
+                            Code = "CUSCATLAN_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Cuscatlan Norte",
+                            NormalizedCode = "CUSCATLAN_NORTE",
+                            NormalizedName = "CUSCATLAN NORTE",
+                            ParentId = -9561L,
+                            PublicId = new Guid("935a0a70-2f52-2e82-fa7b-1352b1329cee"),
+                            SortOrder = 260
+                        },
+                        new
+                        {
+                            Id = -9595L,
+                            Category = "Municipality",
+                            Code = "CUSCATLAN_SUR",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Cuscatlan Sur",
+                            NormalizedCode = "CUSCATLAN_SUR",
+                            NormalizedName = "CUSCATLAN SUR",
+                            ParentId = -9561L,
+                            PublicId = new Guid("12172ffa-fbab-ec24-dab5-db7ea5017724"),
+                            SortOrder = 270
+                        },
+                        new
+                        {
+                            Id = -9596L,
+                            Category = "Municipality",
+                            Code = "LA_PAZ_CENTRO",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Paz Centro",
+                            NormalizedCode = "LA_PAZ_CENTRO",
+                            NormalizedName = "LA PAZ CENTRO",
+                            ParentId = -9562L,
+                            PublicId = new Guid("55968795-3f06-e37f-c742-ca4cbd0c3161"),
+                            SortOrder = 280
+                        },
+                        new
+                        {
+                            Id = -9597L,
+                            Category = "Municipality",
+                            Code = "LA_PAZ_ESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Paz Este",
+                            NormalizedCode = "LA_PAZ_ESTE",
+                            NormalizedName = "LA PAZ ESTE",
+                            ParentId = -9562L,
+                            PublicId = new Guid("254fa9e4-050e-20af-35da-46123574b3a4"),
+                            SortOrder = 290
+                        },
+                        new
+                        {
+                            Id = -9598L,
+                            Category = "Municipality",
+                            Code = "LA_PAZ_OESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Paz Oeste",
+                            NormalizedCode = "LA_PAZ_OESTE",
+                            NormalizedName = "LA PAZ OESTE",
+                            ParentId = -9562L,
+                            PublicId = new Guid("5ea16ce2-3e7b-185c-d051-00252130b70d"),
+                            SortOrder = 300
+                        },
+                        new
+                        {
+                            Id = -9599L,
+                            Category = "Municipality",
+                            Code = "CABANAS_ESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Cabanas Este",
+                            NormalizedCode = "CABANAS_ESTE",
+                            NormalizedName = "CABANAS ESTE",
+                            ParentId = -9563L,
+                            PublicId = new Guid("34928e6b-b58b-7668-2ae0-75c497d36135"),
+                            SortOrder = 310
+                        },
+                        new
+                        {
+                            Id = -9600L,
+                            Category = "Municipality",
+                            Code = "CABANAS_OESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Cabanas Oeste",
+                            NormalizedCode = "CABANAS_OESTE",
+                            NormalizedName = "CABANAS OESTE",
+                            ParentId = -9563L,
+                            PublicId = new Guid("64c10baa-c354-fdef-2531-87350b4c20e6"),
+                            SortOrder = 320
+                        },
+                        new
+                        {
+                            Id = -9601L,
+                            Category = "Municipality",
+                            Code = "SAN_VICENTE_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Vicente Norte",
+                            NormalizedCode = "SAN_VICENTE_NORTE",
+                            NormalizedName = "SAN VICENTE NORTE",
+                            ParentId = -9564L,
+                            PublicId = new Guid("f0bc6e25-e812-c633-0655-e940a10379d7"),
+                            SortOrder = 330
+                        },
+                        new
+                        {
+                            Id = -9602L,
+                            Category = "Municipality",
+                            Code = "SAN_VICENTE_SUR",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Vicente Sur",
+                            NormalizedCode = "SAN_VICENTE_SUR",
+                            NormalizedName = "SAN VICENTE SUR",
+                            ParentId = -9564L,
+                            PublicId = new Guid("82433873-97a1-63e4-a561-c8ec0fbfd8be"),
+                            SortOrder = 340
+                        },
+                        new
+                        {
+                            Id = -9603L,
+                            Category = "Municipality",
+                            Code = "USULUTAN_ESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Usulutan Este",
+                            NormalizedCode = "USULUTAN_ESTE",
+                            NormalizedName = "USULUTAN ESTE",
+                            ParentId = -9565L,
+                            PublicId = new Guid("f37dd9f1-132c-309e-b867-879ccddddfe5"),
+                            SortOrder = 350
+                        },
+                        new
+                        {
+                            Id = -9604L,
+                            Category = "Municipality",
+                            Code = "USULUTAN_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Usulutan Norte",
+                            NormalizedCode = "USULUTAN_NORTE",
+                            NormalizedName = "USULUTAN NORTE",
+                            ParentId = -9565L,
+                            PublicId = new Guid("2b9fae9b-b0b9-c0d3-4c72-092c21fbb0e8"),
+                            SortOrder = 360
+                        },
+                        new
+                        {
+                            Id = -9605L,
+                            Category = "Municipality",
+                            Code = "USULUTAN_OESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Usulutan Oeste",
+                            NormalizedCode = "USULUTAN_OESTE",
+                            NormalizedName = "USULUTAN OESTE",
+                            ParentId = -9565L,
+                            PublicId = new Guid("af6e6ba9-6412-8641-1f5f-6c41f58af49d"),
+                            SortOrder = 370
+                        },
+                        new
+                        {
+                            Id = -9606L,
+                            Category = "Municipality",
+                            Code = "SAN_MIGUEL_CENTRO",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Miguel Centro",
+                            NormalizedCode = "SAN_MIGUEL_CENTRO",
+                            NormalizedName = "SAN MIGUEL CENTRO",
+                            ParentId = -9566L,
+                            PublicId = new Guid("65572591-c834-c010-e652-5b141933677d"),
+                            SortOrder = 380
+                        },
+                        new
+                        {
+                            Id = -9607L,
+                            Category = "Municipality",
+                            Code = "SAN_MIGUEL_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Miguel Norte",
+                            NormalizedCode = "SAN_MIGUEL_NORTE",
+                            NormalizedName = "SAN MIGUEL NORTE",
+                            ParentId = -9566L,
+                            PublicId = new Guid("6d53dc05-15c4-e632-1d83-da15d12782b6"),
+                            SortOrder = 390
+                        },
+                        new
+                        {
+                            Id = -9608L,
+                            Category = "Municipality",
+                            Code = "SAN_MIGUEL_OESTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "San Miguel Oeste",
+                            NormalizedCode = "SAN_MIGUEL_OESTE",
+                            NormalizedName = "SAN MIGUEL OESTE",
+                            ParentId = -9566L,
+                            PublicId = new Guid("56c60522-63e7-1481-bdbe-81cc44416f7d"),
+                            SortOrder = 400
+                        },
+                        new
+                        {
+                            Id = -9609L,
+                            Category = "Municipality",
+                            Code = "MORAZAN_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Morazan Norte",
+                            NormalizedCode = "MORAZAN_NORTE",
+                            NormalizedName = "MORAZAN NORTE",
+                            ParentId = -9567L,
+                            PublicId = new Guid("dd429a5b-7c70-6fd9-ac08-645afc424ac8"),
+                            SortOrder = 410
+                        },
+                        new
+                        {
+                            Id = -9610L,
+                            Category = "Municipality",
+                            Code = "MORAZAN_SUR",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "Morazan Sur",
+                            NormalizedCode = "MORAZAN_SUR",
+                            NormalizedName = "MORAZAN SUR",
+                            ParentId = -9567L,
+                            PublicId = new Guid("f374ea70-a6d9-4153-f6bf-aa8cb3139d85"),
+                            SortOrder = 420
+                        },
+                        new
+                        {
+                            Id = -9611L,
+                            Category = "Municipality",
+                            Code = "LA_UNION_NORTE",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Union Norte",
+                            NormalizedCode = "LA_UNION_NORTE",
+                            NormalizedName = "LA UNION NORTE",
+                            ParentId = -9568L,
+                            PublicId = new Guid("fe0b1dda-ade1-e230-ee89-fcf88ecb508c"),
+                            SortOrder = 430
+                        },
+                        new
+                        {
+                            Id = -9612L,
+                            Category = "Municipality",
+                            Code = "LA_UNION_SUR",
+                            CountryCode = "SV",
+                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "La Union Sur",
+                            NormalizedCode = "LA_UNION_SUR",
+                            NormalizedName = "LA UNION SUR",
+                            ParentId = -9568L,
+                            PublicId = new Guid("afbd8039-2edb-5ff7-26a3-d62fdf9e66dc"),
+                            SortOrder = 440
                         });
                 });
 

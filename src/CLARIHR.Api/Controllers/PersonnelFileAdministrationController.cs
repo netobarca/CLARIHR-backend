@@ -73,6 +73,21 @@ public sealed class PersonnelFileAdministrationController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/companies/{companyId:guid}/personnel-reference-catalogs/kinships")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>> GetKinshipReferenceCatalog(
+        Guid companyId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelReferenceCatalogItemsQuery(companyId, "SV", "Kinship"),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpGet("api/v1/companies/{companyId:guid}/personnel-reference-catalogs/departments")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]

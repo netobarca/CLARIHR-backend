@@ -220,7 +220,7 @@ public sealed class PersonnelFileProfileController(
                 request.Items.Select(item => new FamilyMemberInput(
                     item.FirstName,
                     item.LastName,
-                    item.Relationship,
+                    item.KinshipCode,
                     item.Nationality,
                     item.BirthDate,
                     item.Sex,
