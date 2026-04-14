@@ -51,7 +51,7 @@ public sealed class PersonnelFilesController(
                 request.OrgUnitPublicId,
                 request.AssignedPositionSlotPublicId,
                 request.CustomDataJson,
-                request.Identifications.Select(item => new IdentificationInput(
+                request.Items.Select(item => new IdentificationInput(
                     item.IdentificationTypeCode,
                     item.IdentificationNumber,
                     item.IssuedDate,

@@ -24,7 +24,7 @@ public sealed record CreatePersonnelFileRequest(
     Guid? OrgUnitPublicId,
     Guid? AssignedPositionSlotPublicId,
     string? CustomDataJson,
-    IReadOnlyCollection<IdentificationItemRequest> Identifications);
+    IReadOnlyCollection<IdentificationItemRequest> Items);
 
 public sealed record UpdatePersonnelFilePersonalInfoRequest(
     PersonnelFileRecordType RecordType,
@@ -277,7 +277,7 @@ public sealed record IdentificationItemRequest(
     bool IsPrimary = false);
 
 public sealed record ReplaceIdentificationsRequest(
-    IReadOnlyCollection<IdentificationItemRequest> Identifications,
+    IReadOnlyCollection<IdentificationItemRequest> Items,
     Guid ConcurrencyToken);
 
 public sealed record AddressItemRequest(
@@ -288,7 +288,9 @@ public sealed record AddressItemRequest(
     string? PostalCode,
     bool IsCurrent = false);
 
-public sealed record ReplaceAddressesRequest(IReadOnlyCollection<AddressItemRequest> Addresses, Guid ConcurrencyToken);
+public sealed record ReplaceAddressesRequest(
+    IReadOnlyCollection<AddressItemRequest> Items,
+    Guid ConcurrencyToken);
 
 public sealed record EmergencyContactItemRequest(
     string Name,
@@ -297,7 +299,9 @@ public sealed record EmergencyContactItemRequest(
     string? Address,
     string? Workplace);
 
-public sealed record ReplaceEmergencyContactsRequest(IReadOnlyCollection<EmergencyContactItemRequest> Contacts, Guid ConcurrencyToken);
+public sealed record ReplaceEmergencyContactsRequest(
+    IReadOnlyCollection<EmergencyContactItemRequest> Items,
+    Guid ConcurrencyToken);
 
 public sealed record FamilyMemberItemRequest(
     string FirstName,
@@ -323,15 +327,21 @@ public sealed record FamilyMemberItemRequest(
     bool IsDeceased,
     DateTime? DeceasedDate);
 
-public sealed record ReplaceFamilyMembersRequest(IReadOnlyCollection<FamilyMemberItemRequest> FamilyMembers, Guid ConcurrencyToken);
+public sealed record ReplaceFamilyMembersRequest(
+    IReadOnlyCollection<FamilyMemberItemRequest> Items,
+    Guid ConcurrencyToken);
 
 public sealed record HobbyItemRequest(string HobbyName);
 
-public sealed record ReplaceHobbiesRequest(IReadOnlyCollection<HobbyItemRequest> Hobbies, Guid ConcurrencyToken);
+public sealed record ReplaceHobbiesRequest(
+    IReadOnlyCollection<HobbyItemRequest> Items,
+    Guid ConcurrencyToken);
 
 public sealed record EmployeeRelationItemRequest(string RelatedEmployeeName, string Relationship);
 
-public sealed record ReplaceEmployeeRelationsRequest(IReadOnlyCollection<EmployeeRelationItemRequest> Relations, Guid ConcurrencyToken);
+public sealed record ReplaceEmployeeRelationsRequest(
+    IReadOnlyCollection<EmployeeRelationItemRequest> Items,
+    Guid ConcurrencyToken);
 
 public sealed record BankAccountItemRequest(
     string BankCode,
@@ -340,7 +350,9 @@ public sealed record BankAccountItemRequest(
     string AccountTypeCode,
     bool IsPrimary = false);
 
-public sealed record ReplaceBankAccountsRequest(IReadOnlyCollection<BankAccountItemRequest> BankAccounts, Guid ConcurrencyToken);
+public sealed record ReplaceBankAccountsRequest(
+    IReadOnlyCollection<BankAccountItemRequest> Items,
+    Guid ConcurrencyToken);
 
 public sealed record AssociationItemRequest(
     string AssociationName,
@@ -349,7 +361,9 @@ public sealed record AssociationItemRequest(
     DateTime? LeftDate,
     decimal? Payment);
 
-public sealed record ReplaceAssociationsRequest(IReadOnlyCollection<AssociationItemRequest> Associations, Guid ConcurrencyToken);
+public sealed record ReplaceAssociationsRequest(
+    IReadOnlyCollection<AssociationItemRequest> Items,
+    Guid ConcurrencyToken);
 
 public sealed record EducationItemRequest(
     string StatusCode,
@@ -367,7 +381,9 @@ public sealed record EducationItemRequest(
     int? TotalSubjects,
     int? ApprovedSubjects);
 
-public sealed record ReplaceEducationsRequest(IReadOnlyCollection<EducationItemRequest> Educations, Guid ConcurrencyToken);
+public sealed record ReplaceEducationsRequest(
+    IReadOnlyCollection<EducationItemRequest> Items,
+    Guid ConcurrencyToken);
 
 public sealed record LanguageItemRequest(
     string LanguageCode,
@@ -376,7 +392,9 @@ public sealed record LanguageItemRequest(
     bool Writes,
     bool Reads);
 
-public sealed record ReplaceLanguagesRequest(IReadOnlyCollection<LanguageItemRequest> Languages, Guid ConcurrencyToken);
+public sealed record ReplaceLanguagesRequest(
+    IReadOnlyCollection<LanguageItemRequest> Items,
+    Guid ConcurrencyToken);
 
 public sealed record TrainingItemRequest(
     string TrainingName,
@@ -396,7 +414,9 @@ public sealed record TrainingItemRequest(
     decimal? CostAmount,
     string? CostCurrencyCode);
 
-public sealed record ReplaceTrainingsRequest(IReadOnlyCollection<TrainingItemRequest> Trainings, Guid ConcurrencyToken);
+public sealed record ReplaceTrainingsRequest(
+    IReadOnlyCollection<TrainingItemRequest> Items,
+    Guid ConcurrencyToken);
 
 public sealed record PreviousEmploymentItemRequest(
     string Institution,
@@ -413,7 +433,7 @@ public sealed record PreviousEmploymentItemRequest(
     string CurrencyCode);
 
 public sealed record ReplacePreviousEmploymentsRequest(
-    IReadOnlyCollection<PreviousEmploymentItemRequest> PreviousEmployments,
+    IReadOnlyCollection<PreviousEmploymentItemRequest> Items,
     Guid ConcurrencyToken);
 
 public sealed record ReferenceItemRequest(
@@ -426,7 +446,9 @@ public sealed record ReferenceItemRequest(
     string? WorkPhone,
     decimal KnownTimeYears);
 
-public sealed record ReplaceReferencesRequest(IReadOnlyCollection<ReferenceItemRequest> References, Guid ConcurrencyToken);
+public sealed record ReplaceReferencesRequest(
+    IReadOnlyCollection<ReferenceItemRequest> Items,
+    Guid ConcurrencyToken);
 
 public sealed record DynamicPersonnelFileFilterRequest(
     string Field,
