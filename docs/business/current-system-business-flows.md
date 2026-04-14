@@ -226,7 +226,7 @@ Para poblar selects del bloque personal e identificaciones, RRHH usa endpoints r
 
 1. Solo un expediente `Employee` en estado `Draft` puede finalizarse dentro de `personnel files`.
 2. La finalizacion exige correo institucional y plaza asignada; si el operador decide crear cuenta en ese momento, la plaza ademas debe tener un rol valido configurado desde el catalogo IAM del tenant.
-3. Antes de confirmar la transicion, RRHH puede consultar `GET /api/v1/personnel-files/{id}/finalize/preview` para validar readiness y recibir issues bloqueantes por campo.
+3. Antes de confirmar la transicion, RRHH puede consultar `GET /api/v1/personnel-files/{id}/finalize/preview` para validar readiness y recibir issues bloqueantes por campo, incluyendo `section`, `fieldKey` y `navigationKey` para que frontend redirija al formulario correspondiente.
 4. La transicion formal se ejecuta por un comando o endpoint explicito de finalizacion, que cambia el expediente a `Completed`.
 5. Durante esa finalizacion el operador puede decidir si se crea cuenta: si se activa la opcion, el backend crea o reutiliza automaticamente el usuario de compania, le asigna el rol de la plaza, genera contrasena temporal y emite la invitacion para activacion; si no se activa, se completa el expediente sin aprovisionar usuario.
 6. El expediente puede quedar vinculado opcionalmente a un usuario; tambien siguen existiendo usuarios creados de forma individual sin expediente asociado.
