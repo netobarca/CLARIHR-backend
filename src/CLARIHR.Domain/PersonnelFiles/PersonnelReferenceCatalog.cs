@@ -112,6 +112,24 @@ public static class PersonnelReferenceCatalog
             sortOrder += 10;
         }
 
+        AddSimpleCategory(
+            items,
+            ref nextId,
+            countryCode,
+            PersonnelReferenceCatalogCategories.Kinship,
+            [
+                ("CONYUGE", "Conyuge"),
+                ("PAREJA", "Pareja"),
+                ("PADRE", "Padre"),
+                ("MADRE", "Madre"),
+                ("HIJO_A", "Hijo/a"),
+                ("HERMANO_A", "Hermano/a"),
+                ("ABUELO_A", "Abuelo/a"),
+                ("NIETO_A", "Nieto/a"),
+                ("TIO_A", "Tio/a"),
+                ("OTRO", "Otro")
+            ]);
+
         return items;
     }
 
@@ -152,6 +170,7 @@ public static class PersonnelReferenceCatalogCategories
     public const string Profession = "Profession";
     public const string MaritalStatus = "MaritalStatus";
     public const string IdentificationType = "IdentificationType";
+    public const string Kinship = "Kinship";
     public const string Department = "Department";
     public const string Municipality = "Municipality";
 }

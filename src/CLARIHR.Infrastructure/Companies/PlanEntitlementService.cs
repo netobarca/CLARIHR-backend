@@ -22,6 +22,7 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
             .ToArray();
 
         var commercialPlan = await dbContext.CommercialPlans
+            .AsSplitQuery()
             .Include(plan => plan.Entitlements)
             .Include(plan => plan.Limits)
             .Include(plan => plan.Versions)
@@ -98,6 +99,7 @@ internal sealed class PlanEntitlementService(ApplicationDbContext dbContext) : I
             .ToArray();
 
         var commercialPlan = await dbContext.CommercialPlans
+            .AsSplitQuery()
             .Include(plan => plan.Entitlements)
             .Include(plan => plan.Limits)
             .Include(plan => plan.Versions)

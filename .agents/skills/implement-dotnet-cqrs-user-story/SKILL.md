@@ -115,6 +115,8 @@ Alinea la solución al foundation document y al diseño correcto del sistema, mi
 - No dar por cerrada una HU con cambios de modelo y sin migración EF correspondiente.
 - No silenciar `PendingModelChangesWarning` para “hacer que arranque”; la salida correcta es alinear modelo, snapshot y migración.
 - Ejecutar `dotnet ef` con una versión compatible con los paquetes EF Core del repositorio. Si el CLI disponible no coincide, instalar temporalmente la versión correcta antes de generar la migración.
+- Nunca asumir que una migración manualmente editada sigue alineada con el modelo: si editas `*.cs` de la migración, debes volver a validar `ApplicationDbContextModelSnapshot` y el `*.Designer.cs`.
+- Evitar `--no-build` cuando acabas de modificar modelo o seeds; primero compilar y luego validar para no generar migraciones con artefactos compilados viejos.
 
 ---
 
@@ -208,6 +210,11 @@ Si hubo cambios de modelo persistido:
 - verificar que el snapshot quede alineado,
 - confirmar con `dotnet ef migrations has-pending-model-changes` que no quedan cambios pendientes,
 - aplicar la migración en el entorno local usado para validar (`dotnet ef database update` o el flujo de arranque que ejecute `MigrateAsync()`).
+
+Checklist anti-desalineación (obligatorio cuando hubo seed data o edición manual):
+- validar que IDs/`PublicId` de seeds en migración, snapshot y modelo sean consistentes entre sí,
+- si `has-pending-model-changes` falla, generar una migración temporal de diagnóstico para identificar el delta real, corregir la migración/snapshot principal y eliminar la migración temporal antes de cerrar,
+- no cerrar la HU si el API no arranca por `PendingModelChangesWarning`.
 
 ## Paso 9. Agregar pruebas
 Agregar o actualizar pruebas unitarias relevantes.
@@ -484,4 +491,12 @@ Si hubo cambios de modelo EF, agregar como mínimo:
 dotnet ef migrations add <NombreMigration> --project src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --startup-project src/CLARIHR.Api/CLARIHR.Api.csproj
 dotnet ef migrations has-pending-model-changes --project src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --startup-project src/CLARIHR.Api/CLARIHR.Api.csproj --no-build
 dotnet ef database update --project src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --startup-project src/CLARIHR.Api/CLARIHR.Api.csproj
+```
+
+Si hay dudas de alineación, agregar:
+
+```bash
+dotnet build src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj
+dotnet build src/CLARIHR.Api/CLARIHR.Api.csproj
+dotnet ef migrations has-pending-model-changes --project src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --startup-project src/CLARIHR.Api/CLARIHR.Api.csproj --no-build
 ```

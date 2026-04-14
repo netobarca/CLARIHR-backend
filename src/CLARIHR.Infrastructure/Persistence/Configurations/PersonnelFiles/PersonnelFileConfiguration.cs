@@ -300,7 +300,7 @@ internal sealed class PersonnelFileFamilyMemberConfiguration : IEntityTypeConfig
         builder.Property(item => item.FirstName).HasColumnName("first_name").HasMaxLength(100);
         builder.Property(item => item.LastName).HasColumnName("last_name").HasMaxLength(100);
         builder.Property(item => item.FullName).HasColumnName("full_name").HasMaxLength(201);
-        builder.Property(item => item.Relationship).HasColumnName("relationship").HasMaxLength(80);
+        builder.Property(item => item.KinshipCode).HasColumnName("kinship_code").HasMaxLength(80);
         builder.Property(item => item.Nationality).HasColumnName("nationality").HasMaxLength(120);
         builder.Property(item => item.BirthDate).HasColumnName("birth_date");
         builder.Property(item => item.Sex)

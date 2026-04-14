@@ -631,7 +631,7 @@ public sealed class PersonnelFileFamilyMember : TenantEntity
     private PersonnelFileFamilyMember(
         string firstName,
         string lastName,
-        string relationship,
+        string kinshipCode,
         string? nationality,
         DateTime? birthDate,
         PersonnelFamilyMemberSex sex,
@@ -673,7 +673,7 @@ public sealed class PersonnelFileFamilyMember : TenantEntity
         FirstName = PersonnelFileNormalization.Clean(firstName, nameof(firstName));
         LastName = PersonnelFileNormalization.Clean(lastName, nameof(lastName));
         FullName = $"{FirstName} {LastName}";
-        Relationship = PersonnelFileNormalization.Clean(relationship, nameof(relationship));
+        KinshipCode = PersonnelFileNormalization.Clean(kinshipCode, nameof(kinshipCode));
         Nationality = PersonnelFileNormalization.CleanOptional(nationality);
         BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
         Sex = sex;
@@ -705,7 +705,7 @@ public sealed class PersonnelFileFamilyMember : TenantEntity
 
     public string FullName { get; private set; } = string.Empty;
 
-    public string Relationship { get; private set; } = string.Empty;
+    public string KinshipCode { get; private set; } = string.Empty;
 
     public string? Nationality { get; private set; }
 
@@ -748,7 +748,7 @@ public sealed class PersonnelFileFamilyMember : TenantEntity
     public static PersonnelFileFamilyMember Create(
         string firstName,
         string lastName,
-        string relationship,
+        string kinshipCode,
         string? nationality,
         DateTime? birthDate,
         PersonnelFamilyMemberSex sex,
@@ -771,7 +771,7 @@ public sealed class PersonnelFileFamilyMember : TenantEntity
         new(
             firstName,
             lastName,
-            relationship,
+            kinshipCode,
             nationality,
             birthDate,
             sex,

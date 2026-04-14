@@ -77,7 +77,7 @@ public sealed record PersonnelFileFamilyMemberResponse(
     string FirstName,
     string LastName,
     string FullName,
-    string Relationship,
+    string KinshipCode,
     string? Nationality,
     DateTime? BirthDate,
     PersonnelFamilyMemberSex Sex,
@@ -701,7 +701,7 @@ public sealed record EmergencyContactInput(
 public sealed record FamilyMemberInput(
     string FirstName,
     string LastName,
-    string Relationship,
+    string KinshipCode,
     string? Nationality,
     DateTime? BirthDate,
     PersonnelFamilyMemberSex Sex,
@@ -1511,7 +1511,7 @@ internal sealed class FamilyMemberInputValidator : AbstractValidator<FamilyMembe
             .MaximumLength(100)
             .Must(PersonnelFileValidationRules.IsValidName)
             .WithMessage("LastName format is invalid.");
-        RuleFor(input => input.Relationship).NotEmpty().MaximumLength(80);
+        RuleFor(input => input.KinshipCode).NotEmpty().MaximumLength(80);
         RuleFor(input => input.DocumentType).MaximumLength(80);
         RuleFor(input => input.DocumentNumber).MaximumLength(80);
         RuleFor(input => input.Phone).MaximumLength(40);
@@ -1940,6 +1940,19 @@ internal static class PersonnelReferenceCatalogValidation
             LocationValidationRules.ElSalvadorCountryCode,
             PersonnelReferenceCatalogCategories.IdentificationType,
             identificationTypeCode,
+            cancellationToken);
+
+    public static Task<Error> ValidateKinshipCodeAsync(
+        IPersonnelFileRepository repository,
+        string fieldName,
+        string kinshipCode,
+        CancellationToken cancellationToken) =>
+        ValidateOptionalReferenceCodeAsync(
+            repository,
+            fieldName,
+            LocationValidationRules.ElSalvadorCountryCode,
+            PersonnelReferenceCatalogCategories.Kinship,
+            kinshipCode,
             cancellationToken);
 
     private static async Task<Error> ValidateBirthLocationAsync(
@@ -3396,32 +3409,47 @@ internal sealed class ReplacePersonnelFileFamilyMembersCommandHandler(
             return failure;
         }
 
-        var entities = new List<PersonnelFileFamilyMember>();
+        var familyMembers = command.FamilyMembers as IReadOnlyList<FamilyMemberInput> ?? command.FamilyMembers.ToArray();
+        var entities = new List<PersonnelFileFamilyMember>(familyMembers.Count);
         try
         {
-            entities.AddRange(command.FamilyMembers.Select(item => PersonnelFileFamilyMember.Create(
-                item.FirstName,
-                item.LastName,
-                item.Relationship,
-                item.Nationality,
-                item.BirthDate,
-                item.Sex,
-                item.MaritalStatus,
-                item.Occupation,
-                item.DocumentType,
-                item.DocumentNumber,
-                item.Phone,
-                item.IsStudying,
-                item.StudyPlace,
-                item.AcademicLevel,
-                item.IsBeneficiary,
-                item.IsWorking,
-                item.Workplace,
-                item.JobTitle,
-                item.WorkPhone,
-                item.Salary,
-                item.IsDeceased,
-                item.DeceasedDate)));
+            for (var index = 0; index < familyMembers.Count; index++)
+            {
+                var item = familyMembers[index];
+                var kinshipCodeValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
+                    repository,
+                    $"items[{index}].kinshipCode",
+                    item.KinshipCode,
+                    cancellationToken);
+                if (kinshipCodeValidation != Error.None)
+                {
+                    return Result<PersonnelFileResponse>.Failure(kinshipCodeValidation);
+                }
+
+                entities.Add(PersonnelFileFamilyMember.Create(
+                    item.FirstName,
+                    item.LastName,
+                    item.KinshipCode,
+                    item.Nationality,
+                    item.BirthDate,
+                    item.Sex,
+                    item.MaritalStatus,
+                    item.Occupation,
+                    item.DocumentType,
+                    item.DocumentNumber,
+                    item.Phone,
+                    item.IsStudying,
+                    item.StudyPlace,
+                    item.AcademicLevel,
+                    item.IsBeneficiary,
+                    item.IsWorking,
+                    item.Workplace,
+                    item.JobTitle,
+                    item.WorkPhone,
+                    item.Salary,
+                    item.IsDeceased,
+                    item.DeceasedDate));
+            }
         }
         catch (InvalidOperationException)
         {

@@ -293,7 +293,7 @@ public sealed class PersonnelFileDomainTests
         _ = Assert.Throws<ArgumentException>(() => PersonnelFileFamilyMember.Create(
             firstName: "Luis",
             lastName: "Mendoza",
-            relationship: "Brother",
+            kinshipCode: "HERMANO_A",
             nationality: null,
             birthDate: null,
             sex: PersonnelFamilyMemberSex.Male,

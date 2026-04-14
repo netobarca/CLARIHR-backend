@@ -2358,7 +2358,25 @@ internal sealed class ReplacePersonnelFileInsurancesCommandHandler(
             return Result<IReadOnlyCollection<PersonnelFileInsuranceResponse>>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
-        var entities = command.Items.Select(item =>
+        var insuranceInputs = command.Items.ToArray();
+        for (var insuranceIndex = 0; insuranceIndex < insuranceInputs.Length; insuranceIndex++)
+        {
+            var beneficiaries = insuranceInputs[insuranceIndex].Beneficiaries.ToArray();
+            for (var beneficiaryIndex = 0; beneficiaryIndex < beneficiaries.Length; beneficiaryIndex++)
+            {
+                var kinshipCodeValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
+                    personnelFileRepository,
+                    $"items[{insuranceIndex}].beneficiaries[{beneficiaryIndex}].kinshipCode",
+                    beneficiaries[beneficiaryIndex].KinshipCode,
+                    cancellationToken);
+                if (kinshipCodeValidation != Error.None)
+                {
+                    return Result<IReadOnlyCollection<PersonnelFileInsuranceResponse>>.Failure(kinshipCodeValidation);
+                }
+            }
+        }
+
+        var entities = insuranceInputs.Select(item =>
         {
             var insurance = PersonnelFileInsurance.Create(
                 item.InsuranceCode,

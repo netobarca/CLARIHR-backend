@@ -14,6 +14,7 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
     public async Task<IReadOnlyCollection<CommercialPlan>> ListActiveAsync(CancellationToken cancellationToken) =>
         await dbContext.CommercialPlans
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(plan => plan.Entitlements)
             .Include(plan => plan.Limits)
             .Include(plan => plan.Versions)
@@ -24,6 +25,7 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
 
     public Task<CommercialPlan?> GetByInternalIdAsync(long commercialPlanId, CancellationToken cancellationToken) =>
         dbContext.CommercialPlans
+            .AsSplitQuery()
             .Include(plan => plan.Entitlements)
             .Include(plan => plan.Limits)
             .Include(plan => plan.Versions)
@@ -31,6 +33,7 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
 
     public Task<CommercialPlan?> GetByIdAsync(Guid commercialPlanId, CancellationToken cancellationToken) =>
         dbContext.CommercialPlans
+            .AsSplitQuery()
             .Include(plan => plan.Entitlements)
             .Include(plan => plan.Limits)
             .Include(plan => plan.Versions)
@@ -54,6 +57,7 @@ internal sealed class CommercialPlanRepository(ApplicationDbContext dbContext) :
 
     public Task<CommercialPlan?> GetByNormalizedCodeAsync(string normalizedCode, CancellationToken cancellationToken) =>
         dbContext.CommercialPlans
+            .AsSplitQuery()
             .Include(plan => plan.Entitlements)
             .Include(plan => plan.Limits)
             .Include(plan => plan.Versions)

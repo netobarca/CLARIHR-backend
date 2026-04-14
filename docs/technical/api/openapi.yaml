@@ -5122,6 +5122,48 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyId}/personnel-reference-catalogs/kinships:
+    get:
+      tags:
+        - personnel-reference-catalogs
+      operationId: GetPersonnelReferenceKinships
+      summary: List kinship catalog items for personnel files
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Active kinship catalog items for El Salvador.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/companies/{companyId}/personnel-reference-catalogs/departments:
     get:
       tags:
