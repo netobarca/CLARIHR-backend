@@ -1,6 +1,6 @@
 ---
 name: implement-dotnet-cqrs-user-story
-description: Usa esta skill cuando debas implementar una historia de usuario o requerimiento backend en .NET con Clean Architecture, CQRS, multi-tenant, seguridad, performance y unit testing. Úsala para crear o modificar código en Domain, Application, Infrastructure, API y Tests de forma ordenada. No usar para cierres documentales exclusivamente ni para migraciones masivas fuera del alcance de una HU.
+description: Usa esta skill cuando debas implementar una historia de usuario o requerimiento backend en .NET con Clean Architecture, CQRS, multi-tenant, seguridad, performance y unit testing. Úsala para crear o modificar código en Domain, Application, Infrastructure, API y Tests de forma ordenada. No usar para cierres documentales exclusivamente ni para reestructuraciones masivas fuera del alcance de una HU.
 ---
 
 # Implement Dotnet CQRS User Story
@@ -110,13 +110,10 @@ Alinea la solución al foundation document y al diseño correcto del sistema, mi
 - `code` y `normalizedCode` deben quedar normalizados en `UPPERCASE`; no se debe preservar mixed case.
 - Las búsquedas, unicidad e integraciones internas deben resolver por `normalizedCode` y traducir a `Id` interno solo dentro del backend.
 
-## 5.8 Migraciones EF Core
-- Si la tarea cambia entidades persistidas, configuraciones EF, relaciones, índices, `DbSet`, columnas, constraints o cualquier parte del modelo, debes revisar migraciones.
-- No dar por cerrada una HU con cambios de modelo y sin migración EF correspondiente.
-- No silenciar `PendingModelChangesWarning` para “hacer que arranque”; la salida correcta es alinear modelo, snapshot y migración.
-- Ejecutar `dotnet ef` con una versión compatible con los paquetes EF Core del repositorio. Si el CLI disponible no coincide, instalar temporalmente la versión correcta antes de generar la migración.
-- Nunca asumir que una migración manualmente editada sigue alineada con el modelo: si editas `*.cs` de la migración, debes volver a validar `ApplicationDbContextModelSnapshot` y el `*.Designer.cs`.
-- Evitar `--no-build` cuando acabas de modificar modelo o seeds; primero compilar y luego validar para no generar migraciones con artefactos compilados viejos.
+## 5.8 Cambios de schema (gestion manual)
+- Si la tarea cambia entidades persistidas, configuraciones EF, relaciones, índices, `DbSet`, columnas, constraints o cualquier parte del modelo, debes identificar el impacto de schema.
+- La ejecucion de pasos de schema y su procesamiento operativo es manual y la realiza el usuario; no es parte de los pasos automaticos de esta skill.
+- El resultado esperado desde esta skill es dejar claro el handoff tecnico de impacto para que el usuario procese esos pasos manualmente.
 
 ---
 
@@ -201,20 +198,12 @@ Asegurarte de que:
 - los listados sean paginados,
 - no existan consultas obviamente deficientes.
 
-## Paso 8. Resolver migraciones y schema
+## Paso 8. Registrar impacto de schema (sin ejecucion automatica)
 Si hubo cambios de modelo persistido:
 
-- generar la migración en `src/CLARIHR.Infrastructure/Persistence/Migrations`,
-- revisar manualmente el archivo generado antes de darlo por bueno,
-- corregir defaults, backfills, índices, nombres y data migration cuando EF genere algo incompleto o riesgoso,
-- verificar que el snapshot quede alineado,
-- confirmar con `dotnet ef migrations has-pending-model-changes` que no quedan cambios pendientes,
-- aplicar la migración en el entorno local usado para validar (`dotnet ef database update` o el flujo de arranque que ejecute `MigrateAsync()`).
-
-Checklist anti-desalineación (obligatorio cuando hubo seed data o edición manual):
-- validar que IDs/`PublicId` de seeds en migración, snapshot y modelo sean consistentes entre sí,
-- si `has-pending-model-changes` falla, generar una migración temporal de diagnóstico para identificar el delta real, corregir la migración/snapshot principal y eliminar la migración temporal antes de cerrar,
-- no cerrar la HU si el API no arranca por `PendingModelChangesWarning`.
+- identificar claramente qué tablas, columnas, relaciones o datos base quedan impactados,
+- registrar el handoff tecnico para que el usuario procese manualmente los pasos de schema,
+- no ejecutar pasos automaticos de schema desde esta skill.
 
 ## Paso 9. Agregar pruebas
 Agregar o actualizar pruebas unitarias relevantes.
@@ -465,8 +454,7 @@ Antes de considerar la HU implementada, revisar:
 - [ ] Las validaciones están completas
 - [ ] Los errores están bien manejados
 - [ ] Existen pruebas suficientes
-- [ ] Si hubo cambios persistidos, la migración EF quedó generada y revisada
-- [ ] Si hubo cambios persistidos, `has-pending-model-changes` ya no reporta diferencias
+- [ ] Si hubo cambios persistidos, quedó documentado el handoff manual de schema para el usuario
 - [ ] Los flujos públicos resuelven recursos por `PublicId`
 - [ ] Ningún contrato o export público expone `id` o `internalId`
 - [ ] Todo `code`/`normalizedCode` observable está en `UPPERCASE`
@@ -485,18 +473,4 @@ dotnet build
 dotnet test
 ```
 
-Si hubo cambios de modelo EF, agregar como mínimo:
-
-```bash
-dotnet ef migrations add <NombreMigration> --project src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --startup-project src/CLARIHR.Api/CLARIHR.Api.csproj
-dotnet ef migrations has-pending-model-changes --project src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --startup-project src/CLARIHR.Api/CLARIHR.Api.csproj --no-build
-dotnet ef database update --project src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --startup-project src/CLARIHR.Api/CLARIHR.Api.csproj
-```
-
-Si hay dudas de alineación, agregar:
-
-```bash
-dotnet build src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj
-dotnet build src/CLARIHR.Api/CLARIHR.Api.csproj
-dotnet ef migrations has-pending-model-changes --project src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --startup-project src/CLARIHR.Api/CLARIHR.Api.csproj --no-build
-```
+Si hubo impacto de schema, esta skill solo debe dejar el handoff tecnico para procesamiento manual por parte del usuario.

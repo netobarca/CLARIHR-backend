@@ -41,7 +41,7 @@ No usar esta skill para:
 - implementar código fuente de la feature,
 - diseñar toda la arquitectura del proyecto desde cero,
 - crear documentación general no asociada a una HU concreta,
-- hacer migraciones documentales masivas del repositorio completo,
+- hacer reestructuraciones documentales masivas del repositorio completo,
 - generar documentación de usuario final,
 - crear o modificar ADRs si no existe una decisión técnica duradera.
 
