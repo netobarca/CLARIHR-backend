@@ -43,8 +43,14 @@ public sealed class FinalizePersonnelFileTests
 
         Assert.True(result.IsSuccess);
         Assert.False(result.Value.IsEligible);
-        Assert.Contains(result.Value.Issues, issue => issue.Code == PersonnelFileErrors.FinalizeRequiresInstitutionalEmail.Code);
-        Assert.Contains(result.Value.Issues, issue => issue.Code == PersonnelFileErrors.FinalizeRequiresPositionSlotRole.Code);
+        Assert.Contains(
+            result.Value.Issues,
+            issue => issue.Code == PersonnelFileErrors.FinalizeRequiresInstitutionalEmail.Code &&
+                     issue.NavigationKey == FinalizePersonnelFileNavigationKeys.PersonnelFiles);
+        Assert.Contains(
+            result.Value.Issues,
+            issue => issue.Code == PersonnelFileErrors.FinalizeRequiresPositionSlotRole.Code &&
+                     issue.NavigationKey == FinalizePersonnelFileNavigationKeys.PersonalInfo);
     }
 
     [Fact]

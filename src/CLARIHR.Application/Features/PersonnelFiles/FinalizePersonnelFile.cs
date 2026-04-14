@@ -37,6 +37,7 @@ public sealed record FinalizePersonnelFilePreviewIssueResponse(
     string Message,
     string Section,
     string FieldKey,
+    string NavigationKey,
     bool IsBlocking);
 
 public sealed record FinalizePersonnelFilePreviewResponse(
@@ -246,6 +247,7 @@ internal sealed class PreviewFinalizePersonnelFileQueryHandler(
                         issue.Error.Message,
                         issue.Section,
                         issue.FieldKey,
+                        issue.NavigationKey,
                         issue.IsBlocking))
                     .ToArray()));
     }
@@ -264,7 +266,15 @@ internal sealed record FinalizePersonnelFileValidationIssue(
     Error Error,
     string Section,
     string FieldKey,
+    string NavigationKey,
     bool IsBlocking = true);
+
+internal static class FinalizePersonnelFileNavigationKeys
+{
+    public const string PersonnelFiles = "personnel-files";
+    public const string PersonalInfo = "personal-info";
+    public const string EmployeeProfile = "employee-profile";
+}
 
 internal static class FinalizePersonnelFileValidationResolver
 {
@@ -351,5 +361,33 @@ internal static class FinalizePersonnelFileValidationResolver
     }
 
     private static FinalizePersonnelFileValidationIssue CreateIssue(Error error, string section, string fieldKey) =>
-        new(error, section, fieldKey);
+        new(error, section, fieldKey, ResolveNavigationKey(section, fieldKey));
+
+    private static string ResolveNavigationKey(string section, string fieldKey)
+    {
+        var normalizedFieldKey = fieldKey.Trim();
+        if (normalizedFieldKey.Equals("institutionalEmail", StringComparison.OrdinalIgnoreCase))
+        {
+            return FinalizePersonnelFileNavigationKeys.PersonnelFiles;
+        }
+
+        if (normalizedFieldKey.Equals("assignedPositionSlotPublicId", StringComparison.OrdinalIgnoreCase))
+        {
+            return FinalizePersonnelFileNavigationKeys.PersonalInfo;
+        }
+
+        if (normalizedFieldKey.Equals("recordType", StringComparison.OrdinalIgnoreCase) ||
+            normalizedFieldKey.Equals("lifecycleStatus", StringComparison.OrdinalIgnoreCase))
+        {
+            return FinalizePersonnelFileNavigationKeys.PersonnelFiles;
+        }
+
+        var normalizedSection = section.Trim();
+        if (normalizedSection.Equals("personnel-file", StringComparison.OrdinalIgnoreCase))
+        {
+            return FinalizePersonnelFileNavigationKeys.PersonnelFiles;
+        }
+
+        return FinalizePersonnelFileNavigationKeys.EmployeeProfile;
+    }
 }
