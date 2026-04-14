@@ -880,7 +880,7 @@ components:
         - firstName
         - lastName
         - birthDate
-        - identifications
+        - items
       properties:
         recordType:
           $ref: '#/components/schemas/PersonnelFileRecordType'
@@ -944,9 +944,10 @@ components:
         customDataJson:
           type: string
           nullable: true
-        identifications:
+        items:
           type: array
           minItems: 1
+          description: Canonical collection payload for initial identifications.
           items:
             $ref: '#/components/schemas/PersonnelFileIdentificationItemRequest'
     PersonnelFileUpdatePersonalInfoRequest:
@@ -4966,7 +4967,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PersonnelFileContractResponse'
         '400':
-          description: Validation error, such as invalid identifiers, missing identifications or malformed custom data.
+          description: Validation error, such as invalid identifiers, missing items or malformed custom data.
           content:
             application/problem+json:
               schema:

@@ -434,7 +434,7 @@ public sealed class PersonnelFileCompensationController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileBankAccountsCommand(
                 id,
-                request.BankAccounts.Select(item => new BankAccountInput(
+                request.Items.Select(item => new BankAccountInput(
                     item.BankCode,
                     item.CurrencyCode,
                     item.AccountNumber,

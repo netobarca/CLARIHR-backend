@@ -2915,6 +2915,7 @@ Observaciones funcionales:
 - `RecordType` hoy expone `Candidate` y `Employee`.
 - `LifecycleStatus` hoy expone `Draft` y `Completed`.
 - `create` exige al menos una identificacion inicial.
+- En `create`, la coleccion principal usa `items` como nombre canonico del payload.
 - `create` valida formato de nombres, emails y telefonos, valida custom fields activos, valida codigos activos de catalogo y evita duplicidad tenant-wide de identificaciones.
 - `create` y `personal-info` reciben codigos de catalogo en `maritalStatusCode`, `professionCode`, `birthCountryCode`, `birthDepartmentCode`, `birthMunicipalityCode` e `identificationTypeCode`; ya no aceptan texto libre para esos campos.
 - `create` y `personal-info` exigen consistencia geografica por jerarquia: `birthDepartmentCode` requiere `birthCountryCode`; `birthMunicipalityCode` requiere `birthDepartmentCode`; en esta fase `Department/Municipality` solo aplica para `birthCountryCode=SV`.
@@ -2969,6 +2970,7 @@ Observaciones funcionales:
 - Los endpoints `GET` de `Profile` devuelven el bloque solicitado sin exigir `ConcurrencyToken`; `personal-info` responde con el bloque escalar del expediente y las demas rutas responden la coleccion completa del subrecurso.
 - Todos los endpoints `PUT` de `Profile` usan el `ConcurrencyToken` del expediente y devuelven el `PersonnelFileResponse` completo.
 - Todos los `PUT` de colecciones son de reemplazo total de la subseccion.
+- En `Profile`, los `PUT` de colecciones usan `items` como propiedad principal del payload.
 - `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite transiciones de `RecordType`.
 - `personal-info` tambien actualiza `AssignedPositionSlotId` mientras el expediente sigue en `Draft`; al completar el expediente, `AssignedPositionSlotId` e `InstitutionalEmail` quedan bloqueados.
 - si `RecordType = Employee`, `AssignedPositionSlotId` sigue siendo obligatorio; si `RecordType = Candidate`, no puede enviarse.
@@ -3058,6 +3060,7 @@ Observaciones funcionales:
 - Todo el bloque exige que el expediente sea `Employee`.
 - Los endpoints `GET` del bloque devuelven la coleccion completa del subrecurso y no exigen `ConcurrencyToken`.
 - Todos los `PUT` son de reemplazo total de la subseccion.
+- `bank-accounts` usa `items` como propiedad canonica del payload.
 - `salary-items` mantiene rubros salariales con vigencias, tipo de ingreso, rubrica, moneda y periodo de pago.
 - `additional-benefits` mantiene beneficios adicionales activos o historicos.
 - `payment-methods` usa vigencias `EffectiveFromUtc/EffectiveToUtc` y puede apuntar a un `BankAccountId`.

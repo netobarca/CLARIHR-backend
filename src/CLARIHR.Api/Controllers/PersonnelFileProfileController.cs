@@ -94,7 +94,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileIdentificationsCommand(
                 id,
-                request.Identifications.Select(item => new IdentificationInput(
+                request.Items.Select(item => new IdentificationInput(
                     item.IdentificationTypeCode,
                     item.IdentificationNumber,
                     item.IssuedDate,
@@ -135,7 +135,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileAddressesCommand(
                 id,
-                request.Addresses.Select(item => new AddressInput(
+                request.Items.Select(item => new AddressInput(
                     item.AddressLine,
                     item.Country,
                     item.Department,
@@ -176,7 +176,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileEmergencyContactsCommand(
                 id,
-                request.Contacts.Select(item => new EmergencyContactInput(
+                request.Items.Select(item => new EmergencyContactInput(
                     item.Name,
                     item.Relationship,
                     item.Phone,
@@ -217,7 +217,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileFamilyMembersCommand(
                 id,
-                request.FamilyMembers.Select(item => new FamilyMemberInput(
+                request.Items.Select(item => new FamilyMemberInput(
                     item.FirstName,
                     item.LastName,
                     item.Relationship,
@@ -274,7 +274,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileHobbiesCommand(
                 id,
-                request.Hobbies.Select(item => new HobbyInput(item.HobbyName)).ToArray(),
+                request.Items.Select(item => new HobbyInput(item.HobbyName)).ToArray(),
                 request.ConcurrencyToken),
             cancellationToken);
 
@@ -309,7 +309,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileEmployeeRelationsCommand(
                 id,
-                request.Relations.Select(item => new EmployeeRelationInput(item.RelatedEmployeeName, item.Relationship)).ToArray(),
+                request.Items.Select(item => new EmployeeRelationInput(item.RelatedEmployeeName, item.Relationship)).ToArray(),
                 request.ConcurrencyToken),
             cancellationToken);
 
@@ -344,7 +344,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileAssociationsCommand(
                 id,
-                request.Associations.Select(item => new AssociationInput(
+                request.Items.Select(item => new AssociationInput(
                     item.AssociationName,
                     item.Role,
                     item.JoinedDate,
@@ -385,7 +385,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileEducationsCommand(
                 id,
-                request.Educations.Select(item => new EducationInput(
+                request.Items.Select(item => new EducationInput(
                     item.StatusCode,
                     item.DegreeTitle,
                     item.StudyTypeCode,
@@ -435,7 +435,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileLanguagesCommand(
                 id,
-                request.Languages.Select(item => new LanguageInput(
+                request.Items.Select(item => new LanguageInput(
                     item.LanguageCode,
                     item.LevelCode,
                     item.Speaks,
@@ -476,7 +476,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileTrainingsCommand(
                 id,
-                request.Trainings.Select(item => new TrainingInput(
+                request.Items.Select(item => new TrainingInput(
                     item.TrainingName,
                     item.TrainingTypeCode,
                     item.Description,
@@ -528,7 +528,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFilePreviousEmploymentsCommand(
                 id,
-                request.PreviousEmployments.Select(item => new PreviousEmploymentInput(
+                request.Items.Select(item => new PreviousEmploymentInput(
                     item.Institution,
                     item.Place,
                     item.LastPosition,
@@ -576,7 +576,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileReferencesCommand(
                 id,
-                request.References.Select(item => new ReferenceInput(
+                request.Items.Select(item => new ReferenceInput(
                     item.PersonName,
                     item.Address,
                     item.Phone,
