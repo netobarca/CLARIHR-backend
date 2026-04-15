@@ -59,6 +59,8 @@ internal static class IntegrationTestSeeder
         SeedDefaultLocations(dbContext, tenantB);
         SeedPersonnelCatalogItems(dbContext, tenantA);
         SeedPersonnelCatalogItems(dbContext, tenantB);
+        SeedPersonnelEducationCatalogItems(dbContext, tenantA);
+        SeedPersonnelEducationCatalogItems(dbContext, tenantB);
         await dbContext.SaveChangesAsync();
 
         var actorRole = IamRole.Create("Security Operator", "Can read and update company users plus audit logs.");
@@ -421,11 +423,6 @@ internal static class IntegrationTestSeeder
     {
         var catalogItems = new (string Category, string Code, string Name, int SortOrder)[]
         {
-            ("CurriculumEducationStatus", "GRADUATED", "Graduated", 10),
-            ("CurriculumEducationStatus", "IN_PROGRESS", "In progress", 20),
-            ("CurriculumStudyType", "BACHELOR", "Bachelor", 10),
-            ("CurriculumShift", "MORNING", "Morning", 10),
-            ("CurriculumModality", "ONSITE", "Onsite", 10),
             ("CurriculumLanguage", "ENGLISH", "English", 10),
             ("CurriculumLanguageLevel", "ADVANCED", "Advanced", 10),
             ("CurriculumTrainingType", "COURSE", "Course", 10),
@@ -446,6 +443,76 @@ internal static class IntegrationTestSeeder
                 item.SortOrder);
             catalogItem.SetTenantId(tenantId);
             dbContext.PersonnelCatalogItems.Add(catalogItem);
+        }
+    }
+
+    private static void SeedPersonnelEducationCatalogItems(ApplicationDbContext dbContext, Guid tenantId)
+    {
+        var statuses = new (string Code, string Name, int SortOrder)[]
+        {
+            ("GRADUATED", "Graduated", 10),
+            ("IN_PROGRESS", "In progress", 20)
+        };
+
+        var studyTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("BACHELOR", "Bachelor", 10),
+            ("MASTER", "Master", 20),
+            ("TECHNICAL", "Technical", 30)
+        };
+
+        var shifts = new (string Code, string Name, int SortOrder)[]
+        {
+            ("MORNING", "Morning", 10),
+            ("AFTERNOON", "Afternoon", 20)
+        };
+
+        var modalities = new (string Code, string Name, int SortOrder)[]
+        {
+            ("ONSITE", "Onsite", 10),
+            ("REMOTE", "Remote", 20)
+        };
+
+        var careers = new (string Code, string Name, int SortOrder)[]
+        {
+            ("SOFTWARE_ENGINEERING", "Ingenieria de Software", 10),
+            ("BUSINESS_ADMINISTRATION", "Administracion de Empresas", 20),
+            ("PSYCHOLOGY", "Psicologia", 30)
+        };
+
+        foreach (var item in statuses)
+        {
+            var entity = EducationStatusCatalogItem.Create(item.Code, item.Name, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.EducationStatusCatalogItems.Add(entity);
+        }
+
+        foreach (var item in studyTypes)
+        {
+            var entity = EducationStudyTypeCatalogItem.Create(item.Code, item.Name, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.EducationStudyTypeCatalogItems.Add(entity);
+        }
+
+        foreach (var item in shifts)
+        {
+            var entity = EducationShiftCatalogItem.Create(item.Code, item.Name, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.EducationShiftCatalogItems.Add(entity);
+        }
+
+        foreach (var item in modalities)
+        {
+            var entity = EducationModalityCatalogItem.Create(item.Code, item.Name, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.EducationModalityCatalogItems.Add(entity);
+        }
+
+        foreach (var item in careers)
+        {
+            var entity = EducationCareerCatalogItem.Create(item.Code, item.Name, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.EducationCareerCatalogItems.Add(entity);
         }
     }
 }

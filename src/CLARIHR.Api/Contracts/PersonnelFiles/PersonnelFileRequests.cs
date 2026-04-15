@@ -366,18 +366,18 @@ public sealed record ReplaceAssociationsRequest(
     Guid ConcurrencyToken);
 
 public sealed record EducationItemRequest(
-    string StatusCode,
+    Guid StatusPublicId,
     string? DegreeTitle,
-    string StudyTypeCode,
-    string Career,
+    Guid StudyTypePublicId,
+    Guid CareerPublicId,
     string Institution,
     string CountryCode,
     string? Specialty,
     bool IsCurrentlyStudying,
     DateTime StartDate,
     DateTime? EndDate,
-    string? ShiftCode,
-    string? ModalityCode,
+    Guid? ShiftPublicId,
+    Guid? ModalityPublicId,
     int? TotalSubjects,
     int? ApprovedSubjects);
 

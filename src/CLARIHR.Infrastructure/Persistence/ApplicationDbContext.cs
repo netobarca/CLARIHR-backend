@@ -184,6 +184,16 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileObservation> PersonnelFileObservations => Set<PersonnelFileObservation>();
 
+    public DbSet<EducationStatusCatalogItem> EducationStatusCatalogItems => Set<EducationStatusCatalogItem>();
+
+    public DbSet<EducationStudyTypeCatalogItem> EducationStudyTypeCatalogItems => Set<EducationStudyTypeCatalogItem>();
+
+    public DbSet<EducationCareerCatalogItem> EducationCareerCatalogItems => Set<EducationCareerCatalogItem>();
+
+    public DbSet<EducationShiftCatalogItem> EducationShiftCatalogItems => Set<EducationShiftCatalogItem>();
+
+    public DbSet<EducationModalityCatalogItem> EducationModalityCatalogItems => Set<EducationModalityCatalogItem>();
+
     public DbSet<PersonnelCatalogItem> PersonnelCatalogItems => Set<PersonnelCatalogItem>();
 
     public DbSet<PersonnelReferenceCatalogItem> PersonnelReferenceCatalogItems => Set<PersonnelReferenceCatalogItem>();

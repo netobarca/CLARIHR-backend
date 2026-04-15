@@ -484,22 +484,52 @@ internal sealed class PersonnelFileEducationConfiguration : IEntityTypeConfigura
         builder.Property(item => item.TenantId).HasColumnName("tenant_id");
         builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
-        builder.Property(item => item.StatusCode).HasColumnName("status_code").HasMaxLength(80);
+        builder.Property(item => item.EducationStatusCatalogItemId).HasColumnName("education_status_catalog_item_id");
         builder.Property(item => item.DegreeTitle).HasColumnName("degree_title").HasMaxLength(200);
-        builder.Property(item => item.StudyTypeCode).HasColumnName("study_type_code").HasMaxLength(80);
-        builder.Property(item => item.Career).HasColumnName("career").HasMaxLength(200);
+        builder.Property(item => item.EducationStudyTypeCatalogItemId).HasColumnName("education_study_type_catalog_item_id");
+        builder.Property(item => item.EducationCareerCatalogItemId).HasColumnName("education_career_catalog_item_id");
         builder.Property(item => item.Institution).HasColumnName("institution").HasMaxLength(200);
         builder.Property(item => item.CountryCode).HasColumnName("country_code").HasMaxLength(80);
         builder.Property(item => item.Specialty).HasColumnName("specialty").HasMaxLength(200);
         builder.Property(item => item.IsCurrentlyStudying).HasColumnName("is_currently_studying");
         builder.Property(item => item.StartDate).HasColumnName("start_date");
         builder.Property(item => item.EndDate).HasColumnName("end_date");
-        builder.Property(item => item.ShiftCode).HasColumnName("shift_code").HasMaxLength(80);
-        builder.Property(item => item.ModalityCode).HasColumnName("modality_code").HasMaxLength(80);
+        builder.Property(item => item.EducationShiftCatalogItemId).HasColumnName("education_shift_catalog_item_id");
+        builder.Property(item => item.EducationModalityCatalogItemId).HasColumnName("education_modality_catalog_item_id");
         builder.Property(item => item.TotalSubjects).HasColumnName("total_subjects");
         builder.Property(item => item.ApprovedSubjects).HasColumnName("approved_subjects");
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
+
+        builder.HasOne(item => item.EducationStatusCatalogItem)
+            .WithMany()
+            .HasForeignKey(item => item.EducationStatusCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_personnel_file_educations__education_status_catalog_item");
+
+        builder.HasOne(item => item.EducationStudyTypeCatalogItem)
+            .WithMany()
+            .HasForeignKey(item => item.EducationStudyTypeCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_personnel_file_educations__education_study_type_catalog_item");
+
+        builder.HasOne(item => item.EducationCareerCatalogItem)
+            .WithMany()
+            .HasForeignKey(item => item.EducationCareerCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_personnel_file_educations__education_career_catalog_item");
+
+        builder.HasOne(item => item.EducationShiftCatalogItem)
+            .WithMany()
+            .HasForeignKey(item => item.EducationShiftCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_personnel_file_educations__education_shift_catalog_item");
+
+        builder.HasOne(item => item.EducationModalityCatalogItem)
+            .WithMany()
+            .HasForeignKey(item => item.EducationModalityCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_personnel_file_educations__education_modality_catalog_item");
 
         builder.HasIndex(item => item.PublicId)
             .IsUnique()
@@ -789,6 +819,132 @@ internal sealed class PersonnelFileObservationConfiguration : IEntityTypeConfigu
 
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.CreatedUtc })
             .HasDatabaseName("ix_personnel_file_observations__tenant_file_created");
+    }
+}
+
+internal abstract class PersonnelEducationCatalogItemConfigurationBase<TCatalogItem> : IEntityTypeConfiguration<TCatalogItem>
+    where TCatalogItem : PersonnelEducationCatalogItem
+{
+    private readonly string _tableName;
+    private readonly string _primaryKeyName;
+    private readonly string _publicIdIndexName;
+    private readonly string _tenantCodeIndexName;
+    private readonly string _tenantActiveSortIndexName;
+
+    protected PersonnelEducationCatalogItemConfigurationBase(
+        string tableName,
+        string primaryKeyName,
+        string publicIdIndexName,
+        string tenantCodeIndexName,
+        string tenantActiveSortIndexName)
+    {
+        _tableName = tableName;
+        _primaryKeyName = primaryKeyName;
+        _publicIdIndexName = publicIdIndexName;
+        _tenantCodeIndexName = tenantCodeIndexName;
+        _tenantActiveSortIndexName = tenantActiveSortIndexName;
+    }
+
+    public void Configure(EntityTypeBuilder<TCatalogItem> builder)
+    {
+        builder.ToTable(_tableName);
+
+        builder.HasKey(item => item.Id)
+            .HasName(_primaryKeyName);
+
+        builder.Property(item => item.Id).HasColumnName("id");
+        builder.Property(item => item.TenantId).HasColumnName("tenant_id");
+        builder.Property(item => item.PublicId).HasColumnName("public_id");
+        builder.Property(item => item.Code).HasColumnName("code").HasMaxLength(80);
+        builder.Property(item => item.NormalizedCode).HasColumnName("normalized_code").HasMaxLength(80);
+        builder.Property(item => item.Name).HasColumnName("name").HasMaxLength(200);
+        builder.Property(item => item.NormalizedName).HasColumnName("normalized_name").HasMaxLength(200);
+        builder.Property(item => item.IsActive).HasColumnName("is_active");
+        builder.Property(item => item.SortOrder).HasColumnName("sort_order");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
+        builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
+        builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
+
+        builder.HasIndex(item => item.PublicId)
+            .IsUnique()
+            .HasDatabaseName(_publicIdIndexName);
+
+        builder.HasIndex(item => new { item.TenantId, item.NormalizedCode })
+            .IsUnique()
+            .HasDatabaseName(_tenantCodeIndexName);
+
+        builder.HasIndex(item => new { item.TenantId, item.IsActive, item.SortOrder })
+            .HasDatabaseName(_tenantActiveSortIndexName);
+    }
+}
+
+internal sealed class EducationStatusCatalogItemConfiguration
+    : PersonnelEducationCatalogItemConfigurationBase<EducationStatusCatalogItem>
+{
+    public EducationStatusCatalogItemConfiguration()
+        : base(
+            "education_status_catalog_items",
+            "pk_education_status_catalog_items",
+            "uq_education_status_catalog_items__public_id",
+            "uq_education_status_catalog_items__tenant_code",
+            "ix_education_status_catalog_items__tenant_active_sort")
+    {
+    }
+}
+
+internal sealed class EducationStudyTypeCatalogItemConfiguration
+    : PersonnelEducationCatalogItemConfigurationBase<EducationStudyTypeCatalogItem>
+{
+    public EducationStudyTypeCatalogItemConfiguration()
+        : base(
+            "education_study_type_catalog_items",
+            "pk_education_study_type_catalog_items",
+            "uq_education_study_type_catalog_items__public_id",
+            "uq_education_study_type_catalog_items__tenant_code",
+            "ix_education_study_type_catalog_items__tenant_active_sort")
+    {
+    }
+}
+
+internal sealed class EducationCareerCatalogItemConfiguration
+    : PersonnelEducationCatalogItemConfigurationBase<EducationCareerCatalogItem>
+{
+    public EducationCareerCatalogItemConfiguration()
+        : base(
+            "education_career_catalog_items",
+            "pk_education_career_catalog_items",
+            "uq_education_career_catalog_items__public_id",
+            "uq_education_career_catalog_items__tenant_code",
+            "ix_education_career_catalog_items__tenant_active_sort")
+    {
+    }
+}
+
+internal sealed class EducationShiftCatalogItemConfiguration
+    : PersonnelEducationCatalogItemConfigurationBase<EducationShiftCatalogItem>
+{
+    public EducationShiftCatalogItemConfiguration()
+        : base(
+            "education_shift_catalog_items",
+            "pk_education_shift_catalog_items",
+            "uq_education_shift_catalog_items__public_id",
+            "uq_education_shift_catalog_items__tenant_code",
+            "ix_education_shift_catalog_items__tenant_active_sort")
+    {
+    }
+}
+
+internal sealed class EducationModalityCatalogItemConfiguration
+    : PersonnelEducationCatalogItemConfigurationBase<EducationModalityCatalogItem>
+{
+    public EducationModalityCatalogItemConfiguration()
+        : base(
+            "education_modality_catalog_items",
+            "pk_education_modality_catalog_items",
+            "uq_education_modality_catalog_items__public_id",
+            "uq_education_modality_catalog_items__tenant_code",
+            "ix_education_modality_catalog_items__tenant_active_sort")
+    {
     }
 }
 

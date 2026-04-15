@@ -38,6 +38,7 @@ builder.Services
     {
         options.ModelMetadataDetailsProviders.Add(new PublicContractBindingMetadataProvider());
         options.Conventions.Add(new PublicContractRouteConvention());
+        options.Filters.AddService<PersonnelFilePhotoUrlResultFilter>();
     })
     .AddJsonOptions(options =>
     {
@@ -47,6 +48,7 @@ builder.Services
             options.JsonSerializerOptions.TypeInfoResolver);
     });
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddScoped<PersonnelFilePhotoUrlResultFilter>();
 builder.Services.AddSwaggerGen(options =>
 {
     options.CustomSchemaIds(type =>

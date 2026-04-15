@@ -2974,6 +2974,9 @@ Observaciones funcionales:
 - En `Profile`, los `PUT` de colecciones usan `items` como propiedad principal del payload.
 - `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite transiciones de `RecordType`.
 - `personal-info` tambien actualiza `AssignedPositionSlotId` mientras el expediente sigue en `Draft`; al completar el expediente, `AssignedPositionSlotId` e `InstitutionalEmail` quedan bloqueados.
+- `create` y `personal-info` aceptan `photoUrl` como `null`, URL `http/https` o `data:image/...;base64,...` para `png|jpg|jpeg|webp|svg+xml` (maximo `2 MB`); en `svg` se bloquea contenido activo (`script`, eventos inline y enlaces `javascript:`).
+- cuando `photoUrl` llega en base64, el backend sube la imagen al contenedor privado de Azure Blob, persiste la URL canonica del blob y reemplaza la foto anterior cuando aplica.
+- las respuestas de expediente exponen `photoUrl` como URL SAS temporal para que frontend pueda renderizar la imagen sin abrir el contenedor.
 - si `RecordType = Employee`, `AssignedPositionSlotId` sigue siendo obligatorio; si `RecordType = Candidate`, no puede enviarse.
 - `personal-info` valida que `maritalStatusCode`, `professionCode`, `birthCountryCode`, `birthDepartmentCode` y `birthMunicipalityCode` existan y esten activos segun catalogo global de referencia.
 - `identifications` valida que `identificationTypeCode` exista y este activo, y revalida unicidad tenant-wide por `IdentificationTypeCode + IdentificationNumber` normalizado.
