@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.PersonnelEducationCatalogs;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Policies;
@@ -15,6 +16,8 @@ using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Application.Features.PersonnelEducationCatalogs;
+using CLARIHR.Application.Features.PersonnelEducationCatalogs.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using FluentValidation;
 
@@ -54,6 +57,12 @@ public sealed record PersonnelFileIdentificationResponse(
 public sealed record PersonnelReferenceValueResponse(
     string Code,
     string Name);
+
+public sealed record PersonnelEducationCatalogReferenceResponse(
+    Guid Id,
+    string Code,
+    string Name,
+    bool IsActive);
 
 public sealed record PersonnelFileAddressResponse(
     Guid Id,
@@ -120,18 +129,18 @@ public sealed record PersonnelFileAssociationResponse(
 
 public sealed record PersonnelFileEducationResponse(
     Guid Id,
-    string StatusCode,
+    PersonnelEducationCatalogReferenceResponse Status,
     string? DegreeTitle,
-    string StudyTypeCode,
-    string Career,
+    PersonnelEducationCatalogReferenceResponse StudyType,
+    PersonnelEducationCatalogReferenceResponse Career,
     string Institution,
     string CountryCode,
     string? Specialty,
     bool IsCurrentlyStudying,
     DateTime StartDate,
     DateTime? EndDate,
-    string? ShiftCode,
-    string? ModalityCode,
+    PersonnelEducationCatalogReferenceResponse? Shift,
+    PersonnelEducationCatalogReferenceResponse? Modality,
     int? TotalSubjects,
     int? ApprovedSubjects);
 
@@ -741,18 +750,18 @@ public sealed record AssociationInput(
     decimal? Payment);
 
 public sealed record EducationInput(
-    string StatusCode,
+    Guid StatusPublicId,
     string? DegreeTitle,
-    string StudyTypeCode,
-    string Career,
+    Guid StudyTypePublicId,
+    Guid CareerPublicId,
     string Institution,
     string CountryCode,
     string? Specialty,
     bool IsCurrentlyStudying,
     DateTime StartDate,
     DateTime? EndDate,
-    string? ShiftCode,
-    string? ModalityCode,
+    Guid? ShiftPublicId,
+    Guid? ModalityPublicId,
     int? TotalSubjects,
     int? ApprovedSubjects);
 
@@ -1577,15 +1586,13 @@ internal sealed class EducationInputValidator : AbstractValidator<EducationInput
 {
     public EducationInputValidator()
     {
-        RuleFor(input => input.StatusCode).NotEmpty().MaximumLength(80);
+        RuleFor(input => input.StatusPublicId).NotEmpty();
         RuleFor(input => input.DegreeTitle).MaximumLength(200);
-        RuleFor(input => input.StudyTypeCode).NotEmpty().MaximumLength(80);
-        RuleFor(input => input.Career).NotEmpty().MaximumLength(200);
+        RuleFor(input => input.StudyTypePublicId).NotEmpty();
+        RuleFor(input => input.CareerPublicId).NotEmpty();
         RuleFor(input => input.Institution).NotEmpty().MaximumLength(200);
         RuleFor(input => input.CountryCode).NotEmpty().MaximumLength(80);
         RuleFor(input => input.Specialty).MaximumLength(200);
-        RuleFor(input => input.ShiftCode).MaximumLength(80);
-        RuleFor(input => input.ModalityCode).MaximumLength(80);
         RuleFor(input => input.TotalSubjects).GreaterThanOrEqualTo(0).When(static input => input.TotalSubjects.HasValue);
         RuleFor(input => input.ApprovedSubjects).GreaterThanOrEqualTo(0).When(static input => input.ApprovedSubjects.HasValue);
         RuleFor(input => input)
@@ -2884,6 +2891,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
     IAuditService auditService,
+    IPersonnelFileProfilePhotoService profilePhotoService,
     IUnitOfWork unitOfWork)
     : ICommandHandler<CreatePersonnelFileCommand, PersonnelFileResponse>
 {
@@ -2966,12 +2974,44 @@ internal sealed class CreatePersonnelFileCommandHandler(
             command.BirthCountryCode,
             command.BirthDepartmentCode,
             command.BirthMunicipalityCode,
-            command.PhotoUrl,
+            photoUrl: null,
             command.OrgUnitId,
             command.AssignedPositionSlotId,
             command.CustomDataJson,
             identificationEntities);
         personnelFile.SetTenantId(command.CompanyId);
+
+        var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
+            command.CompanyId,
+            personnelFile.PublicId,
+            command.PhotoUrl,
+            currentPersistedPhotoUrl: null,
+            cancellationToken);
+        if (photoWritePlanResult.IsFailure)
+        {
+            return Result<PersonnelFileResponse>.Failure(photoWritePlanResult.Error);
+        }
+
+        var photoWritePlan = photoWritePlanResult.Value;
+        personnelFile.UpdatePersonalInfo(
+            command.RecordType,
+            command.FirstName,
+            command.LastName,
+            command.BirthDate,
+            command.MaritalStatusCode,
+            command.ProfessionCode,
+            command.Nationality,
+            command.PersonalEmail,
+            command.InstitutionalEmail,
+            command.PersonalPhone,
+            command.InstitutionalPhone,
+            command.BirthCountryCode,
+            command.BirthDepartmentCode,
+            command.BirthMunicipalityCode,
+            photoWritePlan.PersistedPhotoUrl,
+            command.OrgUnitId,
+            command.AssignedPositionSlotId,
+            command.CustomDataJson);
 
         foreach (var identification in personnelFile.Identifications)
         {
@@ -3000,11 +3040,13 @@ internal sealed class CreatePersonnelFileCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
+            await profilePhotoService.CleanupAfterPersistenceSuccessAsync(photoWritePlan, cancellationToken);
             return Result<PersonnelFileResponse>.Success(response);
         }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
+            await profilePhotoService.CleanupAfterPersistenceFailureAsync(photoWritePlan, cancellationToken);
             throw;
         }
     }
@@ -3014,6 +3056,7 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
     IAuditService auditService,
+    IPersonnelFileProfilePhotoService profilePhotoService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ICommandHandler<UpdatePersonnelFilePersonalInfoCommand, PersonnelFileResponse>
@@ -3072,6 +3115,19 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
             return Result<PersonnelFileResponse>.Failure(personalInfoCatalogValidation);
         }
 
+        var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
+            personnelFile.TenantId,
+            personnelFile.PublicId,
+            command.PhotoUrl,
+            personnelFile.PhotoUrl,
+            cancellationToken);
+        if (photoWritePlanResult.IsFailure)
+        {
+            return Result<PersonnelFileResponse>.Failure(photoWritePlanResult.Error);
+        }
+
+        var photoWritePlan = photoWritePlanResult.Value;
+
         var before = await repository.GetResponseByIdAsync(personnelFile.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Personnel file response could not be resolved before update.");
 
@@ -3095,13 +3151,14 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
                     command.BirthCountryCode,
                     command.BirthDepartmentCode,
                     command.BirthMunicipalityCode,
-                    command.PhotoUrl,
+                    photoWritePlan.PersistedPhotoUrl,
                     command.OrgUnitId,
                     command.AssignedPositionSlotId,
                     command.CustomDataJson);
             }
             catch (InvalidOperationException)
             {
+                await profilePhotoService.CleanupAfterPersistenceFailureAsync(photoWritePlan, cancellationToken);
                 return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.ProvisioningFieldsLocked);
             }
 
@@ -3124,12 +3181,14 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            await profilePhotoService.CleanupAfterPersistenceSuccessAsync(photoWritePlan, cancellationToken);
 
             return Result<PersonnelFileResponse>.Success(after);
         }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
+            await profilePhotoService.CleanupAfterPersistenceFailureAsync(photoWritePlan, cancellationToken);
             throw;
         }
     }
@@ -3655,6 +3714,7 @@ internal sealed class ReplacePersonnelFileAssociationsCommandHandler(
 
 internal sealed class ReplacePersonnelFileEducationsCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelEducationCatalogRepository personnelEducationCatalogRepository,
     IPersonnelFileRepository repository,
     IAuditService auditService,
     ITenantContext tenantContext,
@@ -3683,28 +3743,24 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
         {
             foreach (var item in command.Educations)
             {
-                var statusError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
-                    repository,
+                var statusLookup = await personnelEducationCatalogRepository.GetActiveLookupByIdAsync(
                     personnelFile!.TenantId,
-                    nameof(item.StatusCode),
-                    PersonnelCurriculumCatalogCategories.EducationStatus,
-                    item.StatusCode,
+                    PersonnelEducationCatalogType.EducationStatus,
+                    item.StatusPublicId,
                     cancellationToken);
-                if (statusError != Error.None)
+                if (statusLookup is null)
                 {
-                    return Result<PersonnelFileResponse>.Failure(statusError);
+                    return Result<PersonnelFileResponse>.Failure(CreateEducationCatalogValidationError(nameof(item.StatusPublicId), item.StatusPublicId));
                 }
 
-                var studyTypeError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
-                    repository,
+                var studyTypeLookup = await personnelEducationCatalogRepository.GetActiveLookupByIdAsync(
                     personnelFile.TenantId,
-                    nameof(item.StudyTypeCode),
-                    PersonnelCurriculumCatalogCategories.StudyType,
-                    item.StudyTypeCode,
+                    PersonnelEducationCatalogType.StudyType,
+                    item.StudyTypePublicId,
                     cancellationToken);
-                if (studyTypeError != Error.None)
+                if (studyTypeLookup is null)
                 {
-                    return Result<PersonnelFileResponse>.Failure(studyTypeError);
+                    return Result<PersonnelFileResponse>.Failure(CreateEducationCatalogValidationError(nameof(item.StudyTypePublicId), item.StudyTypePublicId));
                 }
 
                 var countryError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
@@ -3719,49 +3775,57 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
                     return Result<PersonnelFileResponse>.Failure(countryError);
                 }
 
-                if (!string.IsNullOrWhiteSpace(item.ShiftCode))
+                PersonnelEducationCatalogLookup? shiftValue = null;
+                if (item.ShiftPublicId.HasValue)
                 {
-                    var shiftError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
-                        repository,
+                    shiftValue = await personnelEducationCatalogRepository.GetActiveLookupByIdAsync(
                         personnelFile.TenantId,
-                        nameof(item.ShiftCode),
-                        PersonnelCurriculumCatalogCategories.Shift,
-                        item.ShiftCode,
+                        PersonnelEducationCatalogType.Shift,
+                        item.ShiftPublicId.Value,
                         cancellationToken);
-                    if (shiftError != Error.None)
+                    if (shiftValue is null)
                     {
-                        return Result<PersonnelFileResponse>.Failure(shiftError);
+                        return Result<PersonnelFileResponse>.Failure(CreateEducationCatalogValidationError(nameof(item.ShiftPublicId), item.ShiftPublicId.Value));
                     }
                 }
 
-                if (!string.IsNullOrWhiteSpace(item.ModalityCode))
+                PersonnelEducationCatalogLookup? modalityValue = null;
+                if (item.ModalityPublicId.HasValue)
                 {
-                    var modalityError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
-                        repository,
+                    modalityValue = await personnelEducationCatalogRepository.GetActiveLookupByIdAsync(
                         personnelFile.TenantId,
-                        nameof(item.ModalityCode),
-                        PersonnelCurriculumCatalogCategories.Modality,
-                        item.ModalityCode,
+                        PersonnelEducationCatalogType.Modality,
+                        item.ModalityPublicId.Value,
                         cancellationToken);
-                    if (modalityError != Error.None)
+                    if (modalityValue is null)
                     {
-                        return Result<PersonnelFileResponse>.Failure(modalityError);
+                        return Result<PersonnelFileResponse>.Failure(CreateEducationCatalogValidationError(nameof(item.ModalityPublicId), item.ModalityPublicId.Value));
                     }
+                }
+
+                var careerLookup = await personnelEducationCatalogRepository.GetActiveLookupByIdAsync(
+                    personnelFile.TenantId,
+                    PersonnelEducationCatalogType.Career,
+                    item.CareerPublicId,
+                    cancellationToken);
+                if (careerLookup is null)
+                {
+                    return Result<PersonnelFileResponse>.Failure(CreateEducationCatalogValidationError(nameof(item.CareerPublicId), item.CareerPublicId));
                 }
 
                 entities.Add(PersonnelFileEducation.Create(
-                    item.StatusCode,
+                    statusLookup.InternalId,
                     item.DegreeTitle,
-                    item.StudyTypeCode,
-                    item.Career,
+                    studyTypeLookup.InternalId,
+                    careerLookup.InternalId,
                     item.Institution,
                     item.CountryCode,
                     item.Specialty,
                     item.IsCurrentlyStudying,
                     item.StartDate,
                     item.EndDate,
-                    item.ShiftCode,
-                    item.ModalityCode,
+                    shiftValue?.InternalId,
+                    modalityValue?.InternalId,
                     item.TotalSubjects,
                     item.ApprovedSubjects));
             }
@@ -3782,6 +3846,13 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
     }
+
+    private static Error CreateEducationCatalogValidationError(string fieldName, Guid publicId) =>
+        ErrorCatalog.Validation(
+            new Dictionary<string, string[]>
+            {
+                [fieldName] = [$"Catalog item '{publicId}' is not active or does not belong to the tenant."]
+            });
 }
 
 internal sealed class ReplacePersonnelFileLanguagesCommandHandler(

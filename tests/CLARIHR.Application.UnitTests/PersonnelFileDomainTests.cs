@@ -345,18 +345,18 @@ public sealed class PersonnelFileDomainTests
     public void PersonnelFileEducation_Create_WithApprovedSubjectsOverTotal_ShouldThrow()
     {
         _ = Assert.Throws<InvalidOperationException>(() => PersonnelFileEducation.Create(
-            statusCode: "GRADUATED",
+            educationStatusCatalogItemId: 1,
             degreeTitle: "Degree",
-            studyTypeCode: "BACHELOR",
-            career: "Engineering",
+            educationStudyTypeCatalogItemId: 2,
+            educationCareerCatalogItemId: 3,
             institution: "University",
             countryCode: "SV",
             specialty: null,
             isCurrentlyStudying: false,
             startDate: new DateTime(2020, 1, 1),
             endDate: new DateTime(2024, 1, 1),
-            shiftCode: null,
-            modalityCode: null,
+            educationShiftCatalogItemId: null,
+            educationModalityCatalogItemId: null,
             totalSubjects: 10,
             approvedSubjects: 11));
     }

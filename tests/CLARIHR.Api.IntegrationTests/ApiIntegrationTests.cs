@@ -1575,6 +1575,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Carla", "Rivas", "DUI", "05555555-5");
         var concurrencyToken = created.ConcurrencyToken;
+        var statusId = await GetEducationCatalogIdByCodeAsync(client, scenario.TenantId, "education-statuses", "GRADUATED");
+        var studyTypeId = await GetEducationCatalogIdByCodeAsync(client, scenario.TenantId, "education-study-types", "BACHELOR");
+        var careerId = await GetEducationCatalogIdByCodeAsync(client, scenario.TenantId, "education-careers", "SOFTWARE_ENGINEERING");
+        var shiftId = await GetEducationCatalogIdByCodeAsync(client, scenario.TenantId, "education-shifts", "MORNING");
+        var modalityId = await GetEducationCatalogIdByCodeAsync(client, scenario.TenantId, "education-modalities", "ONSITE");
 
         var educationsResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/educations", new
         {
@@ -1582,18 +1587,18 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             {
                 new
                 {
-                    statusCode = "GRADUATED",
+                    statusPublicId = statusId,
                     degreeTitle = "Ingenieria en Sistemas",
-                    studyTypeCode = "BACHELOR",
-                    career = "Ingenieria de Software",
+                    studyTypePublicId = studyTypeId,
+                    careerPublicId = careerId,
                     institution = "Universidad CLARI",
                     countryCode = "SV",
                     specialty = (string?)null,
                     isCurrentlyStudying = false,
                     startDate = new DateTime(2015, 1, 10),
                     endDate = new DateTime(2020, 11, 30),
-                    shiftCode = "MORNING",
-                    modalityCode = "ONSITE",
+                    shiftPublicId = shiftId,
+                    modalityPublicId = modalityId,
                     totalSubjects = 50,
                     approvedSubjects = 50
                 }
@@ -6102,6 +6107,24 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return payload!;
     }
 
+    private async Task<Guid> GetEducationCatalogIdByCodeAsync(
+        HttpClient client,
+        Guid companyId,
+        string routeSegment,
+        string code)
+    {
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{companyId}/{routeSegment}?q={Uri.EscapeDataString(code)}&page=1&pageSize=50");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<PersonnelEducationCatalogLookupItem>>(JsonOptions);
+        Assert.NotNull(payload);
+
+        var item = payload!.Items.SingleOrDefault(i => i.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(item);
+        return item!.Id;
+    }
+
     private static object CreateInitialLegalRepresentativePayload(
         string positionTitle = "Representante Legal",
         bool includeIsPrimary = true,
@@ -6286,6 +6309,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string Name,
         int SortOrder);
 
+    private sealed record PersonnelEducationCatalogLookupItem(
+        Guid Id,
+        string Code,
+        string Name);
+
     private sealed record PersonnelFileDocumentItem(
         Guid Id,
         string DocumentType,
@@ -6310,13 +6338,21 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc);
 
+    private sealed record PersonnelEducationCatalogReferenceItem(
+        Guid Id,
+        string Code,
+        string Name,
+        bool IsActive);
+
     private sealed record PersonnelFileEducationItem(
         Guid Id,
-        string StatusCode,
-        string StudyTypeCode,
-        string Career,
+        PersonnelEducationCatalogReferenceItem Status,
+        PersonnelEducationCatalogReferenceItem StudyType,
+        PersonnelEducationCatalogReferenceItem Career,
         string Institution,
-        bool IsCurrentlyStudying);
+        bool IsCurrentlyStudying,
+        PersonnelEducationCatalogReferenceItem? Shift,
+        PersonnelEducationCatalogReferenceItem? Modality);
 
     private sealed record PersonnelFileLanguageItem(
         Guid Id,

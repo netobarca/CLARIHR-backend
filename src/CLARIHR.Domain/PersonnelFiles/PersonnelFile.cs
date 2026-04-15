@@ -943,21 +943,46 @@ public sealed class PersonnelFileEducation : TenantEntity
     }
 
     private PersonnelFileEducation(
-        string statusCode,
+        long educationStatusCatalogItemId,
         string? degreeTitle,
-        string studyTypeCode,
-        string career,
+        long educationStudyTypeCatalogItemId,
+        long educationCareerCatalogItemId,
         string institution,
         string countryCode,
         string? specialty,
         bool isCurrentlyStudying,
         DateTime startDate,
         DateTime? endDate,
-        string? shiftCode,
-        string? modalityCode,
+        long? educationShiftCatalogItemId,
+        long? educationModalityCatalogItemId,
         int? totalSubjects,
         int? approvedSubjects)
     {
+        if (educationStatusCatalogItemId <= 0)
+        {
+            throw new InvalidOperationException("EducationStatusCatalogItemId must be greater than zero.");
+        }
+
+        if (educationStudyTypeCatalogItemId <= 0)
+        {
+            throw new InvalidOperationException("EducationStudyTypeCatalogItemId must be greater than zero.");
+        }
+
+        if (educationCareerCatalogItemId <= 0)
+        {
+            throw new InvalidOperationException("EducationCareerCatalogItemId must be greater than zero.");
+        }
+
+        if (educationShiftCatalogItemId.HasValue && educationShiftCatalogItemId.Value <= 0)
+        {
+            throw new InvalidOperationException("EducationShiftCatalogItemId must be greater than zero.");
+        }
+
+        if (educationModalityCatalogItemId.HasValue && educationModalityCatalogItemId.Value <= 0)
+        {
+            throw new InvalidOperationException("EducationModalityCatalogItemId must be greater than zero.");
+        }
+
         if (endDate.HasValue && endDate.Value.Date < startDate.Date)
         {
             throw new InvalidOperationException("EndDate cannot be earlier than StartDate.");
@@ -984,18 +1009,18 @@ public sealed class PersonnelFileEducation : TenantEntity
         }
 
         PublicId = Guid.NewGuid();
-        StatusCode = PersonnelFileNormalization.Clean(statusCode, nameof(statusCode));
+        EducationStatusCatalogItemId = educationStatusCatalogItemId;
         DegreeTitle = PersonnelFileNormalization.CleanOptional(degreeTitle);
-        StudyTypeCode = PersonnelFileNormalization.Clean(studyTypeCode, nameof(studyTypeCode));
-        Career = PersonnelFileNormalization.Clean(career, nameof(career));
+        EducationStudyTypeCatalogItemId = educationStudyTypeCatalogItemId;
+        EducationCareerCatalogItemId = educationCareerCatalogItemId;
         Institution = PersonnelFileNormalization.Clean(institution, nameof(institution));
         CountryCode = PersonnelFileNormalization.Clean(countryCode, nameof(countryCode));
         Specialty = PersonnelFileNormalization.CleanOptional(specialty);
         IsCurrentlyStudying = isCurrentlyStudying;
         StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
         EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
-        ShiftCode = PersonnelFileNormalization.CleanOptional(shiftCode);
-        ModalityCode = PersonnelFileNormalization.CleanOptional(modalityCode);
+        EducationShiftCatalogItemId = educationShiftCatalogItemId;
+        EducationModalityCatalogItemId = educationModalityCatalogItemId;
         TotalSubjects = totalSubjects;
         ApprovedSubjects = approvedSubjects;
     }
@@ -1004,13 +1029,19 @@ public sealed class PersonnelFileEducation : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public string StatusCode { get; private set; } = string.Empty;
+    public long EducationStatusCatalogItemId { get; private set; }
+
+    public EducationStatusCatalogItem EducationStatusCatalogItem { get; private set; } = null!;
 
     public string? DegreeTitle { get; private set; }
 
-    public string StudyTypeCode { get; private set; } = string.Empty;
+    public long EducationStudyTypeCatalogItemId { get; private set; }
 
-    public string Career { get; private set; } = string.Empty;
+    public EducationStudyTypeCatalogItem EducationStudyTypeCatalogItem { get; private set; } = null!;
+
+    public long EducationCareerCatalogItemId { get; private set; }
+
+    public EducationCareerCatalogItem EducationCareerCatalogItem { get; private set; } = null!;
 
     public string Institution { get; private set; } = string.Empty;
 
@@ -1024,42 +1055,46 @@ public sealed class PersonnelFileEducation : TenantEntity
 
     public DateTime? EndDate { get; private set; }
 
-    public string? ShiftCode { get; private set; }
+    public long? EducationShiftCatalogItemId { get; private set; }
 
-    public string? ModalityCode { get; private set; }
+    public EducationShiftCatalogItem? EducationShiftCatalogItem { get; private set; }
+
+    public long? EducationModalityCatalogItemId { get; private set; }
+
+    public EducationModalityCatalogItem? EducationModalityCatalogItem { get; private set; }
 
     public int? TotalSubjects { get; private set; }
 
     public int? ApprovedSubjects { get; private set; }
 
     public static PersonnelFileEducation Create(
-        string statusCode,
+        long educationStatusCatalogItemId,
         string? degreeTitle,
-        string studyTypeCode,
-        string career,
+        long educationStudyTypeCatalogItemId,
+        long educationCareerCatalogItemId,
         string institution,
         string countryCode,
         string? specialty,
         bool isCurrentlyStudying,
         DateTime startDate,
         DateTime? endDate,
-        string? shiftCode,
-        string? modalityCode,
+        long? educationShiftCatalogItemId,
+        long? educationModalityCatalogItemId,
         int? totalSubjects,
         int? approvedSubjects) =>
         new(
-            statusCode,
+            educationStatusCatalogItemId,
             degreeTitle,
-            studyTypeCode,
-            career,
+            educationStudyTypeCatalogItemId,
+            educationCareerCatalogItemId,
             institution,
             countryCode,
             specialty,
             isCurrentlyStudying,
             startDate,
             endDate,
-            shiftCode,
-            modalityCode,
+            educationShiftCatalogItemId,
+            educationModalityCatalogItemId,
             totalSubjects,
             approvedSubjects);
 }

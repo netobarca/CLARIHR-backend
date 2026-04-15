@@ -170,7 +170,11 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .Include(item => item.EmployeeRelations)
             .Include(item => item.BankAccounts)
             .Include(item => item.Associations)
-            .Include(item => item.Educations)
+            .Include(item => item.Educations).ThenInclude(item => item.EducationStatusCatalogItem)
+            .Include(item => item.Educations).ThenInclude(item => item.EducationStudyTypeCatalogItem)
+            .Include(item => item.Educations).ThenInclude(item => item.EducationCareerCatalogItem)
+            .Include(item => item.Educations).ThenInclude(item => item.EducationShiftCatalogItem)
+            .Include(item => item.Educations).ThenInclude(item => item.EducationModalityCatalogItem)
             .Include(item => item.Languages)
             .Include(item => item.Trainings)
             .Include(item => item.PreviousEmployments)
@@ -340,23 +344,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 .ToArray(),
             file.Educations
                 .OrderByDescending(item => item.StartDate)
-                .ThenBy(item => item.Career)
-                .Select(item => new PersonnelFileEducationResponse(
-                    item.PublicId,
-                    item.StatusCode,
-                    item.DegreeTitle,
-                    item.StudyTypeCode,
-                    item.Career,
-                    item.Institution,
-                    item.CountryCode,
-                    item.Specialty,
-                    item.IsCurrentlyStudying,
-                    item.StartDate,
-                    item.EndDate,
-                    item.ShiftCode,
-                    item.ModalityCode,
-                    item.TotalSubjects,
-                    item.ApprovedSubjects))
+                .ThenBy(item => item.EducationCareerCatalogItem.Name)
+                .Select(MapEducationResponse)
                 .ToArray(),
             file.Languages
                 .OrderBy(item => item.LanguageCode)
@@ -672,21 +661,45 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .AsNoTracking()
             .Where(item => item.PersonnelFile.PublicId == personnelFileId)
             .OrderByDescending(item => item.StartDate)
-            .ThenBy(item => item.Career)
+            .ThenBy(item => item.EducationCareerCatalogItem.Name)
             .Select(item => new PersonnelFileEducationResponse(
                 item.PublicId,
-                item.StatusCode,
+                new PersonnelEducationCatalogReferenceResponse(
+                    item.EducationStatusCatalogItem.PublicId,
+                    item.EducationStatusCatalogItem.Code,
+                    item.EducationStatusCatalogItem.Name,
+                    item.EducationStatusCatalogItem.IsActive),
                 item.DegreeTitle,
-                item.StudyTypeCode,
-                item.Career,
+                new PersonnelEducationCatalogReferenceResponse(
+                    item.EducationStudyTypeCatalogItem.PublicId,
+                    item.EducationStudyTypeCatalogItem.Code,
+                    item.EducationStudyTypeCatalogItem.Name,
+                    item.EducationStudyTypeCatalogItem.IsActive),
+                new PersonnelEducationCatalogReferenceResponse(
+                    item.EducationCareerCatalogItem.PublicId,
+                    item.EducationCareerCatalogItem.Code,
+                    item.EducationCareerCatalogItem.Name,
+                    item.EducationCareerCatalogItem.IsActive),
                 item.Institution,
                 item.CountryCode,
                 item.Specialty,
                 item.IsCurrentlyStudying,
                 item.StartDate,
                 item.EndDate,
-                item.ShiftCode,
-                item.ModalityCode,
+                item.EducationShiftCatalogItemId.HasValue
+                    ? new PersonnelEducationCatalogReferenceResponse(
+                        item.EducationShiftCatalogItem!.PublicId,
+                        item.EducationShiftCatalogItem.Code,
+                        item.EducationShiftCatalogItem.Name,
+                        item.EducationShiftCatalogItem.IsActive)
+                    : null,
+                item.EducationModalityCatalogItemId.HasValue
+                    ? new PersonnelEducationCatalogReferenceResponse(
+                        item.EducationModalityCatalogItem!.PublicId,
+                        item.EducationModalityCatalogItem.Code,
+                        item.EducationModalityCatalogItem.Name,
+                        item.EducationModalityCatalogItem.IsActive)
+                    : null,
                 item.TotalSubjects,
                 item.ApprovedSubjects))
             .ToArrayAsync(cancellationToken);
@@ -1804,6 +1817,48 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .Select(file => file.LinkedUserPublicId!.Value)
             .Distinct()
             .ToArrayAsync(cancellationToken);
+
+    private static PersonnelFileEducationResponse MapEducationResponse(PersonnelFileEducation item) =>
+        new(
+            item.PublicId,
+            new PersonnelEducationCatalogReferenceResponse(
+                item.EducationStatusCatalogItem.PublicId,
+                item.EducationStatusCatalogItem.Code,
+                item.EducationStatusCatalogItem.Name,
+                item.EducationStatusCatalogItem.IsActive),
+            item.DegreeTitle,
+            new PersonnelEducationCatalogReferenceResponse(
+                item.EducationStudyTypeCatalogItem.PublicId,
+                item.EducationStudyTypeCatalogItem.Code,
+                item.EducationStudyTypeCatalogItem.Name,
+                item.EducationStudyTypeCatalogItem.IsActive),
+            new PersonnelEducationCatalogReferenceResponse(
+                item.EducationCareerCatalogItem.PublicId,
+                item.EducationCareerCatalogItem.Code,
+                item.EducationCareerCatalogItem.Name,
+                item.EducationCareerCatalogItem.IsActive),
+            item.Institution,
+            item.CountryCode,
+            item.Specialty,
+            item.IsCurrentlyStudying,
+            item.StartDate,
+            item.EndDate,
+            item.EducationShiftCatalogItemId.HasValue
+                ? new PersonnelEducationCatalogReferenceResponse(
+                    item.EducationShiftCatalogItem!.PublicId,
+                    item.EducationShiftCatalogItem.Code,
+                    item.EducationShiftCatalogItem.Name,
+                    item.EducationShiftCatalogItem.IsActive)
+                : null,
+            item.EducationModalityCatalogItemId.HasValue
+                ? new PersonnelEducationCatalogReferenceResponse(
+                    item.EducationModalityCatalogItem!.PublicId,
+                    item.EducationModalityCatalogItem.Code,
+                    item.EducationModalityCatalogItem.Name,
+                    item.EducationModalityCatalogItem.IsActive)
+                : null,
+            item.TotalSubjects,
+            item.ApprovedSubjects);
 
     private async Task<Dictionary<string, string>> ResolveReferenceNamesByCodeAsync(
         string countryCode,

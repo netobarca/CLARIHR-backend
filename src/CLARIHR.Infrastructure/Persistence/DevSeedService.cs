@@ -51,6 +51,7 @@ internal sealed class DevSeedService(
         await SeedRbacAsync(user, company, tenantId, cancellationToken);
         SeedLocations(tenantId);
         SeedPersonnelCatalogItems(tenantId);
+        SeedPersonnelEducationCatalogItems(tenantId);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var orgUnitType = await SeedOrgStructureCatalogsAsync(user.PublicId, tenantId, cancellationToken);
@@ -230,15 +231,6 @@ internal sealed class DevSeedService(
     {
         var items = new (string Category, string Code, string Name, int SortOrder)[]
         {
-            ("CurriculumEducationStatus", "GRADUATED", "Graduado", 10),
-            ("CurriculumEducationStatus", "IN_PROGRESS", "En curso", 20),
-            ("CurriculumStudyType", "BACHELOR", "Licenciatura", 10),
-            ("CurriculumStudyType", "MASTER", "Maestria", 20),
-            ("CurriculumStudyType", "TECHNICAL", "Tecnico", 30),
-            ("CurriculumShift", "MORNING", "Matutino", 10),
-            ("CurriculumShift", "AFTERNOON", "Vespertino", 20),
-            ("CurriculumModality", "ONSITE", "Presencial", 10),
-            ("CurriculumModality", "REMOTE", "Virtual", 20),
             ("CurriculumLanguage", "ENGLISH", "Ingles", 10),
             ("CurriculumLanguage", "SPANISH", "Espanol", 20),
             ("CurriculumLanguageLevel", "ADVANCED", "Avanzado", 10),
@@ -262,6 +254,79 @@ internal sealed class DevSeedService(
                 item.Category, item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
             catalogItem.SetTenantId(tenantId);
             dbContext.PersonnelCatalogItems.Add(catalogItem);
+        }
+    }
+
+    private void SeedPersonnelEducationCatalogItems(Guid tenantId)
+    {
+        var statuses = new (string Code, string Name, int SortOrder)[]
+        {
+            ("GRADUATED", "Graduado", 10),
+            ("IN_PROGRESS", "En curso", 20),
+        };
+
+        var studyTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("BACHELOR", "Licenciatura", 10),
+            ("MASTER", "Maestria", 20),
+            ("TECHNICAL", "Tecnico", 30),
+        };
+
+        var shifts = new (string Code, string Name, int SortOrder)[]
+        {
+            ("MORNING", "Matutino", 10),
+            ("AFTERNOON", "Vespertino", 20),
+        };
+
+        var modalities = new (string Code, string Name, int SortOrder)[]
+        {
+            ("ONSITE", "Presencial", 10),
+            ("REMOTE", "Virtual", 20),
+        };
+
+        var careers = new (string Code, string Name, int SortOrder)[]
+        {
+            ("INDUSTRIAL_ENGINEERING", "Ingenieria Industrial", 10),
+            ("BUSINESS_ADMINISTRATION", "Administracion de Empresas", 20),
+            ("MBA", "Maestria en Administracion de Negocios", 30),
+            ("PSYCHOLOGY", "Psicologia", 40),
+            ("SYSTEMS_ENGINEERING", "Ingenieria en Sistemas Informaticos", 50),
+            ("ACCOUNTING_AUDITING", "Contaduria Publica y Auditoria", 60),
+        };
+
+        foreach (var item in statuses)
+        {
+            var entity = EducationStatusCatalogItem.Create(item.Code, item.Name, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.EducationStatusCatalogItems.Add(entity);
+        }
+
+        foreach (var item in studyTypes)
+        {
+            var entity = EducationStudyTypeCatalogItem.Create(item.Code, item.Name, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.EducationStudyTypeCatalogItems.Add(entity);
+        }
+
+        foreach (var item in shifts)
+        {
+            var entity = EducationShiftCatalogItem.Create(item.Code, item.Name, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.EducationShiftCatalogItems.Add(entity);
+        }
+
+        foreach (var item in modalities)
+        {
+            var entity = EducationModalityCatalogItem.Create(item.Code, item.Name, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.EducationModalityCatalogItems.Add(entity);
+        }
+
+        foreach (var item in careers)
+        {
+            var entity = EducationCareerCatalogItem.Create(item.Code, item.Name, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.EducationCareerCatalogItems.Add(entity);
         }
     }
 
@@ -453,13 +518,14 @@ internal sealed class DevSeedService(
         OrgUnit[] orgUnits,
         CancellationToken cancellationToken)
     {
-        var employees = CreateEmployees(tenantId, orgUnits);
+        var educationCatalogIds = await LoadEducationCatalogIdsAsync(tenantId, cancellationToken);
+        var employees = CreateEmployees(tenantId, orgUnits, educationCatalogIds);
 
         dbContext.PersonnelFiles.AddRange(employees);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private static PersonnelFile[] CreateEmployees(Guid tenantId, OrgUnit[] orgUnits)
+    private static PersonnelFile[] CreateEmployees(Guid tenantId, OrgUnit[] orgUnits, EducationCatalogIds catalogIds)
     {
         // orgUnits[0] = Gerencia General, [1] = Operaciones, [2] = RRHH
 
@@ -485,11 +551,18 @@ internal sealed class DevSeedService(
             PersonnelFileEmergencyContact.Create("Ana Gonzalez", "Madre", "+503 7000-5678", null, null),
         ]);
         maria.ReplaceEducations([
-            PersonnelFileEducation.Create("GRADUATED", "Ing. Industrial", "BACHELOR", "Ingenieria Industrial",
+            PersonnelFileEducation.Create(
+                catalogIds.StatusGraduatedId,
+                "Ing. Industrial",
+                catalogIds.StudyTypeBachelorId,
+                catalogIds.CareerIndustrialEngineeringId,
                 "Universidad de El Salvador", "SV", specialty: null, isCurrentlyStudying: false,
                 new DateTime(2008, 1, 15, 0, 0, 0, DateTimeKind.Utc),
                 new DateTime(2013, 12, 15, 0, 0, 0, DateTimeKind.Utc),
-                shiftCode: "MORNING", modalityCode: "ONSITE", totalSubjects: 60, approvedSubjects: 60),
+                educationShiftCatalogItemId: catalogIds.ShiftMorningId,
+                educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
+                totalSubjects: 60,
+                approvedSubjects: 60),
         ]);
         maria.ReplaceBankAccounts([
             PersonnelFileBankAccount.Create("AGRI", "USD", "0001-1234-5678", "SAVINGS", isPrimary: true),
@@ -518,18 +591,34 @@ internal sealed class DevSeedService(
             PersonnelFileEmergencyContact.Create("Laura de Ramirez", "Esposa", "+503 7111-3333", null, null),
         ]);
         carlos.ReplaceEducations([
-            PersonnelFileEducation.Create("GRADUATED", "Lic. Administracion de Empresas", "BACHELOR",
-                "Administracion de Empresas", "Universidad Centroamericana Jose Simeon Canas", "SV",
+            PersonnelFileEducation.Create(
+                catalogIds.StatusGraduatedId,
+                "Lic. Administracion de Empresas",
+                catalogIds.StudyTypeBachelorId,
+                catalogIds.CareerBusinessAdministrationId,
+                "Universidad Centroamericana Jose Simeon Canas",
+                "SV",
                 specialty: null, isCurrentlyStudying: false,
                 new DateTime(2003, 1, 10, 0, 0, 0, DateTimeKind.Utc),
                 new DateTime(2008, 6, 15, 0, 0, 0, DateTimeKind.Utc),
-                shiftCode: "MORNING", modalityCode: "ONSITE", totalSubjects: 55, approvedSubjects: 55),
-            PersonnelFileEducation.Create("GRADUATED", "MBA", "MASTER",
-                "Maestria en Administracion de Negocios", "INCAE", "SV",
+                educationShiftCatalogItemId: catalogIds.ShiftMorningId,
+                educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
+                totalSubjects: 55,
+                approvedSubjects: 55),
+            PersonnelFileEducation.Create(
+                catalogIds.StatusGraduatedId,
+                "MBA",
+                catalogIds.StudyTypeMasterId,
+                catalogIds.CareerMbaId,
+                "INCAE",
+                "SV",
                 specialty: "Finanzas", isCurrentlyStudying: false,
                 new DateTime(2010, 3, 1, 0, 0, 0, DateTimeKind.Utc),
                 new DateTime(2012, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-                shiftCode: "AFTERNOON", modalityCode: "ONSITE", totalSubjects: 20, approvedSubjects: 20),
+                educationShiftCatalogItemId: catalogIds.ShiftAfternoonId,
+                educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
+                totalSubjects: 20,
+                approvedSubjects: 20),
         ]);
         carlos.ReplaceLanguages([
             PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", speaks: true, writes: true, reads: true),
@@ -566,12 +655,21 @@ internal sealed class DevSeedService(
             PersonnelFileEmergencyContact.Create("Roberto Lopez", "Padre", "+503 7222-4444", null, null),
         ]);
         andrea.ReplaceEducations([
-            PersonnelFileEducation.Create("GRADUATED", "Lic. Psicologia", "BACHELOR", "Psicologia",
-                "Universidad Dr. Jose Matias Delgado", "SV", specialty: "Organizacional",
+            PersonnelFileEducation.Create(
+                catalogIds.StatusGraduatedId,
+                "Lic. Psicologia",
+                catalogIds.StudyTypeBachelorId,
+                catalogIds.CareerPsychologyId,
+                "Universidad Dr. Jose Matias Delgado",
+                "SV",
+                specialty: "Organizacional",
                 isCurrentlyStudying: false,
                 new DateTime(2011, 1, 10, 0, 0, 0, DateTimeKind.Utc),
                 new DateTime(2016, 12, 10, 0, 0, 0, DateTimeKind.Utc),
-                shiftCode: "MORNING", modalityCode: "ONSITE", totalSubjects: 50, approvedSubjects: 50),
+                educationShiftCatalogItemId: catalogIds.ShiftMorningId,
+                educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
+                totalSubjects: 50,
+                approvedSubjects: 50),
         ]);
         andrea.ReplaceLanguages([
             PersonnelFileLanguage.Create("ENGLISH", "INTERMEDIATE", speaks: true, writes: true, reads: true),
@@ -613,12 +711,20 @@ internal sealed class DevSeedService(
             PersonnelFileEmergencyContact.Create("Pedro Martinez", "Hermano", "+503 7333-6666", null, "Banco Agricola"),
         ]);
         jose.ReplaceEducations([
-            PersonnelFileEducation.Create("GRADUATED", "Ing. en Sistemas Informaticos", "BACHELOR",
-                "Ingenieria en Sistemas Informaticos", "Universidad Don Bosco", "SV",
+            PersonnelFileEducation.Create(
+                catalogIds.StatusGraduatedId,
+                "Ing. en Sistemas Informaticos",
+                catalogIds.StudyTypeBachelorId,
+                catalogIds.CareerSystemsEngineeringId,
+                "Universidad Don Bosco",
+                "SV",
                 specialty: null, isCurrentlyStudying: false,
                 new DateTime(2006, 1, 15, 0, 0, 0, DateTimeKind.Utc),
                 new DateTime(2011, 12, 15, 0, 0, 0, DateTimeKind.Utc),
-                shiftCode: "MORNING", modalityCode: "ONSITE", totalSubjects: 58, approvedSubjects: 58),
+                educationShiftCatalogItemId: catalogIds.ShiftMorningId,
+                educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
+                totalSubjects: 58,
+                approvedSubjects: 58),
         ]);
         jose.ReplaceLanguages([
             PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", speaks: true, writes: true, reads: true),
@@ -655,10 +761,20 @@ internal sealed class DevSeedService(
             PersonnelFileAddress.Create("Zona 10, 4a Calle, #12", "GT", "Guatemala", "Guatemala City", "01010", isCurrent: true),
         ]);
         lucia.ReplaceEducations([
-            PersonnelFileEducation.Create("IN_PROGRESS", null, "BACHELOR", "Contaduria Publica y Auditoria",
-                "Universidad Rafael Landivar", "GT", specialty: null, isCurrentlyStudying: true,
+            PersonnelFileEducation.Create(
+                catalogIds.StatusInProgressId,
+                null,
+                catalogIds.StudyTypeBachelorId,
+                catalogIds.CareerAccountingAuditingId,
+                "Universidad Rafael Landivar",
+                "GT",
+                specialty: null,
+                isCurrentlyStudying: true,
                 new DateTime(2020, 1, 15, 0, 0, 0, DateTimeKind.Utc), endDate: null,
-                shiftCode: "AFTERNOON", modalityCode: "REMOTE", totalSubjects: 45, approvedSubjects: 38),
+                educationShiftCatalogItemId: catalogIds.ShiftAfternoonId,
+                educationModalityCatalogItemId: catalogIds.ModalityRemoteId,
+                totalSubjects: 45,
+                approvedSubjects: 38),
         ]);
         lucia.ReplaceReferences([
             PersonnelFileReference.Create("Marco Estrada", "Zona 14, Guatemala", "+502 5111-2222",
@@ -669,6 +785,48 @@ internal sealed class DevSeedService(
 
         return [maria, carlos, andrea, jose, lucia];
     }
+
+    private async Task<EducationCatalogIds> LoadEducationCatalogIdsAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        async Task<long> ResolveAsync<TCatalogItem>(string code)
+            where TCatalogItem : PersonnelEducationCatalogItem =>
+            await dbContext.Set<TCatalogItem>()
+                .Where(item => item.TenantId == tenantId && item.NormalizedCode == code)
+                .Select(item => item.Id)
+                .SingleAsync(cancellationToken);
+
+        return new EducationCatalogIds(
+            await ResolveAsync<EducationStatusCatalogItem>("GRADUATED"),
+            await ResolveAsync<EducationStatusCatalogItem>("IN_PROGRESS"),
+            await ResolveAsync<EducationStudyTypeCatalogItem>("BACHELOR"),
+            await ResolveAsync<EducationStudyTypeCatalogItem>("MASTER"),
+            await ResolveAsync<EducationShiftCatalogItem>("MORNING"),
+            await ResolveAsync<EducationShiftCatalogItem>("AFTERNOON"),
+            await ResolveAsync<EducationModalityCatalogItem>("ONSITE"),
+            await ResolveAsync<EducationModalityCatalogItem>("REMOTE"),
+            await ResolveAsync<EducationCareerCatalogItem>("INDUSTRIAL_ENGINEERING"),
+            await ResolveAsync<EducationCareerCatalogItem>("BUSINESS_ADMINISTRATION"),
+            await ResolveAsync<EducationCareerCatalogItem>("MBA"),
+            await ResolveAsync<EducationCareerCatalogItem>("PSYCHOLOGY"),
+            await ResolveAsync<EducationCareerCatalogItem>("SYSTEMS_ENGINEERING"),
+            await ResolveAsync<EducationCareerCatalogItem>("ACCOUNTING_AUDITING"));
+    }
+
+    private sealed record EducationCatalogIds(
+        long StatusGraduatedId,
+        long StatusInProgressId,
+        long StudyTypeBachelorId,
+        long StudyTypeMasterId,
+        long ShiftMorningId,
+        long ShiftAfternoonId,
+        long ModalityOnsiteId,
+        long ModalityRemoteId,
+        long CareerIndustrialEngineeringId,
+        long CareerBusinessAdministrationId,
+        long CareerMbaId,
+        long CareerPsychologyId,
+        long CareerSystemsEngineeringId,
+        long CareerAccountingAuditingId);
 
     private static void StampTenant(IEnumerable<TenantEntity> entities, Guid tenantId)
     {

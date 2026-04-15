@@ -933,6 +933,7 @@ components:
         photoUrl:
           type: string
           nullable: true
+          description: Accepts `null`, `http/https` URL, or `data:image/<png|jpeg|jpg|webp|svg+xml>;base64,...` up to 2 MB. SVG active content (scripts/events/javascript links) is rejected.
         orgUnitPublicId:
           type: string
           format: uuid

@@ -17,6 +17,11 @@ cd "/Users/christophercanas/Developments/CLARI NEW VERSION/clarihr-backend/CLARI
 export ASPNETCORE_ENVIRONMENT=Development
 # Opcional para forzar cadena de conexion:
 export Database__ConnectionString="Host=localhost;Port=5432;Database=clarihr;Username=postgres;Password=postgres"
+# Configuracion Blob para fotos de expediente:
+export BlobStorage__ConnectionString="<azure-blob-connection-string>"
+export BlobStorage__AccountName="clarifydevblobstorage"
+export BlobStorage__ProfileImagesContainer="clarihr-profile-images"
+export BlobStorage__ProfileImageSasTtlMinutes="15"
 ```
 
 ### 1.3 Alinear herramienta EF con la version del proyecto
