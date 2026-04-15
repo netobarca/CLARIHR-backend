@@ -8,6 +8,7 @@ using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.CostCenters;
+using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.InternalCatalogs;
 using CLARIHR.Domain.JobProfiles;
@@ -194,7 +195,17 @@ public sealed class ApplicationDbContext(
 
     public DbSet<EducationModalityCatalogItem> EducationModalityCatalogItems => Set<EducationModalityCatalogItem>();
 
-    public DbSet<PersonnelCatalogItem> PersonnelCatalogItems => Set<PersonnelCatalogItem>();
+    public DbSet<LanguageCatalogItem> LanguageCatalogItems => Set<LanguageCatalogItem>();
+
+    public DbSet<LanguageLevelCatalogItem> LanguageLevelCatalogItems => Set<LanguageLevelCatalogItem>();
+
+    public DbSet<TrainingTypeCatalogItem> TrainingTypeCatalogItems => Set<TrainingTypeCatalogItem>();
+
+    public DbSet<DurationUnitCatalogItem> DurationUnitCatalogItems => Set<DurationUnitCatalogItem>();
+
+    public DbSet<ReferenceTypeCatalogItem> ReferenceTypeCatalogItems => Set<ReferenceTypeCatalogItem>();
+
+    public DbSet<CurrencyCatalogItem> CurrencyCatalogItems => Set<CurrencyCatalogItem>();
 
     public DbSet<PersonnelReferenceCatalogItem> PersonnelReferenceCatalogItems => Set<PersonnelReferenceCatalogItem>();
 
