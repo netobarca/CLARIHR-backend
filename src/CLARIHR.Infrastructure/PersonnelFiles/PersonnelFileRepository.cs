@@ -3,6 +3,7 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
+using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -820,21 +821,22 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
         CancellationToken cancellationToken)
     {
         var normalizedCategory = category.Trim().ToUpperInvariant();
-        return dbContext.Set<PersonnelCatalogItem>()
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.Category.ToUpper() == normalizedCategory && item.IsActive)
-            .OrderBy(item => item.SortOrder)
-            .ThenBy(item => item.Name)
-            .Select(item => new PersonnelCatalogItemResponse(
-                item.PublicId,
-                item.Category,
-                item.Code,
-                item.Name,
-                item.IsSystem,
-                item.IsActive,
-                item.SortOrder))
-            .ToArrayAsync(cancellationToken)
-            .ContinueWith(static task => (IReadOnlyCollection<PersonnelCatalogItemResponse>)task.Result, cancellationToken);
+        return normalizedCategory switch
+        {
+            "CURRICULUMLANGUAGE" => GetTenantCatalogItemsAsync<LanguageCatalogItem>(tenantId, "CurriculumLanguage", cancellationToken),
+            "CURRICULUMLANGUAGELEVEL" => GetTenantCatalogItemsAsync<LanguageLevelCatalogItem>(tenantId, "CurriculumLanguageLevel", cancellationToken),
+            "CURRICULUMTRAININGTYPE" => GetTenantCatalogItemsAsync<TrainingTypeCatalogItem>(tenantId, "CurriculumTrainingType", cancellationToken),
+            "CURRICULUMDURATIONUNIT" => GetTenantCatalogItemsAsync<DurationUnitCatalogItem>(tenantId, "CurriculumDurationUnit", cancellationToken),
+            "CURRICULUMREFERENCETYPE" => GetTenantCatalogItemsAsync<ReferenceTypeCatalogItem>(tenantId, "CurriculumReferenceType", cancellationToken),
+            "CURRENCY" => GetTenantCatalogItemsAsync<CurrencyCatalogItem>(tenantId, "Currency", cancellationToken),
+            "COUNTRY" => GetCountryCatalogItemsAsync("Country", cancellationToken),
+            "CURRICULUMEDUCATIONSTATUS" => GetEducationCatalogItemsAsync<EducationStatusCatalogItem>(tenantId, "CurriculumEducationStatus", cancellationToken),
+            "CURRICULUMSTUDYTYPE" => GetEducationCatalogItemsAsync<EducationStudyTypeCatalogItem>(tenantId, "CurriculumStudyType", cancellationToken),
+            "CURRICULUMSHIFT" => GetEducationCatalogItemsAsync<EducationShiftCatalogItem>(tenantId, "CurriculumShift", cancellationToken),
+            "CURRICULUMMODALITY" => GetEducationCatalogItemsAsync<EducationModalityCatalogItem>(tenantId, "CurriculumModality", cancellationToken),
+            "CURRICULUMCAREER" => GetEducationCatalogItemsAsync<EducationCareerCatalogItem>(tenantId, "CurriculumCareer", cancellationToken),
+            _ => Task.FromResult<IReadOnlyCollection<PersonnelCatalogItemResponse>>([])
+        };
     }
 
     public Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(
@@ -891,14 +893,24 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
         var normalizedCategory = category.Trim().ToUpperInvariant();
         var normalizedCode = code.Trim().ToUpperInvariant();
 
-        return dbContext.Set<PersonnelCatalogItem>()
-            .AsNoTracking()
-            .AnyAsync(
-                item => item.TenantId == tenantId &&
-                        item.IsActive &&
-                        item.Category.ToUpper() == normalizedCategory &&
-                        item.NormalizedCode == normalizedCode,
-                cancellationToken);
+        return normalizedCategory switch
+        {
+            "CURRICULUMLANGUAGE" => IsTenantCatalogCodeActiveAsync<LanguageCatalogItem>(tenantId, normalizedCode, cancellationToken),
+            "CURRICULUMLANGUAGELEVEL" => IsTenantCatalogCodeActiveAsync<LanguageLevelCatalogItem>(tenantId, normalizedCode, cancellationToken),
+            "CURRICULUMTRAININGTYPE" => IsTenantCatalogCodeActiveAsync<TrainingTypeCatalogItem>(tenantId, normalizedCode, cancellationToken),
+            "CURRICULUMDURATIONUNIT" => IsTenantCatalogCodeActiveAsync<DurationUnitCatalogItem>(tenantId, normalizedCode, cancellationToken),
+            "CURRICULUMREFERENCETYPE" => IsTenantCatalogCodeActiveAsync<ReferenceTypeCatalogItem>(tenantId, normalizedCode, cancellationToken),
+            "CURRENCY" => IsTenantCatalogCodeActiveAsync<CurrencyCatalogItem>(tenantId, normalizedCode, cancellationToken),
+            "COUNTRY" => dbContext.CountryCatalogItems
+                .AsNoTracking()
+                .AnyAsync(item => item.IsActive && item.NormalizedCode == normalizedCode, cancellationToken),
+            "CURRICULUMEDUCATIONSTATUS" => IsEducationCatalogCodeActiveAsync<EducationStatusCatalogItem>(tenantId, normalizedCode, cancellationToken),
+            "CURRICULUMSTUDYTYPE" => IsEducationCatalogCodeActiveAsync<EducationStudyTypeCatalogItem>(tenantId, normalizedCode, cancellationToken),
+            "CURRICULUMSHIFT" => IsEducationCatalogCodeActiveAsync<EducationShiftCatalogItem>(tenantId, normalizedCode, cancellationToken),
+            "CURRICULUMMODALITY" => IsEducationCatalogCodeActiveAsync<EducationModalityCatalogItem>(tenantId, normalizedCode, cancellationToken),
+            "CURRICULUMCAREER" => IsEducationCatalogCodeActiveAsync<EducationCareerCatalogItem>(tenantId, normalizedCode, cancellationToken),
+            _ => Task.FromResult(false)
+        };
     }
 
     public Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken)
@@ -1817,6 +1829,93 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .Select(file => file.LinkedUserPublicId!.Value)
             .Distinct()
             .ToArrayAsync(cancellationToken);
+
+    private Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetTenantCatalogItemsAsync<TCatalogItem>(
+        Guid tenantId,
+        string category,
+        CancellationToken cancellationToken)
+        where TCatalogItem : GeneralCatalogItem =>
+        dbContext.Set<TCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.IsActive)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new PersonnelCatalogItemResponse(
+                item.PublicId,
+                category,
+                item.Code,
+                item.Name,
+                item.IsSystem,
+                item.IsActive,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken)
+            .ContinueWith(static task => (IReadOnlyCollection<PersonnelCatalogItemResponse>)task.Result, cancellationToken);
+
+    private Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetEducationCatalogItemsAsync<TCatalogItem>(
+        Guid tenantId,
+        string category,
+        CancellationToken cancellationToken)
+        where TCatalogItem : PersonnelEducationCatalogItem =>
+        dbContext.Set<TCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.IsActive)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new PersonnelCatalogItemResponse(
+                item.PublicId,
+                category,
+                item.Code,
+                item.Name,
+                true,
+                item.IsActive,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken)
+            .ContinueWith(static task => (IReadOnlyCollection<PersonnelCatalogItemResponse>)task.Result, cancellationToken);
+
+    private Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCountryCatalogItemsAsync(
+        string category,
+        CancellationToken cancellationToken) =>
+        dbContext.CountryCatalogItems
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new PersonnelCatalogItemResponse(
+                item.PublicId,
+                category,
+                item.Code,
+                item.Name,
+                true,
+                item.IsActive,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken)
+            .ContinueWith(static task => (IReadOnlyCollection<PersonnelCatalogItemResponse>)task.Result, cancellationToken);
+
+    private Task<bool> IsTenantCatalogCodeActiveAsync<TCatalogItem>(
+        Guid tenantId,
+        string normalizedCode,
+        CancellationToken cancellationToken)
+        where TCatalogItem : GeneralCatalogItem =>
+        dbContext.Set<TCatalogItem>()
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.TenantId == tenantId &&
+                        item.IsActive &&
+                        item.NormalizedCode == normalizedCode,
+                cancellationToken);
+
+    private Task<bool> IsEducationCatalogCodeActiveAsync<TCatalogItem>(
+        Guid tenantId,
+        string normalizedCode,
+        CancellationToken cancellationToken)
+        where TCatalogItem : PersonnelEducationCatalogItem =>
+        dbContext.Set<TCatalogItem>()
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.TenantId == tenantId &&
+                        item.IsActive &&
+                        item.NormalizedCode == normalizedCode,
+                cancellationToken);
 
     private static PersonnelFileEducationResponse MapEducationResponse(PersonnelFileEducation item) =>
         new(

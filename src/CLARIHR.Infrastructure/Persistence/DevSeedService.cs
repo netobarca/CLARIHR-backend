@@ -5,6 +5,7 @@ using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.CostCenters;
+using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.LegalRepresentatives;
@@ -50,7 +51,7 @@ internal sealed class DevSeedService(
 
         await SeedRbacAsync(user, company, tenantId, cancellationToken);
         SeedLocations(tenantId);
-        SeedPersonnelCatalogItems(tenantId);
+        SeedGeneralCatalogItems(tenantId);
         SeedPersonnelEducationCatalogItems(tenantId);
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -227,33 +228,85 @@ internal sealed class DevSeedService(
         muni2.Move(dept.Id);
     }
 
-    private void SeedPersonnelCatalogItems(Guid tenantId)
+    private void SeedGeneralCatalogItems(Guid tenantId)
     {
-        var items = new (string Category, string Code, string Name, int SortOrder)[]
+        var languages = new (string Code, string Name, int SortOrder)[]
         {
-            ("CurriculumLanguage", "ENGLISH", "Ingles", 10),
-            ("CurriculumLanguage", "SPANISH", "Espanol", 20),
-            ("CurriculumLanguageLevel", "ADVANCED", "Avanzado", 10),
-            ("CurriculumLanguageLevel", "INTERMEDIATE", "Intermedio", 20),
-            ("CurriculumLanguageLevel", "BASIC", "Basico", 30),
-            ("CurriculumTrainingType", "COURSE", "Curso", 10),
-            ("CurriculumTrainingType", "WORKSHOP", "Taller", 20),
-            ("CurriculumTrainingType", "CERTIFICATION", "Certificacion", 30),
-            ("CurriculumDurationUnit", "HOUR", "Hora", 10),
-            ("CurriculumDurationUnit", "DAY", "Dia", 20),
-            ("CurriculumReferenceType", "PERSONAL", "Personal", 10),
-            ("CurriculumReferenceType", "PROFESSIONAL", "Profesional", 20),
-            ("Country", "SV", "El Salvador", 10),
-            ("Country", "GT", "Guatemala", 20),
-            ("Currency", "USD", "Dolar estadounidense", 10),
+            ("ENGLISH", "Ingles", 10),
+            ("SPANISH", "Espanol", 20),
         };
 
-        foreach (var item in items)
+        var languageLevels = new (string Code, string Name, int SortOrder)[]
         {
-            var catalogItem = PersonnelCatalogItem.Create(
-                item.Category, item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            catalogItem.SetTenantId(tenantId);
-            dbContext.PersonnelCatalogItems.Add(catalogItem);
+            ("ADVANCED", "Avanzado", 10),
+            ("INTERMEDIATE", "Intermedio", 20),
+            ("BASIC", "Basico", 30),
+        };
+
+        var trainingTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("COURSE", "Curso", 10),
+            ("WORKSHOP", "Taller", 20),
+            ("CERTIFICATION", "Certificacion", 30),
+        };
+
+        var durationUnits = new (string Code, string Name, int SortOrder)[]
+        {
+            ("HOUR", "Hora", 10),
+            ("DAY", "Dia", 20),
+        };
+
+        var referenceTypes = new (string Code, string Name, int SortOrder)[]
+        {
+            ("PERSONAL", "Personal", 10),
+            ("PROFESSIONAL", "Profesional", 20),
+        };
+
+        var currencies = new (string Code, string Name, int SortOrder)[]
+        {
+            ("USD", "Dolar estadounidense", 10),
+        };
+
+        foreach (var item in languages)
+        {
+            var entity = LanguageCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.LanguageCatalogItems.Add(entity);
+        }
+
+        foreach (var item in languageLevels)
+        {
+            var entity = LanguageLevelCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.LanguageLevelCatalogItems.Add(entity);
+        }
+
+        foreach (var item in trainingTypes)
+        {
+            var entity = TrainingTypeCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.TrainingTypeCatalogItems.Add(entity);
+        }
+
+        foreach (var item in durationUnits)
+        {
+            var entity = DurationUnitCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.DurationUnitCatalogItems.Add(entity);
+        }
+
+        foreach (var item in referenceTypes)
+        {
+            var entity = ReferenceTypeCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.ReferenceTypeCatalogItems.Add(entity);
+        }
+
+        foreach (var item in currencies)
+        {
+            var entity = CurrencyCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
+            entity.SetTenantId(tenantId);
+            dbContext.CurrencyCatalogItems.Add(entity);
         }
     }
 
