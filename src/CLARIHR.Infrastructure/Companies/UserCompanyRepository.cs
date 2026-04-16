@@ -88,7 +88,7 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 .SelectMany(user => user.RoleAssignments)
                 .Select(assignment => assignment.Role.NormalizedName)
                 .Distinct()
-                .OrderBy(role => role, StringComparer.Ordinal)
+                .OrderBy(role => role)
                 .ToListAsync(cancellationToken);
 
             if (normalizedRoleNames.Count > 0)

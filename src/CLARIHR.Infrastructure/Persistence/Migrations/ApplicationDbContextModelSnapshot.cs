@@ -810,6 +810,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
 
+                    b.Property<string>("DefaultLocale")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("default_locale");
+
                     b.Property<bool>("IsBillable")
                         .HasColumnType("boolean")
                         .HasColumnName("is_billable");
@@ -2759,6 +2765,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -2766,10 +2782,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
-
-                    b.Property<bool>("IsSystem")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_system");
 
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -2801,10 +2813,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
                     b.HasKey("Id")
                         .HasName("pk_currency_catalog_items");
 
@@ -2812,12 +2820,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_currency_catalog_items__public_id");
 
-                    b.HasIndex("TenantId", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_currency_catalog_items__tenant_code");
+                        .HasDatabaseName("uq_currency_catalog_items__country_code");
 
-                    b.HasIndex("TenantId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_currency_catalog_items__tenant_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_currency_catalog_items__country_active_sort");
 
                     b.ToTable("currency_catalog_items", (string)null);
                 });
@@ -2842,6 +2850,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -2849,10 +2867,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
-
-                    b.Property<bool>("IsSystem")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_system");
 
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -2884,10 +2898,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
                     b.HasKey("Id")
                         .HasName("pk_duration_unit_catalog_items");
 
@@ -2895,12 +2905,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_duration_unit_catalog_items__public_id");
 
-                    b.HasIndex("TenantId", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_duration_unit_catalog_items__tenant_code");
+                        .HasDatabaseName("uq_duration_unit_catalog_items__country_code");
 
-                    b.HasIndex("TenantId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_duration_unit_catalog_items__tenant_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_duration_unit_catalog_items__country_active_sort");
 
                     b.ToTable("duration_unit_catalog_items", (string)null);
                 });
@@ -2925,6 +2935,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -2932,10 +2952,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
-
-                    b.Property<bool>("IsSystem")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_system");
 
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -2967,10 +2983,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
                     b.HasKey("Id")
                         .HasName("pk_language_catalog_items");
 
@@ -2978,12 +2990,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_language_catalog_items__public_id");
 
-                    b.HasIndex("TenantId", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_language_catalog_items__tenant_code");
+                        .HasDatabaseName("uq_language_catalog_items__country_code");
 
-                    b.HasIndex("TenantId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_language_catalog_items__tenant_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_language_catalog_items__country_active_sort");
 
                     b.ToTable("language_catalog_items", (string)null);
                 });
@@ -3008,6 +3020,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -3015,10 +3037,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
-
-                    b.Property<bool>("IsSystem")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_system");
 
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -3050,10 +3068,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
                     b.HasKey("Id")
                         .HasName("pk_language_level_catalog_items");
 
@@ -3061,12 +3075,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_language_level_catalog_items__public_id");
 
-                    b.HasIndex("TenantId", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_language_level_catalog_items__tenant_code");
+                        .HasDatabaseName("uq_language_level_catalog_items__country_code");
 
-                    b.HasIndex("TenantId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_language_level_catalog_items__tenant_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_language_level_catalog_items__country_active_sort");
 
                     b.ToTable("language_level_catalog_items", (string)null);
                 });
@@ -3091,6 +3105,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -3098,10 +3122,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
-
-                    b.Property<bool>("IsSystem")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_system");
 
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -3133,10 +3153,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
                     b.HasKey("Id")
                         .HasName("pk_reference_type_catalog_items");
 
@@ -3144,12 +3160,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_reference_type_catalog_items__public_id");
 
-                    b.HasIndex("TenantId", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_reference_type_catalog_items__tenant_code");
+                        .HasDatabaseName("uq_reference_type_catalog_items__country_code");
 
-                    b.HasIndex("TenantId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_reference_type_catalog_items__tenant_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_reference_type_catalog_items__country_active_sort");
 
                     b.ToTable("reference_type_catalog_items", (string)null);
                 });
@@ -3174,6 +3190,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -3181,10 +3207,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
-
-                    b.Property<bool>("IsSystem")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_system");
 
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -3216,10 +3238,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
                     b.HasKey("Id")
                         .HasName("pk_training_type_catalog_items");
 
@@ -3227,12 +3245,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_training_type_catalog_items__public_id");
 
-                    b.HasIndex("TenantId", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_training_type_catalog_items__tenant_code");
+                        .HasDatabaseName("uq_training_type_catalog_items__country_code");
 
-                    b.HasIndex("TenantId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_training_type_catalog_items__tenant_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_training_type_catalog_items__country_active_sort");
 
                     b.ToTable("training_type_catalog_items", (string)null);
                 });
@@ -4799,98 +4817,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.LegalRepresentatives.LegalRepresentativeDocumentTypeCatalogItem", b =>
-                {
-                    b.Property<long>("Id")
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("code");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("NormalizedCode")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("normalized_code");
-
-                    b.Property<Guid>("PublicId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_id");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sort_order");
-
-                    b.HasKey("Id")
-                        .HasName("pk_legal_representative_document_type_catalog");
-
-                    b.HasIndex("NormalizedCode")
-                        .IsUnique()
-                        .HasDatabaseName("uq_legal_representative_document_type_catalog__normalized_code");
-
-                    b.HasIndex("PublicId")
-                        .IsUnique()
-                        .HasDatabaseName("uq_legal_representative_document_type_catalog__public_id");
-
-                    b.ToTable("legal_representative_document_type_catalog", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1L,
-                            Code = "NATIONALID",
-                            IsActive = true,
-                            Name = "National ID",
-                            NormalizedCode = "NATIONALID",
-                            PublicId = new Guid("fedf12e0-eaf7-5b63-23f2-3dbd66dfca00"),
-                            SortOrder = 1
-                        },
-                        new
-                        {
-                            Id = 2L,
-                            Code = "PASSPORT",
-                            IsActive = true,
-                            Name = "Passport",
-                            NormalizedCode = "PASSPORT",
-                            PublicId = new Guid("c3b0ed20-3b2e-e0a3-4a80-4b2677409133"),
-                            SortOrder = 2
-                        },
-                        new
-                        {
-                            Id = 3L,
-                            Code = "TAXID",
-                            IsActive = true,
-                            Name = "Tax ID",
-                            NormalizedCode = "TAXID",
-                            PublicId = new Guid("b3f3e7aa-8d30-154d-94eb-eab837c8a1db"),
-                            SortOrder = 3
-                        },
-                        new
-                        {
-                            Id = 4L,
-                            Code = "OTHER",
-                            IsActive = true,
-                            Name = "Other",
-                            NormalizedCode = "OTHER",
-                            PublicId = new Guid("8c070836-b6b1-5393-ed1c-648de59d3653"),
-                            SortOrder = 4
-                        });
-                });
-
             modelBuilder.Entity("CLARIHR.Domain.LegalRepresentatives.LegalRepresentativePositionTitleCatalogItem", b =>
                 {
                     b.Property<long>("Id")
@@ -5241,6 +5167,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
 
+                    b.Property<string>("DefaultLocale")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("default_locale");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
@@ -5291,6 +5223,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7000L,
                             Code = "AF",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Afghanistan",
@@ -5303,6 +5236,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7001L,
                             Code = "AX",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Aland Islands",
@@ -5315,6 +5249,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7002L,
                             Code = "AL",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Albania",
@@ -5327,6 +5262,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7003L,
                             Code = "DZ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Algeria",
@@ -5339,6 +5275,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7004L,
                             Code = "AS",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "American Samoa",
@@ -5351,6 +5288,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7005L,
                             Code = "AD",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Andorra",
@@ -5363,6 +5301,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7006L,
                             Code = "AO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Angola",
@@ -5375,6 +5314,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7007L,
                             Code = "AI",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Anguilla",
@@ -5387,6 +5327,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7008L,
                             Code = "AG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Antigua & Barbuda",
@@ -5399,6 +5340,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7009L,
                             Code = "AR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Argentina",
@@ -5411,6 +5353,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7010L,
                             Code = "AM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Armenia",
@@ -5423,6 +5366,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7011L,
                             Code = "AW",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Aruba",
@@ -5435,6 +5379,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7012L,
                             Code = "AU",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Australia",
@@ -5447,6 +5392,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7013L,
                             Code = "AT",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Austria",
@@ -5459,6 +5405,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7014L,
                             Code = "AZ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Azerbaijan",
@@ -5471,6 +5418,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7015L,
                             Code = "BS",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Bahamas",
@@ -5483,6 +5431,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7016L,
                             Code = "BH",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Bahrain",
@@ -5495,6 +5444,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7017L,
                             Code = "BD",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Bangladesh",
@@ -5507,6 +5457,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7018L,
                             Code = "BB",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Barbados",
@@ -5519,6 +5470,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7019L,
                             Code = "BY",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Belarus",
@@ -5531,6 +5483,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7020L,
                             Code = "BE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Belgium",
@@ -5543,6 +5496,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7021L,
                             Code = "BZ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Belize",
@@ -5555,6 +5509,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7022L,
                             Code = "BJ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Benin",
@@ -5567,6 +5522,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7023L,
                             Code = "BM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Bermuda",
@@ -5579,6 +5535,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7024L,
                             Code = "BT",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Bhutan",
@@ -5591,6 +5548,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7025L,
                             Code = "BO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Bolivia",
@@ -5603,6 +5561,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7026L,
                             Code = "BA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Bosnia & Herzegovina",
@@ -5615,6 +5574,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7027L,
                             Code = "BW",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Botswana",
@@ -5627,6 +5587,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7028L,
                             Code = "BR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "pt-BR",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Brazil",
@@ -5639,6 +5600,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7029L,
                             Code = "VG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "British Virgin Islands",
@@ -5651,6 +5613,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7030L,
                             Code = "BN",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Brunei",
@@ -5663,6 +5626,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7031L,
                             Code = "BG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Bulgaria",
@@ -5675,6 +5639,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7032L,
                             Code = "BF",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Burkina Faso",
@@ -5687,6 +5652,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7033L,
                             Code = "BI",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Burundi",
@@ -5699,6 +5665,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7034L,
                             Code = "KH",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Cambodia",
@@ -5711,6 +5678,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7035L,
                             Code = "CM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Cameroon",
@@ -5723,6 +5691,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7036L,
                             Code = "CA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Canada",
@@ -5735,6 +5704,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7037L,
                             Code = "IC",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Canary Islands",
@@ -5747,6 +5717,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7038L,
                             Code = "CV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Cape Verde",
@@ -5759,6 +5730,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7039L,
                             Code = "BQ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Caribbean Netherlands",
@@ -5771,6 +5743,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7040L,
                             Code = "KY",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Cayman Islands",
@@ -5783,6 +5756,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7041L,
                             Code = "CF",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Central African Republic",
@@ -5795,6 +5769,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7042L,
                             Code = "EA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Ceuta & Melilla",
@@ -5807,6 +5782,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7043L,
                             Code = "TD",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Chad",
@@ -5819,6 +5795,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7044L,
                             Code = "IO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Chagos Archipelago",
@@ -5831,6 +5808,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7045L,
                             Code = "CL",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Chile",
@@ -5843,6 +5821,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7046L,
                             Code = "CN",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "China mainland",
@@ -5855,6 +5834,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7047L,
                             Code = "CX",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Christmas Island",
@@ -5867,6 +5847,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7048L,
                             Code = "CC",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Cocos (Keeling) Islands",
@@ -5879,6 +5860,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7049L,
                             Code = "CO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Colombia",
@@ -5891,6 +5873,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7050L,
                             Code = "KM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Comoros",
@@ -5903,6 +5886,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7051L,
                             Code = "CG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Congo - Brazzaville",
@@ -5915,6 +5899,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7052L,
                             Code = "CD",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Congo - Kinshasa",
@@ -5927,6 +5912,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7053L,
                             Code = "CK",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Cook Islands",
@@ -5939,6 +5925,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7054L,
                             Code = "CR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Costa Rica",
@@ -5951,6 +5938,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7055L,
                             Code = "CI",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Cote d'Ivoire",
@@ -5963,6 +5951,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7056L,
                             Code = "HR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Croatia",
@@ -5975,6 +5964,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7057L,
                             Code = "CU",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Cuba",
@@ -5987,6 +5977,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7058L,
                             Code = "CW",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Curacao",
@@ -5999,6 +5990,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7059L,
                             Code = "CY",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Cyprus",
@@ -6011,6 +6003,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7060L,
                             Code = "CZ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Czechia",
@@ -6023,6 +6016,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7061L,
                             Code = "DK",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Denmark",
@@ -6035,6 +6029,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7062L,
                             Code = "DG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Diego Garcia",
@@ -6047,6 +6042,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7063L,
                             Code = "DJ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Djibouti",
@@ -6059,6 +6055,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7064L,
                             Code = "DM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Dominica",
@@ -6071,6 +6068,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7065L,
                             Code = "DO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Dominican Republic",
@@ -6083,6 +6081,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7066L,
                             Code = "EC",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Ecuador",
@@ -6095,6 +6094,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7067L,
                             Code = "EG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Egypt",
@@ -6107,6 +6107,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7068L,
                             Code = "SV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-SV",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "El Salvador",
@@ -6119,6 +6120,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7069L,
                             Code = "GQ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Equatorial Guinea",
@@ -6131,6 +6133,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7070L,
                             Code = "ER",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Eritrea",
@@ -6143,6 +6146,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7071L,
                             Code = "EE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Estonia",
@@ -6155,6 +6159,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7072L,
                             Code = "SZ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Eswatini",
@@ -6167,6 +6172,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7073L,
                             Code = "ET",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Ethiopia",
@@ -6179,6 +6185,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7074L,
                             Code = "FK",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Falkland Islands",
@@ -6191,6 +6198,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7075L,
                             Code = "FO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Faroe Islands",
@@ -6203,6 +6211,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7076L,
                             Code = "FJ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Fiji",
@@ -6215,6 +6224,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7077L,
                             Code = "FI",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Finland",
@@ -6227,6 +6237,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7078L,
                             Code = "FR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "France",
@@ -6239,6 +6250,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7079L,
                             Code = "GF",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "French Guiana",
@@ -6251,6 +6263,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7080L,
                             Code = "PF",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "French Polynesia",
@@ -6263,6 +6276,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7081L,
                             Code = "GA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Gabon",
@@ -6275,6 +6289,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7082L,
                             Code = "GM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Gambia",
@@ -6287,6 +6302,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7083L,
                             Code = "GE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Georgia",
@@ -6299,6 +6315,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7084L,
                             Code = "DE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Germany",
@@ -6311,6 +6328,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7085L,
                             Code = "GH",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Ghana",
@@ -6323,6 +6341,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7086L,
                             Code = "GI",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Gibraltar",
@@ -6335,6 +6354,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7087L,
                             Code = "GR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Greece",
@@ -6347,6 +6367,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7088L,
                             Code = "GL",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Greenland",
@@ -6359,6 +6380,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7089L,
                             Code = "GD",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Grenada",
@@ -6371,6 +6393,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7090L,
                             Code = "GP",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Guadeloupe",
@@ -6383,6 +6406,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7091L,
                             Code = "GU",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Guam",
@@ -6395,6 +6419,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7092L,
                             Code = "GT",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Guatemala",
@@ -6407,6 +6432,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7093L,
                             Code = "GG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Guernsey",
@@ -6419,6 +6445,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7094L,
                             Code = "GN",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Guinea",
@@ -6431,6 +6458,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7095L,
                             Code = "GW",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Guinea-Bissau",
@@ -6443,6 +6471,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7096L,
                             Code = "GY",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Guyana",
@@ -6455,6 +6484,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7097L,
                             Code = "HT",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Haiti",
@@ -6467,6 +6497,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7098L,
                             Code = "HN",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Honduras",
@@ -6479,6 +6510,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7099L,
                             Code = "HK",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Hong Kong",
@@ -6491,6 +6523,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7100L,
                             Code = "HU",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Hungary",
@@ -6503,6 +6536,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7101L,
                             Code = "IS",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Iceland",
@@ -6515,6 +6549,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7102L,
                             Code = "IN",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "India",
@@ -6527,6 +6562,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7103L,
                             Code = "ID",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Indonesia",
@@ -6539,6 +6575,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7104L,
                             Code = "IR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Iran",
@@ -6551,6 +6588,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7105L,
                             Code = "IQ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Iraq",
@@ -6563,6 +6601,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7106L,
                             Code = "IE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Ireland",
@@ -6575,6 +6614,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7107L,
                             Code = "IM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Isle of Man",
@@ -6587,6 +6627,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7108L,
                             Code = "IL",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Israel",
@@ -6599,6 +6640,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7109L,
                             Code = "IT",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Italy",
@@ -6611,6 +6653,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7110L,
                             Code = "JM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Jamaica",
@@ -6623,6 +6666,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7111L,
                             Code = "JP",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Japan",
@@ -6635,6 +6679,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7112L,
                             Code = "JE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Jersey",
@@ -6647,6 +6692,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7113L,
                             Code = "JO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Jordan",
@@ -6659,6 +6705,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7114L,
                             Code = "KZ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Kazakhstan",
@@ -6671,6 +6718,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7115L,
                             Code = "KE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Kenya",
@@ -6683,6 +6731,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7116L,
                             Code = "KI",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Kiribati",
@@ -6695,6 +6744,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7117L,
                             Code = "XK",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Kosovo",
@@ -6707,6 +6757,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7118L,
                             Code = "KW",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Kuwait",
@@ -6719,6 +6770,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7119L,
                             Code = "KG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Kyrgyzstan",
@@ -6731,6 +6783,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7120L,
                             Code = "LA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Laos",
@@ -6743,6 +6796,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7121L,
                             Code = "LV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Latvia",
@@ -6755,6 +6809,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7122L,
                             Code = "LB",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Lebanon",
@@ -6767,6 +6822,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7123L,
                             Code = "LS",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Lesotho",
@@ -6779,6 +6835,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7124L,
                             Code = "LR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Liberia",
@@ -6791,6 +6848,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7125L,
                             Code = "LY",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Libya",
@@ -6803,6 +6861,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7126L,
                             Code = "LI",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Liechtenstein",
@@ -6815,6 +6874,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7127L,
                             Code = "LT",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Lithuania",
@@ -6827,6 +6887,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7128L,
                             Code = "LU",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Luxembourg",
@@ -6839,6 +6900,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7129L,
                             Code = "MO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Macao",
@@ -6851,6 +6913,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7130L,
                             Code = "MG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Madagascar",
@@ -6863,6 +6926,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7131L,
                             Code = "MW",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Malawi",
@@ -6875,6 +6939,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7132L,
                             Code = "MY",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Malaysia",
@@ -6887,6 +6952,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7133L,
                             Code = "MV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Maldives",
@@ -6899,6 +6965,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7134L,
                             Code = "ML",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Mali",
@@ -6911,6 +6978,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7135L,
                             Code = "MT",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Malta",
@@ -6923,6 +6991,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7136L,
                             Code = "MH",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Marshall Islands",
@@ -6935,6 +7004,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7137L,
                             Code = "MQ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Martinique",
@@ -6947,6 +7017,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7138L,
                             Code = "MR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Mauritania",
@@ -6959,6 +7030,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7139L,
                             Code = "MU",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Mauritius",
@@ -6971,6 +7043,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7140L,
                             Code = "YT",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Mayotte",
@@ -6983,6 +7056,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7141L,
                             Code = "MX",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Mexico",
@@ -6995,6 +7069,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7142L,
                             Code = "FM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Micronesia",
@@ -7007,6 +7082,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7143L,
                             Code = "MD",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Moldova",
@@ -7019,6 +7095,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7144L,
                             Code = "MC",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Monaco",
@@ -7031,6 +7108,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7145L,
                             Code = "MN",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Mongolia",
@@ -7043,6 +7121,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7146L,
                             Code = "ME",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Montenegro",
@@ -7055,6 +7134,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7147L,
                             Code = "MS",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Montserrat",
@@ -7067,6 +7147,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7148L,
                             Code = "MA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Morocco",
@@ -7079,6 +7160,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7149L,
                             Code = "MZ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Mozambique",
@@ -7091,6 +7173,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7150L,
                             Code = "MM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Myanmar (Burma)",
@@ -7103,6 +7186,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7151L,
                             Code = "NA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Namibia",
@@ -7115,6 +7199,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7152L,
                             Code = "NR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Nauru",
@@ -7127,6 +7212,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7153L,
                             Code = "NP",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Nepal",
@@ -7139,6 +7225,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7154L,
                             Code = "NL",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Netherlands",
@@ -7151,6 +7238,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7155L,
                             Code = "NC",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "New Caledonia",
@@ -7163,6 +7251,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7156L,
                             Code = "NZ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "New Zealand",
@@ -7175,6 +7264,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7157L,
                             Code = "NI",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Nicaragua",
@@ -7187,6 +7277,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7158L,
                             Code = "NE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Niger",
@@ -7199,6 +7290,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7159L,
                             Code = "NG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Nigeria",
@@ -7211,6 +7303,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7160L,
                             Code = "NU",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Niue",
@@ -7223,6 +7316,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7161L,
                             Code = "NF",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Norfolk Island",
@@ -7235,6 +7329,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7162L,
                             Code = "KP",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "North Korea",
@@ -7247,6 +7342,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7163L,
                             Code = "MK",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "North Macedonia",
@@ -7259,6 +7355,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7164L,
                             Code = "MP",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Northern Mariana Islands",
@@ -7271,6 +7368,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7165L,
                             Code = "NO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Norway",
@@ -7283,6 +7381,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7166L,
                             Code = "OM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Oman",
@@ -7295,6 +7394,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7167L,
                             Code = "PK",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Pakistan",
@@ -7307,6 +7407,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7168L,
                             Code = "PW",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Palau",
@@ -7319,6 +7420,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7169L,
                             Code = "PS",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Palestinian Territories",
@@ -7331,6 +7433,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7170L,
                             Code = "PA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Panama",
@@ -7343,6 +7446,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7171L,
                             Code = "PG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Papua New Guinea",
@@ -7355,6 +7459,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7172L,
                             Code = "PY",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Paraguay",
@@ -7367,6 +7472,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7173L,
                             Code = "PE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Peru",
@@ -7379,6 +7485,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7174L,
                             Code = "PH",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Philippines",
@@ -7391,6 +7498,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7175L,
                             Code = "PN",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Pitcairn Islands",
@@ -7403,6 +7511,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7176L,
                             Code = "PL",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Poland",
@@ -7415,6 +7524,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7177L,
                             Code = "PT",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "pt-PT",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Portugal",
@@ -7427,6 +7537,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7178L,
                             Code = "PR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Puerto Rico",
@@ -7439,6 +7550,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7179L,
                             Code = "QA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Qatar",
@@ -7451,6 +7563,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7180L,
                             Code = "RE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Reunion",
@@ -7463,6 +7576,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7181L,
                             Code = "RO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Romania",
@@ -7475,6 +7589,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7182L,
                             Code = "RU",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Russia",
@@ -7487,6 +7602,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7183L,
                             Code = "RW",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Rwanda",
@@ -7499,6 +7615,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7184L,
                             Code = "WS",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Samoa",
@@ -7511,6 +7628,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7185L,
                             Code = "SM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "San Marino",
@@ -7523,6 +7641,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7186L,
                             Code = "ST",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Sao Tome & Principe",
@@ -7535,6 +7654,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7187L,
                             Code = "SA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Saudi Arabia",
@@ -7547,6 +7667,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7188L,
                             Code = "SN",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Senegal",
@@ -7559,6 +7680,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7189L,
                             Code = "RS",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Serbia",
@@ -7571,6 +7693,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7190L,
                             Code = "SC",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Seychelles",
@@ -7583,6 +7706,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7191L,
                             Code = "SL",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Sierra Leone",
@@ -7595,6 +7719,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7192L,
                             Code = "SG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Singapore",
@@ -7607,6 +7732,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7193L,
                             Code = "SX",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Sint Maarten",
@@ -7619,6 +7745,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7194L,
                             Code = "SK",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Slovakia",
@@ -7631,6 +7758,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7195L,
                             Code = "SI",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Slovenia",
@@ -7643,6 +7771,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7196L,
                             Code = "SB",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Solomon Islands",
@@ -7655,6 +7784,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7197L,
                             Code = "SO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Somalia",
@@ -7667,6 +7797,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7198L,
                             Code = "ZA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "South Africa",
@@ -7679,6 +7810,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7199L,
                             Code = "KR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "South Korea",
@@ -7691,6 +7823,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7200L,
                             Code = "SS",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "South Sudan",
@@ -7703,6 +7836,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7201L,
                             Code = "ES",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-ES",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Spain",
@@ -7715,6 +7849,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7202L,
                             Code = "LK",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Sri Lanka",
@@ -7727,6 +7862,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7203L,
                             Code = "BL",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "St. Barthelemy",
@@ -7739,6 +7875,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7204L,
                             Code = "SH",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "St. Helena",
@@ -7751,6 +7888,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7205L,
                             Code = "KN",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "St. Kitts & Nevis",
@@ -7763,6 +7901,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7206L,
                             Code = "LC",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "St. Lucia",
@@ -7775,6 +7914,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7207L,
                             Code = "MF",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "St. Martin",
@@ -7787,6 +7927,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7208L,
                             Code = "PM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "St. Pierre & Miquelon",
@@ -7799,6 +7940,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7209L,
                             Code = "VC",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "St. Vincent & Grenadines",
@@ -7811,6 +7953,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7210L,
                             Code = "SD",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Sudan",
@@ -7823,6 +7966,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7211L,
                             Code = "SR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Suriname",
@@ -7835,6 +7979,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7212L,
                             Code = "SJ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Svalbard & Jan Mayen",
@@ -7847,6 +7992,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7213L,
                             Code = "SE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Sweden",
@@ -7859,6 +8005,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7214L,
                             Code = "CH",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Switzerland",
@@ -7871,6 +8018,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7215L,
                             Code = "SY",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Syria",
@@ -7883,6 +8031,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7216L,
                             Code = "TW",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Taiwan",
@@ -7895,6 +8044,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7217L,
                             Code = "TJ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Tajikistan",
@@ -7907,6 +8057,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7218L,
                             Code = "TZ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Tanzania",
@@ -7919,6 +8070,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7219L,
                             Code = "TH",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Thailand",
@@ -7931,6 +8083,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7220L,
                             Code = "TL",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Timor-Leste",
@@ -7943,6 +8096,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7221L,
                             Code = "TG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Togo",
@@ -7955,6 +8109,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7222L,
                             Code = "TK",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Tokelau",
@@ -7967,6 +8122,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7223L,
                             Code = "TO",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Tonga",
@@ -7979,6 +8135,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7224L,
                             Code = "TT",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Trinidad & Tobago",
@@ -7991,6 +8148,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7225L,
                             Code = "TN",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Tunisia",
@@ -8003,6 +8161,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7226L,
                             Code = "TR",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Turkiye",
@@ -8015,6 +8174,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7227L,
                             Code = "TM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Turkmenistan",
@@ -8027,6 +8187,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7228L,
                             Code = "TC",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Turks & Caicos Islands",
@@ -8039,6 +8200,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7229L,
                             Code = "TV",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Tuvalu",
@@ -8051,6 +8213,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7230L,
                             Code = "UM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "U.S. Outlying Islands",
@@ -8063,6 +8226,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7231L,
                             Code = "VI",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "U.S. Virgin Islands",
@@ -8075,6 +8239,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7232L,
                             Code = "UG",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Uganda",
@@ -8087,6 +8252,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7233L,
                             Code = "UA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Ukraine",
@@ -8099,6 +8265,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7234L,
                             Code = "AE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "United Arab Emirates",
@@ -8111,6 +8278,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7235L,
                             Code = "GB",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "United Kingdom",
@@ -8123,6 +8291,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7236L,
                             Code = "US",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "United States",
@@ -8135,6 +8304,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7237L,
                             Code = "UY",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Uruguay",
@@ -8147,6 +8317,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7238L,
                             Code = "UZ",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Uzbekistan",
@@ -8159,6 +8330,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7239L,
                             Code = "VU",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Vanuatu",
@@ -8171,6 +8343,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7240L,
                             Code = "VA",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Vatican City",
@@ -8183,6 +8356,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7241L,
                             Code = "VE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "es-419",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Venezuela",
@@ -8195,6 +8369,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7242L,
                             Code = "VN",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Vietnam",
@@ -8207,6 +8382,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7243L,
                             Code = "WF",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Wallis & Futuna",
@@ -8219,6 +8395,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7244L,
                             Code = "EH",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Western Sahara",
@@ -8231,6 +8408,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7245L,
                             Code = "YE",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Yemen",
@@ -8243,6 +8421,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7246L,
                             Code = "ZM",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Zambia",
@@ -8255,6 +8434,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                             Id = -7247L,
                             Code = "ZW",
                             CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultLocale = "en-US",
                             IsActive = true,
                             ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Zimbabwe",
@@ -9338,7 +9518,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("org_units", (string)null);
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.EducationCareerCatalogItem", b =>
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.DepartmentCatalogItem", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -9357,6 +9537,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
 
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -9396,9 +9586,90 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
 
-                    b.Property<Guid>("TenantId")
+                    b.HasKey("Id")
+                        .HasName("pk_department_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_department_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_department_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_department_catalog_items__country_active_sort");
+
+                    b.ToTable("department_catalog_items", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.EducationCareerCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
                         .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
 
                     b.HasKey("Id")
                         .HasName("pk_education_career_catalog_items");
@@ -9407,12 +9678,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_education_career_catalog_items__public_id");
 
-                    b.HasIndex("TenantId", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_education_career_catalog_items__tenant_code");
+                        .HasDatabaseName("uq_education_career_catalog_items__country_code");
 
-                    b.HasIndex("TenantId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_education_career_catalog_items__tenant_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_education_career_catalog_items__country_active_sort");
 
                     b.ToTable("education_career_catalog_items", (string)null);
                 });
@@ -9437,6 +9708,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -9475,10 +9756,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
                     b.HasKey("Id")
                         .HasName("pk_education_modality_catalog_items");
 
@@ -9486,12 +9763,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_education_modality_catalog_items__public_id");
 
-                    b.HasIndex("TenantId", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_education_modality_catalog_items__tenant_code");
+                        .HasDatabaseName("uq_education_modality_catalog_items__country_code");
 
-                    b.HasIndex("TenantId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_education_modality_catalog_items__tenant_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_education_modality_catalog_items__country_active_sort");
 
                     b.ToTable("education_modality_catalog_items", (string)null);
                 });
@@ -9516,6 +9793,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -9554,10 +9841,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
                     b.HasKey("Id")
                         .HasName("pk_education_shift_catalog_items");
 
@@ -9565,12 +9848,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_education_shift_catalog_items__public_id");
 
-                    b.HasIndex("TenantId", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_education_shift_catalog_items__tenant_code");
+                        .HasDatabaseName("uq_education_shift_catalog_items__country_code");
 
-                    b.HasIndex("TenantId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_education_shift_catalog_items__tenant_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_education_shift_catalog_items__country_active_sort");
 
                     b.ToTable("education_shift_catalog_items", (string)null);
                 });
@@ -9595,6 +9878,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -9633,10 +9926,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
                     b.HasKey("Id")
                         .HasName("pk_education_status_catalog_items");
 
@@ -9644,12 +9933,12 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_education_status_catalog_items__public_id");
 
-                    b.HasIndex("TenantId", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_education_status_catalog_items__tenant_code");
+                        .HasDatabaseName("uq_education_status_catalog_items__country_code");
 
-                    b.HasIndex("TenantId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_education_status_catalog_items__tenant_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_education_status_catalog_items__country_active_sort");
 
                     b.ToTable("education_status_catalog_items", (string)null);
                 });
@@ -9674,6 +9963,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("concurrency_token");
 
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
@@ -9712,10 +10011,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sort_order");
 
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
                     b.HasKey("Id")
                         .HasName("pk_education_study_type_catalog_items");
 
@@ -9723,14 +10018,361 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_education_study_type_catalog_items__public_id");
 
-                    b.HasIndex("TenantId", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_education_study_type_catalog_items__tenant_code");
+                        .HasDatabaseName("uq_education_study_type_catalog_items__country_code");
 
-                    b.HasIndex("TenantId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_education_study_type_catalog_items__tenant_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_education_study_type_catalog_items__country_active_sort");
 
                     b.ToTable("education_study_type_catalog_items", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.IdentificationTypeCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_identification_type_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_identification_type_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_identification_type_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_identification_type_catalog_items__country_active_sort");
+
+                    b.ToTable("identification_type_catalog_items", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.KinshipCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_kinship_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_kinship_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_kinship_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_kinship_catalog_items__country_active_sort");
+
+                    b.ToTable("kinship_catalog_items", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.MaritalStatusCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_marital_status_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_marital_status_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_marital_status_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_marital_status_catalog_items__country_active_sort");
+
+                    b.ToTable("marital_status_catalog_items", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.MunicipalityCatalogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country_code");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<long>("DepartmentCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("department_catalog_item_id");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_code");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_municipality_catalog_items");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_municipality_catalog_items__public_id");
+
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
+                        .IsUnique()
+                        .HasDatabaseName("uq_municipality_catalog_items__country_code");
+
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_municipality_catalog_items__country_active_sort");
+
+                    b.HasIndex("DepartmentCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_municipality_catalog_items__department_active_sort");
+
+                    b.ToTable("municipality_catalog_items", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFile", b =>
@@ -12842,23 +13484,29 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelReferenceCatalogItem", b =>
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.ProfessionCatalogItem", b =>
                 {
                     b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("category");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
                         .HasColumnName("code");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<long>("CountryCatalogItemId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("country_catalog_item_id");
 
                     b.Property<string>("CountryCode")
                         .IsRequired()
@@ -12880,25 +13528,21 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
                         .HasColumnName("name");
 
                     b.Property<string>("NormalizedCode")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
                         .HasColumnName("normalized_code");
 
                     b.Property<string>("NormalizedName")
                         .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
                         .HasColumnName("normalized_name");
-
-                    b.Property<long?>("ParentId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("parent_id");
 
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid")
@@ -12909,1763 +13553,20 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnName("sort_order");
 
                     b.HasKey("Id")
-                        .HasName("pk_personnel_reference_catalog_items");
-
-                    b.HasIndex("ParentId");
+                        .HasName("pk_profession_catalog_items");
 
                     b.HasIndex("PublicId")
                         .IsUnique()
-                        .HasDatabaseName("uq_personnel_reference_catalog_items__public_id");
+                        .HasDatabaseName("uq_profession_catalog_items__public_id");
 
-                    b.HasIndex("CountryCode", "Category", "NormalizedCode")
+                    b.HasIndex("CountryCatalogItemId", "NormalizedCode")
                         .IsUnique()
-                        .HasDatabaseName("uq_personnel_reference_catalog_items__country_category_code");
+                        .HasDatabaseName("uq_profession_catalog_items__country_code");
 
-                    b.HasIndex("CountryCode", "Category", "ParentId", "IsActive", "SortOrder")
-                        .HasDatabaseName("ix_personnel_reference_catalog_items__country_category_parent_active_sort");
+                    b.HasIndex("CountryCatalogItemId", "IsActive", "SortOrder")
+                        .HasDatabaseName("ix_profession_catalog_items__country_active_sort");
 
-                    b.ToTable("personnel_reference_catalog_items", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = -9500L,
-                            Category = "MaritalStatus",
-                            Code = "SOLTERO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Soltero/a",
-                            NormalizedCode = "SOLTERO_A",
-                            NormalizedName = "SOLTERO/A",
-                            PublicId = new Guid("1786bfa7-2ca7-0643-8b26-9a0983421eac"),
-                            SortOrder = 10
-                        },
-                        new
-                        {
-                            Id = -9501L,
-                            Category = "MaritalStatus",
-                            Code = "CASADO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Casado/a",
-                            NormalizedCode = "CASADO_A",
-                            NormalizedName = "CASADO/A",
-                            PublicId = new Guid("770efe49-7531-d13a-ea8d-b5a339318045"),
-                            SortOrder = 20
-                        },
-                        new
-                        {
-                            Id = -9502L,
-                            Category = "MaritalStatus",
-                            Code = "UNION_NO_MATRIMONIAL",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Union no matrimonial",
-                            NormalizedCode = "UNION_NO_MATRIMONIAL",
-                            NormalizedName = "UNION NO MATRIMONIAL",
-                            PublicId = new Guid("7f50d72f-91c0-f1f5-fa9a-05c99e31f1bb"),
-                            SortOrder = 30
-                        },
-                        new
-                        {
-                            Id = -9503L,
-                            Category = "MaritalStatus",
-                            Code = "DIVORCIADO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Divorciado/a",
-                            NormalizedCode = "DIVORCIADO_A",
-                            NormalizedName = "DIVORCIADO/A",
-                            PublicId = new Guid("2409243e-7520-d5ef-b4ee-eafd7c5d9747"),
-                            SortOrder = 40
-                        },
-                        new
-                        {
-                            Id = -9504L,
-                            Category = "MaritalStatus",
-                            Code = "VIUDO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Viudo/a",
-                            NormalizedCode = "VIUDO_A",
-                            NormalizedName = "VIUDO/A",
-                            PublicId = new Guid("f77da6b7-5d7d-92dc-a5e9-4135a14779ac"),
-                            SortOrder = 50
-                        },
-                        new
-                        {
-                            Id = -9505L,
-                            Category = "MaritalStatus",
-                            Code = "SEPARADO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Separado/a",
-                            NormalizedCode = "SEPARADO_A",
-                            NormalizedName = "SEPARADO/A",
-                            PublicId = new Guid("553b23af-346a-3d41-56b9-10531c1204d6"),
-                            SortOrder = 60
-                        },
-                        new
-                        {
-                            Id = -9506L,
-                            Category = "IdentificationType",
-                            Code = "DUI",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "DUI",
-                            NormalizedCode = "DUI",
-                            NormalizedName = "DUI",
-                            PublicId = new Guid("3d4d6c2f-d567-ec68-7afd-bd8f04ece139"),
-                            SortOrder = 10
-                        },
-                        new
-                        {
-                            Id = -9507L,
-                            Category = "IdentificationType",
-                            Code = "NIT",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "NIT",
-                            NormalizedCode = "NIT",
-                            NormalizedName = "NIT",
-                            PublicId = new Guid("c24010b9-7d34-3194-6cac-4bccf3b0d24c"),
-                            SortOrder = 20
-                        },
-                        new
-                        {
-                            Id = -9508L,
-                            Category = "IdentificationType",
-                            Code = "PASSPORT",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Pasaporte",
-                            NormalizedCode = "PASSPORT",
-                            NormalizedName = "PASAPORTE",
-                            PublicId = new Guid("05e1ebd9-7378-ea5e-6afa-ea2bd713f0f4"),
-                            SortOrder = 30
-                        },
-                        new
-                        {
-                            Id = -9509L,
-                            Category = "IdentificationType",
-                            Code = "RESIDENT_CARD",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Carne de residente",
-                            NormalizedCode = "RESIDENT_CARD",
-                            NormalizedName = "CARNE DE RESIDENTE",
-                            PublicId = new Guid("7d399d0b-9f72-44d1-f7a5-070b96bd17be"),
-                            SortOrder = 40
-                        },
-                        new
-                        {
-                            Id = -9510L,
-                            Category = "Profession",
-                            Code = "ABOGADO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Abogado/a",
-                            NormalizedCode = "ABOGADO_A",
-                            NormalizedName = "ABOGADO/A",
-                            PublicId = new Guid("9c1895dd-b700-9c96-6f85-5847595f65f8"),
-                            SortOrder = 10
-                        },
-                        new
-                        {
-                            Id = -9511L,
-                            Category = "Profession",
-                            Code = "ADMINISTRADOR_A_DE_EMPRESAS",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Administrador/a de empresas",
-                            NormalizedCode = "ADMINISTRADOR_A_DE_EMPRESAS",
-                            NormalizedName = "ADMINISTRADOR/A DE EMPRESAS",
-                            PublicId = new Guid("f8e5fdb2-e52d-684e-7538-4eb5593f06e3"),
-                            SortOrder = 20
-                        },
-                        new
-                        {
-                            Id = -9512L,
-                            Category = "Profession",
-                            Code = "ANALISTA_DE_DATOS",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Analista de datos",
-                            NormalizedCode = "ANALISTA_DE_DATOS",
-                            NormalizedName = "ANALISTA DE DATOS",
-                            PublicId = new Guid("0bc1744f-00af-9079-de3d-fa4395c8cbec"),
-                            SortOrder = 30
-                        },
-                        new
-                        {
-                            Id = -9513L,
-                            Category = "Profession",
-                            Code = "ARQUITECTO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Arquitecto/a",
-                            NormalizedCode = "ARQUITECTO_A",
-                            NormalizedName = "ARQUITECTO/A",
-                            PublicId = new Guid("1ce54041-8282-9091-3321-3a9050e7862b"),
-                            SortOrder = 40
-                        },
-                        new
-                        {
-                            Id = -9514L,
-                            Category = "Profession",
-                            Code = "ASISTENTE_ADMINISTRATIVO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Asistente administrativo/a",
-                            NormalizedCode = "ASISTENTE_ADMINISTRATIVO_A",
-                            NormalizedName = "ASISTENTE ADMINISTRATIVO/A",
-                            PublicId = new Guid("0578afeb-413d-8811-d838-d9c3ba3064d0"),
-                            SortOrder = 50
-                        },
-                        new
-                        {
-                            Id = -9515L,
-                            Category = "Profession",
-                            Code = "AUDITOR_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Auditor/a",
-                            NormalizedCode = "AUDITOR_A",
-                            NormalizedName = "AUDITOR/A",
-                            PublicId = new Guid("42fbda90-675b-ca6c-07b6-d6beadf04747"),
-                            SortOrder = 60
-                        },
-                        new
-                        {
-                            Id = -9516L,
-                            Category = "Profession",
-                            Code = "AUXILIAR_CONTABLE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Auxiliar contable",
-                            NormalizedCode = "AUXILIAR_CONTABLE",
-                            NormalizedName = "AUXILIAR CONTABLE",
-                            PublicId = new Guid("f6c97782-b2fe-5fd1-4896-321f3271737a"),
-                            SortOrder = 70
-                        },
-                        new
-                        {
-                            Id = -9517L,
-                            Category = "Profession",
-                            Code = "BODEGUERO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Bodeguero/a",
-                            NormalizedCode = "BODEGUERO_A",
-                            NormalizedName = "BODEGUERO/A",
-                            PublicId = new Guid("4fd00fbb-d70e-1090-5d66-1bf6c6067e96"),
-                            SortOrder = 80
-                        },
-                        new
-                        {
-                            Id = -9518L,
-                            Category = "Profession",
-                            Code = "CAJERO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cajero/a",
-                            NormalizedCode = "CAJERO_A",
-                            NormalizedName = "CAJERO/A",
-                            PublicId = new Guid("99e979b6-7b08-0e70-4c87-41748c1d4803"),
-                            SortOrder = 90
-                        },
-                        new
-                        {
-                            Id = -9519L,
-                            Category = "Profession",
-                            Code = "COMERCIANTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Comerciante",
-                            NormalizedCode = "COMERCIANTE",
-                            NormalizedName = "COMERCIANTE",
-                            PublicId = new Guid("b8c64522-84ee-9d4f-2700-54734539e055"),
-                            SortOrder = 100
-                        },
-                        new
-                        {
-                            Id = -9520L,
-                            Category = "Profession",
-                            Code = "CONTADOR_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Contador/a",
-                            NormalizedCode = "CONTADOR_A",
-                            NormalizedName = "CONTADOR/A",
-                            PublicId = new Guid("e8ec096c-5682-566f-ccd1-51e129a0c580"),
-                            SortOrder = 110
-                        },
-                        new
-                        {
-                            Id = -9521L,
-                            Category = "Profession",
-                            Code = "DISENADOR_A_GRAFICO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Disenador/a grafico/a",
-                            NormalizedCode = "DISENADOR_A_GRAFICO_A",
-                            NormalizedName = "DISENADOR/A GRAFICO/A",
-                            PublicId = new Guid("cba8af92-8ae9-f437-9f04-2784b8bd561b"),
-                            SortOrder = 120
-                        },
-                        new
-                        {
-                            Id = -9522L,
-                            Category = "Profession",
-                            Code = "DOCENTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Docente",
-                            NormalizedCode = "DOCENTE",
-                            NormalizedName = "DOCENTE",
-                            PublicId = new Guid("6fe62200-4432-c5f2-6750-444805409ff7"),
-                            SortOrder = 130
-                        },
-                        new
-                        {
-                            Id = -9523L,
-                            Category = "Profession",
-                            Code = "ECONOMISTA",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Economista",
-                            NormalizedCode = "ECONOMISTA",
-                            NormalizedName = "ECONOMISTA",
-                            PublicId = new Guid("93a6a950-62c3-0af7-4d59-6e5a2b772263"),
-                            SortOrder = 140
-                        },
-                        new
-                        {
-                            Id = -9524L,
-                            Category = "Profession",
-                            Code = "ELECTRICISTA",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Electricista",
-                            NormalizedCode = "ELECTRICISTA",
-                            NormalizedName = "ELECTRICISTA",
-                            PublicId = new Guid("93a617a9-5e5c-b810-39b6-75a2909e60df"),
-                            SortOrder = 150
-                        },
-                        new
-                        {
-                            Id = -9525L,
-                            Category = "Profession",
-                            Code = "ENFERMERO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Enfermero/a",
-                            NormalizedCode = "ENFERMERO_A",
-                            NormalizedName = "ENFERMERO/A",
-                            PublicId = new Guid("36ec3f29-06d9-c2ce-a0d4-0452c19c6499"),
-                            SortOrder = 160
-                        },
-                        new
-                        {
-                            Id = -9526L,
-                            Category = "Profession",
-                            Code = "ESPECIALISTA_DE_RECURSOS_HUMANOS",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Especialista de recursos humanos",
-                            NormalizedCode = "ESPECIALISTA_DE_RECURSOS_HUMANOS",
-                            NormalizedName = "ESPECIALISTA DE RECURSOS HUMANOS",
-                            PublicId = new Guid("3d941f12-96cf-2a3a-b25e-09e1b50ddb78"),
-                            SortOrder = 170
-                        },
-                        new
-                        {
-                            Id = -9527L,
-                            Category = "Profession",
-                            Code = "INGENIERO_A_AGRONOMO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ingeniero/a agronomo/a",
-                            NormalizedCode = "INGENIERO_A_AGRONOMO_A",
-                            NormalizedName = "INGENIERO/A AGRONOMO/A",
-                            PublicId = new Guid("f75cf926-bb10-071d-2b4e-ee49bae11506"),
-                            SortOrder = 180
-                        },
-                        new
-                        {
-                            Id = -9528L,
-                            Category = "Profession",
-                            Code = "INGENIERO_A_CIVIL",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ingeniero/a civil",
-                            NormalizedCode = "INGENIERO_A_CIVIL",
-                            NormalizedName = "INGENIERO/A CIVIL",
-                            PublicId = new Guid("559bc6e5-0579-f940-4e8b-eee269423044"),
-                            SortOrder = 190
-                        },
-                        new
-                        {
-                            Id = -9529L,
-                            Category = "Profession",
-                            Code = "INGENIERO_A_INDUSTRIAL",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ingeniero/a industrial",
-                            NormalizedCode = "INGENIERO_A_INDUSTRIAL",
-                            NormalizedName = "INGENIERO/A INDUSTRIAL",
-                            PublicId = new Guid("05beafa8-2e8a-7644-dc77-9fdff49f4ac6"),
-                            SortOrder = 200
-                        },
-                        new
-                        {
-                            Id = -9530L,
-                            Category = "Profession",
-                            Code = "INGENIERO_A_EN_SISTEMAS",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ingeniero/a en sistemas",
-                            NormalizedCode = "INGENIERO_A_EN_SISTEMAS",
-                            NormalizedName = "INGENIERO/A EN SISTEMAS",
-                            PublicId = new Guid("67328e98-d14b-4219-4967-cdfc1a5662b0"),
-                            SortOrder = 210
-                        },
-                        new
-                        {
-                            Id = -9531L,
-                            Category = "Profession",
-                            Code = "JEFE_A_DE_OPERACIONES",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Jefe/a de operaciones",
-                            NormalizedCode = "JEFE_A_DE_OPERACIONES",
-                            NormalizedName = "JEFE/A DE OPERACIONES",
-                            PublicId = new Guid("cba81ecb-204c-b122-49d3-34c0c71361ac"),
-                            SortOrder = 220
-                        },
-                        new
-                        {
-                            Id = -9532L,
-                            Category = "Profession",
-                            Code = "MEDICO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Medico/a",
-                            NormalizedCode = "MEDICO_A",
-                            NormalizedName = "MEDICO/A",
-                            PublicId = new Guid("8b3b629e-f17e-2d79-d4d0-bb561a1836ea"),
-                            SortOrder = 230
-                        },
-                        new
-                        {
-                            Id = -9533L,
-                            Category = "Profession",
-                            Code = "MERCADERISTA",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Mercaderista",
-                            NormalizedCode = "MERCADERISTA",
-                            NormalizedName = "MERCADERISTA",
-                            PublicId = new Guid("7a8523f0-8d59-5b96-d693-58e7208f5b73"),
-                            SortOrder = 240
-                        },
-                        new
-                        {
-                            Id = -9534L,
-                            Category = "Profession",
-                            Code = "MOTORISTA",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Motorista",
-                            NormalizedCode = "MOTORISTA",
-                            NormalizedName = "MOTORISTA",
-                            PublicId = new Guid("db459aa8-81ac-6c88-46f0-ab20719d088d"),
-                            SortOrder = 250
-                        },
-                        new
-                        {
-                            Id = -9535L,
-                            Category = "Profession",
-                            Code = "ODONTOLOGO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Odontologo/a",
-                            NormalizedCode = "ODONTOLOGO_A",
-                            NormalizedName = "ODONTOLOGO/A",
-                            PublicId = new Guid("38ba8d2d-85d9-0bc7-1ed3-f6dfc3897c8f"),
-                            SortOrder = 260
-                        },
-                        new
-                        {
-                            Id = -9536L,
-                            Category = "Profession",
-                            Code = "OPERARIO_A_DE_PRODUCCION",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Operario/a de produccion",
-                            NormalizedCode = "OPERARIO_A_DE_PRODUCCION",
-                            NormalizedName = "OPERARIO/A DE PRODUCCION",
-                            PublicId = new Guid("9433d359-de6c-122a-2e42-b123d0a42e8b"),
-                            SortOrder = 270
-                        },
-                        new
-                        {
-                            Id = -9537L,
-                            Category = "Profession",
-                            Code = "PERIODISTA",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Periodista",
-                            NormalizedCode = "PERIODISTA",
-                            NormalizedName = "PERIODISTA",
-                            PublicId = new Guid("b924e735-7dcf-5db8-0ce7-31cf25002b95"),
-                            SortOrder = 280
-                        },
-                        new
-                        {
-                            Id = -9538L,
-                            Category = "Profession",
-                            Code = "PSICOLOGO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Psicologo/a",
-                            NormalizedCode = "PSICOLOGO_A",
-                            NormalizedName = "PSICOLOGO/A",
-                            PublicId = new Guid("ff18f8df-8cd0-09ef-48ca-a109e186250b"),
-                            SortOrder = 290
-                        },
-                        new
-                        {
-                            Id = -9539L,
-                            Category = "Profession",
-                            Code = "RECEPCIONISTA",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Recepcionista",
-                            NormalizedCode = "RECEPCIONISTA",
-                            NormalizedName = "RECEPCIONISTA",
-                            PublicId = new Guid("a34a87d3-739d-84d0-e201-9f00d1fb46c9"),
-                            SortOrder = 300
-                        },
-                        new
-                        {
-                            Id = -9540L,
-                            Category = "Profession",
-                            Code = "SOLDADOR_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Soldador/a",
-                            NormalizedCode = "SOLDADOR_A",
-                            NormalizedName = "SOLDADOR/A",
-                            PublicId = new Guid("d80fb0e6-4e76-74f2-41ff-e6cb60bb1a18"),
-                            SortOrder = 310
-                        },
-                        new
-                        {
-                            Id = -9541L,
-                            Category = "Profession",
-                            Code = "SUPERVISOR_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Supervisor/a",
-                            NormalizedCode = "SUPERVISOR_A",
-                            NormalizedName = "SUPERVISOR/A",
-                            PublicId = new Guid("6caf9ea7-4698-47f0-4e94-fd0b83a24c79"),
-                            SortOrder = 320
-                        },
-                        new
-                        {
-                            Id = -9542L,
-                            Category = "Profession",
-                            Code = "TECNICO_A_DE_MANTENIMIENTO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Tecnico/a de mantenimiento",
-                            NormalizedCode = "TECNICO_A_DE_MANTENIMIENTO",
-                            NormalizedName = "TECNICO/A DE MANTENIMIENTO",
-                            PublicId = new Guid("61544548-2caf-b073-f2a1-11c7c7b29262"),
-                            SortOrder = 330
-                        },
-                        new
-                        {
-                            Id = -9543L,
-                            Category = "Profession",
-                            Code = "TECNICO_A_DE_SOPORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Tecnico/a de soporte",
-                            NormalizedCode = "TECNICO_A_DE_SOPORTE",
-                            NormalizedName = "TECNICO/A DE SOPORTE",
-                            PublicId = new Guid("31e4df57-4fda-eaa0-5c24-94f27021dfd1"),
-                            SortOrder = 340
-                        },
-                        new
-                        {
-                            Id = -9544L,
-                            Category = "Profession",
-                            Code = "VENDEDOR_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Vendedor/a",
-                            NormalizedCode = "VENDEDOR_A",
-                            NormalizedName = "VENDEDOR/A",
-                            PublicId = new Guid("40d6d96e-785b-8061-52ee-b2556803dcd2"),
-                            SortOrder = 350
-                        },
-                        new
-                        {
-                            Id = -9545L,
-                            Category = "Department",
-                            Code = "AHUACHAPAN",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ahuachapan",
-                            NormalizedCode = "AHUACHAPAN",
-                            NormalizedName = "AHUACHAPAN",
-                            PublicId = new Guid("826f83fe-d9fa-8099-d797-f7e41d76ba21"),
-                            SortOrder = 10
-                        },
-                        new
-                        {
-                            Id = -9546L,
-                            Category = "Department",
-                            Code = "SANTA_ANA",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Santa Ana",
-                            NormalizedCode = "SANTA_ANA",
-                            NormalizedName = "SANTA ANA",
-                            PublicId = new Guid("3c9a4157-236b-e697-efa5-77f3d866b63a"),
-                            SortOrder = 20
-                        },
-                        new
-                        {
-                            Id = -9547L,
-                            Category = "Department",
-                            Code = "SONSONATE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sonsonate",
-                            NormalizedCode = "SONSONATE",
-                            NormalizedName = "SONSONATE",
-                            PublicId = new Guid("a75ff0b3-75ef-23c0-9ab8-972d41a1e721"),
-                            SortOrder = 30
-                        },
-                        new
-                        {
-                            Id = -9548L,
-                            Category = "Department",
-                            Code = "CHALATENANGO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Chalatenango",
-                            NormalizedCode = "CHALATENANGO",
-                            NormalizedName = "CHALATENANGO",
-                            PublicId = new Guid("96b4270c-8cf1-6d8e-ebbe-188483c6ecbd"),
-                            SortOrder = 40
-                        },
-                        new
-                        {
-                            Id = -9549L,
-                            Category = "Department",
-                            Code = "LA_LIBERTAD",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad",
-                            NormalizedCode = "LA_LIBERTAD",
-                            NormalizedName = "LA LIBERTAD",
-                            PublicId = new Guid("a571ab57-603a-27bb-c1e1-251be5644ff7"),
-                            SortOrder = 50
-                        },
-                        new
-                        {
-                            Id = -9550L,
-                            Category = "Department",
-                            Code = "SAN_SALVADOR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador",
-                            NormalizedCode = "SAN_SALVADOR",
-                            NormalizedName = "SAN SALVADOR",
-                            PublicId = new Guid("469719a6-f18d-9130-4f8f-d5ff4930d901"),
-                            SortOrder = 60
-                        },
-                        new
-                        {
-                            Id = -9551L,
-                            Category = "Department",
-                            Code = "CUSCATLAN",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cuscatlan",
-                            NormalizedCode = "CUSCATLAN",
-                            NormalizedName = "CUSCATLAN",
-                            PublicId = new Guid("70a87347-c4d0-4b7a-3ee9-8e8b296c7c15"),
-                            SortOrder = 70
-                        },
-                        new
-                        {
-                            Id = -9552L,
-                            Category = "Department",
-                            Code = "LA_PAZ",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Paz",
-                            NormalizedCode = "LA_PAZ",
-                            NormalizedName = "LA PAZ",
-                            PublicId = new Guid("b30fbd9e-4f6c-558f-6bcd-89ac10eb8f03"),
-                            SortOrder = 80
-                        },
-                        new
-                        {
-                            Id = -9553L,
-                            Category = "Department",
-                            Code = "CABANAS",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cabanas",
-                            NormalizedCode = "CABANAS",
-                            NormalizedName = "CABANAS",
-                            PublicId = new Guid("6ea44b4e-40d5-af33-0e11-f96be6a26c7d"),
-                            SortOrder = 90
-                        },
-                        new
-                        {
-                            Id = -9554L,
-                            Category = "Department",
-                            Code = "SAN_VICENTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Vicente",
-                            NormalizedCode = "SAN_VICENTE",
-                            NormalizedName = "SAN VICENTE",
-                            PublicId = new Guid("0fc50ec4-63e3-7530-bafb-57faa3b7f6e6"),
-                            SortOrder = 100
-                        },
-                        new
-                        {
-                            Id = -9555L,
-                            Category = "Department",
-                            Code = "USULUTAN",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Usulutan",
-                            NormalizedCode = "USULUTAN",
-                            NormalizedName = "USULUTAN",
-                            PublicId = new Guid("ee60ece2-c729-1491-8eeb-1ce18c25630a"),
-                            SortOrder = 110
-                        },
-                        new
-                        {
-                            Id = -9556L,
-                            Category = "Department",
-                            Code = "SAN_MIGUEL",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Miguel",
-                            NormalizedCode = "SAN_MIGUEL",
-                            NormalizedName = "SAN MIGUEL",
-                            PublicId = new Guid("875f7799-39da-ae3e-4e00-1f14b19d4502"),
-                            SortOrder = 120
-                        },
-                        new
-                        {
-                            Id = -9557L,
-                            Category = "Department",
-                            Code = "MORAZAN",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Morazan",
-                            NormalizedCode = "MORAZAN",
-                            NormalizedName = "MORAZAN",
-                            PublicId = new Guid("26bef224-a0cf-d000-0da6-f9a4dd414dad"),
-                            SortOrder = 130
-                        },
-                        new
-                        {
-                            Id = -9558L,
-                            Category = "Department",
-                            Code = "LA_UNION",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Union",
-                            NormalizedCode = "LA_UNION",
-                            NormalizedName = "LA UNION",
-                            PublicId = new Guid("d7b593da-5576-7607-0a5c-2f6f83647650"),
-                            SortOrder = 140
-                        },
-                        new
-                        {
-                            Id = -9559L,
-                            Category = "Municipality",
-                            Code = "AHUACHAPAN_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ahuachapan Centro",
-                            NormalizedCode = "AHUACHAPAN_CENTRO",
-                            NormalizedName = "AHUACHAPAN CENTRO",
-                            ParentId = -9545L,
-                            PublicId = new Guid("5098d63f-ff11-7438-ef22-ff4cc73faaad"),
-                            SortOrder = 10
-                        },
-                        new
-                        {
-                            Id = -9560L,
-                            Category = "Municipality",
-                            Code = "AHUACHAPAN_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ahuachapan Norte",
-                            NormalizedCode = "AHUACHAPAN_NORTE",
-                            NormalizedName = "AHUACHAPAN NORTE",
-                            ParentId = -9545L,
-                            PublicId = new Guid("0c70ff03-4303-7aff-8ad0-b5a6a133cafe"),
-                            SortOrder = 20
-                        },
-                        new
-                        {
-                            Id = -9561L,
-                            Category = "Municipality",
-                            Code = "AHUACHAPAN_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Ahuachapan Sur",
-                            NormalizedCode = "AHUACHAPAN_SUR",
-                            NormalizedName = "AHUACHAPAN SUR",
-                            ParentId = -9545L,
-                            PublicId = new Guid("7886e88f-35d2-9060-2da9-1f974c98abb0"),
-                            SortOrder = 30
-                        },
-                        new
-                        {
-                            Id = -9562L,
-                            Category = "Municipality",
-                            Code = "SANTA_ANA_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Santa Ana Centro",
-                            NormalizedCode = "SANTA_ANA_CENTRO",
-                            NormalizedName = "SANTA ANA CENTRO",
-                            ParentId = -9546L,
-                            PublicId = new Guid("474ca046-1414-ba2d-287b-8d71b2789950"),
-                            SortOrder = 40
-                        },
-                        new
-                        {
-                            Id = -9563L,
-                            Category = "Municipality",
-                            Code = "SANTA_ANA_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Santa Ana Este",
-                            NormalizedCode = "SANTA_ANA_ESTE",
-                            NormalizedName = "SANTA ANA ESTE",
-                            ParentId = -9546L,
-                            PublicId = new Guid("ac6d4692-a2c6-4aa4-5dff-f8666d58cf49"),
-                            SortOrder = 50
-                        },
-                        new
-                        {
-                            Id = -9564L,
-                            Category = "Municipality",
-                            Code = "SANTA_ANA_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Santa Ana Norte",
-                            NormalizedCode = "SANTA_ANA_NORTE",
-                            NormalizedName = "SANTA ANA NORTE",
-                            ParentId = -9546L,
-                            PublicId = new Guid("646012c2-b7fc-e605-99fb-1a6b1f684ca9"),
-                            SortOrder = 60
-                        },
-                        new
-                        {
-                            Id = -9565L,
-                            Category = "Municipality",
-                            Code = "SANTA_ANA_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Santa Ana Oeste",
-                            NormalizedCode = "SANTA_ANA_OESTE",
-                            NormalizedName = "SANTA ANA OESTE",
-                            ParentId = -9546L,
-                            PublicId = new Guid("fc7b8586-5f6d-c6c6-09ef-51c105c5df12"),
-                            SortOrder = 70
-                        },
-                        new
-                        {
-                            Id = -9566L,
-                            Category = "Municipality",
-                            Code = "SONSONATE_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sonsonate Centro",
-                            NormalizedCode = "SONSONATE_CENTRO",
-                            NormalizedName = "SONSONATE CENTRO",
-                            ParentId = -9547L,
-                            PublicId = new Guid("fa3396e0-4cc7-c845-038c-38ab7990496e"),
-                            SortOrder = 80
-                        },
-                        new
-                        {
-                            Id = -9567L,
-                            Category = "Municipality",
-                            Code = "SONSONATE_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sonsonate Este",
-                            NormalizedCode = "SONSONATE_ESTE",
-                            NormalizedName = "SONSONATE ESTE",
-                            ParentId = -9547L,
-                            PublicId = new Guid("10462cda-cb6e-79e0-df9d-90216d15ff3f"),
-                            SortOrder = 90
-                        },
-                        new
-                        {
-                            Id = -9568L,
-                            Category = "Municipality",
-                            Code = "SONSONATE_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sonsonate Norte",
-                            NormalizedCode = "SONSONATE_NORTE",
-                            NormalizedName = "SONSONATE NORTE",
-                            ParentId = -9547L,
-                            PublicId = new Guid("1f325e3b-5118-bb0d-3283-e7cde310d59a"),
-                            SortOrder = 100
-                        },
-                        new
-                        {
-                            Id = -9569L,
-                            Category = "Municipality",
-                            Code = "SONSONATE_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Sonsonate Oeste",
-                            NormalizedCode = "SONSONATE_OESTE",
-                            NormalizedName = "SONSONATE OESTE",
-                            ParentId = -9547L,
-                            PublicId = new Guid("4035134f-f0a2-c914-1de8-494161a86665"),
-                            SortOrder = 110
-                        },
-                        new
-                        {
-                            Id = -9570L,
-                            Category = "Municipality",
-                            Code = "CHALATENANGO_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Chalatenango Centro",
-                            NormalizedCode = "CHALATENANGO_CENTRO",
-                            NormalizedName = "CHALATENANGO CENTRO",
-                            ParentId = -9548L,
-                            PublicId = new Guid("297defd0-137d-2b16-f424-ce1625f75975"),
-                            SortOrder = 120
-                        },
-                        new
-                        {
-                            Id = -9571L,
-                            Category = "Municipality",
-                            Code = "CHALATENANGO_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Chalatenango Norte",
-                            NormalizedCode = "CHALATENANGO_NORTE",
-                            NormalizedName = "CHALATENANGO NORTE",
-                            ParentId = -9548L,
-                            PublicId = new Guid("3dcb46ae-8fe2-66e8-ccde-19036a1afd46"),
-                            SortOrder = 130
-                        },
-                        new
-                        {
-                            Id = -9572L,
-                            Category = "Municipality",
-                            Code = "CHALATENANGO_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Chalatenango Sur",
-                            NormalizedCode = "CHALATENANGO_SUR",
-                            NormalizedName = "CHALATENANGO SUR",
-                            ParentId = -9548L,
-                            PublicId = new Guid("91295538-d3c6-3645-cfe5-710f958dece9"),
-                            SortOrder = 140
-                        },
-                        new
-                        {
-                            Id = -9573L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Centro",
-                            NormalizedCode = "LA_LIBERTAD_CENTRO",
-                            NormalizedName = "LA LIBERTAD CENTRO",
-                            ParentId = -9549L,
-                            PublicId = new Guid("0bd5b137-5fd3-2887-9c19-fadeb9d4a8ad"),
-                            SortOrder = 150
-                        },
-                        new
-                        {
-                            Id = -9574L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_COSTA",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Costa",
-                            NormalizedCode = "LA_LIBERTAD_COSTA",
-                            NormalizedName = "LA LIBERTAD COSTA",
-                            ParentId = -9549L,
-                            PublicId = new Guid("f88ed89a-7b1b-cc8f-93d8-868786567d3b"),
-                            SortOrder = 160
-                        },
-                        new
-                        {
-                            Id = -9575L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Este",
-                            NormalizedCode = "LA_LIBERTAD_ESTE",
-                            NormalizedName = "LA LIBERTAD ESTE",
-                            ParentId = -9549L,
-                            PublicId = new Guid("86109d7a-d637-8e6f-5586-69a1f29ac3b1"),
-                            SortOrder = 170
-                        },
-                        new
-                        {
-                            Id = -9576L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Norte",
-                            NormalizedCode = "LA_LIBERTAD_NORTE",
-                            NormalizedName = "LA LIBERTAD NORTE",
-                            ParentId = -9549L,
-                            PublicId = new Guid("47b9b87e-43cc-fe85-a9ab-a89c91b04492"),
-                            SortOrder = 180
-                        },
-                        new
-                        {
-                            Id = -9577L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Sur",
-                            NormalizedCode = "LA_LIBERTAD_SUR",
-                            NormalizedName = "LA LIBERTAD SUR",
-                            ParentId = -9549L,
-                            PublicId = new Guid("377187d3-439a-26e6-8f6a-9f780a92d9a8"),
-                            SortOrder = 190
-                        },
-                        new
-                        {
-                            Id = -9578L,
-                            Category = "Municipality",
-                            Code = "LA_LIBERTAD_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Libertad Oeste",
-                            NormalizedCode = "LA_LIBERTAD_OESTE",
-                            NormalizedName = "LA LIBERTAD OESTE",
-                            ParentId = -9549L,
-                            PublicId = new Guid("21596f6b-c061-9b3e-7022-a6af0072a2f6"),
-                            SortOrder = 200
-                        },
-                        new
-                        {
-                            Id = -9579L,
-                            Category = "Municipality",
-                            Code = "SAN_SALVADOR_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador Centro",
-                            NormalizedCode = "SAN_SALVADOR_CENTRO",
-                            NormalizedName = "SAN SALVADOR CENTRO",
-                            ParentId = -9550L,
-                            PublicId = new Guid("22ff05df-546a-3b6e-9bc5-3cc187c58bcf"),
-                            SortOrder = 210
-                        },
-                        new
-                        {
-                            Id = -9580L,
-                            Category = "Municipality",
-                            Code = "SAN_SALVADOR_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador Este",
-                            NormalizedCode = "SAN_SALVADOR_ESTE",
-                            NormalizedName = "SAN SALVADOR ESTE",
-                            ParentId = -9550L,
-                            PublicId = new Guid("fc5949f4-fd33-84b5-632e-9071f11516f5"),
-                            SortOrder = 220
-                        },
-                        new
-                        {
-                            Id = -9581L,
-                            Category = "Municipality",
-                            Code = "SAN_SALVADOR_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador Norte",
-                            NormalizedCode = "SAN_SALVADOR_NORTE",
-                            NormalizedName = "SAN SALVADOR NORTE",
-                            ParentId = -9550L,
-                            PublicId = new Guid("d9077bc3-2bd8-2a6d-9bb2-d51ae4389073"),
-                            SortOrder = 230
-                        },
-                        new
-                        {
-                            Id = -9582L,
-                            Category = "Municipality",
-                            Code = "SAN_SALVADOR_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador Oeste",
-                            NormalizedCode = "SAN_SALVADOR_OESTE",
-                            NormalizedName = "SAN SALVADOR OESTE",
-                            ParentId = -9550L,
-                            PublicId = new Guid("aa9585e6-00cb-d4d7-2179-42ea67731f68"),
-                            SortOrder = 240
-                        },
-                        new
-                        {
-                            Id = -9583L,
-                            Category = "Municipality",
-                            Code = "SAN_SALVADOR_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Salvador Sur",
-                            NormalizedCode = "SAN_SALVADOR_SUR",
-                            NormalizedName = "SAN SALVADOR SUR",
-                            ParentId = -9550L,
-                            PublicId = new Guid("4f6ea9f2-b97e-d956-37f9-db1d196bb2bc"),
-                            SortOrder = 250
-                        },
-                        new
-                        {
-                            Id = -9584L,
-                            Category = "Municipality",
-                            Code = "CUSCATLAN_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cuscatlan Norte",
-                            NormalizedCode = "CUSCATLAN_NORTE",
-                            NormalizedName = "CUSCATLAN NORTE",
-                            ParentId = -9551L,
-                            PublicId = new Guid("935a0a70-2f52-2e82-fa7b-1352b1329cee"),
-                            SortOrder = 260
-                        },
-                        new
-                        {
-                            Id = -9585L,
-                            Category = "Municipality",
-                            Code = "CUSCATLAN_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cuscatlan Sur",
-                            NormalizedCode = "CUSCATLAN_SUR",
-                            NormalizedName = "CUSCATLAN SUR",
-                            ParentId = -9551L,
-                            PublicId = new Guid("12172ffa-fbab-ec24-dab5-db7ea5017724"),
-                            SortOrder = 270
-                        },
-                        new
-                        {
-                            Id = -9586L,
-                            Category = "Municipality",
-                            Code = "LA_PAZ_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Paz Centro",
-                            NormalizedCode = "LA_PAZ_CENTRO",
-                            NormalizedName = "LA PAZ CENTRO",
-                            ParentId = -9552L,
-                            PublicId = new Guid("55968795-3f06-e37f-c742-ca4cbd0c3161"),
-                            SortOrder = 280
-                        },
-                        new
-                        {
-                            Id = -9587L,
-                            Category = "Municipality",
-                            Code = "LA_PAZ_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Paz Este",
-                            NormalizedCode = "LA_PAZ_ESTE",
-                            NormalizedName = "LA PAZ ESTE",
-                            ParentId = -9552L,
-                            PublicId = new Guid("254fa9e4-050e-20af-35da-46123574b3a4"),
-                            SortOrder = 290
-                        },
-                        new
-                        {
-                            Id = -9588L,
-                            Category = "Municipality",
-                            Code = "LA_PAZ_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Paz Oeste",
-                            NormalizedCode = "LA_PAZ_OESTE",
-                            NormalizedName = "LA PAZ OESTE",
-                            ParentId = -9552L,
-                            PublicId = new Guid("5ea16ce2-3e7b-185c-d051-00252130b70d"),
-                            SortOrder = 300
-                        },
-                        new
-                        {
-                            Id = -9589L,
-                            Category = "Municipality",
-                            Code = "CABANAS_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cabanas Este",
-                            NormalizedCode = "CABANAS_ESTE",
-                            NormalizedName = "CABANAS ESTE",
-                            ParentId = -9553L,
-                            PublicId = new Guid("34928e6b-b58b-7668-2ae0-75c497d36135"),
-                            SortOrder = 310
-                        },
-                        new
-                        {
-                            Id = -9590L,
-                            Category = "Municipality",
-                            Code = "CABANAS_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Cabanas Oeste",
-                            NormalizedCode = "CABANAS_OESTE",
-                            NormalizedName = "CABANAS OESTE",
-                            ParentId = -9553L,
-                            PublicId = new Guid("64c10baa-c354-fdef-2531-87350b4c20e6"),
-                            SortOrder = 320
-                        },
-                        new
-                        {
-                            Id = -9591L,
-                            Category = "Municipality",
-                            Code = "SAN_VICENTE_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Vicente Norte",
-                            NormalizedCode = "SAN_VICENTE_NORTE",
-                            NormalizedName = "SAN VICENTE NORTE",
-                            ParentId = -9554L,
-                            PublicId = new Guid("f0bc6e25-e812-c633-0655-e940a10379d7"),
-                            SortOrder = 330
-                        },
-                        new
-                        {
-                            Id = -9592L,
-                            Category = "Municipality",
-                            Code = "SAN_VICENTE_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Vicente Sur",
-                            NormalizedCode = "SAN_VICENTE_SUR",
-                            NormalizedName = "SAN VICENTE SUR",
-                            ParentId = -9554L,
-                            PublicId = new Guid("82433873-97a1-63e4-a561-c8ec0fbfd8be"),
-                            SortOrder = 340
-                        },
-                        new
-                        {
-                            Id = -9593L,
-                            Category = "Municipality",
-                            Code = "USULUTAN_ESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Usulutan Este",
-                            NormalizedCode = "USULUTAN_ESTE",
-                            NormalizedName = "USULUTAN ESTE",
-                            ParentId = -9555L,
-                            PublicId = new Guid("f37dd9f1-132c-309e-b867-879ccddddfe5"),
-                            SortOrder = 350
-                        },
-                        new
-                        {
-                            Id = -9594L,
-                            Category = "Municipality",
-                            Code = "USULUTAN_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Usulutan Norte",
-                            NormalizedCode = "USULUTAN_NORTE",
-                            NormalizedName = "USULUTAN NORTE",
-                            ParentId = -9555L,
-                            PublicId = new Guid("2b9fae9b-b0b9-c0d3-4c72-092c21fbb0e8"),
-                            SortOrder = 360
-                        },
-                        new
-                        {
-                            Id = -9595L,
-                            Category = "Municipality",
-                            Code = "USULUTAN_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Usulutan Oeste",
-                            NormalizedCode = "USULUTAN_OESTE",
-                            NormalizedName = "USULUTAN OESTE",
-                            ParentId = -9555L,
-                            PublicId = new Guid("af6e6ba9-6412-8641-1f5f-6c41f58af49d"),
-                            SortOrder = 370
-                        },
-                        new
-                        {
-                            Id = -9596L,
-                            Category = "Municipality",
-                            Code = "SAN_MIGUEL_CENTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Miguel Centro",
-                            NormalizedCode = "SAN_MIGUEL_CENTRO",
-                            NormalizedName = "SAN MIGUEL CENTRO",
-                            ParentId = -9556L,
-                            PublicId = new Guid("65572591-c834-c010-e652-5b141933677d"),
-                            SortOrder = 380
-                        },
-                        new
-                        {
-                            Id = -9597L,
-                            Category = "Municipality",
-                            Code = "SAN_MIGUEL_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Miguel Norte",
-                            NormalizedCode = "SAN_MIGUEL_NORTE",
-                            NormalizedName = "SAN MIGUEL NORTE",
-                            ParentId = -9556L,
-                            PublicId = new Guid("6d53dc05-15c4-e632-1d83-da15d12782b6"),
-                            SortOrder = 390
-                        },
-                        new
-                        {
-                            Id = -9598L,
-                            Category = "Municipality",
-                            Code = "SAN_MIGUEL_OESTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "San Miguel Oeste",
-                            NormalizedCode = "SAN_MIGUEL_OESTE",
-                            NormalizedName = "SAN MIGUEL OESTE",
-                            ParentId = -9556L,
-                            PublicId = new Guid("56c60522-63e7-1481-bdbe-81cc44416f7d"),
-                            SortOrder = 400
-                        },
-                        new
-                        {
-                            Id = -9599L,
-                            Category = "Municipality",
-                            Code = "MORAZAN_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Morazan Norte",
-                            NormalizedCode = "MORAZAN_NORTE",
-                            NormalizedName = "MORAZAN NORTE",
-                            ParentId = -9557L,
-                            PublicId = new Guid("dd429a5b-7c70-6fd9-ac08-645afc424ac8"),
-                            SortOrder = 410
-                        },
-                        new
-                        {
-                            Id = -9600L,
-                            Category = "Municipality",
-                            Code = "MORAZAN_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Morazan Sur",
-                            NormalizedCode = "MORAZAN_SUR",
-                            NormalizedName = "MORAZAN SUR",
-                            ParentId = -9557L,
-                            PublicId = new Guid("f374ea70-a6d9-4153-f6bf-aa8cb3139d85"),
-                            SortOrder = 420
-                        },
-                        new
-                        {
-                            Id = -9601L,
-                            Category = "Municipality",
-                            Code = "LA_UNION_NORTE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Union Norte",
-                            NormalizedCode = "LA_UNION_NORTE",
-                            NormalizedName = "LA UNION NORTE",
-                            ParentId = -9558L,
-                            PublicId = new Guid("fe0b1dda-ade1-e230-ee89-fcf88ecb508c"),
-                            SortOrder = 430
-                        },
-                        new
-                        {
-                            Id = -9602L,
-                            Category = "Municipality",
-                            Code = "LA_UNION_SUR",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "La Union Sur",
-                            NormalizedCode = "LA_UNION_SUR",
-                            NormalizedName = "LA UNION SUR",
-                            ParentId = -9558L,
-                            PublicId = new Guid("afbd8039-2edb-5ff7-26a3-d62fdf9e66dc"),
-                            SortOrder = 440
-                        },
-                        new
-                        {
-                            Id = -9603L,
-                            Category = "Kinship",
-                            Code = "CONYUGE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Conyuge",
-                            NormalizedCode = "CONYUGE",
-                            NormalizedName = "CONYUGE",
-                            PublicId = new Guid("e40d1b19-815a-eccc-7e79-f0334f41f832"),
-                            SortOrder = 10
-                        },
-                        new
-                        {
-                            Id = -9604L,
-                            Category = "Kinship",
-                            Code = "PAREJA",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Pareja",
-                            NormalizedCode = "PAREJA",
-                            NormalizedName = "PAREJA",
-                            PublicId = new Guid("61b6bf8d-674a-dd8e-1765-1664dc818329"),
-                            SortOrder = 20
-                        },
-                        new
-                        {
-                            Id = -9605L,
-                            Category = "Kinship",
-                            Code = "PADRE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Padre",
-                            NormalizedCode = "PADRE",
-                            NormalizedName = "PADRE",
-                            PublicId = new Guid("acb3b1cb-4384-9a9a-46d6-e81ee37d289a"),
-                            SortOrder = 30
-                        },
-                        new
-                        {
-                            Id = -9606L,
-                            Category = "Kinship",
-                            Code = "MADRE",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Madre",
-                            NormalizedCode = "MADRE",
-                            NormalizedName = "MADRE",
-                            PublicId = new Guid("a6777218-fbfa-ec8a-32e7-6ff044a6245d"),
-                            SortOrder = 40
-                        },
-                        new
-                        {
-                            Id = -9607L,
-                            Category = "Kinship",
-                            Code = "HIJO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Hijo/a",
-                            NormalizedCode = "HIJO_A",
-                            NormalizedName = "HIJO/A",
-                            PublicId = new Guid("742bce7c-992a-f4ed-a454-d36cf9dbe362"),
-                            SortOrder = 50
-                        },
-                        new
-                        {
-                            Id = -9608L,
-                            Category = "Kinship",
-                            Code = "HERMANO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Hermano/a",
-                            NormalizedCode = "HERMANO_A",
-                            NormalizedName = "HERMANO/A",
-                            PublicId = new Guid("a2a08702-b2de-293f-ee57-b0c3b01a45a9"),
-                            SortOrder = 60
-                        },
-                        new
-                        {
-                            Id = -9609L,
-                            Category = "Kinship",
-                            Code = "ABUELO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Abuelo/a",
-                            NormalizedCode = "ABUELO_A",
-                            NormalizedName = "ABUELO/A",
-                            PublicId = new Guid("88b3c1c4-44de-f9fc-c681-449829ae8b7e"),
-                            SortOrder = 70
-                        },
-                        new
-                        {
-                            Id = -9610L,
-                            Category = "Kinship",
-                            Code = "NIETO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Nieto/a",
-                            NormalizedCode = "NIETO_A",
-                            NormalizedName = "NIETO/A",
-                            PublicId = new Guid("3b3b848c-c640-6aac-9f92-a143bd8f0afe"),
-                            SortOrder = 80
-                        },
-                        new
-                        {
-                            Id = -9611L,
-                            Category = "Kinship",
-                            Code = "TIO_A",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Tio/a",
-                            NormalizedCode = "TIO_A",
-                            NormalizedName = "TIO/A",
-                            PublicId = new Guid("a5cad122-7a87-e36c-7b6e-24530e947161"),
-                            SortOrder = 90
-                        },
-                        new
-                        {
-                            Id = -9612L,
-                            Category = "Kinship",
-                            Code = "OTRO",
-                            CountryCode = "SV",
-                            CreatedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
-                            ModifiedUtc = new DateTime(2026, 3, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Name = "Otro",
-                            NormalizedCode = "OTRO",
-                            NormalizedName = "OTRO",
-                            PublicId = new Guid("f488c015-109f-d1fc-5d91-2270ae305efe"),
-                            SortOrder = 100
-                        });
+                    b.ToTable("profession_catalog_items", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.Platform.PlatformAuditLog", b =>
@@ -15921,6 +14822,72 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Navigation("JobProfileCompetencyExpectation");
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.CurrencyCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.DurationUnitCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.LanguageCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.LanguageLevelCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.ReferenceTypeCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.GeneralCatalogs.TrainingTypeCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.IdentityAccess.IamRolePermissionAssignment", b =>
                 {
                     b.HasOne("CLARIHR.Domain.IdentityAccess.IamPermission", "Permission")
@@ -16245,6 +15212,125 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_org_units__parent");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.DepartmentCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.EducationCareerCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.EducationModalityCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.EducationShiftCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.EducationStatusCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.EducationStudyTypeCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.IdentificationTypeCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.KinshipCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.MaritalStatusCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CountryCatalogItem");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.MunicipalityCatalogItem", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("CountryCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CLARIHR.Domain.PersonnelFiles.DepartmentCatalogItem", "DepartmentCatalogItem")
+                        .WithMany()
+                        .HasForeignKey("DepartmentCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_municipality_catalog_items__department");
+
+                    b.Navigation("CountryCatalogItem");
+
+                    b.Navigation("DepartmentCatalogItem");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelFileAdditionalBenefit", b =>
@@ -16674,15 +15760,15 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Navigation("PersonnelFile");
                 });
 
-            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.PersonnelReferenceCatalogItem", b =>
+            modelBuilder.Entity("CLARIHR.Domain.PersonnelFiles.ProfessionCatalogItem", b =>
                 {
-                    b.HasOne("CLARIHR.Domain.PersonnelFiles.PersonnelReferenceCatalogItem", "Parent")
+                    b.HasOne("CLARIHR.Domain.Locations.CountryCatalogItem", "CountryCatalogItem")
                         .WithMany()
-                        .HasForeignKey("ParentId")
+                        .HasForeignKey("CountryCatalogItemId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_personnel_reference_catalog_items__parent");
+                        .IsRequired();
 
-                    b.Navigation("Parent");
+                    b.Navigation("CountryCatalogItem");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.Platform.PlatformOperator", b =>

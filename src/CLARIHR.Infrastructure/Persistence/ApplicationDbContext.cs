@@ -145,8 +145,6 @@ public sealed class ApplicationDbContext(
 
     public DbSet<LegalRepresentative> LegalRepresentatives => Set<LegalRepresentative>();
 
-    public DbSet<LegalRepresentativeDocumentTypeCatalogItem> LegalRepresentativeDocumentTypeCatalogItems => Set<LegalRepresentativeDocumentTypeCatalogItem>();
-
     public DbSet<LegalRepresentativePositionTitleCatalogItem> LegalRepresentativePositionTitleCatalogItems => Set<LegalRepresentativePositionTitleCatalogItem>();
 
     public DbSet<LegalRepresentativeRepresentationTypeCatalogItem> LegalRepresentativeRepresentationTypeCatalogItems => Set<LegalRepresentativeRepresentationTypeCatalogItem>();
@@ -207,7 +205,17 @@ public sealed class ApplicationDbContext(
 
     public DbSet<CurrencyCatalogItem> CurrencyCatalogItems => Set<CurrencyCatalogItem>();
 
-    public DbSet<PersonnelReferenceCatalogItem> PersonnelReferenceCatalogItems => Set<PersonnelReferenceCatalogItem>();
+    public DbSet<IdentificationTypeCatalogItem> IdentificationTypeCatalogItems => Set<IdentificationTypeCatalogItem>();
+
+    public DbSet<ProfessionCatalogItem> ProfessionCatalogItems => Set<ProfessionCatalogItem>();
+
+    public DbSet<MaritalStatusCatalogItem> MaritalStatusCatalogItems => Set<MaritalStatusCatalogItem>();
+
+    public DbSet<KinshipCatalogItem> KinshipCatalogItems => Set<KinshipCatalogItem>();
+
+    public DbSet<DepartmentCatalogItem> DepartmentCatalogItems => Set<DepartmentCatalogItem>();
+
+    public DbSet<MunicipalityCatalogItem> MunicipalityCatalogItems => Set<MunicipalityCatalogItem>();
 
     public DbSet<PersonnelFileEmployeeProfile> PersonnelFileEmployeeProfiles => Set<PersonnelFileEmployeeProfile>();
 

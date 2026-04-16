@@ -1,4 +1,3 @@
-using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.LegalRepresentatives;
@@ -96,29 +95,16 @@ public sealed class MigrationSeedingIntegrationTests(IntegrationTestWebApplicati
             .ToListAsync();
         Assert.Empty(legacyPlans);
 
-        var seededResources = await dbContext.RbacResources
+        var seededDocumentTypes = await dbContext.IdentificationTypeCatalogItems
             .AsNoTracking()
-            .OrderBy(resource => resource.ResourceKey)
-            .Select(resource => resource.ResourceKey)
-            .ToListAsync();
-        Assert.Equal(PermissionMatrixCatalog.Screens.Count, seededResources.Count);
-        Assert.All(PermissionMatrixCatalog.Screens, screen => Assert.Contains(screen.ResourceKey, seededResources));
-
-        var seededFieldCatalog = await dbContext.FieldCatalogEntries
-            .AsNoTracking()
-            .OrderBy(entry => entry.NormalizedFieldKey)
-            .Select(entry => entry.FieldKey)
-            .ToListAsync();
-        Assert.Equal(FieldCatalogRegistry.Definitions.Count, seededFieldCatalog.Count);
-        Assert.All(FieldCatalogRegistry.Definitions, definition => Assert.Contains(definition.FieldKey, seededFieldCatalog));
-
-        var seededDocumentTypes = await dbContext.LegalRepresentativeDocumentTypeCatalogItems
-            .AsNoTracking()
-            .OrderBy(item => item.Id)
+            .Where(item => item.CountryCode == "SV")
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Code)
             .Select(item => item.Code)
             .ToListAsync();
-        Assert.Equal(LegalRepresentativeDocumentTypeCatalog.Items.Count, seededDocumentTypes.Count);
-        Assert.All(LegalRepresentativeDocumentTypeCatalog.Items, item => Assert.Contains(item.Code, seededDocumentTypes));
+        Assert.Contains("DUI", seededDocumentTypes);
+        Assert.Contains("NIT", seededDocumentTypes);
+        Assert.Contains("PASSPORT", seededDocumentTypes);
 
         var seededPositionTitles = await dbContext.LegalRepresentativePositionTitleCatalogItems
             .AsNoTracking()

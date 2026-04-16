@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using CLARIHR.Application.Abstractions.Localization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CLARIHR.Backoffice.Api.Common;
 
@@ -38,7 +40,8 @@ internal static class ProblemDetailsDefaults
             return;
         }
 
-        problemDetails.Title ??= ValidationTitle;
+        var localizer = context.HttpContext.RequestServices.GetService<IBackendMessageLocalizer>();
+        problemDetails.Title ??= localizer?.Localize(ValidationCode, ValidationTitle) ?? ValidationTitle;
         problemDetails.Detail ??= problemDetails.Title;
 
         if (!problemDetails.Extensions.ContainsKey(CodeExtensionKey))
@@ -46,10 +49,13 @@ internal static class ProblemDetailsDefaults
             problemDetails.Extensions[CodeExtensionKey] = ValidationCode;
         }
 
-        NormalizeValidationErrors(validationProblemDetails, GetBodyParameterNames(context.HttpContext));
+        NormalizeValidationErrors(validationProblemDetails, GetBodyParameterNames(context.HttpContext), localizer);
     }
 
-    private static void NormalizeValidationErrors(HttpValidationProblemDetails validationProblemDetails, ISet<string> bodyParameterNames)
+    private static void NormalizeValidationErrors(
+        HttpValidationProblemDetails validationProblemDetails,
+        ISet<string> bodyParameterNames,
+        IBackendMessageLocalizer? localizer)
     {
         if (validationProblemDetails.Errors.Count == 0)
         {
@@ -68,7 +74,7 @@ internal static class ProblemDetailsDefaults
 
             foreach (var rawMessage in entry.Value)
             {
-                var message = NormalizeMessage(normalizedKey, rawMessage, hasFieldLevelErrors);
+                var message = NormalizeMessage(normalizedKey, rawMessage, hasFieldLevelErrors, localizer);
                 if (string.IsNullOrWhiteSpace(message))
                 {
                     continue;
@@ -89,7 +95,7 @@ internal static class ProblemDetailsDefaults
 
         if (normalizedErrors.Count == 0)
         {
-            normalizedErrors["body"] = ["The request body is invalid."];
+            normalizedErrors["body"] = [Localize(localizer, "model.body.invalid", "The request body is invalid.")];
         }
 
         validationProblemDetails.Errors.Clear();
@@ -170,7 +176,11 @@ internal static class ProblemDetailsDefaults
         return string.IsNullOrWhiteSpace(normalizedKey) ? "body" : normalizedKey;
     }
 
-    private static string? NormalizeMessage(string normalizedKey, string rawMessage, bool hasFieldLevelErrors)
+    private static string? NormalizeMessage(
+        string normalizedKey,
+        string rawMessage,
+        bool hasFieldLevelErrors,
+        IBackendMessageLocalizer? localizer)
     {
         if (string.IsNullOrWhiteSpace(rawMessage))
         {
@@ -181,20 +191,22 @@ internal static class ProblemDetailsDefaults
             (rawMessage.Equals("A non-empty request body is required.", StringComparison.OrdinalIgnoreCase) ||
              rawMessage.EndsWith("field is required.", StringComparison.OrdinalIgnoreCase)))
         {
-            return hasFieldLevelErrors ? null : "The request body is required.";
+            return hasFieldLevelErrors
+                ? null
+                : Localize(localizer, "model.body.required", "The request body is required.");
         }
 
         if (rawMessage.StartsWith("The JSON value could not be converted to ", StringComparison.Ordinal))
         {
             return IsBodyKey(normalizedKey)
-                ? "The request body is invalid."
-                : MapJsonConversionMessage(rawMessage);
+                ? Localize(localizer, "model.body.invalid", "The request body is invalid.")
+                : MapJsonConversionMessage(rawMessage, localizer);
         }
 
         return rawMessage;
     }
 
-    private static string MapJsonConversionMessage(string message)
+    private static string MapJsonConversionMessage(string message, IBackendMessageLocalizer? localizer)
     {
         const string prefix = "The JSON value could not be converted to ";
         var pathMarkerIndex = message.IndexOf(". Path:", StringComparison.Ordinal);
@@ -204,36 +216,39 @@ internal static class ProblemDetailsDefaults
 
         if (typeName.Contains("System.Guid", StringComparison.Ordinal))
         {
-            return "The value must be a valid UUID.";
+            return Localize(localizer, "model.value.uuid", "The value must be a valid UUID.");
         }
 
         if (typeName.Contains("System.Boolean", StringComparison.Ordinal))
         {
-            return "The value must be true or false.";
+            return Localize(localizer, "model.value.bool", "The value must be true or false.");
         }
 
         if (typeName.Contains("System.Int", StringComparison.Ordinal))
         {
-            return "The value must be a valid integer.";
+            return Localize(localizer, "model.value.int", "The value must be a valid integer.");
         }
 
         if (typeName.Contains("System.Decimal", StringComparison.Ordinal) ||
             typeName.Contains("System.Double", StringComparison.Ordinal) ||
             typeName.Contains("System.Single", StringComparison.Ordinal))
         {
-            return "The value must be a valid number.";
+            return Localize(localizer, "model.value.number", "The value must be a valid number.");
         }
 
         if (typeName.Contains("System.DateTime", StringComparison.Ordinal) ||
             typeName.Contains("System.DateOnly", StringComparison.Ordinal) ||
             typeName.Contains("System.TimeOnly", StringComparison.Ordinal))
         {
-            return "The value must be a valid date or date-time.";
+            return Localize(localizer, "model.value.datetime", "The value must be a valid date or date-time.");
         }
 
-        return "The value is invalid for this field.";
+        return Localize(localizer, "model.value.invalid", "The value is invalid for this field.");
     }
 
     private static bool IsBodyKey(string key) =>
         key.Equals("body", StringComparison.Ordinal);
+
+    private static string Localize(IBackendMessageLocalizer? localizer, string key, string fallback) =>
+        localizer?.Localize(key, fallback) ?? fallback;
 }

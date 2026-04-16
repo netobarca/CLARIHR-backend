@@ -14,6 +14,7 @@ public sealed class Company : AuditableEntity
         string slug,
         string countryCode,
         long countryCatalogItemId,
+        string defaultLocale,
         CompanyStatus status,
         Guid createdByUserPublicId,
         long? companyTypeCatalogItemId,
@@ -29,6 +30,7 @@ public sealed class Company : AuditableEntity
         Name = CompanyNormalization.Clean(name, nameof(name));
         Slug = CompanyNormalization.NormalizeSlug(slug);
         SetCountry(countryCatalogItemId, countryCode);
+        SetDefaultLocale(defaultLocale);
         Status = status;
         CreatedByUserPublicId = createdByUserPublicId;
         SetCompanyType(companyTypeCatalogItemId);
@@ -43,6 +45,8 @@ public sealed class Company : AuditableEntity
     public string CountryCode { get; private set; } = string.Empty;
 
     public long CountryCatalogItemId { get; private set; }
+
+    public string DefaultLocale { get; private set; } = "en-US";
 
     public CompanyStatus Status { get; private set; }
 
@@ -60,13 +64,15 @@ public sealed class Company : AuditableEntity
         Guid createdByUserPublicId,
         string countryCode,
         long countryCatalogItemId,
-        long? companyTypeCatalogItemId = null) =>
+        long? companyTypeCatalogItemId = null,
+        string? defaultLocale = null) =>
         new(
             Guid.NewGuid(),
             name,
             slug,
             countryCode,
             countryCatalogItemId,
+            defaultLocale ?? CompanyNormalization.DefaultLocaleForCountryCode(countryCode),
             CompanyStatus.Active,
             createdByUserPublicId,
             companyTypeCatalogItemId,
@@ -82,6 +88,11 @@ public sealed class Company : AuditableEntity
 
         CountryCatalogItemId = countryCatalogItemId;
         CountryCode = CompanyNormalization.NormalizeCountryCode(countryCode);
+    }
+
+    private void SetDefaultLocale(string defaultLocale)
+    {
+        DefaultLocale = CompanyNormalization.NormalizeLocale(defaultLocale);
     }
 
     public void Rename(string name)

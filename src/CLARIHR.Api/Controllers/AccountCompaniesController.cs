@@ -115,16 +115,6 @@ public sealed class AccountCompaniesController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("legal-representative-document-types")]
-    [ProducesResponseType<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>> GetLegalRepresentativeDocumentTypes(
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetLegalRepresentativeDocumentTypesQuery(), cancellationToken);
-        return this.ToActionResult(result);
-    }
-
     [HttpGet("legal-representative-position-titles")]
     [ProducesResponseType<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -253,7 +243,7 @@ public sealed class AccountCompaniesController(
     public sealed record InitialLegalRepresentativeRequest(
         string FirstName,
         string LastName,
-        LegalRepresentativeDocumentType DocumentType,
+        string DocumentType,
         string DocumentNumber,
         string PositionTitle,
         LegalRepresentativeRepresentationType RepresentationType,

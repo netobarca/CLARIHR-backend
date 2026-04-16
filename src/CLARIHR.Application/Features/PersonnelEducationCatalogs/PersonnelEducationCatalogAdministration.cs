@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.PersonnelEducationCatalogs;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
@@ -28,6 +29,10 @@ public sealed record PersonnelEducationCatalogLookup(
     string Code,
     string Name,
     bool IsActive);
+
+public sealed record PersonnelEducationCatalogCountryLookup(
+    long CountryCatalogItemId,
+    string CountryCode);
 
 public sealed record SearchPersonnelEducationCatalogItemsQuery(
     Guid CompanyId,
@@ -221,8 +226,19 @@ internal sealed class CreatePersonnelEducationCatalogItemCommandHandler(
             return Result<PersonnelEducationCatalogItemResponse>.Failure(PersonnelEducationCatalogErrors.CatalogCodeConflict);
         }
 
-        var entity = PersonnelEducationCatalogEntityFactory.CreateEntity(command.CatalogType, command.Code, command.Name, command.SortOrder);
-        entity.SetTenantId(command.CompanyId);
+        var companyCountry = await repository.GetCompanyCountryAsync(command.CompanyId, cancellationToken);
+        if (companyCountry is null)
+        {
+            return Result<PersonnelEducationCatalogItemResponse>.Failure(PersonnelEducationCatalogErrors.CatalogItemNotFound);
+        }
+
+        var entity = PersonnelEducationCatalogEntityFactory.CreateEntity(
+            command.CatalogType,
+            companyCountry.CountryCatalogItemId,
+            companyCountry.CountryCode,
+            command.Code,
+            command.Name,
+            command.SortOrder);
         repository.Add(entity);
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -236,6 +252,7 @@ internal sealed class CreatePersonnelEducationCatalogItemCommandHandler(
 internal sealed class UpdatePersonnelEducationCatalogItemCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelEducationCatalogRepository repository,
+    ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ICommandHandler<UpdatePersonnelEducationCatalogItemCommand, PersonnelEducationCatalogItemResponse>
 {
@@ -243,6 +260,11 @@ internal sealed class UpdatePersonnelEducationCatalogItemCommandHandler(
         UpdatePersonnelEducationCatalogItemCommand command,
         CancellationToken cancellationToken)
     {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelEducationCatalogItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
         var entity = await repository.GetByIdAsync(command.CatalogType, command.Id, cancellationToken);
         if (entity is null)
         {
@@ -254,7 +276,7 @@ internal sealed class UpdatePersonnelEducationCatalogItemCommandHandler(
             return Result<PersonnelEducationCatalogItemResponse>.Failure(PersonnelEducationCatalogErrors.CatalogItemNotFound);
         }
 
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(entity.TenantId, cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<PersonnelEducationCatalogItemResponse>.Failure(authorizationResult.Error);
@@ -266,15 +288,15 @@ internal sealed class UpdatePersonnelEducationCatalogItemCommandHandler(
         }
 
         var normalizedCode = command.Code.Trim().ToUpperInvariant();
-        if (await repository.CodeExistsAsync(entity.TenantId, command.CatalogType, normalizedCode, entity.Id, cancellationToken))
+        if (await repository.CodeExistsAsync(tenantContext.TenantId.Value, command.CatalogType, normalizedCode, entity.Id, cancellationToken))
         {
             return Result<PersonnelEducationCatalogItemResponse>.Failure(PersonnelEducationCatalogErrors.CatalogCodeConflict);
         }
 
-        entity.Update(command.Code, command.Name, command.SortOrder);
+        entity.Update(entity.CountryCatalogItemId, entity.CountryCode, command.Code, command.Name, command.SortOrder);
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var response = await repository.GetResponseByIdAsync(entity.TenantId, command.CatalogType, command.Id, cancellationToken);
+        var response = await repository.GetResponseByIdAsync(tenantContext.TenantId.Value, command.CatalogType, command.Id, cancellationToken);
         return response is null
             ? Result<PersonnelEducationCatalogItemResponse>.Failure(PersonnelEducationCatalogErrors.CatalogItemNotFound)
             : Result<PersonnelEducationCatalogItemResponse>.Success(response);
@@ -284,6 +306,7 @@ internal sealed class UpdatePersonnelEducationCatalogItemCommandHandler(
 internal sealed class ActivatePersonnelEducationCatalogItemCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelEducationCatalogRepository repository,
+    ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ICommandHandler<ActivatePersonnelEducationCatalogItemCommand, PersonnelEducationCatalogItemResponse>
 {
@@ -291,6 +314,11 @@ internal sealed class ActivatePersonnelEducationCatalogItemCommandHandler(
         ActivatePersonnelEducationCatalogItemCommand command,
         CancellationToken cancellationToken)
     {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelEducationCatalogItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
         var entity = await repository.GetByIdAsync(command.CatalogType, command.Id, cancellationToken);
         if (entity is null)
         {
@@ -302,7 +330,7 @@ internal sealed class ActivatePersonnelEducationCatalogItemCommandHandler(
             return Result<PersonnelEducationCatalogItemResponse>.Failure(PersonnelEducationCatalogErrors.CatalogItemNotFound);
         }
 
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(entity.TenantId, cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<PersonnelEducationCatalogItemResponse>.Failure(authorizationResult.Error);
@@ -316,7 +344,7 @@ internal sealed class ActivatePersonnelEducationCatalogItemCommandHandler(
         entity.Activate();
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var response = await repository.GetResponseByIdAsync(entity.TenantId, command.CatalogType, command.Id, cancellationToken);
+        var response = await repository.GetResponseByIdAsync(tenantContext.TenantId.Value, command.CatalogType, command.Id, cancellationToken);
         return response is null
             ? Result<PersonnelEducationCatalogItemResponse>.Failure(PersonnelEducationCatalogErrors.CatalogItemNotFound)
             : Result<PersonnelEducationCatalogItemResponse>.Success(response);
@@ -326,6 +354,7 @@ internal sealed class ActivatePersonnelEducationCatalogItemCommandHandler(
 internal sealed class InactivatePersonnelEducationCatalogItemCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelEducationCatalogRepository repository,
+    ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ICommandHandler<InactivatePersonnelEducationCatalogItemCommand, PersonnelEducationCatalogItemResponse>
 {
@@ -333,6 +362,11 @@ internal sealed class InactivatePersonnelEducationCatalogItemCommandHandler(
         InactivatePersonnelEducationCatalogItemCommand command,
         CancellationToken cancellationToken)
     {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelEducationCatalogItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
         var entity = await repository.GetByIdAsync(command.CatalogType, command.Id, cancellationToken);
         if (entity is null)
         {
@@ -344,7 +378,7 @@ internal sealed class InactivatePersonnelEducationCatalogItemCommandHandler(
             return Result<PersonnelEducationCatalogItemResponse>.Failure(PersonnelEducationCatalogErrors.CatalogItemNotFound);
         }
 
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(entity.TenantId, cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<PersonnelEducationCatalogItemResponse>.Failure(authorizationResult.Error);
@@ -363,7 +397,7 @@ internal sealed class InactivatePersonnelEducationCatalogItemCommandHandler(
         entity.Inactivate();
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var response = await repository.GetResponseByIdAsync(entity.TenantId, command.CatalogType, command.Id, cancellationToken);
+        var response = await repository.GetResponseByIdAsync(tenantContext.TenantId.Value, command.CatalogType, command.Id, cancellationToken);
         return response is null
             ? Result<PersonnelEducationCatalogItemResponse>.Failure(PersonnelEducationCatalogErrors.CatalogItemNotFound)
             : Result<PersonnelEducationCatalogItemResponse>.Success(response);
@@ -374,16 +408,18 @@ internal static class PersonnelEducationCatalogEntityFactory
 {
     public static PersonnelEducationCatalogItem CreateEntity(
         PersonnelEducationCatalogType catalogType,
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder) =>
         catalogType switch
         {
-            PersonnelEducationCatalogType.EducationStatus => EducationStatusCatalogItem.Create(code, name, sortOrder),
-            PersonnelEducationCatalogType.StudyType => EducationStudyTypeCatalogItem.Create(code, name, sortOrder),
-            PersonnelEducationCatalogType.Career => EducationCareerCatalogItem.Create(code, name, sortOrder),
-            PersonnelEducationCatalogType.Shift => EducationShiftCatalogItem.Create(code, name, sortOrder),
-            PersonnelEducationCatalogType.Modality => EducationModalityCatalogItem.Create(code, name, sortOrder),
+            PersonnelEducationCatalogType.EducationStatus => EducationStatusCatalogItem.Create(countryCatalogItemId, countryCode, code, name, sortOrder),
+            PersonnelEducationCatalogType.StudyType => EducationStudyTypeCatalogItem.Create(countryCatalogItemId, countryCode, code, name, sortOrder),
+            PersonnelEducationCatalogType.Career => EducationCareerCatalogItem.Create(countryCatalogItemId, countryCode, code, name, sortOrder),
+            PersonnelEducationCatalogType.Shift => EducationShiftCatalogItem.Create(countryCatalogItemId, countryCode, code, name, sortOrder),
+            PersonnelEducationCatalogType.Modality => EducationModalityCatalogItem.Create(countryCatalogItemId, countryCode, code, name, sortOrder),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported personnel education catalog type.")
         };
 }

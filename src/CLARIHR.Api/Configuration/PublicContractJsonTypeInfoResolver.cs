@@ -52,14 +52,17 @@ public sealed class PublicContractJsonTypeInfoResolver : DefaultJsonTypeInfoReso
                 continue;
             }
 
+            _ = assignedNames.Remove(currentName);
+
             if (!assignedNames.Add(renamed))
             {
+                _ = assignedNames.Add(currentName);
                 continue;
             }
 
             property.Name = renamed;
 
-            if (property.Set is null || assignedNames.Contains(currentName))
+            if (property.Set is null || !assignedNames.Add(currentName))
             {
                 continue;
             }
@@ -68,7 +71,6 @@ public sealed class PublicContractJsonTypeInfoResolver : DefaultJsonTypeInfoReso
             aliasProperty.Set = property.Set;
             aliasProperty.ShouldSerialize = static (_, _) => false;
             aliasProperties.Add(aliasProperty);
-            assignedNames.Add(currentName);
         }
 
         foreach (var aliasProperty in aliasProperties)

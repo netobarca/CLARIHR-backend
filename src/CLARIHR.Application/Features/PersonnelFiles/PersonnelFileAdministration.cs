@@ -466,7 +466,6 @@ public sealed record GetPersonnelCatalogItemsQuery(Guid CompanyId, string Catego
 
 public sealed record GetPersonnelReferenceCatalogItemsQuery(
     Guid CompanyId,
-    string CountryCode,
     string Category,
     string? ParentCode = null) : IQuery<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>;
 
@@ -988,11 +987,6 @@ internal sealed class GetPersonnelReferenceCatalogItemsQueryValidator : Abstract
     public GetPersonnelReferenceCatalogItemsQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.CountryCode)
-            .NotEmpty()
-            .MaximumLength(3)
-            .Must(PersonnelFileValidationRules.IsValidCode)
-            .WithMessage("CountryCode format is invalid.");
         RuleFor(query => query.Category)
             .NotEmpty()
             .MaximumLength(80)
@@ -1892,6 +1886,7 @@ internal static class PersonnelReferenceCatalogValidation
 {
     public static async Task<Error> ValidatePersonalInfoCodesAsync(
         IPersonnelFileRepository repository,
+        Guid companyId,
         string? maritalStatusCode,
         string? professionCode,
         string? birthCountryCode,
@@ -1904,7 +1899,7 @@ internal static class PersonnelReferenceCatalogValidation
             var statusError = await ValidateOptionalReferenceCodeAsync(
                 repository,
                 "maritalStatusCode",
-                LocationValidationRules.ElSalvadorCountryCode,
+                await ResolveCompanyCountryCodeAsync(repository, companyId, cancellationToken),
                 PersonnelReferenceCatalogCategories.MaritalStatus,
                 maritalStatusCode,
                 cancellationToken);
@@ -1919,7 +1914,7 @@ internal static class PersonnelReferenceCatalogValidation
             var professionError = await ValidateOptionalReferenceCodeAsync(
                 repository,
                 "professionCode",
-                LocationValidationRules.ElSalvadorCountryCode,
+                await ResolveCompanyCountryCodeAsync(repository, companyId, cancellationToken),
                 PersonnelReferenceCatalogCategories.Profession,
                 professionCode,
                 cancellationToken);
@@ -1939,25 +1934,27 @@ internal static class PersonnelReferenceCatalogValidation
 
     public static Task<Error> ValidateIdentificationTypeCodeAsync(
         IPersonnelFileRepository repository,
+        Guid companyId,
         string identificationTypeCode,
         CancellationToken cancellationToken) =>
-        ValidateOptionalReferenceCodeAsync(
+        ValidateOptionalReferenceCodeForCompanyAsync(
             repository,
+            companyId,
             "identificationTypeCode",
-            LocationValidationRules.ElSalvadorCountryCode,
             PersonnelReferenceCatalogCategories.IdentificationType,
             identificationTypeCode,
             cancellationToken);
 
     public static Task<Error> ValidateKinshipCodeAsync(
         IPersonnelFileRepository repository,
+        Guid companyId,
         string fieldName,
         string kinshipCode,
         CancellationToken cancellationToken) =>
-        ValidateOptionalReferenceCodeAsync(
+        ValidateOptionalReferenceCodeForCompanyAsync(
             repository,
+            companyId,
             fieldName,
-            LocationValidationRules.ElSalvadorCountryCode,
             PersonnelReferenceCatalogCategories.Kinship,
             kinshipCode,
             cancellationToken);
@@ -2092,6 +2089,35 @@ internal static class PersonnelReferenceCatalogValidation
                 {
                     [fieldName] = [$"Catalog code '{code.Trim().ToUpperInvariant()}' is not active for category '{category}'."]
                 });
+    }
+
+    private static async Task<Error> ValidateOptionalReferenceCodeForCompanyAsync(
+        IPersonnelFileRepository repository,
+        Guid companyId,
+        string fieldName,
+        string category,
+        string? code,
+        CancellationToken cancellationToken)
+    {
+        var companyCountryCode = await ResolveCompanyCountryCodeAsync(repository, companyId, cancellationToken);
+        return await ValidateOptionalReferenceCodeAsync(
+            repository,
+            fieldName,
+            companyCountryCode,
+            category,
+            code,
+            cancellationToken);
+    }
+
+    private static async Task<string> ResolveCompanyCountryCodeAsync(
+        IPersonnelFileRepository repository,
+        Guid companyId,
+        CancellationToken cancellationToken)
+    {
+        var countryCode = await repository.GetCompanyCountryCodeAsync(companyId, cancellationToken);
+        return string.IsNullOrWhiteSpace(countryCode)
+            ? LocationValidationRules.ElSalvadorCountryCode
+            : countryCode.Trim().ToUpperInvariant();
     }
 }
 
@@ -2672,7 +2698,7 @@ internal sealed class GetPersonnelReferenceCatalogItemsQueryHandler(
         }
 
         var items = await repository.GetReferenceCatalogItemsAsync(
-            query.CountryCode,
+            query.CompanyId,
             query.Category,
             query.ParentCode,
             cancellationToken);
@@ -2914,6 +2940,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
 
         var personalInfoCatalogValidation = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
             repository,
+            command.CompanyId,
             command.MaritalStatusCode,
             command.ProfessionCode,
             command.BirthCountryCode,
@@ -2931,6 +2958,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
             var normalizedIdentificationTypeCode = identification.IdentificationTypeCode.Trim().ToUpperInvariant();
             var identificationTypeValidation = await PersonnelReferenceCatalogValidation.ValidateIdentificationTypeCodeAsync(
                 repository,
+                command.CompanyId,
                 normalizedIdentificationTypeCode,
                 cancellationToken);
             if (identificationTypeValidation != Error.None)
@@ -3104,6 +3132,7 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
 
         var personalInfoCatalogValidation = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
             repository,
+            personnelFile.TenantId,
             command.MaritalStatusCode,
             command.ProfessionCode,
             command.BirthCountryCode,
@@ -3309,6 +3338,7 @@ internal sealed class ReplacePersonnelFileIdentificationsCommandHandler(
             var normalizedIdentificationTypeCode = item.IdentificationTypeCode.Trim().ToUpperInvariant();
             var identificationTypeValidation = await PersonnelReferenceCatalogValidation.ValidateIdentificationTypeCodeAsync(
                 repository,
+                personnelFile!.TenantId,
                 normalizedIdentificationTypeCode,
                 cancellationToken);
             if (identificationTypeValidation != Error.None)
@@ -3477,6 +3507,7 @@ internal sealed class ReplacePersonnelFileFamilyMembersCommandHandler(
                 var item = familyMembers[index];
                 var kinshipCodeValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
                     repository,
+                    personnelFile!.TenantId,
                     $"items[{index}].kinshipCode",
                     item.KinshipCode,
                     cancellationToken);

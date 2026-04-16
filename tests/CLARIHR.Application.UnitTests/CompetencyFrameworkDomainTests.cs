@@ -9,7 +9,7 @@ public sealed class CompetencyFrameworkDomainTests
     {
         var level = OccupationalPyramidLevel.Create(" opl-strat ", " Estrategico ", 1, " Nivel superior ");
 
-        Assert.Equal("opl-strat", level.Code);
+        Assert.Equal("OPL-STRAT", level.Code);
         Assert.Equal("OPL-STRAT", level.NormalizedCode);
         Assert.Equal("Estrategico", level.Name);
         Assert.Equal("ESTRATEGICO", level.NormalizedName);

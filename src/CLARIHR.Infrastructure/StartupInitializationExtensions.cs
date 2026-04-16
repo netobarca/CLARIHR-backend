@@ -27,7 +27,6 @@ public static class StartupInitializationExtensions
             {
                 using var scope = services.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var documentTypeCatalogSeedService = scope.ServiceProvider.GetRequiredService<LegalRepresentativeDocumentTypeCatalogSeedService>();
                 var positionTitleCatalogSeedService = scope.ServiceProvider.GetRequiredService<LegalRepresentativePositionTitleCatalogSeedService>();
                 var representationTypeCatalogSeedService = scope.ServiceProvider.GetRequiredService<LegalRepresentativeRepresentationTypeCatalogSeedService>();
                 var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
@@ -38,7 +37,6 @@ public static class StartupInitializationExtensions
                 }
 
                 await dbContext.Database.MigrateAsync(cancellationToken);
-                await documentTypeCatalogSeedService.EnsureSeededAsync(cancellationToken);
                 await positionTitleCatalogSeedService.EnsureSeededAsync(cancellationToken);
                 await representationTypeCatalogSeedService.EnsureSeededAsync(cancellationToken);
                 await planEntitlementService.EnsureSystemPlanDefaultsAsync(cancellationToken);

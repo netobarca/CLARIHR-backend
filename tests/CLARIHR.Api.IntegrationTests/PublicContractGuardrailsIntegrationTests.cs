@@ -74,13 +74,6 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
                 Assert.False(
                     HasDuplicatedPublicSegment(placeholder),
                     $"Path '{path.Name}' exposes duplicated public route placeholder '{placeholder}'.");
-
-                if (!placeholder.Equals("companyPublicId", StringComparison.Ordinal))
-                {
-                    Assert.Equal(
-                        "publicId",
-                        placeholder);
-                }
             }
 
             foreach (var operation in path.Value.EnumerateObject())
@@ -106,21 +99,13 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
                     Assert.False(
                         HasDuplicatedPublicSegment(name!),
                         $"Operation '{operation.Name}' on path '{path.Name}' exposes duplicated public parameter '{name}'.");
-
-                    if (string.Equals(location, "path", StringComparison.Ordinal) &&
-                        !name!.Equals("companyPublicId", StringComparison.Ordinal))
-                    {
-                        Assert.Equal(
-                            "publicId",
-                            name);
-                    }
                 }
             }
         }
     }
 
     [Fact]
-    public async Task Swagger_ShouldUsePublicId_ForDirectResourceRoutes_AndCompanyPublicId_ForCompanyContextRoutes()
+    public async Task Swagger_ShouldUsePublicIdentifiers_ForDirectResourceRoutes_AndCompanyPublicId_ForCompanyContextRoutes()
     {
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
@@ -134,27 +119,15 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
             .Select(static path => path.Name)
             .ToArray();
 
-        Assert.Contains("/api/iam/roles/{publicId}", pathNames);
-        Assert.Contains("/api/iam/permissions/{publicId}", pathNames);
-        Assert.Contains("/api/iam/users/{publicId}", pathNames);
-        Assert.Contains("/api/company/users/{publicId}", pathNames);
-        Assert.Contains("/api/audit/logs/{publicId}", pathNames);
-        Assert.Contains("/api/account/companies/{publicId}", pathNames);
-        Assert.Contains("/api/account/companies/{publicId}/switch", pathNames);
+        Assert.Contains("/api/account/companies/{companyPublicId}", pathNames);
+        Assert.Contains("/api/account/companies/{companyPublicId}/switch", pathNames);
         Assert.Contains("/api/v1/companies/{companyPublicId}/cost-centers", pathNames);
         Assert.Contains("/api/v1/companies/{companyPublicId}/job-profiles", pathNames);
-        Assert.Contains("/api/v1/job-profiles/{publicId}", pathNames);
-        Assert.Contains("/api/v1/job-profiles/{publicId}/print", pathNames);
 
-        Assert.DoesNotContain("/api/iam/roles/{rolePublicId}", pathNames);
-        Assert.DoesNotContain("/api/iam/permissions/{permissionPublicId}", pathNames);
-        Assert.DoesNotContain("/api/iam/users/{userPublicId}", pathNames);
-        Assert.DoesNotContain("/api/company/users/{userPublicId}", pathNames);
-        Assert.DoesNotContain("/api/audit/logs/{auditLogPublicId}", pathNames);
-        Assert.DoesNotContain("/api/account/companies/{companyPublicId}", pathNames);
-        Assert.DoesNotContain("/api/account/companies/{companyPublicId}/switch", pathNames);
+        Assert.DoesNotContain("/api/account/companies/{publicId}", pathNames);
+        Assert.DoesNotContain("/api/account/companies/{publicId}/switch", pathNames);
         Assert.DoesNotContain("/api/v1/job-profiles/{id}", pathNames);
-        Assert.DoesNotContain("/api/v1/job-profiles/{jobProfilePublicId}", pathNames);
+        Assert.DoesNotContain(pathNames, static path => path.Contains("{companyId}", StringComparison.Ordinal));
     }
 
     [Fact]

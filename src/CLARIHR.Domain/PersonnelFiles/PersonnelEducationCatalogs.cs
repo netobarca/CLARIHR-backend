@@ -2,7 +2,7 @@ using CLARIHR.Domain.Common;
 
 namespace CLARIHR.Domain.PersonnelFiles;
 
-public abstract class PersonnelEducationCatalogItem : TenantEntity
+public abstract class PersonnelEducationCatalogItem : CountryScopedCatalogItem
 {
     protected PersonnelEducationCatalogItem()
     {
@@ -10,78 +10,14 @@ public abstract class PersonnelEducationCatalogItem : TenantEntity
 
     protected PersonnelEducationCatalogItem(
         Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive: true, sortOrder)
     {
-        if (sortOrder < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(sortOrder), "Sort order cannot be negative.");
-        }
-
-        PublicId = publicId;
-        SetCode(code);
-        SetName(name);
-        SortOrder = sortOrder;
-        IsActive = true;
-        ConcurrencyToken = Guid.NewGuid();
     }
-
-    public string Code { get; private set; } = string.Empty;
-
-    public string NormalizedCode { get; private set; } = string.Empty;
-
-    public string Name { get; private set; } = string.Empty;
-
-    public string NormalizedName { get; private set; } = string.Empty;
-
-    public int SortOrder { get; private set; }
-
-    public bool IsActive { get; private set; }
-
-    public Guid ConcurrencyToken { get; private set; }
-
-    public void Update(
-        string code,
-        string name,
-        int sortOrder)
-    {
-        if (sortOrder < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(sortOrder), "Sort order cannot be negative.");
-        }
-
-        SetCode(code);
-        SetName(name);
-        SortOrder = sortOrder;
-        RefreshConcurrencyToken();
-    }
-
-    public void Activate()
-    {
-        IsActive = true;
-        RefreshConcurrencyToken();
-    }
-
-    public void Inactivate()
-    {
-        IsActive = false;
-        RefreshConcurrencyToken();
-    }
-
-    private void SetCode(string code)
-    {
-        Code = PersonnelFileNormalization.NormalizeCode(code);
-        NormalizedCode = Code;
-    }
-
-    private void SetName(string name)
-    {
-        Name = PersonnelFileNormalization.Clean(name, nameof(name));
-        NormalizedName = PersonnelFileNormalization.NormalizeName(name);
-    }
-
-    private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
 }
 
 public sealed class EducationStatusCatalogItem : PersonnelEducationCatalogItem
@@ -92,18 +28,22 @@ public sealed class EducationStatusCatalogItem : PersonnelEducationCatalogItem
 
     private EducationStatusCatalogItem(
         Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder)
-        : base(publicId, code, name, sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, sortOrder)
     {
     }
 
     public static EducationStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder) =>
-        new(Guid.NewGuid(), code, name, sortOrder);
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, sortOrder);
 }
 
 public sealed class EducationStudyTypeCatalogItem : PersonnelEducationCatalogItem
@@ -114,18 +54,22 @@ public sealed class EducationStudyTypeCatalogItem : PersonnelEducationCatalogIte
 
     private EducationStudyTypeCatalogItem(
         Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder)
-        : base(publicId, code, name, sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, sortOrder)
     {
     }
 
     public static EducationStudyTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder) =>
-        new(Guid.NewGuid(), code, name, sortOrder);
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, sortOrder);
 }
 
 public sealed class EducationCareerCatalogItem : PersonnelEducationCatalogItem
@@ -136,18 +80,22 @@ public sealed class EducationCareerCatalogItem : PersonnelEducationCatalogItem
 
     private EducationCareerCatalogItem(
         Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder)
-        : base(publicId, code, name, sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, sortOrder)
     {
     }
 
     public static EducationCareerCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder) =>
-        new(Guid.NewGuid(), code, name, sortOrder);
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, sortOrder);
 }
 
 public sealed class EducationShiftCatalogItem : PersonnelEducationCatalogItem
@@ -158,18 +106,22 @@ public sealed class EducationShiftCatalogItem : PersonnelEducationCatalogItem
 
     private EducationShiftCatalogItem(
         Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder)
-        : base(publicId, code, name, sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, sortOrder)
     {
     }
 
     public static EducationShiftCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder) =>
-        new(Guid.NewGuid(), code, name, sortOrder);
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, sortOrder);
 }
 
 public sealed class EducationModalityCatalogItem : PersonnelEducationCatalogItem
@@ -180,16 +132,20 @@ public sealed class EducationModalityCatalogItem : PersonnelEducationCatalogItem
 
     private EducationModalityCatalogItem(
         Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder)
-        : base(publicId, code, name, sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, sortOrder)
     {
     }
 
     public static EducationModalityCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
         string code,
         string name,
         int sortOrder) =>
-        new(Guid.NewGuid(), code, name, sortOrder);
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, sortOrder);
 }

@@ -1,7 +1,9 @@
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Abstractions.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CLARIHR.Api.Common;
 
@@ -11,11 +13,15 @@ internal static class ModelStateProblemDetailsFactory
 
     public static IActionResult Create(ActionContext actionContext)
     {
-        var error = ErrorCatalog.Validation(CreateValidationErrors(actionContext));
+        using var _ = ProblemDetailsLocalizationScope.UseFrom(actionContext.HttpContext);
+        var localizer = actionContext.HttpContext.RequestServices.GetService<IBackendMessageLocalizer>();
+        var error = ErrorCatalog.Validation(CreateValidationErrors(actionContext, localizer));
         return ProblemDetailsFactory.Create(actionContext.HttpContext, error);
     }
 
-    private static IReadOnlyDictionary<string, string[]> CreateValidationErrors(ActionContext actionContext)
+    private static IReadOnlyDictionary<string, string[]> CreateValidationErrors(
+        ActionContext actionContext,
+        IBackendMessageLocalizer? localizer)
     {
         var bodyParameterNames = GetBodyParameterNames(actionContext.ActionDescriptor.Parameters);
         var hasFieldLevelErrors = actionContext.ModelState
@@ -36,7 +42,7 @@ internal static class ModelStateProblemDetailsFactory
 
             foreach (var modelError in modelState.Errors)
             {
-                var message = NormalizeMessage(normalizedKey, modelError, hasFieldLevelErrors);
+                var message = NormalizeMessage(normalizedKey, modelError, hasFieldLevelErrors, localizer);
                 if (string.IsNullOrWhiteSpace(message))
                 {
                     continue;
@@ -62,7 +68,7 @@ internal static class ModelStateProblemDetailsFactory
 
         return new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
-            ["body"] = ["The request body is invalid."]
+            ["body"] = [Localize(localizer, "model.body.invalid", "The request body is invalid.")]
         };
     }
 
@@ -133,7 +139,11 @@ internal static class ModelStateProblemDetailsFactory
         return string.IsNullOrWhiteSpace(normalizedKey) ? "body" : normalizedKey;
     }
 
-    private static string? NormalizeMessage(string normalizedKey, ModelError modelError, bool hasFieldLevelErrors)
+    private static string? NormalizeMessage(
+        string normalizedKey,
+        ModelError modelError,
+        bool hasFieldLevelErrors,
+        IBackendMessageLocalizer? localizer)
     {
         var message = string.IsNullOrWhiteSpace(modelError.ErrorMessage)
             ? modelError.Exception?.Message
@@ -146,53 +156,60 @@ internal static class ModelStateProblemDetailsFactory
 
         if (IsBodyKey(normalizedKey) && IsBodyRequiredMessage(message))
         {
-            return hasFieldLevelErrors ? null : "The request body is required.";
+            return hasFieldLevelErrors
+                ? null
+                : Localize(localizer, "model.body.required", "The request body is required.");
         }
 
         if (message.StartsWith(JsonConversionPrefix, StringComparison.Ordinal))
         {
             return IsBodyKey(normalizedKey)
-                ? "The request body is invalid."
-                : MapJsonConversionMessage(message);
+                ? Localize(localizer, "model.body.invalid", "The request body is invalid.")
+                : MapJsonConversionMessage(message, localizer);
+        }
+
+        if (IsSimpleValueNotValidMessage(message))
+        {
+            return Localize(localizer, "model.value.invalid", "The value is invalid for this field.");
         }
 
         return message;
     }
 
-    private static string MapJsonConversionMessage(string message)
+    private static string MapJsonConversionMessage(string message, IBackendMessageLocalizer? localizer)
     {
         var typeName = ExtractConvertedTypeName(message);
 
         if (typeName.Contains("System.Guid", StringComparison.Ordinal))
         {
-            return "The value must be a valid UUID.";
+            return Localize(localizer, "model.value.uuid", "The value must be a valid UUID.");
         }
 
         if (typeName.Contains("System.Boolean", StringComparison.Ordinal))
         {
-            return "The value must be true or false.";
+            return Localize(localizer, "model.value.bool", "The value must be true or false.");
         }
 
         if (typeName.Contains("System.Int", StringComparison.Ordinal))
         {
-            return "The value must be a valid integer.";
+            return Localize(localizer, "model.value.int", "The value must be a valid integer.");
         }
 
         if (typeName.Contains("System.Decimal", StringComparison.Ordinal) ||
             typeName.Contains("System.Double", StringComparison.Ordinal) ||
             typeName.Contains("System.Single", StringComparison.Ordinal))
         {
-            return "The value must be a valid number.";
+            return Localize(localizer, "model.value.number", "The value must be a valid number.");
         }
 
         if (typeName.Contains("System.DateTime", StringComparison.Ordinal) ||
             typeName.Contains("System.DateOnly", StringComparison.Ordinal) ||
             typeName.Contains("System.TimeOnly", StringComparison.Ordinal))
         {
-            return "The value must be a valid date or date-time.";
+            return Localize(localizer, "model.value.datetime", "The value must be a valid date or date-time.");
         }
 
-        return "The value is invalid for this field.";
+        return Localize(localizer, "model.value.invalid", "The value is invalid for this field.");
     }
 
     private static string ExtractConvertedTypeName(string message)
@@ -207,6 +224,13 @@ internal static class ModelStateProblemDetailsFactory
         message.Equals("A non-empty request body is required.", StringComparison.OrdinalIgnoreCase) ||
         message.EndsWith("field is required.", StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsSimpleValueNotValidMessage(string message) =>
+        message.StartsWith("The value '", StringComparison.Ordinal) &&
+        message.EndsWith("' is not valid.", StringComparison.Ordinal);
+
     private static bool IsBodyKey(string key) =>
         key.Equals("body", StringComparison.Ordinal);
+
+    private static string Localize(IBackendMessageLocalizer? localizer, string key, string fallback) =>
+        localizer?.Localize(key, fallback) ?? fallback;
 }

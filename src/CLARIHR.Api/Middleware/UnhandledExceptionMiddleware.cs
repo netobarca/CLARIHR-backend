@@ -1,4 +1,6 @@
+using CLARIHR.Application.Abstractions.Localization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CLARIHR.Api.Middleware;
 
@@ -46,14 +48,17 @@ internal sealed class UnhandledExceptionMiddleware(
             }
 
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            var localizer = context.RequestServices.GetService<IBackendMessageLocalizer>();
+            var title = localizer?.Localize("common.unexpected", "Unexpected error") ?? "Unexpected error";
+            var detail = hostEnvironment.IsDevelopment()
+                ? exception.Message
+                : localizer?.Localize("common.unexpected", "An unexpected error occurred.") ?? "An unexpected error occurred.";
 
             var problemDetails = new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
-                Title = "Unexpected error",
-                Detail = hostEnvironment.IsDevelopment()
-                    ? exception.Message
-                    : "An unexpected error occurred.",
+                Title = title,
+                Detail = detail,
                 Type = "https://httpstatuses.com/500"
             };
 

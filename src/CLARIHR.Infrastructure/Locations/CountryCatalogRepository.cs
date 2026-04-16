@@ -18,7 +18,8 @@ internal sealed class CountryCatalogRepository(ApplicationDbContext dbContext) :
                 item.PublicId,
                 item.Code,
                 item.Name,
-                item.SortOrder))
+                item.SortOrder,
+                item.DefaultLocale))
             .ToArrayAsync(cancellationToken);
     }
 
@@ -34,7 +35,8 @@ internal sealed class CountryCatalogRepository(ApplicationDbContext dbContext) :
                 item.PublicId,
                 item.Code,
                 item.Name,
-                item.IsActive))
+                item.IsActive,
+                item.DefaultLocale))
             .SingleOrDefaultAsync(cancellationToken);
     }
 }

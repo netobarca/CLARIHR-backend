@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, ...</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, ...</value>
+  </resheader>
+  <data name="common.validation" xml:space="preserve">
+    <value>Se encontraron uno o más errores de validación.</value>
+  </data>
+  <data name="common.unexpected" xml:space="preserve">
+    <value>Ocurrió un error inesperado.</value>
+  </data>
+  <data name="model.body.invalid" xml:space="preserve">
+    <value>El cuerpo de la solicitud no es válido.</value>
+  </data>
+  <data name="model.body.required" xml:space="preserve">
+    <value>El cuerpo de la solicitud es requerido.</value>
+  </data>
+  <data name="model.value.uuid" xml:space="preserve">
+    <value>El valor debe ser un UUID válido.</value>
+  </data>
+  <data name="model.value.bool" xml:space="preserve">
+    <value>El valor debe ser verdadero o falso.</value>
+  </data>
+  <data name="model.value.int" xml:space="preserve">
+    <value>El valor debe ser un entero válido.</value>
+  </data>
+  <data name="model.value.number" xml:space="preserve">
+    <value>El valor debe ser un número válido.</value>
+  </data>
+  <data name="model.value.datetime" xml:space="preserve">
+    <value>El valor debe ser una fecha o fecha-hora válida.</value>
+  </data>
+  <data name="model.value.invalid" xml:space="preserve">
+    <value>El valor no es válido para este campo.</value>
+  </data>
+  <data name="auth.unauthorized" xml:space="preserve">
+    <value>Se requiere autenticación para acceder a este recurso.</value>
+  </data>
+  <data name="auth.forbidden" xml:space="preserve">
+    <value>No tienes permiso para acceder a este recurso.</value>
+  </data>
+  <data name="provisioning.country_not_found" xml:space="preserve">
+    <value>El país solicitado '{0}' no existe en el catálogo activo de países.</value>
+  </data>
+  <data name="SYSTEM_CATALOG_COUNTRY_NOT_FOUND" xml:space="preserve">
+    <value>El país '{0}' no está activo.</value>
+  </data>
+</root>

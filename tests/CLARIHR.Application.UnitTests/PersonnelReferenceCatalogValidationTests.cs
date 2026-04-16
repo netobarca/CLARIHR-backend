@@ -11,6 +11,7 @@ public sealed class PersonnelReferenceCatalogValidationTests
     [Fact]
     public async Task ValidatePersonalInfoCodesAsync_WhenCodesAreActiveAndHierarchyIsValid_ShouldReturnNone()
     {
+        var companyId = Guid.NewGuid();
         var repository = new TestPersonnelFileRepository();
         repository.AddActiveCountry("SV");
         repository.AddActiveReferenceCode("SV", PersonnelReferenceCatalogCategories.MaritalStatus, "SOLTERO_A");
@@ -21,12 +22,13 @@ public sealed class PersonnelReferenceCatalogValidationTests
 
         var error = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
             repository,
+            companyId,
             maritalStatusCode: "SOLTERO_A",
             professionCode: "ANALISTA_DE_DATOS",
             birthCountryCode: "SV",
             birthDepartmentCode: "SAN_SALVADOR",
             birthMunicipalityCode: "SAN_SALVADOR_CENTRO",
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(Error.None, error);
     }
@@ -34,18 +36,20 @@ public sealed class PersonnelReferenceCatalogValidationTests
     [Fact]
     public async Task ValidatePersonalInfoCodesAsync_WhenProfessionCodeIsInactive_ShouldReturnValidationError()
     {
+        var companyId = Guid.NewGuid();
         var repository = new TestPersonnelFileRepository();
         repository.AddActiveCountry("SV");
         repository.AddActiveReferenceCode("SV", PersonnelReferenceCatalogCategories.MaritalStatus, "SOLTERO_A");
 
         var error = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
             repository,
+            companyId,
             maritalStatusCode: "SOLTERO_A",
             professionCode: "INVALID_PROFESSION",
             birthCountryCode: null,
             birthDepartmentCode: null,
             birthMunicipalityCode: null,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal("common.validation", error.Code);
         Assert.NotNull(error.ValidationErrors);
@@ -55,16 +59,18 @@ public sealed class PersonnelReferenceCatalogValidationTests
     [Fact]
     public async Task ValidatePersonalInfoCodesAsync_WhenDepartmentProvidedWithoutCountry_ShouldReturnValidationError()
     {
+        var companyId = Guid.NewGuid();
         var repository = new TestPersonnelFileRepository();
 
         var error = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
             repository,
+            companyId,
             maritalStatusCode: null,
             professionCode: null,
             birthCountryCode: null,
             birthDepartmentCode: "SAN_SALVADOR",
             birthMunicipalityCode: null,
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal("common.validation", error.Code);
         Assert.NotNull(error.ValidationErrors);
@@ -74,6 +80,7 @@ public sealed class PersonnelReferenceCatalogValidationTests
     [Fact]
     public async Task ValidatePersonalInfoCodesAsync_WhenMunicipalityDoesNotBelongToDepartment_ShouldReturnValidationError()
     {
+        var companyId = Guid.NewGuid();
         var repository = new TestPersonnelFileRepository();
         repository.AddActiveCountry("SV");
         repository.AddActiveReferenceCode("SV", PersonnelReferenceCatalogCategories.Department, "SAN_SALVADOR");
@@ -81,12 +88,13 @@ public sealed class PersonnelReferenceCatalogValidationTests
 
         var error = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
             repository,
+            companyId,
             maritalStatusCode: null,
             professionCode: null,
             birthCountryCode: "SV",
             birthDepartmentCode: "SAN_SALVADOR",
             birthMunicipalityCode: "LA_LIBERTAD_SUR",
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal("common.validation", error.Code);
         Assert.NotNull(error.ValidationErrors);
@@ -96,10 +104,12 @@ public sealed class PersonnelReferenceCatalogValidationTests
     [Fact]
     public async Task ValidateIdentificationTypeCodeAsync_WhenCodeIsInactive_ShouldReturnValidationError()
     {
+        var companyId = Guid.NewGuid();
         var repository = new TestPersonnelFileRepository();
 
         var error = await PersonnelReferenceCatalogValidation.ValidateIdentificationTypeCodeAsync(
             repository,
+            companyId,
             "UNKNOWN_DOCUMENT",
             CancellationToken.None);
 
@@ -111,11 +121,13 @@ public sealed class PersonnelReferenceCatalogValidationTests
     [Fact]
     public async Task ValidateKinshipCodeAsync_WhenCodeIsActive_ShouldReturnNone()
     {
+        var companyId = Guid.NewGuid();
         var repository = new TestPersonnelFileRepository();
         repository.AddActiveReferenceCode("SV", PersonnelReferenceCatalogCategories.Kinship, "HERMANO_A");
 
         var error = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
             repository,
+            companyId,
             "items[0].beneficiaries[0].kinshipCode",
             "HERMANO_A",
             CancellationToken.None);
@@ -126,10 +138,12 @@ public sealed class PersonnelReferenceCatalogValidationTests
     [Fact]
     public async Task ValidateKinshipCodeAsync_WhenCodeIsInactive_ShouldReturnValidationError()
     {
+        var companyId = Guid.NewGuid();
         var repository = new TestPersonnelFileRepository();
 
         var error = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
             repository,
+            companyId,
             "items[0].beneficiaries[0].kinshipCode",
             "UNKNOWN_KINSHIP",
             CancellationToken.None);
@@ -193,9 +207,10 @@ public sealed class PersonnelReferenceCatalogValidationTests
         public Task<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>> GetPreviousEmploymentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileReferenceResponse>> GetReferencesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> GetDocumentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(Guid tenantId, string category, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(string countryCode, string category, string? parentCode, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<bool> CatalogCodeIsActiveAsync(Guid tenantId, string category, string code, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(Guid companyId, string category, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(Guid companyId, string category, string? parentCode, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<string?> GetCompanyCountryCodeAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult<string?>("SV");
+        public Task<bool> CatalogCodeIsActiveAsync(Guid companyId, string category, string code, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PersonnelFileDocumentDownloadResponse?> GetDocumentDownloadByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> DocumentExistsOutsideTenantAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();

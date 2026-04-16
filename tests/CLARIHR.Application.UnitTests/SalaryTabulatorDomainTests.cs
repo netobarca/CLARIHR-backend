@@ -18,9 +18,9 @@ public sealed class SalaryTabulatorDomainTests
             effectiveToUtc: null,
             notes: " initial ");
 
-        Assert.Equal("cls-a", line.SalaryClassCode);
+        Assert.Equal("CLS-A", line.SalaryClassCode);
         Assert.Equal("CLS-A", line.NormalizedSalaryClassCode);
-        Assert.Equal("s1", line.SalaryScaleCode);
+        Assert.Equal("S1", line.SalaryScaleCode);
         Assert.Equal("S1", line.NormalizedSalaryScaleCode);
         Assert.Equal("USD", line.CurrencyCode);
         Assert.Equal(1, line.Version);

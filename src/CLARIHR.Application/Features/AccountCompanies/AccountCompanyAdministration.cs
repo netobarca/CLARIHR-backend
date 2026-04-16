@@ -606,7 +606,10 @@ internal sealed class SwitchActiveCompanyCommandHandler(
                     company.Slug,
                     AuditActions.Switch,
                     $"Switched active company to {company.Name}.",
-                    After: new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.CountryCode, company.Status)),
+                    After: new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.CountryCode, company.Status)
+                    {
+                        DefaultLocale = company.DefaultLocale
+                    }),
                 cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
@@ -615,7 +618,10 @@ internal sealed class SwitchActiveCompanyCommandHandler(
                 tokenResult.Value.AccessToken,
                 tokenResult.Value.RefreshToken,
                 tokenResult.Value.ExpiresIn,
-                new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.CountryCode, company.Status),
+                new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.CountryCode, company.Status)
+                {
+                    DefaultLocale = company.DefaultLocale
+                },
                 accessContext));
         }
         catch
@@ -967,7 +973,10 @@ internal static class AccountCompanyAccessContextBuilder
                 .ToArray());
 
         return new AccountCompanyAccessContextResponse(
-            new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.CountryCode, company.Status),
+            new ActiveCompanyDto(company.PublicId, company.Name, company.Slug, company.CountryCode, company.Status)
+            {
+                DefaultLocale = company.DefaultLocale
+            },
             commercialContext,
             effectiveCapabilityResponses,
             effectiveModuleResponses,
