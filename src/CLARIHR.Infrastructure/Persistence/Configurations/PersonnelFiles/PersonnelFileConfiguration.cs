@@ -828,21 +828,21 @@ internal abstract class PersonnelEducationCatalogItemConfigurationBase<TCatalogI
     private readonly string _tableName;
     private readonly string _primaryKeyName;
     private readonly string _publicIdIndexName;
-    private readonly string _tenantCodeIndexName;
-    private readonly string _tenantActiveSortIndexName;
+    private readonly string _countryCodeIndexName;
+    private readonly string _countryActiveSortIndexName;
 
     protected PersonnelEducationCatalogItemConfigurationBase(
         string tableName,
         string primaryKeyName,
         string publicIdIndexName,
-        string tenantCodeIndexName,
-        string tenantActiveSortIndexName)
+        string countryCodeIndexName,
+        string countryActiveSortIndexName)
     {
         _tableName = tableName;
         _primaryKeyName = primaryKeyName;
         _publicIdIndexName = publicIdIndexName;
-        _tenantCodeIndexName = tenantCodeIndexName;
-        _tenantActiveSortIndexName = tenantActiveSortIndexName;
+        _countryCodeIndexName = countryCodeIndexName;
+        _countryActiveSortIndexName = countryActiveSortIndexName;
     }
 
     public void Configure(EntityTypeBuilder<TCatalogItem> builder)
@@ -853,8 +853,9 @@ internal abstract class PersonnelEducationCatalogItemConfigurationBase<TCatalogI
             .HasName(_primaryKeyName);
 
         builder.Property(item => item.Id).HasColumnName("id");
-        builder.Property(item => item.TenantId).HasColumnName("tenant_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
+        builder.Property(item => item.CountryCatalogItemId).HasColumnName("country_catalog_item_id");
+        builder.Property(item => item.CountryCode).HasColumnName("country_code").HasMaxLength(2);
         builder.Property(item => item.Code).HasColumnName("code").HasMaxLength(80);
         builder.Property(item => item.NormalizedCode).HasColumnName("normalized_code").HasMaxLength(80);
         builder.Property(item => item.Name).HasColumnName("name").HasMaxLength(200);
@@ -869,12 +870,17 @@ internal abstract class PersonnelEducationCatalogItemConfigurationBase<TCatalogI
             .IsUnique()
             .HasDatabaseName(_publicIdIndexName);
 
-        builder.HasIndex(item => new { item.TenantId, item.NormalizedCode })
-            .IsUnique()
-            .HasDatabaseName(_tenantCodeIndexName);
+        builder.HasOne(item => item.CountryCatalogItem)
+            .WithMany()
+            .HasForeignKey(item => item.CountryCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(item => new { item.TenantId, item.IsActive, item.SortOrder })
-            .HasDatabaseName(_tenantActiveSortIndexName);
+        builder.HasIndex(item => new { item.CountryCatalogItemId, item.NormalizedCode })
+            .IsUnique()
+            .HasDatabaseName(_countryCodeIndexName);
+
+        builder.HasIndex(item => new { item.CountryCatalogItemId, item.IsActive, item.SortOrder })
+            .HasDatabaseName(_countryActiveSortIndexName);
     }
 }
 
@@ -886,8 +892,8 @@ internal sealed class EducationStatusCatalogItemConfiguration
             "education_status_catalog_items",
             "pk_education_status_catalog_items",
             "uq_education_status_catalog_items__public_id",
-            "uq_education_status_catalog_items__tenant_code",
-            "ix_education_status_catalog_items__tenant_active_sort")
+            "uq_education_status_catalog_items__country_code",
+            "ix_education_status_catalog_items__country_active_sort")
     {
     }
 }
@@ -900,8 +906,8 @@ internal sealed class EducationStudyTypeCatalogItemConfiguration
             "education_study_type_catalog_items",
             "pk_education_study_type_catalog_items",
             "uq_education_study_type_catalog_items__public_id",
-            "uq_education_study_type_catalog_items__tenant_code",
-            "ix_education_study_type_catalog_items__tenant_active_sort")
+            "uq_education_study_type_catalog_items__country_code",
+            "ix_education_study_type_catalog_items__country_active_sort")
     {
     }
 }
@@ -914,8 +920,8 @@ internal sealed class EducationCareerCatalogItemConfiguration
             "education_career_catalog_items",
             "pk_education_career_catalog_items",
             "uq_education_career_catalog_items__public_id",
-            "uq_education_career_catalog_items__tenant_code",
-            "ix_education_career_catalog_items__tenant_active_sort")
+            "uq_education_career_catalog_items__country_code",
+            "ix_education_career_catalog_items__country_active_sort")
     {
     }
 }
@@ -928,8 +934,8 @@ internal sealed class EducationShiftCatalogItemConfiguration
             "education_shift_catalog_items",
             "pk_education_shift_catalog_items",
             "uq_education_shift_catalog_items__public_id",
-            "uq_education_shift_catalog_items__tenant_code",
-            "ix_education_shift_catalog_items__tenant_active_sort")
+            "uq_education_shift_catalog_items__country_code",
+            "ix_education_shift_catalog_items__country_active_sort")
     {
     }
 }
@@ -942,8 +948,8 @@ internal sealed class EducationModalityCatalogItemConfiguration
             "education_modality_catalog_items",
             "pk_education_modality_catalog_items",
             "uq_education_modality_catalog_items__public_id",
-            "uq_education_modality_catalog_items__tenant_code",
-            "ix_education_modality_catalog_items__tenant_active_sort")
+            "uq_education_modality_catalog_items__country_code",
+            "ix_education_modality_catalog_items__country_active_sort")
     {
     }
 }

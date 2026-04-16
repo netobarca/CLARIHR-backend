@@ -55,7 +55,10 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                         company.CompanyTypeCode ?? string.Empty,
                         company.CompanyTypeName ?? string.Empty,
                         company.CompanyTypeIsActive ?? false)
-                    : null))
+                    : null)
+            {
+                DefaultLocale = company.DefaultLocale
+            })
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<PagedResponse<AccountCompanySummaryResponse>> GetOwnedByUserAsync(
@@ -92,7 +95,10 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                         company.CompanyTypeCode ?? string.Empty,
                         company.CompanyTypeName ?? string.Empty,
                         company.CompanyTypeIsActive ?? false)
-                    : null))
+                    : null)
+            {
+                DefaultLocale = company.DefaultLocale
+            })
             .ToListAsync(cancellationToken);
 
         return new PagedResponse<AccountCompanySummaryResponse>(items, filter.PageNumber, filter.PageSize, totalCount);
@@ -134,6 +140,7 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                 Name = company.Name,
                 Slug = company.Slug,
                 CountryCode = company.CountryCode,
+                DefaultLocale = company.DefaultLocale,
                 Status = company.Status,
                 PlanCode = dbContext.CompanySubscriptions
                     .AsNoTracking()
@@ -178,6 +185,8 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
         public string Slug { get; init; } = string.Empty;
 
         public string CountryCode { get; init; } = string.Empty;
+
+        public string DefaultLocale { get; init; } = "en-US";
 
         public CompanyStatus Status { get; init; }
 

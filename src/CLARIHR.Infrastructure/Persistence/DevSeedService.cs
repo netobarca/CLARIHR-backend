@@ -83,12 +83,18 @@ internal sealed class DevSeedService(
 
     private async Task<Company> SeedCompanyAsync(User user, CancellationToken cancellationToken)
     {
-        var countryCatalogItemId = await dbContext.CountryCatalogItems
+        var countryCatalog = await dbContext.CountryCatalogItems
             .Where(item => item.NormalizedCode == DevCountry)
-            .Select(item => item.Id)
+            .Select(item => new { item.Id, item.DefaultLocale })
             .SingleAsync(cancellationToken);
 
-        var company = Company.Create("CLARIHR Dev", "clarihr-dev", user.PublicId, DevCountry, countryCatalogItemId);
+        var company = Company.Create(
+            "CLARIHR Dev",
+            "clarihr-dev",
+            user.PublicId,
+            DevCountry,
+            countryCatalog.Id,
+            defaultLocale: countryCatalog.DefaultLocale);
         dbContext.Companies.Add(company);
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -105,7 +111,7 @@ internal sealed class DevSeedService(
         var legalRep = LegalRepresentative.Create(
             "Carlos",
             "Representante",
-            LegalRepresentativeDocumentType.NationalId,
+            "DUI",
             "00000000-0",
             "Representante Legal",
             LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
@@ -228,8 +234,21 @@ internal sealed class DevSeedService(
         muni2.Move(dept.Id);
     }
 
+    private SeedCompanyCountry GetSeedCompanyCountry(Guid tenantId)
+    {
+        var country = dbContext.Companies
+            .AsNoTracking()
+            .Where(company => company.PublicId == tenantId)
+            .Select(company => new SeedCompanyCountry(company.CountryCatalogItemId, company.CountryCode))
+            .SingleOrDefault();
+
+        return country ?? throw new InvalidOperationException($"Company country could not be resolved for tenant {tenantId}.");
+    }
+
     private void SeedGeneralCatalogItems(Guid tenantId)
     {
+        var companyCountry = GetSeedCompanyCountry(tenantId);
+
         var languages = new (string Code, string Name, int SortOrder)[]
         {
             ("ENGLISH", "Ingles", 10),
@@ -269,49 +288,45 @@ internal sealed class DevSeedService(
 
         foreach (var item in languages)
         {
-            var entity = LanguageCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
+            var entity = LanguageCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
             dbContext.LanguageCatalogItems.Add(entity);
         }
 
         foreach (var item in languageLevels)
         {
-            var entity = LanguageLevelCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
+            var entity = LanguageLevelCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
             dbContext.LanguageLevelCatalogItems.Add(entity);
         }
 
         foreach (var item in trainingTypes)
         {
-            var entity = TrainingTypeCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
+            var entity = TrainingTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
             dbContext.TrainingTypeCatalogItems.Add(entity);
         }
 
         foreach (var item in durationUnits)
         {
-            var entity = DurationUnitCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
+            var entity = DurationUnitCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
             dbContext.DurationUnitCatalogItems.Add(entity);
         }
 
         foreach (var item in referenceTypes)
         {
-            var entity = ReferenceTypeCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
+            var entity = ReferenceTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
             dbContext.ReferenceTypeCatalogItems.Add(entity);
         }
 
         foreach (var item in currencies)
         {
-            var entity = CurrencyCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
+            var entity = CurrencyCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
             dbContext.CurrencyCatalogItems.Add(entity);
         }
     }
 
     private void SeedPersonnelEducationCatalogItems(Guid tenantId)
     {
+        var companyCountry = GetSeedCompanyCountry(tenantId);
+
         var statuses = new (string Code, string Name, int SortOrder)[]
         {
             ("GRADUATED", "Graduado", 10),
@@ -349,36 +364,31 @@ internal sealed class DevSeedService(
 
         foreach (var item in statuses)
         {
-            var entity = EducationStatusCatalogItem.Create(item.Code, item.Name, item.SortOrder);
-            entity.SetTenantId(tenantId);
+            var entity = EducationStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
             dbContext.EducationStatusCatalogItems.Add(entity);
         }
 
         foreach (var item in studyTypes)
         {
-            var entity = EducationStudyTypeCatalogItem.Create(item.Code, item.Name, item.SortOrder);
-            entity.SetTenantId(tenantId);
+            var entity = EducationStudyTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
             dbContext.EducationStudyTypeCatalogItems.Add(entity);
         }
 
         foreach (var item in shifts)
         {
-            var entity = EducationShiftCatalogItem.Create(item.Code, item.Name, item.SortOrder);
-            entity.SetTenantId(tenantId);
+            var entity = EducationShiftCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
             dbContext.EducationShiftCatalogItems.Add(entity);
         }
 
         foreach (var item in modalities)
         {
-            var entity = EducationModalityCatalogItem.Create(item.Code, item.Name, item.SortOrder);
-            entity.SetTenantId(tenantId);
+            var entity = EducationModalityCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
             dbContext.EducationModalityCatalogItems.Add(entity);
         }
 
         foreach (var item in careers)
         {
-            var entity = EducationCareerCatalogItem.Create(item.Code, item.Name, item.SortOrder);
-            entity.SetTenantId(tenantId);
+            var entity = EducationCareerCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
             dbContext.EducationCareerCatalogItems.Add(entity);
         }
     }
@@ -844,7 +854,8 @@ internal sealed class DevSeedService(
         async Task<long> ResolveAsync<TCatalogItem>(string code)
             where TCatalogItem : PersonnelEducationCatalogItem =>
             await dbContext.Set<TCatalogItem>()
-                .Where(item => item.TenantId == tenantId && item.NormalizedCode == code)
+                .Where(item => item.NormalizedCode == code)
+                .Where(item => dbContext.Companies.Any(company => company.PublicId == tenantId && company.CountryCatalogItemId == item.CountryCatalogItemId))
                 .Select(item => item.Id)
                 .SingleAsync(cancellationToken);
 
@@ -880,6 +891,8 @@ internal sealed class DevSeedService(
         long CareerPsychologyId,
         long CareerSystemsEngineeringId,
         long CareerAccountingAuditingId);
+
+    private sealed record SeedCompanyCountry(long CountryCatalogItemId, string CountryCode);
 
     private static void StampTenant(IEnumerable<TenantEntity> entities, Guid tenantId)
     {

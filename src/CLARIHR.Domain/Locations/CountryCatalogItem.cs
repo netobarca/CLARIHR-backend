@@ -12,7 +12,8 @@ public sealed class CountryCatalogItem : Entity
         long id,
         string code,
         string name,
-        int sortOrder)
+        int sortOrder,
+        string defaultLocale)
     {
         if (id == 0)
         {
@@ -30,6 +31,7 @@ public sealed class CountryCatalogItem : Entity
         NormalizedCode = Code;
         Name = Clean(name, nameof(name), 150);
         SortOrder = sortOrder;
+        DefaultLocale = Clean(defaultLocale, nameof(defaultLocale), 16);
         IsActive = true;
     }
 
@@ -41,12 +43,38 @@ public sealed class CountryCatalogItem : Entity
 
     public int SortOrder { get; private set; }
 
+    public string DefaultLocale { get; private set; } = "en-US";
+
     public bool IsActive { get; private set; }
 
     public static CountryCatalogItem Create(CountryCatalogDefinition definition)
     {
         ArgumentNullException.ThrowIfNull(definition);
-        return new CountryCatalogItem(definition.Id, definition.Code, definition.Name, definition.SortOrder);
+        return new CountryCatalogItem(
+            definition.Id,
+            definition.Code,
+            definition.Name,
+            definition.SortOrder,
+            ResolveDefaultLocale(definition.Code, definition.DefaultLocale));
+    }
+
+    private static string ResolveDefaultLocale(string code, string? configuredDefaultLocale)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredDefaultLocale))
+        {
+            return configuredDefaultLocale.Trim();
+        }
+
+        var normalizedCode = Clean(code, nameof(code), 2).ToUpperInvariant();
+        return normalizedCode switch
+        {
+            "SV" => "es-SV",
+            "ES" => "es-ES",
+            "AR" or "BO" or "CL" or "CO" or "CR" or "CU" or "DO" or "EC" or "GT" or "HN" or "MX" or "NI" or "PA" or "PE" or "PR" or "PY" or "UY" or "VE" => "es-419",
+            "BR" => "pt-BR",
+            "PT" => "pt-PT",
+            _ => "en-US"
+        };
     }
 
     private static string Clean(string value, string parameterName, int maxLength)

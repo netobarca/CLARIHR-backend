@@ -359,7 +359,7 @@ public sealed class AccountCompanyAdministrationTests
         new(
             "Ana",
             "Mendoza",
-            LegalRepresentativeDocumentType.TaxId,
+            "TAX_ID",
             "0614-290190-102-3",
             "Representante Legal",
             LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
@@ -518,14 +518,14 @@ public sealed class AccountCompanyAdministrationTests
     {
         public Task<IReadOnlyCollection<CountryCatalogItemResponse>> GetActiveItemsAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyCollection<CountryCatalogItemResponse>>(
-                [new CountryCatalogItemResponse(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", 10)]);
+                [new CountryCatalogItemResponse(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", 10, "es-SV")]);
 
         public Task<CountryCatalogLookup?> GetActiveByCodeAsync(string countryCode, CancellationToken cancellationToken)
         {
             var normalizedCode = countryCode.Trim().ToUpperInvariant();
             return Task.FromResult<CountryCatalogLookup?>(
                 normalizedCode == "SV"
-                    ? new CountryCatalogLookup(-7001, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", true)
+                    ? new CountryCatalogLookup(-7001, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", true, "es-SV")
                     : null);
         }
     }

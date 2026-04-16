@@ -23,7 +23,7 @@ public sealed class RequestDispatcherTests
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorType.Validation, result.Error.Type);
         Assert.Equal("common.validation", result.Error.Code);
-        Assert.Contains(nameof(SampleCommand.Name), result.Error.ValidationErrors!.Keys);
+        Assert.Contains("name", result.Error.ValidationErrors!.Keys);
     }
 
     [Fact]

@@ -8,14 +8,16 @@ public sealed record CountryCatalogItemResponse(
     Guid Id,
     string Code,
     string Name,
-    int SortOrder);
+    int SortOrder,
+    string DefaultLocale);
 
 public sealed record CountryCatalogLookup(
     long InternalId,
     Guid Id,
     string Code,
     string Name,
-    bool IsActive);
+    bool IsActive,
+    string DefaultLocale);
 
 public sealed record GetCountryCatalogItemsQuery()
     : IQuery<IReadOnlyCollection<CountryCatalogItemResponse>>;

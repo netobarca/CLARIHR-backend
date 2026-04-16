@@ -9,6 +9,10 @@ public interface IPersonnelEducationCatalogRepository
 {
     void Add(PersonnelEducationCatalogItem item);
 
+    Task<PersonnelEducationCatalogCountryLookup?> GetCompanyCountryAsync(
+        Guid companyId,
+        CancellationToken cancellationToken);
+
     Task<PersonnelEducationCatalogItem?> GetByIdAsync(
         PersonnelEducationCatalogType catalogType,
         Guid id,
@@ -20,14 +24,14 @@ public interface IPersonnelEducationCatalogRepository
         CancellationToken cancellationToken);
 
     Task<bool> CodeExistsAsync(
-        Guid tenantId,
+        Guid companyId,
         PersonnelEducationCatalogType catalogType,
         string normalizedCode,
         long? excludingId,
         CancellationToken cancellationToken);
 
     Task<PagedResponse<PersonnelEducationCatalogItemResponse>> SearchAsync(
-        Guid tenantId,
+        Guid companyId,
         PersonnelEducationCatalogType catalogType,
         bool? isActive,
         string? search,
@@ -36,13 +40,13 @@ public interface IPersonnelEducationCatalogRepository
         CancellationToken cancellationToken);
 
     Task<PersonnelEducationCatalogItemResponse?> GetResponseByIdAsync(
-        Guid tenantId,
+        Guid companyId,
         PersonnelEducationCatalogType catalogType,
         Guid id,
         CancellationToken cancellationToken);
 
     Task<PersonnelEducationCatalogLookup?> GetActiveLookupByIdAsync(
-        Guid tenantId,
+        Guid companyId,
         PersonnelEducationCatalogType catalogType,
         Guid id,
         CancellationToken cancellationToken);

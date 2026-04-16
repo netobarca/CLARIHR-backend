@@ -166,13 +166,14 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         string description)
     {
         var positionCategory = await EnsureDefaultPositionCategoryAsync(client, companyId);
+        var orgUnit = await EnsureDefaultOrgUnitAsync(client, companyId);
 
         var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/job-profiles", new
         {
             code,
             title,
             objective = "Objetivo",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = orgUnit.Id,
             reportsToJobProfilePublicId = (Guid?)null,
             positionCategoryPublicId = positionCategory.Id,
             strategicObjectiveCatalogItemPublicId = (Guid?)null,
@@ -234,13 +235,14 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         string description)
     {
         var positionCategory = await EnsureDefaultPositionCategoryAsync(client, companyId);
+        var orgUnit = await EnsureDefaultOrgUnitAsync(client, companyId);
 
         var response = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
         {
             code = profile.Code,
             title = profile.Title,
             objective = "Objetivo",
-            orgUnitPublicId = (Guid?)null,
+            orgUnitPublicId = orgUnit.Id,
             reportsToJobProfilePublicId = (Guid?)null,
             positionCategoryPublicId = positionCategory.Id,
             strategicObjectiveCatalogItemPublicId = (Guid?)null,
@@ -439,6 +441,43 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         return await EnsurePositionCategoryAsync(client, companyId, "CAT-BASE", classification.Id);
     }
 
+    private async Task<OrgUnitItem> EnsureDefaultOrgUnitAsync(HttpClient client, Guid companyId)
+    {
+        const string orgUnitCode = "OU-BASE";
+        var orgUnitType = await EnsureOrgUnitTypeAsync(client, companyId, "Direccion");
+
+        var listResponse = await client.GetAsync(
+            $"/api/v1/companies/{companyId}/org-units?page=1&pageSize=100&q={Uri.EscapeDataString(orgUnitCode)}");
+        listResponse.EnsureSuccessStatusCode();
+
+        var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<OrgUnitItem>>(JsonOptions);
+        Assert.NotNull(listPayload);
+
+        var existing = listPayload!.Items.FirstOrDefault(item => item.Code.Equals(orgUnitCode, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/org-units", new
+        {
+            code = orgUnitCode,
+            name = "Unidad Base",
+            orgUnitTypePublicId = orgUnitType.Id,
+            functionalAreaPublicId = (Guid?)null,
+            parentPublicId = (Guid?)null,
+            sortOrder = (int?)null,
+            description = (string?)null,
+            costCenterCode = (string?)null,
+            managerEmployeePublicId = (Guid?)null
+        });
+        createResponse.EnsureSuccessStatusCode();
+
+        var created = await createResponse.Content.ReadFromJsonAsync<OrgUnitItem>(JsonOptions);
+        Assert.NotNull(created);
+        return created!;
+    }
+
     private sealed record InternalCatalogDefinitionItem(
         string Context,
         string Identifier,
@@ -453,6 +492,8 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
     private sealed record PagedResponseEnvelope<TItem>(IReadOnlyCollection<TItem> Items);
 
     private sealed record JobProfileItem(Guid Id, string Code, string Title, Guid ConcurrencyToken);
+
+    private sealed record OrgUnitItem(Guid Id, string Code);
 
     private sealed record OrgStructureCatalogItem(Guid Id, string Code);
 

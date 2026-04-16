@@ -28,7 +28,7 @@ public sealed record LegalRepresentativeListItemResponse(
     string FirstName,
     string LastName,
     string FullName,
-    LegalRepresentativeDocumentType DocumentType,
+    string DocumentType,
     string DocumentNumber,
     string PositionTitle,
     LegalRepresentativeRepresentationType RepresentationType,
@@ -47,7 +47,7 @@ public sealed record LegalRepresentativeResponse(
     string FirstName,
     string LastName,
     string FullName,
-    LegalRepresentativeDocumentType DocumentType,
+    string DocumentType,
     string DocumentNumber,
     string PositionTitle,
     LegalRepresentativeRepresentationType RepresentationType,
@@ -70,12 +70,6 @@ public sealed record LegalRepresentativeUsageResponse(
     int ActiveDocumentReferencesCount,
     bool CanInactivate);
 
-public sealed record LegalRepresentativeDocumentTypeCatalogItemResponse(
-    Guid Id,
-    string Code,
-    string Name,
-    int SortOrder);
-
 public sealed record LegalRepresentativePositionTitleCatalogItemResponse(
     Guid Id,
     string Code,
@@ -93,7 +87,7 @@ public sealed record LegalRepresentativeExportRow(
     string FirstName,
     string LastName,
     string FullName,
-    LegalRepresentativeDocumentType DocumentType,
+    string DocumentType,
     string DocumentNumber,
     string PositionTitle,
     LegalRepresentativeRepresentationType RepresentationType,
@@ -126,9 +120,6 @@ public sealed record GetLegalRepresentativeByIdQuery(Guid LegalRepresentativeId)
 public sealed record GetLegalRepresentativeUsageQuery(Guid LegalRepresentativeId)
     : IQuery<LegalRepresentativeUsageResponse>;
 
-public sealed record GetLegalRepresentativeDocumentTypesQuery()
-    : IQuery<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>;
-
 public sealed record GetLegalRepresentativePositionTitlesQuery()
     : IQuery<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>>;
 
@@ -147,7 +138,7 @@ public sealed record CreateLegalRepresentativeCommand(
     Guid CompanyId,
     string FirstName,
     string LastName,
-    LegalRepresentativeDocumentType DocumentType,
+    string DocumentType,
     string DocumentNumber,
     string PositionTitle,
     LegalRepresentativeRepresentationType RepresentationType,
@@ -165,7 +156,7 @@ public sealed record UpdateLegalRepresentativeCommand(
     Guid LegalRepresentativeId,
     string FirstName,
     string LastName,
-    LegalRepresentativeDocumentType DocumentType,
+    string DocumentType,
     string DocumentNumber,
     string PositionTitle,
     LegalRepresentativeRepresentationType RepresentationType,
@@ -240,6 +231,9 @@ internal sealed class CreateLegalRepresentativeCommandValidator : AbstractValida
             .MaximumLength(100)
             .Must(LegalRepresentativeValidationRules.IsValidName)
             .WithMessage("LastName format is invalid.");
+        RuleFor(command => command.DocumentType)
+            .NotEmpty()
+            .MaximumLength(80);
         RuleFor(command => command.DocumentNumber)
             .NotEmpty()
             .MaximumLength(80)
@@ -279,6 +273,9 @@ internal sealed class UpdateLegalRepresentativeCommandValidator : AbstractValida
             .MaximumLength(100)
             .Must(LegalRepresentativeValidationRules.IsValidName)
             .WithMessage("LastName format is invalid.");
+        RuleFor(command => command.DocumentType)
+            .NotEmpty()
+            .MaximumLength(80);
         RuleFor(command => command.DocumentNumber)
             .NotEmpty()
             .MaximumLength(80)
@@ -446,19 +443,6 @@ internal sealed class GetLegalRepresentativeUsageQueryHandler(
             await repository.ExistsOutsideTenantAsync(query.LegalRepresentativeId, cancellationToken)
                 ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                 : LegalRepresentativeErrors.NotFound);
-    }
-}
-
-internal sealed class GetLegalRepresentativeDocumentTypesQueryHandler(
-    ILegalRepresentativeRepository repository)
-    : IQueryHandler<GetLegalRepresentativeDocumentTypesQuery, IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>
-{
-    public async Task<Result<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>> Handle(
-        GetLegalRepresentativeDocumentTypesQuery query,
-        CancellationToken cancellationToken)
-    {
-        var response = await repository.GetDocumentTypeCatalogItemsAsync(cancellationToken);
-        return Result<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>.Success(response);
     }
 }
 

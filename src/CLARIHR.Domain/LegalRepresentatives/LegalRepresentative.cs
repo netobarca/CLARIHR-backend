@@ -12,7 +12,7 @@ public sealed class LegalRepresentative : TenantEntity
         Guid publicId,
         string firstName,
         string lastName,
-        LegalRepresentativeDocumentType documentType,
+        string documentType,
         string documentNumber,
         string positionTitle,
         LegalRepresentativeRepresentationType representationType,
@@ -49,7 +49,7 @@ public sealed class LegalRepresentative : TenantEntity
 
     public string NormalizedFullName { get; private set; } = string.Empty;
 
-    public LegalRepresentativeDocumentType DocumentType { get; private set; }
+    public string DocumentType { get; private set; } = string.Empty;
 
     public string DocumentNumber { get; private set; } = string.Empty;
 
@@ -82,7 +82,7 @@ public sealed class LegalRepresentative : TenantEntity
     public static LegalRepresentative Create(
         string firstName,
         string lastName,
-        LegalRepresentativeDocumentType documentType,
+        string documentType,
         string documentNumber,
         string positionTitle,
         LegalRepresentativeRepresentationType representationType,
@@ -114,7 +114,7 @@ public sealed class LegalRepresentative : TenantEntity
     public void Update(
         string firstName,
         string lastName,
-        LegalRepresentativeDocumentType documentType,
+        string documentType,
         string documentNumber,
         string positionTitle,
         LegalRepresentativeRepresentationType representationType,
@@ -179,9 +179,9 @@ public sealed class LegalRepresentative : TenantEntity
         NormalizedFullName = LegalRepresentativeNormalization.NormalizeName(FullName);
     }
 
-    private void SetDocument(LegalRepresentativeDocumentType documentType, string documentNumber)
+    private void SetDocument(string documentType, string documentNumber)
     {
-        DocumentType = documentType;
+        DocumentType = LegalRepresentativeNormalization.Clean(documentType, nameof(documentType)).ToUpperInvariant();
         DocumentNumber = LegalRepresentativeNormalization.Clean(documentNumber, nameof(documentNumber));
         NormalizedDocumentNumber = LegalRepresentativeNormalization.NormalizeDocumentNumber(documentNumber);
     }

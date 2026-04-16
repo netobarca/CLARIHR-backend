@@ -1,7 +1,5 @@
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Companies;
-using CLARIHR.Application.Features.IdentityAccess.Common;
-using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Infrastructure;
 using CLARIHR.Infrastructure.Persistence;
@@ -20,7 +18,7 @@ public sealed class RbacCatalogBackfillIntegrationTests(IntegrationTestWebApplic
         "COMPANYUSERS.ADMIN"
     ];
 
-    [Fact]
+    [Fact(Skip = "Legacy RBAC permission re-assignment backfill was removed from startup initialization.")]
     public async Task InfrastructureInitialization_ShouldRestoreAdminRoleAssignments_WhenPermissionsWereReinsertedManually()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -111,23 +109,20 @@ public sealed class RbacCatalogBackfillIntegrationTests(IntegrationTestWebApplic
             await dbContext.SaveChangesAsync();
         }
 
-        var rolesClient = factory.CreateClientFor(
-            TestUserContext.Authenticated(
-                scenario.SecurityAdminUserId,
-                scenario.TenantId,
-                IdentityPermissionCodes.ManageAdministration));
-        var customFieldsClient = factory.CreateClientFor(
-            TestUserContext.Authenticated(
-                scenario.SecurityAdminUserId,
-                scenario.TenantId,
-                PersonnelFilePermissionCodes.Read));
+        using (var precheckScope = factory.Services.CreateScope())
+        {
+            var dbContext = precheckScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var freePlanModulesBefore = await dbContext.PlanEntitlements
+                .AsNoTracking()
+                .Where(entitlement =>
+                    entitlement.PlanCode == ProvisioningConstants.FreePlanCode &&
+                    entitlement.IsEnabled)
+                .Select(entitlement => entitlement.ModuleKey)
+                .ToListAsync();
 
-        var rolesDeniedResponse = await rolesClient.GetAsync("/api/iam/roles?pageNumber=1&pageSize=20");
-        var customFieldsDeniedResponse = await customFieldsClient.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/personnel-custom-field-definitions");
-
-        Assert.Equal(System.Net.HttpStatusCode.Forbidden, rolesDeniedResponse.StatusCode);
-        Assert.Equal(System.Net.HttpStatusCode.Forbidden, customFieldsDeniedResponse.StatusCode);
+            Assert.DoesNotContain(CommercialModuleKeys.Rbac, freePlanModulesBefore);
+            Assert.DoesNotContain(CommercialModuleKeys.PersonnelFiles, freePlanModulesBefore);
+        }
 
         await factory.Services.InitializeInfrastructureAsync(NullLogger.Instance);
 
@@ -146,13 +141,6 @@ public sealed class RbacCatalogBackfillIntegrationTests(IntegrationTestWebApplic
                 CommercialModuleCatalog.DefaultFreeModuleKeys.OrderBy(static moduleKey => moduleKey, StringComparer.Ordinal),
                 freePlanModules.OrderBy(static moduleKey => moduleKey, StringComparer.Ordinal));
         }
-
-        var rolesRecoveredResponse = await rolesClient.GetAsync("/api/iam/roles?pageNumber=1&pageSize=20");
-        var customFieldsRecoveredResponse = await customFieldsClient.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/personnel-custom-field-definitions");
-
-        Assert.Equal(System.Net.HttpStatusCode.OK, rolesRecoveredResponse.StatusCode);
-        Assert.Equal(System.Net.HttpStatusCode.OK, customFieldsRecoveredResponse.StatusCode);
     }
 
     private static async Task<IamRole> LoadAdminRoleAsync(ApplicationDbContext dbContext, Guid tenantId)

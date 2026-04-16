@@ -2,90 +2,219 @@ using CLARIHR.Domain.Common;
 
 namespace CLARIHR.Domain.PersonnelFiles;
 
-public sealed class PersonnelReferenceCatalogItem : Entity
+public abstract class PersonnelReferenceCatalogItemBase : CountryScopedCatalogItem
 {
-    private PersonnelReferenceCatalogItem()
+    protected PersonnelReferenceCatalogItemBase()
     {
     }
 
-    private PersonnelReferenceCatalogItem(
-        long id,
+    protected PersonnelReferenceCatalogItemBase(
+        Guid publicId,
+        long countryCatalogItemId,
         string countryCode,
-        string category,
         string code,
         string name,
-        long? parentId,
+        bool isActive,
         int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
     {
-        if (id == 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(id), "Catalog item id cannot be zero.");
-        }
+    }
+}
 
-        if (sortOrder < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(sortOrder), "Sort order must be greater than or equal to zero.");
-        }
-
-        Id = id;
-        CountryCode = Clean(countryCode, nameof(countryCode), 2).ToUpperInvariant();
-        Category = Clean(category, nameof(category), 80);
-        Code = PersonnelFileNormalization.NormalizeCode(code);
-        NormalizedCode = Code;
-        Name = Clean(name, nameof(name), 150);
-        NormalizedName = PersonnelFileNormalization.NormalizeName(name);
-        ParentId = parentId;
-        SortOrder = sortOrder;
-        IsActive = true;
-        PublicId = CreateDeterministicPublicId($"personnel-reference-catalog:{CountryCode}:{Category}:{Code}");
+public sealed class IdentificationTypeCatalogItem : PersonnelReferenceCatalogItemBase
+{
+    private IdentificationTypeCatalogItem()
+    {
     }
 
-    public string CountryCode { get; private set; } = string.Empty;
-
-    public string Category { get; private set; } = string.Empty;
-
-    public string Code { get; private set; } = string.Empty;
-
-    public string NormalizedCode { get; private set; } = string.Empty;
-
-    public string Name { get; private set; } = string.Empty;
-
-    public string NormalizedName { get; private set; } = string.Empty;
-
-    public long? ParentId { get; private set; }
-
-    public PersonnelReferenceCatalogItem? Parent { get; private set; }
-
-    public int SortOrder { get; private set; }
-
-    public bool IsActive { get; private set; }
-
-    public static PersonnelReferenceCatalogItem Create(PersonnelReferenceCatalogDefinition definition)
+    private IdentificationTypeCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
     {
-        ArgumentNullException.ThrowIfNull(definition);
-        return new PersonnelReferenceCatalogItem(
-            definition.Id,
-            definition.CountryCode,
-            definition.Category,
-            definition.Code,
-            definition.Name,
-            definition.ParentId,
-            definition.SortOrder);
     }
 
-    private static string Clean(string value, string parameterName, int maxLength)
+    public static IdentificationTypeCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+public sealed class ProfessionCatalogItem : PersonnelReferenceCatalogItemBase
+{
+    private ProfessionCatalogItem()
     {
-        if (string.IsNullOrWhiteSpace(value))
+    }
+
+    private ProfessionCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static ProfessionCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+public sealed class MaritalStatusCatalogItem : PersonnelReferenceCatalogItemBase
+{
+    private MaritalStatusCatalogItem()
+    {
+    }
+
+    private MaritalStatusCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static MaritalStatusCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+public sealed class KinshipCatalogItem : PersonnelReferenceCatalogItemBase
+{
+    private KinshipCatalogItem()
+    {
+    }
+
+    private KinshipCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static KinshipCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+public sealed class DepartmentCatalogItem : PersonnelReferenceCatalogItemBase
+{
+    private DepartmentCatalogItem()
+    {
+    }
+
+    private DepartmentCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+    }
+
+    public static DepartmentCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder);
+}
+
+public sealed class MunicipalityCatalogItem : PersonnelReferenceCatalogItemBase
+{
+    private MunicipalityCatalogItem()
+    {
+    }
+
+    private MunicipalityCatalogItem(
+        Guid publicId,
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder,
+        long departmentCatalogItemId)
+        : base(publicId, countryCatalogItemId, countryCode, code, name, isActive, sortOrder)
+    {
+        SetDepartment(departmentCatalogItemId);
+    }
+
+    public long DepartmentCatalogItemId { get; private set; }
+
+    public DepartmentCatalogItem? DepartmentCatalogItem { get; private set; }
+
+    public static MunicipalityCatalogItem Create(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        bool isActive,
+        int sortOrder,
+        long departmentCatalogItemId) =>
+        new(Guid.NewGuid(), countryCatalogItemId, countryCode, code, name, isActive, sortOrder, departmentCatalogItemId);
+
+    public void Update(
+        long countryCatalogItemId,
+        string countryCode,
+        string code,
+        string name,
+        int sortOrder,
+        long departmentCatalogItemId)
+    {
+        base.Update(countryCatalogItemId, countryCode, code, name, sortOrder);
+        SetDepartment(departmentCatalogItemId);
+    }
+
+    private void SetDepartment(long departmentCatalogItemId)
+    {
+        if (departmentCatalogItemId == 0)
         {
-            throw new ArgumentException("Value cannot be empty.", parameterName);
+            throw new ArgumentOutOfRangeException(nameof(departmentCatalogItemId), "Department catalog item id cannot be zero.");
         }
 
-        var cleaned = value.Trim();
-        if (cleaned.Length > maxLength)
-        {
-            throw new ArgumentOutOfRangeException(parameterName, $"Value cannot exceed {maxLength} characters.");
-        }
-
-        return cleaned;
+        DepartmentCatalogItemId = departmentCatalogItemId;
+        RefreshConcurrencyToken();
     }
 }

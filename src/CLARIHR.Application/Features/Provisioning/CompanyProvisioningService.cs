@@ -67,7 +67,8 @@ internal sealed class CompanyProvisioningService(
             user.PublicId,
             country.Code,
             country.InternalId,
-            request.CompanyTypeCatalogItemId);
+            request.CompanyTypeCatalogItemId,
+            country.DefaultLocale);
         companyRepository.Add(company);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);

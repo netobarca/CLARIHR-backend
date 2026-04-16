@@ -9,7 +9,7 @@ namespace CLARIHR.Application.Features.LegalRepresentatives.Common;
 public sealed record InitialLegalRepresentativeInput(
     string FirstName,
     string LastName,
-    LegalRepresentativeDocumentType DocumentType,
+    string DocumentType,
     string DocumentNumber,
     string PositionTitle,
     LegalRepresentativeRepresentationType RepresentationType,
@@ -120,6 +120,10 @@ internal sealed class InitialLegalRepresentativeInputValidator : AbstractValidat
             .MaximumLength(100)
             .Must(LegalRepresentativeValidationRules.IsValidName)
             .WithMessage("LastName format is invalid.");
+
+        RuleFor(input => input.DocumentType)
+            .NotEmpty()
+            .MaximumLength(80);
 
         RuleFor(input => input.DocumentNumber)
             .NotEmpty()

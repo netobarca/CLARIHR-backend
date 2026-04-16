@@ -44,11 +44,10 @@ public sealed class GeneralCatalogsController(IQueryDispatcher queryDispatcher) 
     public async Task<ActionResult<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>> GetReferenceCatalogItems(
         Guid companyId,
         string catalogKey,
-        [FromQuery] string? countryCode,
         [FromQuery] string? parentCode,
         CancellationToken cancellationToken = default)
     {
-        if (!TryMapReferenceCatalogKey(catalogKey, out var category, out var defaultCountryCode))
+        if (!TryMapReferenceCatalogKey(catalogKey, out var category))
         {
             return this.ToActionResult(Result<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>.Failure(
                 ErrorCatalog.Validation(new Dictionary<string, string[]>
@@ -57,18 +56,8 @@ public sealed class GeneralCatalogsController(IQueryDispatcher queryDispatcher) 
                 })));
         }
 
-        var resolvedCountryCode = string.IsNullOrWhiteSpace(countryCode) ? defaultCountryCode : countryCode.Trim();
-        if (string.IsNullOrWhiteSpace(resolvedCountryCode))
-        {
-            return this.ToActionResult(Result<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>>.Failure(
-                ErrorCatalog.Validation(new Dictionary<string, string[]>
-                {
-                    ["countryCode"] = ["CountryCode is required for this reference catalog."]
-                })));
-        }
-
         var result = await queryDispatcher.SendAsync(
-            new GetPersonnelReferenceCatalogItemsQuery(companyId, resolvedCountryCode, category, parentCode),
+            new GetPersonnelReferenceCatalogItemsQuery(companyId, category, parentCode),
             cancellationToken);
         return this.ToActionResult(result);
     }
@@ -95,10 +84,8 @@ public sealed class GeneralCatalogsController(IQueryDispatcher queryDispatcher) 
         return !string.IsNullOrWhiteSpace(category);
     }
 
-    private static bool TryMapReferenceCatalogKey(string key, out string category, out string? defaultCountryCode)
+    private static bool TryMapReferenceCatalogKey(string key, out string category)
     {
-        defaultCountryCode = "SV";
-
         category = key.Trim().ToLowerInvariant() switch
         {
             "professions" => "Profession",
@@ -109,13 +96,6 @@ public sealed class GeneralCatalogsController(IQueryDispatcher queryDispatcher) 
             "municipalities" => "Municipality",
             _ => string.Empty
         };
-
-        if (!string.IsNullOrWhiteSpace(category))
-        {
-            return true;
-        }
-
-        defaultCountryCode = null;
-        return false;
+        return !string.IsNullOrWhiteSpace(category);
     }
 }

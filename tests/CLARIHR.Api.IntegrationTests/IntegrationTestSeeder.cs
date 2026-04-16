@@ -59,9 +59,7 @@ internal static class IntegrationTestSeeder
         SeedDefaultLocations(dbContext, tenantA);
         SeedDefaultLocations(dbContext, tenantB);
         SeedGeneralCatalogItems(dbContext, tenantA);
-        SeedGeneralCatalogItems(dbContext, tenantB);
         SeedPersonnelEducationCatalogItems(dbContext, tenantA);
-        SeedPersonnelEducationCatalogItems(dbContext, tenantB);
         await dbContext.SaveChangesAsync();
 
         var actorRole = IamRole.Create("Security Operator", "Can read and update company users plus audit logs.");
@@ -242,39 +240,6 @@ internal static class IntegrationTestSeeder
         tenantAAuditLog.SetTenantId(tenantA);
         dbContext.AuditLogs.Add(tenantAAuditLog);
 
-        var tenantARbacAuditLogOlder = RbacPermissionAuditLog.Create(
-            actorRole.PublicId,
-            "RBAC_USERS",
-            actorUserId,
-            RbacPermissionAuditChangeType.Upsert,
-            """{"hasAccess":false,"canRead":false,"canCreate":false,"canUpdate":false,"canDelete":false}""",
-            """{"hasAccess":true,"canRead":true,"canCreate":false,"canUpdate":true,"canDelete":false}""",
-            DateTime.Parse("2026-02-28T10:00:00Z").ToUniversalTime());
-        tenantARbacAuditLogOlder.SetTenantId(tenantA);
-        dbContext.RbacPermissionAuditLogs.Add(tenantARbacAuditLogOlder);
-
-        var tenantARbacAuditLogLatest = RbacPermissionAuditLog.Create(
-            actorRole.PublicId,
-            "RBAC_USERS",
-            actorUserId,
-            RbacPermissionAuditChangeType.Disable,
-            """{"hasAccess":true,"canRead":true,"canCreate":false,"canUpdate":true,"canDelete":false}""",
-            """{"hasAccess":true,"canRead":true,"canCreate":false,"canUpdate":false,"canDelete":false}""",
-            DateTime.Parse("2026-02-28T11:00:00Z").ToUniversalTime());
-        tenantARbacAuditLogLatest.SetTenantId(tenantA);
-        dbContext.RbacPermissionAuditLogs.Add(tenantARbacAuditLogLatest);
-
-        var tenantBRbacAuditLog = RbacPermissionAuditLog.Create(
-            tenantBRole.PublicId,
-            "RBAC_ROLES",
-            Guid.Parse("22222222-2222-2222-2222-222222222222"),
-            RbacPermissionAuditChangeType.Upsert,
-            """{"hasAccess":false,"canRead":false,"canCreate":false,"canUpdate":false,"canDelete":false}""",
-            """{"hasAccess":true,"canRead":true,"canCreate":true,"canUpdate":false,"canDelete":false}""",
-            DateTime.Parse("2026-02-28T12:00:00Z").ToUniversalTime());
-        tenantBRbacAuditLog.SetTenantId(tenantB);
-        dbContext.RbacPermissionAuditLogs.Add(tenantBRbacAuditLog);
-
         await dbContext.SaveChangesAsync();
 
         return new IntegrationTestScenario(
@@ -288,9 +253,7 @@ internal static class IntegrationTestSeeder
             targetRole.PublicId,
             targetAuthUser.PublicId,
             tenantAAuditLog.PublicId,
-            tenantBAuditLog.PublicId,
-            tenantARbacAuditLogLatest.Id,
-            tenantBRbacAuditLog.Id);
+            tenantBAuditLog.PublicId);
     }
 
     private static IamPermission CreatePermission(Guid tenantId, RbacPermissionScreen screen, RbacPermissionAction action)
@@ -310,7 +273,7 @@ internal static class IntegrationTestSeeder
         var legalRepresentative = LegalRepresentative.Create(
             firstName,
             lastName,
-            LegalRepresentativeDocumentType.Other,
+            "OTHER",
             documentNumber,
             "Representante Legal",
             LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
@@ -422,6 +385,8 @@ internal static class IntegrationTestSeeder
 
     private static void SeedGeneralCatalogItems(ApplicationDbContext dbContext, Guid tenantId)
     {
+        var companyCountry = GetSeedCompanyCountry(dbContext, tenantId);
+
         var languages = new (string Code, string Name, int SortOrder)[]
         {
             ("ENGLISH", "English", 10),
@@ -461,49 +426,75 @@ internal static class IntegrationTestSeeder
 
         foreach (var item in languages)
         {
-            var entity = LanguageCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
-            dbContext.LanguageCatalogItems.Add(entity);
+            if (!dbContext.LanguageCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = LanguageCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+                dbContext.LanguageCatalogItems.Add(entity);
+            }
         }
 
         foreach (var item in languageLevels)
         {
-            var entity = LanguageLevelCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
-            dbContext.LanguageLevelCatalogItems.Add(entity);
+            if (!dbContext.LanguageLevelCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = LanguageLevelCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+                dbContext.LanguageLevelCatalogItems.Add(entity);
+            }
         }
 
         foreach (var item in trainingTypes)
         {
-            var entity = TrainingTypeCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
-            dbContext.TrainingTypeCatalogItems.Add(entity);
+            if (!dbContext.TrainingTypeCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = TrainingTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+                dbContext.TrainingTypeCatalogItems.Add(entity);
+            }
         }
 
         foreach (var item in durationUnits)
         {
-            var entity = DurationUnitCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
-            dbContext.DurationUnitCatalogItems.Add(entity);
+            if (!dbContext.DurationUnitCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = DurationUnitCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+                dbContext.DurationUnitCatalogItems.Add(entity);
+            }
         }
 
         foreach (var item in referenceTypes)
         {
-            var entity = ReferenceTypeCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
-            dbContext.ReferenceTypeCatalogItems.Add(entity);
+            if (!dbContext.ReferenceTypeCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = ReferenceTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+                dbContext.ReferenceTypeCatalogItems.Add(entity);
+            }
         }
 
         foreach (var item in currencies)
         {
-            var entity = CurrencyCatalogItem.Create(item.Code, item.Name, isSystem: true, isActive: true, item.SortOrder);
-            entity.SetTenantId(tenantId);
-            dbContext.CurrencyCatalogItems.Add(entity);
+            if (!dbContext.CurrencyCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = CurrencyCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, true, item.SortOrder);
+                dbContext.CurrencyCatalogItems.Add(entity);
+            }
         }
     }
 
     private static void SeedPersonnelEducationCatalogItems(ApplicationDbContext dbContext, Guid tenantId)
     {
+        var companyCountry = GetSeedCompanyCountry(dbContext, tenantId);
+
         var statuses = new (string Code, string Name, int SortOrder)[]
         {
             ("GRADUATED", "Graduated", 10),
@@ -538,38 +529,69 @@ internal static class IntegrationTestSeeder
 
         foreach (var item in statuses)
         {
-            var entity = EducationStatusCatalogItem.Create(item.Code, item.Name, item.SortOrder);
-            entity.SetTenantId(tenantId);
-            dbContext.EducationStatusCatalogItems.Add(entity);
+            if (!dbContext.EducationStatusCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = EducationStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
+                dbContext.EducationStatusCatalogItems.Add(entity);
+            }
         }
 
         foreach (var item in studyTypes)
         {
-            var entity = EducationStudyTypeCatalogItem.Create(item.Code, item.Name, item.SortOrder);
-            entity.SetTenantId(tenantId);
-            dbContext.EducationStudyTypeCatalogItems.Add(entity);
+            if (!dbContext.EducationStudyTypeCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = EducationStudyTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
+                dbContext.EducationStudyTypeCatalogItems.Add(entity);
+            }
         }
 
         foreach (var item in shifts)
         {
-            var entity = EducationShiftCatalogItem.Create(item.Code, item.Name, item.SortOrder);
-            entity.SetTenantId(tenantId);
-            dbContext.EducationShiftCatalogItems.Add(entity);
+            if (!dbContext.EducationShiftCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = EducationShiftCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
+                dbContext.EducationShiftCatalogItems.Add(entity);
+            }
         }
 
         foreach (var item in modalities)
         {
-            var entity = EducationModalityCatalogItem.Create(item.Code, item.Name, item.SortOrder);
-            entity.SetTenantId(tenantId);
-            dbContext.EducationModalityCatalogItems.Add(entity);
+            if (!dbContext.EducationModalityCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = EducationModalityCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
+                dbContext.EducationModalityCatalogItems.Add(entity);
+            }
         }
 
         foreach (var item in careers)
         {
-            var entity = EducationCareerCatalogItem.Create(item.Code, item.Name, item.SortOrder);
-            entity.SetTenantId(tenantId);
-            dbContext.EducationCareerCatalogItems.Add(entity);
+            if (!dbContext.EducationCareerCatalogItems.Any(entity =>
+                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
+                    entity.NormalizedCode == item.Code.ToUpperInvariant()))
+            {
+                var entity = EducationCareerCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
+                dbContext.EducationCareerCatalogItems.Add(entity);
+            }
         }
+    }
+
+    private static SeedCompanyCountry GetSeedCompanyCountry(ApplicationDbContext dbContext, Guid tenantId)
+    {
+        var country = dbContext.Companies
+            .AsNoTracking()
+            .Where(company => company.PublicId == tenantId)
+            .Select(company => new SeedCompanyCountry(company.CountryCatalogItemId, company.CountryCode))
+            .SingleOrDefault();
+
+        return country ?? throw new InvalidOperationException($"Company country could not be resolved for tenant {tenantId}.");
     }
 }
 
@@ -584,6 +606,6 @@ internal sealed record IntegrationTestScenario(
     Guid TargetRoleId,
     Guid TargetUserId,
     Guid AuditLogId,
-    Guid OtherTenantAuditLogId,
-    long RbacAuditLogId,
-    long OtherTenantRbacAuditLogId);
+    Guid OtherTenantAuditLogId);
+
+internal sealed record SeedCompanyCountry(long CountryCatalogItemId, string CountryCode);

@@ -44,7 +44,6 @@ internal sealed class LegalRepresentativeConfiguration : IEntityTypeConfiguratio
 
         builder.Property(legalRepresentative => legalRepresentative.DocumentType)
             .HasColumnName("document_type")
-            .HasConversion<string>()
             .HasMaxLength(40);
 
         builder.Property(legalRepresentative => legalRepresentative.DocumentNumber)

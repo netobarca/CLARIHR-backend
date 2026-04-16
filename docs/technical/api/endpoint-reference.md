@@ -121,14 +121,14 @@ Reglas observables:
 
 ### 4.2 Onboarding de compania
 
-- `GET /api/account/companies/legal-representative-document-types`
+- `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`
 - `GET /api/account/companies`
 - `POST /api/account/companies`
 - `POST /api/account/companies/{companyPublicId}/switch`
 
 Comportamiento observable:
 
-- el catalogo de tipos documentales del representante legal devuelve opciones activas y ordenadas para poblar el formulario de creacion de compania
+- el catalogo de tipos documentales del representante legal se resuelve desde `reference-catalogs/identification-types` y devuelve opciones activas ordenadas por pais de compania
 - la creacion de compania siembra datos iniciales de locations segun el pais
 - el cambio de compania modifica el contexto tenant activo del usuario
 
@@ -698,7 +698,6 @@ Este bloque cubre la administracion de companias propias del usuario autenticado
 Incluye:
 
 - `GET /api/account/companies/company-types`
-- `GET /api/account/companies/legal-representative-document-types`
 - `GET /api/account/companies/legal-representative-representation-types`
 - `GET /api/account/companies`
 - `GET /api/account/companies/{companyId}`
@@ -761,7 +760,6 @@ Contratos principales:
 - `SwitchActiveCompanyResponse`: `accessToken`, `refreshToken`, `expiresIn`, `activeCompany`
 - `CountryCatalogItemResponse`: `id`, `code`, `name`, `sortOrder`
 - `CompanyTypeCatalogItemResponse`: `id`, `code`, `name`, `description`, `sortOrder`, `isActive`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc`
-- `LegalRepresentativeDocumentTypeCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
 - `LegalRepresentativePositionTitleCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
 - `LegalRepresentativeRepresentationTypeCatalogItemResponse`: `publicId`, `code`, `normalizedCode`, `name`, `sortOrder`
 - `CreateAccountCompanyRequest`: `name`, `countryCode`, `companyTypePublicId`, `initialLegalRepresentative`
@@ -781,13 +779,6 @@ Contratos principales:
 - Validaciones: `countryCode` obligatorio, de `2` o `3` letras.
 - Response: `IReadOnlyCollection<CompanyTypeCatalogItemResponse>`.
 - Observaciones: devuelve solo items activos del pais solicitado; el catalogo es global por pais, no por tenant ni por owner. El frontend debe obtener primero `countryCode` desde `GET /api/account/companies/countries` y luego usar el `id` de este endpoint como `companyTypePublicId`.
-
-##### `GET /api/account/companies/legal-representative-document-types`
-
-- Proposito: obtener el catalogo activo de tipos de documento permitido para el representante legal inicial durante la creacion de compania.
-- Autenticacion: `Bearer` requerido.
-- Response: `IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>`.
-- Observaciones: devuelve items globales, ordenados por `sortOrder`; `code` coincide con el valor string que debe enviarse en `initialLegalRepresentative.documentType` al crear la compania.
 
 ##### `GET /api/account/companies/legal-representative-position-titles`
 
@@ -829,7 +820,7 @@ Contratos principales:
 - Validaciones del representante inicial: `firstName`, `lastName`, `documentNumber`, `positionTitle`, `effectiveFromUtc`; `effectiveToUtc >= effectiveFromUtc`; `email` opcional maximo `320`; `phone` opcional maximo `40`; `isPrimary` es opcional.
 - Response: `201 Created` con `AccountCompanyDetailResponse`.
 - Errores relevantes: `COMPANY_LIMIT_REACHED`, `COMPANY_TYPE_NOT_FOUND`, `provisioning.country_not_found`.
-- Observaciones: provisiona una suscripcion activa al plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estandar`, vincula al owner como admin, siembra locations segun el pais y deja la nueva compania sin hacer auto-switch. `SV` conserva una plantilla estructurada de locations; el resto de paises recibe una jerarquia minima generica de un solo nivel para permitir el arranque del tenant. Para `countryCode`, el frontend debe usar el `code` devuelto por `GET /api/account/companies/countries`. Para `initialLegalRepresentative.documentType` y `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por sus endpoints de catalogo respectivos. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. Si `initialLegalRepresentative.isPrimary` se omite o se envia `null`, el registro se persiste con `isPrimary = null`.
+- Observaciones: provisiona una suscripcion activa al plan `FREE`, crea representante legal inicial, crea rol de sistema `Admin de Empresa`, crea rol de sistema `Usuario Estandar`, vincula al owner como admin, siembra locations segun el pais y deja la nueva compania sin hacer auto-switch. `SV` conserva una plantilla estructurada de locations; el resto de paises recibe una jerarquia minima generica de un solo nivel para permitir el arranque del tenant. Para `countryCode`, el frontend debe usar el `code` devuelto por `GET /api/account/companies/countries`. Para `initialLegalRepresentative.documentType`, el frontend debe usar el `code` devuelto por `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`. Para `initialLegalRepresentative.representationType`, el frontend debe usar el `code` devuelto por `GET /api/account/companies/legal-representative-representation-types`. Para `initialLegalRepresentative.positionTitle`, el frontend debe usar el `name` devuelto por el endpoint de catalogo de cargos. Si `initialLegalRepresentative.isPrimary` se omite o se envia `null`, el registro se persiste con `isPrimary = null`.
 
 ##### `PUT /api/account/companies/{companyPublicId}`
 
@@ -986,7 +977,7 @@ Contratos principales:
 - `POST /api/auth/register` crea la cuenta y devuelve identidad autenticada, normalmente aun sin tenant.
 - `GET /api/account/companies/countries` resuelve el catalogo global de paises requerido por el formulario.
 - `GET /api/account/companies/company-types` resuelve el catalogo global de tipos de compania filtrado por pais.
-- `GET /api/account/companies/legal-representative-document-types` resuelve el catalogo de tipos documentales requerido por el formulario.
+- `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types` resuelve el catalogo de tipos documentales desde la fuente unificada por pais de compania.
 - `GET /api/account/companies/legal-representative-position-titles` resuelve el catalogo de cargos requerido por el formulario.
 - `POST /api/account/companies` crea la primera o siguiente compania propiedad de esa cuenta.
 - `POST /api/account/companies/{companyPublicId}/switch` emite el token ya tenant-scoped para operar `api/v1`.
@@ -2018,7 +2009,8 @@ Observaciones funcionales:
 
 #### 5.7.10 Relacion con otros modulos
 
-- `Account companies` expone los catalogos auxiliares de `document type` y `representation type` en `/api/account/companies/legal-representative-document-types` y `/api/account/companies/legal-representative-representation-types`.
+- `Account companies` expone el catalogo auxiliar de `representation type` en `/api/account/companies/legal-representative-representation-types`.
+- los tipos documentales de representantes legales y personal se unifican en `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`.
 - `Account companies` tambien consume `InitialLegalRepresentativeInput` durante la creacion de una compania, donde `isPrimary` ahora es opcional.
 - Los detalles de compania reutilizan resumenes de representantes activos para mostrar la representacion vigente del tenant.
 
@@ -2774,13 +2766,8 @@ Familias de rutas:
 - `/api/v1/companies/{companyId}/personnel-files/analytics/summary`
 - `/api/v1/personnel-files/documents/{documentId}/inactivate`
 - `/api/v1/personnel-files/documents/{documentId}/download`
-- `/api/v1/companies/{companyId}/personnel-catalogs/{category}`
-- `/api/v1/companies/{companyId}/personnel-reference-catalogs/professions`
-- `/api/v1/companies/{companyId}/personnel-reference-catalogs/marital-statuses`
-- `/api/v1/companies/{companyId}/personnel-reference-catalogs/identification-types`
-- `/api/v1/companies/{companyId}/personnel-reference-catalogs/kinships`
-- `/api/v1/companies/{companyId}/personnel-reference-catalogs/departments`
-- `/api/v1/companies/{companyId}/personnel-reference-catalogs/municipalities`
+- `/api/v1/companies/{companyId}/general-catalogs/{catalogKey}`
+- `/api/v1/companies/{companyId}/reference-catalogs/{catalogKey}`
 - `/api/v1/companies/{companyId}/personnel-custom-field-definitions`
 - `/api/v1/personnel-custom-field-definitions/{id}`
 
@@ -2984,7 +2971,7 @@ Observaciones funcionales:
 - si `IsStudying=true`, se esperan `StudyPlace` y `AcademicLevel`
 - si `IsWorking=true`, se esperan `Workplace` y `JobTitle`
 - si `IsDeceased=true`, se espera `DeceasedDate`
-- `family-members` usa `kinshipCode` (ya no texto libre) y valida contra `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/kinships`.
+- `family-members` usa `kinshipCode` (ya no texto libre) y valida contra `GET /api/v1/companies/{companyId}/reference-catalogs/kinships`.
 - `educations`, `languages`, `trainings`, `previous-employments` y `references` validan codigos contra catalogos activos del modulo.
 - Los catalogos curriculares observables usados desde este bloque incluyen `CurriculumEducationStatus`, `CurriculumStudyType`, `CurriculumShift`, `CurriculumModality`, `CurriculumLanguage`, `CurriculumLanguageLevel`, `CurriculumTrainingType`, `CurriculumDurationUnit`, `CurriculumReferenceType`, `Country` y `Currency`.
 - `educations` exige `EndDate` cuando `IsCurrentlyStudying=false` y evita `ApprovedSubjects > TotalSubjects`.
@@ -3153,13 +3140,8 @@ Observaciones funcionales:
 
 Route family:
 
-- `GET /api/v1/companies/{companyId}/personnel-catalogs/{category}`
-- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/professions`
-- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/marital-statuses`
-- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/identification-types`
-- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/kinships`
-- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/departments?countryCode=SV`
-- `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/municipalities?countryCode=SV&departmentCode=<CODE>`
+- `GET /api/v1/companies/{companyId}/general-catalogs/{catalogKey}`
+- `GET /api/v1/companies/{companyId}/reference-catalogs/{catalogKey}`
 - `GET /api/v1/companies/{companyId}/personnel-custom-field-definitions`
 - `POST /api/v1/companies/{companyId}/personnel-custom-field-definitions`
 - `PUT /api/v1/personnel-custom-field-definitions/{id}`
@@ -3171,12 +3153,11 @@ Uso principal:
 
 Observaciones funcionales:
 
-- `personnel-catalogs/{category}` es read-only y devuelve solo items activos.
-- `personnel-catalogs/{category}` ordena por `SortOrder`, luego `Name`.
-- `personnel-reference-catalogs/*` es read-only, global de sistema y no tenant-editable en esta fase.
-- `professions`, `marital-statuses`, `identification-types` y `kinships` responden catalogos activos para `SV`.
-- `departments` y `municipalities` usan jerarquia `Department -> Municipality`; para `SV` la semilla vigente es `14` departamentos y `44` municipios.
-- `countries` se reusa desde `GET /api/account/companies/countries`; no existe endpoint duplicado de paises en `personnel-reference-catalogs`.
+- `general-catalogs/{catalogKey}` y `reference-catalogs/{catalogKey}` son read-only y devuelven solo items activos.
+- ambos endpoints filtran internamente por el pais de la compania (`Company.CountryCode`); el frontend no envia `countryCode`.
+- `reference-catalogs/municipalities` acepta `parentCode` para filtrar por departamento.
+- `professions`, `marital-statuses`, `identification-types`, `kinships`, `departments` y `municipalities` salen de entidades separadas por pais.
+- `general-catalogs/countries` sigue devolviendo paises globales activos.
 - `nationality` permanece fuera de catalogo en esta HU y sigue como campo libre.
 - `personnel-custom-field-definitions` soporta filtro opcional `isActive`.
 - `PersonnelCustomFieldType` hoy expone `String`, `Number`, `Date`, `Bool` y `Select`.

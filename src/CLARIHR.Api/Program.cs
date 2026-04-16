@@ -136,6 +136,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 app.UseAuthentication();
+app.UseMiddleware<RequestLocaleMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 

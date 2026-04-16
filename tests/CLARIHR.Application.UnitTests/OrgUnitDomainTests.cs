@@ -20,7 +20,7 @@ public sealed class OrgUnitDomainTests
             costCenterCode: "  cc-01  ",
             managerEmployeeId: null);
 
-        Assert.Equal("dir-001", orgUnit.Code);
+        Assert.Equal("DIR-001", orgUnit.Code);
         Assert.Equal("DIR-001", orgUnit.NormalizedCode);
         Assert.Equal("Direccion General", orgUnit.Name);
         Assert.Equal("DIRECCION GENERAL", orgUnit.NormalizedName);

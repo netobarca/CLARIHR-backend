@@ -22,7 +22,8 @@ public static class ProvisioningErrors
     public static Error CountryNotFound(string countryCode) => new(
         "provisioning.country_not_found",
         $"The requested country '{countryCode}' does not exist in the active country catalog.",
-        ErrorType.Validation);
+        ErrorType.Validation,
+        MessageArguments: [countryCode]);
 
     public static readonly Error DefaultPlanUnavailable = new(
         "provisioning.default_plan_unavailable",

@@ -6,6 +6,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Abstractions.Time;
+using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Infrastructure.Configuration;
@@ -20,6 +21,7 @@ internal sealed class JwtTokenService(
     IDateTimeProvider dateTimeProvider,
     IUserRepository userRepository,
     IUserCompanyRepository userCompanyRepository,
+    ITenantLocaleResolver tenantLocaleResolver,
     IIamAdministrationRepository iamRepository,
     IRefreshTokenRepository refreshTokenRepository,
     IRefreshTokenHasher refreshTokenHasher,
@@ -237,6 +239,11 @@ internal sealed class JwtTokenService(
         }
 
         claims.Add(new Claim("tid", tenantId.Value.ToString()));
+        var tenantLocale = await tenantLocaleResolver.ResolveDefaultLocaleAsync(tenantId.Value, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(tenantLocale))
+        {
+            claims.Add(new Claim("locale", tenantLocale));
+        }
 
         var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
             tenantId.Value,

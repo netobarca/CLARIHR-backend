@@ -2366,6 +2366,7 @@ internal sealed class ReplacePersonnelFileInsurancesCommandHandler(
             {
                 var kinshipCodeValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
                     personnelFileRepository,
+                    personnelFile.TenantId,
                     $"items[{insuranceIndex}].beneficiaries[{beneficiaryIndex}].kinshipCode",
                     beneficiaries[beneficiaryIndex].KinshipCode,
                     cancellationToken);

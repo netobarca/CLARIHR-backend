@@ -380,7 +380,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         new(
             "Ana",
             "Mendoza",
-            LegalRepresentativeDocumentType.TaxId,
+            "TAX_ID",
             "0614-290190-102-3",
             "Representante Legal",
             LegalRepresentativeRepresentationType.PrimaryLegalRepresentative,
@@ -434,8 +434,8 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task<IReadOnlyCollection<CountryCatalogItemResponse>> GetActiveItemsAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyCollection<CountryCatalogItemResponse>>(
             [
-                new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", 1),
-                new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"), "GT", "Guatemala", 2)
+                new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", 1, "es-SV"),
+                new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"), "GT", "Guatemala", 2, "es-419")
             ]);
 
         public Task<CountryCatalogLookup?> GetActiveByCodeAsync(string countryCode, CancellationToken cancellationToken)
@@ -445,8 +445,8 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             return Task.FromResult<CountryCatalogLookup?>(
                 normalizedCode switch
                 {
-                    "SV" => new CountryCatalogLookup(1, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", true),
-                    "GT" => new CountryCatalogLookup(2, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"), "GT", "Guatemala", true),
+                    "SV" => new CountryCatalogLookup(1, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", true, "es-SV"),
+                    "GT" => new CountryCatalogLookup(2, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"), "GT", "Guatemala", true, "es-419"),
                     _ => null
                 });
         }
@@ -1057,13 +1057,13 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
 
         public Task<bool> DocumentExistsAsync(
             Guid tenantId,
-            LegalRepresentativeDocumentType documentType,
+            string documentType,
             string normalizedDocumentNumber,
             long? excludingLegalRepresentativeId,
             CancellationToken cancellationToken) =>
             Task.FromResult(Items.Any(item =>
                 item.TenantId == tenantId &&
-                item.DocumentType == documentType &&
+                string.Equals(item.DocumentType, documentType, StringComparison.OrdinalIgnoreCase) &&
                 item.NormalizedDocumentNumber == normalizedDocumentNumber &&
                 (!excludingLegalRepresentativeId.HasValue || item.Id != excludingLegalRepresentativeId.Value)));
 
@@ -1083,10 +1083,6 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
 
         public Task<LegalRepresentativeUsageResponse?> GetUsageByIdAsync(Guid legalRepresentativeId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
-
-        public Task<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>> GetDocumentTypeCatalogItemsAsync(
-            CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>>([]);
 
         public Task<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>> GetPositionTitleCatalogItemsAsync(
             CancellationToken cancellationToken) =>

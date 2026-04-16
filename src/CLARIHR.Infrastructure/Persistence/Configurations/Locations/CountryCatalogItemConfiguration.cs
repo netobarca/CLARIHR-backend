@@ -35,6 +35,10 @@ internal sealed class CountryCatalogItemConfiguration : IEntityTypeConfiguration
         builder.Property(item => item.SortOrder)
             .HasColumnName("sort_order");
 
+        builder.Property(item => item.DefaultLocale)
+            .HasColumnName("default_locale")
+            .HasMaxLength(16);
+
         builder.Property(item => item.IsActive)
             .HasColumnName("is_active");
 
@@ -63,6 +67,7 @@ internal sealed class CountryCatalogItemConfiguration : IEntityTypeConfiguration
             NormalizedCode = item.Code,
             Name = item.Name,
             SortOrder = item.SortOrder,
+            DefaultLocale = CountryCatalogItem.Create(item).DefaultLocale,
             IsActive = true,
             CreatedUtc = GlobalCatalogSeedData.SeededAtUtc,
             ModifiedUtc = (DateTime?)GlobalCatalogSeedData.SeededAtUtc

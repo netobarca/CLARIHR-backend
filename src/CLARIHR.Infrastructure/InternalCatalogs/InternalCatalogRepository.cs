@@ -44,28 +44,33 @@ internal sealed class InternalCatalogRepository(ApplicationDbContext dbContext) 
             {
                 item.PublicId,
                 item.Value,
-                Score = EF.Functions.TrigramsWordSimilarity(item.NormalizedValue, normalizedSearch),
-                IsExactMatch = item.NormalizedValue == normalizedSearch,
-                IsPrefixMatch = item.NormalizedValue.StartsWith(normalizedSearch),
+                item.NormalizedValue,
                 item.UsageCount
             })
-            .Where(item => item.IsExactMatch || item.IsPrefixMatch || item.Score >= minScore)
-            .OrderByDescending(item => item.IsExactMatch)
-            .ThenByDescending(item => item.IsPrefixMatch)
-            .ThenByDescending(item => item.Score)
-            .ThenByDescending(item => item.UsageCount)
-            .ThenBy(item => item.Value)
-            .Take(limit)
             .ToArrayAsync(cancellationToken);
 
         return matches
-            .Select(static item => new InternalCatalogSearchResult(
-                item.PublicId,
-                item.Value,
-                item.Score,
-                item.IsExactMatch,
-                item.IsPrefixMatch,
-                item.UsageCount))
+            .Select(item =>
+            {
+                var isExactMatch = string.Equals(item.NormalizedValue, normalizedSearch, StringComparison.Ordinal);
+                var isPrefixMatch = item.NormalizedValue.StartsWith(normalizedSearch, StringComparison.Ordinal);
+                var score = ComputeSimilarity(item.NormalizedValue, normalizedSearch);
+
+                return new InternalCatalogSearchResult(
+                    item.PublicId,
+                    item.Value,
+                    score,
+                    isExactMatch,
+                    isPrefixMatch,
+                    item.UsageCount);
+            })
+            .Where(item => item.IsExactMatch || item.IsPrefixMatch || item.Score >= minScore)
+            .OrderByDescending(static item => item.IsExactMatch)
+            .ThenByDescending(static item => item.IsPrefixMatch)
+            .ThenByDescending(static item => item.Score)
+            .ThenByDescending(static item => item.UsageCount)
+            .ThenBy(static item => item.Value)
+            .Take(limit)
             .ToArray();
     }
 
@@ -85,27 +90,109 @@ internal sealed class InternalCatalogRepository(ApplicationDbContext dbContext) 
             {
                 item.PublicId,
                 item.Value,
-                Score = EF.Functions.TrigramsSimilarity(item.NormalizedValue, normalizedValue),
-                IsExactMatch = item.NormalizedValue == normalizedValue,
-                IsPrefixMatch = item.NormalizedValue.StartsWith(normalizedValue),
+                item.NormalizedValue,
                 item.UsageCount
             })
-            .Where(item => item.IsExactMatch || item.Score >= minScore)
-            .OrderByDescending(item => item.IsExactMatch)
-            .ThenByDescending(item => item.Score)
-            .ThenByDescending(item => item.UsageCount)
-            .ThenBy(item => item.Value)
-            .Take(limit)
             .ToArrayAsync(cancellationToken);
 
         return matches
-            .Select(static item => new InternalCatalogSearchResult(
-                item.PublicId,
-                item.Value,
-                item.Score,
-                item.IsExactMatch,
-                item.IsPrefixMatch,
-                item.UsageCount))
+            .Select(item =>
+            {
+                var isExactMatch = string.Equals(item.NormalizedValue, normalizedValue, StringComparison.Ordinal);
+                var isPrefixMatch = item.NormalizedValue.StartsWith(normalizedValue, StringComparison.Ordinal);
+                var score = ComputeSimilarity(item.NormalizedValue, normalizedValue);
+
+                return new InternalCatalogSearchResult(
+                    item.PublicId,
+                    item.Value,
+                    score,
+                    isExactMatch,
+                    isPrefixMatch,
+                    item.UsageCount);
+            })
+            .Where(item => item.IsExactMatch || item.Score >= minScore)
+            .OrderByDescending(static item => item.IsExactMatch)
+            .ThenByDescending(static item => item.Score)
+            .ThenByDescending(static item => item.UsageCount)
+            .ThenBy(static item => item.Value)
+            .Take(limit)
             .ToArray();
+    }
+
+    private static double ComputeSimilarity(string left, string right)
+    {
+        if (string.Equals(left, right, StringComparison.Ordinal))
+        {
+            return 1d;
+        }
+
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+        {
+            return 0d;
+        }
+
+        var editScore = ComputeEditDistanceSimilarity(left, right);
+        var tokenScore = ComputeTokenOverlapSimilarity(left, right);
+
+        return Math.Max(editScore, tokenScore);
+    }
+
+    private static double ComputeEditDistanceSimilarity(string left, string right)
+    {
+        var maxLength = Math.Max(left.Length, right.Length);
+        if (maxLength == 0)
+        {
+            return 1d;
+        }
+
+        var distance = ComputeLevenshteinDistance(left, right);
+        var similarity = 1d - (double)distance / maxLength;
+        return Math.Clamp(similarity, 0d, 1d);
+    }
+
+    private static double ComputeTokenOverlapSimilarity(string left, string right)
+    {
+        var leftTokens = left
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.Ordinal);
+        var rightTokens = right
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (leftTokens.Count == 0 || rightTokens.Count == 0)
+        {
+            return 0d;
+        }
+
+        var overlap = leftTokens.Intersect(rightTokens, StringComparer.Ordinal).Count();
+        var union = leftTokens.Union(rightTokens, StringComparer.Ordinal).Count();
+        return union == 0 ? 0d : (double)overlap / union;
+    }
+
+    private static int ComputeLevenshteinDistance(string left, string right)
+    {
+        var previous = new int[right.Length + 1];
+        var current = new int[right.Length + 1];
+
+        for (var column = 0; column <= right.Length; column++)
+        {
+            previous[column] = column;
+        }
+
+        for (var row = 1; row <= left.Length; row++)
+        {
+            current[0] = row;
+            for (var column = 1; column <= right.Length; column++)
+            {
+                var substitutionCost = left[row - 1] == right[column - 1] ? 0 : 1;
+                current[column] = Math.Min(
+                    Math.Min(current[column - 1] + 1, previous[column] + 1),
+                    previous[column - 1] + substitutionCost);
+            }
+
+            (previous, current) = (current, previous);
+        }
+
+        return previous[right.Length];
     }
 }

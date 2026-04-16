@@ -14,7 +14,7 @@ public interface ILegalRepresentativeRepository
 
     Task<bool> DocumentExistsAsync(
         Guid tenantId,
-        LegalRepresentativeDocumentType documentType,
+        string documentType,
         string normalizedDocumentNumber,
         long? excludingLegalRepresentativeId,
         CancellationToken cancellationToken);
@@ -32,9 +32,6 @@ public interface ILegalRepresentativeRepository
     Task<LegalRepresentativeResponse?> GetResponseByIdAsync(Guid legalRepresentativeId, CancellationToken cancellationToken);
 
     Task<LegalRepresentativeUsageResponse?> GetUsageByIdAsync(Guid legalRepresentativeId, CancellationToken cancellationToken);
-
-    Task<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>> GetDocumentTypeCatalogItemsAsync(
-        CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>> GetPositionTitleCatalogItemsAsync(
         CancellationToken cancellationToken);

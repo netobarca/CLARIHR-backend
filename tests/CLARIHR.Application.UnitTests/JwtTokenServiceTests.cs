@@ -4,6 +4,7 @@ using System.Security.Claims;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CompanyUsers;
@@ -51,6 +52,7 @@ public sealed class JwtTokenServiceTests
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
         Assert.Equal("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", jwt.Claims.Single(claim => claim.Type == "tid").Value);
         Assert.Equal("ADMIN DE EMPRESA", jwt.Claims.Single(claim => claim.Type == "role").Value);
+        Assert.Equal("es-SV", jwt.Claims.Single(claim => claim.Type == "locale").Value);
     }
 
     [Fact]
@@ -79,6 +81,7 @@ public sealed class JwtTokenServiceTests
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
         Assert.Equal(targetTenantId.ToString(), jwt.Claims.Single(claim => claim.Type == "tid").Value);
         Assert.Equal("AUDITOR B", jwt.Claims.Single(claim => claim.Type == "role").Value);
+        Assert.Equal("es-SV", jwt.Claims.Single(claim => claim.Type == "locale").Value);
     }
 
     [Fact]
@@ -99,6 +102,7 @@ public sealed class JwtTokenServiceTests
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
         Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "tid");
         Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "role");
+        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "locale");
         Assert.Equal(AuthClientType.Platform.ToClaimValue(), jwt.Claims.Single(claim => claim.Type == "client_type").Value);
     }
 
@@ -135,6 +139,7 @@ public sealed class JwtTokenServiceTests
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.Tokens.AccessToken);
         Assert.Equal(primaryTenantId.ToString(), jwt.Claims.Single(claim => claim.Type == "tid").Value);
         Assert.Equal("ADMIN DE EMPRESA", jwt.Claims.Single(claim => claim.Type == "role").Value);
+        Assert.Equal("es-SV", jwt.Claims.Single(claim => claim.Type == "locale").Value);
     }
 
     [Fact]
@@ -192,6 +197,7 @@ public sealed class JwtTokenServiceTests
             new FixedDateTimeProvider(new DateTime(2026, 2, 28, 18, 0, 0, DateTimeKind.Utc)),
             userRepository,
             userCompanyRepository,
+            new TestTenantLocaleResolver(),
             new TestIamAdministrationRepository(),
             refreshTokenRepository,
             new RefreshTokenHasher(),
@@ -254,6 +260,12 @@ public sealed class JwtTokenServiceTests
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         public void Seed(User user) => _items.Add(user);
+    }
+
+    private sealed class TestTenantLocaleResolver : ITenantLocaleResolver
+    {
+        public Task<string?> ResolveDefaultLocaleAsync(Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("es-SV");
     }
 
     private sealed class TestUserCompanyRepository(

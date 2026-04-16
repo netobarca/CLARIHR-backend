@@ -9,4 +9,5 @@ public sealed record CountryCatalogDefinition(
     long Id,
     string Code,
     string Name,
-    int SortOrder);
+    int SortOrder,
+    string? DefaultLocale = null);

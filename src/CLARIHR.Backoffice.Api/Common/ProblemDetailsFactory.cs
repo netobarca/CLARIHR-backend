@@ -1,5 +1,7 @@
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Abstractions.Localization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CLARIHR.Backoffice.Api.Common;
 
@@ -14,13 +16,17 @@ internal static class ProblemDetailsFactory
     public static ProblemDetails CreateProblemDetails(HttpContext httpContext, Error error)
     {
         var statusCode = MapStatusCode(error.Type);
+        var localizer = httpContext.RequestServices.GetService<IBackendMessageLocalizer>();
 
         ProblemDetails problemDetails = error.Type == ErrorType.Validation
             ? CreateValidationProblemDetails(error)
             : new ProblemDetails();
 
-        problemDetails.Title = error.Message;
-        problemDetails.Detail = error.Message;
+        var localizedMessage = localizer?.Localize(error.Code, error.Message, error.MessageArguments)
+            ?? error.Message;
+
+        problemDetails.Title = localizedMessage;
+        problemDetails.Detail = localizedMessage;
         problemDetails.Status = statusCode;
         problemDetails.Type = $"https://httpstatuses.com/{statusCode}";
         problemDetails.Extensions["code"] = error.Code;

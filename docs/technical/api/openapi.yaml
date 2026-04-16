@@ -52,35 +52,6 @@ components:
           type: integer
           format: int32
           example: 69
-    LegalRepresentativeDocumentTypeCatalogItemResponse:
-      type: object
-      required:
-        - publicId
-        - code
-        - normalizedCode
-        - name
-        - sortOrder
-      properties:
-        publicId:
-          type: string
-          format: uuid
-          description: Stable public identifier for the seeded legal representative document type.
-        code:
-          type: string
-          description: String enum value that must be sent in initialLegalRepresentative.documentType.
-          example: TAXID
-        normalizedCode:
-          type: string
-          description: Uppercase normalized code used for searches and uniqueness.
-          example: TAXID
-        name:
-          type: string
-          description: Human-readable label for display in the client.
-          example: Tax ID
-        sortOrder:
-          type: integer
-          format: int32
-          example: 1
     LegalRepresentativePositionTitleCatalogItemResponse:
       type: object
       required:
@@ -855,7 +826,7 @@ components:
         identificationTypeCode:
           type: string
           maxLength: 80
-          description: Catalog code from `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/identification-types`.
+          description: Catalog code from `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`.
         identificationNumber:
           type: string
           maxLength: 100
@@ -896,11 +867,11 @@ components:
         maritalStatusCode:
           type: string
           nullable: true
-          description: Catalog code from `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/marital-statuses`.
+          description: Catalog code from `GET /api/v1/companies/{companyId}/reference-catalogs/marital-statuses`.
         professionCode:
           type: string
           nullable: true
-          description: Catalog code from `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/professions`.
+          description: Catalog code from `GET /api/v1/companies/{companyId}/reference-catalogs/professions`.
         nationality:
           type: string
           nullable: true
@@ -925,11 +896,11 @@ components:
         birthDepartmentCode:
           type: string
           nullable: true
-          description: Catalog code from `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/departments?countryCode=SV`.
+          description: Catalog code from `GET /api/v1/companies/{companyId}/reference-catalogs/departments`.
         birthMunicipalityCode:
           type: string
           nullable: true
-          description: Catalog code from `GET /api/v1/companies/{companyId}/personnel-reference-catalogs/municipalities?countryCode=SV&departmentCode=<CODE>`.
+          description: Catalog code from `GET /api/v1/companies/{companyId}/reference-catalogs/municipalities?parentCode=<DEPARTMENT_CODE>`.
         photoUrl:
           type: string
           nullable: true
@@ -4171,30 +4142,6 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/companies/legal-representative-document-types:
-    get:
-      tags:
-        - account-companies
-      operationId: GetAccountCompanyLegalRepresentativeDocumentTypes
-      summary: List legal representative document types for account onboarding
-      description: Returns the active catalog entries that should populate the legal representative document type selector before creating a company.
-      security:
-        - Bearer: []
-      responses:
-        '200':
-          description: Active legal representative document type catalog items.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/LegalRepresentativeDocumentTypeCatalogItemResponse'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
   /api/account/companies/legal-representative-position-titles:
     get:
       tags:
@@ -5001,12 +4948,12 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/companies/{companyId}/personnel-reference-catalogs/professions:
+  /api/v1/companies/{companyId}/general-catalogs/{catalogKey}:
     get:
       tags:
-        - personnel-reference-catalogs
-      operationId: GetPersonnelReferenceProfessions
-      summary: List profession catalog items for personnel files
+        - general-catalogs
+      operationId: GetCompanyGeneralCatalogItems
+      summary: List active general catalog items resolved by company country
       security:
         - Bearer: []
       parameters:
@@ -5016,17 +4963,23 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: catalogKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Supported values include `languages`, `language-levels`, `training-types`, `duration-units`, `reference-types`, `currencies`, `countries`, `education-statuses`, `education-study-types`, `education-shifts`, `education-modalities`, `education-careers`.
       responses:
         '200':
-          description: Active profession catalog items for El Salvador.
+          description: Active catalog items for the requested key.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
+                  $ref: '#/components/schemas/PersonnelCatalogItemResponse'
         '400':
-          description: Validation error.
+          description: Validation error or unsupported catalog key.
           content:
             application/problem+json:
               schema:
@@ -5043,12 +4996,12 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/companies/{companyId}/personnel-reference-catalogs/marital-statuses:
+  /api/v1/companies/{companyId}/reference-catalogs/{catalogKey}:
     get:
       tags:
-        - personnel-reference-catalogs
-      operationId: GetPersonnelReferenceMaritalStatuses
-      summary: List marital status catalog items for personnel files
+        - general-catalogs
+      operationId: GetCompanyReferenceCatalogItems
+      summary: List active reference catalog items resolved by company country
       security:
         - Bearer: []
       parameters:
@@ -5058,141 +5011,21 @@ paths:
           schema:
             type: string
             format: uuid
-      responses:
-        '200':
-          description: Active marital status catalog items for El Salvador.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
-        '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/companies/{companyId}/personnel-reference-catalogs/identification-types:
-    get:
-      tags:
-        - personnel-reference-catalogs
-      operationId: GetPersonnelReferenceIdentificationTypes
-      summary: List identification type catalog items for personnel files
-      security:
-        - Bearer: []
-      parameters:
-        - name: companyId
+        - name: catalogKey
           in: path
           required: true
           schema:
             type: string
-            format: uuid
-      responses:
-        '200':
-          description: Active identification type catalog items for El Salvador.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
-        '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/companies/{companyId}/personnel-reference-catalogs/kinships:
-    get:
-      tags:
-        - personnel-reference-catalogs
-      operationId: GetPersonnelReferenceKinships
-      summary: List kinship catalog items for personnel files
-      security:
-        - Bearer: []
-      parameters:
-        - name: companyId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Active kinship catalog items for El Salvador.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
-        '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/companies/{companyId}/personnel-reference-catalogs/departments:
-    get:
-      tags:
-        - personnel-reference-catalogs
-      operationId: GetPersonnelReferenceDepartments
-      summary: List department catalog items for a country
-      security:
-        - Bearer: []
-      parameters:
-        - name: companyId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: countryCode
+          description: Supported values are `professions`, `marital-statuses`, `identification-types`, `kinships`, `departments`, `municipalities`.
+        - name: parentCode
           in: query
-          required: true
+          required: false
           schema:
             type: string
-          example: SV
+          description: Optional parent filter. For `municipalities`, send the department code.
       responses:
         '200':
-          description: Active department catalog items for the requested country.
+          description: Active reference catalog items for the requested key.
           content:
             application/json:
               schema:
@@ -5200,61 +5033,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
         '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/companies/{companyId}/personnel-reference-catalogs/municipalities:
-    get:
-      tags:
-        - personnel-reference-catalogs
-      operationId: GetPersonnelReferenceMunicipalities
-      summary: List municipality catalog items for a country and department
-      security:
-        - Bearer: []
-      parameters:
-        - name: companyId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: countryCode
-          in: query
-          required: true
-          schema:
-            type: string
-          example: SV
-        - name: departmentCode
-          in: query
-          required: true
-          schema:
-            type: string
-          example: SAN_SALVADOR
-      responses:
-        '200':
-          description: Active municipality catalog items for the requested country and department.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelReferenceCatalogItemResponse'
-        '400':
-          description: Validation error.
+          description: Validation error or unsupported catalog key.
           content:
             application/problem+json:
               schema:
@@ -7880,9 +7659,9 @@ tags:
     description: Global company subscription, plan-change and company add-on administration from the platform backoffice.
   - name: job-and-competency-design
     description: Checked-in supplement for job profile and position slot write contracts with inherited org unit and cost center behavior.
+  - name: general-catalogs
+    description: Company-scoped read-only access to system catalogs resolved by the company's country.
   - name: personnel-files
     description: Personnel file lifecycle and subsections.
-  - name: personnel-reference-catalogs
-    description: Read-only reference catalogs used by personal-info and identification fields in personnel files.
 x-documentation-status: partial-manual-supplement
 x-runtime-openapi-source: /swagger/v1/swagger.json

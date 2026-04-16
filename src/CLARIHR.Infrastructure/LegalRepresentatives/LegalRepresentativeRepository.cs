@@ -2,6 +2,7 @@ using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.LegalRepresentatives;
 using CLARIHR.Domain.LegalRepresentatives;
+using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,16 +24,20 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
 
     public Task<bool> DocumentExistsAsync(
         Guid tenantId,
-        LegalRepresentativeDocumentType documentType,
+        string documentType,
         string normalizedDocumentNumber,
         long? excludingLegalRepresentativeId,
-        CancellationToken cancellationToken) =>
-        dbContext.Set<LegalRepresentative>().AnyAsync(
+        CancellationToken cancellationToken)
+    {
+        var normalizedDocumentType = documentType.Trim().ToUpperInvariant();
+
+        return dbContext.Set<LegalRepresentative>().AnyAsync(
             legalRepresentative => legalRepresentative.TenantId == tenantId &&
-                                  legalRepresentative.DocumentType == documentType &&
+                                  legalRepresentative.DocumentType == normalizedDocumentType &&
                                   legalRepresentative.NormalizedDocumentNumber == normalizedDocumentNumber &&
                                   (!excludingLegalRepresentativeId.HasValue || legalRepresentative.Id != excludingLegalRepresentativeId.Value),
             cancellationToken);
+    }
 
     public async Task<PagedResponse<LegalRepresentativeListItemResponse>> SearchAsync(
         Guid tenantId,
@@ -157,22 +162,6 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
             legalRepresentative.PublicId,
             ActiveDocumentReferencesCount: 0,
             CanInactivate: canInactivate);
-    }
-
-    public async Task<IReadOnlyCollection<LegalRepresentativeDocumentTypeCatalogItemResponse>> GetDocumentTypeCatalogItemsAsync(
-        CancellationToken cancellationToken)
-    {
-        return await dbContext.LegalRepresentativeDocumentTypeCatalogItems
-            .AsNoTracking()
-            .Where(item => item.IsActive)
-            .OrderBy(item => item.SortOrder)
-            .ThenBy(item => item.Id)
-            .Select(item => new LegalRepresentativeDocumentTypeCatalogItemResponse(
-                item.PublicId,
-                item.Code,
-                item.Name,
-                item.SortOrder))
-            .ToArrayAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<LegalRepresentativePositionTitleCatalogItemResponse>> GetPositionTitleCatalogItemsAsync(

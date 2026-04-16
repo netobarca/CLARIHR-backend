@@ -34,6 +34,15 @@ internal sealed class PersonnelEducationCatalogRepository(ApplicationDbContext d
         }
     }
 
+    public Task<PersonnelEducationCatalogCountryLookup?> GetCompanyCountryAsync(
+        Guid companyId,
+        CancellationToken cancellationToken) =>
+        dbContext.Companies
+            .AsNoTracking()
+            .Where(company => company.PublicId == companyId)
+            .Select(company => new PersonnelEducationCatalogCountryLookup(company.CountryCatalogItemId, company.CountryCode))
+            .SingleOrDefaultAsync(cancellationToken);
+
     public Task<PersonnelEducationCatalogItem?> GetByIdAsync(
         PersonnelEducationCatalogType catalogType,
         Guid id,
@@ -63,23 +72,23 @@ internal sealed class PersonnelEducationCatalogRepository(ApplicationDbContext d
         };
 
     public Task<bool> CodeExistsAsync(
-        Guid tenantId,
+        Guid companyId,
         PersonnelEducationCatalogType catalogType,
         string normalizedCode,
         long? excludingId,
         CancellationToken cancellationToken) =>
         catalogType switch
         {
-            PersonnelEducationCatalogType.EducationStatus => CodeExistsAsync<EducationStatusCatalogItem>(tenantId, normalizedCode, excludingId, cancellationToken),
-            PersonnelEducationCatalogType.StudyType => CodeExistsAsync<EducationStudyTypeCatalogItem>(tenantId, normalizedCode, excludingId, cancellationToken),
-            PersonnelEducationCatalogType.Career => CodeExistsAsync<EducationCareerCatalogItem>(tenantId, normalizedCode, excludingId, cancellationToken),
-            PersonnelEducationCatalogType.Shift => CodeExistsAsync<EducationShiftCatalogItem>(tenantId, normalizedCode, excludingId, cancellationToken),
-            PersonnelEducationCatalogType.Modality => CodeExistsAsync<EducationModalityCatalogItem>(tenantId, normalizedCode, excludingId, cancellationToken),
+            PersonnelEducationCatalogType.EducationStatus => CodeExistsAsync<EducationStatusCatalogItem>(companyId, normalizedCode, excludingId, cancellationToken),
+            PersonnelEducationCatalogType.StudyType => CodeExistsAsync<EducationStudyTypeCatalogItem>(companyId, normalizedCode, excludingId, cancellationToken),
+            PersonnelEducationCatalogType.Career => CodeExistsAsync<EducationCareerCatalogItem>(companyId, normalizedCode, excludingId, cancellationToken),
+            PersonnelEducationCatalogType.Shift => CodeExistsAsync<EducationShiftCatalogItem>(companyId, normalizedCode, excludingId, cancellationToken),
+            PersonnelEducationCatalogType.Modality => CodeExistsAsync<EducationModalityCatalogItem>(companyId, normalizedCode, excludingId, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported catalog type.")
         };
 
     public Task<PagedResponse<PersonnelEducationCatalogItemResponse>> SearchAsync(
-        Guid tenantId,
+        Guid companyId,
         PersonnelEducationCatalogType catalogType,
         bool? isActive,
         string? search,
@@ -88,41 +97,41 @@ internal sealed class PersonnelEducationCatalogRepository(ApplicationDbContext d
         CancellationToken cancellationToken) =>
         catalogType switch
         {
-            PersonnelEducationCatalogType.EducationStatus => SearchAsync<EducationStatusCatalogItem>(tenantId, catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
-            PersonnelEducationCatalogType.StudyType => SearchAsync<EducationStudyTypeCatalogItem>(tenantId, catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
-            PersonnelEducationCatalogType.Career => SearchAsync<EducationCareerCatalogItem>(tenantId, catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
-            PersonnelEducationCatalogType.Shift => SearchAsync<EducationShiftCatalogItem>(tenantId, catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
-            PersonnelEducationCatalogType.Modality => SearchAsync<EducationModalityCatalogItem>(tenantId, catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
+            PersonnelEducationCatalogType.EducationStatus => SearchAsync<EducationStatusCatalogItem>(companyId, catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
+            PersonnelEducationCatalogType.StudyType => SearchAsync<EducationStudyTypeCatalogItem>(companyId, catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
+            PersonnelEducationCatalogType.Career => SearchAsync<EducationCareerCatalogItem>(companyId, catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
+            PersonnelEducationCatalogType.Shift => SearchAsync<EducationShiftCatalogItem>(companyId, catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
+            PersonnelEducationCatalogType.Modality => SearchAsync<EducationModalityCatalogItem>(companyId, catalogType, isActive, search, pageNumber, pageSize, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported catalog type.")
         };
 
     public Task<PersonnelEducationCatalogItemResponse?> GetResponseByIdAsync(
-        Guid tenantId,
+        Guid companyId,
         PersonnelEducationCatalogType catalogType,
         Guid id,
         CancellationToken cancellationToken) =>
         catalogType switch
         {
-            PersonnelEducationCatalogType.EducationStatus => GetResponseByIdAsync<EducationStatusCatalogItem>(tenantId, catalogType, id, cancellationToken),
-            PersonnelEducationCatalogType.StudyType => GetResponseByIdAsync<EducationStudyTypeCatalogItem>(tenantId, catalogType, id, cancellationToken),
-            PersonnelEducationCatalogType.Career => GetResponseByIdAsync<EducationCareerCatalogItem>(tenantId, catalogType, id, cancellationToken),
-            PersonnelEducationCatalogType.Shift => GetResponseByIdAsync<EducationShiftCatalogItem>(tenantId, catalogType, id, cancellationToken),
-            PersonnelEducationCatalogType.Modality => GetResponseByIdAsync<EducationModalityCatalogItem>(tenantId, catalogType, id, cancellationToken),
+            PersonnelEducationCatalogType.EducationStatus => GetResponseByIdAsync<EducationStatusCatalogItem>(companyId, catalogType, id, cancellationToken),
+            PersonnelEducationCatalogType.StudyType => GetResponseByIdAsync<EducationStudyTypeCatalogItem>(companyId, catalogType, id, cancellationToken),
+            PersonnelEducationCatalogType.Career => GetResponseByIdAsync<EducationCareerCatalogItem>(companyId, catalogType, id, cancellationToken),
+            PersonnelEducationCatalogType.Shift => GetResponseByIdAsync<EducationShiftCatalogItem>(companyId, catalogType, id, cancellationToken),
+            PersonnelEducationCatalogType.Modality => GetResponseByIdAsync<EducationModalityCatalogItem>(companyId, catalogType, id, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported catalog type.")
         };
 
     public Task<PersonnelEducationCatalogLookup?> GetActiveLookupByIdAsync(
-        Guid tenantId,
+        Guid companyId,
         PersonnelEducationCatalogType catalogType,
         Guid id,
         CancellationToken cancellationToken) =>
         catalogType switch
         {
-            PersonnelEducationCatalogType.EducationStatus => GetActiveLookupByIdAsync<EducationStatusCatalogItem>(tenantId, id, cancellationToken),
-            PersonnelEducationCatalogType.StudyType => GetActiveLookupByIdAsync<EducationStudyTypeCatalogItem>(tenantId, id, cancellationToken),
-            PersonnelEducationCatalogType.Career => GetActiveLookupByIdAsync<EducationCareerCatalogItem>(tenantId, id, cancellationToken),
-            PersonnelEducationCatalogType.Shift => GetActiveLookupByIdAsync<EducationShiftCatalogItem>(tenantId, id, cancellationToken),
-            PersonnelEducationCatalogType.Modality => GetActiveLookupByIdAsync<EducationModalityCatalogItem>(tenantId, id, cancellationToken),
+            PersonnelEducationCatalogType.EducationStatus => GetActiveLookupByIdAsync<EducationStatusCatalogItem>(companyId, id, cancellationToken),
+            PersonnelEducationCatalogType.StudyType => GetActiveLookupByIdAsync<EducationStudyTypeCatalogItem>(companyId, id, cancellationToken),
+            PersonnelEducationCatalogType.Career => GetActiveLookupByIdAsync<EducationCareerCatalogItem>(companyId, id, cancellationToken),
+            PersonnelEducationCatalogType.Shift => GetActiveLookupByIdAsync<EducationShiftCatalogItem>(companyId, id, cancellationToken),
+            PersonnelEducationCatalogType.Modality => GetActiveLookupByIdAsync<EducationModalityCatalogItem>(companyId, id, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported catalog type.")
         };
 
@@ -165,19 +174,21 @@ internal sealed class PersonnelEducationCatalogRepository(ApplicationDbContext d
             .AnyAsync(item => item.PublicId == id, cancellationToken);
 
     private Task<bool> CodeExistsAsync<TCatalogItem>(
-        Guid tenantId,
+        Guid companyId,
         string normalizedCode,
         long? excludingId,
         CancellationToken cancellationToken)
         where TCatalogItem : PersonnelEducationCatalogItem =>
         dbContext.Set<TCatalogItem>().AnyAsync(
-            item => item.TenantId == tenantId &&
-                    item.NormalizedCode == normalizedCode &&
-                    (!excludingId.HasValue || item.Id != excludingId.Value),
+            item => item.NormalizedCode == normalizedCode &&
+                    (!excludingId.HasValue || item.Id != excludingId.Value) &&
+                    dbContext.Companies.Any(company =>
+                        company.PublicId == companyId &&
+                        company.CountryCatalogItemId == item.CountryCatalogItemId),
             cancellationToken);
 
     private async Task<PagedResponse<PersonnelEducationCatalogItemResponse>> SearchAsync<TCatalogItem>(
-        Guid tenantId,
+        Guid companyId,
         PersonnelEducationCatalogType catalogType,
         bool? isActive,
         string? search,
@@ -186,9 +197,20 @@ internal sealed class PersonnelEducationCatalogRepository(ApplicationDbContext d
         CancellationToken cancellationToken)
         where TCatalogItem : PersonnelEducationCatalogItem
     {
+        var companyCountryCatalogItemId = await dbContext.Companies
+            .AsNoTracking()
+            .Where(company => company.PublicId == companyId)
+            .Select(company => (long?)company.CountryCatalogItemId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!companyCountryCatalogItemId.HasValue)
+        {
+            return new PagedResponse<PersonnelEducationCatalogItemResponse>([], pageNumber, pageSize, 0);
+        }
+
         var query = dbContext.Set<TCatalogItem>()
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId);
+            .Where(item => item.CountryCatalogItemId == companyCountryCatalogItemId.Value);
 
         if (isActive.HasValue)
         {
@@ -226,14 +248,15 @@ internal sealed class PersonnelEducationCatalogRepository(ApplicationDbContext d
     }
 
     private Task<PersonnelEducationCatalogItemResponse?> GetResponseByIdAsync<TCatalogItem>(
-        Guid tenantId,
+        Guid companyId,
         PersonnelEducationCatalogType catalogType,
         Guid id,
         CancellationToken cancellationToken)
         where TCatalogItem : PersonnelEducationCatalogItem =>
         dbContext.Set<TCatalogItem>()
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.PublicId == id)
+            .Where(item => item.PublicId == id)
+            .Where(item => dbContext.Companies.Any(company => company.PublicId == companyId && company.CountryCatalogItemId == item.CountryCatalogItemId))
             .Select(item => new PersonnelEducationCatalogItemResponse(
                 item.PublicId,
                 catalogType,
@@ -247,13 +270,14 @@ internal sealed class PersonnelEducationCatalogRepository(ApplicationDbContext d
             .SingleOrDefaultAsync(cancellationToken);
 
     private Task<PersonnelEducationCatalogLookup?> GetActiveLookupByIdAsync<TCatalogItem>(
-        Guid tenantId,
+        Guid companyId,
         Guid id,
         CancellationToken cancellationToken)
         where TCatalogItem : PersonnelEducationCatalogItem =>
         dbContext.Set<TCatalogItem>()
             .AsNoTracking()
-            .Where(item => item.TenantId == tenantId && item.PublicId == id && item.IsActive)
+            .Where(item => item.PublicId == id && item.IsActive)
+            .Where(item => dbContext.Companies.Any(company => company.PublicId == companyId && company.CountryCatalogItemId == item.CountryCatalogItemId))
             .Select(item => new PersonnelEducationCatalogLookup(item.Id, item.PublicId, item.Code, item.Name, item.IsActive))
             .SingleOrDefaultAsync(cancellationToken);
 }

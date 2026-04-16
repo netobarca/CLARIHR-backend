@@ -297,7 +297,7 @@ public sealed class LegalRepresentativesController(
             EscapeCsv(row.FirstName),
             EscapeCsv(row.LastName),
             EscapeCsv(row.FullName),
-            EscapeCsv(row.DocumentType.ToString()),
+            EscapeCsv(row.DocumentType),
             EscapeCsv(row.DocumentNumber),
             EscapeCsv(row.PositionTitle),
             EscapeCsv(row.RepresentationType.ToString()),
@@ -361,7 +361,7 @@ public sealed class LegalRepresentativesController(
             sheetRows.Append(Cell(row.FirstName));
             sheetRows.Append(Cell(row.LastName));
             sheetRows.Append(Cell(row.FullName));
-            sheetRows.Append(Cell(row.DocumentType.ToString()));
+            sheetRows.Append(Cell(row.DocumentType));
             sheetRows.Append(Cell(row.DocumentNumber));
             sheetRows.Append(Cell(row.PositionTitle));
             sheetRows.Append(Cell(row.RepresentationType.ToString()));
@@ -480,7 +480,7 @@ public sealed class LegalRepresentativesController(
     public sealed record CreateLegalRepresentativeRequest(
         string FirstName,
         string LastName,
-        LegalRepresentativeDocumentType DocumentType,
+        string DocumentType,
         string DocumentNumber,
         string PositionTitle,
         LegalRepresentativeRepresentationType RepresentationType,
@@ -496,7 +496,7 @@ public sealed class LegalRepresentativesController(
     public sealed record UpdateLegalRepresentativeRequest(
         string FirstName,
         string LastName,
-        LegalRepresentativeDocumentType DocumentType,
+        string DocumentType,
         string DocumentNumber,
         string PositionTitle,
         LegalRepresentativeRepresentationType RepresentationType,

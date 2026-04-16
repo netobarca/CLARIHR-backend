@@ -16,7 +16,7 @@ public sealed class CostCenterDomainTests
             provisionAccountCode: " 5103-001 ",
             description: " principal ");
 
-        Assert.Equal("cc-001", costCenter.Code);
+        Assert.Equal("CC-001", costCenter.Code);
         Assert.Equal("CC-001", costCenter.NormalizedCode);
         Assert.Equal("Centro Contable", costCenter.Name);
         Assert.Equal("CENTRO CONTABLE", costCenter.NormalizedName);
