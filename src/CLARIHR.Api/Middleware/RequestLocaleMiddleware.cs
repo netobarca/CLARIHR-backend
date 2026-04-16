@@ -7,7 +7,6 @@ namespace CLARIHR.Api.Middleware;
 internal sealed class RequestLocaleMiddleware(RequestDelegate next)
 {
     private const string LocaleClaimType = "locale";
-    private const string TenantClaimType = "tid";
     private const string FallbackLocale = "es-SV";
 
     public async Task InvokeAsync(HttpContext context, ITenantLocaleResolver tenantLocaleResolver)
@@ -40,13 +39,13 @@ internal sealed class RequestLocaleMiddleware(RequestDelegate next)
         HttpContext context,
         ITenantLocaleResolver tenantLocaleResolver)
     {
-        var tenantClaim = context.User.FindFirstValue(TenantClaimType);
-        if (!Guid.TryParse(tenantClaim, out var tenantId))
+        var tenantId = RequestIdentityContextResolver.ResolveTenantGuid(context.User);
+        if (!tenantId.HasValue)
         {
             return null;
         }
 
-        return await tenantLocaleResolver.ResolveDefaultLocaleAsync(tenantId, context.RequestAborted);
+        return await tenantLocaleResolver.ResolveDefaultLocaleAsync(tenantId.Value, context.RequestAborted);
     }
 
     private static CultureInfo? TryResolveCulture(string? locale)

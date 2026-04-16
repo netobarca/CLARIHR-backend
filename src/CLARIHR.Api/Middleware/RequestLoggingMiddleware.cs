@@ -23,8 +23,8 @@ internal sealed class RequestLoggingMiddleware(
             stopwatch.Stop();
 
             // Extract enriched request context for structured logging.
-            var tenantId = context.User.FindFirst("tid")?.Value ?? context.User.FindFirst("tenantid")?.Value ?? "unknown";
-            var userId = context.User.FindFirst("sub")?.Value ?? context.User.FindFirst("uid")?.Value ?? "anonymous";
+            var tenantId = RequestIdentityContextResolver.ResolveTenantId(context.User);
+            var userId = RequestIdentityContextResolver.ResolveUserId(context.User);
             var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
             using (logger.BeginScope(new Dictionary<string, object>
