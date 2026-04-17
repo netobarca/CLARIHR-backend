@@ -33,19 +33,26 @@ internal sealed class JwtTokenService(
     public async Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken)
     {
         var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
-        return await GenerateInternalAsync(user, tenantId, AuthClientType.Core, cancellationToken);
+        return await GenerateInternalAsync(user, tenantId, AuthClientType.Core, includeAuthorizationClaims: true, cancellationToken);
+    }
+
+    public async Task<Result<AuthTokenResult>> GenerateLoginAsync(User user, CancellationToken cancellationToken)
+    {
+        var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
+        return await GenerateInternalAsync(user, tenantId, AuthClientType.Core, includeAuthorizationClaims: false, cancellationToken);
     }
 
     public Task<Result<AuthTokenResult>> GenerateForTenantAsync(User user, Guid tenantId, CancellationToken cancellationToken) =>
-        GenerateInternalAsync(user, tenantId, AuthClientType.Core, cancellationToken);
+        GenerateInternalAsync(user, tenantId, AuthClientType.Core, includeAuthorizationClaims: true, cancellationToken);
 
     public Task<Result<AuthTokenResult>> GeneratePlatformAsync(User user, CancellationToken cancellationToken) =>
-        GenerateInternalAsync(user, tenantId: null, AuthClientType.Platform, cancellationToken);
+        GenerateInternalAsync(user, tenantId: null, AuthClientType.Platform, includeAuthorizationClaims: false, cancellationToken);
 
     private async Task<Result<AuthTokenResult>> GenerateInternalAsync(
         User user,
         Guid? tenantId,
         AuthClientType clientType,
+        bool includeAuthorizationClaims,
         CancellationToken cancellationToken)
     {
         var jwtOptions = options.Value;
@@ -58,7 +65,7 @@ internal sealed class JwtTokenService(
         var expiresAt = issuedAt.AddMinutes(jwtOptions.AccessTokenExpirationMinutes);
         var refreshExpiresAt = issuedAt.AddDays(jwtOptions.RefreshTokenExpirationDays);
 
-        var claims = await CreateIdentityClaimsAsync(user, tenantId, clientType, cancellationToken);
+        var claims = await CreateIdentityClaimsAsync(user, tenantId, clientType, includeAuthorizationClaims, cancellationToken);
 
         var signingCredentials = new SigningCredentials(
             JwtConfigurationDiagnostics.CreateSigningKey(jwtOptions.SigningKey!),
@@ -201,7 +208,7 @@ internal sealed class JwtTokenService(
         var tenantId = clientType == AuthClientType.Core
             ? await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken)
             : null;
-        var claims = await CreateIdentityClaimsAsync(user, tenantId, clientType, cancellationToken);
+        var claims = await CreateIdentityClaimsAsync(user, tenantId, clientType, includeAuthorizationClaims: true, cancellationToken);
 
         var signingCredentials = new SigningCredentials(
             JwtConfigurationDiagnostics.CreateSigningKey(jwtOptions.SigningKey!),
@@ -220,6 +227,7 @@ internal sealed class JwtTokenService(
         User user,
         Guid? tenantId,
         AuthClientType clientType,
+        bool includeAuthorizationClaims,
         CancellationToken cancellationToken)
     {
         var claims = new List<Claim>
@@ -245,6 +253,11 @@ internal sealed class JwtTokenService(
 
         var language = await userPreferenceRepository.ResolveLanguageAsync(user.Id, cancellationToken) ?? DefaultLanguage;
         claims.Add(new Claim(LanguageClaimType, language));
+
+        if (!includeAuthorizationClaims)
+        {
+            return claims;
+        }
 
         var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
             tenantId.Value,

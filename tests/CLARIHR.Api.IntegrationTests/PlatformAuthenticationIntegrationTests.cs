@@ -223,7 +223,7 @@ public sealed class PlatformAuthenticationIntegrationTests(
         var loginJwt = new JwtSecurityTokenHandler().ReadJwtToken(loginPayload!.AccessToken);
         Assert.Equal(AuthClientType.Core.ToClaimValue(), loginJwt.Claims.Single(claim => claim.Type == "client_type").Value);
         Assert.Contains(loginJwt.Claims, static claim => claim.Type == "tid");
-        Assert.Contains(loginJwt.Claims, static claim => claim.Type == "role");
+        Assert.DoesNotContain(loginJwt.Claims, static claim => claim.Type is System.Security.Claims.ClaimTypes.Role or "role" or "permission" or "permissions");
 
         using var companiesClient = coreFactory.CreateClient();
         companiesClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginPayload.AccessToken);
