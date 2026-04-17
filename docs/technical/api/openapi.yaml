@@ -3999,6 +3999,89 @@ components:
           type: string
           format: date-time
           nullable: true
+    UserPreferenceResponse:
+      type: object
+      required:
+        - id
+        - language
+        - createdAtUtc
+      properties:
+        id:
+          type: string
+          format: uuid
+        language:
+          type: string
+          maxLength: 3
+          pattern: "^[A-Za-z]{2,3}$"
+          description: Language selected by the authenticated user profile.
+          example: es
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    UpdateUserPreferencesRequest:
+      type: object
+      required:
+        - language
+      properties:
+        language:
+          type: string
+          maxLength: 3
+          pattern: "^[A-Za-z]{2,3}$"
+          example: en
+    CompanyPreferenceResponse:
+      type: object
+      required:
+        - id
+        - currencyCode
+        - timeZone
+        - concurrencyToken
+        - createdAtUtc
+      properties:
+        id:
+          type: string
+          format: uuid
+        currencyCode:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: USD
+        timeZone:
+          type: string
+          maxLength: 100
+          example: America/El_Salvador
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    UpdateCompanyPreferencesRequest:
+      type: object
+      required:
+        - currencyCode
+        - timeZone
+        - concurrencyToken
+      properties:
+        currencyCode:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: EUR
+        timeZone:
+          type: string
+          maxLength: 100
+          example: Europe/Madrid
+        concurrencyToken:
+          type: string
+          format: uuid
 paths:
   /api/audit/logs:
     get:
@@ -4885,6 +4968,160 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '500':
           description: Token generation is not configured correctly.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/me/preferences:
+    get:
+      tags:
+        - preferences
+      operationId: GetCurrentUserPreferences
+      summary: Get current user preferences
+      description: Returns the authenticated user profile preferences, including language.
+      security:
+        - Bearer: []
+      responses:
+        '200':
+          description: Current user preferences returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferenceResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - preferences
+      operationId: UpdateCurrentUserPreferences
+      summary: Update current user preferences
+      description: Updates the authenticated user profile preferences, including language.
+      security:
+        - Bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserPreferencesRequest'
+      responses:
+        '200':
+          description: Current user preferences updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferenceResponse'
+        '400':
+          description: Validation error for one or more request fields.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyId}/preferences:
+    get:
+      tags:
+        - preferences
+      operationId: GetCompanyPreferences
+      summary: Get company preferences
+      description: Returns tenant-scoped company preferences such as currency code and time zone.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Company preferences returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyPreferenceResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The user does not have permission to access company preferences or tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company preferences were not found for the requested tenant.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - preferences
+      operationId: UpdateCompanyPreferences
+      summary: Update company preferences
+      description: Updates tenant-scoped company preferences such as currency code and time zone.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompanyPreferencesRequest'
+      responses:
+        '200':
+          description: Company preferences updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyPreferenceResponse'
+        '400':
+          description: Validation error for one or more request fields.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The user does not have permission to manage company preferences or tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company preferences were not found for the requested tenant.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict. Refresh and retry with the latest concurrency token.
           content:
             application/problem+json:
               schema:

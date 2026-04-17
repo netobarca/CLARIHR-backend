@@ -1,30 +1,16 @@
 using System.Globalization;
 using System.Security.Claims;
+using CLARIHR.Infrastructure.Localization;
 
 namespace CLARIHR.Api.Common;
 
 internal static class ProblemDetailsLocalizationScope
 {
-    private const string LocaleClaimType = "locale";
-
     public static IDisposable UseFrom(HttpContext httpContext)
     {
-        var locale = httpContext.User.FindFirstValue(LocaleClaimType);
-        if (string.IsNullOrWhiteSpace(locale))
-        {
-            return NoopDisposable.Instance;
-        }
-
-        CultureInfo? culture;
-        try
-        {
-            culture = CultureInfo.GetCultureInfo(locale);
-        }
-        catch (CultureNotFoundException)
-        {
-            return NoopDisposable.Instance;
-        }
-
+        var preferredLanguage = httpContext.User.FindFirstValue(RequestLanguageResolver.LanguageClaimType);
+        var acceptLanguageHeader = httpContext.Request.Headers.AcceptLanguage.ToString();
+        var culture = RequestLanguageResolver.ResolveCulture(preferredLanguage, acceptLanguageHeader);
         return new CultureScope(culture);
     }
 

@@ -1,11 +1,13 @@
 using System.Reflection;
 using CLARIHR.Application.Abstractions.Auth;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.External;
 using CLARIHR.Application.Features.Auth.RegisterUser;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.Preferences;
 
 namespace CLARIHR.Application.UnitTests;
 
@@ -17,6 +19,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
         var unitOfWork = new TestUnitOfWork();
         var handler = new RegisterExternalUserCommandHandler(
             new TestUserRepository(),
+            new TestUserPreferenceRepository(),
             new FailingExternalAuthProviderService(AuthErrors.ExternalTokenInvalid),
             new TestTokenService(),
             unitOfWork);
@@ -38,6 +41,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
         var unitOfWork = new TestUnitOfWork();
         var handler = new RegisterExternalUserCommandHandler(
             new TestUserRepository(),
+            new TestUserPreferenceRepository(),
             new SuccessfulExternalAuthProviderService(new ExternalAuthValidationResult(
                 Email: null,
                 FirstName: "Ana",
@@ -66,6 +70,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
         var unitOfWork = new TestUnitOfWork();
         var handler = new RegisterExternalUserCommandHandler(
             repository,
+            new TestUserPreferenceRepository(),
             new SuccessfulExternalAuthProviderService(new ExternalAuthValidationResult(
                 Email: "ana@clarihr.test",
                 FirstName: "Ana",
@@ -107,6 +112,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
 
         var handler = new RegisterExternalUserCommandHandler(
             repository,
+            new TestUserPreferenceRepository(),
             new SuccessfulExternalAuthProviderService(new ExternalAuthValidationResult(
                 Email: "carla@clarihr.test",
                 FirstName: "Carla",
@@ -147,6 +153,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
 
         var handler = new RegisterExternalUserCommandHandler(
             repository,
+            new TestUserPreferenceRepository(),
             new SuccessfulExternalAuthProviderService(new ExternalAuthValidationResult(
                 Email: "luisa@example.com",
                 FirstName: "Luisa",
@@ -178,6 +185,7 @@ public sealed class RegisterExternalUserCommandHandlerTests
 
         var handler = new RegisterExternalUserCommandHandler(
             repository,
+            new TestUserPreferenceRepository(),
             new SuccessfulExternalAuthProviderService(new ExternalAuthValidationResult(
                 Email: "ana@clarihr.test",
                 FirstName: "Ana",
@@ -321,5 +329,18 @@ public sealed class RegisterExternalUserCommandHandlerTests
             AuthClientType clientType,
             CancellationToken cancellationToken) =>
             Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
+    }
+
+    private sealed class TestUserPreferenceRepository : IUserPreferenceRepository
+    {
+        public void Add(UserPreference preference)
+        {
+        }
+
+        public Task<UserPreference?> GetByUserIdAsync(long userId, CancellationToken cancellationToken) =>
+            Task.FromResult<UserPreference?>(null);
+
+        public Task<string?> ResolveLanguageAsync(long userId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(null);
     }
 }

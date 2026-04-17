@@ -14,6 +14,7 @@ using CLARIHR.Domain.OrgStructureCatalogs;
 using CLARIHR.Domain.OrgUnits;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Domain.PositionSlots;
+using CLARIHR.Domain.Preferences;
 using CLARIHR.Domain.SalaryTabulator;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -78,6 +79,10 @@ internal sealed class DevSeedService(
         var user = User.RegisterLocal("Adam", "Developer", DevEmail, hash, DevCountry, "dev-seed");
         dbContext.AuthUsers.Add(user);
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        dbContext.UserPreferences.Add(UserPreference.Create(user.Id, "es"));
+        await dbContext.SaveChangesAsync(cancellationToken);
+
         return user;
     }
 
@@ -85,7 +90,7 @@ internal sealed class DevSeedService(
     {
         var countryCatalog = await dbContext.CountryCatalogItems
             .Where(item => item.NormalizedCode == DevCountry)
-            .Select(item => new { item.Id, item.DefaultLocale })
+            .Select(item => new { item.Id })
             .SingleAsync(cancellationToken);
 
         var company = Company.Create(
@@ -93,9 +98,13 @@ internal sealed class DevSeedService(
             "clarihr-dev",
             user.PublicId,
             DevCountry,
-            countryCatalog.Id,
-            defaultLocale: countryCatalog.DefaultLocale);
+            countryCatalog.Id);
         dbContext.Companies.Add(company);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var companyPreference = CompanyPreference.Create("USD", "America/El_Salvador");
+        companyPreference.SetTenantId(company.PublicId);
+        dbContext.CompanyPreferences.Add(companyPreference);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var freePlan = await dbContext.CommercialPlans

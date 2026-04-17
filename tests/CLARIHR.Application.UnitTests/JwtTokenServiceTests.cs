@@ -4,7 +4,7 @@ using System.Security.Claims;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
-using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CompanyUsers;
@@ -13,6 +13,7 @@ using CLARIHR.Application.Features.IdentityAccess.Contracts;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.Preferences;
 using CLARIHR.Infrastructure.Auth;
 using CLARIHR.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -28,6 +29,7 @@ public sealed class JwtTokenServiceTests
         var userRepository = new TestUserRepository();
         var refreshTokenRepository = new TestRefreshTokenRepository();
         var primaryTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var userPreferenceRepository = new TestUserPreferenceRepository();
         var userCompanyRepository = new TestUserCompanyRepository(
             primaryTenantId,
             new Dictionary<Guid, string>
@@ -36,8 +38,9 @@ public sealed class JwtTokenServiceTests
             });
         var user = CreatePersistedUser();
         userRepository.Seed(user);
+        userPreferenceRepository.Seed(user.Id, "es");
 
-        var service = CreateService(userRepository, userCompanyRepository, refreshTokenRepository);
+        var service = CreateService(userRepository, userPreferenceRepository, userCompanyRepository, refreshTokenRepository);
 
         var result = await service.GenerateAsync(user, CancellationToken.None);
 
@@ -52,7 +55,7 @@ public sealed class JwtTokenServiceTests
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
         Assert.Equal("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", jwt.Claims.Single(claim => claim.Type == "tid").Value);
         Assert.Equal("ADMIN DE EMPRESA", jwt.Claims.Single(claim => claim.Type == "role").Value);
-        Assert.Equal("es-SV", jwt.Claims.Single(claim => claim.Type == "locale").Value);
+        Assert.Equal("es", jwt.Claims.Single(claim => claim.Type == "language").Value);
     }
 
     [Fact]
@@ -62,6 +65,7 @@ public sealed class JwtTokenServiceTests
         var refreshTokenRepository = new TestRefreshTokenRepository();
         var primaryTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
         var targetTenantId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        var userPreferenceRepository = new TestUserPreferenceRepository();
         var userCompanyRepository = new TestUserCompanyRepository(
             primaryTenantId,
             new Dictionary<Guid, string>
@@ -71,8 +75,9 @@ public sealed class JwtTokenServiceTests
             });
         var user = CreatePersistedUser();
         userRepository.Seed(user);
+        userPreferenceRepository.Seed(user.Id, "es");
 
-        var service = CreateService(userRepository, userCompanyRepository, refreshTokenRepository);
+        var service = CreateService(userRepository, userPreferenceRepository, userCompanyRepository, refreshTokenRepository);
 
         var result = await service.GenerateForTenantAsync(user, targetTenantId, CancellationToken.None);
 
@@ -81,36 +86,15 @@ public sealed class JwtTokenServiceTests
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
         Assert.Equal(targetTenantId.ToString(), jwt.Claims.Single(claim => claim.Type == "tid").Value);
         Assert.Equal("AUDITOR B", jwt.Claims.Single(claim => claim.Type == "role").Value);
-        Assert.Equal("es-SV", jwt.Claims.Single(claim => claim.Type == "locale").Value);
+        Assert.Equal("es", jwt.Claims.Single(claim => claim.Type == "language").Value);
     }
 
     [Fact]
-    public async Task GeneratePlatformAsync_WhenConfigured_ShouldEmitPlatformClientTokenWithoutTenant()
+    public async Task GenerateAsync_WhenUserPreferenceMissing_ShouldEmitDefaultLanguageClaim()
     {
         var userRepository = new TestUserRepository();
         var refreshTokenRepository = new TestRefreshTokenRepository();
-        var userCompanyRepository = new TestUserCompanyRepository(primaryCompanyPublicId: null, new Dictionary<Guid, string>());
-        var user = CreatePersistedUser();
-        userRepository.Seed(user);
-
-        var service = CreateService(userRepository, userCompanyRepository, refreshTokenRepository);
-
-        var result = await service.GeneratePlatformAsync(user, CancellationToken.None);
-
-        Assert.True(result.IsSuccess);
-
-        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
-        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "tid");
-        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "role");
-        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "locale");
-        Assert.Equal(AuthClientType.Platform.ToClaimValue(), jwt.Claims.Single(claim => claim.Type == "client_type").Value);
-    }
-
-    [Fact]
-    public async Task RefreshAsync_WhenRefreshTokenIsActive_ShouldRotateRefreshToken()
-    {
-        var userRepository = new TestUserRepository();
-        var refreshTokenRepository = new TestRefreshTokenRepository();
+        var userPreferenceRepository = new TestUserPreferenceRepository();
         var primaryTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
         var userCompanyRepository = new TestUserCompanyRepository(
             primaryTenantId,
@@ -121,7 +105,57 @@ public sealed class JwtTokenServiceTests
         var user = CreatePersistedUser();
         userRepository.Seed(user);
 
-        var service = CreateService(userRepository, userCompanyRepository, refreshTokenRepository);
+        var service = CreateService(userRepository, userPreferenceRepository, userCompanyRepository, refreshTokenRepository);
+
+        var result = await service.GenerateAsync(user, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
+        Assert.Equal("en", jwt.Claims.Single(claim => claim.Type == "language").Value);
+    }
+
+    [Fact]
+    public async Task GeneratePlatformAsync_WhenConfigured_ShouldEmitPlatformClientTokenWithoutTenant()
+    {
+        var userRepository = new TestUserRepository();
+        var refreshTokenRepository = new TestRefreshTokenRepository();
+        var userPreferenceRepository = new TestUserPreferenceRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(primaryCompanyPublicId: null, new Dictionary<Guid, string>());
+        var user = CreatePersistedUser();
+        userRepository.Seed(user);
+        userPreferenceRepository.Seed(user.Id, "es");
+
+        var service = CreateService(userRepository, userPreferenceRepository, userCompanyRepository, refreshTokenRepository);
+
+        var result = await service.GeneratePlatformAsync(user, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
+        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "tid");
+        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "role");
+        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type == "language");
+        Assert.Equal(AuthClientType.Platform.ToClaimValue(), jwt.Claims.Single(claim => claim.Type == "client_type").Value);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_WhenRefreshTokenIsActive_ShouldRotateRefreshToken()
+    {
+        var userRepository = new TestUserRepository();
+        var refreshTokenRepository = new TestRefreshTokenRepository();
+        var primaryTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var userPreferenceRepository = new TestUserPreferenceRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(
+            primaryTenantId,
+            new Dictionary<Guid, string>
+            {
+                [primaryTenantId] = "ADMIN DE EMPRESA"
+            });
+        var user = CreatePersistedUser();
+        userRepository.Seed(user);
+        userPreferenceRepository.Seed(user.Id, "es");
+
+        var service = CreateService(userRepository, userPreferenceRepository, userCompanyRepository, refreshTokenRepository);
         var issuedTokens = await service.GenerateAsync(user, CancellationToken.None);
 
         var result = await service.RefreshAsync(
@@ -139,7 +173,7 @@ public sealed class JwtTokenServiceTests
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.Tokens.AccessToken);
         Assert.Equal(primaryTenantId.ToString(), jwt.Claims.Single(claim => claim.Type == "tid").Value);
         Assert.Equal("ADMIN DE EMPRESA", jwt.Claims.Single(claim => claim.Type == "role").Value);
-        Assert.Equal("es-SV", jwt.Claims.Single(claim => claim.Type == "locale").Value);
+        Assert.Equal("es", jwt.Claims.Single(claim => claim.Type == "language").Value);
     }
 
     [Fact]
@@ -148,6 +182,7 @@ public sealed class JwtTokenServiceTests
         var userRepository = new TestUserRepository();
         var refreshTokenRepository = new TestRefreshTokenRepository();
         var primaryTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var userPreferenceRepository = new TestUserPreferenceRepository();
         var userCompanyRepository = new TestUserCompanyRepository(
             primaryTenantId,
             new Dictionary<Guid, string>
@@ -156,8 +191,9 @@ public sealed class JwtTokenServiceTests
             });
         var user = CreatePersistedUser();
         userRepository.Seed(user);
+        userPreferenceRepository.Seed(user.Id, "es");
 
-        var service = CreateService(userRepository, userCompanyRepository, refreshTokenRepository);
+        var service = CreateService(userRepository, userPreferenceRepository, userCompanyRepository, refreshTokenRepository);
         var initialTokens = await service.GenerateAsync(user, CancellationToken.None);
         var rotatedTokens = await service.RefreshAsync(
             initialTokens.Value.RefreshToken!,
@@ -182,6 +218,7 @@ public sealed class JwtTokenServiceTests
 
     private static JwtTokenService CreateService(
         TestUserRepository userRepository,
+        TestUserPreferenceRepository userPreferenceRepository,
         TestUserCompanyRepository userCompanyRepository,
         TestRefreshTokenRepository refreshTokenRepository) =>
         new(
@@ -197,7 +234,7 @@ public sealed class JwtTokenServiceTests
             new FixedDateTimeProvider(new DateTime(2026, 2, 28, 18, 0, 0, DateTimeKind.Utc)),
             userRepository,
             userCompanyRepository,
-            new TestTenantLocaleResolver(),
+            userPreferenceRepository,
             new TestIamAdministrationRepository(),
             refreshTokenRepository,
             new RefreshTokenHasher(),
@@ -262,12 +299,6 @@ public sealed class JwtTokenServiceTests
         public void Seed(User user) => _items.Add(user);
     }
 
-    private sealed class TestTenantLocaleResolver : ITenantLocaleResolver
-    {
-        public Task<string?> ResolveDefaultLocaleAsync(Guid tenantId, CancellationToken cancellationToken) =>
-            Task.FromResult<string?>("es-SV");
-    }
-
     private sealed class TestUserCompanyRepository(
         Guid? primaryCompanyPublicId,
         IReadOnlyDictionary<Guid, string> rolesByCompanyPublicId) : IUserCompanyRepository
@@ -325,6 +356,24 @@ public sealed class JwtTokenServiceTests
 
         public Task<CompanyUserResponse?> GetUserAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+    }
+
+    private sealed class TestUserPreferenceRepository : IUserPreferenceRepository
+    {
+        private readonly Dictionary<long, UserPreference> _items = [];
+
+        public void Add(UserPreference preference) => _items[preference.UserId] = preference;
+
+        public Task<UserPreference?> GetByUserIdAsync(long userId, CancellationToken cancellationToken) =>
+            Task.FromResult(_items.TryGetValue(userId, out var preference) ? preference : null);
+
+        public Task<string?> ResolveLanguageAsync(long userId, CancellationToken cancellationToken) =>
+            Task.FromResult(_items.TryGetValue(userId, out var preference) ? preference.Language : null);
+
+        public void Seed(long userId, string language)
+        {
+            _items[userId] = UserPreference.Create(userId, language);
+        }
     }
 
     private sealed class TestRefreshTokenRepository : IRefreshTokenRepository

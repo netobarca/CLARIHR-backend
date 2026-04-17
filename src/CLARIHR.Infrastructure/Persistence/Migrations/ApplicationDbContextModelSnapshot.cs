@@ -810,12 +810,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
 
-                    b.Property<string>("DefaultLocale")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("default_locale");
-
                     b.Property<bool>("IsBillable")
                         .HasColumnType("boolean")
                         .HasColumnName("is_billable");
@@ -14167,6 +14161,107 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("position_slots", (string)null);
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.Preferences.CompanyPreference", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency_code");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("time_zone");
+
+                    b.HasKey("Id")
+                        .HasName("pk_company_preferences");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_preferences__public_id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_company_preferences__tenant_id");
+
+                    b.ToTable("company_preferences", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Preferences.UserPreference", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<string>("Locale")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("locale");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_user_preferences");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_user_preferences__public_id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_user_preferences__user_id");
+
+                    b.ToTable("user_preferences", (string)null);
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.SalaryTabulator.SalaryTabulatorChangeRequest", b =>
                 {
                     b.Property<long>("Id")
@@ -15847,6 +15942,27 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasForeignKey("WorkCenterId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_position_slots__work_center");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Preferences.CompanyPreference", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .HasPrincipalKey("PublicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_company_preferences__companies");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Preferences.UserPreference", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.Auth.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_preferences__auth_users");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.SalaryTabulator.SalaryTabulatorChangeRequestItem", b =>

@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
@@ -13,12 +14,14 @@ using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.Preferences;
 using Microsoft.Extensions.Logging;
 
 namespace CLARIHR.Application.Features.CompanyUsers;
 
 internal sealed class CreateCompanyUserCommandHandler(
     IUserRepository userRepository,
+    IUserPreferenceRepository userPreferenceRepository,
     IUserCompanyRepository userCompanyRepository,
     ICompanyRepository companyRepository,
     IIamAdministrationRepository iamRepository,
@@ -120,6 +123,9 @@ internal sealed class CreateCompanyUserCommandHandler(
                 source: CompanyUserConstants.InvitationSource);
 
             await userRepository.AddAsync(user, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            userPreferenceRepository.Add(UserPreference.Create(user.Id));
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
         }
 

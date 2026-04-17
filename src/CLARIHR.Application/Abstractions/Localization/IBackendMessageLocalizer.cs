@@ -6,4 +6,6 @@ public interface IBackendMessageLocalizer
         string key,
         string fallback,
         IReadOnlyList<object?>? arguments = null);
+
+    string LocalizeValidationMessage(string fallback);
 }

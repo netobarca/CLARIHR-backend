@@ -210,7 +210,7 @@ internal static class ProblemDetailsDefaults
             return Localize(localizer, "model.value.invalid", "The value is invalid for this field.");
         }
 
-        return rawMessage;
+        return LocalizeValidationMessage(localizer, rawMessage);
     }
 
     private static string MapJsonConversionMessage(string message, IBackendMessageLocalizer? localizer)
@@ -262,4 +262,7 @@ internal static class ProblemDetailsDefaults
 
     private static string Localize(IBackendMessageLocalizer? localizer, string key, string fallback) =>
         localizer?.Localize(key, fallback) ?? fallback;
+
+    private static string LocalizeValidationMessage(IBackendMessageLocalizer? localizer, string fallback) =>
+        localizer?.LocalizeValidationMessage(fallback) ?? fallback;
 }

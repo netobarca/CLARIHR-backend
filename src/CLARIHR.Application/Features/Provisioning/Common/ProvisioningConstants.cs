@@ -36,6 +36,8 @@ public static class ProvisioningConstants
         new("RBAC.USERS.MANAGE", "Gestionar usuarios", "Administracion de usuarios del tenant.", RbacModuleKey, "Users", "Manage"),
         new("RBAC.ROLES.MANAGE", "Gestionar roles", "Administracion de roles del tenant.", RbacModuleKey, "Roles", "Manage"),
         new("RBAC.PERMISSIONS.MANAGE", "Gestionar permisos", "Administracion de permisos del tenant.", RbacModuleKey, "Permissions", "Manage"),
+        new("CompanyPreferences.Read", "Leer preferencias de compañía", "Consulta de moneda y zona horaria configuradas para la compañía.", RbacModuleKey, "CompanyPreferences", "Read"),
+        new("CompanyPreferences.Admin", "Administrar preferencias de compañía", "Administración de moneda y zona horaria de la compañía.", RbacModuleKey, "CompanyPreferences", "Manage"),
         new("CompanyUsers.Read", "Leer usuarios de empresa", "Consulta de usuarios operativos del tenant.", UsersModuleKey, "CompanyUsers", "Read"),
         new("CompanyUsers.Admin", "Administrar usuarios de empresa", "Administracion completa de usuarios operativos del tenant.", UsersModuleKey, "CompanyUsers", "Manage"),
         new("OrgStructureCatalogs.Read", "Leer catalogos de estructura organizativa", "Consulta de catalogos de tipos de empresa, unidades y areas funcionales.", OrgStructureCatalogsModuleKey, "OrgStructureCatalogs", "Read"),

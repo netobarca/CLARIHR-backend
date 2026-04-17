@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Common.Errors;
@@ -14,6 +15,7 @@ using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.LegalRepresentatives;
+using CLARIHR.Domain.Preferences;
 
 namespace CLARIHR.Application.Features.Provisioning;
 
@@ -26,6 +28,7 @@ internal sealed class CompanyProvisioningService(
     IIamAdministrationRepository iamRepository,
     ILegalRepresentativeRepository legalRepresentativeRepository,
     ICountryCatalogRepository countryCatalogRepository,
+    ICompanyPreferenceRepository companyPreferenceRepository,
     ILocationSeedService locationSeedService,
     IPlanEntitlementService planEntitlementService,
     IUnitOfWork unitOfWork,
@@ -67,11 +70,14 @@ internal sealed class CompanyProvisioningService(
             user.PublicId,
             country.Code,
             country.InternalId,
-            request.CompanyTypeCatalogItemId,
-            country.DefaultLocale);
+            request.CompanyTypeCatalogItemId);
         companyRepository.Add(company);
 
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var companyPreference = CompanyPreference.CreateDefault();
+        companyPreference.SetTenantId(company.PublicId);
+        companyPreferenceRepository.Add(companyPreference);
 
         var initialLegalRepresentative = request.InitialLegalRepresentative;
         var legalRepresentative = LegalRepresentative.Create(

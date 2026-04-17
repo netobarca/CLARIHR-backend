@@ -36,10 +36,6 @@ internal sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
         builder.Property(company => company.CountryCatalogItemId)
             .HasColumnName("country_catalog_item_id");
 
-        builder.Property(company => company.DefaultLocale)
-            .HasColumnName("default_locale")
-            .HasMaxLength(16);
-
         builder.Property(company => company.Status)
             .HasColumnName("status")
             .HasConversion<string>()

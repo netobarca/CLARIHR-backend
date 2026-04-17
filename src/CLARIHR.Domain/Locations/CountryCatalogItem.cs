@@ -43,7 +43,7 @@ public sealed class CountryCatalogItem : Entity
 
     public int SortOrder { get; private set; }
 
-    public string DefaultLocale { get; private set; } = "en-US";
+    public string DefaultLocale { get; private set; } = "en";
 
     public bool IsActive { get; private set; }
 
@@ -68,12 +68,9 @@ public sealed class CountryCatalogItem : Entity
         var normalizedCode = Clean(code, nameof(code), 2).ToUpperInvariant();
         return normalizedCode switch
         {
-            "SV" => "es-SV",
-            "ES" => "es-ES",
-            "AR" or "BO" or "CL" or "CO" or "CR" or "CU" or "DO" or "EC" or "GT" or "HN" or "MX" or "NI" or "PA" or "PE" or "PR" or "PY" or "UY" or "VE" => "es-419",
-            "BR" => "pt-BR",
-            "PT" => "pt-PT",
-            _ => "en-US"
+            "SV" or "ES" or "AR" or "BO" or "CL" or "CO" or "CR" or "CU" or "DO" or "EC" or "GT" or "HN" or "MX" or "NI" or "PA" or "PE" or "PR" or "PY" or "UY" or "VE" => "es",
+            "BR" or "PT" => "pt",
+            _ => "en"
         };
     }
 

@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
@@ -11,6 +12,7 @@ using CLARIHR.Application.Features.CompanyUsers.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.Preferences;
 
 namespace CLARIHR.Application.Features.CompanyUsers;
 
@@ -24,6 +26,7 @@ internal sealed class CompanyUserProvisioningService(
     IEmailService emailService,
     IPasswordHasher passwordHasher,
     IPersonnelFileRepository personnelFileRepository,
+    IUserPreferenceRepository userPreferenceRepository,
     IUnitOfWork unitOfWork,
     IDateTimeProvider dateTimeProvider) : ICompanyUserProvisioningService
 {
@@ -97,6 +100,9 @@ internal sealed class CompanyUserProvisioningService(
                 request.Source ?? CompanyUserConstants.InvitationSource);
 
             await userRepository.AddAsync(user, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            userPreferenceRepository.Add(UserPreference.Create(user.Id));
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             membership = UserCompanyMembership.Create(

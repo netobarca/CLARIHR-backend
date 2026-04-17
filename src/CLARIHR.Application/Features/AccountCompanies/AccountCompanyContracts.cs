@@ -20,10 +20,7 @@ public sealed record AccountCompanySummaryResponse(
     bool IsOwnedByCurrentUser,
     DateTime CreatedAtUtc,
     CompanyTypeMetadataResponse? CompanyType,
-    AllowedActionsResponse? AllowedActions = null)
-{
-    public string DefaultLocale { get; init; } = "en-US";
-}
+    AllowedActionsResponse? AllowedActions = null);
 
 public sealed record AccountCompanyDetailResponse(
     Guid PublicId,
@@ -37,10 +34,7 @@ public sealed record AccountCompanyDetailResponse(
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
     IReadOnlyCollection<ActiveLegalRepresentativeSummaryResponse> ActiveLegalRepresentatives,
-    CompanyTypeMetadataResponse? CompanyType)
-{
-    public string DefaultLocale { get; init; } = "en-US";
-}
+    CompanyTypeMetadataResponse? CompanyType);
 
 public sealed record CompanyTypeMetadataResponse(
     Guid Id,
@@ -60,10 +54,7 @@ public sealed record ActiveCompanyDto(
     string Name,
     string Slug,
     string CountryCode,
-    CompanyStatus Status)
-{
-    public string DefaultLocale { get; init; } = "en-US";
-}
+    CompanyStatus Status);
 
 public sealed record SwitchActiveCompanyResponse(
     string AccessToken,

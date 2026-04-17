@@ -149,6 +149,7 @@ public partial class Program
         }
 
         app.UseAuthentication();
+        app.UseMiddleware<RequestLanguageMiddleware>();
         app.UseAuthorization();
         app.MapControllers();
 

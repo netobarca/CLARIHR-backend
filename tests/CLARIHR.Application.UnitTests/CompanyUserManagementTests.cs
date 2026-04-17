@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Errors;
@@ -19,6 +20,7 @@ using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.Preferences;
 using CLARIHR.Infrastructure.IdentityAccess;
 using CLARIHR.Infrastructure.Policies;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -72,6 +74,7 @@ public sealed class CompanyUserManagementTests
 
         var handler = new CreateCompanyUserCommandHandler(
             userRepository,
+            new TestUserPreferenceRepository(),
             userCompanyRepository,
             companyRepository,
             iamRepository,
@@ -205,6 +208,7 @@ public sealed class CompanyUserManagementTests
     {
         var handler = new CreateCompanyUserCommandHandler(
             new TestUserRepository(),
+            new TestUserPreferenceRepository(),
             new TestUserCompanyRepository(new TestCompanyRepository(), new TestUserRepository(), new TestIamAdministrationRepository()),
             SeedCompanyRepository(TenantId, "Acme HR"),
             new TestIamAdministrationRepository(),
@@ -244,6 +248,7 @@ public sealed class CompanyUserManagementTests
 
         var handler = new CreateCompanyUserCommandHandler(
             userRepository,
+            new TestUserPreferenceRepository(),
             userCompanyRepository,
             companyRepository,
             iamRepository,
@@ -1199,6 +1204,19 @@ public sealed class CompanyUserManagementTests
         public string Hash(string password) => $"HASH::{password}";
 
         public bool Verify(string password, string passwordHash) => Hash(password) == passwordHash;
+    }
+
+    private sealed class TestUserPreferenceRepository : IUserPreferenceRepository
+    {
+        public void Add(UserPreference preference)
+        {
+        }
+
+        public Task<UserPreference?> GetByUserIdAsync(long userId, CancellationToken cancellationToken) =>
+            Task.FromResult<UserPreference?>(null);
+
+        public Task<string?> ResolveLanguageAsync(long userId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(null);
     }
 
     private sealed class TestTokenService : ITokenService
