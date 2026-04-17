@@ -1,9 +1,11 @@
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Domain.Auth;
+using CLARIHR.Domain.Preferences;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.Auth.RegisterUser;
@@ -69,6 +71,7 @@ internal sealed class RegisterUserCommandValidator : AbstractValidator<RegisterU
 
 internal sealed class RegisterUserCommandHandler(
     IUserRepository userRepository,
+    IUserPreferenceRepository userPreferenceRepository,
     IPasswordHasher passwordHasher,
     ITokenService tokenService,
     IUnitOfWork unitOfWork) : ICommandHandler<RegisterUserCommand, AuthResponse>
@@ -94,6 +97,9 @@ internal sealed class RegisterUserCommandHandler(
             command.Source);
 
         await userRepository.AddAsync(user, cancellationToken);
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        userPreferenceRepository.Add(UserPreference.Create(user.Id));
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var tokenResult = await tokenService.GenerateAsync(user, cancellationToken);

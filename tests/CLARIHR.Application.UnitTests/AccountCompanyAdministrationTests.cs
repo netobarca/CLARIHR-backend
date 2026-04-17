@@ -518,14 +518,14 @@ public sealed class AccountCompanyAdministrationTests
     {
         public Task<IReadOnlyCollection<CountryCatalogItemResponse>> GetActiveItemsAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyCollection<CountryCatalogItemResponse>>(
-                [new CountryCatalogItemResponse(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", 10, "es-SV")]);
+                [new CountryCatalogItemResponse(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", 10, "es")]);
 
         public Task<CountryCatalogLookup?> GetActiveByCodeAsync(string countryCode, CancellationToken cancellationToken)
         {
             var normalizedCode = countryCode.Trim().ToUpperInvariant();
             return Task.FromResult<CountryCatalogLookup?>(
                 normalizedCode == "SV"
-                    ? new CountryCatalogLookup(-7001, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", true, "es-SV")
+                    ? new CountryCatalogLookup(-7001, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", true, "es")
                     : null);
         }
     }

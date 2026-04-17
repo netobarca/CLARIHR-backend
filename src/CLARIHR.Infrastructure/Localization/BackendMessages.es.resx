@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, ...</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, ...</value>
+  </resheader>
+  <data name="common.validation" xml:space="preserve">
+    <value>Se encontraron uno o mas errores de validacion.</value>
+  </data>
+  <data name="common.unexpected" xml:space="preserve">
+    <value>Ocurrio un error inesperado.</value>
+  </data>
+  <data name="model.body.invalid" xml:space="preserve">
+    <value>El cuerpo de la solicitud no es valido.</value>
+  </data>
+  <data name="model.body.required" xml:space="preserve">
+    <value>El cuerpo de la solicitud es requerido.</value>
+  </data>
+  <data name="model.value.uuid" xml:space="preserve">
+    <value>El valor debe ser un UUID valido.</value>
+  </data>
+  <data name="model.value.bool" xml:space="preserve">
+    <value>El valor debe ser verdadero o falso.</value>
+  </data>
+  <data name="model.value.int" xml:space="preserve">
+    <value>El valor debe ser un entero valido.</value>
+  </data>
+  <data name="model.value.number" xml:space="preserve">
+    <value>El valor debe ser un numero valido.</value>
+  </data>
+  <data name="model.value.datetime" xml:space="preserve">
+    <value>El valor debe ser una fecha o fecha-hora valida.</value>
+  </data>
+  <data name="model.value.invalid" xml:space="preserve">
+    <value>El valor no es valido para este campo.</value>
+  </data>
+  <data name="auth.unauthorized" xml:space="preserve">
+    <value>Se requiere autenticacion para acceder a este recurso.</value>
+  </data>
+  <data name="auth.forbidden" xml:space="preserve">
+    <value>No tienes permiso para acceder a este recurso.</value>
+  </data>
+  <data name="provisioning.country_not_found" xml:space="preserve">
+    <value>El pais solicitado '{0}' no existe en el catalogo activo de paises.</value>
+  </data>
+  <data name="SYSTEM_CATALOG_COUNTRY_NOT_FOUND" xml:space="preserve">
+    <value>El pais '{0}' no esta activo.</value>
+  </data>
+  <data name="validation.message.language_format_is_invalid" xml:space="preserve">
+    <value>El formato de idioma no es valido.</value>
+  </data>
+  <data name="validation.message.code_format_is_invalid" xml:space="preserve">
+    <value>El formato de codigo no es valido.</value>
+  </data>
+  <data name="validation.message.country_contains_invalid_characters" xml:space="preserve">
+    <value>Country contiene caracteres invalidos.</value>
+  </data>
+  <data name="validation.message.source_contains_invalid_characters" xml:space="preserve">
+    <value>Source contiene caracteres invalidos.</value>
+  </data>
+  <data name="validation.message.first_name_contains_invalid_characters" xml:space="preserve">
+    <value>First name contiene caracteres invalidos.</value>
+  </data>
+  <data name="validation.message.last_name_contains_invalid_characters" xml:space="preserve">
+    <value>Last name contiene caracteres invalidos.</value>
+  </data>
+  <data name="validation.message.role_ids_must_be_unique" xml:space="preserve">
+    <value>Role ids deben ser unicos.</value>
+  </data>
+  <data name="validation.message.sortby_is_not_supported" xml:space="preserve">
+    <value>SortBy no es soportado.</value>
+  </data>
+  <data name="validation.message.minage_cannot_be_greater_than_maxage" xml:space="preserve">
+    <value>MinAge no puede ser mayor que MaxAge.</value>
+  </data>
+  <data name="validation.message.createdfromutc_cannot_be_greater_than_createdtoutc" xml:space="preserve">
+    <value>CreatedFromUtc no puede ser mayor que CreatedToUtc.</value>
+  </data>
+  <data name="validation.message.country_code_must_be_a_2_or_3_letter_iso_style_code" xml:space="preserve">
+    <value>El codigo de pais debe tener 2 o 3 letras estilo ISO.</value>
+  </data>
+</root>

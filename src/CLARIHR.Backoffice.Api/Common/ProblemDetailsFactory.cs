@@ -15,11 +15,16 @@ internal static class ProblemDetailsFactory
 
     public static ProblemDetails CreateProblemDetails(HttpContext httpContext, Error error)
     {
+        using var _ = ProblemDetailsLocalizationScope.UseFrom(httpContext);
+
         var statusCode = MapStatusCode(error.Type);
-        var localizer = httpContext.RequestServices.GetService<IBackendMessageLocalizer>();
+        var requestServices = httpContext.RequestServices;
+        var localizer = requestServices is null
+            ? null
+            : requestServices.GetService<IBackendMessageLocalizer>();
 
         ProblemDetails problemDetails = error.Type == ErrorType.Validation
-            ? CreateValidationProblemDetails(error)
+            ? CreateValidationProblemDetails(error, localizer)
             : new ProblemDetails();
 
         var localizedMessage = localizer?.Localize(error.Code, error.Message, error.MessageArguments)
@@ -53,14 +58,22 @@ internal static class ProblemDetailsFactory
             _ => StatusCodes.Status500InternalServerError
         };
 
-    private static ValidationProblemDetails CreateValidationProblemDetails(Error error)
+    private static ValidationProblemDetails CreateValidationProblemDetails(
+        Error error,
+        IBackendMessageLocalizer? localizer)
     {
         var validationProblemDetails = new ValidationProblemDetails();
         foreach (var validationError in error.ValidationErrors ?? new Dictionary<string, string[]>())
         {
-            validationProblemDetails.Errors[validationError.Key] = validationError.Value;
+            validationProblemDetails.Errors[validationError.Key] = validationError.Value
+                .Select(message => LocalizeValidationMessage(localizer, message))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
         }
 
         return validationProblemDetails;
     }
+
+    private static string LocalizeValidationMessage(IBackendMessageLocalizer? localizer, string message) =>
+        localizer?.LocalizeValidationMessage(message) ?? message;
 }

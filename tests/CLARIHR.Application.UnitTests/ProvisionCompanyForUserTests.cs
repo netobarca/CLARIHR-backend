@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.Locations;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.AccountCompanies;
@@ -22,6 +23,7 @@ using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.LegalRepresentatives;
+using CLARIHR.Domain.Preferences;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CLARIHR.Application.UnitTests;
@@ -363,6 +365,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             iamRepository,
             legalRepresentativeRepository,
             new TestCountryCatalogRepository(),
+            new TestCompanyPreferenceRepository(),
             new TestLocationSeedService(),
             planEntitlementService,
             unitOfWork,
@@ -434,8 +437,8 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task<IReadOnlyCollection<CountryCatalogItemResponse>> GetActiveItemsAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyCollection<CountryCatalogItemResponse>>(
             [
-                new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", 1, "es-SV"),
-                new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"), "GT", "Guatemala", 2, "es-419")
+                new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", 1, "es"),
+                new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"), "GT", "Guatemala", 2, "es")
             ]);
 
         public Task<CountryCatalogLookup?> GetActiveByCodeAsync(string countryCode, CancellationToken cancellationToken)
@@ -445,11 +448,21 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             return Task.FromResult<CountryCatalogLookup?>(
                 normalizedCode switch
                 {
-                    "SV" => new CountryCatalogLookup(1, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", true, "es-SV"),
-                    "GT" => new CountryCatalogLookup(2, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"), "GT", "Guatemala", true, "es-419"),
+                    "SV" => new CountryCatalogLookup(1, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"), "SV", "El Salvador", true, "es"),
+                    "GT" => new CountryCatalogLookup(2, Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"), "GT", "Guatemala", true, "es"),
                     _ => null
                 });
         }
+    }
+
+    private sealed class TestCompanyPreferenceRepository : ICompanyPreferenceRepository
+    {
+        private readonly List<CompanyPreference> _items = [];
+
+        public void Add(CompanyPreference preference) => _items.Add(preference);
+
+        public Task<CompanyPreference?> GetByTenantIdAsync(Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult(_items.SingleOrDefault(preference => preference.TenantId == tenantId));
     }
 
     private sealed class TestUserRepository : IUserRepository

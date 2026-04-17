@@ -1,10 +1,12 @@
 using System.Reflection;
 using CLARIHR.Application.Abstractions.Auth;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.RegisterUser;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.Preferences;
 
 namespace CLARIHR.Application.UnitTests;
 
@@ -115,6 +117,7 @@ public sealed class RegisterUserCommandHandlerTests
 
         var handler = new RegisterUserCommandHandler(
             repository,
+            new TestUserPreferenceRepository(),
             new TestPasswordHasher(),
             new TestTokenService(),
             unitOfWork);
@@ -141,6 +144,7 @@ public sealed class RegisterUserCommandHandlerTests
         var unitOfWork = new TestUnitOfWork();
         var handler = new RegisterUserCommandHandler(
             repository,
+            new TestUserPreferenceRepository(),
             passwordHasher,
             tokenService,
             unitOfWork);
@@ -173,6 +177,7 @@ public sealed class RegisterUserCommandHandlerTests
 
         var handler = new RegisterUserCommandHandler(
             repository,
+            new TestUserPreferenceRepository(),
             new TestPasswordHasher(),
             tokenService,
             unitOfWork);
@@ -276,6 +281,19 @@ public sealed class RegisterUserCommandHandlerTests
             AuthClientType clientType,
             CancellationToken cancellationToken) =>
             Task.FromResult(Result<RefreshTokenExchangeResult>.Failure(AuthErrors.RefreshTokenInvalid));
+    }
+
+    private sealed class TestUserPreferenceRepository : IUserPreferenceRepository
+    {
+        public void Add(UserPreference preference)
+        {
+        }
+
+        public Task<UserPreference?> GetByUserIdAsync(long userId, CancellationToken cancellationToken) =>
+            Task.FromResult<UserPreference?>(null);
+
+        public Task<string?> ResolveLanguageAsync(long userId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(null);
     }
 
     private sealed class FailingTestTokenService(Error error) : ITokenService

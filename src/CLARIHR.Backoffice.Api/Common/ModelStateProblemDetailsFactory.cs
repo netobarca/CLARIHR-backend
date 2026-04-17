@@ -13,6 +13,7 @@ internal static class ModelStateProblemDetailsFactory
 
     public static IActionResult Create(ActionContext actionContext)
     {
+        using var _ = ProblemDetailsLocalizationScope.UseFrom(actionContext.HttpContext);
         var localizer = actionContext.HttpContext.RequestServices.GetService<IBackendMessageLocalizer>();
         var error = ErrorCatalog.Validation(CreateValidationErrors(actionContext, localizer));
         return ProblemDetailsFactory.Create(actionContext.HttpContext, error);
@@ -167,7 +168,7 @@ internal static class ModelStateProblemDetailsFactory
                 : MapJsonConversionMessage(message, localizer);
         }
 
-        return message;
+        return LocalizeValidationMessage(localizer, message);
     }
 
     private static string MapJsonConversionMessage(string message, IBackendMessageLocalizer? localizer)
@@ -223,4 +224,7 @@ internal static class ModelStateProblemDetailsFactory
 
     private static string Localize(IBackendMessageLocalizer? localizer, string key, string fallback) =>
         localizer?.Localize(key, fallback) ?? fallback;
+
+    private static string LocalizeValidationMessage(IBackendMessageLocalizer? localizer, string fallback) =>
+        localizer?.LocalizeValidationMessage(fallback) ?? fallback;
 }

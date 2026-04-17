@@ -5,8 +5,8 @@ using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Features.Auth.Common;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
-using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Infrastructure.Configuration;
@@ -21,12 +21,15 @@ internal sealed class JwtTokenService(
     IDateTimeProvider dateTimeProvider,
     IUserRepository userRepository,
     IUserCompanyRepository userCompanyRepository,
-    ITenantLocaleResolver tenantLocaleResolver,
+    IUserPreferenceRepository userPreferenceRepository,
     IIamAdministrationRepository iamRepository,
     IRefreshTokenRepository refreshTokenRepository,
     IRefreshTokenHasher refreshTokenHasher,
     ILogger<JwtTokenService> logger) : ITokenService
 {
+    private const string LanguageClaimType = "language";
+    private const string DefaultLanguage = "en";
+
     public async Task<Result<AuthTokenResult>> GenerateAsync(User user, CancellationToken cancellationToken)
     {
         var tenantId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
@@ -239,11 +242,9 @@ internal sealed class JwtTokenService(
         }
 
         claims.Add(new Claim("tid", tenantId.Value.ToString()));
-        var tenantLocale = await tenantLocaleResolver.ResolveDefaultLocaleAsync(tenantId.Value, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(tenantLocale))
-        {
-            claims.Add(new Claim("locale", tenantLocale));
-        }
+
+        var language = await userPreferenceRepository.ResolveLanguageAsync(user.Id, cancellationToken) ?? DefaultLanguage;
+        claims.Add(new Claim(LanguageClaimType, language));
 
         var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
             tenantId.Value,

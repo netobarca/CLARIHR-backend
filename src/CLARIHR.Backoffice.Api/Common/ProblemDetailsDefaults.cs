@@ -15,6 +15,8 @@ internal static class ProblemDetailsDefaults
 
     public static void Apply(ProblemDetailsContext context)
     {
+        using var _ = ProblemDetailsLocalizationScope.UseFrom(context.HttpContext);
+
         var problemDetails = context.ProblemDetails;
         var statusCode = problemDetails.Status ?? context.HttpContext.Response.StatusCode;
 
@@ -203,7 +205,7 @@ internal static class ProblemDetailsDefaults
                 : MapJsonConversionMessage(rawMessage, localizer);
         }
 
-        return rawMessage;
+        return LocalizeValidationMessage(localizer, rawMessage);
     }
 
     private static string MapJsonConversionMessage(string message, IBackendMessageLocalizer? localizer)
@@ -251,4 +253,7 @@ internal static class ProblemDetailsDefaults
 
     private static string Localize(IBackendMessageLocalizer? localizer, string key, string fallback) =>
         localizer?.Localize(key, fallback) ?? fallback;
+
+    private static string LocalizeValidationMessage(IBackendMessageLocalizer? localizer, string fallback) =>
+        localizer?.LocalizeValidationMessage(fallback) ?? fallback;
 }

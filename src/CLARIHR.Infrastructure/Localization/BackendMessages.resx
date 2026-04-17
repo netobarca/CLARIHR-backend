@@ -100,4 +100,37 @@
   <data name="SYSTEM_CATALOG_COUNTRY_NOT_FOUND" xml:space="preserve">
     <value>Country '{0}' is not active.</value>
   </data>
+  <data name="validation.message.language_format_is_invalid" xml:space="preserve">
+    <value>Language format is invalid.</value>
+  </data>
+  <data name="validation.message.code_format_is_invalid" xml:space="preserve">
+    <value>Code format is invalid.</value>
+  </data>
+  <data name="validation.message.country_contains_invalid_characters" xml:space="preserve">
+    <value>Country contains invalid characters.</value>
+  </data>
+  <data name="validation.message.source_contains_invalid_characters" xml:space="preserve">
+    <value>Source contains invalid characters.</value>
+  </data>
+  <data name="validation.message.first_name_contains_invalid_characters" xml:space="preserve">
+    <value>First name contains invalid characters.</value>
+  </data>
+  <data name="validation.message.last_name_contains_invalid_characters" xml:space="preserve">
+    <value>Last name contains invalid characters.</value>
+  </data>
+  <data name="validation.message.role_ids_must_be_unique" xml:space="preserve">
+    <value>Role ids must be unique.</value>
+  </data>
+  <data name="validation.message.sortby_is_not_supported" xml:space="preserve">
+    <value>SortBy is not supported.</value>
+  </data>
+  <data name="validation.message.minage_cannot_be_greater_than_maxage" xml:space="preserve">
+    <value>MinAge cannot be greater than MaxAge.</value>
+  </data>
+  <data name="validation.message.createdfromutc_cannot_be_greater_than_createdtoutc" xml:space="preserve">
+    <value>CreatedFromUtc cannot be greater than CreatedToUtc.</value>
+  </data>
+  <data name="validation.message.country_code_must_be_a_2_or_3_letter_iso_style_code" xml:space="preserve">
+    <value>Country code must be a 2 or 3 letter ISO-style code.</value>
+  </data>
 </root>

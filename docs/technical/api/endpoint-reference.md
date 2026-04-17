@@ -97,6 +97,7 @@ Reglas observables:
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables |
 | Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar, cambiar plan, administrar add-ons y listar suscripciones empresariales globales |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
+| Preferences | `UserPreferencesController`, `CompanyPreferencesController` | `/api/account/me/preferences`, `/api/v1/companies/{companyId}/preferences` | administrar preferencias personales (language) y preferencias operativas de compania (moneda y zona horaria) |
 | Account company authorization | `AccountCompaniesController`, `AccountCompanyAuthorizationController` | `/api/account/companies/{companyPublicId}/access-context`, `/api/account/companies/{companyPublicId}/authorization*` | contexto de acceso, catalogo filtrado, roles, grants y policies del tenant |
 | Audit | `AuditController` | `/api/audit*` | consulta y detalle de logs de auditoria |
 | Org structure catalogs | `OrgStructureCatalogsController` | `/api/account/org-structure-catalogs/*`, `/api/v1/companies/{companyPublicId}/org-structure-catalogs/*` | tipos de compania, tipos de unidad y areas funcionales |
@@ -118,6 +119,15 @@ Reglas observables:
 - `POST /api/auth/refresh`: rota la sesion usando un refresh token
 - `POST /api/auth/company-user-invitations/accept`: activa un usuario invitado por compania y define su contrasena final
 - `POST /api/auth/logout`: revoca la sesion autenticada
+- `GET /api/account/me/preferences`: obtiene preferencias de perfil del usuario autenticado
+- `PUT /api/account/me/preferences`: actualiza preferencias de perfil (por ejemplo `language`) del usuario autenticado
+- `GET /api/v1/companies/{companyId}/preferences`: obtiene preferencias administrativas de la compania en contexto tenant
+- `PUT /api/v1/companies/{companyId}/preferences`: actualiza preferencias administrativas de la compania (`currencyCode`, `timeZone`)
+
+Comportamiento observable:
+
+- el claim `language` del JWT core se resuelve desde preferencias del usuario autenticado; ya no depende de la configuracion de compania
+- cuando no existe preferencia de usuario, la API emite y resuelve fallback `en`
 
 ### 4.2 Onboarding de compania
 

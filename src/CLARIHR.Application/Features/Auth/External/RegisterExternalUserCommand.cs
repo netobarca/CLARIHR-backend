@@ -1,10 +1,12 @@
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Persistence;
+using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.Common;
 using CLARIHR.Application.Features.Auth.RegisterUser;
 using CLARIHR.Domain.Auth;
+using CLARIHR.Domain.Preferences;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.Auth.External;
@@ -43,6 +45,7 @@ internal sealed class RegisterExternalUserCommandValidator : AbstractValidator<R
 
 internal sealed class RegisterExternalUserCommandHandler(
     IUserRepository userRepository,
+    IUserPreferenceRepository userPreferenceRepository,
     IExternalAuthProviderService externalAuthProviderService,
     ITokenService tokenService,
     IUnitOfWork unitOfWork) : ICommandHandler<RegisterExternalUserCommand, ExternalAuthCommandResult>
@@ -122,6 +125,12 @@ internal sealed class RegisterExternalUserCommandHandler(
         }
 
         await userRepository.SaveChangesAsync(cancellationToken);
+
+        if (wasCreated)
+        {
+            userPreferenceRepository.Add(UserPreference.Create(user.Id));
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
 
         var tokenResult = await tokenService.GenerateAsync(user, cancellationToken);
         if (tokenResult.IsFailure)

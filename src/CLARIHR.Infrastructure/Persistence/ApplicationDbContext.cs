@@ -20,6 +20,7 @@ using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Domain.Platform;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
 using CLARIHR.Domain.PositionSlots;
+using CLARIHR.Domain.Preferences;
 using CLARIHR.Domain.SalaryTabulator;
 using Microsoft.EntityFrameworkCore;
 
@@ -41,7 +42,11 @@ public sealed class ApplicationDbContext(
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
+
     public DbSet<Company> Companies => Set<Company>();
+
+    public DbSet<CompanyPreference> CompanyPreferences => Set<CompanyPreference>();
 
     public DbSet<CommercialAddon> CommercialAddons => Set<CommercialAddon>();
 

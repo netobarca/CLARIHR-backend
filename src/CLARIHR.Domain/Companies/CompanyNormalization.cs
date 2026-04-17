@@ -6,7 +6,7 @@ namespace CLARIHR.Domain.Companies;
 internal static class CompanyNormalization
 {
     private static readonly Regex CountryCodeRegex = new("^[A-Za-z]{2,3}$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
-    private static readonly Regex LocaleRegex = new("^[a-z]{2,3}(-[A-Z]{2}|-[0-9]{3})?$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex LocaleRegex = new("^[a-z]{2,3}$", RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     public static string Clean(string value, string parameterName)
     {
@@ -57,7 +57,7 @@ internal static class CompanyNormalization
 
     public static string NormalizeLocale(string locale)
     {
-        var normalized = Clean(locale, nameof(locale));
+        var normalized = Clean(locale, nameof(locale)).ToLowerInvariant();
         if (!LocaleRegex.IsMatch(normalized))
         {
             throw new ArgumentException("Locale format is invalid.", nameof(locale));
@@ -71,12 +71,9 @@ internal static class CompanyNormalization
         var normalizedCountryCode = NormalizeCountryCode(countryCode);
         return normalizedCountryCode switch
         {
-            "SV" => "es-SV",
-            "ES" => "es-ES",
-            "AR" or "BO" or "CL" or "CO" or "CR" or "CU" or "DO" or "EC" or "GT" or "HN" or "MX" or "NI" or "PA" or "PE" or "PR" or "PY" or "UY" or "VE" => "es-419",
-            "BR" => "pt-BR",
-            "PT" => "pt-PT",
-            _ => "en-US"
+            "SV" or "ES" or "AR" or "BO" or "CL" or "CO" or "CR" or "CU" or "DO" or "EC" or "GT" or "HN" or "MX" or "NI" or "PA" or "PE" or "PR" or "PY" or "UY" or "VE" => "es",
+            "BR" or "PT" => "pt",
+            _ => "en"
         };
     }
 
