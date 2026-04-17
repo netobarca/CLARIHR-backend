@@ -59,6 +59,35 @@ public sealed class JwtTokenServiceTests
     }
 
     [Fact]
+    public async Task GenerateLoginAsync_WhenConfigured_ShouldExcludeRoleAndPermissionClaims()
+    {
+        var userRepository = new TestUserRepository();
+        var refreshTokenRepository = new TestRefreshTokenRepository();
+        var primaryTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var userPreferenceRepository = new TestUserPreferenceRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(
+            primaryTenantId,
+            new Dictionary<Guid, string>
+            {
+                [primaryTenantId] = "ADMIN DE EMPRESA"
+            });
+        var user = CreatePersistedUser();
+        userRepository.Seed(user);
+        userPreferenceRepository.Seed(user.Id, "es");
+
+        var service = CreateService(userRepository, userPreferenceRepository, userCompanyRepository, refreshTokenRepository);
+
+        var result = await service.GenerateLoginAsync(user, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Value.AccessToken);
+        Assert.Equal(primaryTenantId.ToString(), jwt.Claims.Single(claim => claim.Type == "tid").Value);
+        Assert.Equal("es", jwt.Claims.Single(claim => claim.Type == "language").Value);
+        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type is ClaimTypes.Role or "role" or "permission" or "permissions");
+    }
+
+    [Fact]
     public async Task GenerateForTenantAsync_WhenTenantIsExplicit_ShouldUseTenantRoleClaim()
     {
         var userRepository = new TestUserRepository();

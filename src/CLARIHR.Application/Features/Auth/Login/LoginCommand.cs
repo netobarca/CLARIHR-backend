@@ -47,7 +47,7 @@ internal sealed class LoginCommandHandler(
             return Result<AuthResponse>.Failure(AuthErrors.InvalidCredentials);
         }
 
-        var tokenResult = await tokenService.GenerateAsync(user, cancellationToken);
+        var tokenResult = await tokenService.GenerateLoginAsync(user, cancellationToken);
         if (tokenResult.IsFailure)
         {
             return Result<AuthResponse>.Failure(tokenResult.Error);

@@ -221,6 +221,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.False(string.IsNullOrWhiteSpace(payload!.AccessToken));
         Assert.False(string.IsNullOrWhiteSpace(payload.RefreshToken));
         Assert.Equal(email, payload.User.Email);
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(payload.AccessToken);
+        Assert.DoesNotContain(jwt.Claims, static claim => claim.Type is System.Security.Claims.ClaimTypes.Role or "role" or "permission" or "permissions");
     }
 
     [Fact]
