@@ -92,6 +92,11 @@ public static class JobProfileErrors
         "The selected catalog item is inactive.",
         ErrorType.Conflict);
 
+    public static readonly Error CompensationTabulatorLineNotFound = new(
+        "JOB_PROFILE_COMPENSATION_TABULATOR_LINE_NOT_FOUND",
+        "The selected salary tabulator line is not active for the profile effective date.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error ExportFormatInvalid = new(
         "JOB_PROFILE_EXPORT_FORMAT_INVALID",
         "Unsupported export format. Supported values are json and csv.",

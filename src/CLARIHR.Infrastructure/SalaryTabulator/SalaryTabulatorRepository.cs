@@ -260,6 +260,46 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
                 (!excludingLineId.HasValue || line.Id != excludingLineId.Value),
                 cancellationToken);
 
+    public async Task<bool> HasUncoveredJobProfileCompensationReferenceAsync(
+        Guid tenantId,
+        string normalizedSalaryClassCode,
+        string normalizedSalaryScaleCode,
+        DateTime fallbackEffectiveAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var salaryClassInternalId = await dbContext.PositionDescriptionCatalogItems
+            .AsNoTracking()
+            .Where(item =>
+                item.TenantId == tenantId &&
+                item.CatalogType == PositionDescriptionCatalogType.SalaryClass &&
+                item.NormalizedCode == normalizedSalaryClassCode)
+            .Select(item => (long?)item.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!salaryClassInternalId.HasValue)
+        {
+            return false;
+        }
+
+        return await dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile =>
+                profile.TenantId == tenantId &&
+                profile.SalaryClassCatalogItemId == salaryClassInternalId.Value &&
+                profile.NormalizedSalaryScaleCode == normalizedSalaryScaleCode)
+            .AnyAsync(
+                profile => !dbContext.SalaryTabulatorLines
+                    .AsNoTracking()
+                    .Any(line =>
+                        line.TenantId == tenantId &&
+                        line.NormalizedSalaryClassCode == normalizedSalaryClassCode &&
+                        line.NormalizedSalaryScaleCode == normalizedSalaryScaleCode &&
+                        line.IsActive &&
+                        line.EffectiveFromUtc <= (profile.EffectiveFromUtc ?? fallbackEffectiveAtUtc) &&
+                        (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value >= (profile.EffectiveFromUtc ?? fallbackEffectiveAtUtc))),
+                cancellationToken);
+    }
+
     public Task<SalaryTabulatorChangeRequest?> GetChangeRequestByIdAsync(Guid requestId, CancellationToken cancellationToken) =>
         dbContext.SalaryTabulatorChangeRequests
             .Include(request => request.Items)

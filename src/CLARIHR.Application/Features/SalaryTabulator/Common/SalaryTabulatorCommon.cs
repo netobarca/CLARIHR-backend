@@ -64,6 +64,11 @@ public static class SalaryTabulatorErrors
         "Another salary tabulator line already covers the requested effective date range.",
         ErrorType.Conflict);
 
+    public static readonly Error JobProfileCoverageConflict = new(
+        "SALARY_TABULATOR_JOB_PROFILE_COVERAGE_CONFLICT",
+        "The operation would leave one or more job profiles without salary tabulator coverage for their compensation reference.",
+        ErrorType.Conflict);
+
     public static readonly Error AmountRuleViolation = new(
         "SALARY_TABULATOR_AMOUNT_RULE_VIOLATION",
         "The salary amount rules are invalid for the requested operation.",

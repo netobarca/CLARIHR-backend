@@ -23,8 +23,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 .ThenInclude(competency => competency.CatalogItem)
             .Include(profile => profile.Trainings)
                 .ThenInclude(training => training.CatalogItem)
-            .Include(profile => profile.Compensations)
-                .ThenInclude(compensation => compensation.SalaryClassCatalogItem)
+            .Include(profile => profile.SalaryClassCatalogItem)
             .Include(profile => profile.Benefits)
                 .ThenInclude(benefit => benefit.CatalogItem)
             .Include(profile => profile.WorkingConditions)
@@ -149,10 +148,10 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
 
         if (salaryClassId.HasValue)
         {
-            var salaryClassInternalId = await dbContext.JobCatalogItems
+            var salaryClassInternalId = await dbContext.PositionDescriptionCatalogItems
                 .AsNoTracking()
                 .Where(item => item.TenantId == tenantId &&
-                               item.Category == JobCatalogCategory.SalaryClass &&
+                               item.CatalogType == Domain.PositionDescriptionCatalogs.PositionDescriptionCatalogType.SalaryClass &&
                                item.PublicId == salaryClassId.Value)
                 .Select(item => (long?)item.Id)
                 .SingleOrDefaultAsync(cancellationToken);
@@ -162,10 +161,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 return new PagedResponse<JobProfileListItemResponse>([], pageNumber, pageSize, 0);
             }
 
-            query = query.Where(profile => dbContext.JobProfileCompensations.Any(compensation =>
-                compensation.TenantId == tenantId &&
-                compensation.JobProfileId == profile.Id &&
-                compensation.SalaryClassCatalogItemId == salaryClassInternalId.Value));
+            query = query.Where(profile => profile.SalaryClassCatalogItemId == salaryClassInternalId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -215,8 +211,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 .ThenInclude(item => item.CatalogItem)
             .Include(item => item.Trainings)
                 .ThenInclude(item => item.CatalogItem)
-            .Include(item => item.Compensations)
-                .ThenInclude(item => item.SalaryClassCatalogItem)
+            .Include(item => item.SalaryClassCatalogItem)
             .Include(item => item.Benefits)
                 .ThenInclude(item => item.CatalogItem)
             .Include(item => item.WorkingConditions)
@@ -256,6 +251,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
         AddIfPresent(positionDescriptionCatalogItemIds, profile.StrategicObjectiveCatalogItemId);
         AddIfPresent(positionDescriptionCatalogItemIds, profile.AssignedWorkEquipmentCatalogItemId);
         AddIfPresent(positionDescriptionCatalogItemIds, profile.ResponsibilityCatalogItemId);
+        AddIfPresent(positionDescriptionCatalogItemIds, profile.SalaryClassCatalogItemId);
 
         foreach (var requirement in profile.Requirements)
         {
@@ -332,18 +328,48 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 item.SortOrder))
             .ToArray();
 
-        var compensationItems = profile.Compensations
-            .OrderByDescending(item => item.IsPrimary)
-            .ThenBy(item => item.SalaryClassName)
-            .Select(item => new JobProfileCompensationResponse(
-                item.SalaryClassCatalogItem?.PublicId,
-                item.SalaryClassName,
-                item.MinSalary,
-                item.MaxSalary,
-                item.CurrencyCode,
-                item.WorkSchedule,
-                item.IsPrimary))
-            .ToArray();
+        JobProfileCompensationResponse? compensationItem = null;
+        if (profile.SalaryClassCatalogItemId.HasValue &&
+            !string.IsNullOrWhiteSpace(profile.SalaryScaleCode) &&
+            !string.IsNullOrWhiteSpace(profile.NormalizedSalaryScaleCode))
+        {
+            var normalizedSalaryClassCode = profile.SalaryClassCatalogItem?.Code.Trim().ToUpperInvariant();
+            SalaryTabulatorResolution? resolution = null;
+            if (!string.IsNullOrWhiteSpace(normalizedSalaryClassCode))
+            {
+                var effectiveAtUtc = (profile.EffectiveFromUtc ?? DateTime.UtcNow).Date;
+                resolution = await dbContext.SalaryTabulatorLines
+                    .AsNoTracking()
+                    .Where(line =>
+                        line.TenantId == profile.TenantId &&
+                        line.NormalizedSalaryClassCode == normalizedSalaryClassCode &&
+                        line.NormalizedSalaryScaleCode == profile.NormalizedSalaryScaleCode &&
+                        line.EffectiveFromUtc <= effectiveAtUtc &&
+                        (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value >= effectiveAtUtc))
+                    .OrderByDescending(line => line.EffectiveFromUtc)
+                    .Select(line => new SalaryTabulatorResolution(
+                        line.PublicId,
+                        line.CurrencyCode,
+                        line.BaseAmount,
+                        line.MinAmount,
+                        line.MaxAmount,
+                        line.EffectiveFromUtc,
+                        line.EffectiveToUtc))
+                    .FirstOrDefaultAsync(cancellationToken);
+            }
+
+            compensationItem = new JobProfileCompensationResponse(
+                ResolveCatalogPublicId(profile.SalaryClassCatalogItemId, positionDescriptionCatalogLookup),
+                profile.SalaryClassCatalogItem?.Name,
+                profile.SalaryScaleCode,
+                resolution?.Id,
+                resolution?.CurrencyCode,
+                resolution?.BaseAmount,
+                resolution?.MinAmount,
+                resolution?.MaxAmount,
+                resolution?.EffectiveFromUtc,
+                resolution?.EffectiveToUtc);
+        }
 
         var benefitItems = profile.Benefits
             .OrderBy(item => item.SortOrder)
@@ -409,7 +435,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             relationItems,
             competencyItems,
             trainingItems,
-            compensationItems,
+            compensationItem,
             benefitItems,
             workingConditionItems,
             dependentPositionItems,
@@ -458,4 +484,13 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             ? null
             : new JobProfilePrintResponse(profile, DateTime.UtcNow);
     }
+
+    private sealed record SalaryTabulatorResolution(
+        Guid Id,
+        string CurrencyCode,
+        decimal BaseAmount,
+        decimal? MinAmount,
+        decimal? MaxAmount,
+        DateTime EffectiveFromUtc,
+        DateTime? EffectiveToUtc);
 }

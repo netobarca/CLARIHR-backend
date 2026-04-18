@@ -2792,7 +2792,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>()
@@ -2844,7 +2844,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>(),
@@ -2878,6 +2878,180 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var exportCsvResponse = await client.GetAsync($"/api/v1/job-profiles/{published.Id}/export?format=csv");
         exportCsvResponse.EnsureSuccessStatusCode();
         Assert.Equal("text/csv", exportCsvResponse.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task JobProfiles_Create_WithCompensationWithoutActiveTabulatorLine_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var missingLineId = Guid.NewGuid();
+
+        var response = await PostJobProfileAsync(
+            client,
+            scenario.TenantId,
+            code: "JP-COMP-NOLINE",
+            title: "Perfil sin tabulador activo",
+            compensationSalaryTabulatorLineId: missingLineId);
+
+        await AssertProblemDetailsAsync(
+            response,
+            HttpStatusCode.UnprocessableEntity,
+            "JOB_PROFILE_COMPENSATION_TABULATOR_LINE_NOT_FOUND");
+    }
+
+    [Fact]
+    public async Task JobProfiles_Create_WithCompensation_ShouldResolveCanonicalTabulatorLine()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
+        using var jobProfileClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "CLS-JP-CANON");
+        var createdRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-JP-CANON", "S1", 1850m);
+
+        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
+        {
+            concurrencyToken = createdRequest.ConcurrencyToken
+        });
+        submitResponse.EnsureSuccessStatusCode();
+        var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(submitted);
+
+        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        {
+            decisionComment = "Aprobado para compensaciones de perfil",
+            concurrencyToken = submitted!.ConcurrencyToken
+        });
+        approveResponse.EnsureSuccessStatusCode();
+
+        var salaryTabulatorLineId = await GetSalaryTabulatorLineIdAsync(scenario.TenantId, salaryClass.Id, "S1");
+
+        var profile = await CreateJobProfileAsync(
+            jobProfileClient,
+            scenario.TenantId,
+            code: "JP-COMP-OK",
+            title: "Perfil con compensacion canonical",
+            compensationSalaryTabulatorLineId: salaryTabulatorLineId);
+
+        var detailResponse = await jobProfileClient.GetAsync($"/api/v1/job-profiles/{profile.Id}");
+        detailResponse.EnsureSuccessStatusCode();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var internalSalaryClassId = await dbContext.PositionDescriptionCatalogItems
+                .AsNoTracking()
+                .Where(item => item.PublicId == salaryClass.Id)
+                .Select(item => item.Id)
+                .SingleAsync();
+
+            var profileEntity = await dbContext.JobProfiles
+                .AsNoTracking()
+                .SingleAsync(item => item.PublicId == profile.Id);
+            Assert.Equal(internalSalaryClassId, profileEntity.SalaryClassCatalogItemId);
+            Assert.Equal("S1", profileEntity.SalaryScaleCode);
+            Assert.Equal("S1", profileEntity.NormalizedSalaryScaleCode);
+
+            var activeLine = await dbContext.SalaryTabulatorLines
+                .AsNoTracking()
+                .SingleOrDefaultAsync(line =>
+                    line.TenantId == scenario.TenantId &&
+                    line.NormalizedSalaryClassCode == salaryClass.Code &&
+                    line.NormalizedSalaryScaleCode == "S1" &&
+                    line.IsActive);
+            Assert.NotNull(activeLine);
+            Assert.Equal(1850m, activeLine!.BaseAmount);
+        }
+    }
+
+    [Fact]
+    public async Task SalaryTabulator_Approve_WhenInactivationLeavesJobProfileCompensationUncovered_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
+        using var jobProfileClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "CLS-JP-COVERAGE");
+        var createdRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-JP-COVERAGE", "S1", 1600m);
+
+        var submitCreateResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
+        {
+            concurrencyToken = createdRequest.ConcurrencyToken
+        });
+        submitCreateResponse.EnsureSuccessStatusCode();
+        var submittedCreate = await submitCreateResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(submittedCreate);
+
+        var approveCreateResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        {
+            decisionComment = "Linea base aprobada",
+            concurrencyToken = submittedCreate!.ConcurrencyToken
+        });
+        approveCreateResponse.EnsureSuccessStatusCode();
+
+        var salaryTabulatorLineId = await GetSalaryTabulatorLineIdAsync(scenario.TenantId, salaryClass.Id, "S1");
+
+        var createdProfile = await CreateJobProfileAsync(
+            jobProfileClient,
+            scenario.TenantId,
+            code: "JP-COMP-COVERAGE",
+            title: "Perfil protegido por cobertura",
+            compensationSalaryTabulatorLineId: salaryTabulatorLineId);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var profileEntity = await dbContext.JobProfiles
+                .AsNoTracking()
+                .SingleAsync(item => item.PublicId == createdProfile.Id);
+            Assert.NotNull(profileEntity.SalaryClassCatalogItemId);
+            Assert.Equal("S1", profileEntity.NormalizedSalaryScaleCode);
+        }
+
+        var inactivateRequestResponse = await requesterClient.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/change-requests", new
+        {
+            reason = "Retiro de linea",
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            items = new[]
+            {
+                new
+                {
+                    salaryClassPublicId = salaryClass.Id,
+                    salaryScaleCode = "S1",
+                    currencyCode = "USD",
+                    changeType = "Inactivate",
+                    proposedBaseAmount = (decimal?)null,
+                    proposedMinAmount = (decimal?)null,
+                    proposedMaxAmount = (decimal?)null,
+                    notes = "intentando cerrar cobertura"
+                }
+            }
+        });
+        inactivateRequestResponse.EnsureSuccessStatusCode();
+        var inactivateRequest = await inactivateRequestResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(inactivateRequest);
+
+        var submitInactivateResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{inactivateRequest!.Id}/submit", new
+        {
+            concurrencyToken = inactivateRequest.ConcurrencyToken
+        });
+        submitInactivateResponse.EnsureSuccessStatusCode();
+        var submittedInactivate = await submitInactivateResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(submittedInactivate);
+
+        var approveInactivateResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{inactivateRequest.Id}/approve", new
+        {
+            decisionComment = "Intento de inactivacion",
+            concurrencyToken = submittedInactivate!.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(
+            approveInactivateResponse,
+            HttpStatusCode.Conflict,
+            "SALARY_TABULATOR_JOB_PROFILE_COVERAGE_CONFLICT");
     }
 
     [Fact]
@@ -3016,7 +3190,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>(),
@@ -3060,7 +3234,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>(),
@@ -3117,7 +3291,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>(),
@@ -3155,7 +3329,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>()
@@ -3214,7 +3388,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>()
@@ -3256,7 +3430,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = new[]
@@ -3348,7 +3522,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = new[]
@@ -3402,7 +3576,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = new[]
@@ -3489,7 +3663,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>()
@@ -3547,7 +3721,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>(),
@@ -3611,7 +3785,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>()
@@ -4002,7 +4176,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>(),
@@ -5966,19 +6140,20 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     private Task<PositionDescriptionCatalogItem> EnsureSalaryClassAsync(HttpClient client, Guid companyId, string code) =>
         EnsurePositionDescriptionCatalogItemAsync(client, companyId, "salary-classes", code);
 
-    private async Task<JobProfileItem> CreateJobProfileAsync(
+    private async Task<HttpResponseMessage> PostJobProfileAsync(
         HttpClient client,
         Guid companyId,
         string code,
         string title,
-        Guid? orgUnitPublicId = null)
+        Guid? orgUnitPublicId = null,
+        Guid? compensationSalaryTabulatorLineId = null)
     {
         var orgUnit = orgUnitPublicId.HasValue
             ? (OrgUnitItem?)null
             : await CreateOrgUnitAsync(client, companyId, $"DIR-{code}", $"Unidad {title}", "Direccion");
         var positionCategory = await EnsureDefaultPositionCategoryAsync(client, companyId);
 
-        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/job-profiles", new
+        return await client.PostJsonAsync($"/api/v1/companies/{companyId}/job-profiles", new
         {
             code,
             title,
@@ -6025,11 +6200,33 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = compensationSalaryTabulatorLineId.HasValue
+                ? new
+                {
+                    salaryTabulatorLineId = compensationSalaryTabulatorLineId.Value
+                }
+                : (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>()
         });
+    }
+
+    private async Task<JobProfileItem> CreateJobProfileAsync(
+        HttpClient client,
+        Guid companyId,
+        string code,
+        string title,
+        Guid? orgUnitPublicId = null,
+        Guid? compensationSalaryTabulatorLineId = null)
+    {
+        var response = await PostJobProfileAsync(
+            client,
+            companyId,
+            code,
+            title,
+            orgUnitPublicId,
+            compensationSalaryTabulatorLineId);
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
@@ -6100,6 +6297,33 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var payload = await response.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(payload);
         return payload!;
+    }
+
+    private async Task<Guid> GetSalaryTabulatorLineIdAsync(Guid companyId, Guid salaryClassId, string salaryScaleCode)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var salaryClassCode = await dbContext.PositionDescriptionCatalogItems
+            .AsNoTracking()
+            .Where(item => item.TenantId == companyId && item.PublicId == salaryClassId)
+            .Select(item => item.Code)
+            .SingleAsync();
+
+        var normalizedSalaryScaleCode = salaryScaleCode.Trim().ToUpperInvariant();
+        var lineId = await dbContext.SalaryTabulatorLines
+            .AsNoTracking()
+            .Where(line =>
+                line.TenantId == companyId &&
+                line.NormalizedSalaryClassCode == salaryClassCode &&
+                line.NormalizedSalaryScaleCode == normalizedSalaryScaleCode &&
+                line.IsActive)
+            .OrderByDescending(line => line.EffectiveFromUtc)
+            .Select(line => (Guid?)line.PublicId)
+            .FirstOrDefaultAsync();
+
+        Assert.NotNull(lineId);
+        return lineId!.Value;
     }
 
     private async Task<Guid> GetEducationCatalogIdByCodeAsync(

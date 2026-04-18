@@ -63,6 +63,17 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
         builder.Property(profile => profile.ResponsibilityCatalogItemId)
             .HasColumnName("responsibility_catalog_item_id");
 
+        builder.Property(profile => profile.SalaryClassCatalogItemId)
+            .HasColumnName("salary_class_catalog_item_id");
+
+        builder.Property(profile => profile.SalaryScaleCode)
+            .HasColumnName("salary_scale_code")
+            .HasMaxLength(50);
+
+        builder.Property(profile => profile.NormalizedSalaryScaleCode)
+            .HasColumnName("normalized_salary_scale_code")
+            .HasMaxLength(50);
+
         builder.Property(profile => profile.DecisionScope)
             .HasColumnName("decision_scope")
             .HasMaxLength(4000);
@@ -138,6 +149,12 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
         builder.HasIndex(profile => new { profile.TenantId, profile.NormalizedTitle })
             .HasDatabaseName("ix_job_profiles__tenant_title");
 
+        builder.HasIndex(profile => new { profile.TenantId, profile.SalaryClassCatalogItemId })
+            .HasDatabaseName("ix_job_profiles__tenant_salary_class");
+
+        builder.HasIndex(profile => new { profile.TenantId, profile.NormalizedSalaryScaleCode })
+            .HasDatabaseName("ix_job_profiles__tenant_salary_scale");
+
         builder.HasOne<OrgUnit>()
             .WithMany()
             .HasForeignKey(profile => profile.OrgUnitId)
@@ -174,6 +191,12 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_job_profiles__responsibility_catalog_item");
 
+        builder.HasOne(profile => profile.SalaryClassCatalogItem)
+            .WithMany()
+            .HasForeignKey(profile => profile.SalaryClassCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_job_profiles__salary_class_catalog_item");
+
         builder.HasMany(profile => profile.Requirements)
             .WithOne(requirement => requirement.JobProfile)
             .HasForeignKey(requirement => requirement.JobProfileId)
@@ -204,12 +227,6 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
             .OnDelete(DeleteBehavior.Cascade)
             .HasConstraintName("fk_job_profile_trainings__job_profile");
 
-        builder.HasMany(profile => profile.Compensations)
-            .WithOne(compensation => compensation.JobProfile)
-            .HasForeignKey(compensation => compensation.JobProfileId)
-            .OnDelete(DeleteBehavior.Cascade)
-            .HasConstraintName("fk_job_profile_compensations__job_profile");
-
         builder.HasMany(profile => profile.Benefits)
             .WithOne(benefit => benefit.JobProfile)
             .HasForeignKey(benefit => benefit.JobProfileId)
@@ -233,7 +250,6 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
         builder.Navigation(profile => profile.Relations).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Navigation(profile => profile.Competencies).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Navigation(profile => profile.Trainings).UsePropertyAccessMode(PropertyAccessMode.Field);
-        builder.Navigation(profile => profile.Compensations).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Navigation(profile => profile.Benefits).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Navigation(profile => profile.WorkingConditions).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Navigation(profile => profile.DependentPositions).UsePropertyAccessMode(PropertyAccessMode.Field);
@@ -515,55 +531,6 @@ internal sealed class JobProfileTrainingConfiguration : IEntityTypeConfiguration
             .HasForeignKey(item => item.CatalogItemId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_job_profile_trainings__catalog_item");
-    }
-}
-
-internal sealed class JobProfileCompensationConfiguration : IEntityTypeConfiguration<JobProfileCompensation>
-{
-    public void Configure(EntityTypeBuilder<JobProfileCompensation> builder)
-    {
-        builder.ToTable("job_profile_compensations");
-
-        builder.HasKey(item => item.Id)
-            .HasName("pk_job_profile_compensations");
-
-        builder.Property(item => item.Id).HasColumnName("id");
-        builder.Property(item => item.TenantId).HasColumnName("tenant_id");
-        builder.Property(item => item.JobProfileId).HasColumnName("job_profile_id");
-        builder.Property(item => item.SalaryClassCatalogItemId).HasColumnName("salary_class_catalog_item_id");
-
-        builder.Property(item => item.SalaryClassName)
-            .HasColumnName("salary_class_name")
-            .HasMaxLength(120);
-
-        builder.Property(item => item.MinSalary)
-            .HasColumnName("min_salary")
-            .HasPrecision(18, 2);
-
-        builder.Property(item => item.MaxSalary)
-            .HasColumnName("max_salary")
-            .HasPrecision(18, 2);
-
-        builder.Property(item => item.CurrencyCode)
-            .HasColumnName("currency_code")
-            .HasMaxLength(10);
-
-        builder.Property(item => item.WorkSchedule)
-            .HasColumnName("work_schedule")
-            .HasMaxLength(120);
-
-        builder.Property(item => item.IsPrimary).HasColumnName("is_primary");
-        builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
-        builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
-
-        builder.HasIndex(item => new { item.TenantId, item.JobProfileId, item.IsPrimary })
-            .HasDatabaseName("ix_job_profile_compensations__tenant_profile_primary");
-
-        builder.HasOne(item => item.SalaryClassCatalogItem)
-            .WithMany()
-            .HasForeignKey(item => item.SalaryClassCatalogItemId)
-            .OnDelete(DeleteBehavior.Restrict)
-            .HasConstraintName("fk_job_profile_compensations__salary_class");
     }
 }
 
