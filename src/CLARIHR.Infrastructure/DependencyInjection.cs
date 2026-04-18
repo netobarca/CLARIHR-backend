@@ -119,6 +119,7 @@ public static class DependencyInjection
         services.AddScoped<IJobProfileAuthorizationService, JobProfileAuthorizationService>();
         services.AddScoped<IPositionDescriptionCatalogRepository, PositionDescriptionCatalogRepository>();
         services.AddScoped<IPositionDescriptionCatalogAuthorizationService, PositionDescriptionCatalogAuthorizationService>();
+        services.AddScoped<PositionDescriptionCatalogSeedService>();
         services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
         services.AddScoped<IPositionSlotAuthorizationService, PositionSlotAuthorizationService>();
         services.AddScoped<ICostCenterRepository, CostCenterRepository>();
