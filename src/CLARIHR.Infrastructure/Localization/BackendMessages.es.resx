@@ -1,51 +1,51 @@
-<?xml version="1.0" encoding="utf-8"?>
-<root>
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
-    <xsd:element name="root" msdata:IsDataSet="true">
-      <xsd:complexType>
-        <xsd:choice maxOccurs="unbounded">
-          <xsd:element name="metadata">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
-              </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="assembly">
-            <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="data">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="resheader">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
-            </xsd:complexType>
-          </xsd:element>
-        </xsd:choice>
-      </xsd:complexType>
-    </xsd:element>
-  </xsd:schema>
+<?xml version='1.0' encoding='utf-8'?>
+<root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:schema id="root">
+    <xs:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xs:element name="root" ns1:IsDataSet="true">
+      <xs:complexType>
+        <xs:choice maxOccurs="unbounded">
+          <xs:element name="metadata">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="value" type="xsd:string" minOccurs="0" />
+              </xs:sequence>
+              <xs:attribute name="name" use="required" type="xsd:string" />
+              <xs:attribute name="type" type="xsd:string" />
+              <xs:attribute name="mimetype" type="xsd:string" />
+              <xs:attribute ref="xml:space" />
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="assembly">
+            <xs:complexType>
+              <xs:attribute name="alias" type="xsd:string" />
+              <xs:attribute name="name" type="xsd:string" />
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="data">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="value" type="xsd:string" minOccurs="0" ns1:Ordinal="1" />
+                <xs:element name="comment" type="xsd:string" minOccurs="0" ns1:Ordinal="2" />
+              </xs:sequence>
+              <xs:attribute name="name" type="xsd:string" use="required" ns1:Ordinal="1" />
+              <xs:attribute name="type" type="xsd:string" ns1:Ordinal="3" />
+              <xs:attribute name="mimetype" type="xsd:string" ns1:Ordinal="4" />
+              <xs:attribute ref="xml:space" />
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="resheader">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="value" type="xsd:string" minOccurs="0" ns1:Ordinal="1" />
+              </xs:sequence>
+              <xs:attribute name="name" type="xsd:string" use="required" />
+            </xs:complexType>
+          </xs:element>
+        </xs:choice>
+      </xs:complexType>
+    </xs:element>
+  </xs:schema>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
@@ -58,11 +58,923 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, ...</value>
   </resheader>
-  <data name="common.validation" xml:space="preserve">
-    <value>Se encontraron uno o mas errores de validacion.</value>
+  <data name="ACCOUNT_COMPANY_SUBSCRIPTION_MASTER_FORBIDDEN" xml:space="preserve">
+    <value>La suscripcion MASTER esta reservada para operadores CLARI.</value>
+  </data>
+  <data name="ACTIVE_COMPANY_ARCHIVE_FORBIDDEN" xml:space="preserve">
+    <value>Cambia a otra compania activa antes de archivar la compania activa actual.</value>
+  </data>
+  <data name="ACTIVE_COMPANY_SWITCH_FORBIDDEN" xml:space="preserve">
+    <value>requested company no puede convertirse en active company.</value>
+  </data>
+  <data name="AUDIT_LOG_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar el registro de auditoria solicitado.</value>
+  </data>
+  <data name="BEHAVIOR_LEVEL_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar behavior level seleccionado o esta inactivo.</value>
+  </data>
+  <data name="BEHAVIOR_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar behavior seleccionado o esta inactivo.</value>
+  </data>
+  <data name="COMMERCIAL_ADDON_ALREADY_ACTIVE" xml:space="preserve">
+    <value>commercial addon ya esta activo.</value>
+  </data>
+  <data name="COMMERCIAL_ADDON_ALREADY_INACTIVE" xml:space="preserve">
+    <value>El commercial addon is already inactive.</value>
+  </data>
+  <data name="COMMERCIAL_ADDON_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro commercial addon ya usa code solicitado.</value>
+  </data>
+  <data name="COMMERCIAL_ADDON_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a commercial addon administration.</value>
+  </data>
+  <data name="COMMERCIAL_ADDON_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar commercial addon solicitado.</value>
+  </data>
+  <data name="COMMERCIAL_PLAN_ALREADY_ACTIVE" xml:space="preserve">
+    <value>commercial plan ya esta activo.</value>
+  </data>
+  <data name="COMMERCIAL_PLAN_ALREADY_INACTIVE" xml:space="preserve">
+    <value>El commercial plan is already inactive.</value>
+  </data>
+  <data name="COMMERCIAL_PLAN_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro commercial plan ya usa code solicitado.</value>
+  </data>
+  <data name="COMMERCIAL_PLAN_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a commercial plan administration.</value>
+  </data>
+  <data name="COMMERCIAL_PLAN_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar commercial plan solicitado.</value>
+  </data>
+  <data name="COMMERCIAL_PLAN_SYSTEM_INACTIVATION_FORBIDDEN" xml:space="preserve">
+    <value>Los planes del sistema no pueden ser inactivados.</value>
+  </data>
+  <data name="COMMERCIAL_PLAN_SYSTEM_RENAME_FORBIDDEN" xml:space="preserve">
+    <value>Los planes del sistema no pueden cambiar codigo ni nombre.</value>
+  </data>
+  <data name="COMPANY_ALREADY_ACTIVE" xml:space="preserve">
+    <value>company ya esta activo.</value>
+  </data>
+  <data name="COMPANY_ALREADY_ARCHIVED" xml:space="preserve">
+    <value>company ya esta archivado.</value>
+  </data>
+  <data name="COMPANY_LIMIT_REACHED" xml:space="preserve">
+    <value>La cuenta actual no puede create additional active companies.</value>
+  </data>
+  <data name="COMPANY_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar company solicitado.</value>
+  </data>
+  <data name="COMPANY_OWNERSHIP_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para administrar this company.</value>
+  </data>
+  <data name="COMPANY_PREFERENCES_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a company preferences.</value>
+  </data>
+  <data name="COMPANY_PREFERENCE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar company preferences.</value>
+  </data>
+  <data name="COMPANY_REACTIVATION_LIMIT_REACHED" xml:space="preserve">
+    <value>La cuenta actual no puede reactivate this company because the active company limit has been reached.</value>
+  </data>
+  <data name="COMPANY_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar company type seleccionado o esta inactivo.</value>
+  </data>
+  <data name="COMPETENCY_CONDUCT_DUPLICATE" xml:space="preserve">
+    <value>Ya existe una conducta para la misma competencia, tipo, nivel y descripcion.</value>
+  </data>
+  <data name="COMPETENCY_CONDUCT_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar competency conduct.</value>
+  </data>
+  <data name="COMPETENCY_FRAMEWORK_EXPORT_FORMAT_INVALID" xml:space="preserve">
+    <value>Formato de exportacion no soportado.</value>
+  </data>
+  <data name="COMPETENCY_FRAMEWORK_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a competency framework administration.</value>
+  </data>
+  <data name="COMPETENCY_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar competency seleccionado o esta inactivo.</value>
+  </data>
+  <data name="COMPETENCY_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar competency type seleccionado o esta inactivo.</value>
+  </data>
+  <data name="CONCURRENCY_CONFLICT" xml:space="preserve">
+    <value>El recurso fue modificado por otra solicitud. Actualiza e intenta de nuevo.</value>
+  </data>
+  <data name="COST_CENTERS_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a cost center administration.</value>
+  </data>
+  <data name="COST_CENTER_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro cost center ya usa code solicitado.</value>
+  </data>
+  <data name="COST_CENTER_EXPORT_FORMAT_INVALID" xml:space="preserve">
+    <value>Formato de exportacion no soportado.</value>
+  </data>
+  <data name="COST_CENTER_IN_USE" xml:space="preserve">
+    <value>cost center no puede ser inactivado porque it is used by active organization units or position slots.</value>
+  </data>
+  <data name="COST_CENTER_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar cost center.</value>
+  </data>
+  <data name="DEFAULT_GROUP_PROTECTED" xml:space="preserve">
+    <value>El grupo de ubicacion predeterminado esta protegido y no puede ser renombrado, recodificado ni inactivado.</value>
+  </data>
+  <data name="FIELD_EDIT_FORBIDDEN" xml:space="preserve">
+    <value>Uno o mas campos enviados no pueden ser modificados por el usuario actual.</value>
+  </data>
+  <data name="FREQUENCY_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar frequency solicitado.</value>
+  </data>
+  <data name="FUNCTIONAL_AREA_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar functional area seleccionado o esta inactivo.</value>
+  </data>
+  <data name="INTERNAL_CATALOG_CONTEXT_NOT_FOUND" xml:space="preserve">
+    <value>El contexto de catalogo interno solicitado no es soportado.</value>
+  </data>
+  <data name="INTERNAL_CATALOG_CREATE_NOT_ALLOWED" xml:space="preserve">
+    <value>El catalogo interno solicitado no permite crear valores.</value>
+  </data>
+  <data name="INTERNAL_CATALOG_CURRENT_USER_INVALID" xml:space="preserve">
+    <value>current user context no es valido.</value>
+  </data>
+  <data name="INTERNAL_CATALOG_CURRENT_USER_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo resolver user actual.</value>
+  </data>
+  <data name="INTERNAL_CATALOG_KEY_NOT_FOUND" xml:space="preserve">
+    <value>El catalogo interno solicitado no es soportado.</value>
+  </data>
+  <data name="INTERNAL_CATALOG_SIMILAR_VALUE_CONFLICT" xml:space="preserve">
+    <value>El valor es demasiado similar a un valor existente del catalogo.</value>
+  </data>
+  <data name="INVALID_CURRENT_USER" xml:space="preserve">
+    <value>El contexto del usuario actual no es valido.</value>
+  </data>
+  <data name="JOB_CATALOG_INLINE_CREATE_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para crear catalog items inline.</value>
+  </data>
+  <data name="JOB_CATALOG_ITEM_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro catalog item ya usa code for this category solicitado.</value>
+  </data>
+  <data name="JOB_CATALOG_ITEM_INACTIVE" xml:space="preserve">
+    <value>selected catalog item esta inactivo.</value>
+  </data>
+  <data name="JOB_CATALOG_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar job catalog item.</value>
+  </data>
+  <data name="JOB_PROFILES_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a job profile administration.</value>
+  </data>
+  <data name="JOB_PROFILE_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro job profile ya usa code solicitado.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPETENCY_MATRIX_CONFLICT" xml:space="preserve">
+    <value>El cambio solicitado de matriz de competencias no es valido para el estado actual.</value>
+  </data>
+  <data name="JOB_PROFILE_DEPENDENCY_CYCLE" xml:space="preserve">
+    <value>Este cambio no puede guardarse porque haria que los perfiles de puesto seleccionados dependan entre si de forma circular. Revisa el perfil de reporte y las posiciones dependientes, luego intenta nuevamente.</value>
+  </data>
+  <data name="JOB_PROFILE_EXPORT_FORMAT_INVALID" xml:space="preserve">
+    <value>Formato de exportacion no soportado. Los valores soportados son json y csv.</value>
+  </data>
+  <data name="JOB_PROFILE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar job profile.</value>
+  </data>
+  <data name="JOB_PROFILE_ORG_UNIT_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar organization unit seleccionado.</value>
+  </data>
+  <data name="JOB_PROFILE_ORG_UNIT_REQUIRED" xml:space="preserve">
+    <value>Se requiere organization unit para the job profile.</value>
+  </data>
+  <data name="JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING" xml:space="preserve">
+    <value>El perfil de puesto no cumple con los requisitos minimos para ser publicado.</value>
+  </data>
+  <data name="JOB_PROFILE_REPORTS_TO_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar reporting profile seleccionado.</value>
+  </data>
+  <data name="JOB_PROFILE_STATE_CONFLICT" xml:space="preserve">
+    <value>La accion solicitada no esta permitida para el profile state.</value>
+  </data>
+  <data name="LAST_ACTIVE_LEVEL_REQUIRED" xml:space="preserve">
+    <value>Debe permanecer disponible al menos un active location level.</value>
+  </data>
+  <data name="LEGAL_REPRESENTATIVES_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a legal representative administration.</value>
+  </data>
+  <data name="LEGAL_REPRESENTATIVE_ACTIVE_MIN_REQUIRED" xml:space="preserve">
+    <value>La compania debe tener al menos un legal representative activo.</value>
+  </data>
+  <data name="LEGAL_REPRESENTATIVE_DOCUMENT_CONFLICT" xml:space="preserve">
+    <value>Otro legal representative ya usa document solicitado.</value>
+  </data>
+  <data name="LEGAL_REPRESENTATIVE_EFFECTIVE_DATES_INVALID" xml:space="preserve">
+    <value>effective date range no es valido.</value>
+  </data>
+  <data name="LEGAL_REPRESENTATIVE_EXPORT_FORMAT_INVALID" xml:space="preserve">
+    <value>Formato de exportacion no soportado.</value>
+  </data>
+  <data name="LEGAL_REPRESENTATIVE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar legal representative.</value>
+  </data>
+  <data name="LEGAL_REPRESENTATIVE_PRIMARY_CONFLICT" xml:space="preserve">
+    <value>Solo se permite un representante legal primario activo por compania.</value>
+  </data>
+  <data name="LEGAL_REPRESENTATIVE_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>La operacion solicitada no esta permitida para el legal representative state.</value>
+  </data>
+  <data name="LOCATIONS_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a location administration.</value>
+  </data>
+  <data name="LOCATION_GROUP_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro location group ya usa code solicitado.</value>
+  </data>
+  <data name="LOCATION_GROUP_CYCLE_DETECTED" xml:space="preserve">
+    <value>El movimiento solicitado crearia un ciclo en el arbol de grupos de ubicacion.</value>
+  </data>
+  <data name="LOCATION_GROUP_HAS_ACTIVE_CHILDREN" xml:space="preserve">
+    <value>location group no puede ser inactivado porque it still has active child groups.</value>
+  </data>
+  <data name="LOCATION_GROUP_HAS_ACTIVE_WORK_CENTERS" xml:space="preserve">
+    <value>location group no puede ser inactivado porque it still has active work centers.</value>
+  </data>
+  <data name="LOCATION_GROUP_INACTIVE" xml:space="preserve">
+    <value>selected location group esta inactivo.</value>
+  </data>
+  <data name="LOCATION_GROUP_INVALID_PARENT" xml:space="preserve">
+    <value>El grupo padre seleccionado no es valido para el nivel solicitado.</value>
+  </data>
+  <data name="LOCATION_GROUP_LEVEL_NOT_ALLOWED_FOR_WORK_CENTER" xml:space="preserve">
+    <value>El nivel de grupo de ubicacion seleccionado no puede alojar centros de trabajo.</value>
+  </data>
+  <data name="LOCATION_GROUP_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar location group.</value>
+  </data>
+  <data name="LOCATION_GROUP_PARENT_INACTIVE" xml:space="preserve">
+    <value>selected parent group esta inactivo.</value>
+  </data>
+  <data name="LOCATION_GROUP_PARENT_REQUIRED" xml:space="preserve">
+    <value>Se requiere parent group para non-root levels.</value>
+  </data>
+  <data name="LOCATION_HIERARCHY_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar location hierarchy configuration.</value>
+  </data>
+  <data name="LOCATION_LEVEL_ALLOWS_WORK_CENTERS_IN_USE" xml:space="preserve">
+    <value>location level no puede ser cambiado porque active work centers depend on it.</value>
+  </data>
+  <data name="LOCATION_LEVEL_HAS_ACTIVE_GROUPS" xml:space="preserve">
+    <value>location level no puede ser inactivado porque it still has active groups.</value>
+  </data>
+  <data name="LOCATION_LEVEL_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar location level.</value>
+  </data>
+  <data name="LOCATION_LEVEL_ORDER_CONFLICT" xml:space="preserve">
+    <value>Otro location level ya usa level order solicitado.</value>
+  </data>
+  <data name="LOCATION_LEVEL_REQUIRED_ACTIVE" xml:space="preserve">
+    <value>Los niveles de ubicacion requeridos deben permanecer activos.</value>
+  </data>
+  <data name="LOCATION_SINGLE_LEVEL_REQUIRES_ONE_ACTIVE_LEVEL" xml:space="preserve">
+    <value>Las jerarquias de un solo nivel requieren exactamente un nivel activo.</value>
+  </data>
+  <data name="OCCUPATIONAL_PYRAMID_LEVEL_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro occupational pyramid level ya usa code solicitado.</value>
+  </data>
+  <data name="OCCUPATIONAL_PYRAMID_LEVEL_IN_USE" xml:space="preserve">
+    <value>occupational pyramid level no puede ser inactivado mientras it has active usage.</value>
+  </data>
+  <data name="OCCUPATIONAL_PYRAMID_LEVEL_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar occupational pyramid level.</value>
+  </data>
+  <data name="OCCUPATIONAL_PYRAMID_LEVEL_ORDER_CONFLICT" xml:space="preserve">
+    <value>Otro occupational pyramid level ya usa level order solicitado.</value>
+  </data>
+  <data name="ORG_STRUCTURE_CATALOG_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro catalog item ya usa code solicitado.</value>
+  </data>
+  <data name="ORG_STRUCTURE_CATALOG_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a organization structure catalogs.</value>
+  </data>
+  <data name="ORG_STRUCTURE_CATALOG_IN_USE" xml:space="preserve">
+    <value>catalog item no puede ser inactivado mientras it is in use.</value>
+  </data>
+  <data name="ORG_STRUCTURE_CATALOG_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar organization structure catalog item solicitado.</value>
+  </data>
+  <data name="ORG_UNITS_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a organization unit administration.</value>
+  </data>
+  <data name="ORG_UNIT_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro organization unit ya usa code solicitado.</value>
+  </data>
+  <data name="ORG_UNIT_COST_CENTER_INVALID" xml:space="preserve">
+    <value>El codigo de centro de costo seleccionado no existe o esta inactivo para la compania.</value>
+  </data>
+  <data name="ORG_UNIT_CYCLE_DETECTED" xml:space="preserve">
+    <value>El movimiento solicitado crearia un ciclo en el arbol de unidades organizativas.</value>
+  </data>
+  <data name="ORG_UNIT_DEPTH_LIMIT_EXCEEDED" xml:space="preserve">
+    <value>La profundidad de jerarquia solicitada excede los niveles maximos soportados.</value>
+  </data>
+  <data name="ORG_UNIT_HAS_ACTIVE_CHILDREN" xml:space="preserve">
+    <value>organization unit no puede ser inactivado porque it still has active child units.</value>
+  </data>
+  <data name="ORG_UNIT_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar organization unit.</value>
+  </data>
+  <data name="ORG_UNIT_PARENT_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar parent organization unit seleccionado.</value>
+  </data>
+  <data name="ORG_UNIT_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar org unit type seleccionado o esta inactivo.</value>
+  </data>
+  <data name="PERSONNEL_CUSTOM_DATA_INVALID" xml:space="preserve">
+    <value>custom data payload no es valido.</value>
+  </data>
+  <data name="PERSONNEL_CUSTOM_FIELD_DEFINITION_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar custom field definition.</value>
+  </data>
+  <data name="PERSONNEL_CUSTOM_FIELD_KEY_CONFLICT" xml:space="preserve">
+    <value>Otro custom field definition ya usa key solicitado.</value>
+  </data>
+  <data name="PERSONNEL_EDUCATION_CATALOGS_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a personnel education catalogs.</value>
+  </data>
+  <data name="PERSONNEL_EDUCATION_CATALOG_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro personnel education catalog item ya usa code solicitado.</value>
+  </data>
+  <data name="PERSONNEL_EDUCATION_CATALOG_ITEM_IN_USE" xml:space="preserve">
+    <value>El elemento del catalogo de educacion de personal esta en uso y no puede ser inactivado.</value>
+  </data>
+  <data name="PERSONNEL_EDUCATION_CATALOG_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar personnel education catalog item solicitado.</value>
+  </data>
+  <data name="PERSONNEL_FILES_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a personnel file administration.</value>
+  </data>
+  <data name="PERSONNEL_FILE_DOCUMENT_DATES_INVALID" xml:space="preserve">
+    <value>Las fechas de prestamo y devolucion del documento son invalidas.</value>
+  </data>
+  <data name="PERSONNEL_FILE_DOCUMENT_FILE_REQUIRED" xml:space="preserve">
+    <value>A document file es requerido.</value>
+  </data>
+  <data name="PERSONNEL_FILE_DOCUMENT_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar personnel file document.</value>
+  </data>
+  <data name="PERSONNEL_FILE_EFFECTIVE_DATES_INVALID" xml:space="preserve">
+    <value>date range no es valido.</value>
+  </data>
+  <data name="PERSONNEL_FILE_EXPORT_FORMAT_INVALID" xml:space="preserve">
+    <value>Formato de exportacion no soportado.</value>
+  </data>
+  <data name="PERSONNEL_FILE_FAMILY_MEMBER_RULE_VIOLATION" xml:space="preserve">
+    <value>Los campos condicionales del miembro de familia son invalidos.</value>
+  </data>
+  <data name="PERSONNEL_FILE_FINALIZE_ONLY_EMPLOYEE" xml:space="preserve">
+    <value>Solo employee personnel files pueden ser finalized.</value>
+  </data>
+  <data name="PERSONNEL_FILE_FINALIZE_REQUIRES_INSTITUTIONAL_EMAIL" xml:space="preserve">
+    <value>Se requiere un correo institucional para finalizar el expediente de personal.</value>
+  </data>
+  <data name="PERSONNEL_FILE_FINALIZE_REQUIRES_POSITION_SLOT" xml:space="preserve">
+    <value>Se requiere una plaza asignada para finalizar el expediente de personal.</value>
+  </data>
+  <data name="PERSONNEL_FILE_FINALIZE_REQUIRES_POSITION_SLOT_ROLE" xml:space="preserve">
+    <value>La plaza asignada debe tener un rol valido configurado antes de finalizar el expediente de personal.</value>
+  </data>
+  <data name="PERSONNEL_FILE_IDENTIFICATION_CONFLICT" xml:space="preserve">
+    <value>Otro personnel file ya usa identification solicitado.</value>
+  </data>
+  <data name="PERSONNEL_FILE_LINKED_USER_CONFLICT" xml:space="preserve">
+    <value>El correo institucional ya esta vinculado a un expediente de personal diferente.</value>
+  </data>
+  <data name="PERSONNEL_FILE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar personnel file.</value>
+  </data>
+  <data name="PERSONNEL_FILE_PROVISIONING_FIELDS_LOCKED" xml:space="preserve">
+    <value>La plaza asignada y el correo institucional no pueden cambiarse despues de la finalizacion.</value>
+  </data>
+  <data name="PERSONNEL_FILE_RECORD_TYPE_TRANSITION_NOT_ALLOWED" xml:space="preserve">
+    <value>Las transiciones del tipo de registro del expediente de personal no estan permitidas en este modulo.</value>
+  </data>
+  <data name="PERSONNEL_FILE_STATE_RULE_VIOLATION" xml:space="preserve">
+    <value>La operacion solicitada no esta permitida para el personnel file state.</value>
+  </data>
+  <data name="PLATFORM_ACCESS_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a platform backoffice administration.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_ALREADY_ACTIVE" xml:space="preserve">
+    <value>El complemento solicitado ya esta activo para la compania.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_CHANGE_CANCELLATION_NOT_ALLOWED" xml:space="preserve">
+    <value>Solo scheduled add-on changes that are still pending pueden ser cancelled.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_CHANGE_EFFECTIVE_DATE_IN_PAST" xml:space="preserve">
+    <value>La fecha efectiva solicitada del complemento no puede estar en el pasado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_CHANGE_EFFECTIVE_DATE_REQUIRED" xml:space="preserve">
+    <value>Se requiere future effective date para the selected add-on change mode.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_CHANGE_INVALID_ACTION" xml:space="preserve">
+    <value>requested add-on change action no es valido.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_CHANGE_INVALID_MODE" xml:space="preserve">
+    <value>requested add-on change mode no es valido.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_CHANGE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar company add-on change solicitado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_CHANGE_REASON_REQUIRED" xml:space="preserve">
+    <value>Se requiere reason code para the requested add-on change.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_FORBIDDEN_FOR_FREE_PLAN" xml:space="preserve">
+    <value>Las companias que usan el plan FREE no pueden adquirir complementos comerciales.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_INACTIVE" xml:space="preserve">
+    <value>Solo active commercial add-ons pueden ser assigned to companies.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_NOT_ACTIVE" xml:space="preserve">
+    <value>Solo active company add-ons pueden ser deactivated.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar commercial add-on solicitado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_PENDING_CONFLICT" xml:space="preserve">
+    <value>La compania ya tiene un cambio programado pendiente para el complemento solicitado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ADDON_UNSUPPORTED_CURRENT_STATUS" xml:space="preserve">
+    <value>El estado actual de la suscripcion no permite add-on changes.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_ALREADY_ASSIGNED" xml:space="preserve">
+    <value>La compania solicitada ya usa el plan comercial seleccionado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_ELIGIBLE" xml:space="preserve">
+    <value>La compania no cumple con los requisitos minimos para activar una suscripcion.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar company solicitado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_EXPIRATION_BEFORE_START_DATE" xml:space="preserve">
+    <value>La fecha de expiracion solicitada de la suscripcion no puede ser anterior a la fecha de inicio.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_INVALID_PERIODICITY" xml:space="preserve">
+    <value>requested subscription periodicity no es valido.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_INVALID_STATUS_REASON" xml:space="preserve">
+    <value>reason code proporcionado no es valido para the requested status transition.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_INVALID_STATUS_TRANSITION" xml:space="preserve">
+    <value>La transicion de estado de suscripcion solicitada no esta permitida.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_MISSING_ADMINISTRATOR" xml:space="preserve">
+    <value>La compania requiere al menos un propietario o administrador activo antes de activar una suscripcion.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_MISSING_LEGAL_REPRESENTATIVE" xml:space="preserve">
+    <value>La compania requiere al menos un representante legal activo antes de activar una suscripcion.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar company subscription solicitado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_CANCELLATION_NOT_ALLOWED" xml:space="preserve">
+    <value>Solo scheduled plan changes that are still pending pueden ser cancelled.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_DATE_PAST_EXPIRATION" xml:space="preserve">
+    <value>La fecha efectiva solicitada no es valida porque la suscripcion actual expira antes de esa fecha.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_EFFECTIVE_DATE_IN_PAST" xml:space="preserve">
+    <value>La fecha efectiva solicitada no puede estar en el pasado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_EFFECTIVE_DATE_REQUIRED" xml:space="preserve">
+    <value>Se requiere future effective date para the selected plan change mode.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_INVALID_MODE" xml:space="preserve">
+    <value>requested plan change mode no es valido.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar subscription plan change solicitado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_PENDING_CONFLICT" xml:space="preserve">
+    <value>La compania ya tiene un cambio de plan programado pendiente de aplicacion.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_SAME_PLAN_VERSION" xml:space="preserve">
+    <value>El cambio solicitado no modifica el plan ni la version efectiva.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_CHANGE_UNSUPPORTED_CURRENT_STATUS" xml:space="preserve">
+    <value>El estado actual de la suscripcion no permite plan changes.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_INACTIVE" xml:space="preserve">
+    <value>Solo active commercial plans pueden ser assigned to companies.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar commercial plan solicitado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_PLAN_VERSION_NOT_AVAILABLE" xml:space="preserve">
+    <value>El plan comercial seleccionado no tiene una version efectiva para la fecha de inicio solicitada.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_REACTIVATION_PAST_EXPIRATION" xml:space="preserve">
+    <value>La suscripcion solicitada ya no puede reactivarse porque ya supero su fecha de expiracion.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_REACTIVATION_REQUIRES_SUSPENDED_STATUS" xml:space="preserve">
+    <value>Solo suspended subscriptions pueden ser reactivated.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_SCHEDULED_CONFLICT" xml:space="preserve">
+    <value>La compania ya tiene una suscripcion programada pendiente de activacion.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_START_DATE_IN_PAST" xml:space="preserve">
+    <value>La fecha de inicio solicitada de la suscripcion no puede estar en el pasado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_STATUS_CHANGE_EFFECTIVE_DATE_IN_PAST" xml:space="preserve">
+    <value>La fecha efectiva solicitada del cambio de estado no puede estar en el pasado.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_STATUS_CHANGE_EFFECTIVE_DATE_REQUIRED" xml:space="preserve">
+    <value>Se requiere effective date para subscription reactivation.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_STATUS_CHANGE_PENDING_CONFLICT" xml:space="preserve">
+    <value>El subscription already has a scheduled status change pending application.</value>
+  </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_STATUS_CHANGE_SCHEDULING_NOT_ALLOWED" xml:space="preserve">
+    <value>Solo suspended to active reactivation pueden ser scheduled in this version.</value>
+  </data>
+  <data name="PLATFORM_OPERATOR_ALREADY_EXISTS" xml:space="preserve">
+    <value>El usuario ya esta linked to a platform operator.</value>
+  </data>
+  <data name="PLATFORM_OPERATOR_USER_MUST_BE_ACTIVE_LOCAL" xml:space="preserve">
+    <value>Los operadores de plataforma deben estar vinculados a un usuario local activo.</value>
+  </data>
+  <data name="PLATFORM_OPERATOR_USER_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar user solicitado.</value>
+  </data>
+  <data name="POSITION_CATEGORY_CLASSIFICATION_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro classification ya usa code solicitado.</value>
+  </data>
+  <data name="POSITION_CATEGORY_CLASSIFICATION_DUPLICATE_AXES" xml:space="preserve">
+    <value>Ya existe una clasificacion con la misma funcion, contrato y jerarquia.</value>
+  </data>
+  <data name="POSITION_CATEGORY_CLASSIFICATION_IN_USE" xml:space="preserve">
+    <value>classification no puede ser inactivado mientras it is in use.</value>
+  </data>
+  <data name="POSITION_CATEGORY_CLASSIFICATION_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar position category classification solicitado.</value>
+  </data>
+  <data name="POSITION_CATEGORY_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro position category ya usa code solicitado.</value>
+  </data>
+  <data name="POSITION_CATEGORY_IN_USE" xml:space="preserve">
+    <value>category no puede ser inactivado mientras it is in use.</value>
+  </data>
+  <data name="POSITION_CATEGORY_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar position category solicitado.</value>
+  </data>
+  <data name="POSITION_DESCRIPTION_CATALOG_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro catalog item ya usa code solicitado.</value>
+  </data>
+  <data name="POSITION_DESCRIPTION_CATALOG_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a position description catalogs.</value>
+  </data>
+  <data name="POSITION_DESCRIPTION_CATALOG_INVALID_TYPE" xml:space="preserve">
+    <value>Tipo de catalogo no soportado para la operacion solicitada.</value>
+  </data>
+  <data name="POSITION_DESCRIPTION_CATALOG_IN_USE" xml:space="preserve">
+    <value>catalog item no puede ser inactivado mientras it is in use.</value>
+  </data>
+  <data name="POSITION_DESCRIPTION_CATALOG_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar position description catalog item solicitado.</value>
+  </data>
+  <data name="POSITION_DESCRIPTION_CATALOG_RELATED_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>Un required related catalog item could not be found or is inactive.</value>
+  </data>
+  <data name="POSITION_SLOTS_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a position slot administration.</value>
+  </data>
+  <data name="POSITION_SLOT_CAPACITY_RULE_VIOLATION" xml:space="preserve">
+    <value>Los empleados ocupados deben estar entre cero y el maximo de empleados.</value>
+  </data>
+  <data name="POSITION_SLOT_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro position slot ya usa code solicitado.</value>
+  </data>
+  <data name="POSITION_SLOT_CONTRACT_TYPE_NOT_RESOLVED" xml:space="preserve">
+    <value>El perfil de puesto seleccionado no resuelve a un tipo de contrato activo.</value>
+  </data>
+  <data name="POSITION_SLOT_COST_CENTER_INVALID" xml:space="preserve">
+    <value>El cost center inferred from the job profile organization unit does not exist or is inactive for the company.</value>
+  </data>
+  <data name="POSITION_SLOT_DEPENDENCY_CYCLE" xml:space="preserve">
+    <value>La dependencia directa solicitada crearia un ciclo.</value>
+  </data>
+  <data name="POSITION_SLOT_DEPENDENCY_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar dependency position slot seleccionado.</value>
+  </data>
+  <data name="POSITION_SLOT_DEPENDENCY_SELF_REFERENCE" xml:space="preserve">
+    <value>Una plaza no puede depender de si misma.</value>
+  </data>
+  <data name="POSITION_SLOT_DIAGRAM_FORMAT_INVALID" xml:space="preserve">
+    <value>Formato de exportacion de diagrama no soportado.</value>
+  </data>
+  <data name="POSITION_SLOT_EFFECTIVE_DATES_INVALID" xml:space="preserve">
+    <value>El rango de fechas efectivas no es valido.</value>
+  </data>
+  <data name="POSITION_SLOT_EXPORT_FORMAT_INVALID" xml:space="preserve">
+    <value>Formato de exportacion no soportado.</value>
+  </data>
+  <data name="POSITION_SLOT_JOB_PROFILE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar job profile seleccionado.</value>
+  </data>
+  <data name="POSITION_SLOT_JOB_PROFILE_ORG_UNIT_NOT_CONFIGURED" xml:space="preserve">
+    <value>El perfil de puesto seleccionado no tiene una unidad organizativa configurada.</value>
+  </data>
+  <data name="POSITION_SLOT_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar position slot.</value>
+  </data>
+  <data name="POSITION_SLOT_ROLE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar role seleccionado.</value>
+  </data>
+  <data name="POSITION_SLOT_STATUS_CONFLICT" xml:space="preserve">
+    <value>El cambio de estado solicitado no esta permitido para la ocupacion actual.</value>
+  </data>
+  <data name="POSITION_SLOT_SUSPENDED_OCCUPANCY_CONFLICT" xml:space="preserve">
+    <value>Las plazas suspendidas no pueden actualizar ocupacion.</value>
+  </data>
+  <data name="POSITION_SLOT_WORK_CENTER_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar work center seleccionado.</value>
+  </data>
+  <data name="RBAC_DENIED" xml:space="preserve">
+    <value>No tienes permiso para realizar esta accion.</value>
+  </data>
+  <data name="REPORT_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a the requested report resource.</value>
+  </data>
+  <data name="REPORT_FORMAT_NOT_SUPPORTED" xml:space="preserve">
+    <value>El formato de reporte solicitado no es soportado.</value>
+  </data>
+  <data name="REPORT_NOT_AVAILABLE" xml:space="preserve">
+    <value>El reporte no esta disponible para el recurso solicitado.</value>
+  </data>
+  <data name="REQUIREMENT_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar requirement type solicitado.</value>
+  </data>
+  <data name="RESOURCE_ACTION_FORBIDDEN_BY_STATE" xml:space="preserve">
+    <value>La accion solicitada no esta permitida para el resource state.</value>
+  </data>
+  <data name="RESOURCE_ACTION_FORBIDDEN_BY_TYPE" xml:space="preserve">
+    <value>La accion solicitada no esta permitida para este tipo de recurso.</value>
+  </data>
+  <data name="RESOURCE_DELETE_BLOCKED_BY_DEPENDENCIES" xml:space="preserve">
+    <value>resource no puede ser eliminado porque it has active dependencies.</value>
+  </data>
+  <data name="RESOURCE_IN_USE" xml:space="preserve">
+    <value>competency conduct no puede ser inactivado mientras it is associated to active job profile expectations.</value>
+  </data>
+  <data name="SALARY_CLASS_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar salary class solicitado.</value>
+  </data>
+  <data name="SALARY_TABULATOR_AMOUNT_RULE_VIOLATION" xml:space="preserve">
+    <value>Las reglas de monto salarial no son validas para la operacion solicitada.</value>
+  </data>
+  <data name="SALARY_TABULATOR_APPROVAL_POLICY_VIOLATION" xml:space="preserve">
+    <value>La politica de aprobacion no permite esta operacion.</value>
+  </data>
+  <data name="SALARY_TABULATOR_EFFECTIVE_DATES_INVALID" xml:space="preserve">
+    <value>effective date range no es valido.</value>
+  </data>
+  <data name="SALARY_TABULATOR_EFFECTIVE_DATE_OVERLAP" xml:space="preserve">
+    <value>Otra linea del tabulador salarial ya cubre el rango de fechas efectivas solicitado.</value>
+  </data>
+  <data name="SALARY_TABULATOR_EXPORT_FORMAT_INVALID" xml:space="preserve">
+    <value>Formato de exportacion no soportado.</value>
+  </data>
+  <data name="SALARY_TABULATOR_FORBIDDEN" xml:space="preserve">
+    <value>No tienes permiso para acceder a salary tabulator administration.</value>
+  </data>
+  <data name="SALARY_TABULATOR_LINE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar salary tabulator line solicitado.</value>
+  </data>
+  <data name="SALARY_TABULATOR_REQUEST_ITEM_REQUIRED" xml:space="preserve">
+    <value>At least one request item es requerido.</value>
+  </data>
+  <data name="SALARY_TABULATOR_REQUEST_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar salary tabulator change request solicitado.</value>
+  </data>
+  <data name="SALARY_TABULATOR_REQUEST_STATE_CONFLICT" xml:space="preserve">
+    <value>La operacion solicitada no es valida para el request state.</value>
+  </data>
+  <data name="SALARY_TABULATOR_SALARY_CLASS_NOT_FOUND" xml:space="preserve">
+    <value>requested salary class could not be found or esta inactivo.</value>
+  </data>
+  <data name="SYSTEM_CATALOG_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro system catalog item ya usa code for that country solicitado.</value>
+  </data>
+  <data name="SYSTEM_CATALOG_COUNTRY_CHANGE_FORBIDDEN" xml:space="preserve">
+    <value>No es soportado cambiar el pais de un elemento existente del catalogo del sistema.</value>
+  </data>
+  <data name="SYSTEM_CATALOG_COUNTRY_NOT_FOUND" xml:space="preserve">
+    <value>El pais '{0}' no esta activo.</value>
+  </data>
+  <data name="SYSTEM_CATALOG_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar system catalog item.</value>
+  </data>
+  <data name="SYSTEM_CATALOG_PARENT_COUNTRY_MISMATCH" xml:space="preserve">
+    <value>El departamento padre seleccionado pertenece a un pais diferente.</value>
+  </data>
+  <data name="SYSTEM_CATALOG_PARENT_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar parent department solicitado.</value>
+  </data>
+  <data name="SYSTEM_CATALOG_PARENT_REQUIRED" xml:space="preserve">
+    <value>Este catalogo requiere un departamento padre.</value>
+  </data>
+  <data name="TENANT_MISMATCH" xml:space="preserve">
+    <value>El requested resource does not belong to the current tenant.</value>
+  </data>
+  <data name="UNAUTHENTICATED" xml:space="preserve">
+    <value>Se requiere autenticacion para acceder a este recurso.</value>
+  </data>
+  <data name="USER_PREFERENCE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar user preferences.</value>
+  </data>
+  <data name="WORK_CENTERS_ALLOWED_ONLY_ON_LAST_LEVEL" xml:space="preserve">
+    <value>Solo the last active location level pueden allow work centers.</value>
+  </data>
+  <data name="WORK_CENTER_ADDRESS_REQUIRED" xml:space="preserve">
+    <value>La direccion es requerida para el tipo de centro de trabajo seleccionado.</value>
+  </data>
+  <data name="WORK_CENTER_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro work center ya usa code solicitado.</value>
+  </data>
+  <data name="WORK_CENTER_GEO_REQUIRED" xml:space="preserve">
+    <value>La latitud y longitud son requeridas para el tipo de centro de trabajo seleccionado.</value>
+  </data>
+  <data name="WORK_CENTER_HAS_ACTIVE_DEPENDENCIES" xml:space="preserve">
+    <value>work center no puede ser inactivado porque it still has active dependencies.</value>
+  </data>
+  <data name="WORK_CENTER_INVALID_COORDINATES" xml:space="preserve">
+    <value>La latitud o longitud proporcionada esta fuera del rango soportado.</value>
+  </data>
+  <data name="WORK_CENTER_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar work center.</value>
+  </data>
+  <data name="WORK_CENTER_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro work center type ya usa code solicitado.</value>
+  </data>
+  <data name="WORK_CENTER_TYPE_INACTIVE" xml:space="preserve">
+    <value>selected work center type esta inactivo.</value>
+  </data>
+  <data name="WORK_CENTER_TYPE_IN_USE" xml:space="preserve">
+    <value>work center type no puede ser inactivado porque active work centers still use it.</value>
+  </data>
+  <data name="WORK_CENTER_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar work center type.</value>
+  </data>
+  <data name="WORK_CONDITION_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar work condition type solicitado.</value>
+  </data>
+  <data name="account_companies.current_user.invalid" xml:space="preserve">
+    <value>current user context no es valido.</value>
+  </data>
+  <data name="account_companies.user.not_found" xml:space="preserve">
+    <value>No se pudo resolver user actual.</value>
+  </data>
+  <data name="auth.external.email_link_not_allowed" xml:space="preserve">
+    <value>La cuenta externa no puede vincularse automaticamente al usuario existente para este correo.</value>
+  </data>
+  <data name="auth.external.email_missing" xml:space="preserve">
+    <value>El proveedor externo no devolvio una direccion de correo electronico.</value>
+  </data>
+  <data name="auth.external.invalid_token" xml:space="preserve">
+    <value>external identity token no es valido.</value>
+  </data>
+  <data name="auth.external.provider_configuration_invalid" xml:space="preserve">
+    <value>El proveedor externo no esta configurado correctamente.</value>
+  </data>
+  <data name="auth.external.provider_link_conflict" xml:space="preserve">
+    <value>El usuario ya esta linked to a different external provider.</value>
+  </data>
+  <data name="auth.external.provider_not_supported" xml:space="preserve">
+    <value>El proveedor externo solicitado no es soportado.</value>
+  </data>
+  <data name="auth.forbidden" xml:space="preserve">
+    <value>No tienes permiso para acceder a este recurso.</value>
+  </data>
+  <data name="auth.invitation.invalid_token" xml:space="preserve">
+    <value>El token de invitacion es invalido o ha expirado.</value>
+  </data>
+  <data name="auth.login.invalid_credentials" xml:space="preserve">
+    <value>Las credenciales proporcionadas son invalidas.</value>
+  </data>
+  <data name="auth.logout.invalid_current_user" xml:space="preserve">
+    <value>authenticated user context no es valido.</value>
+  </data>
+  <data name="auth.refresh.invalid_token" xml:space="preserve">
+    <value>El token de refresco es invalido o ha expirado.</value>
+  </data>
+  <data name="auth.token_configuration_invalid" xml:space="preserve">
+    <value>La generacion de tokens JWT no esta configurada correctamente.</value>
+  </data>
+  <data name="auth.unauthorized" xml:space="preserve">
+    <value>Se requiere autenticacion para acceder a este recurso.</value>
+  </data>
+  <data name="auth.user_already_exists" xml:space="preserve">
+    <value>Ya existe un usuario con el mismo correo electronico.</value>
+  </data>
+  <data name="auth.user_not_active" xml:space="preserve">
+    <value>La cuenta de usuario no esta activa.</value>
+  </data>
+  <data name="common.conflict" xml:space="preserve">
+    <value>La solicitud entra en conflicto con the current state of the resource.</value>
+  </data>
+  <data name="common.not_found" xml:space="preserve">
+    <value>No se pudo encontrar el recurso solicitado.</value>
+  </data>
+  <data name="common.too_many_requests" xml:space="preserve">
+    <value>La tasa de solicitudes excedio the allowed threshold.</value>
   </data>
   <data name="common.unexpected" xml:space="preserve">
     <value>Ocurrio un error inesperado.</value>
+  </data>
+  <data name="common.validation" xml:space="preserve">
+    <value>Se encontraron uno o mas errores de validacion.</value>
+  </data>
+  <data name="company_users.company.not_found" xml:space="preserve">
+    <value>No se pudo resolver company actual.</value>
+  </data>
+  <data name="company_users.current_user.invalid" xml:space="preserve">
+    <value>current user context no es valido.</value>
+  </data>
+  <data name="company_users.last_admin_required" xml:space="preserve">
+    <value>La compania debe mantener al menos un administrador activo.</value>
+  </data>
+  <data name="company_users.management.forbidden" xml:space="preserve">
+    <value>No tienes permiso para administrar company users.</value>
+  </data>
+  <data name="company_users.module.disabled_by_plan" xml:space="preserve">
+    <value>El plan actual no habilita company user management.</value>
+  </data>
+  <data name="company_users.reset_invitation.external_user_not_supported" xml:space="preserve">
+    <value>El reinicio de invitacion solo esta disponible para usuarios locales.</value>
+  </data>
+  <data name="company_users.role.not_found" xml:space="preserve">
+    <value>El requested role was not found in the current company.</value>
+  </data>
+  <data name="company_users.tenant.required" xml:space="preserve">
+    <value>Se requiere un contexto de tenant para administrar usuarios de compania.</value>
+  </data>
+  <data name="company_users.user.not_found" xml:space="preserve">
+    <value>No se pudo encontrar el usuario de compania solicitado.</value>
+  </data>
+  <data name="company_users.user_already_in_company" xml:space="preserve">
+    <value>El user already belongs to the current company.</value>
+  </data>
+  <data name="company_users.user_in_another_company" xml:space="preserve">
+    <value>El usuario ya esta assigned to a different company.</value>
+  </data>
+  <data name="iam.current_user.invalid" xml:space="preserve">
+    <value>current user context no es valido.</value>
+  </data>
+  <data name="iam.field_permissions.resource_access_required" xml:space="preserve">
+    <value>El target role must have screen access before field permissions can be configured.</value>
+  </data>
+  <data name="iam.management.forbidden" xml:space="preserve">
+    <value>No tienes permiso para administrar identity access.</value>
+  </data>
+  <data name="iam.module.disabled_by_plan" xml:space="preserve">
+    <value>El plan actual no habilita this module.</value>
+  </data>
+  <data name="iam.permissions.code_conflict" xml:space="preserve">
+    <value>Ya existe un permission con el mismo code en este tenant.</value>
+  </data>
+  <data name="iam.permissions.collection_not_found" xml:space="preserve">
+    <value>No se encontraron uno o mas permissions solicitados.</value>
+  </data>
+  <data name="iam.permissions.not_found" xml:space="preserve">
+    <value>No se pudo encontrar el permiso solicitado.</value>
+  </data>
+  <data name="iam.roles.collection_not_found" xml:space="preserve">
+    <value>No se encontraron uno o mas roles solicitados.</value>
+  </data>
+  <data name="iam.roles.in_use" xml:space="preserve">
+    <value>Los roles con assigned users no pueden ser eliminados.</value>
+  </data>
+  <data name="iam.roles.last_administrator_required" xml:space="preserve">
+    <value>El tenant debe mantener al menos un administrador activo.</value>
+  </data>
+  <data name="iam.roles.name_conflict" xml:space="preserve">
+    <value>Ya existe un role con el mismo name en este tenant.</value>
+  </data>
+  <data name="iam.roles.not_found" xml:space="preserve">
+    <value>No se pudo encontrar el rol solicitado.</value>
+  </data>
+  <data name="iam.roles.protected_role.delete_forbidden" xml:space="preserve">
+    <value>Los roles protegidos del sistema no pueden ser deleted.</value>
+  </data>
+  <data name="iam.roles.protected_role.forbidden" xml:space="preserve">
+    <value>Los roles protegidos del sistema no pueden ser modified.</value>
+  </data>
+  <data name="iam.tenant.required" xml:space="preserve">
+    <value>Se requiere un contexto de tenant para acceder a la administracion de identidad.</value>
+  </data>
+  <data name="iam.users.collection_not_found" xml:space="preserve">
+    <value>No se encontraron uno o mas users solicitados.</value>
+  </data>
+  <data name="iam.users.email_conflict" xml:space="preserve">
+    <value>Ya existe un user con el mismo email en este tenant.</value>
+  </data>
+  <data name="iam.users.not_found" xml:space="preserve">
+    <value>No se pudo encontrar el usuario solicitado.</value>
   </data>
   <data name="model.body.invalid" xml:space="preserve">
     <value>El cuerpo de la solicitud no es valido.</value>
@@ -70,67 +982,271 @@
   <data name="model.body.required" xml:space="preserve">
     <value>El cuerpo de la solicitud es requerido.</value>
   </data>
-  <data name="model.value.uuid" xml:space="preserve">
-    <value>El valor debe ser un UUID valido.</value>
-  </data>
   <data name="model.value.bool" xml:space="preserve">
     <value>El valor debe ser verdadero o falso.</value>
-  </data>
-  <data name="model.value.int" xml:space="preserve">
-    <value>El valor debe ser un entero valido.</value>
-  </data>
-  <data name="model.value.number" xml:space="preserve">
-    <value>El valor debe ser un numero valido.</value>
   </data>
   <data name="model.value.datetime" xml:space="preserve">
     <value>El valor debe ser una fecha o fecha-hora valida.</value>
   </data>
+  <data name="model.value.int" xml:space="preserve">
+    <value>El valor debe ser un entero valido.</value>
+  </data>
   <data name="model.value.invalid" xml:space="preserve">
     <value>El valor no es valido para este campo.</value>
   </data>
-  <data name="auth.unauthorized" xml:space="preserve">
-    <value>Se requiere autenticacion para acceder a este recurso.</value>
+  <data name="model.value.number" xml:space="preserve">
+    <value>El valor debe ser un numero valido.</value>
   </data>
-  <data name="auth.forbidden" xml:space="preserve">
-    <value>No tienes permiso para acceder a este recurso.</value>
+  <data name="model.value.uuid" xml:space="preserve">
+    <value>El valor debe ser un UUID valido.</value>
   </data>
   <data name="provisioning.country_not_found" xml:space="preserve">
     <value>El pais solicitado '{0}' no existe en el catalogo activo de paises.</value>
   </data>
-  <data name="SYSTEM_CATALOG_COUNTRY_NOT_FOUND" xml:space="preserve">
-    <value>El pais '{0}' no esta activo.</value>
+  <data name="provisioning.default_plan_unavailable" xml:space="preserve">
+    <value>El plan comercial FREE predeterminado no esta disponible para aprovisionamiento.</value>
   </data>
-  <data name="validation.message.language_format_is_invalid" xml:space="preserve">
-    <value>El formato de idioma no es valido.</value>
+  <data name="provisioning.failed" xml:space="preserve">
+    <value>Fallo el aprovisionamiento inicial de la compania.</value>
+  </data>
+  <data name="provisioning.initial_legal_representative_required" xml:space="preserve">
+    <value>Se requiere un representante legal activo inicial para crear la compania.</value>
+  </data>
+  <data name="provisioning.user_not_found" xml:space="preserve">
+    <value>No se pudo encontrar el usuario a aprovisionar.</value>
+  </data>
+  <data name="validation.message.an_external_provider_is_required" xml:space="preserve">
+    <value>Se requiere un proveedor externo.</value>
+  </data>
+  <data name="validation.message.approvedsubjects_cannot_be_greater_than_totalsubjects" xml:space="preserve">
+    <value>ApprovedSubjects no puede ser mayor que TotalSubjects.</value>
+  </data>
+  <data name="validation.message.assignedpositionslotpublicid_is_not_allowed_for_candidate_personnel_files" xml:space="preserve">
+    <value>AssignedPositionSlotPublicId no esta permitido para expedientes de personal de candidatos.</value>
+  </data>
+  <data name="validation.message.assignedpositionslotpublicid_is_required_for_employee_personnel_files" xml:space="preserve">
+    <value>AssignedPositionSlotPublicId es requerido para expedientes de personal de empleados.</value>
+  </data>
+  <data name="validation.message.at_least_one_of_speaks_writes_or_reads_must_be_true" xml:space="preserve">
+    <value>Al menos uno de Speaks, Writes o Reads debe ser verdadero.</value>
+  </data>
+  <data name="validation.message.base_monthly_fee_cannot_exceed_2_decimal_places" xml:space="preserve">
+    <value>La tarifa mensual base no puede exceder 2 decimales.</value>
+  </data>
+  <data name="validation.message.birthcountrycode_format_is_invalid" xml:space="preserve">
+    <value>El formato de BirthCountryCode no es valido.</value>
+  </data>
+  <data name="validation.message.birthdepartmentcode_format_is_invalid" xml:space="preserve">
+    <value>El formato de BirthDepartmentCode no es valido.</value>
+  </data>
+  <data name="validation.message.birthmunicipalitycode_format_is_invalid" xml:space="preserve">
+    <value>El formato de BirthMunicipalityCode no es valido.</value>
+  </data>
+  <data name="validation.message.catalogcode_format_is_invalid" xml:space="preserve">
+    <value>El formato de CatalogCode no es valido.</value>
+  </data>
+  <data name="validation.message.category_format_is_invalid" xml:space="preserve">
+    <value>El formato de Category no es valido.</value>
   </data>
   <data name="validation.message.code_format_is_invalid" xml:space="preserve">
     <value>El formato de codigo no es valido.</value>
   </data>
+  <data name="validation.message.commercial_add_on_module_keys_cannot_contain_duplicates" xml:space="preserve">
+    <value>Las claves de modulos de complementos comerciales no pueden contener duplicados.</value>
+  </data>
+  <data name="validation.message.commercial_addon_code_format_is_invalid" xml:space="preserve">
+    <value>El formato de Commercial addon code no es valido.</value>
+  </data>
+  <data name="validation.message.commercial_addon_pricing_configuration_is_inconsistent_with_the_selected_type_and_billing_model" xml:space="preserve">
+    <value>La configuracion de precios del complemento comercial es inconsistente con el tipo y modelo de facturacion seleccionados.</value>
+  </data>
+  <data name="validation.message.commercial_plan_code_format_is_invalid" xml:space="preserve">
+    <value>El formato de Commercial plan code no es valido.</value>
+  </data>
+  <data name="validation.message.commercial_plan_limits_cannot_contain_duplicate_codes" xml:space="preserve">
+    <value>Los limites del plan comercial no pueden contener codigos duplicados.</value>
+  </data>
+  <data name="validation.message.commercial_plan_module_keys_cannot_contain_duplicates" xml:space="preserve">
+    <value>Las claves de modulos del plan comercial no pueden contener duplicados.</value>
+  </data>
+  <data name="validation.message.company_name_contains_invalid_characters" xml:space="preserve">
+    <value>Company name contiene caracteres invalidos.</value>
+  </data>
+  <data name="validation.message.companyphone_format_is_invalid" xml:space="preserve">
+    <value>El formato de CompanyPhone no es valido.</value>
+  </data>
+  <data name="validation.message.country_code_must_be_a_2_or_3_letter_iso_style_code" xml:space="preserve">
+    <value>El codigo de pais debe tener 2 o 3 letras estilo ISO.</value>
+  </data>
   <data name="validation.message.country_contains_invalid_characters" xml:space="preserve">
     <value>Country contiene caracteres invalidos.</value>
-  </data>
-  <data name="validation.message.source_contains_invalid_characters" xml:space="preserve">
-    <value>Source contiene caracteres invalidos.</value>
-  </data>
-  <data name="validation.message.first_name_contains_invalid_characters" xml:space="preserve">
-    <value>First name contiene caracteres invalidos.</value>
-  </data>
-  <data name="validation.message.last_name_contains_invalid_characters" xml:space="preserve">
-    <value>Last name contiene caracteres invalidos.</value>
-  </data>
-  <data name="validation.message.role_ids_must_be_unique" xml:space="preserve">
-    <value>Role ids deben ser unicos.</value>
-  </data>
-  <data name="validation.message.sortby_is_not_supported" xml:space="preserve">
-    <value>SortBy no es soportado.</value>
-  </data>
-  <data name="validation.message.minage_cannot_be_greater_than_maxage" xml:space="preserve">
-    <value>MinAge no puede ser mayor que MaxAge.</value>
   </data>
   <data name="validation.message.createdfromutc_cannot_be_greater_than_createdtoutc" xml:space="preserve">
     <value>CreatedFromUtc no puede ser mayor que CreatedToUtc.</value>
   </data>
-  <data name="validation.message.country_code_must_be_a_2_or_3_letter_iso_style_code" xml:space="preserve">
-    <value>El codigo de pais debe tener 2 o 3 letras estilo ISO.</value>
+  <data name="validation.message.currencycode_must_be_a_3_letter_iso_code" xml:space="preserve">
+    <value>CurrencyCode debe ser un codigo ISO de 3 letras.</value>
+  </data>
+  <data name="validation.message.documentnumber_format_is_invalid" xml:space="preserve">
+    <value>El formato de DocumentNumber no es valido.</value>
+  </data>
+  <data name="validation.message.effectivefromutc_cannot_be_greater_than_effectivetoutc" xml:space="preserve">
+    <value>EffectiveFromUtc no puede ser mayor que EffectiveToUtc.</value>
+  </data>
+  <data name="validation.message.effectivefromutc_must_be_less_than_or_equal_to_effectivetoutc" xml:space="preserve">
+    <value>EffectiveFromUtc debe ser menor o igual que EffectiveToUtc.</value>
+  </data>
+  <data name="validation.message.effectivetoutc_must_be_greater_than_or_equal_to_effectivefromutc" xml:space="preserve">
+    <value>EffectiveToUtc debe ser mayor o igual que EffectiveFromUtc.</value>
+  </data>
+  <data name="validation.message.employercontributionaccountcode_format_is_invalid" xml:space="preserve">
+    <value>El formato de EmployerContributionAccountCode no es valido.</value>
+  </data>
+  <data name="validation.message.enddate_is_required_when_iscurrentlystudying_is_false" xml:space="preserve">
+    <value>EndDate es requerido cuando IsCurrentlyStudying es falso.</value>
+  </data>
+  <data name="validation.message.filedata_is_required" xml:space="preserve">
+    <value>FileData es requerido.</value>
+  </data>
+  <data name="validation.message.filter_field_operator_is_not_supported" xml:space="preserve">
+    <value>El campo u operador de filtro no es soportado.</value>
+  </data>
+  <data name="validation.message.filter_payload_is_invalid_for_the_requested_operator" xml:space="preserve">
+    <value>La carga del filtro no es valida para el operador solicitado.</value>
+  </data>
+  <data name="validation.message.first_name_contains_invalid_characters" xml:space="preserve">
+    <value>First name contiene caracteres invalidos.</value>
+  </data>
+  <data name="validation.message.firstname_format_is_invalid" xml:space="preserve">
+    <value>El formato de el nombre no es valido.</value>
+  </data>
+  <data name="validation.message.groupby_field_is_not_supported" xml:space="preserve">
+    <value>El campo GroupBy no es soportado.</value>
+  </data>
+  <data name="validation.message.identificationnumber_format_is_invalid" xml:space="preserve">
+    <value>El formato de IdentificationNumber no es valido.</value>
+  </data>
+  <data name="validation.message.identificationtypecode_format_is_invalid" xml:space="preserve">
+    <value>El formato de IdentificationTypeCode no es valido.</value>
+  </data>
+  <data name="validation.message.institutionalphone_format_is_invalid" xml:space="preserve">
+    <value>El formato de InstitutionalPhone no es valido.</value>
+  </data>
+  <data name="validation.message.key_format_is_invalid" xml:space="preserve">
+    <value>El formato de Key no es valido.</value>
+  </data>
+  <data name="validation.message.language_format_is_invalid" xml:space="preserve">
+    <value>El formato de idioma no es valido.</value>
+  </data>
+  <data name="validation.message.last_name_contains_invalid_characters" xml:space="preserve">
+    <value>Last name contiene caracteres invalidos.</value>
+  </data>
+  <data name="validation.message.lastname_format_is_invalid" xml:space="preserve">
+    <value>El formato de el apellido no es valido.</value>
+  </data>
+  <data name="validation.message.levels_that_allow_work_centers_must_be_active" xml:space="preserve">
+    <value>Los niveles que permiten centros de trabajo deben estar activos.</value>
+  </data>
+  <data name="validation.message.limit_code_format_is_invalid" xml:space="preserve">
+    <value>El formato de Limit code no es valido.</value>
+  </data>
+  <data name="validation.message.limit_value_cannot_exceed_2_decimal_places" xml:space="preserve">
+    <value>El valor del limite no puede exceder 2 decimales.</value>
+  </data>
+  <data name="validation.message.maritalstatuscode_format_is_invalid" xml:space="preserve">
+    <value>El formato de MaritalStatusCode no es valido.</value>
+  </data>
+  <data name="validation.message.measurement_unit_is_required" xml:space="preserve">
+    <value>La unidad de medida es requerida.</value>
+  </data>
+  <data name="validation.message.minage_cannot_be_greater_than_maxage" xml:space="preserve">
+    <value>MinAge no puede ser mayor que MaxAge.</value>
+  </data>
+  <data name="validation.message.minimum_monthly_fee_cannot_exceed_2_decimal_places" xml:space="preserve">
+    <value>La tarifa mensual minima no puede exceder 2 decimales.</value>
+  </data>
+  <data name="validation.message.minsalary_must_be_less_than_or_equal_to_maxsalary" xml:space="preserve">
+    <value>MinSalary debe ser menor o igual que MaxSalary.</value>
+  </data>
+  <data name="validation.message.occupiedemployees_must_be_less_than_or_equal_to_maxemployees" xml:space="preserve">
+    <value>OccupiedEmployees debe ser menor o igual que MaxEmployees.</value>
+  </data>
+  <data name="validation.message.parentcode_format_is_invalid" xml:space="preserve">
+    <value>El formato de ParentCode no es valido.</value>
+  </data>
+  <data name="validation.message.payrollexpenseaccountcode_format_is_invalid" xml:space="preserve">
+    <value>El formato de PayrollExpenseAccountCode no es valido.</value>
+  </data>
+  <data name="validation.message.personalphone_format_is_invalid" xml:space="preserve">
+    <value>El formato de PersonalPhone no es valido.</value>
+  </data>
+  <data name="validation.message.phone_format_is_invalid" xml:space="preserve">
+    <value>El formato de Phone no es valido.</value>
+  </data>
+  <data name="validation.message.positiontitle_format_is_invalid" xml:space="preserve">
+    <value>El formato de PositionTitle no es valido.</value>
+  </data>
+  <data name="validation.message.price_per_active_employee_cannot_exceed_2_decimal_places" xml:space="preserve">
+    <value>El precio por empleado activo no puede exceder 2 decimales.</value>
+  </data>
+  <data name="validation.message.professioncode_format_is_invalid" xml:space="preserve">
+    <value>El formato de ProfessionCode no es valido.</value>
+  </data>
+  <data name="validation.message.proposedbaseamount_cannot_be_greater_than_proposedmaxamount" xml:space="preserve">
+    <value>ProposedBaseAmount no puede ser mayor que ProposedMaxAmount.</value>
+  </data>
+  <data name="validation.message.proposedbaseamount_cannot_be_less_than_proposedminamount" xml:space="preserve">
+    <value>ProposedBaseAmount no puede ser menor que ProposedMinAmount.</value>
+  </data>
+  <data name="validation.message.proposedminamount_cannot_be_greater_than_proposedmaxamount" xml:space="preserve">
+    <value>ProposedMinAmount no puede ser mayor que ProposedMaxAmount.</value>
+  </data>
+  <data name="validation.message.provisionaccountcode_format_is_invalid" xml:space="preserve">
+    <value>El formato de ProvisionAccountCode no es valido.</value>
+  </data>
+  <data name="validation.message.required_levels_must_be_active" xml:space="preserve">
+    <value>Los niveles requeridos deben estar activos.</value>
+  </data>
+  <data name="validation.message.role_ids_must_be_unique" xml:space="preserve">
+    <value>Role ids deben ser unicos.</value>
+  </data>
+  <data name="validation.message.salaryclasscode_format_is_invalid" xml:space="preserve">
+    <value>El formato de SalaryClassCode no es valido.</value>
+  </data>
+  <data name="validation.message.salaryscalecode_format_is_invalid" xml:space="preserve">
+    <value>El formato de SalaryScaleCode no es valido.</value>
+  </data>
+  <data name="validation.message.section_is_not_supported" xml:space="preserve">
+    <value>Section no es soportado.</value>
+  </data>
+  <data name="validation.message.sort_field_is_not_supported" xml:space="preserve">
+    <value>El campo de ordenamiento no es soportado.</value>
+  </data>
+  <data name="validation.message.sortby_is_not_supported" xml:space="preserve">
+    <value>SortBy no es soportado.</value>
+  </data>
+  <data name="validation.message.source_contains_invalid_characters" xml:space="preserve">
+    <value>Source contiene caracteres invalidos.</value>
+  </data>
+  <data name="validation.message.the_from_date_must_be_less_than_or_equal_to_to" xml:space="preserve">
+    <value>La fecha 'from' debe ser menor o igual que 'to'.</value>
+  </data>
+  <data name="validation.message.unit_price_cannot_exceed_2_decimal_places" xml:space="preserve">
+    <value>El precio unitario no puede exceder 2 decimales.</value>
+  </data>
+  <data name="validation.message.unknown_commercial_module_key" xml:space="preserve">
+    <value>La clave del modulo comercial es desconocida.</value>
+  </data>
+  <data name="validation.message.unknown_entity_type" xml:space="preserve">
+    <value>El tipo de entidad es desconocido.</value>
+  </data>
+  <data name="validation.message.unknown_event_type" xml:space="preserve">
+    <value>El tipo de evento es desconocido.</value>
+  </data>
+  <data name="validation.message.unsupported_catalog_type" xml:space="preserve">
+    <value>El tipo de catalogo no es soportado.</value>
+  </data>
+  <data name="validation.message.workphone_format_is_invalid" xml:space="preserve">
+    <value>El formato de WorkPhone no es valido.</value>
   </data>
 </root>
