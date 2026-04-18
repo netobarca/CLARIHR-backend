@@ -1032,6 +1032,10 @@ internal sealed class ApproveSalaryTabulatorChangeRequestCommandHandler(
 
         var allowSelfApproval = false;
         var lineAuditEvents = new List<SalaryTabulatorLineAuditPayload>();
+        var affectedCoverageKeys = request.Items
+            .Select(static item => (item.NormalizedSalaryClassCode, item.NormalizedSalaryScaleCode))
+            .Distinct()
+            .ToArray();
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -1051,6 +1055,22 @@ internal sealed class ApproveSalaryTabulatorChangeRequestCommandHandler(
                 }
 
                 lineAuditEvents.AddRange(applyResult.Value);
+            }
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            foreach (var (normalizedSalaryClassCode, normalizedSalaryScaleCode) in affectedCoverageKeys)
+            {
+                if (await repository.HasUncoveredJobProfileCompensationReferenceAsync(
+                        request.TenantId,
+                        normalizedSalaryClassCode,
+                        normalizedSalaryScaleCode,
+                        dateTimeProvider.UtcNow.Date,
+                        cancellationToken))
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Result<SalaryTabulatorChangeRequestResponse>.Failure(SalaryTabulatorErrors.JobProfileCoverageConflict);
+                }
             }
 
             request.Approve(decidedByUserId, dateTimeProvider.UtcNow, command.DecisionComment, allowSelfApproval);

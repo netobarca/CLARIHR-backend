@@ -214,7 +214,7 @@ public sealed class JobProfilesController(
                 MapRelations(request.Relations),
                 MapCompetencies(request.Competencies),
                 MapTrainings(request.Trainings),
-                MapCompensations(request.Compensations),
+                MapCompensation(request.Compensation),
                 MapBenefits(request.Benefits),
                 MapWorkingConditions(request.WorkingConditions),
                 MapDependentPositions(request.DependentPositions)),
@@ -265,7 +265,7 @@ public sealed class JobProfilesController(
                 MapRelations(request.Relations),
                 MapCompetencies(request.Competencies),
                 MapTrainings(request.Trainings),
-                MapCompensations(request.Compensations),
+                MapCompensation(request.Compensation),
                 MapBenefits(request.Benefits),
                 MapWorkingConditions(request.WorkingConditions),
                 MapDependentPositions(request.DependentPositions),
@@ -365,17 +365,10 @@ public sealed class JobProfilesController(
                 value.SortOrder))
             .ToArray() ?? [];
 
-    private static IReadOnlyCollection<JobProfileCompensationInput> MapCompensations(IReadOnlyCollection<JobProfileCompensationRequest>? values) =>
-        values?.Select(value => new JobProfileCompensationInput(
-                value.SalaryClassPublicId,
-                value.SalaryClassCode,
-                value.SalaryClassName,
-                value.MinSalary,
-                value.MaxSalary,
-                value.CurrencyCode,
-                value.WorkSchedule,
-                value.IsPrimary))
-            .ToArray() ?? [];
+    private static JobProfileCompensationInput? MapCompensation(JobProfileCompensationRequest? value) =>
+        value is null
+            ? null
+            : new JobProfileCompensationInput(value.SalaryTabulatorLineId);
 
     private static IReadOnlyCollection<JobProfileBenefitInput> MapBenefits(IReadOnlyCollection<JobProfileBenefitRequest>? values) =>
         values?.Select(value => new JobProfileBenefitInput(
@@ -457,7 +450,7 @@ public sealed class JobProfilesController(
         IReadOnlyCollection<JobProfileRelationRequest>? Relations,
         IReadOnlyCollection<JobProfileCompetencyRequest>? Competencies,
         IReadOnlyCollection<JobProfileTrainingRequest>? Trainings,
-        IReadOnlyCollection<JobProfileCompensationRequest>? Compensations,
+        JobProfileCompensationRequest? Compensation,
         IReadOnlyCollection<JobProfileBenefitRequest>? Benefits,
         IReadOnlyCollection<JobProfileWorkingConditionRequest>? WorkingConditions,
         IReadOnlyCollection<JobProfileDependentPositionRequest>? DependentPositions);
@@ -487,7 +480,7 @@ public sealed class JobProfilesController(
         IReadOnlyCollection<JobProfileRelationRequest>? Relations,
         IReadOnlyCollection<JobProfileCompetencyRequest>? Competencies,
         IReadOnlyCollection<JobProfileTrainingRequest>? Trainings,
-        IReadOnlyCollection<JobProfileCompensationRequest>? Compensations,
+        JobProfileCompensationRequest? Compensation,
         IReadOnlyCollection<JobProfileBenefitRequest>? Benefits,
         IReadOnlyCollection<JobProfileWorkingConditionRequest>? WorkingConditions,
         IReadOnlyCollection<JobProfileDependentPositionRequest>? DependentPositions,
@@ -535,14 +528,7 @@ public sealed class JobProfilesController(
         int SortOrder);
 
     public sealed record JobProfileCompensationRequest(
-        Guid? SalaryClassPublicId,
-        string? SalaryClassCode,
-        string? SalaryClassName,
-        decimal? MinSalary,
-        decimal? MaxSalary,
-        string? CurrencyCode,
-        string? WorkSchedule,
-        bool IsPrimary);
+        Guid SalaryTabulatorLineId);
 
     public sealed record JobProfileBenefitRequest(
         Guid? CatalogItemPublicId,

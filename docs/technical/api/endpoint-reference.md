@@ -2326,7 +2326,7 @@ Familias de rutas:
 Este bloque convierte la estructura organizacional en un modelo formal de puestos y plazas:
 
 - `Job catalogs` mantiene diccionarios reutilizables para conocimientos, competencias, capacitaciones, niveles conductuales y otros ejes de diseno.
-- `Job profiles` define el puesto tipo: objetivo, dependencias, requisitos, funciones, relaciones, compensaciones, beneficios y condiciones.
+- `Job profiles` define el puesto tipo: objetivo, dependencias, requisitos, funciones, relaciones, compensacion referenciada al tabulador salarial, beneficios y condiciones.
 - `Competency framework` modela la piramide ocupacional, los conductos esperados y la matriz de expectativas por perfil.
 - `Position description catalogs` provee el vocabulario formal del descriptor de puestos y sus clasificaciones.
 - `Position slots` aterriza ese diseno en plazas concretas dentro de la empresa: una posicion real asociada a un `JobProfile`, que hereda `OrgUnit` y `CostCenter` desde ese perfil, opcionalmente en un `WorkCenter`, con capacidad, ocupacion y dependencias.
@@ -2350,6 +2350,7 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - No existen endpoints de borrado fisico en este bloque.
 - Las escrituras complejas son de reemplazo, no incrementales:
 - `PUT /job-profiles/{id}` reemplaza todas las colecciones anidadas del perfil; si una coleccion llega `null`, el controller la convierte en `[]` y el handler limpia la seccion existente.
+- `POST/PUT /job-profiles` usan `compensation` (singular, opcional) como referencia canonica a `salaryTabulatorLineId`; si llega `null`, se limpia la referencia de compensacion del perfil.
 - `PUT /competency-conducts/{id}/behaviors` reemplaza el conjunto completo de behaviors del conducto.
 - `PUT /job-profiles/{id}/competency-matrix` reemplaza la matriz completa del perfil; una lista vacia limpia la matriz.
 - `PATCH /position-slots/{id}/dependencies` sobrescribe tanto la dependencia directa como la funcional; `null` limpia la relacion.
@@ -2359,6 +2360,7 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - `POST/PUT /position-slots` ya no aceptan `OrgUnitPublicId` ni `CostCenterCode`; ambos valores se infieren desde `JobProfile -> OrgUnit`.
 - `POST/PUT /position-slots` aceptan `RolePublicId` opcional; si se envia debe resolver un rol valido del catalogo IAM del mismo tenant.
 - En `PositionSlots`, el tipo de contrato no lo envia el cliente: se deriva desde `JobProfile -> PositionCategory -> PositionCategoryClassification -> PositionContractType`.
+- `PATCH /salary-tabulator/change-requests/{id}/approve` ahora aplica un guardrail de cobertura: si el cambio deja `JobProfiles` referenciando una combinacion `salaryClass + salaryScale` sin linea activa para su fecha efectiva, responde `SALARY_TABULATOR_JOB_PROFILE_COVERAGE_CONFLICT` (`409`) y revierte la aprobacion.
 
 #### 5.9.4 Autorizacion observable
 
@@ -2399,6 +2401,7 @@ Errores relevantes en `JobProfiles` y `JobCatalogs`:
 - `JOB_PROFILE_DEPENDENCY_CYCLE`: `409`, `reportsTo` o `dependentPositions` crearian una dependencia circular entre perfiles; el usuario debe revisar el perfil superior y las posiciones dependientes.
 - `JOB_PROFILE_STATE_CONFLICT`: `409`, la operacion no aplica al estado actual, por ejemplo editar un perfil archivado.
 - `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING`: `422`, faltan requisitos minimos para publicar.
+- `JOB_PROFILE_COMPENSATION_TABULATOR_LINE_NOT_FOUND`: `422`, el `salaryTabulatorLineId` enviado en `compensation` no existe en el tenant o no esta activo para la fecha efectiva del perfil.
 - `JOB_CATALOG_INLINE_CREATE_FORBIDDEN`: `403`, el payload quiso crear catalogos inline sin permisos de catalog admin.
 - `JOB_PROFILE_EXPORT_FORMAT_INVALID`: `400`, `format` distinto de `json|csv`.
 
@@ -2519,12 +2522,13 @@ Observaciones funcionales:
 - `q` busca por `code` y `title`.
 - el orden observable del listado es `title`, luego `code`.
 - `search` devuelve `PagedResponse<JobProfileListItemResponse>`.
-- `get by id` devuelve el agregado completo: datos base, dependencias, requisitos, funciones, relaciones, competencias, trainings, compensaciones, beneficios, condiciones y puestos dependientes.
+- `get by id` devuelve el agregado completo: datos base, dependencias, requisitos, funciones, relaciones, competencias, trainings, compensacion canonica resuelta desde Salary Tabulator, beneficios, condiciones y puestos dependientes.
 - `vacancy-template` devuelve una vista resumida para reclutamiento: objetivo, responsabilidades, resumen de condiciones/beneficios y las colecciones mas relevantes del perfil.
 - `print` devuelve `JobProfilePrintResponse` con `Profile + GeneratedAtUtc` y registra auditoria `ReportPrinted`.
 - `export` soporta solo `json|csv`.
 - el payload de `create/update` mezcla campos escalares y colecciones anidadas.
 - `update` es de reemplazo total sobre las colecciones; no es un merge parcial.
+- `compensation` no es coleccion: es una sola referencia opcional (`salaryTabulatorLineId`) y el backend valida que la linea exista y este activa en `Salary Tabulator` para la fecha efectiva.
 - `create/update` resuelven referencias a `OrgUnit`, `ReportsToJobProfile`, `PositionCategory`, `StrategicObjective`, `AssignedWorkEquipment` y `Responsibility`.
 - `OrgUnitPublicId` es obligatoria en `create/update`; incluso un borrador debe quedar asociado a una unidad organizativa valida.
 - `PositionCategory` debe existir y estar activa para poder asociarse al perfil.
@@ -2534,7 +2538,7 @@ Observaciones funcionales:
 - `PUT /api/v1/job-profiles/{id}` permite guardar borradores incompletos, pero si el perfil ya esta `Published` no puede remover `objective`, `responsibilities`, `requirements` o `functions`; en ese caso responde `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING` (`422`). Esa flexibilidad ya no aplica a `OrgUnit`: siempre debe existir.
 - `Archived` si es terminal para edicion: cualquier `update` o `publish` sobre un perfil archivado falla con `JOB_PROFILE_STATE_CONFLICT`.
 - `publish` exige al menos estas precondiciones: `Objective`, minimo un `Requirement`, minimo una `Function` y `Responsibilities`.
-- `publish` no exige competencias, trainings, beneficios, compensaciones ni categoria de puesto.
+- `publish` no exige competencias, trainings, beneficios, compensacion ni categoria de puesto.
 - `publish` usa el `ConcurrencyToken` del perfil y, si el estado es valido, incrementa `Version`.
 - `archive` es practicamente idempotente: si el perfil ya estaba archivado y el `ConcurrencyToken` coincide, devuelve la representacion actual sin volver a mutar.
 - cambiar la `OrgUnit` del `JobProfile` cambia automaticamente la `OrgUnit` y el `CostCenterCode` derivados que exponen todas sus `PositionSlots`.

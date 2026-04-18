@@ -56,6 +56,13 @@ public interface ISalaryTabulatorRepository
         long? excludingLineId,
         CancellationToken cancellationToken);
 
+    Task<bool> HasUncoveredJobProfileCompensationReferenceAsync(
+        Guid tenantId,
+        string normalizedSalaryClassCode,
+        string normalizedSalaryScaleCode,
+        DateTime fallbackEffectiveAtUtc,
+        CancellationToken cancellationToken);
+
     Task<SalaryTabulatorChangeRequest?> GetChangeRequestByIdAsync(Guid requestId, CancellationToken cancellationToken);
 
     Task<bool> ChangeRequestExistsOutsideTenantAsync(Guid requestId, CancellationToken cancellationToken);

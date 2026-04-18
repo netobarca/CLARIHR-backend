@@ -1,4 +1,5 @@
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.PositionDescriptionCatalogs;
 
 namespace CLARIHR.Domain.JobProfiles;
 
@@ -9,7 +10,6 @@ public sealed class JobProfile : TenantEntity
     private readonly List<JobProfileRelation> _relations = [];
     private readonly List<JobProfileCompetency> _competencies = [];
     private readonly List<JobProfileTraining> _trainings = [];
-    private readonly List<JobProfileCompensation> _compensations = [];
     private readonly List<JobProfileBenefit> _benefits = [];
     private readonly List<JobProfileWorkingCondition> _workingConditions = [];
     private readonly List<JobProfileDependentPosition> _dependentPositions = [];
@@ -65,6 +65,14 @@ public sealed class JobProfile : TenantEntity
 
     public string? ValuationNotes { get; private set; }
 
+    public long? SalaryClassCatalogItemId { get; private set; }
+
+    public PositionDescriptionCatalogItem? SalaryClassCatalogItem { get; private set; }
+
+    public string? SalaryScaleCode { get; private set; }
+
+    public string? NormalizedSalaryScaleCode { get; private set; }
+
     public JobProfileStatus Status { get; private set; }
 
     public int Version { get; private set; }
@@ -86,8 +94,6 @@ public sealed class JobProfile : TenantEntity
     public IReadOnlyCollection<JobProfileCompetency> Competencies => _competencies;
 
     public IReadOnlyCollection<JobProfileTraining> Trainings => _trainings;
-
-    public IReadOnlyCollection<JobProfileCompensation> Compensations => _compensations;
 
     public IReadOnlyCollection<JobProfileBenefit> Benefits => _benefits;
 
@@ -187,13 +193,6 @@ public sealed class JobProfile : TenantEntity
         _trainings.AddRange(items);
     }
 
-    public void ReplaceCompensations(IEnumerable<JobProfileCompensation> items)
-    {
-        EnsureEditable();
-        _compensations.Clear();
-        _compensations.AddRange(items);
-    }
-
     public void ReplaceBenefits(IEnumerable<JobProfileBenefit> items)
     {
         EnsureEditable();
@@ -258,6 +257,48 @@ public sealed class JobProfile : TenantEntity
         RefreshConcurrencyToken();
     }
 
+    public void SetCompensationReference(
+        long salaryClassCatalogItemId,
+        PositionDescriptionCatalogItem? salaryClassCatalogItem,
+        string salaryScaleCode,
+        bool bumpVersion = true)
+    {
+        EnsurePositiveId(salaryClassCatalogItemId, nameof(salaryClassCatalogItemId));
+
+        var normalizedSalaryScaleCode = NormalizeOptionalCode(salaryScaleCode);
+        if (string.IsNullOrWhiteSpace(normalizedSalaryScaleCode))
+        {
+            throw new ArgumentException("SalaryScaleCode is required.", nameof(salaryScaleCode));
+        }
+
+        EnsureEditable();
+        SalaryClassCatalogItemId = salaryClassCatalogItemId;
+        SalaryClassCatalogItem = salaryClassCatalogItem;
+        SalaryScaleCode = normalizedSalaryScaleCode;
+        NormalizedSalaryScaleCode = normalizedSalaryScaleCode;
+
+        if (bumpVersion)
+        {
+            Version++;
+            RefreshConcurrencyToken();
+        }
+    }
+
+    public void ClearCompensationReference(bool bumpVersion = true)
+    {
+        EnsureEditable();
+        SalaryClassCatalogItemId = null;
+        SalaryClassCatalogItem = null;
+        SalaryScaleCode = null;
+        NormalizedSalaryScaleCode = null;
+
+        if (bumpVersion)
+        {
+            Version++;
+            RefreshConcurrencyToken();
+        }
+    }
+
     private void EnsureEditable()
     {
         if (Status == JobProfileStatus.Archived)
@@ -285,6 +326,11 @@ public sealed class JobProfile : TenantEntity
             throw new ArgumentOutOfRangeException(parameterName, "Identifier must be greater than zero.");
         }
     }
+
+    private static string? NormalizeOptionalCode(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? null
+            : JobProfileNormalization.NormalizeCode(value);
 
     private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
 }

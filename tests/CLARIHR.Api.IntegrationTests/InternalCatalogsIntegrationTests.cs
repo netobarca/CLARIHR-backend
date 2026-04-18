@@ -215,7 +215,7 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>()
@@ -282,7 +282,7 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
             relations = Array.Empty<object>(),
             competencies = Array.Empty<object>(),
             trainings = Array.Empty<object>(),
-            compensations = Array.Empty<object>(),
+            compensation = (object?)null,
             benefits = Array.Empty<object>(),
             workingConditions = Array.Empty<object>(),
             dependentPositions = Array.Empty<object>(),

@@ -171,6 +171,7 @@ Para `SV`, la plantilla estructurada vigente siembra `14` departamentos y `44` m
 
 1. El tenant crea y mantiene `job profiles`.
 2. Puede consultarlos, imprimirlos, exportarlos y publicar o archivar.
+3. La compensacion del perfil ya no se gestiona como detalle libre dentro del puesto: se referencia por `salary class + salary scale` y su fuente canonica es `Salary Tabulator`.
 
 ### 8.2 Competencias y conductas
 

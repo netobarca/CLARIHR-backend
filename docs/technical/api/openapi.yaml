@@ -3521,34 +3521,12 @@ components:
     JobProfileCompensationRequest:
       type: object
       required:
-        - isPrimary
+        - salaryTabulatorLineId
       properties:
-        salaryClassPublicId:
+        salaryTabulatorLineId:
           type: string
           format: uuid
-          nullable: true
-        salaryClassCode:
-          type: string
-          nullable: true
-        salaryClassName:
-          type: string
-          nullable: true
-        minSalary:
-          type: number
-          format: decimal
-          nullable: true
-        maxSalary:
-          type: number
-          format: decimal
-          nullable: true
-        currencyCode:
-          type: string
-          nullable: true
-        workSchedule:
-          type: string
-          nullable: true
-        isPrimary:
-          type: boolean
+          description: Canonical Salary Tabulator line selected for the job profile compensation reference.
     JobProfileBenefitRequest:
       type: object
       required:
@@ -3725,11 +3703,10 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/JobProfileTrainingRequest'
-        compensations:
-          type: array
+        compensation:
+          allOf:
+            - $ref: '#/components/schemas/JobProfileCompensationRequest'
           nullable: true
-          items:
-            $ref: '#/components/schemas/JobProfileCompensationRequest'
         benefits:
           type: array
           nullable: true

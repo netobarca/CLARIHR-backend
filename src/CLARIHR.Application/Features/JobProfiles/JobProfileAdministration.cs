@@ -7,6 +7,7 @@ using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
+using CLARIHR.Application.Abstractions.SalaryTabulator;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
@@ -19,6 +20,7 @@ using CLARIHR.Application.Features.InternalCatalogs.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
+using CLARIHR.Application.Features.SalaryTabulator.Common;
 using CLARIHR.Domain.InternalCatalogs;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
@@ -62,11 +64,14 @@ public sealed record JobProfileTrainingResponse(
 public sealed record JobProfileCompensationResponse(
     Guid? SalaryClassId,
     string? SalaryClassName,
-    decimal? MinSalary,
-    decimal? MaxSalary,
+    string? SalaryScaleCode,
+    Guid? SalaryTabulatorLineId,
     string? CurrencyCode,
-    string? WorkSchedule,
-    bool IsPrimary);
+    decimal? BaseAmount,
+    decimal? MinAmount,
+    decimal? MaxAmount,
+    DateTime? ResolvedEffectiveFromUtc,
+    DateTime? ResolvedEffectiveToUtc);
 
 public sealed record JobProfileBenefitResponse(
     Guid? CatalogItemId,
@@ -134,7 +139,7 @@ public sealed record JobProfileResponse(
     IReadOnlyCollection<JobProfileRelationResponse> Relations,
     IReadOnlyCollection<JobProfileCompetencyResponse> Competencies,
     IReadOnlyCollection<JobProfileTrainingResponse> Trainings,
-    IReadOnlyCollection<JobProfileCompensationResponse> Compensations,
+    JobProfileCompensationResponse? Compensation,
     IReadOnlyCollection<JobProfileBenefitResponse> Benefits,
     IReadOnlyCollection<JobProfileWorkingConditionResponse> WorkingConditions,
     IReadOnlyCollection<JobProfileDependentPositionResponse> DependentPositions,
@@ -208,14 +213,7 @@ public sealed record JobProfileTrainingInput(
     int SortOrder);
 
 public sealed record JobProfileCompensationInput(
-    Guid? SalaryClassId,
-    string? SalaryClassCode,
-    string? SalaryClassName,
-    decimal? MinSalary,
-    decimal? MaxSalary,
-    string? CurrencyCode,
-    string? WorkSchedule,
-    bool IsPrimary);
+    Guid SalaryTabulatorLineId);
 
 public sealed record JobProfileBenefitInput(
     Guid? CatalogItemId,
@@ -281,7 +279,7 @@ public sealed record CreateJobProfileCommand(
     IReadOnlyCollection<JobProfileRelationInput> Relations,
     IReadOnlyCollection<JobProfileCompetencyInput> Competencies,
     IReadOnlyCollection<JobProfileTrainingInput> Trainings,
-    IReadOnlyCollection<JobProfileCompensationInput> Compensations,
+    JobProfileCompensationInput? Compensation,
     IReadOnlyCollection<JobProfileBenefitInput> Benefits,
     IReadOnlyCollection<JobProfileWorkingConditionInput> WorkingConditions,
     IReadOnlyCollection<JobProfileDependentPositionInput> DependentPositions) : ICommand<JobProfileResponse>;
@@ -312,7 +310,7 @@ public sealed record UpdateJobProfileCommand(
     IReadOnlyCollection<JobProfileRelationInput> Relations,
     IReadOnlyCollection<JobProfileCompetencyInput> Competencies,
     IReadOnlyCollection<JobProfileTrainingInput> Trainings,
-    IReadOnlyCollection<JobProfileCompensationInput> Compensations,
+    JobProfileCompensationInput? Compensation,
     IReadOnlyCollection<JobProfileBenefitInput> Benefits,
     IReadOnlyCollection<JobProfileWorkingConditionInput> WorkingConditions,
     IReadOnlyCollection<JobProfileDependentPositionInput> DependentPositions,
@@ -410,7 +408,8 @@ internal sealed class CreateJobProfileCommandValidator : AbstractValidator<Creat
         RuleForEach(command => command.Relations).SetValidator(new JobProfileRelationInputValidator());
         RuleForEach(command => command.Competencies).SetValidator(new JobProfileCompetencyInputValidator());
         RuleForEach(command => command.Trainings).SetValidator(new JobProfileTrainingInputValidator());
-        RuleForEach(command => command.Compensations).SetValidator(new JobProfileCompensationInputValidator());
+        RuleFor(command => command.Compensation)
+            .SetValidator(new JobProfileCompensationInputValidator()!);
         RuleForEach(command => command.Benefits).SetValidator(new JobProfileBenefitInputValidator());
         RuleForEach(command => command.WorkingConditions).SetValidator(new JobProfileWorkingConditionInputValidator());
         RuleForEach(command => command.DependentPositions).SetValidator(new JobProfileDependentPositionInputValidator());
@@ -469,7 +468,8 @@ internal sealed class UpdateJobProfileCommandValidator : AbstractValidator<Updat
         RuleForEach(command => command.Relations).SetValidator(new JobProfileRelationInputValidator());
         RuleForEach(command => command.Competencies).SetValidator(new JobProfileCompetencyInputValidator());
         RuleForEach(command => command.Trainings).SetValidator(new JobProfileTrainingInputValidator());
-        RuleForEach(command => command.Compensations).SetValidator(new JobProfileCompensationInputValidator());
+        RuleFor(command => command.Compensation)
+            .SetValidator(new JobProfileCompensationInputValidator()!);
         RuleForEach(command => command.Benefits).SetValidator(new JobProfileBenefitInputValidator());
         RuleForEach(command => command.WorkingConditions).SetValidator(new JobProfileWorkingConditionInputValidator());
         RuleForEach(command => command.DependentPositions).SetValidator(new JobProfileDependentPositionInputValidator());
@@ -589,26 +589,7 @@ internal sealed class JobProfileCompensationInputValidator : AbstractValidator<J
 {
     public JobProfileCompensationInputValidator()
     {
-        RuleFor(input => input.SalaryClassId)
-            .NotEqual(Guid.Empty)
-            .When(static input => input.SalaryClassId.HasValue);
-        RuleFor(input => input.SalaryClassCode)
-            .MaximumLength(50)
-            .Must(JobProfileValidationRules.IsValidCode)
-            .When(static input => !string.IsNullOrWhiteSpace(input.SalaryClassCode))
-            .WithMessage("SalaryClassCode format is invalid.");
-        RuleFor(input => input.SalaryClassName).MaximumLength(120);
-        RuleFor(input => input.MinSalary)
-            .GreaterThanOrEqualTo(0m)
-            .When(static input => input.MinSalary.HasValue);
-        RuleFor(input => input.MaxSalary)
-            .GreaterThanOrEqualTo(0m)
-            .When(static input => input.MaxSalary.HasValue);
-        RuleFor(input => input)
-            .Must(static input => !input.MinSalary.HasValue || !input.MaxSalary.HasValue || input.MinSalary.Value <= input.MaxSalary.Value)
-            .WithMessage("MinSalary must be less than or equal to MaxSalary.");
-        RuleFor(input => input.CurrencyCode).MaximumLength(10);
-        RuleFor(input => input.WorkSchedule).MaximumLength(120);
+        RuleFor(input => input.SalaryTabulatorLineId).NotEmpty();
     }
 }
 
@@ -817,6 +798,7 @@ internal sealed class CreateJobProfileCommandHandler(
     IJobCatalogRepository catalogRepository,
     IInternalCatalogRepository internalCatalogRepository,
     IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    ISalaryTabulatorRepository salaryTabulatorRepository,
     IAuditService auditService,
     IPlatformAuditService platformAuditService,
     IUserRepository userRepository,
@@ -949,6 +931,7 @@ internal sealed class CreateJobProfileCommandHandler(
             catalogRepository,
             internalCatalogRepository,
             positionDescriptionCatalogRepository,
+            salaryTabulatorRepository,
             actorResult.Value.PublicId,
             dateTimeProvider,
             createdCatalogItems,
@@ -988,7 +971,19 @@ internal sealed class CreateJobProfileCommandHandler(
         profile.ReplaceRelations(mutation.Value.Relations);
         profile.ReplaceCompetencies(mutation.Value.Competencies);
         profile.ReplaceTrainings(mutation.Value.Trainings);
-        profile.ReplaceCompensations(mutation.Value.Compensations);
+        if (mutation.Value.CompensationSalaryClassCatalogItemId.HasValue &&
+            !string.IsNullOrWhiteSpace(mutation.Value.CompensationSalaryScaleCode))
+        {
+            profile.SetCompensationReference(
+                mutation.Value.CompensationSalaryClassCatalogItemId.Value,
+                salaryClassCatalogItem: null,
+                mutation.Value.CompensationSalaryScaleCode!,
+                bumpVersion: false);
+        }
+        else
+        {
+            profile.ClearCompensationReference(bumpVersion: false);
+        }
         profile.ReplaceBenefits(mutation.Value.Benefits);
         profile.ReplaceWorkingConditions(mutation.Value.WorkingConditions);
         profile.ReplaceDependentPositions(mutation.Value.DependentPositions);
@@ -1046,6 +1041,7 @@ internal sealed class UpdateJobProfileCommandHandler(
     IJobCatalogRepository catalogRepository,
     IInternalCatalogRepository internalCatalogRepository,
     IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    ISalaryTabulatorRepository salaryTabulatorRepository,
     IAuditService auditService,
     IPlatformAuditService platformAuditService,
     IUserRepository userRepository,
@@ -1198,6 +1194,7 @@ internal sealed class UpdateJobProfileCommandHandler(
             catalogRepository,
             internalCatalogRepository,
             positionDescriptionCatalogRepository,
+            salaryTabulatorRepository,
             actorResult.Value.PublicId,
             dateTimeProvider,
             createdCatalogItems,
@@ -1257,7 +1254,19 @@ internal sealed class UpdateJobProfileCommandHandler(
             profile.ReplaceRelations(mutation.Value.Relations);
             profile.ReplaceCompetencies(mutation.Value.Competencies);
             profile.ReplaceTrainings(mutation.Value.Trainings);
-            profile.ReplaceCompensations(mutation.Value.Compensations);
+            if (mutation.Value.CompensationSalaryClassCatalogItemId.HasValue &&
+                !string.IsNullOrWhiteSpace(mutation.Value.CompensationSalaryScaleCode))
+            {
+                profile.SetCompensationReference(
+                    mutation.Value.CompensationSalaryClassCatalogItemId.Value,
+                    salaryClassCatalogItem: null,
+                    mutation.Value.CompensationSalaryScaleCode!,
+                    bumpVersion: false);
+            }
+            else
+            {
+                profile.ClearCompensationReference(bumpVersion: false);
+            }
             profile.ReplaceBenefits(mutation.Value.Benefits);
             profile.ReplaceWorkingConditions(mutation.Value.WorkingConditions);
             profile.ReplaceDependentPositions(mutation.Value.DependentPositions);
@@ -1472,7 +1481,10 @@ internal sealed record JobProfileMutation(
     IReadOnlyCollection<JobProfileRelation> Relations,
     IReadOnlyCollection<JobProfileCompetency> Competencies,
     IReadOnlyCollection<JobProfileTraining> Trainings,
-    IReadOnlyCollection<JobProfileCompensation> Compensations,
+    long? CompensationSalaryClassCatalogItemId,
+    string? CompensationSalaryClassCode,
+    string? CompensationSalaryClassName,
+    string? CompensationSalaryScaleCode,
     IReadOnlyCollection<JobProfileBenefit> Benefits,
     IReadOnlyCollection<JobProfileWorkingCondition> WorkingConditions,
     IReadOnlyCollection<JobProfileDependentPosition> DependentPositions);
@@ -1485,7 +1497,6 @@ internal static class JobProfileMutationMapper
             command.Relations,
             command.Competencies,
             command.Trainings,
-            command.Compensations,
             command.Benefits,
             command.WorkingConditions);
 
@@ -1495,7 +1506,6 @@ internal static class JobProfileMutationMapper
             command.Relations,
             command.Competencies,
             command.Trainings,
-            command.Compensations,
             command.Benefits,
             command.WorkingConditions);
 
@@ -1510,6 +1520,7 @@ internal static class JobProfileMutationMapper
         IJobCatalogRepository catalogRepository,
         IInternalCatalogRepository internalCatalogRepository,
         IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        ISalaryTabulatorRepository salaryTabulatorRepository,
         Guid actorUserPublicId,
         IDateTimeProvider dateTimeProvider,
         IList<JobCatalogItem> createdCatalogItems,
@@ -1523,10 +1534,11 @@ internal static class JobProfileMutationMapper
             command.Relations,
             command.Competencies,
             command.Trainings,
-            command.Compensations,
+            command.Compensation,
             command.Benefits,
             command.WorkingConditions,
             command.DependentPositions,
+            command.EffectiveFromUtc,
             profilePublicId,
             profileInternalId,
             allowInlineCatalogCreate,
@@ -1535,6 +1547,7 @@ internal static class JobProfileMutationMapper
             catalogRepository,
             internalCatalogRepository,
             positionDescriptionCatalogRepository,
+            salaryTabulatorRepository,
             actorUserPublicId,
             dateTimeProvider,
             createdCatalogItems,
@@ -1553,6 +1566,7 @@ internal static class JobProfileMutationMapper
         IJobCatalogRepository catalogRepository,
         IInternalCatalogRepository internalCatalogRepository,
         IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        ISalaryTabulatorRepository salaryTabulatorRepository,
         Guid actorUserPublicId,
         IDateTimeProvider dateTimeProvider,
         IList<JobCatalogItem> createdCatalogItems,
@@ -1566,10 +1580,11 @@ internal static class JobProfileMutationMapper
             command.Relations,
             command.Competencies,
             command.Trainings,
-            command.Compensations,
+            command.Compensation,
             command.Benefits,
             command.WorkingConditions,
             command.DependentPositions,
+            command.EffectiveFromUtc,
             profilePublicId,
             profileInternalId,
             allowInlineCatalogCreate,
@@ -1578,6 +1593,7 @@ internal static class JobProfileMutationMapper
             catalogRepository,
             internalCatalogRepository,
             positionDescriptionCatalogRepository,
+            salaryTabulatorRepository,
             actorUserPublicId,
             dateTimeProvider,
             createdCatalogItems,
@@ -1592,10 +1608,11 @@ internal static class JobProfileMutationMapper
         IReadOnlyCollection<JobProfileRelationInput> relations,
         IReadOnlyCollection<JobProfileCompetencyInput> competencies,
         IReadOnlyCollection<JobProfileTrainingInput> trainings,
-        IReadOnlyCollection<JobProfileCompensationInput> compensations,
+        JobProfileCompensationInput? compensation,
         IReadOnlyCollection<JobProfileBenefitInput> benefits,
         IReadOnlyCollection<JobProfileWorkingConditionInput> workingConditions,
         IReadOnlyCollection<JobProfileDependentPositionInput> dependentPositions,
+        DateTime? effectiveFromUtc,
         Guid? profilePublicId,
         long? profileInternalId,
         bool allowInlineCatalogCreate,
@@ -1604,6 +1621,7 @@ internal static class JobProfileMutationMapper
         IJobCatalogRepository catalogRepository,
         IInternalCatalogRepository internalCatalogRepository,
         IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        ISalaryTabulatorRepository salaryTabulatorRepository,
         Guid actorUserPublicId,
         IDateTimeProvider dateTimeProvider,
         IList<JobCatalogItem> createdCatalogItems,
@@ -1790,37 +1808,58 @@ internal static class JobProfileMutationMapper
                 input.SortOrder));
         }
 
-        var compensationEntities = new List<JobProfileCompensation>();
-        foreach (var input in compensations)
+        long? compensationSalaryClassCatalogItemId = null;
+        string? compensationSalaryClassCode = null;
+        string? compensationSalaryClassName = null;
+        string? compensationSalaryScaleCode = null;
+
+        if (compensation is not null)
         {
-            var catalogResolution = await ResolveCatalogReferenceAsync(
-                tenantId,
-                JobCatalogCategory.SalaryClass,
-                input.SalaryClassId,
-                input.SalaryClassCode,
-                input.SalaryClassName,
-                allowInlineCatalogCreate,
-                authorizationService,
-                catalogRepository,
-                createdCatalogItems,
-                categoryInvalidation,
+            var action = profilePublicId.HasValue ? RbacPermissionAction.Update : RbacPermissionAction.Create;
+            var salaryLine = await salaryTabulatorRepository.GetLineByIdAsync(
+                compensation.SalaryTabulatorLineId,
                 cancellationToken);
-            if (catalogResolution.IsFailure)
+            if (salaryLine is null)
             {
-                return Result<JobProfileMutation>.Failure(catalogResolution.Error);
+                return Result<JobProfileMutation>.Failure(
+                    await salaryTabulatorRepository.LineExistsOutsideTenantAsync(compensation.SalaryTabulatorLineId, cancellationToken)
+                        ? SalaryTabulatorErrors.TenantMismatch(action)
+                        : JobProfileErrors.CompensationTabulatorLineNotFound);
             }
 
-            compensationEntities.Add(JobProfileCompensation.Create(
-                catalogResolution.Value?.Id,
-                catalogResolution.Value,
-                string.IsNullOrWhiteSpace(input.SalaryClassName)
-                    ? catalogResolution.Value?.Name
-                    : input.SalaryClassName,
-                input.MinSalary,
-                input.MaxSalary,
-                input.CurrencyCode,
-                input.WorkSchedule,
-                input.IsPrimary));
+            var effectiveAtUtc = (effectiveFromUtc ?? dateTimeProvider.UtcNow).Date;
+            var lineIsEffective = salaryLine.TenantId == tenantId &&
+                                  salaryLine.IsActive &&
+                                  salaryLine.EffectiveFromUtc.Date <= effectiveAtUtc &&
+                                  (!salaryLine.EffectiveToUtc.HasValue || salaryLine.EffectiveToUtc.Value.Date >= effectiveAtUtc);
+            if (!lineIsEffective)
+            {
+                return Result<JobProfileMutation>.Failure(JobProfileErrors.CompensationTabulatorLineNotFound);
+            }
+
+            var salaryClassCatalogId = await positionDescriptionCatalogRepository.ResolveSalaryClassCatalogIdByCodeAsync(
+                tenantId,
+                salaryLine.SalaryClassCode,
+                cancellationToken);
+            if (!salaryClassCatalogId.HasValue)
+            {
+                return Result<JobProfileMutation>.Failure(PositionDescriptionCatalogErrors.SalaryClassNotFound);
+            }
+
+            var salaryClassLookup = await positionDescriptionCatalogRepository.GetActiveCatalogReferenceAsync(
+                tenantId,
+                PositionDescriptionCatalogType.SalaryClass,
+                salaryClassCatalogId.Value,
+                cancellationToken);
+            if (salaryClassLookup is null)
+            {
+                return Result<JobProfileMutation>.Failure(PositionDescriptionCatalogErrors.SalaryClassNotFound);
+            }
+
+            compensationSalaryClassCatalogItemId = salaryClassLookup.InternalId;
+            compensationSalaryClassCode = salaryClassLookup.Code.Trim().ToUpperInvariant();
+            compensationSalaryClassName = salaryClassLookup.Name;
+            compensationSalaryScaleCode = salaryLine.SalaryScaleCode;
         }
 
         var benefitEntities = new List<JobProfileBenefit>();
@@ -1941,8 +1980,11 @@ internal static class JobProfileMutationMapper
                 functionEntities,
                 relationEntities,
                 competencyEntities,
-                trainingEntities,
-                compensationEntities,
+            trainingEntities,
+            compensationSalaryClassCatalogItemId,
+            compensationSalaryClassCode,
+            compensationSalaryClassName,
+                compensationSalaryScaleCode,
                 benefitEntities,
                 workingConditionEntities,
                 dependentEntities));
@@ -2080,14 +2122,12 @@ internal static class JobProfileMutationMapper
         IReadOnlyCollection<JobProfileRelationInput> relations,
         IReadOnlyCollection<JobProfileCompetencyInput> competencies,
         IReadOnlyCollection<JobProfileTrainingInput> trainings,
-        IReadOnlyCollection<JobProfileCompensationInput> compensations,
         IReadOnlyCollection<JobProfileBenefitInput> benefits,
         IReadOnlyCollection<JobProfileWorkingConditionInput> workingConditions) =>
         requirements.Any(static item => !item.CatalogItemId.HasValue && (!string.IsNullOrWhiteSpace(item.CatalogCode) || !string.IsNullOrWhiteSpace(item.CatalogName))) ||
         relations.Any(static item => !item.CatalogItemId.HasValue && (!string.IsNullOrWhiteSpace(item.CatalogCode) || !string.IsNullOrWhiteSpace(item.CatalogName))) ||
         competencies.Any(static item => !item.CatalogItemId.HasValue && (!string.IsNullOrWhiteSpace(item.CatalogCode) || !string.IsNullOrWhiteSpace(item.CatalogName))) ||
         trainings.Any(static item => !item.CatalogItemId.HasValue && (!string.IsNullOrWhiteSpace(item.CatalogCode) || !string.IsNullOrWhiteSpace(item.CatalogName))) ||
-        compensations.Any(static item => !item.SalaryClassId.HasValue && (!string.IsNullOrWhiteSpace(item.SalaryClassCode) || !string.IsNullOrWhiteSpace(item.SalaryClassName))) ||
         benefits.Any(static item => !item.CatalogItemId.HasValue && (!string.IsNullOrWhiteSpace(item.CatalogCode) || !string.IsNullOrWhiteSpace(item.CatalogName))) ||
         workingConditions.Any(static item => !item.CatalogItemId.HasValue && (!string.IsNullOrWhiteSpace(item.CatalogCode) || !string.IsNullOrWhiteSpace(item.CatalogName)));
 }
@@ -2264,8 +2304,11 @@ internal static class JobProfileCsvExporter
         lines.AddRange(profile.Trainings.Select(item =>
             $"Training,,{Escape(item.Name)},{Escape(item.Notes)},,{item.SortOrder}"));
 
-        lines.AddRange(profile.Compensations.Select(item =>
-            $"Compensation,,{Escape(item.SalaryClassName)},{Escape(item.MinSalary?.ToString(CultureInfo.InvariantCulture))},{Escape(item.MaxSalary?.ToString(CultureInfo.InvariantCulture))},{Escape(item.CurrencyCode)}"));
+        if (profile.Compensation is not null)
+        {
+            lines.Add(
+                $"Compensation,,{Escape(profile.Compensation.SalaryClassName)},{Escape(profile.Compensation.SalaryScaleCode)},{Escape(profile.Compensation.BaseAmount?.ToString(CultureInfo.InvariantCulture))},{Escape(profile.Compensation.CurrencyCode)}");
+        }
 
         lines.AddRange(profile.Benefits.Select(item =>
             $"Benefit,,{Escape(item.Name)},{Escape(item.Notes)},,{item.SortOrder}"));

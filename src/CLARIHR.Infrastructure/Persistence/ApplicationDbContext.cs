@@ -130,8 +130,6 @@ public sealed class ApplicationDbContext(
 
     public DbSet<JobProfileTraining> JobProfileTrainings => Set<JobProfileTraining>();
 
-    public DbSet<JobProfileCompensation> JobProfileCompensations => Set<JobProfileCompensation>();
-
     public DbSet<JobProfileBenefit> JobProfileBenefits => Set<JobProfileBenefit>();
 
     public DbSet<JobProfileWorkingCondition> JobProfileWorkingConditions => Set<JobProfileWorkingCondition>();
