@@ -331,39 +331,59 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .ToArray();
 
         JobProfileCompensationResponse? compensationItem = null;
-        if (profile.SalaryClassCatalogItemId.HasValue &&
-            !string.IsNullOrWhiteSpace(profile.SalaryScaleCode) &&
+        if (!string.IsNullOrWhiteSpace(profile.SalaryScaleCode) &&
             !string.IsNullOrWhiteSpace(profile.NormalizedSalaryScaleCode))
         {
             var normalizedSalaryClassCode = profile.SalaryClassCatalogItem?.Code.Trim().ToUpperInvariant();
-            SalaryTabulatorResolution? resolution = null;
+            var effectiveRangeStartUtc = (profile.EffectiveFromUtc ?? DateTime.UtcNow).Date;
+            var effectiveRangeEndUtc = profile.EffectiveToUtc?.Date ?? DateTime.SpecifyKind(DateTime.MaxValue.Date, DateTimeKind.Utc);
+            var lineQuery = dbContext.SalaryTabulatorLines
+                .AsNoTracking()
+                .Where(line =>
+                    line.TenantId == profile.TenantId &&
+                    line.NormalizedSalaryScaleCode == profile.NormalizedSalaryScaleCode &&
+                    line.EffectiveFromUtc.Date <= effectiveRangeEndUtc &&
+                    (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value.Date >= effectiveRangeStartUtc));
+
             if (!string.IsNullOrWhiteSpace(normalizedSalaryClassCode))
             {
-                var effectiveRangeStartUtc = (profile.EffectiveFromUtc ?? DateTime.UtcNow).Date;
-                var effectiveRangeEndUtc = profile.EffectiveToUtc?.Date ?? DateTime.SpecifyKind(DateTime.MaxValue.Date, DateTimeKind.Utc);
-                resolution = await dbContext.SalaryTabulatorLines
+                lineQuery = lineQuery.Where(line => line.NormalizedSalaryClassCode == normalizedSalaryClassCode);
+            }
+
+            var matchingLines = await lineQuery
+                .OrderByDescending(line => line.EffectiveFromUtc)
+                .Select(line => new SalaryTabulatorResolution(
+                    line.PublicId,
+                    line.NormalizedSalaryClassCode,
+                    line.CurrencyCode,
+                    line.BaseAmount,
+                    line.MinAmount,
+                    line.MaxAmount,
+                    line.EffectiveFromUtc,
+                    line.EffectiveToUtc))
+                .Take(2)
+                .ToArrayAsync(cancellationToken);
+            var resolution = matchingLines.Length == 1 ? matchingLines[0] : null;
+            var salaryClassPublicId = ResolveCatalogPublicId(profile.SalaryClassCatalogItemId, positionDescriptionCatalogLookup);
+            var salaryClassName = profile.SalaryClassCatalogItem?.Name;
+            if (resolution is not null && (!salaryClassPublicId.HasValue || string.IsNullOrWhiteSpace(salaryClassName)))
+            {
+                var salaryClassLookup = await dbContext.PositionDescriptionCatalogItems
                     .AsNoTracking()
-                    .Where(line =>
-                        line.TenantId == profile.TenantId &&
-                        line.NormalizedSalaryClassCode == normalizedSalaryClassCode &&
-                        line.NormalizedSalaryScaleCode == profile.NormalizedSalaryScaleCode &&
-                        line.EffectiveFromUtc.Date <= effectiveRangeEndUtc &&
-                        (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value.Date >= effectiveRangeStartUtc))
-                    .OrderByDescending(line => line.EffectiveFromUtc)
-                    .Select(line => new SalaryTabulatorResolution(
-                        line.PublicId,
-                        line.CurrencyCode,
-                        line.BaseAmount,
-                        line.MinAmount,
-                        line.MaxAmount,
-                        line.EffectiveFromUtc,
-                        line.EffectiveToUtc))
+                    .Where(item =>
+                        item.TenantId == profile.TenantId &&
+                        item.CatalogType == Domain.PositionDescriptionCatalogs.PositionDescriptionCatalogType.SalaryClass &&
+                        item.NormalizedCode == resolution.NormalizedSalaryClassCode)
+                    .Select(item => new { item.PublicId, item.Name })
                     .FirstOrDefaultAsync(cancellationToken);
+
+                salaryClassPublicId ??= salaryClassLookup?.PublicId;
+                salaryClassName ??= salaryClassLookup?.Name;
             }
 
             compensationItem = new JobProfileCompensationResponse(
-                ResolveCatalogPublicId(profile.SalaryClassCatalogItemId, positionDescriptionCatalogLookup),
-                profile.SalaryClassCatalogItem?.Name,
+                salaryClassPublicId,
+                salaryClassName,
                 profile.SalaryScaleCode,
                 resolution?.Id,
                 resolution?.CurrencyCode,
@@ -490,6 +510,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
 
     private sealed record SalaryTabulatorResolution(
         Guid Id,
+        string NormalizedSalaryClassCode,
         string CurrencyCode,
         decimal BaseAmount,
         decimal? MinAmount,

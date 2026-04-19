@@ -3374,6 +3374,66 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task JobProfiles_Get_WithLegacySalaryScaleOnlyCompensation_ShouldReturnCompensation()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
+        using var jobProfileClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "CLS-JP-LEGACY-GET");
+        var createdRequest = await CreateSalaryTabulatorRequestAsync(
+            requesterClient,
+            scenario.TenantId,
+            "CLS-JP-LEGACY-GET",
+            "A",
+            3500m);
+
+        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
+        {
+            concurrencyToken = createdRequest.ConcurrencyToken
+        });
+        submitResponse.EnsureSuccessStatusCode();
+        var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(submitted);
+
+        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        {
+            decisionComment = "Aprobado para GET legacy",
+            concurrencyToken = submitted!.ConcurrencyToken
+        });
+        approveResponse.EnsureSuccessStatusCode();
+
+        var createdProfile = await CreateJobProfileAsync(
+            jobProfileClient,
+            scenario.TenantId,
+            code: "JP-LEGACY-GET",
+            title: "Perfil legacy GET");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE job_profiles
+                SET salary_class_catalog_item_id = NULL,
+                    salary_scale_code = 'A',
+                    normalized_salary_scale_code = 'A'
+                WHERE public_id = {createdProfile.Id}
+                """);
+        }
+
+        var detailResponse = await jobProfileClient.GetAsync($"/api/v1/job-profiles/{createdProfile.Id}");
+        detailResponse.EnsureSuccessStatusCode();
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+
+        Assert.NotNull(detail);
+        Assert.NotNull(detail!.Compensation);
+        Assert.Equal(salaryClass.Id, detail.Compensation!.SalaryClassId);
+        Assert.Equal("A", detail.Compensation.SalaryScaleCode);
+        Assert.Equal(3500m, detail.Compensation.BaseAmount);
+    }
+
+    [Fact]
     public async Task SalaryTabulator_Approve_WhenInactivationLeavesJobProfileCompensationUncovered_ShouldReturn409()
     {
         var scenario = await factory.ResetDatabaseAsync();
