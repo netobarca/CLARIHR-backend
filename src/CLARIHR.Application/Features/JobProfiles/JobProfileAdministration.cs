@@ -1564,6 +1564,7 @@ internal static class JobProfileMutationMapper
             command.WorkingConditions,
             command.DependentPositions,
             command.EffectiveFromUtc,
+            command.EffectiveToUtc,
             profilePublicId,
             profileInternalId,
             allowInlineCatalogCreate,
@@ -1610,6 +1611,7 @@ internal static class JobProfileMutationMapper
             command.WorkingConditions,
             command.DependentPositions,
             command.EffectiveFromUtc,
+            command.EffectiveToUtc,
             profilePublicId,
             profileInternalId,
             allowInlineCatalogCreate,
@@ -1638,6 +1640,7 @@ internal static class JobProfileMutationMapper
         IReadOnlyCollection<JobProfileWorkingConditionInput> workingConditions,
         IReadOnlyCollection<JobProfileDependentPositionInput> dependentPositions,
         DateTime? effectiveFromUtc,
+        DateTime? effectiveToUtc,
         Guid? profilePublicId,
         long? profileInternalId,
         bool allowInlineCatalogCreate,
@@ -1841,8 +1844,9 @@ internal static class JobProfileMutationMapper
         if (compensation is not null)
         {
             var action = profilePublicId.HasValue ? RbacPermissionAction.Update : RbacPermissionAction.Create;
-            var effectiveAtUtc = (effectiveFromUtc ?? dateTimeProvider.UtcNow).Date;
-            SalaryTabulatorLine? salaryLine;
+            var effectiveRangeStartUtc = (effectiveFromUtc ?? dateTimeProvider.UtcNow).Date;
+            var effectiveRangeEndUtc = effectiveToUtc?.Date;
+            SalaryTabulatorLine? salaryLine = null;
 
             if (compensation.SalaryTabulatorLineId.HasValue)
             {
@@ -1866,25 +1870,35 @@ internal static class JobProfileMutationMapper
                         tenantId,
                         compensation.SalaryClassId.Value,
                         cancellationToken);
+
+                    if (string.IsNullOrWhiteSpace(salaryClassCode))
+                    {
+                        salaryLine = await salaryTabulatorRepository.GetLineByIdAsync(
+                            compensation.SalaryClassId.Value,
+                            cancellationToken);
+                    }
                 }
 
-                if (string.IsNullOrWhiteSpace(salaryClassCode) && !string.IsNullOrWhiteSpace(compensation.SalaryClassCode))
+                if (salaryLine is null &&
+                    string.IsNullOrWhiteSpace(salaryClassCode) &&
+                    !string.IsNullOrWhiteSpace(compensation.SalaryClassCode))
                 {
                     salaryClassCode = compensation.SalaryClassCode.Trim().ToUpperInvariant();
                 }
 
-                if (string.IsNullOrWhiteSpace(salaryClassCode))
+                if (salaryLine is null && string.IsNullOrWhiteSpace(salaryClassCode))
                 {
                     return Result<JobProfileMutation>.Failure(JobProfileErrors.CompensationTabulatorLineNotFound);
                 }
 
-                salaryLine = await salaryTabulatorRepository.FindActiveLineForLegacyCompensationAsync(
+                salaryLine ??= await salaryTabulatorRepository.FindActiveLineForLegacyCompensationAsync(
                     tenantId,
-                    salaryClassCode,
+                    salaryClassCode!,
                     compensation.CurrencyCode,
                     compensation.MinAmount,
                     compensation.MaxAmount,
-                    effectiveAtUtc,
+                    effectiveRangeStartUtc,
+                    effectiveRangeEndUtc,
                     cancellationToken);
                 if (salaryLine is null)
                 {
@@ -1894,8 +1908,8 @@ internal static class JobProfileMutationMapper
 
             var lineIsEffective = salaryLine.TenantId == tenantId &&
                                   salaryLine.IsActive &&
-                                  salaryLine.EffectiveFromUtc.Date <= effectiveAtUtc &&
-                                  (!salaryLine.EffectiveToUtc.HasValue || salaryLine.EffectiveToUtc.Value.Date >= effectiveAtUtc);
+                                  salaryLine.EffectiveFromUtc.Date <= (effectiveRangeEndUtc ?? DateTime.SpecifyKind(DateTime.MaxValue.Date, DateTimeKind.Utc)) &&
+                                  (!salaryLine.EffectiveToUtc.HasValue || salaryLine.EffectiveToUtc.Value.Date >= effectiveRangeStartUtc);
             if (!lineIsEffective)
             {
                 return Result<JobProfileMutation>.Failure(JobProfileErrors.CompensationTabulatorLineNotFound);

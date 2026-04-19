@@ -127,7 +127,12 @@ public sealed class JobProfile : TenantEntity
         EnsureEditable();
         EnsurePositiveId(orgUnitId, nameof(orgUnitId));
 
-        if (effectiveFromUtc.HasValue && effectiveToUtc.HasValue && effectiveFromUtc.Value > effectiveToUtc.Value)
+        var normalizedEffectiveFromUtc = NormalizeOptionalUtc(effectiveFromUtc);
+        var normalizedEffectiveToUtc = NormalizeOptionalUtc(effectiveToUtc);
+
+        if (normalizedEffectiveFromUtc.HasValue &&
+            normalizedEffectiveToUtc.HasValue &&
+            normalizedEffectiveFromUtc.Value > normalizedEffectiveToUtc.Value)
         {
             throw new InvalidOperationException("Effective start date cannot be greater than effective end date.");
         }
@@ -148,8 +153,8 @@ public sealed class JobProfile : TenantEntity
         WorkingConditionSummary = JobProfileNormalization.CleanOptional(workingConditionSummary);
         MarketSalaryReference = JobProfileNormalization.CleanOptional(marketSalaryReference);
         ValuationNotes = JobProfileNormalization.CleanOptional(valuationNotes);
-        EffectiveFromUtc = effectiveFromUtc;
-        EffectiveToUtc = effectiveToUtc;
+        EffectiveFromUtc = normalizedEffectiveFromUtc;
+        EffectiveToUtc = normalizedEffectiveToUtc;
 
         if (bumpVersion)
         {
@@ -331,6 +336,21 @@ public sealed class JobProfile : TenantEntity
         string.IsNullOrWhiteSpace(value)
             ? null
             : JobProfileNormalization.NormalizeCode(value);
+
+    private static DateTime? NormalizeOptionalUtc(DateTime? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value.Kind switch
+        {
+            DateTimeKind.Utc => value.Value,
+            DateTimeKind.Local => value.Value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+        };
+    }
 
     private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
 }

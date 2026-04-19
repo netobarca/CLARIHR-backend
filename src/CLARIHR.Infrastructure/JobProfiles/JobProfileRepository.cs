@@ -339,15 +339,16 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             SalaryTabulatorResolution? resolution = null;
             if (!string.IsNullOrWhiteSpace(normalizedSalaryClassCode))
             {
-                var effectiveAtUtc = (profile.EffectiveFromUtc ?? DateTime.UtcNow).Date;
+                var effectiveRangeStartUtc = (profile.EffectiveFromUtc ?? DateTime.UtcNow).Date;
+                var effectiveRangeEndUtc = profile.EffectiveToUtc?.Date ?? DateTime.SpecifyKind(DateTime.MaxValue.Date, DateTimeKind.Utc);
                 resolution = await dbContext.SalaryTabulatorLines
                     .AsNoTracking()
                     .Where(line =>
                         line.TenantId == profile.TenantId &&
                         line.NormalizedSalaryClassCode == normalizedSalaryClassCode &&
                         line.NormalizedSalaryScaleCode == profile.NormalizedSalaryScaleCode &&
-                        line.EffectiveFromUtc <= effectiveAtUtc &&
-                        (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value >= effectiveAtUtc))
+                        line.EffectiveFromUtc.Date <= effectiveRangeEndUtc &&
+                        (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value.Date >= effectiveRangeStartUtc))
                     .OrderByDescending(line => line.EffectiveFromUtc)
                     .Select(line => new SalaryTabulatorResolution(
                         line.PublicId,

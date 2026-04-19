@@ -260,16 +260,21 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
         string? currencyCode,
         decimal? minAmount,
         decimal? maxAmount,
-        DateTime effectiveAtUtc,
+        DateTime effectiveFromUtc,
+        DateTime? effectiveToUtc,
         CancellationToken cancellationToken)
     {
+        var effectiveRangeStartUtc = NormalizeUtcDate(effectiveFromUtc);
+        var effectiveRangeEndUtc = effectiveToUtc.HasValue
+            ? NormalizeUtcDate(effectiveToUtc.Value)
+            : DateTime.SpecifyKind(DateTime.MaxValue.Date, DateTimeKind.Utc);
         var query = dbContext.SalaryTabulatorLines
             .Where(line =>
                 line.TenantId == tenantId &&
                 line.NormalizedSalaryClassCode == normalizedSalaryClassCode &&
                 line.IsActive &&
-                line.EffectiveFromUtc <= effectiveAtUtc &&
-                (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value >= effectiveAtUtc));
+                line.EffectiveFromUtc.Date <= effectiveRangeEndUtc &&
+                (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value.Date >= effectiveRangeStartUtc));
 
         if (!string.IsNullOrWhiteSpace(currencyCode))
         {
@@ -277,23 +282,49 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
             query = query.Where(line => line.CurrencyCode == normalizedCurrencyCode);
         }
 
-        if (minAmount.HasValue)
-        {
-            query = query.Where(line => line.MinAmount == minAmount.Value);
-        }
-
-        if (maxAmount.HasValue)
-        {
-            query = query.Where(line => line.MaxAmount == maxAmount.Value);
-        }
-
-        var matches = await query
+        var candidates = await query
             .OrderByDescending(line => line.EffectiveFromUtc)
-            .Take(2)
             .ToListAsync(cancellationToken);
+
+        var matches = candidates
+            .Where(line =>
+                (!minAmount.HasValue || line.MinAmount == minAmount.Value) &&
+                (!maxAmount.HasValue || line.MaxAmount == maxAmount.Value))
+            .Take(2)
+            .ToList();
+
+        if (matches.Count == 0 && (minAmount.HasValue || maxAmount.HasValue))
+        {
+            matches = candidates
+                .Where(line => SalaryRangesOverlap(line.MinAmount, line.MaxAmount, minAmount, maxAmount))
+                .Take(2)
+                .ToList();
+        }
 
         return matches.Count == 1 ? matches[0] : null;
     }
+
+    private static bool SalaryRangesOverlap(
+        decimal? lineMinAmount,
+        decimal? lineMaxAmount,
+        decimal? requestedMinAmount,
+        decimal? requestedMaxAmount)
+    {
+        var lineMin = lineMinAmount ?? decimal.MinValue;
+        var lineMax = lineMaxAmount ?? decimal.MaxValue;
+        var requestedMin = requestedMinAmount ?? decimal.MinValue;
+        var requestedMax = requestedMaxAmount ?? decimal.MaxValue;
+
+        return lineMin <= requestedMax && lineMax >= requestedMin;
+    }
+
+    private static DateTime NormalizeUtcDate(DateTime value) =>
+        value.Kind switch
+        {
+            DateTimeKind.Utc => value.Date,
+            DateTimeKind.Local => value.ToUniversalTime().Date,
+            _ => DateTime.SpecifyKind(value.Date, DateTimeKind.Utc)
+        };
 
     public Task<bool> HasLineWithEffectiveFromOnOrAfterAsync(
         Guid tenantId,

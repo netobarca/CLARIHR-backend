@@ -55,7 +55,8 @@ public interface ISalaryTabulatorRepository
         string? currencyCode,
         decimal? minAmount,
         decimal? maxAmount,
-        DateTime effectiveAtUtc,
+        DateTime effectiveFromUtc,
+        DateTime? effectiveToUtc,
         CancellationToken cancellationToken);
 
     Task<bool> HasLineWithEffectiveFromOnOrAfterAsync(
