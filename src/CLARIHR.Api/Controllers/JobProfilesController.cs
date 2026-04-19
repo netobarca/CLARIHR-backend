@@ -589,6 +589,7 @@ public sealed class JobProfilesController(
     public sealed class JobProfileCompensationRequest
     {
         public Guid? SalaryTabulatorLineId { get; init; }
+        public Guid? SalaryClassPublicId { get; init; }
         public Guid? SalaryClassId { get; init; }
         public string? SalaryClassCode { get; init; }
         public decimal? MinSalary { get; init; }
@@ -598,7 +599,7 @@ public sealed class JobProfilesController(
         public bool? IsPrimary { get; init; }
 
         [JsonIgnore]
-        public Guid? ResolvedSalaryClassId => SalaryClassId;
+        public Guid? ResolvedSalaryClassId => SalaryClassPublicId ?? SalaryClassId;
     }
 
     public sealed class JobProfileBenefitRequest
