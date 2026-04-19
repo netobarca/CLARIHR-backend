@@ -49,6 +49,15 @@ public interface ISalaryTabulatorRepository
         DateTime effectiveAtUtc,
         CancellationToken cancellationToken);
 
+    Task<SalaryTabulatorLine?> FindActiveLineForLegacyCompensationAsync(
+        Guid tenantId,
+        string normalizedSalaryClassCode,
+        string? currencyCode,
+        decimal? minAmount,
+        decimal? maxAmount,
+        DateTime effectiveAtUtc,
+        CancellationToken cancellationToken);
+
     Task<bool> HasLineWithEffectiveFromOnOrAfterAsync(
         Guid tenantId,
         string normalizedSalaryClassCode,

@@ -9,6 +9,7 @@ using CLARIHR.Application.Features.Auth.RegisterUser;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
@@ -2972,6 +2973,144 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task JobProfiles_Update_WithLegacyResponseShapedPayloadAndCompensations_ShouldResolveCanonicalTabulatorLine()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
+        using var jobProfileClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(jobProfileClient, scenario.TenantId, "DIR-LEGACY", "Unidad Legacy", "Direccion");
+        var positionCategory = await EnsureDefaultPositionCategoryAsync(jobProfileClient, scenario.TenantId);
+        var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "CLS-JP-LEGACY");
+
+        var requestResponse = await requesterClient.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/change-requests", new
+        {
+            reason = "Compatibilidad request legado",
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            items = new[]
+            {
+                new
+                {
+                    salaryClassPublicId = salaryClass.Id,
+                    salaryScaleCode = "S1",
+                    currencyCode = "USD",
+                    changeType = "Create",
+                    proposedBaseAmount = 4000m,
+                    proposedMinAmount = 3000m,
+                    proposedMaxAmount = 5000m,
+                    notes = "Linea para compatibilidad legacy"
+                }
+            }
+        });
+        requestResponse.EnsureSuccessStatusCode();
+        var createdRequest = await requestResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(createdRequest);
+
+        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest!.Id}/submit", new
+        {
+            concurrencyToken = createdRequest.ConcurrencyToken
+        });
+        submitResponse.EnsureSuccessStatusCode();
+        var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(submitted);
+
+        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        {
+            decisionComment = "Aprobado para request legado",
+            concurrencyToken = submitted!.ConcurrencyToken
+        });
+        approveResponse.EnsureSuccessStatusCode();
+
+        var createdProfile = await CreateJobProfileAsync(
+            jobProfileClient,
+            scenario.TenantId,
+            code: "JP-LEGACY",
+            title: "Perfil legado",
+            orgUnitPublicId: orgUnit.Id);
+
+        var updateResponse = await jobProfileClient.PutJsonAsync($"/api/v1/job-profiles/{createdProfile.Id}", new
+        {
+            code = "JP-LEGACY",
+            title = "Perfil legado actualizado",
+            objective = "Objetivo",
+            orgUnitId = orgUnit.Id,
+            reportsToJobProfileId = (Guid?)null,
+            positionCategoryId = positionCategory.Id,
+            strategicObjectiveCatalogItemId = (Guid?)null,
+            assignedWorkEquipmentCatalogItemId = (Guid?)null,
+            responsibilityCatalogItemId = (Guid?)null,
+            decisionScope = "Operacion",
+            assignedResources = "Equipo",
+            responsibilities = "Responsabilidades",
+            benefitsSummary = "Ley",
+            workingConditionSummary = "Presencial",
+            marketSalaryReference = "Mercado",
+            valuationNotes = "Notas",
+            effectiveFromUtc = (DateTime?)null,
+            effectiveToUtc = (DateTime?)null,
+            allowInlineCatalogCreate = false,
+            requirements = new[]
+            {
+                new
+                {
+                    requirementType = "Experience",
+                    requirementTypeCatalogItemId = (Guid?)null,
+                    catalogItemId = (Guid?)null,
+                    description = "3 anios",
+                    sortOrder = 1
+                }
+            },
+            functions = new[]
+            {
+                new
+                {
+                    functionType = "General",
+                    frequencyCatalogItemId = (Guid?)null,
+                    description = "Funcion",
+                    sortOrder = 1
+                }
+            },
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensations = new[]
+            {
+                new
+                {
+                    salaryClassId = salaryClass.Id,
+                    salaryClassCode = salaryClass.Code,
+                    minSalary = 3000m,
+                    maxSalary = 5000m,
+                    currencyCode = "USD",
+                    workSchedule = (string?)null,
+                    isPrimary = false
+                }
+            },
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = Array.Empty<object>(),
+            concurrencyToken = createdProfile.ConcurrencyToken
+        });
+        updateResponse.EnsureSuccessStatusCode();
+
+        var updated = await updateResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.NotNull(updated!.Compensation);
+        Assert.Equal(salaryClass.Id, updated.Compensation!.SalaryClassId);
+        Assert.Equal("USD", updated.Compensation.CurrencyCode);
+        Assert.Equal(3000m, updated.Compensation.MinAmount);
+        Assert.Equal(5000m, updated.Compensation.MaxAmount);
+
+        var detailResponse = await jobProfileClient.GetAsync($"/api/v1/job-profiles/{createdProfile.Id}");
+        detailResponse.EnsureSuccessStatusCode();
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+        Assert.NotNull(detail);
+        Assert.NotNull(detail!.Compensation);
+        Assert.Equal(salaryClass.Id, detail.Compensation!.SalaryClassId);
+    }
+
+    [Fact]
     public async Task SalaryTabulator_Approve_WhenInactivationLeavesJobProfileCompensationUncovered_ShouldReturn409()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -3306,6 +3445,189 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING");
+    }
+
+    [Fact]
+    public async Task JobProfiles_Update_WithLegacyEmptyCompensationsPayload_WhenPublishedWouldLoseMinimumRequirements_ShouldReturn422()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-GG", "Direccion General", "Direccion");
+        var positionCategory = await EnsureDefaultPositionCategoryAsync(client, scenario.TenantId);
+        var strategicObjective = await EnsurePositionDescriptionCatalogItemAsync(client, scenario.TenantId, "strategic-objectives", "OBJ-GG");
+        var workEquipment = await EnsurePositionDescriptionCatalogItemAsync(client, scenario.TenantId, "work-equipments", "EQUIP-GG");
+        var responsibility = await EnsurePositionDescriptionCatalogItemAsync(client, scenario.TenantId, "responsibilities-catalog", "RESP-GG");
+
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
+        {
+            code = "JP-001",
+            title = "Gerente General",
+            objective = "Objetivo vigente",
+            orgUnitPublicId = orgUnit.Id,
+            reportsToJobProfilePublicId = (Guid?)null,
+            positionCategoryPublicId = positionCategory.Id,
+            strategicObjectiveCatalogItemPublicId = strategicObjective.Id,
+            assignedWorkEquipmentCatalogItemPublicId = workEquipment.Id,
+            responsibilityCatalogItemPublicId = responsibility.Id,
+            decisionScope = "Operacion",
+            assignedResources = "Equipo",
+            responsibilities = "Responsabilidades vigentes",
+            benefitsSummary = "Ley",
+            workingConditionSummary = "Presencial",
+            marketSalaryReference = "Mercado",
+            valuationNotes = "Notas",
+            effectiveFromUtc = (DateTime?)null,
+            effectiveToUtc = (DateTime?)null,
+            allowInlineCatalogCreate = false,
+            requirements = new[]
+            {
+                new
+                {
+                    requirementType = "Experience",
+                    requirementTypeCatalogItemPublicId = (Guid?)null,
+                    catalogItemPublicId = (Guid?)null,
+                    description = "5 anios",
+                    sortOrder = 1
+                }
+            },
+            functions = new[]
+            {
+                new
+                {
+                    functionType = "General",
+                    frequencyCatalogItemPublicId = (Guid?)null,
+                    description = "Dirigir",
+                    sortOrder = 1
+                }
+            },
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensation = (object?)null,
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = Array.Empty<object>()
+        });
+        createResponse.EnsureSuccessStatusCode();
+        var created = await createResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(created);
+
+        var publishResponse = await client.PatchAsJsonAsync($"/api/v1/job-profiles/{created!.Id}/publish", new
+        {
+            concurrencyToken = created.ConcurrencyToken
+        });
+        publishResponse.EnsureSuccessStatusCode();
+
+        var published = await publishResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(published);
+
+        var response = await client.PutJsonAsync($"/api/v1/job-profiles/{created.Id}", new
+        {
+            code = "JP-001",
+            title = "Gerente General",
+            objective = (string?)null,
+            orgUnitPublicId = orgUnit.Id,
+            reportsToJobProfileId = (Guid?)null,
+            positionCategoryPublicId = positionCategory.Id,
+            strategicObjectiveCatalogItemPublicId = strategicObjective.Id,
+            assignedWorkEquipmentCatalogItemPublicId = workEquipment.Id,
+            responsibilityCatalogItemPublicId = responsibility.Id,
+            effectiveFromUtc = "2025-12-01",
+            effectiveToUtc = "2026-12-31",
+            decisionScope = (string?)null,
+            assignedResources = (string?)null,
+            responsibilities = (string?)null,
+            benefitsSummary = (string?)null,
+            workingConditionSummary = (string?)null,
+            marketSalaryReference = (string?)null,
+            valuationNotes = (string?)null,
+            requirements = Array.Empty<object>(),
+            functions = Array.Empty<object>(),
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensations = Array.Empty<object>(),
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = Array.Empty<object>(),
+            concurrencyToken = published!.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.UnprocessableEntity, "JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING");
+    }
+
+    [Fact]
+    public async Task JobProfiles_Update_WithReportsToAlsoAsDependentPosition_ShouldReturn409()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var parent = await CreateJobProfileAsync(client, scenario.TenantId, "JP-PARENT", "Gerente General");
+        var child = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CHILD", "Analista");
+        var orgUnit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-CYCLE", "Departamento Ciclo", "Direccion");
+        var positionCategory = await EnsureDefaultPositionCategoryAsync(client, scenario.TenantId);
+
+        var response = await client.PutJsonAsync($"/api/v1/job-profiles/{child.Id}", new
+        {
+            code = "JP-CHILD",
+            title = "Analista",
+            objective = "General - objetivo",
+            orgUnitId = orgUnit.Id,
+            reportsToJobProfileId = parent.Id,
+            positionCategoryId = positionCategory.Id,
+            strategicObjectiveCatalogItemId = (Guid?)null,
+            assignedWorkEquipmentCatalogItemId = (Guid?)null,
+            responsibilityCatalogItemId = (Guid?)null,
+            effectiveFromUtc = "2026-01-01",
+            effectiveToUtc = "2026-12-31",
+            decisionScope = "General - alcance de decision",
+            assignedResources = "General - recursos asignados",
+            responsibilities = "General - responsabilidades",
+            benefitsSummary = "Resumen del beneficio",
+            workingConditionSummary = (string?)null,
+            marketSalaryReference = "General - referencia salarial de mercado",
+            valuationNotes = "General - Notas de evaluacion",
+            requirements = new[]
+            {
+                new
+                {
+                    requirementType = "Education",
+                    requirementTypeCatalogItemId = (Guid?)null,
+                    catalogItemId = (Guid?)null,
+                    description = "Requisitos - descripcion",
+                    sortOrder = 1
+                }
+            },
+            functions = new[]
+            {
+                new
+                {
+                    functionType = "General",
+                    frequencyCatalogItemId = (Guid?)null,
+                    description = "Funciones - Descripcion",
+                    sortOrder = 1
+                }
+            },
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensations = Array.Empty<object>(),
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = new[]
+            {
+                new
+                {
+                    dependentJobProfileId = parent.Id,
+                    quantity = 1,
+                    notes = "Posiciones dependientes - notas"
+                }
+            },
+            concurrencyToken = child.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "JOB_PROFILE_DEPENDENCY_CYCLE");
     }
 
     [Fact]

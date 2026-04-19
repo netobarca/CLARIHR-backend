@@ -24,6 +24,7 @@ using CLARIHR.Application.Features.SalaryTabulator.Common;
 using CLARIHR.Domain.InternalCatalogs;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
+using CLARIHR.Domain.SalaryTabulator;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.JobProfiles;
@@ -213,7 +214,12 @@ public sealed record JobProfileTrainingInput(
     int SortOrder);
 
 public sealed record JobProfileCompensationInput(
-    Guid SalaryTabulatorLineId);
+    Guid? SalaryTabulatorLineId,
+    Guid? SalaryClassId,
+    string? SalaryClassCode,
+    string? CurrencyCode,
+    decimal? MinAmount,
+    decimal? MaxAmount);
 
 public sealed record JobProfileBenefitInput(
     Guid? CatalogItemId,
@@ -589,7 +595,12 @@ internal sealed class JobProfileCompensationInputValidator : AbstractValidator<J
 {
     public JobProfileCompensationInputValidator()
     {
-        RuleFor(input => input.SalaryTabulatorLineId).NotEmpty();
+        RuleFor(input => input)
+            .Must(static input =>
+                input.SalaryTabulatorLineId.HasValue ||
+                input.SalaryClassId.HasValue ||
+                !string.IsNullOrWhiteSpace(input.SalaryClassCode))
+            .WithMessage("A salary tabulator line or salary class reference is required for compensation.");
     }
 }
 
@@ -943,6 +954,13 @@ internal sealed class CreateJobProfileCommandHandler(
             return Result<JobProfileResponse>.Failure(mutation.Error);
         }
 
+        if (JobProfileCommandSupport.HasReportsToAlsoAsDependentPosition(
+                reportsToInternalIdResult.Value,
+                mutation.Value.DependentPositions))
+        {
+            return Result<JobProfileResponse>.Failure(JobProfileErrors.DependencyCycle);
+        }
+
         var profile = JobProfile.Create(command.Code, command.Title);
         profile.SetTenantId(command.CompanyId);
         profile.UpdateCore(
@@ -1204,6 +1222,13 @@ internal sealed class UpdateJobProfileCommandHandler(
         if (mutation.IsFailure)
         {
             return Result<JobProfileResponse>.Failure(mutation.Error);
+        }
+
+        if (JobProfileCommandSupport.HasReportsToAlsoAsDependentPosition(
+                reportsToInternalIdResult.Value,
+                mutation.Value.DependentPositions))
+        {
+            return Result<JobProfileResponse>.Failure(JobProfileErrors.DependencyCycle);
         }
 
         if (profile.Status == JobProfileStatus.Published &&
@@ -1816,18 +1841,57 @@ internal static class JobProfileMutationMapper
         if (compensation is not null)
         {
             var action = profilePublicId.HasValue ? RbacPermissionAction.Update : RbacPermissionAction.Create;
-            var salaryLine = await salaryTabulatorRepository.GetLineByIdAsync(
-                compensation.SalaryTabulatorLineId,
-                cancellationToken);
-            if (salaryLine is null)
+            var effectiveAtUtc = (effectiveFromUtc ?? dateTimeProvider.UtcNow).Date;
+            SalaryTabulatorLine? salaryLine;
+
+            if (compensation.SalaryTabulatorLineId.HasValue)
             {
-                return Result<JobProfileMutation>.Failure(
-                    await salaryTabulatorRepository.LineExistsOutsideTenantAsync(compensation.SalaryTabulatorLineId, cancellationToken)
-                        ? SalaryTabulatorErrors.TenantMismatch(action)
-                        : JobProfileErrors.CompensationTabulatorLineNotFound);
+                salaryLine = await salaryTabulatorRepository.GetLineByIdAsync(
+                    compensation.SalaryTabulatorLineId.Value,
+                    cancellationToken);
+                if (salaryLine is null)
+                {
+                    return Result<JobProfileMutation>.Failure(
+                        await salaryTabulatorRepository.LineExistsOutsideTenantAsync(compensation.SalaryTabulatorLineId.Value, cancellationToken)
+                            ? SalaryTabulatorErrors.TenantMismatch(action)
+                            : JobProfileErrors.CompensationTabulatorLineNotFound);
+                }
+            }
+            else
+            {
+                string? salaryClassCode = null;
+                if (compensation.SalaryClassId.HasValue)
+                {
+                    salaryClassCode = await positionDescriptionCatalogRepository.ResolveSalaryClassCodeByCatalogIdAsync(
+                        tenantId,
+                        compensation.SalaryClassId.Value,
+                        cancellationToken);
+                }
+
+                if (string.IsNullOrWhiteSpace(salaryClassCode) && !string.IsNullOrWhiteSpace(compensation.SalaryClassCode))
+                {
+                    salaryClassCode = compensation.SalaryClassCode.Trim().ToUpperInvariant();
+                }
+
+                if (string.IsNullOrWhiteSpace(salaryClassCode))
+                {
+                    return Result<JobProfileMutation>.Failure(JobProfileErrors.CompensationTabulatorLineNotFound);
+                }
+
+                salaryLine = await salaryTabulatorRepository.FindActiveLineForLegacyCompensationAsync(
+                    tenantId,
+                    salaryClassCode,
+                    compensation.CurrencyCode,
+                    compensation.MinAmount,
+                    compensation.MaxAmount,
+                    effectiveAtUtc,
+                    cancellationToken);
+                if (salaryLine is null)
+                {
+                    return Result<JobProfileMutation>.Failure(JobProfileErrors.CompensationTabulatorLineNotFound);
+                }
             }
 
-            var effectiveAtUtc = (effectiveFromUtc ?? dateTimeProvider.UtcNow).Date;
             var lineIsEffective = salaryLine.TenantId == tenantId &&
                                   salaryLine.IsActive &&
                                   salaryLine.EffectiveFromUtc.Date <= effectiveAtUtc &&
@@ -2346,6 +2410,12 @@ internal static class JobProfileCommandSupport
         !string.IsNullOrWhiteSpace(responsibilities) &&
         requirements.Count > 0 &&
         functions.Count > 0;
+
+    public static bool HasReportsToAlsoAsDependentPosition(
+        long? reportsToInternalId,
+        IReadOnlyCollection<JobProfileDependentPosition> dependentPositions) =>
+        reportsToInternalId.HasValue &&
+        dependentPositions.Any(item => item.DependentJobProfileId == reportsToInternalId.Value);
 
     public static async Task<Result<long>> ResolveOrgUnitInternalIdAsync(
         Guid tenantId,
