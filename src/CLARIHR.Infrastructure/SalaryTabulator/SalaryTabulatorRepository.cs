@@ -254,6 +254,47 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
             .OrderByDescending(line => line.EffectiveFromUtc)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<SalaryTabulatorLine?> FindActiveLineForLegacyCompensationAsync(
+        Guid tenantId,
+        string normalizedSalaryClassCode,
+        string? currencyCode,
+        decimal? minAmount,
+        decimal? maxAmount,
+        DateTime effectiveAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var query = dbContext.SalaryTabulatorLines
+            .Where(line =>
+                line.TenantId == tenantId &&
+                line.NormalizedSalaryClassCode == normalizedSalaryClassCode &&
+                line.IsActive &&
+                line.EffectiveFromUtc <= effectiveAtUtc &&
+                (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value >= effectiveAtUtc));
+
+        if (!string.IsNullOrWhiteSpace(currencyCode))
+        {
+            var normalizedCurrencyCode = currencyCode.Trim().ToUpperInvariant();
+            query = query.Where(line => line.CurrencyCode == normalizedCurrencyCode);
+        }
+
+        if (minAmount.HasValue)
+        {
+            query = query.Where(line => line.MinAmount == minAmount.Value);
+        }
+
+        if (maxAmount.HasValue)
+        {
+            query = query.Where(line => line.MaxAmount == maxAmount.Value);
+        }
+
+        var matches = await query
+            .OrderByDescending(line => line.EffectiveFromUtc)
+            .Take(2)
+            .ToListAsync(cancellationToken);
+
+        return matches.Count == 1 ? matches[0] : null;
+    }
+
     public Task<bool> HasLineWithEffectiveFromOnOrAfterAsync(
         Guid tenantId,
         string normalizedSalaryClassCode,
