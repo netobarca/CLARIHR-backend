@@ -528,6 +528,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var representative = await dbContext.LegalRepresentatives
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .SingleAsync(item => item.TenantId == payload!.PublicId);
 
@@ -605,6 +606,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var persistedRepresentative = await dbContext.LegalRepresentatives
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .SingleAsync(item => item.TenantId == payload.PublicId);
 
@@ -1481,10 +1483,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         uploadContent.Add(new StringContent("Adjunto de prueba"), "observations");
         uploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
 
-        var fileBytes = Encoding.UTF8.GetBytes("hello personnel file");
+        var fileBytes = "%PDF-hello personnel file"u8.ToArray();
         var fileContent = new ByteArrayContent(fileBytes);
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
-        uploadContent.Add(fileContent, "file", "proof.txt");
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        uploadContent.Add(fileContent, "file", "proof.pdf");
 
         var uploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", uploadContent);
         Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
@@ -1493,7 +1495,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var downloadResponse = await client.GetAsync($"/api/v1/personnel-files/documents/{document!.Id}/download");
         downloadResponse.EnsureSuccessStatusCode();
-        Assert.Equal("text/plain", downloadResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("application/pdf", downloadResponse.Content.Headers.ContentType?.MediaType);
         var downloaded = await downloadResponse.Content.ReadAsByteArrayAsync();
         Assert.Equal(fileBytes, downloaded);
     }
@@ -1511,10 +1513,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         olderUploadContent.Add(new StringContent("Documento mas antiguo"), "observations");
         olderUploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
 
-        var olderFileBytes = Encoding.UTF8.GetBytes("older preview payload");
+        byte[] olderFileBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01, 0x02, 0x03];
         var olderFileContent = new ByteArrayContent(olderFileBytes);
-        olderFileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
-        olderUploadContent.Add(olderFileContent, "file", "older.txt");
+        olderFileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        olderUploadContent.Add(olderFileContent, "file", "older.png");
 
         var olderUploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", olderUploadContent);
         Assert.Equal(HttpStatusCode.Created, olderUploadResponse.StatusCode);
@@ -1531,7 +1533,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         newerUploadContent.Add(new StringContent("Documento mas reciente"), "observations");
         newerUploadContent.Add(new StringContent(personnelFile!.ConcurrencyToken.ToString()), "concurrencyToken");
 
-        var newerFileBytes = Encoding.UTF8.GetBytes("newer preview payload");
+        var newerFileBytes = "%PDF-newer preview payload"u8.ToArray();
         var newerFileContent = new ByteArrayContent(newerFileBytes);
         newerFileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
         newerUploadContent.Add(newerFileContent, "file", "newer.pdf");
@@ -1556,7 +1558,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(newerFileBytes.Length, documentItems[0].SizeBytes);
         Assert.True(documentItems[0].IsActive);
         Assert.Equal(olderDocument!.Id, documentItems[1].Id);
-        Assert.Equal("older.txt", documentItems[1].FileName);
+        Assert.Equal("older.png", documentItems[1].FileName);
     }
 
     [Fact]
@@ -2942,12 +2944,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var internalSalaryClassId = await dbContext.PositionDescriptionCatalogItems
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Where(item => item.PublicId == salaryClass.Id)
                 .Select(item => item.Id)
                 .SingleAsync();
 
             var profileEntity = await dbContext.JobProfiles
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .SingleAsync(item => item.PublicId == profile.Id);
             Assert.Equal(internalSalaryClassId, profileEntity.SalaryClassCatalogItemId);
@@ -2955,6 +2959,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             Assert.Equal("S1", profileEntity.NormalizedSalaryScaleCode);
 
             var activeLine = await dbContext.SalaryTabulatorLines
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .SingleOrDefaultAsync(line =>
                     line.TenantId == scenario.TenantId &&
@@ -3005,6 +3010,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var profileEntity = await dbContext.JobProfiles
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .SingleAsync(item => item.PublicId == createdProfile.Id);
             Assert.NotNull(profileEntity.SalaryClassCatalogItemId);
@@ -3096,6 +3102,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var profileEntity = await dbContext.JobProfiles
+                .IgnoreQueryFilters()
                 .SingleAsync(item => item.PublicId == profile.Id);
 
             var externalDependentProfile = JobProfile.Create("JP-EXT", "Perfil Externo");
@@ -4628,7 +4635,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var costCenterEntity = await dbContext.CostCenters.SingleAsync(item => item.PublicId == costCenter.Id);
+            var costCenterEntity = await dbContext.CostCenters
+                .IgnoreQueryFilters()
+                .SingleAsync(item => item.PublicId == costCenter.Id);
             costCenterEntity.Inactivate();
             await dbContext.SaveChangesAsync();
         }
@@ -6305,6 +6314,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
         var salaryClassCode = await dbContext.PositionDescriptionCatalogItems
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(item => item.TenantId == companyId && item.PublicId == salaryClassId)
             .Select(item => item.Code)
@@ -6312,6 +6322,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var normalizedSalaryScaleCode = salaryScaleCode.Trim().ToUpperInvariant();
         var lineId = await dbContext.SalaryTabulatorLines
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(line =>
                 line.TenantId == companyId &&

@@ -45,6 +45,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .Include(file => file.References)
             .Include(file => file.Documents)
             .Include(file => file.Observations)
+            .AsSplitQuery()
             .SingleOrDefaultAsync(file => file.PublicId == personnelFileId, cancellationToken);
 
     public Task<PersonnelFile?> GetByLinkedUserIdAsync(Guid tenantId, Guid linkedUserPublicId, CancellationToken cancellationToken) =>
@@ -55,6 +56,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
 
     public Task<bool> ExistsOutsideTenantAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
         dbContext.Set<PersonnelFile>()
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(file => file.PublicId == personnelFileId, cancellationToken);
 
@@ -67,6 +69,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
     {
         var normalizedType = identificationType.Trim();
         return dbContext.Set<PersonnelFileIdentification>()
+            // Intentional tenant filter bypass: applies explicit tenantId filter for uniqueness checks across filtered rows.
             .IgnoreQueryFilters()
             .AnyAsync(
                 identification => identification.TenantId == tenantId &&
@@ -183,6 +186,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .Include(item => item.References)
             .Include(item => item.Documents)
             .Include(item => item.Observations)
+            .AsSplitQuery()
             .SingleOrDefaultAsync(item => item.PublicId == personnelFileId, cancellationToken);
 
         if (file is null)
@@ -1002,6 +1006,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
 
     public Task<bool> DocumentExistsOutsideTenantAsync(Guid documentId, CancellationToken cancellationToken) =>
         dbContext.Set<PersonnelFileDocument>()
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(item => item.PublicId == documentId, cancellationToken);
 
@@ -1112,6 +1117,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
         string? search,
         string? sortBy,
         PersonnelFileSortDirection sortDirection,
+        int? maxRows,
         CancellationToken cancellationToken)
     {
         var query = BuildBaseQuery(tenantId);
@@ -1119,7 +1125,13 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
         query = ApplySearch(query, search, includeIdentificationMatch: false);
         var orderedQuery = ApplySorting(query, sortBy, sortDirection);
 
-        var rows = await orderedQuery
+        IQueryable<PersonnelFile> limitedQuery = orderedQuery;
+        if (maxRows.HasValue)
+        {
+            limitedQuery = limitedQuery.Take(maxRows.Value);
+        }
+
+        var rows = await limitedQuery
             .Select(file => new PersonnelFileExportRow(
                 file.PublicId,
                 file.RecordType,
@@ -1157,8 +1169,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
         string? search,
         CancellationToken cancellationToken)
     {
-        var rows = await GetExportRowsAsync(
-            tenantId,
+        var query = BuildBaseQuery(tenantId);
+        query = ApplyStandardFilters(
+            query,
             isActive,
             recordType,
             orgUnitId,
@@ -1168,48 +1181,77 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             nationality: null,
             profession: null,
             createdFromUtc: null,
-            createdToUtc: null,
-            search,
-            sortBy: null,
-            sortDirection: PersonnelFileSortDirection.Asc,
-            cancellationToken);
+            createdToUtc: null);
+        query = ApplySearch(query, search, includeIdentificationMatch: false);
 
-        var totalCount = rows.Count;
-        var activeCount = rows.Count(static row => row.IsActive);
+        var totalCount = await query.CountAsync(cancellationToken);
+        var activeCount = await query.CountAsync(file => file.IsActive, cancellationToken);
         var inactiveCount = totalCount - activeCount;
 
-        var byRecordType = rows
-            .GroupBy(row => row.RecordType)
-            .Select(group => new PersonnelFileAnalyticsBreakdownResponse(
-                group.Key.ToString(),
-                group.Key.ToString(),
-                group.Count()))
+        var recordTypeCounts = await query
+            .GroupBy(file => file.RecordType)
+            .Select(group => new
+            {
+                RecordType = group.Key,
+                Count = group.Count()
+            })
             .OrderByDescending(item => item.Count)
+            .ToArrayAsync(cancellationToken);
+        var byRecordType = recordTypeCounts
+            .Select(item => new PersonnelFileAnalyticsBreakdownResponse(
+                item.RecordType.ToString(),
+                item.RecordType.ToString(),
+                item.Count))
             .ToArray();
 
-        static string ToAgeRange(int age) => age switch
+        var today = DateTime.UtcNow.Date;
+        var age18BirthDate = today.AddYears(-18);
+        var age26BirthDate = today.AddYears(-26);
+        var age36BirthDate = today.AddYears(-36);
+        var age46BirthDate = today.AddYears(-46);
+        var age56BirthDate = today.AddYears(-56);
+        var byAgeRange = new[]
         {
-            < 18 => "<18",
-            <= 25 => "18-25",
-            <= 35 => "26-35",
-            <= 45 => "36-45",
-            <= 55 => "46-55",
-            _ => "56+"
+            new PersonnelFileAnalyticsBreakdownResponse(
+                "<18",
+                "<18",
+                await query.CountAsync(file => file.BirthDate > age18BirthDate, cancellationToken)),
+            new PersonnelFileAnalyticsBreakdownResponse(
+                "18-25",
+                "18-25",
+                await query.CountAsync(file => file.BirthDate <= age18BirthDate && file.BirthDate > age26BirthDate, cancellationToken)),
+            new PersonnelFileAnalyticsBreakdownResponse(
+                "26-35",
+                "26-35",
+                await query.CountAsync(file => file.BirthDate <= age26BirthDate && file.BirthDate > age36BirthDate, cancellationToken)),
+            new PersonnelFileAnalyticsBreakdownResponse(
+                "36-45",
+                "36-45",
+                await query.CountAsync(file => file.BirthDate <= age36BirthDate && file.BirthDate > age46BirthDate, cancellationToken)),
+            new PersonnelFileAnalyticsBreakdownResponse(
+                "46-55",
+                "46-55",
+                await query.CountAsync(file => file.BirthDate <= age46BirthDate && file.BirthDate > age56BirthDate, cancellationToken)),
+            new PersonnelFileAnalyticsBreakdownResponse(
+                "56+",
+                "56+",
+                await query.CountAsync(file => file.BirthDate <= age56BirthDate, cancellationToken))
         };
 
-        var byAgeRange = rows
-            .GroupBy(row => ToAgeRange(row.Age))
-            .Select(group => new PersonnelFileAnalyticsBreakdownResponse(group.Key, group.Key, group.Count()))
-            .OrderBy(item => item.Key)
-            .ToArray();
-
-        var byOrgUnit = rows
-            .GroupBy(row => row.OrgUnitId)
-            .Select(group => new PersonnelFileAnalyticsBreakdownResponse(
-                group.Key?.ToString() ?? "UNASSIGNED",
-                group.Key?.ToString() ?? "Unassigned",
-                group.Count()))
+        var orgUnitCounts = await query
+            .GroupBy(file => file.OrgUnitPublicId)
+            .Select(group => new
+            {
+                OrgUnitPublicId = group.Key,
+                Count = group.Count()
+            })
             .OrderByDescending(item => item.Count)
+            .ToArrayAsync(cancellationToken);
+        var byOrgUnit = orgUnitCounts
+            .Select(item => new PersonnelFileAnalyticsBreakdownResponse(
+                item.OrgUnitPublicId.HasValue ? item.OrgUnitPublicId.Value.ToString() : "UNASSIGNED",
+                item.OrgUnitPublicId.HasValue ? item.OrgUnitPublicId.Value.ToString() : "Unassigned",
+                item.Count))
             .ToArray();
 
         return new PersonnelFileAnalyticsSummaryResponse(

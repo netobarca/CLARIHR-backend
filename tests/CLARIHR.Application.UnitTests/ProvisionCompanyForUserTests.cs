@@ -1124,6 +1124,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             bool? isPrimary,
             LegalRepresentativeRepresentationType? representationType,
             string? search,
+            int? maxRows,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

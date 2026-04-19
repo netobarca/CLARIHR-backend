@@ -32,6 +32,7 @@ public interface ISalaryTabulatorRepository
         string? salaryScaleCode,
         bool? isActive,
         string? search,
+        int? maxRows,
         CancellationToken cancellationToken);
 
     Task<SalaryTabulatorLineSnapshot?> GetActiveLineSnapshotAsync(

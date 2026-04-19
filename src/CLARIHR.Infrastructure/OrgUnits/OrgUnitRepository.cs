@@ -16,6 +16,7 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
 
     public Task<bool> ExistsOutsideTenantAsync(Guid orgUnitId, CancellationToken cancellationToken) =>
         dbContext.OrgUnits
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(unit => unit.PublicId == orgUnitId, cancellationToken);
 
@@ -180,6 +181,86 @@ internal sealed class OrgUnitRepository(ApplicationDbContext dbContext) : IOrgUn
              unit.ModifiedUtc))
         .ToListAsync(cancellationToken)
         .ContinueWith(static task => (IReadOnlyList<OrgUnitHierarchyNodeData>)task.Result, cancellationToken);
+
+    public async Task<IReadOnlyCollection<OrgUnitExportRow>> GetExportRowsAsync(
+        Guid tenantId,
+        bool? isActive,
+        string? search,
+        Guid? orgUnitTypeId,
+        Guid? functionalAreaId,
+        Guid? parentId,
+        int? maxRows,
+        CancellationToken cancellationToken)
+    {
+        var hierarchy = await GetHierarchyAsync(tenantId, cancellationToken);
+        var filtered = hierarchy.AsEnumerable();
+
+        if (isActive.HasValue)
+        {
+            filtered = filtered.Where(node => node.IsActive == isActive.Value);
+        }
+
+        if (orgUnitTypeId.HasValue)
+        {
+            filtered = filtered.Where(node => node.OrgUnitTypeId == orgUnitTypeId.Value);
+        }
+
+        if (functionalAreaId.HasValue)
+        {
+            filtered = filtered.Where(node => node.FunctionalAreaId == functionalAreaId.Value);
+        }
+
+        if (parentId.HasValue)
+        {
+            filtered = filtered.Where(node => node.ParentId == parentId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalizedSearch = search.Trim().ToUpperInvariant();
+            var byId = hierarchy.ToDictionary(node => node.Id);
+            filtered = filtered.Where(node =>
+                node.Code.ToUpperInvariant().Contains(normalizedSearch) ||
+                node.Name.ToUpperInvariant().Contains(normalizedSearch) ||
+                (node.ParentId.HasValue &&
+                 byId.TryGetValue(node.ParentId.Value, out var parentNode) &&
+                 parentNode.Name.ToUpperInvariant().Contains(normalizedSearch)));
+        }
+
+        var nodesById = hierarchy.ToDictionary(node => node.Id);
+        return filtered
+            .OrderBy(node => node.SortOrder ?? int.MaxValue)
+            .ThenBy(node => node.Name)
+            .ThenBy(node => node.Code)
+            .Take(maxRows ?? int.MaxValue)
+            .Select(node =>
+            {
+                var parent = node.ParentId.HasValue && nodesById.TryGetValue(node.ParentId.Value, out var parentNode)
+                    ? parentNode
+                    : null;
+
+                return new OrgUnitExportRow(
+                    node.Id,
+                    node.Code,
+                    node.Name,
+                    node.OrgUnitTypeId,
+                    node.OrgUnitTypeCode,
+                    node.OrgUnitTypeName,
+                    node.FunctionalAreaId,
+                    node.FunctionalAreaCode,
+                    node.FunctionalAreaName,
+                    parent?.Code,
+                    parent?.Name,
+                    node.SortOrder,
+                    node.Description,
+                    node.CostCenterCode,
+                    node.ManagerEmployeeId,
+                    node.IsActive,
+                    node.CreatedAtUtc,
+                    node.ModifiedAtUtc);
+            })
+            .ToArray();
+    }
 
     public Task<bool> HasActiveChildrenAsync(long orgUnitId, CancellationToken cancellationToken) =>
         dbContext.OrgUnits.AnyAsync(unit => unit.ParentId == orgUnitId && unit.IsActive, cancellationToken);

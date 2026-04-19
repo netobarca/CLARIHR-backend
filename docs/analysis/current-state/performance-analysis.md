@@ -9,33 +9,37 @@ La base de rendimiento del backend sigue siendo razonable para un SaaS administr
 - `AsNoTracking()` visible en muchos repositorios de lectura
 - paginacion validada en modulos principales
 - cache en componentes de permisos y catalogos
+- uploads de documentos de expediente con limite duro de `10 MiB` y validacion de extension/MIME/firma antes de leer el archivo completo en memoria
+- exportes de reporte con limite sincrono de `5,000` filas, pipeline asincrono DB-backed para exportes grandes, worker `BackgroundService` y artefactos en Azure Blob Storage
 - el ciclo de vida de suscripciones empresariales se resuelve con lecturas paginadas, proyecciones y procesamiento batch fuera del request path para promociones `Scheduled` y expiraciones por fecha
 
-La reevaluacion profunda del **28 de marzo de 2026** confirma, sin embargo, que el mayor riesgo de rendimiento ya no es teorico: los exportes y algunos reportes pesados se ejecutan hoy en el request path, materializan colecciones completas en memoria y luego construyen archivos en la capa API.
+La remediacion del **19 de abril de 2026** corrige el mayor punto caliente confirmado: los exportes grandes ya no deben ejecutarse dentro del request path. Los endpoints sincronos quedan para datasets pequenos y los datasets grandes se derivan al flujo asincrono persistido.
 
 ## 2. Evidencia principal observada
 
-### 2.1 Exportes completos en memoria
+### 2.1 Exportes sincronos acotados
 
-[PersonnelFileRepository.cs#L509](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/PersonnelFiles/PersonnelFileRepository.cs#L509) exporta filas de expedientes con `ToArrayAsync()` sin paginacion ni streaming.
+Los exportes sincronos de `PERSONNEL_FILES`, acciones de personal, transacciones de planilla, unidades organizativas, plazas, tabulador salarial, centros de costo, representantes legales y matriz de competencias ahora leen como maximo `MaxSynchronousExportRows + 1`.
 
-[PersonnelFileEmployeeRepository.cs#L203](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/PersonnelFiles/PersonnelFileEmployeeRepository.cs#L203) y [PersonnelFileEmployeeRepository.cs#L277](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/PersonnelFiles/PersonnelFileEmployeeRepository.cs#L277) hacen lo mismo para personnel actions y payroll transactions.
+Si hay overflow, responden `413 REPORT_EXPORT_TOO_LARGE` y no construyen archivo.
 
-### 2.2 Analytics apoyado en dataset de export
+### 2.2 Pipeline asincrono de exportes
 
-[PersonnelFileRepository.cs#L556](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/PersonnelFiles/PersonnelFileRepository.cs#L556) reutiliza `GetExportRowsAsync()` para construir el analytics summary. Eso simplifica implementacion, pero vuelve el resumen dependiente del costo del export completo.
+`ReportExportJob` persiste estado, tenant, recurso, formato, intentos, lease de worker, metadata de artefacto y expiracion. El worker reclama jobs por lotes acotados, genera archivos mediante writer comun y guarda artefactos en Blob Storage con retencion por defecto de `24` horas.
 
-### 2.3 Generacion de archivos en la capa API
+### 2.3 Analytics y lecturas pesadas
 
-[PersonnelFileReportingController.cs#L151](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/PersonnelFileReportingController.cs#L151) audita, persiste y arma CSV/XLSX dentro del request.
+`GetAnalyticsSummaryAsync` de expedientes ya no reutiliza el dataset de export. Calcula conteos y agrupaciones en base de datos y luego mapea labels en memoria.
 
-[PersonnelFileCompensationController.cs#L226](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/PersonnelFileCompensationController.cs#L226) repite el mismo patron para payroll transactions.
+Las lecturas de detalle pesado de expediente con muchos `Include()` usan `AsSplitQuery()` para reducir riesgo de cartesian explosion.
 
 ## 3. Patrones saludables que si se mantienen
 
 - listados principales con paginacion
 - consultas con `AsNoTracking()` en varias lecturas
 - uso amplio de proyecciones y DTOs en repositorios
+- writer comun `ReportExportFileWriter` para CSV/XLSX/JSON, reutilizado por controllers y worker de exportes
+- controllers de export sincrono sin builders CSV/XLSX duplicados para los recursos cubiertos
 - los catalogos globales de plataforma para planes y add-ons mantienen lectura paginada, `AsNoTracking()` e indices por codigo, estado y filtros comerciales; `CommercialAddon` ahora filtra tambien por `type` y `billingModel` con indice dedicado sobre `billing_model`
 - los catalogos internos globales de requisitos usan `normalized_value`, indice unico por `catalog_key + normalized_value`, indice `GIN` con `pg_trgm` para similitud y ranking server-side por exactitud, prefijo, score y uso
 - el backoffice global de suscripciones mantiene overview, historial por empresa, historial de estados y listado global con paginacion, `AsNoTracking()` y ordenamiento server-side sobre columnas persistidas
@@ -46,42 +50,37 @@ La reevaluacion profunda del **28 de marzo de 2026** confirma, sin embargo, que 
 
 ## 4. Riesgos confirmados
 
-### 4.1 Riesgo de memoria y latencia en tenants grandes
+### 4.1 Exportes grandes dependen de storage configurado
 
-Los exportes actuales pueden crecer con el volumen total del tenant porque no hay:
+El flujo asincrono es el camino canonico para datasets grandes. Si Azure Blob Storage no esta configurado, el endpoint de jobs responde `503 REPORT_EXPORT_STORAGE_NOT_CONFIGURED`; eso evita trabajo pesado sin destino de artefacto, pero exige configuracion operativa antes de habilitar exportes grandes en ambientes reales.
 
-- streaming de respuesta
-- limites duros de filas para export
-- background jobs
-- desacople entre consulta pesada y descarga
+### 4.2 Limite asincrono y vencimiento de artefactos
 
-### 4.2 Request path con trabajo demasiado pesado
+Los jobs asincronos tienen limite de `100,000` filas y artefactos con expiracion de `24` horas. Esto protege memoria y almacenamiento, pero implica que clientes deben reencolar si intentan descargar despues de vencido el artefacto.
 
-El costo no es solo la query. En la misma request se hacen:
+### 4.3 Diagramas sincronos acotados
 
-- lectura completa
-- auditoria
-- `SaveChangesAsync()`
-- construccion del archivo
-- serializacion y entrega del binario
+Los diagram exports de `ORG_UNITS` y `POSITION_SLOTS` siguen siendo sincronos por ser formatos de grafo, pero ahora aplican limite de `5,000` nodos y responden `413 REPORT_EXPORT_LIMIT_EXCEEDED` si el grafo supera esa frontera.
 
-Eso vuelve mas fragil la latencia, el consumo de memoria y el tiempo de bloqueo del request.
+### 4.4 Uploads de documentos con guardrail de tamano
 
-### 4.3 Mezcla de preocupaciones que dificulta optimizar
+El upload de documentos de expediente ya no lee archivos arbitrariamente grandes antes de validar. La API rechaza `IFormFile.Length > 10 MiB` con `413` y formatos no permitidos con `400` antes de copiar el stream completo a memoria.
 
-Al tener parte del trabajo pesado en controllers, cualquier estrategia seria de streaming, jobs asincronos o politicas de observabilidad queda mas costosa de implementar.
+Este cambio reduce riesgo de disponibilidad por payloads grandes en el endpoint de documentos, aunque no reemplaza una estrategia futura de streaming/antivirus/storage externo si el volumen documental crece.
 
 ## 5. Conclusiones
 
-No hay evidencia de un colapso estructural general de performance. La base sigue siendo buena para volumen medio. El problema confirmado es mas concreto:
+No hay evidencia de un colapso estructural general de performance. La base sigue siendo buena para volumen medio y el mayor riesgo de request path pesado ya quedo acotado:
 
-- los exportes y analytics de `PersonnelFiles` son hoy el principal punto caliente del backend
-- la solucion actual probablemente aguanta cargas moderadas
-- el margen de crecimiento por tenant esta comprometido si no se saca este trabajo del request path
+- los exportes pequenos siguen siendo sincronos, pero con limite duro
+- los exportes grandes salen del request path mediante jobs persistidos y Blob Storage
+- analytics de `PersonnelFiles` ya no materializa filas de export
+- el riesgo de memoria por upload de documentos queda acotado por limite duro de tamano y validacion temprana
+- el margen de crecimiento por tenant ahora depende principalmente de tuning de indices, batch size, storage y observabilidad del worker
 
 ## 6. Recomendaciones inmediatas
 
-1. Definir umbral de filas por export y bloquear exportes demasiado grandes en request sin job asincrono.
-2. Mover CSV/XLSX pesados a un servicio dedicado o a procesamiento diferido.
-3. Reescribir analytics summary para agregar en base de datos en lugar de reaprovechar datasets de export.
-4. Instrumentar latencia y tamano de respuesta por endpoint de reportes y exports.
+1. Configurar `BlobStorage:ReportExportsContainer` y credenciales por ambiente antes de habilitar jobs asincronos en produccion.
+2. Instrumentar latencia, filas, tamano de artefacto, intentos y errores del worker de exportes.
+3. Revisar planes de retencion y limpieza fisica de blobs si el volumen de jobs crece.
+4. Validar con carga real los indices agregados para `personnel_files` y ajustar patrones de sort/filtro segun telemetry.

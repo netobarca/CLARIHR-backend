@@ -39,6 +39,7 @@ internal static class TenantPermissionGrantEvaluator
         }
 
         var hasIamGrant = await dbContext.IamUsers
+            // Intentional tenant filter bypass: applies explicit companyPublicId tenant filter before checking IAM grants.
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(user =>

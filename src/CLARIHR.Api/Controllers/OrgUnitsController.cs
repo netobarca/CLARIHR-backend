@@ -1,11 +1,7 @@
 using System.Globalization;
-using System.IO.Compression;
-using System.Security;
 using System.Text;
 using System.Text.Json;
 using System.Xml;
-using CLARIHR.Application.Abstractions.Auditing;
-using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -24,8 +20,7 @@ namespace CLARIHR.Api.Controllers;
 public sealed class OrgUnitsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork) : ControllerBase
+    ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
     [HttpGet("api/v1/companies/{companyId:guid}/org-units")]
     [ProducesResponseType<PagedResponse<OrgUnitResponse>>(StatusCodes.Status200OK)]
@@ -108,6 +103,7 @@ public sealed class OrgUnitsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     public async Task<IActionResult> Export(
         Guid companyId,
         [FromQuery] string format = "xlsx",
@@ -119,7 +115,14 @@ public sealed class OrgUnitsController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new GetOrgUnitExportRowsQuery(companyId, isActive, search, orgUnitTypeId, functionalAreaId, parentId),
+            new GetOrgUnitExportRowsQuery(
+                companyId,
+                isActive,
+                search,
+                orgUnitTypeId,
+                functionalAreaId,
+                parentId,
+                reportExportDeliveryService.SynchronousReadLimit),
             cancellationToken);
 
         if (result.IsFailure)
@@ -127,58 +130,18 @@ public sealed class OrgUnitsController(
             return this.ToActionResult(Result<IReadOnlyCollection<OrgUnitExportRow>>.Failure(result.Error)).Result!;
         }
 
-        if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
-        {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.OrgUnit,
-                    null,
-                    OrgUnitPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported org units report.",
-                    After: new
-                    {
-                        resourceKey = OrgUnitPermissionCodes.ResourceKey,
-                        format = "csv",
-                        filters = new { isActive, orgUnitTypeId, functionalAreaId, parentId, q = search },
-                        rowCount = result.Value.Count
-                    }),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var csv = BuildCsv(result.Value);
-            return File(Encoding.UTF8.GetBytes(csv), "text/csv", "org-units.csv");
-        }
-
-        if (string.Equals(format, "xlsx", StringComparison.OrdinalIgnoreCase))
-        {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.OrgUnit,
-                    null,
-                    OrgUnitPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported org units report.",
-                    After: new
-                    {
-                        resourceKey = OrgUnitPermissionCodes.ResourceKey,
-                        format = "xlsx",
-                        filters = new { isActive, orgUnitTypeId, functionalAreaId, parentId, q = search },
-                        rowCount = result.Value.Count
-                    }),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var xlsx = BuildXlsx(result.Value);
-            return File(
-                xlsx,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "org-units.xlsx");
-        }
-
-        return this.ToActionResult(Result<IReadOnlyCollection<OrgUnitExportRow>>.Failure(ReportPolicyErrors.FormatNotSupported)).Result!;
+        return await reportExportDeliveryService.CreateFileResultAsync(
+            this,
+            result.Value,
+            format,
+            "org-units",
+            "OrgUnits",
+            AuditEntityTypes.OrgUnit,
+            ReportExportResources.OrgUnits,
+            "Exported org units report.",
+            new { isActive, orgUnitTypeId, functionalAreaId, parentId, q = search },
+            ReportPolicyErrors.FormatNotSupported,
+            cancellationToken);
     }
 
     [HttpGet("api/v1/companies/{companyId:guid}/org-units/diagram-export")]
@@ -187,6 +150,7 @@ public sealed class OrgUnitsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     public async Task<IActionResult> DiagramExport(
         Guid companyId,
         [FromQuery] string format = "graphml",
@@ -203,25 +167,21 @@ public sealed class OrgUnitsController(
             return this.ToActionResult(Result<OrgUnitGraphResponse>.Failure(graphResult.Error)).Result!;
         }
 
+        if (graphResult.Value.Nodes.Count > reportExportDeliveryService.MaxDiagramNodes)
+        {
+            return CLARIHR.Api.Common.ProblemDetailsFactory.Create(HttpContext, ReportPolicyErrors.ExportLimitExceeded);
+        }
+
         if (string.Equals(format, "graphml", StringComparison.OrdinalIgnoreCase))
         {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.OrgUnit,
-                    null,
-                    OrgUnitPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported org units diagram.",
-                    After: new
-                    {
-                        resourceKey = OrgUnitPermissionCodes.ResourceKey,
-                        format = "graphml",
-                        filters = new { rootId, depth },
-                        rowCount = graphResult.Value.Nodes.Count
-                    }),
+            await reportExportDeliveryService.LogExportAsync(
+                AuditEntityTypes.OrgUnit,
+                ReportExportResources.OrgUnits,
+                "Exported org units diagram.",
+                "graphml",
+                new { rootId, depth },
+                graphResult.Value.Nodes.Count,
                 cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var graphml = BuildGraphMl(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(graphml), "application/graphml+xml", "org-units-diagram.graphml");
@@ -229,23 +189,14 @@ public sealed class OrgUnitsController(
 
         if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
         {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.OrgUnit,
-                    null,
-                    OrgUnitPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported org units diagram.",
-                    After: new
-                    {
-                        resourceKey = OrgUnitPermissionCodes.ResourceKey,
-                        format = "json",
-                        filters = new { rootId, depth },
-                        rowCount = graphResult.Value.Nodes.Count
-                    }),
+            await reportExportDeliveryService.LogExportAsync(
+                AuditEntityTypes.OrgUnit,
+                ReportExportResources.OrgUnits,
+                "Exported org units diagram.",
+                "json",
+                new { rootId, depth },
+                graphResult.Value.Nodes.Count,
                 cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var json = JsonSerializer.Serialize(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(json), "application/json", "org-units-diagram.json");
@@ -253,23 +204,14 @@ public sealed class OrgUnitsController(
 
         if (string.Equals(format, "dot", StringComparison.OrdinalIgnoreCase))
         {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.OrgUnit,
-                    null,
-                    OrgUnitPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported org units diagram.",
-                    After: new
-                    {
-                        resourceKey = OrgUnitPermissionCodes.ResourceKey,
-                        format = "dot",
-                        filters = new { rootId, depth },
-                        rowCount = graphResult.Value.Nodes.Count
-                    }),
+            await reportExportDeliveryService.LogExportAsync(
+                AuditEntityTypes.OrgUnit,
+                ReportExportResources.OrgUnits,
+                "Exported org units diagram.",
+                "dot",
+                new { rootId, depth },
+                graphResult.Value.Nodes.Count,
                 cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var dot = BuildDot(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(dot), "text/vnd.graphviz", "org-units-diagram.dot");
@@ -397,157 +339,6 @@ public sealed class OrgUnitsController(
         return this.ToActionResult(result);
     }
 
-    private static string BuildCsv(IReadOnlyCollection<OrgUnitExportRow> rows)
-    {
-        var lines = new List<string>
-        {
-            "PublicId,Code,Name,OrgUnitTypePublicId,OrgUnitTypeCode,OrgUnitTypeName,FunctionalAreaPublicId,FunctionalAreaCode,FunctionalAreaName,ParentCode,ParentName,SortOrder,Description,CostCenterCode,ManagerEmployeePublicId,IsActive,CreatedAtUtc,ModifiedAtUtc"
-        };
-
-        lines.AddRange(rows.Select(row => string.Join(",",
-            EscapeCsv(row.Id.ToString()),
-            EscapeCsv(row.Code),
-            EscapeCsv(row.Name),
-            EscapeCsv(row.OrgUnitTypeId.ToString()),
-            EscapeCsv(row.OrgUnitTypeCode),
-            EscapeCsv(row.OrgUnitTypeName),
-            EscapeCsv(row.FunctionalAreaId?.ToString()),
-            EscapeCsv(row.FunctionalAreaCode),
-            EscapeCsv(row.FunctionalAreaName),
-            EscapeCsv(row.ParentCode),
-            EscapeCsv(row.ParentName),
-            EscapeCsv(row.SortOrder?.ToString(CultureInfo.InvariantCulture)),
-            EscapeCsv(row.Description),
-            EscapeCsv(row.CostCenterCode),
-            EscapeCsv(row.ManagerEmployeeId?.ToString()),
-            row.IsActive ? "true" : "false",
-            EscapeCsv(row.CreatedAtUtc.ToString("O", CultureInfo.InvariantCulture)),
-            EscapeCsv(row.ModifiedAtUtc?.ToString("O", CultureInfo.InvariantCulture)))));
-
-        return string.Join("\n", lines);
-    }
-
-    private static byte[] BuildXlsx(IReadOnlyCollection<OrgUnitExportRow> rows)
-    {
-        static string Cell(string? value) =>
-            $"<c t=\"inlineStr\"><is><t>{EscapeXml(value)}</t></is></c>";
-
-        var headers = new[]
-        {
-            "PublicId",
-            "Code",
-            "Name",
-            "OrgUnitTypePublicId",
-            "OrgUnitTypeCode",
-            "OrgUnitTypeName",
-            "FunctionalAreaPublicId",
-            "FunctionalAreaCode",
-            "FunctionalAreaName",
-            "ParentCode",
-            "ParentName",
-            "SortOrder",
-            "Description",
-            "CostCenterCode",
-            "ManagerEmployeePublicId",
-            "IsActive",
-            "CreatedAtUtc",
-            "ModifiedAtUtc"
-        };
-
-        var sheetRows = new StringBuilder();
-        sheetRows.Append("<row r=\"1\">");
-        foreach (var header in headers)
-        {
-            sheetRows.Append(Cell(header));
-        }
-
-        sheetRows.Append("</row>");
-
-        var rowIndex = 2;
-        foreach (var row in rows)
-        {
-            sheetRows.Append($"<row r=\"{rowIndex++}\">");
-            sheetRows.Append(Cell(row.Id.ToString()));
-            sheetRows.Append(Cell(row.Code));
-            sheetRows.Append(Cell(row.Name));
-            sheetRows.Append(Cell(row.OrgUnitTypeId.ToString()));
-            sheetRows.Append(Cell(row.OrgUnitTypeCode));
-            sheetRows.Append(Cell(row.OrgUnitTypeName));
-            sheetRows.Append(Cell(row.FunctionalAreaId?.ToString()));
-            sheetRows.Append(Cell(row.FunctionalAreaCode));
-            sheetRows.Append(Cell(row.FunctionalAreaName));
-            sheetRows.Append(Cell(row.ParentCode));
-            sheetRows.Append(Cell(row.ParentName));
-            sheetRows.Append(Cell(row.SortOrder?.ToString(CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.Description));
-            sheetRows.Append(Cell(row.CostCenterCode));
-            sheetRows.Append(Cell(row.ManagerEmployeeId?.ToString()));
-            sheetRows.Append(Cell(row.IsActive ? "true" : "false"));
-            sheetRows.Append(Cell(row.CreatedAtUtc.ToString("O", CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.ModifiedAtUtc?.ToString("O", CultureInfo.InvariantCulture)));
-            sheetRows.Append("</row>");
-        }
-
-        var sheetXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
-            "<sheetData>" + sheetRows + "</sheetData>" +
-            "</worksheet>";
-
-        var contentTypesXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
-            "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" +
-            "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
-            "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
-            "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
-            "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>" +
-            "</Types>";
-
-        var relsXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
-            "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>" +
-            "</Relationships>";
-
-        var workbookXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
-            "<sheets><sheet name=\"OrgUnits\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
-            "</workbook>";
-
-        var workbookRelsXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
-            "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>" +
-            "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>" +
-            "</Relationships>";
-
-        var stylesXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
-            "<fonts count=\"1\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font></fonts>" +
-            "<fills count=\"1\"><fill><patternFill patternType=\"none\"/></fill></fills>" +
-            "<borders count=\"1\"><border/></borders>" +
-            "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>" +
-            "<cellXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/></cellXfs>" +
-            "<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles>" +
-            "</styleSheet>";
-
-        using var stream = new MemoryStream();
-        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            WriteEntry(archive, "[Content_Types].xml", contentTypesXml);
-            WriteEntry(archive, "_rels/.rels", relsXml);
-            WriteEntry(archive, "xl/workbook.xml", workbookXml);
-            WriteEntry(archive, "xl/_rels/workbook.xml.rels", workbookRelsXml);
-            WriteEntry(archive, "xl/worksheets/sheet1.xml", sheetXml);
-            WriteEntry(archive, "xl/styles.xml", stylesXml);
-        }
-
-        return stream.ToArray();
-    }
-
     private static string BuildGraphMl(OrgUnitGraphResponse graph)
     {
         var settings = new XmlWriterSettings
@@ -655,34 +446,10 @@ public sealed class OrgUnitsController(
         return builder.ToString();
     }
 
-    private static string EscapeCsv(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        var escaped = value.Replace("\"", "\"\"", StringComparison.Ordinal);
-        return escaped.IndexOfAny([',', '\n', '\r', '"']) >= 0
-            ? $"\"{escaped}\""
-            : escaped;
-    }
-
-    private static string EscapeXml(string? value) =>
-        string.IsNullOrEmpty(value) ? string.Empty : SecurityElement.Escape(value)!;
-
     private static string EscapeDot(string? value) =>
         string.IsNullOrEmpty(value)
             ? string.Empty
             : value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
-
-    private static void WriteEntry(ZipArchive archive, string path, string content)
-    {
-        var entry = archive.CreateEntry(path, CompressionLevel.Fastest);
-        using var entryStream = entry.Open();
-        using var writer = new StreamWriter(entryStream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        writer.Write(content);
-    }
 
     public sealed record CreateOrgUnitRequest(
         string Code,

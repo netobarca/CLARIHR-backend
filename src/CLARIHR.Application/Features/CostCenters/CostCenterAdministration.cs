@@ -86,7 +86,8 @@ public sealed record ExportCostCentersQuery(
     Guid CompanyId,
     CostCenterType? Type,
     bool? IsActive,
-    string? Search)
+    string? Search,
+    int? MaxRows = null)
     : IQuery<IReadOnlyCollection<CostCenterExportRow>>;
 
 public sealed record CreateCostCenterCommand(
@@ -370,6 +371,7 @@ internal sealed class ExportCostCentersQueryHandler(
             query.Type,
             query.IsActive,
             query.Search,
+            query.MaxRows,
             cancellationToken);
 
         return Result<IReadOnlyCollection<CostCenterExportRow>>.Success(rows);

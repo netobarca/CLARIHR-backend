@@ -48,6 +48,7 @@ public interface IPositionSlotRepository
         Guid? workCenterId,
         Guid? contractTypeId,
         string? search,
+        int? maxRows,
         CancellationToken cancellationToken);
 
     Task<PositionSlotJobProfileLookup?> GetJobProfileLookupAsync(

@@ -55,6 +55,9 @@ internal static class ProblemDetailsFactory
             ErrorType.NotFound => StatusCodes.Status404NotFound,
             ErrorType.Conflict => StatusCodes.Status409Conflict,
             ErrorType.TooManyRequests => StatusCodes.Status429TooManyRequests,
+            ErrorType.PayloadTooLarge => StatusCodes.Status413PayloadTooLarge,
+            ErrorType.Gone => StatusCodes.Status410Gone,
+            ErrorType.ServiceUnavailable => StatusCodes.Status503ServiceUnavailable,
             _ => StatusCodes.Status500InternalServerError
         };
 

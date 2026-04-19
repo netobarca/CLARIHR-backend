@@ -104,6 +104,7 @@ public interface IPersonnelFileEmployeeRepository
         string? search,
         string? sortBy,
         PersonnelFileSortDirection sortDirection,
+        int? maxRows,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFilePayrollTransactionResponse>> ReplacePayrollTransactionsAsync(
@@ -134,6 +135,7 @@ public interface IPersonnelFileEmployeeRepository
         string? search,
         string? sortBy,
         PersonnelFileSortDirection sortDirection,
+        int? maxRows,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileAssetAccessResponse>> ReplaceAssetsAccessesAsync(

@@ -173,7 +173,8 @@ public sealed record ExportSalaryTabulatorLinesQuery(
     Guid? SalaryClassId,
     string? SalaryScaleCode,
     bool? IsActive,
-    string? Search)
+    string? Search,
+    int? MaxRows = null)
     : IQuery<IReadOnlyCollection<SalaryTabulatorLineExportRow>>;
 
 public sealed record SearchSalaryTabulatorChangeRequestsQuery(
@@ -514,6 +515,7 @@ internal sealed class ExportSalaryTabulatorLinesQueryHandler(
             query.SalaryScaleCode,
             query.IsActive,
             query.Search,
+            query.MaxRows,
             cancellationToken);
 
         return Result<IReadOnlyCollection<SalaryTabulatorLineExportRow>>.Success(rows);

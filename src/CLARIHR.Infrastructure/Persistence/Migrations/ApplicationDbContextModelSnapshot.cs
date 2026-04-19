@@ -10478,11 +10478,20 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "OrgUnitPublicId")
                         .HasDatabaseName("ix_personnel_files__tenant_org_unit");
 
+                    b.HasIndex("TenantId", "BirthDate", "PublicId")
+                        .HasDatabaseName("ix_personnel_files__tenant_birth_public");
+
+                    b.HasIndex("TenantId", "CreatedUtc", "PublicId")
+                        .HasDatabaseName("ix_personnel_files__tenant_created_public");
+
                     b.HasIndex("TenantId", "LifecycleStatus", "RecordType")
                         .HasDatabaseName("ix_personnel_files__tenant_lifecycle_type");
 
                     b.HasIndex("TenantId", "RecordType", "IsActive")
                         .HasDatabaseName("ix_personnel_files__tenant_type_active");
+
+                    b.HasIndex("TenantId", "LifecycleStatus", "RecordType", "OrgUnitPublicId")
+                        .HasDatabaseName("ix_personnel_files__tenant_lifecycle_type_org_unit");
 
                     b.ToTable("personnel_files", (string)null);
                 });
@@ -14203,6 +14212,149 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("uq_user_preferences__user_id");
 
                     b.ToTable("user_preferences", (string)null);
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.Reports.ReportExportJob", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ArtifactBlobName")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("artifact_blob_name");
+
+                    b.Property<string>("ArtifactContentType")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("artifact_content_type");
+
+                    b.Property<string>("ArtifactFileName")
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)")
+                        .HasColumnName("artifact_file_name");
+
+                    b.Property<long?>("ArtifactSizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("artifact_size_bytes");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTime?>("CompletedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_utc");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<DateTime?>("ExpiresUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_utc");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("format");
+
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("last_error_code");
+
+                    b.Property<string>("LastErrorMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("last_error_message");
+
+                    b.Property<DateTime?>("LeaseUntilUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lease_until_utc");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("ParametersJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("parameters_json");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<DateTime>("QueuedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("queued_utc");
+
+                    b.Property<string>("RequestedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("requested_by_user_id");
+
+                    b.Property<string>("ResourceKey")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("resource_key");
+
+                    b.Property<int?>("RowCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("row_count");
+
+                    b.Property<DateTime?>("StartedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_utc");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("WorkerId")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("worker_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_report_export_jobs");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_report_export_jobs__public_id");
+
+                    b.HasIndex("Status", "ExpiresUtc")
+                        .HasDatabaseName("ix_report_export_jobs__expiration");
+
+                    b.HasIndex("Status", "LeaseUntilUtc", "QueuedUtc")
+                        .HasDatabaseName("ix_report_export_jobs__worker_claim");
+
+                    b.HasIndex("TenantId", "QueuedUtc", "PublicId")
+                        .HasDatabaseName("ix_report_export_jobs__tenant_queued_public");
+
+                    b.HasIndex("TenantId", "Status", "QueuedUtc")
+                        .HasDatabaseName("ix_report_export_jobs__tenant_status_queued");
+
+                    b.ToTable("report_export_jobs", (string)null);
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.SalaryTabulator.SalaryTabulatorChangeRequest", b =>

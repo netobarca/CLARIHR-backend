@@ -23,6 +23,7 @@ internal sealed class JobCatalogRepository(
 
     public Task<bool> ExistsOutsideTenantAsync(Guid itemId, CancellationToken cancellationToken) =>
         dbContext.JobCatalogItems
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(item => item.PublicId == itemId, cancellationToken);
 

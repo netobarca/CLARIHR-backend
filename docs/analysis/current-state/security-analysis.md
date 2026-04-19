@@ -2,11 +2,14 @@
 
 ## 1. Resumen ejecutivo
 
-Esta reevaluacion profunda se actualizo el **3 de abril de 2026** sobre el codigo, configuracion, pruebas y documentacion versionada del repositorio.
+Esta reevaluacion profunda se actualizo el **18 de abril de 2026** sobre el codigo, configuracion, pruebas y documentacion versionada del repositorio.
 
 Base verificada durante la auditoria:
 
-- `dotnet build CLARIHR.slnx -v minimal`: `0 warnings`, `0 errors`
+- `dotnet build src/CLARIHR.Api/CLARIHR.Api.csproj --no-restore`: `0 warnings`, `0 errors`
+- `dotnet build src/CLARIHR.Backoffice.Api/CLARIHR.Backoffice.Api.csproj --no-restore`: `0 warnings`, `0 errors`
+- `dotnet build src/CLARIHR.Infrastructure/CLARIHR.Infrastructure.csproj --no-restore`: `0 warnings`, `0 errors`
+- `dotnet test tests/CLARIHR.Application.UnitTests/CLARIHR.Application.UnitTests.csproj --no-restore`: `273/273` pruebas aprobadas
 - `dotnet test tests/CLARIHR.Application.UnitTests/CLARIHR.Application.UnitTests.csproj --filter CompanySubscriptionStateManagementTests -v minimal`: `5/5` pruebas dirigidas aprobadas
 - `dotnet test tests/CLARIHR.Api.IntegrationTests/CLARIHR.Api.IntegrationTests.csproj --filter BackofficeCompanySubscriptionsIntegrationTests -v minimal`: `6/6` pruebas dirigidas aprobadas
 - `dotnet test tests/CLARIHR.Application.UnitTests/CLARIHR.Application.UnitTests.csproj --filter InternalCatalogAdministrationTests -v minimal`: `7/7` pruebas dirigidas aprobadas
@@ -15,13 +18,13 @@ Base verificada durante la auditoria:
 - contrato machine-readable versionado en `openapi.yaml`: `41` paths
 - el suite completo aun conserva fallas legacy no relacionadas fuera del alcance de esta remediacion
 
-La conclusion revisada es que la solucion **no esta aprobada para produccion** en su estado actual para un SaaS multi-tenant de RRHH. La base tecnica sigue siendo buena, y la actualizacion del 29 de marzo ya cerro la brecha critica de acceso global por email allow-list y tambien agrego auditoria durable de plataforma. Aun asi, siguen vigentes hallazgos de riesgo alto con evidencia verificable:
+La conclusion revisada es que la solucion **todavia requiere remediaciones antes de aprobar produccion** en un SaaS multi-tenant de RRHH, pero el hardening del 18 de abril cerro dos riesgos estructurales: el filtro tenant global ya es `fail-closed` y la auditoria ya redacta PII sensible en payloads serializados. Siguen vigentes hallazgos de riesgo alto con evidencia verificable:
 
-- persistencia y reexposicion de PII sensible de RRHH en auditoria
 - ausencia visible de controles anti abuso para auth
-- filtro tenant global en modo `fail-open`
 - confianza excesiva en `X-Forwarded-*` si el entorno no la cierra externamente
 - drift contractual y documental severo entre codigo, OpenAPI y analisis vivos
+- riesgo residual de auditoria por payloads completos, aunque ahora con PII redactada
+- necesidad de mantener gobernanza estricta sobre usos intencionales de `IgnoreQueryFilters()`
 
 ## 2. Criterio y alcance
 
@@ -53,32 +56,22 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 - Residual operativo:
   el bootstrap inicial del primer operador ahora depende del comando `bootstrap-platform-operator`; ese paso deja de ser una brecha de runtime, pero requiere control operativo y trazabilidad de quien lo ejecuta.
 
-### 3.2 Auditoria persiste y reexpone PII sensible de RRHH
+### 3.2 Auditoria redacta PII sensible de RRHH en payloads serializados
 
 - Severidad: `Critico`
-- Estado: `Confirmado`
+- Estado: `Remediado parcialmente el 18 de abril de 2026`
 - Nuevo respecto a la auditoria anterior: `No`
-- Impacto real:
-  el sistema puede persistir y luego devolver desde auditoria datos personales, financieros y laborales que superan ampliamente un diff minimo justificable para RRHH.
+- Cambio aplicado:
+  `AuditSanitizer` elimina secretos y tokens como antes, y ahora redacta PII de RRHH con `"[REDACTED]"` para campos como emails, telefonos, direcciones, fechas de nacimiento, identificaciones, cuentas bancarias, `customDataJson` y `fileData`.
 - Precondiciones:
-  basta con ejecutar flujos normales de expedientes o de otras secciones que auditan payloads completos.
+  aplica a eventos nuevos que pasen por `AuditService` o `PlatformAuditService`; los logs historicos no se migran.
 - Evidencia:
-  [AuditSanitizer.cs#L11](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/Auditing/AuditSanitizer.cs#L11) elimina solo nombres de propiedad orientados a secretos y tokens.
-  [AuditSanitizer.cs#L64](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/Auditing/AuditSanitizer.cs#L64) conserva cualquier propiedad cuyo nombre no caiga en esa lista.
-  [PersonnelFileAdministration.cs#L199](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/PersonnelFiles/PersonnelFileAdministration.cs#L199) define `PersonnelFileResponse` con `PersonalEmail`, `InstitutionalEmail`, telefonos, `CustomDataJson`, identificaciones, contactos, familiares, cuentas bancarias, referencias y documentos.
-  [PersonnelFileAdministration.cs#L92](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/PersonnelFiles/PersonnelFileAdministration.cs#L92) incluye `AccountNumber` en cuentas bancarias.
-  [PersonnelFileAdministration.cs#L62](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/PersonnelFiles/PersonnelFileAdministration.cs#L62) incluye datos amplios de familiares, incluyendo `Salary`.
-  [PersonnelFileAdministration.cs#L1992](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/PersonnelFiles/PersonnelFileAdministration.cs#L1992) audita `After: response` completo al crear expediente.
-  [PersonnelFileEmployeeAdministration.cs#L958](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/PersonnelFiles/PersonnelFileEmployeeAdministration.cs#L958) centraliza updates de empleado auditando un `after` arbitrario.
-  [AuditService.cs#L56](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/Auditing/AuditService.cs#L56) persiste `Before`, `After` y `Diff` sanitizados, no minimizados.
-  [AuditLogAdministration.cs#L26](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/Audit/AuditLogAdministration.cs#L26) y [AuditLogAdministration.cs#L170](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/Audit/AuditLogAdministration.cs#L170) devuelven `Before`, `After` y `Diff` crudos en el detalle.
-  [AuditAdministrationTests.cs#L18](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/AuditAdministrationTests.cs#L18) prueba explicitamente que `Email` se conserva en el JSON auditado.
+  `AuditSanitizer` mantiene listas separadas para secretos removidos y PII redactada.
+  `AuditAdministrationTests` valida que emails, telefonos, fecha de nacimiento, direccion, nombre y cuenta bancaria ya no aparezcan en el JSON auditado, mientras los secretos se eliminan.
 - Cobertura actual:
-  hay cobertura para remocion de `PasswordHash`, `RefreshTokens` y `RawToken`, pero no para redaccion de PII laboral, salarios, beneficiarios, cuentas bancarias ni `customData`.
-- Por que el hallazgo es valido:
-  el problema no es "que exista auditoria", sino que se almacena demasiada informacion en payloads completos y luego se vuelve a exponer por un endpoint de detalle. Para RRHH esto es un riesgo de confidencialidad y cumplimiento, no una cuestion de estilo.
-- Remediacion concreta:
-  pasar de auditoria por DTO completo a auditoria por metadata y diff minimo permitido, bloquear o enmascarar `Before/After` sensibles, y crear pruebas de redaccion para tipos de datos reales de RRHH.
+  la cobertura ya prueba redaccion de PII y remocion de secretos, pero no reemplaza una futura minimizacion de payloads por evento.
+- Residual:
+  el sistema aun audita `Before`, `After` y `Diff` completos en varios flujos; ahora se almacenan con PII redactada, pero la recomendacion de mediano plazo sigue siendo minimizar el payload en origen.
 
 ### 3.3 Auth sin controles visibles de anti abuso
 
@@ -100,24 +93,20 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 - Remediacion concreta:
   incorporar rate limiting por IP y por identidad, respuestas `429`, lockout o enfriamiento para credenciales invalidas, y pruebas de integracion sobre rutas de auth.
 
-### 3.4 Filtro tenant global en modo `fail-open`
+### 3.4 Filtro tenant global en modo `fail-closed`
 
 - Severidad: `Importante`
-- Estado: `Confirmado` como riesgo estructural, `Pendiente de entorno` para un bypass HTTP universal
+- Estado: `Remediado el 18 de abril de 2026`
 - Nuevo respecto a la auditoria anterior: `No`
-- Impacto real:
-  cualquier flujo tenant-scoped que se ejecute sin tenant activo puede terminar leyendo datos de todos los tenants si confia en el filtro global en lugar de aplicar restricciones propias.
-- Precondiciones:
-  ausencia o perdida de `tenant context` en un handler, job, refactor o ruta fuera del pipeline esperado.
+- Cambio aplicado:
+  el filtro global de entidades `ITenantScopedEntity` ahora exige tenant activo y coincidencia de `TenantId`. Si no hay tenant scope, el filtro no debe devolver filas tenant-scoped.
 - Evidencia:
-  [ApplicationDbContext.cs#L287](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Infrastructure/Persistence/ApplicationDbContext.cs#L287) define `HasQueryFilter(entity => !HasTenantScope || entity.TenantId == CurrentTenantIdOrDefault)`.
-  el repositorio usa `IgnoreQueryFilters()` en multiples modulos, por lo que la disciplina de aislamiento depende tambien de revisiones puntuales y no solo del filtro global.
+  `ApplicationDbContext` usa una expresion equivalente a `HasTenantScope && entity.TenantId == CurrentTenantIdOrDefault`.
+  los usos restantes de `IgnoreQueryFilters()` en `Infrastructure` tienen comentario `Intentional tenant filter bypass:` y quedan cubiertos por una prueba de gobernanza.
 - Cobertura actual:
-  existen pruebas de `tenant mismatch` en modulos y auditoria, pero no una prueba dedicada que verifique que el filtro global falle en cerrado cuando no hay tenant.
-- Por que el hallazgo es valido:
-  el riesgo existe en la propia expresion del filtro. Aunque no se haya demostrado un bypass HTTP generico en esta auditoria, el comportamiento del modelo es `fail-open` y eso debilita la garantia tenant-scoped by default.
-- Remediacion concreta:
-  cambiar el filtro global a `fail-closed`, crear una matriz documentada de usos de `IgnoreQueryFilters()` y cubrir con pruebas los casos legitimos de bypass.
+  `ApplicationDbContextTenantFilterTests` valida la forma fail-closed del filtro y que escrituras tenant-scoped sin tenant siguen fallando. `IgnoreQueryFiltersGovernanceTests` falla si aparece un bypass no documentado.
+- Residual:
+  `IgnoreQueryFilters()` sigue existiendo para tenant mismatch, unicidad o grants IAM con tenant explicito. Nuevos usos deben justificar el bypass y preferir filtros `TenantId == ...` antes de materializar datos.
 
 ### 3.5 Confianza excesiva en `X-Forwarded-*`
 
@@ -205,7 +194,6 @@ Cobertura positiva visible:
 
 Huecos de prueba que aumentan riesgo real:
 
-- no hay pruebas de redaccion de PII real de RRHH en auditoria
 - no hay pruebas de rate limiting, lockout o throttling de auth, incluyendo `company-user-invitations/accept`
 - no hay pruebas de spoofing o confianza de `X-Forwarded-*`
 - no hay pruebas de auditoria durable para cada mutacion del CRUD de `CommercialPlan`
@@ -213,9 +201,9 @@ Huecos de prueba que aumentan riesgo real:
 
 ## 7. Recomendaciones inmediatas
 
-1. Redisenar la auditoria para que no persista ni exponga payloads completos de RRHH.
+1. Continuar la minimizacion de auditoria para que cada evento persista solo metadata y diff minimo necesario.
 2. Incorporar rate limiting y controles anti abuso en `register`, `login`, `refresh` y `external`.
-3. Volver el filtro tenant global a `fail-closed` y auditar todos los `IgnoreQueryFilters()`.
+3. Mantener la prueba de gobernanza de `IgnoreQueryFilters()` y revisar cualquier bypass nuevo en code review.
 4. Cerrar la confianza de `X-Forwarded-*` con proxies o redes explicitas por entorno.
 5. Extender pruebas de auditoria durable al CRUD global restante, especialmente `CommercialPlan`.
 6. Automatizar el contrato OpenAPI y usarlo para frenar drift documental.

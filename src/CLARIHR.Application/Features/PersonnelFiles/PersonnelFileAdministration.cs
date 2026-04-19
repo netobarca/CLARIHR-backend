@@ -483,7 +483,8 @@ public sealed record ExportPersonnelFilesQuery(
     DateTime? CreatedToUtc,
     string? Search,
     string? SortBy = null,
-    PersonnelFileSortDirection SortDirection = PersonnelFileSortDirection.Asc)
+    PersonnelFileSortDirection SortDirection = PersonnelFileSortDirection.Asc,
+    int? MaxRows = null)
     : IQuery<IReadOnlyCollection<PersonnelFileExportRow>>;
 
 public sealed record DynamicQueryPersonnelFilesQuery(
@@ -2736,6 +2737,7 @@ internal sealed class ExportPersonnelFilesQueryHandler(
             query.Search,
             query.SortBy,
             query.SortDirection,
+            query.MaxRows,
             cancellationToken);
 
         return Result<IReadOnlyCollection<PersonnelFileExportRow>>.Success(rows);
@@ -4394,6 +4396,17 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
         if (authorizationResult.IsFailure)
         {
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(authorizationResult.Error);
+        }
+
+        if (command.FileData.Length > PersonnelFileValidationRules.MaxDocumentFileSizeBytes)
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentFileTooLarge);
+        }
+
+        if (!PersonnelFileValidationRules.IsAllowedDocumentExtension(command.FileName) ||
+            !PersonnelFileValidationRules.IsAllowedDocumentContentType(command.FileName, command.ContentType))
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentContentTypeUnsupported);
         }
 
         var personnelFile = await repository.GetByIdAsync(command.PersonnelFileId, cancellationToken);

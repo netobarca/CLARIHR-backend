@@ -28,6 +28,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
 
     public Task<bool> OccupationalPyramidLevelExistsOutsideTenantAsync(Guid levelId, CancellationToken cancellationToken) =>
         dbContext.Set<OccupationalPyramidLevel>()
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(level => level.PublicId == levelId, cancellationToken);
 
@@ -156,6 +157,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
 
     public Task<bool> CompetencyConductExistsOutsideTenantAsync(Guid conductId, CancellationToken cancellationToken) =>
         dbContext.Set<CompetencyConduct>()
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(conduct => conduct.PublicId == conductId, cancellationToken);
 
@@ -350,6 +352,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
 
     public Task<bool> CatalogItemExistsOutsideTenantAsync(Guid catalogItemId, CancellationToken cancellationToken) =>
         dbContext.JobCatalogItems
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(item => item.PublicId == catalogItemId, cancellationToken);
 
@@ -358,6 +361,7 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
 
     public Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(profile => profile.PublicId == jobProfileId, cancellationToken);
 
@@ -479,10 +483,11 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
 
     public async Task<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>> GetJobProfileCompetencyMatrixExportRowsAsync(
         Guid jobProfileId,
+        int? maxRows,
         CancellationToken cancellationToken)
     {
-        return await
-            (from profile in dbContext.JobProfiles.AsNoTracking()
+        var query =
+            from profile in dbContext.JobProfiles.AsNoTracking()
              join expectation in dbContext.Set<JobProfileCompetencyExpectation>().AsNoTracking()
                  on profile.Id equals expectation.JobProfileId
              join level in dbContext.Set<OccupationalPyramidLevel>().AsNoTracking() on expectation.OccupationalPyramidLevelId equals level.Id
@@ -520,7 +525,14 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
                  conduct != null ? conduct.Description : null,
                  link != null ? link.SortOrder : null,
                  expectation.ExpectedEvidence,
-                 expectation.SortOrder))
+                 expectation.SortOrder);
+
+        if (maxRows.HasValue)
+        {
+            query = query.Take(maxRows.Value);
+        }
+
+        return await query
             .ToArrayAsync(cancellationToken);
     }
 }

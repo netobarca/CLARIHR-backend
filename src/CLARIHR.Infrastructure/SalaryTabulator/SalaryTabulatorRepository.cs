@@ -19,6 +19,7 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
 
     public Task<bool> LineExistsOutsideTenantAsync(Guid lineId, CancellationToken cancellationToken) =>
         dbContext.SalaryTabulatorLines
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(line => line.PublicId == lineId, cancellationToken);
 
@@ -132,8 +133,9 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
         string? salaryScaleCode,
         bool? isActive,
         string? search,
+        int? maxRows,
         CancellationToken cancellationToken) =>
-        GetLineExportRowsAsyncInternal(tenantId, salaryClassCode, salaryScaleCode, isActive, search, cancellationToken);
+        GetLineExportRowsAsyncInternal(tenantId, salaryClassCode, salaryScaleCode, isActive, search, maxRows, cancellationToken);
 
     private async Task<IReadOnlyCollection<SalaryTabulatorLineExportRow>> GetLineExportRowsAsyncInternal(
         Guid tenantId,
@@ -141,6 +143,7 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
         string? salaryScaleCode,
         bool? isActive,
         string? search,
+        int? maxRows,
         CancellationToken cancellationToken)
     {
         var query = dbContext.SalaryTabulatorLines
@@ -173,10 +176,18 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
                 line.CurrencyCode.Contains(normalizedSearch));
         }
 
-        return await query
+        var ordered = query
             .OrderBy(line => line.SalaryClassCode)
             .ThenBy(line => line.SalaryScaleCode)
-            .ThenByDescending(line => line.EffectiveFromUtc)
+            .ThenByDescending(line => line.EffectiveFromUtc);
+
+        IQueryable<SalaryTabulatorLine> limited = ordered;
+        if (maxRows.HasValue)
+        {
+            limited = limited.Take(maxRows.Value);
+        }
+
+        return await limited
             .Select(line => new SalaryTabulatorLineExportRow(
                 line.PublicId,
                 dbContext.PositionDescriptionCatalogItems
@@ -307,6 +318,7 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
 
     public Task<bool> ChangeRequestExistsOutsideTenantAsync(Guid requestId, CancellationToken cancellationToken) =>
         dbContext.SalaryTabulatorChangeRequests
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(request => request.PublicId == requestId, cancellationToken);
 

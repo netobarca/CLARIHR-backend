@@ -1,16 +1,11 @@
-using System.Globalization;
-using System.IO.Compression;
-using System.Security;
-using System.Text;
 using CLARIHR.Api.Common;
-using CLARIHR.Application.Abstractions.Auditing;
-using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CompetencyFramework;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
+using CLARIHR.Application.Features.Reports.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,8 +16,7 @@ namespace CLARIHR.Api.Controllers;
 public sealed class CompetencyFrameworkController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork) : ControllerBase
+    ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
     [HttpGet("api/v1/companies/{companyId:guid}/occupational-pyramid-levels")]
     [ProducesResponseType<PagedResponse<OccupationalPyramidLevelListItemResponse>>(StatusCodes.Status200OK)]
@@ -344,238 +338,33 @@ public sealed class CompetencyFrameworkController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     public async Task<IActionResult> ExportJobProfileCompetencyMatrix(
         Guid id,
         [FromQuery] string format = "xlsx",
         CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new ExportJobProfileCompetencyMatrixQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(
+            new ExportJobProfileCompetencyMatrixQuery(id, reportExportDeliveryService.SynchronousReadLimit),
+            cancellationToken);
         if (result.IsFailure)
         {
             return this.ToActionResult(Result<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>.Failure(result.Error)).Result!;
         }
 
-        if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
-        {
-            await WriteReportAuditAsync(id, "json", result.Value.Count, cancellationToken);
-            return Ok(result.Value);
-        }
-
-        if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
-        {
-            await WriteReportAuditAsync(id, "csv", result.Value.Count, cancellationToken);
-            var csv = BuildCsv(result.Value);
-            return File(Encoding.UTF8.GetBytes(csv), "text/csv", "job-profile-competency-matrix.csv");
-        }
-
-        if (string.Equals(format, "xlsx", StringComparison.OrdinalIgnoreCase))
-        {
-            await WriteReportAuditAsync(id, "xlsx", result.Value.Count, cancellationToken);
-            var xlsx = BuildXlsx(result.Value);
-            return File(
-                xlsx,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "job-profile-competency-matrix.xlsx");
-        }
-
-        return this.ToActionResult(Result<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>.Failure(CompetencyFrameworkErrors.ExportFormatInvalid)).Result!;
-    }
-
-    private async Task WriteReportAuditAsync(Guid jobProfileId, string format, int rowCount, CancellationToken cancellationToken)
-    {
-        await auditService.LogAsync(
-            new AuditLogEntry(
-                AuditEventTypes.ReportExported,
-                AuditEntityTypes.JobProfileCompetencyMatrix,
-                jobProfileId,
-                CompetencyFrameworkPermissionCodes.ResourceKey,
-                AuditActions.Export,
-                "Exported job profile competency matrix report.",
-                After: new
-                {
-                    resourceKey = CompetencyFrameworkPermissionCodes.ResourceKey,
-                    format,
-                    rowCount
-                }),
+        return await reportExportDeliveryService.CreateFileResultAsync(
+            this,
+            result.Value,
+            format,
+            "job-profile-competency-matrix",
+            "CompetencyMatrix",
+            AuditEntityTypes.JobProfileCompetencyMatrix,
+            ReportExportResources.JobProfileCompetencyMatrix,
+            "Exported job profile competency matrix report.",
+            new { jobProfileId = id },
+            CompetencyFrameworkErrors.ExportFormatInvalid,
             cancellationToken);
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
     }
-
-    private static string BuildCsv(IReadOnlyCollection<JobProfileCompetencyMatrixExportRow> rows)
-    {
-        var lines = new List<string>
-        {
-            "JobProfilePublicId,JobProfileCode,JobProfileTitle,JobProfileStatus,JobProfileVersion,OccupationalPyramidLevelPublicId,OccupationalPyramidLevelCode,OccupationalPyramidLevelName,OccupationalPyramidLevelOrder,CompetencyPublicId,CompetencyCode,CompetencyName,CompetencyTypePublicId,CompetencyTypeCode,CompetencyTypeName,BehaviorLevelPublicId,BehaviorLevelCode,BehaviorLevelName,ConductPublicId,ConductDescription,ConductSortOrder,ExpectedEvidence,ItemSortOrder"
-        };
-
-        lines.AddRange(rows.Select(row => string.Join(",",
-            EscapeCsv(row.JobProfileId.ToString()),
-            EscapeCsv(row.JobProfileCode),
-            EscapeCsv(row.JobProfileTitle),
-            EscapeCsv(row.JobProfileStatus),
-            row.JobProfileVersion,
-            EscapeCsv(row.OccupationalPyramidLevelId.ToString()),
-            EscapeCsv(row.OccupationalPyramidLevelCode),
-            EscapeCsv(row.OccupationalPyramidLevelName),
-            row.OccupationalPyramidLevelOrder,
-            EscapeCsv(row.CompetencyId.ToString()),
-            EscapeCsv(row.CompetencyCode),
-            EscapeCsv(row.CompetencyName),
-            EscapeCsv(row.CompetencyTypeId.ToString()),
-            EscapeCsv(row.CompetencyTypeCode),
-            EscapeCsv(row.CompetencyTypeName),
-            EscapeCsv(row.BehaviorLevelId.ToString()),
-            EscapeCsv(row.BehaviorLevelCode),
-            EscapeCsv(row.BehaviorLevelName),
-            EscapeCsv(row.ConductId?.ToString()),
-            EscapeCsv(row.ConductDescription),
-            EscapeCsv(row.ConductSortOrder?.ToString(CultureInfo.InvariantCulture)),
-            EscapeCsv(row.ExpectedEvidence),
-            row.ItemSortOrder)));
-
-        return string.Join("\n", lines);
-    }
-
-    private static byte[] BuildXlsx(IReadOnlyCollection<JobProfileCompetencyMatrixExportRow> rows)
-    {
-        static string Cell(string? value) =>
-            $"<c t=\"inlineStr\"><is><t>{EscapeXml(value)}</t></is></c>";
-
-        var headers = new[]
-        {
-            "JobProfilePublicId",
-            "JobProfileCode",
-            "JobProfileTitle",
-            "JobProfileStatus",
-            "JobProfileVersion",
-            "OccupationalPyramidLevelPublicId",
-            "OccupationalPyramidLevelCode",
-            "OccupationalPyramidLevelName",
-            "OccupationalPyramidLevelOrder",
-            "CompetencyPublicId",
-            "CompetencyCode",
-            "CompetencyName",
-            "CompetencyTypePublicId",
-            "CompetencyTypeCode",
-            "CompetencyTypeName",
-            "BehaviorLevelPublicId",
-            "BehaviorLevelCode",
-            "BehaviorLevelName",
-            "ConductPublicId",
-            "ConductDescription",
-            "ConductSortOrder",
-            "ExpectedEvidence",
-            "ItemSortOrder"
-        };
-
-        var sheetRows = new StringBuilder();
-        sheetRows.Append("<row r=\"1\">");
-        foreach (var header in headers)
-        {
-            sheetRows.Append(Cell(header));
-        }
-
-        sheetRows.Append("</row>");
-
-        var rowIndex = 2;
-        foreach (var row in rows)
-        {
-            sheetRows.Append($"<row r=\"{rowIndex++}\">");
-            sheetRows.Append(Cell(row.JobProfileId.ToString()));
-            sheetRows.Append(Cell(row.JobProfileCode));
-            sheetRows.Append(Cell(row.JobProfileTitle));
-            sheetRows.Append(Cell(row.JobProfileStatus));
-            sheetRows.Append(Cell(row.JobProfileVersion.ToString(CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.OccupationalPyramidLevelId.ToString()));
-            sheetRows.Append(Cell(row.OccupationalPyramidLevelCode));
-            sheetRows.Append(Cell(row.OccupationalPyramidLevelName));
-            sheetRows.Append(Cell(row.OccupationalPyramidLevelOrder.ToString(CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.CompetencyId.ToString()));
-            sheetRows.Append(Cell(row.CompetencyCode));
-            sheetRows.Append(Cell(row.CompetencyName));
-            sheetRows.Append(Cell(row.CompetencyTypeId.ToString()));
-            sheetRows.Append(Cell(row.CompetencyTypeCode));
-            sheetRows.Append(Cell(row.CompetencyTypeName));
-            sheetRows.Append(Cell(row.BehaviorLevelId.ToString()));
-            sheetRows.Append(Cell(row.BehaviorLevelCode));
-            sheetRows.Append(Cell(row.BehaviorLevelName));
-            sheetRows.Append(Cell(row.ConductId?.ToString()));
-            sheetRows.Append(Cell(row.ConductDescription));
-            sheetRows.Append(Cell(row.ConductSortOrder?.ToString(CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.ExpectedEvidence));
-            sheetRows.Append(Cell(row.ItemSortOrder.ToString(CultureInfo.InvariantCulture)));
-            sheetRows.Append("</row>");
-        }
-
-        var sheetXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
-            "<sheetData>" +
-            sheetRows +
-            "</sheetData>" +
-            "</worksheet>";
-
-        const string contentTypesXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
-            "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" +
-            "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
-            "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
-            "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
-            "</Types>";
-
-        const string rootRelsXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
-            "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>" +
-            "</Relationships>";
-
-        const string workbookXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
-            "<sheets><sheet name=\"CompetencyMatrix\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
-            "</workbook>";
-
-        const string workbookRelsXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
-            "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>" +
-            "</Relationships>";
-
-        using var stream = new MemoryStream();
-        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            WriteZipEntry(archive, "[Content_Types].xml", contentTypesXml);
-            WriteZipEntry(archive, "_rels/.rels", rootRelsXml);
-            WriteZipEntry(archive, "xl/workbook.xml", workbookXml);
-            WriteZipEntry(archive, "xl/_rels/workbook.xml.rels", workbookRelsXml);
-            WriteZipEntry(archive, "xl/worksheets/sheet1.xml", sheetXml);
-        }
-
-        return stream.ToArray();
-    }
-
-    private static void WriteZipEntry(ZipArchive archive, string entryName, string content)
-    {
-        var entry = archive.CreateEntry(entryName, CompressionLevel.Fastest);
-        using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        writer.Write(content);
-    }
-
-    private static string EscapeCsv(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        var needsQuotes = value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r');
-        var escaped = value.Replace("\"", "\"\"");
-        return needsQuotes ? $"\"{escaped}\"" : escaped;
-    }
-
-    private static string EscapeXml(string? value) =>
-        SecurityElement.Escape(value ?? string.Empty) ?? string.Empty;
 
     public sealed record CreateOccupationalPyramidLevelRequest(
         string Code,

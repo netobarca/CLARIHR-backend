@@ -439,7 +439,8 @@ public sealed record ExportPersonnelFilePersonnelActionsQuery(
     string? Status,
     string? Search,
     string? SortBy = null,
-    PersonnelFileSortDirection SortDirection = PersonnelFileSortDirection.Desc)
+    PersonnelFileSortDirection SortDirection = PersonnelFileSortDirection.Desc,
+    int? MaxRows = null)
     : IQuery<IReadOnlyCollection<PersonnelFilePersonnelActionExportRow>>;
 
 public sealed record PayrollTransactionInput(
@@ -481,7 +482,8 @@ public sealed record ExportPersonnelFilePayrollTransactionsQuery(
     string? Status,
     string? Search,
     string? SortBy = null,
-    PersonnelFileSortDirection SortDirection = PersonnelFileSortDirection.Desc)
+    PersonnelFileSortDirection SortDirection = PersonnelFileSortDirection.Desc,
+    int? MaxRows = null)
     : IQuery<IReadOnlyCollection<PersonnelFilePayrollTransactionExportRow>>;
 
 public sealed record AssetAccessInput(
@@ -2069,6 +2071,7 @@ internal sealed class ExportPersonnelFilePersonnelActionsQueryHandler(
             query.Search,
             query.SortBy,
             query.SortDirection,
+            query.MaxRows,
             cancellationToken);
         return Result<IReadOnlyCollection<PersonnelFilePersonnelActionExportRow>>.Success(response);
     }
@@ -2225,6 +2228,7 @@ internal sealed class ExportPersonnelFilePayrollTransactionsQueryHandler(
             query.Search,
             query.SortBy,
             query.SortDirection,
+            query.MaxRows,
             cancellationToken);
         return Result<IReadOnlyCollection<PersonnelFilePayrollTransactionExportRow>>.Success(response);
     }

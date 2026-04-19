@@ -16,6 +16,9 @@ info:
     Core API endpoints require tokens emitted with `client_type=core`. Platform
     backoffice endpoints under `/api/platform/*` require tokens emitted with
     `client_type=platform`.
+
+    All `/api` routes emit `Cache-Control: no-store`, `Pragma: no-cache`, and
+    `Expires: 0` to avoid caching sensitive HR or platform responses.
 servers:
   - url: /
 security:
@@ -4059,6 +4062,119 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    ReportExportJobStatus:
+      type: string
+      enum:
+        - Queued
+        - Running
+        - Succeeded
+        - Failed
+        - Cancelled
+        - Expired
+    CreateReportExportJobRequest:
+      type: object
+      required:
+        - resourceKey
+        - format
+        - parameters
+      properties:
+        resourceKey:
+          type: string
+          example: PERSONNEL_FILES
+          description: Supported export resource key.
+        format:
+          type: string
+          enum:
+            - csv
+            - xlsx
+            - json
+          example: xlsx
+        parameters:
+          type: object
+          additionalProperties: true
+          description: Filter/sort parameters for the selected resource. Raw parameters are not returned by status endpoints.
+          example:
+            isActive: true
+            sortBy: createdUtc
+    ReportExportJobResponse:
+      type: object
+      required:
+        - id
+        - resourceKey
+        - format
+        - status
+        - queuedUtc
+        - attempts
+      properties:
+        id:
+          type: string
+          format: uuid
+        resourceKey:
+          type: string
+          example: PERSONNEL_FILES
+        format:
+          type: string
+          example: xlsx
+        status:
+          $ref: '#/components/schemas/ReportExportJobStatus'
+        queuedUtc:
+          type: string
+          format: date-time
+        startedUtc:
+          type: string
+          format: date-time
+          nullable: true
+        completedUtc:
+          type: string
+          format: date-time
+          nullable: true
+        expiresUtc:
+          type: string
+          format: date-time
+          nullable: true
+        attempts:
+          type: integer
+          format: int32
+        rowCount:
+          type: integer
+          format: int32
+          nullable: true
+        fileName:
+          type: string
+          nullable: true
+        sizeBytes:
+          type: integer
+          format: int64
+          nullable: true
+        lastErrorCode:
+          type: string
+          nullable: true
+        lastErrorMessage:
+          type: string
+          nullable: true
+    PagedReportExportJobResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportExportJobResponse'
+        pageNumber:
+          type: integer
+          format: int32
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          example: 20
+        totalCount:
+          type: integer
+          format: int32
 paths:
   /api/audit/logs:
     get:
@@ -5312,7 +5428,7 @@ paths:
         - personnel-files
       operationId: UploadPersonnelFileDocument
       summary: Upload a personnel file document
-      description: Uploads a new personnel file document using multipart form data and returns the persisted metadata without the binary payload.
+      description: Uploads a new personnel file document using multipart form data and returns the persisted metadata without the binary payload. Files are rejected before full buffering when they exceed 10 MiB or when extension, declared MIME type, or basic file signature is not allowed. Allowed formats are PDF, JPG/JPEG, PNG, and DOCX.
       security:
         - Bearer: []
       parameters:
@@ -5356,6 +5472,7 @@ paths:
                 file:
                   type: string
                   format: binary
+                  description: Binary document payload. Maximum 10 MiB. Allowed formats are .pdf, .jpg, .jpeg, .png and .docx.
       responses:
         '201':
           description: Document uploaded successfully.
@@ -5364,7 +5481,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/PersonnelFileDocumentMetadataResponse'
         '400':
-          description: Validation error, missing file or malformed payload.
+          description: Validation error, missing file, unsupported content type or malformed payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: The uploaded document exceeds the 10 MiB size limit.
           content:
             application/problem+json:
               schema:
@@ -7852,6 +7975,251 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyId}/report-export-jobs:
+    post:
+      tags:
+        - report-export-jobs
+      operationId: CreateReportExportJob
+      summary: Queue an asynchronous report export job
+      description: Queues a tenant-scoped report export for large datasets. Requires Azure Blob Storage configuration and read permission for the requested resource.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportExportJobRequest'
+      responses:
+        '202':
+          description: Job accepted and queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportExportJobResponse'
+        '400':
+          description: Validation error such as unsupported resource, unsupported format or invalid parameters object.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Tenant mismatch or missing read permission for the selected resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: The requested export exceeds the asynchronous row limit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Blob Storage is not configured for report exports.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    get:
+      tags:
+        - report-export-jobs
+      operationId: ListReportExportJobs
+      summary: List report export jobs for a tenant
+      description: Returns only jobs owned by the active tenant; raw request parameters are intentionally not returned.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ReportExportJobStatus'
+        - name: pageNumber
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Paged job list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedReportExportJobResponse'
+        '400':
+          description: Invalid pagination or status filter.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/report-export-jobs/{jobId}:
+    get:
+      tags:
+        - report-export-jobs
+      operationId: GetReportExportJob
+      summary: Get report export job status
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job status metadata without raw filters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportExportJobResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job not found in the active tenant.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/report-export-jobs/{jobId}/download:
+    get:
+      tags:
+        - report-export-jobs
+      operationId: DownloadReportExportJob
+      summary: Download a completed report export artifact
+      description: Downloads only `Succeeded` jobs. Queued/running jobs return `409`; expired artifacts return `410`.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Export artifact stream.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job not found in the active tenant.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Job is not ready for download.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '410':
+          description: Job artifact expired.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/report-export-jobs/{jobId}/cancel:
+    post:
+      tags:
+        - report-export-jobs
+      operationId: CancelReportExportJob
+      summary: Cancel a queued or running report export job
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job metadata after cancellation attempt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportExportJobResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job not found in the active tenant.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 tags:
   - name: audit
     description: Tenant-scoped audit log list and detail endpoints.
@@ -7877,5 +8245,7 @@ tags:
     description: Company-scoped read-only access to system catalogs resolved by the company's country.
   - name: personnel-files
     description: Personnel file lifecycle and subsections.
+  - name: report-export-jobs
+    description: Asynchronous report export queue, status, cancellation and artifact download endpoints.
 x-documentation-status: partial-manual-supplement
 x-runtime-openapi-source: /swagger/v1/swagger.json

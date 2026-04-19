@@ -36,16 +36,21 @@ public sealed class PersonnelFileDocumentsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<PersonnelFileDocumentMetadataResponse>> UploadDocument(
         Guid id,
         [FromForm] UploadPersonnelFileDocumentRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (request.File is null || request.File.Length == 0)
+        var fileValidation = await PersonnelFileDocumentUploadGuard.ValidateAsync(request.File, cancellationToken);
+        if (fileValidation != Error.None)
         {
-            return this.ToActionResult(Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentFileRequired));
+            return this.ToActionResult(Result<PersonnelFileDocumentMetadataResponse>.Failure(fileValidation));
         }
+
+        var safeFileName = PersonnelFileDocumentUploadGuard.GetSafeFileName(request.File);
+        var normalizedContentType = request.File.ContentType.Trim();
 
         await using var stream = request.File.OpenReadStream();
         using var memory = new MemoryStream();
@@ -59,8 +64,8 @@ public sealed class PersonnelFileDocumentsController(
                 request.DeliveryDate,
                 request.LoanDate,
                 request.ReturnDate,
-                request.File.FileName,
-                request.File.ContentType,
+                safeFileName,
+                normalizedContentType,
                 memory.ToArray(),
                 request.ConcurrencyToken),
             cancellationToken);

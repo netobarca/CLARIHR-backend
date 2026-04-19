@@ -457,7 +457,7 @@ public sealed class FinalizePersonnelFileTests
 
         public Task<IReadOnlyCollection<PositionSlotGraphNodeData>> GetGraphNodesAsync(Guid tenantId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<IReadOnlyCollection<PositionSlotExportRow>> GetExportRowsAsync(Guid tenantId, PositionSlotStatus? status, Guid? jobProfileId, Guid? orgUnitId, Guid? workCenterId, Guid? contractTypeId, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PositionSlotExportRow>> GetExportRowsAsync(Guid tenantId, PositionSlotStatus? status, Guid? jobProfileId, Guid? orgUnitId, Guid? workCenterId, Guid? contractTypeId, string? search, int? maxRows, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<PositionSlotJobProfileLookup?> GetJobProfileLookupAsync(Guid tenantId, Guid jobProfileId, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
@@ -533,7 +533,7 @@ public sealed class FinalizePersonnelFileTests
 
         public Task<bool> DocumentExistsOutsideTenantAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<IReadOnlyCollection<PersonnelFileExportRow>> GetExportRowsAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? maritalStatus, string? nationality, string? profession, DateTime? createdFromUtc, DateTime? createdToUtc, string? search, string? sortBy, PersonnelFileSortDirection sortDirection, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileExportRow>> GetExportRowsAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? maritalStatus, string? nationality, string? profession, DateTime? createdFromUtc, DateTime? createdToUtc, string? search, string? sortBy, PersonnelFileSortDirection sortDirection, int? maxRows, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<PersonnelFileDynamicQueryResponse> DynamicQueryAsync(Guid tenantId, IReadOnlyCollection<PersonnelFileDynamicFilterInput> filters, IReadOnlyCollection<string> groupBy, IReadOnlyCollection<PersonnelFileDynamicSortInput> sort, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
 

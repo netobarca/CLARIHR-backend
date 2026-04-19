@@ -82,6 +82,26 @@ Reglas observables:
 - cuando el body JSON es invalido, `errors` usa nombres del contrato publico y no expone prefijos internos como `request` o `$.`
 - los errores de conversion JSON se devuelven con mensajes saneados por tipo esperado, por ejemplo UUID invalido, en lugar de detalles crudos del parser
 
+### 2.8 Politica de cache HTTP
+
+Las Core API y Platform Backoffice API aplican headers anti-cache a toda ruta `/api`:
+
+- `Cache-Control: no-store`
+- `Pragma: no-cache`
+- `Expires: 0`
+
+Esta regla cubre respuestas JSON, descargas y exportes con datos potencialmente sensibles de RRHH o plataforma. Los clientes no deben depender de cache HTTP compartido para rutas `/api`.
+
+### 2.9 Politica de exportes de reporte
+
+Los exportes sincronos existentes conservan su request shape, pero ahora aplican limite de `5,000` filas. El backend lee hasta `5,001` filas; si detecta overflow responde `413 REPORT_EXPORT_TOO_LARGE` y no genera archivo.
+
+Para exportes grandes, los clientes deben usar jobs asincronos persistidos. El limite asincrono por job es `100,000` filas, los artefactos se almacenan en Azure Blob Storage y expiran despues de `24` horas. Si Blob Storage no esta configurado, crear un job responde `503 REPORT_EXPORT_STORAGE_NOT_CONFIGURED`.
+
+Recursos soportados por jobs asincronos: `PERSONNEL_FILES`, `PERSONNEL_FILE_PERSONNEL_ACTIONS`, `PERSONNEL_FILE_PAYROLL_TRANSACTIONS`, `ORG_UNITS`, `POSITION_SLOTS`, `SALARY_TABULATOR`, `COST_CENTERS`, `LEGAL_REPRESENTATIVES` y `JOB_PROFILE_COMPETENCY_MATRIX`.
+
+Exenciones observables: el export de un unico `JOB_PROFILE` sigue siendo sincrono por ser single-resource; los diagram exports de `ORG_UNITS` y `POSITION_SLOTS` siguen siendo sincronos, pero rechazan grafos con mas de `5,000` nodos con `413 REPORT_EXPORT_LIMIT_EXCEEDED`.
+
 ## 3. Inventario de modulos
 
 | Modulo | Controladores | Familias principales de rutas | Proposito |
@@ -108,6 +128,7 @@ Reglas observables:
 | Personnel files | `PersonnelFilesController`, `PersonnelFileProfileController`, `PersonnelFileEmploymentController`, `PersonnelFileCompensationController`, `PersonnelFileTalentController`, `PersonnelFileDocumentsController`, `PersonnelFileAdministrationController`, `PersonnelFileReportingController` | `/api/v1/companies/{companyPublicId}/personnel-files*`, `/api/v1/personnel-files/*`, `/api/v1/personnel-custom-field-definitions*` | ciclo de vida del expediente, perfil, empleo, compensacion, talento, documentos y reporting |
 | Salary governance | `SalaryTabulatorController` | `/api/v1/companies/{companyPublicId}/salary-tabulator*` | lineas salariales, exportes y change requests |
 | Report capabilities | `ReportsController` | `/api/v1/companies/{companyPublicId}/reports/capabilities` | descubrimiento de capacidades de reporte para frontend |
+| Report export jobs | `ReportExportJobsController` | `/api/v1/companies/{companyPublicId}/report-export-jobs*`, `/api/v1/report-export-jobs/*` | cola persistida de exportes grandes, estado, cancelacion y descarga segura |
 
 ## 4. Flujos criticos y endpoints representativos
 
@@ -279,6 +300,7 @@ Documents and reporting:
 - `GET /api/v1/personnel-files/documents/{documentPublicId}/download`
 - `GET /api/v1/personnel-files/{publicId}/print`
 - `POST /api/v1/companies/{companyPublicId}/personnel-files/dynamic-query`
+- `GET /api/v1/companies/{companyPublicId}/personnel-files/export`
 
 Comportamiento observable:
 
@@ -302,6 +324,46 @@ Endpoints representativos:
 Comportamiento observable:
 
 - los cambios salariales se modelan como `change requests` con transiciones explicitas de estado
+
+### 4.8 Report export jobs
+
+Endpoints:
+
+- `POST /api/v1/companies/{companyPublicId}/report-export-jobs`
+- `GET /api/v1/companies/{companyPublicId}/report-export-jobs?pageNumber&pageSize&status`
+- `GET /api/v1/report-export-jobs/{jobPublicId}`
+- `GET /api/v1/report-export-jobs/{jobPublicId}/download`
+- `POST /api/v1/report-export-jobs/{jobPublicId}/cancel`
+
+Request de creacion:
+
+```json
+{
+  "resourceKey": "PERSONNEL_FILES",
+  "format": "xlsx",
+  "parameters": {
+    "isActive": true,
+    "sortBy": "createdUtc"
+  }
+}
+```
+
+Comportamiento observable:
+
+- `POST` valida formato, recurso, permisos de lectura del recurso y tenant activo; responde `202` con `ReportExportJobResponse`.
+- `GET` lista solo jobs del tenant activo con paginacion y filtro opcional `status`.
+- `GET /download` descarga solo jobs `Succeeded`; si sigue en cola o proceso responde `409 REPORT_EXPORT_JOB_NOT_READY`, y si expiro responde `410 REPORT_EXPORT_JOB_EXPIRED`.
+- `POST /cancel` cancela jobs `Queued` o `Running`; jobs ya finalizados conservan su estado.
+- La respuesta de estado no devuelve filtros crudos ni payload sensible; solo metadata operacional como recurso, formato, estado, fechas, intentos, filas, archivo y error ultimo.
+
+Errores relevantes:
+
+- `REPORT_EXPORT_TOO_LARGE`: `413`, overflow en export sincrono.
+- `REPORT_EXPORT_LIMIT_EXCEEDED`: `413`, overflow en job asincrono o diagrama.
+- `REPORT_EXPORT_JOB_NOT_FOUND`: `404`.
+- `REPORT_EXPORT_JOB_NOT_READY`: `409`.
+- `REPORT_EXPORT_JOB_EXPIRED`: `410`.
+- `REPORT_EXPORT_STORAGE_NOT_CONFIGURED`: `503`.
 
 ## 5. Profundizacion por modulo
 
@@ -2880,6 +2942,8 @@ Errores de documentos y reporting:
 
 - `PERSONNEL_FILE_DOCUMENT_NOT_FOUND`: `404`, el documento solicitado no existe.
 - `PERSONNEL_FILE_DOCUMENT_FILE_REQUIRED`: `400`, el upload no trajo archivo.
+- `PERSONNEL_FILE_DOCUMENT_CONTENT_TYPE_UNSUPPORTED`: `400`, el archivo no usa extension, MIME declarado o firma basica permitida.
+- `PERSONNEL_FILE_DOCUMENT_TOO_LARGE`: `413`, el archivo excede `10 MiB`.
 - `PERSONNEL_FILE_DOCUMENT_DATES_INVALID`: `422`, las fechas de prestamo y devolucion del documento no son consistentes.
 - `PERSONNEL_FILE_EXPORT_FORMAT_INVALID`: `400`, `format` distinto de `csv|xlsx` en exportes de expedientes, acciones de personal o transacciones de planilla.
 
@@ -3137,7 +3201,9 @@ Observaciones funcionales:
 - `GET /documents` es la vista recomendada para renderizar listados o previews de adjuntos antes de descargar un binario puntual.
 - `GET /documents` ordena por `CreatedAtUtc` descendente.
 - `upload document` usa `multipart/form-data`.
-- `upload document` exige archivo no vacio y usa el `ConcurrencyToken` actual del expediente.
+- `upload document` exige archivo no vacio, maximo `10 MiB`, extension/MIME permitido y firma basica valida antes de leer el binario completo.
+- formatos permitidos para `upload document`: `.pdf`, `.jpg`, `.jpeg`, `.png`, `.docx`.
+- `upload document` usa el `ConcurrencyToken` actual del expediente.
 - `upload document` calcula y persiste `sha256` del binario cargado.
 - `upload document` valida fechas de entrega, prestamo y devolucion; rangos invalidos responden `PERSONNEL_FILE_DOCUMENT_DATES_INVALID`.
 - `upload document` devuelve `PersonnelFileDocumentMetadataResponse`, no el expediente completo.

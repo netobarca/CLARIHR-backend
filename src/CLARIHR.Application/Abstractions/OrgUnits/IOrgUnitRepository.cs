@@ -29,5 +29,15 @@ public interface IOrgUnitRepository
 
     Task<IReadOnlyList<OrgUnitHierarchyNodeData>> GetHierarchyAsync(Guid tenantId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<OrgUnitExportRow>> GetExportRowsAsync(
+        Guid tenantId,
+        bool? isActive,
+        string? search,
+        Guid? orgUnitTypeId,
+        Guid? functionalAreaId,
+        Guid? parentId,
+        int? maxRows,
+        CancellationToken cancellationToken);
+
     Task<bool> HasActiveChildrenAsync(long orgUnitId, CancellationToken cancellationToken);
 }

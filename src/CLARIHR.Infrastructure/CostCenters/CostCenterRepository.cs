@@ -16,6 +16,7 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
 
     public Task<bool> ExistsOutsideTenantAsync(Guid costCenterId, CancellationToken cancellationToken) =>
         dbContext.CostCenters
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(costCenter => costCenter.PublicId == costCenterId, cancellationToken);
 
@@ -231,6 +232,7 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
         CostCenterType? type,
         bool? isActive,
         string? search,
+        int? maxRows,
         CancellationToken cancellationToken)
     {
         var query = dbContext.CostCenters
@@ -255,9 +257,17 @@ internal sealed class CostCenterRepository(ApplicationDbContext dbContext) : ICo
                 costCenter.NormalizedName.Contains(normalizedSearch));
         }
 
-        return await query
+        var ordered = query
             .OrderBy(costCenter => costCenter.Name)
-            .ThenBy(costCenter => costCenter.Code)
+            .ThenBy(costCenter => costCenter.Code);
+
+        IQueryable<CostCenter> limited = ordered;
+        if (maxRows.HasValue)
+        {
+            limited = limited.Take(maxRows.Value);
+        }
+
+        return await limited
             .Select(costCenter => new CostCenterExportRow(
                 costCenter.PublicId,
                 costCenter.Code,

@@ -34,6 +34,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
 
     public Task<bool> ExistsOutsideTenantAsync(Guid profileId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(profile => profile.PublicId == profileId, cancellationToken);
 
@@ -53,6 +54,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
 
     public Task<bool> OrgUnitExistsOutsideTenantAsync(Guid orgUnitId, CancellationToken cancellationToken) =>
         dbContext.OrgUnits
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(unit => unit.PublicId == orgUnitId, cancellationToken);
 

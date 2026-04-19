@@ -4,7 +4,9 @@ using Microsoft.AspNetCore.Http;
 
 namespace CLARIHR.Infrastructure.Tenancy;
 
-internal sealed class HttpTenantContext(IHttpContextAccessor httpContextAccessor) : ITenantContext
+internal sealed class HttpTenantContext(
+    IHttpContextAccessor httpContextAccessor,
+    AmbientTenantContext ambientTenantContext) : ITenantContext
 {
     private static readonly string[] TenantClaimTypes =
     [
@@ -17,6 +19,11 @@ internal sealed class HttpTenantContext(IHttpContextAccessor httpContextAccessor
     {
         get
         {
+            if (ambientTenantContext.TenantId.HasValue)
+            {
+                return ambientTenantContext.TenantId;
+            }
+
             var user = httpContextAccessor.HttpContext?.User;
             if (user is null)
             {

@@ -6,6 +6,7 @@ namespace CLARIHR.Infrastructure.Auditing;
 
 internal sealed class AuditSanitizer : IAuditSanitizer
 {
+    private const string RedactedValue = "[REDACTED]";
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     private static readonly HashSet<string> SensitivePropertyNames =
@@ -32,6 +33,37 @@ internal sealed class AuditSanitizer : IAuditSanitizer
         "api_key",
         "privatekey",
         "private_key"
+    ];
+
+    private static readonly HashSet<string> PiiPropertyNames =
+    [
+        "address",
+        "addressline",
+        "accountnumber",
+        "authoruseremail",
+        "birthdate",
+        "companyphone",
+        "customdata",
+        "customdatajson",
+        "dateofbirth",
+        "documentnumber",
+        "email",
+        "filedata",
+        "firstname",
+        "fullname",
+        "identificationnumber",
+        "institutionalemail",
+        "institutionalphone",
+        "lastname",
+        "managername",
+        "normalizedidentificationnumber",
+        "personalemail",
+        "personalphone",
+        "personname",
+        "phone",
+        "relatedemployeename",
+        "salary",
+        "workphone"
     ];
 
     public string? SanitizeToJson(object? payload)
@@ -63,12 +95,15 @@ internal sealed class AuditSanitizer : IAuditSanitizer
 
         foreach (var property in source)
         {
-            if (IsSensitive(property.Key))
+            var normalizedPropertyName = NormalizePropertyName(property.Key);
+            if (SensitivePropertyNames.Contains(normalizedPropertyName))
             {
                 continue;
             }
 
-            sanitized[property.Key] = SanitizeNode(property.Value);
+            sanitized[property.Key] = PiiPropertyNames.Contains(normalizedPropertyName)
+                ? JsonValue.Create(RedactedValue)
+                : SanitizeNode(property.Value);
         }
 
         return sanitized;
@@ -86,13 +121,9 @@ internal sealed class AuditSanitizer : IAuditSanitizer
         return sanitized;
     }
 
-    private static bool IsSensitive(string propertyName)
-    {
-        var normalized = new string(propertyName
+    private static string NormalizePropertyName(string propertyName) =>
+        new string(propertyName
             .Where(char.IsLetterOrDigit)
             .ToArray())
             .ToLowerInvariant();
-
-        return SensitivePropertyNames.Contains(normalized);
-    }
 }

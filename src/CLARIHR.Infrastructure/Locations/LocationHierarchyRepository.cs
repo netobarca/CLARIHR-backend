@@ -19,6 +19,7 @@ internal sealed class LocationHierarchyRepository(ApplicationDbContext dbContext
 
     public Task<bool> ConfigExistsOutsideTenantAsync(Guid configId, CancellationToken cancellationToken) =>
         dbContext.LocationHierarchyConfigs
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(config => config.PublicId == configId, cancellationToken);
 
@@ -35,6 +36,7 @@ internal sealed class LocationHierarchyRepository(ApplicationDbContext dbContext
 
     public Task<bool> LevelExistsOutsideTenantAsync(Guid levelId, CancellationToken cancellationToken) =>
         dbContext.LocationLevels
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(level => level.PublicId == levelId, cancellationToken);
 

@@ -49,6 +49,7 @@ builder.Services
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddScoped<PersonnelFilePhotoUrlResultFilter>();
+builder.Services.AddScoped<ReportExportDeliveryService>();
 builder.Services.AddSwaggerGen(options =>
 {
     options.CustomSchemaIds(type =>

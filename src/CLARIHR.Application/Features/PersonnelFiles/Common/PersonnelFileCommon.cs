@@ -9,6 +9,17 @@ public static partial class PersonnelFileValidationRules
 {
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
+    public const int MaxDocumentFileSizeBytes = 10 * 1024 * 1024;
+
+    public static readonly IReadOnlyDictionary<string, string> AllowedDocumentContentTypesByExtension =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [".pdf"] = "application/pdf",
+            [".jpg"] = "image/jpeg",
+            [".jpeg"] = "image/jpeg",
+            [".png"] = "image/png",
+            [".docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        };
 
     public static bool IsValidName(string value) =>
         NameRegex().IsMatch(value.Trim());
@@ -18,6 +29,16 @@ public static partial class PersonnelFileValidationRules
 
     public static bool IsValidPhone(string value) =>
         PhoneRegex().IsMatch(value.Trim());
+
+    public static bool IsAllowedDocumentExtension(string fileName) =>
+        AllowedDocumentContentTypesByExtension.ContainsKey(Path.GetExtension(fileName));
+
+    public static bool IsAllowedDocumentContentType(string fileName, string contentType)
+    {
+        var extension = Path.GetExtension(fileName);
+        return AllowedDocumentContentTypesByExtension.TryGetValue(extension, out var expectedContentType) &&
+               string.Equals(expectedContentType, contentType.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
 
     [GeneratedRegex(@"^[\p{L}][\p{L}\p{N} '.-]{0,99}$", RegexOptions.CultureInvariant)]
     private static partial Regex NameRegex();
@@ -215,6 +236,16 @@ public static class PersonnelFileErrors
     public static readonly Error DocumentFileRequired = new(
         "PERSONNEL_FILE_DOCUMENT_FILE_REQUIRED",
         "A document file is required.",
+        ErrorType.Validation);
+
+    public static readonly Error DocumentFileTooLarge = new(
+        "PERSONNEL_FILE_DOCUMENT_TOO_LARGE",
+        "The document file exceeds the maximum allowed size.",
+        ErrorType.PayloadTooLarge);
+
+    public static readonly Error DocumentContentTypeUnsupported = new(
+        "PERSONNEL_FILE_DOCUMENT_CONTENT_TYPE_UNSUPPORTED",
+        "The document file type is not supported.",
         ErrorType.Validation);
 
     public static readonly Error DocumentLoanDatesInvalid = new(

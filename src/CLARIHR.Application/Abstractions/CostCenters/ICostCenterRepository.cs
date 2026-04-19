@@ -36,5 +36,6 @@ public interface ICostCenterRepository
         CostCenterType? type,
         bool? isActive,
         string? search,
+        int? maxRows,
         CancellationToken cancellationToken);
 }

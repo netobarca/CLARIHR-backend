@@ -187,7 +187,8 @@ public sealed record GetPositionSlotExportRowsQuery(
     Guid? OrgUnitId,
     Guid? WorkCenterId,
     Guid? ContractTypeId,
-    string? Search)
+    string? Search,
+    int? MaxRows = null)
     : IQuery<IReadOnlyCollection<PositionSlotExportRow>>;
 
 public sealed record CreatePositionSlotCommand(
@@ -538,6 +539,7 @@ internal sealed class GetPositionSlotExportRowsQueryHandler(
             query.WorkCenterId,
             query.ContractTypeId,
             query.Search,
+            query.MaxRows,
             cancellationToken);
 
         return Result<IReadOnlyCollection<PositionSlotExportRow>>.Success(rows);

@@ -154,6 +154,7 @@ public interface IPersonnelFileRepository
         string? search,
         string? sortBy,
         PersonnelFileSortDirection sortDirection,
+        int? maxRows,
         CancellationToken cancellationToken);
 
     Task<PersonnelFileDynamicQueryResponse> DynamicQueryAsync(

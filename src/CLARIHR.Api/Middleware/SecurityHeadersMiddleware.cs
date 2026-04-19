@@ -7,8 +7,7 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next)
         context.Response.Headers["X-Content-Type-Options"] = "nosniff";
         context.Response.Headers["Referrer-Policy"] = "no-referrer";
 
-        if (context.Request.Path.StartsWithSegments("/api/auth", StringComparison.OrdinalIgnoreCase) ||
-            context.Request.Path.StartsWithSegments("/api/account/companies", StringComparison.OrdinalIgnoreCase))
+        if (context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
         {
             context.Response.Headers["Cache-Control"] = "no-store";
             context.Response.Headers["Pragma"] = "no-cache";

@@ -19,6 +19,7 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
 
     public Task<bool> ExistsOutsideTenantAsync(Guid legalRepresentativeId, CancellationToken cancellationToken) =>
         dbContext.Set<LegalRepresentative>()
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(legalRepresentative => legalRepresentative.PublicId == legalRepresentativeId, cancellationToken);
 
@@ -198,6 +199,8 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
 
     public Task<int> GetActiveCountAsync(Guid tenantId, CancellationToken cancellationToken) =>
         dbContext.Set<LegalRepresentative>()
+            // Intentional tenant filter bypass: applies explicit tenantId before counting active legal representatives in platform flows.
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.IsActive)
             .CountAsync(cancellationToken);
@@ -207,6 +210,8 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
         Guid? excludingLegalRepresentativePublicId,
         CancellationToken cancellationToken) =>
         dbContext.Set<LegalRepresentative>()
+            // Intentional tenant filter bypass: applies explicit tenantId before resolving the active primary legal representative.
+            .IgnoreQueryFilters()
             .Where(item => item.TenantId == tenantId && item.IsActive && item.IsPrimary == true)
             .Where(item => !excludingLegalRepresentativePublicId.HasValue || item.PublicId != excludingLegalRepresentativePublicId.Value)
             .SingleOrDefaultAsync(cancellationToken);
@@ -217,6 +222,7 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
         bool? isPrimary,
         LegalRepresentativeRepresentationType? representationType,
         string? search,
+        int? maxRows,
         CancellationToken cancellationToken)
     {
         var query = dbContext.Set<LegalRepresentative>()
@@ -247,9 +253,17 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
                 legalRepresentative.NormalizedDocumentNumber.Contains(normalizedSearch));
         }
 
-        return await query
+        var ordered = query
             .OrderByDescending(legalRepresentative => legalRepresentative.IsPrimary == true)
-            .ThenBy(legalRepresentative => legalRepresentative.FullName)
+            .ThenBy(legalRepresentative => legalRepresentative.FullName);
+
+        IQueryable<LegalRepresentative> limited = ordered;
+        if (maxRows.HasValue)
+        {
+            limited = limited.Take(maxRows.Value);
+        }
+
+        return await limited
             .Select(legalRepresentative => new LegalRepresentativeExportRow(
                 legalRepresentative.PublicId,
                 legalRepresentative.FirstName,
@@ -278,6 +292,8 @@ internal sealed class LegalRepresentativeRepository(ApplicationDbContext dbConte
         CancellationToken cancellationToken)
     {
         return await dbContext.Set<LegalRepresentative>()
+            // Intentional tenant filter bypass: applies explicit companyId tenant filter before projecting active summaries.
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(legalRepresentative => legalRepresentative.TenantId == companyId && legalRepresentative.IsActive)
             .OrderByDescending(legalRepresentative => legalRepresentative.IsPrimary == true)

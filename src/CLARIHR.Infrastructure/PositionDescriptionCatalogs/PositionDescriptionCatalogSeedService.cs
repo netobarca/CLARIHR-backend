@@ -5,7 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CLARIHR.Infrastructure.PositionDescriptionCatalogs;
 
-internal sealed class PositionDescriptionCatalogSeedService(ApplicationDbContext dbContext)
+internal sealed class PositionDescriptionCatalogSeedService(
+    ApplicationDbContext dbContext,
+    Tenancy.AmbientTenantContext ambientTenantContext)
 {
     private static readonly SimpleCatalogSeed[] PositionFunctionTypeSeeds =
     [
@@ -74,6 +76,7 @@ internal sealed class PositionDescriptionCatalogSeedService(ApplicationDbContext
 
         foreach (var tenantId in tenantIds)
         {
+            using var tenantScope = ambientTenantContext.Push(tenantId);
             await EnsureTenantSeededAsync(tenantId, cancellationToken);
         }
     }

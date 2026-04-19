@@ -22,11 +22,13 @@ internal sealed class OrgStructureCatalogRepository(ApplicationDbContext dbConte
 
     public Task<bool> ExistsOrgUnitTypeOutsideTenantAsync(Guid orgUnitTypeId, CancellationToken cancellationToken) =>
         dbContext.OrgUnitTypeCatalogItems
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(item => item.PublicId == orgUnitTypeId, cancellationToken);
 
     public Task<bool> ExistsFunctionalAreaOutsideTenantAsync(Guid functionalAreaId, CancellationToken cancellationToken) =>
         dbContext.FunctionalAreaCatalogItems
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(item => item.PublicId == functionalAreaId, cancellationToken);
 

@@ -129,7 +129,8 @@ public sealed record GetOrgUnitExportRowsQuery(
     string? Search,
     Guid? OrgUnitTypeId,
     Guid? FunctionalAreaId,
-    Guid? ParentId)
+    Guid? ParentId,
+    int? MaxRows = null)
     : IQuery<IReadOnlyCollection<OrgUnitExportRow>>;
 
 public sealed record CreateOrgUnitCommand(
@@ -498,72 +499,15 @@ internal sealed class GetOrgUnitExportRowsQueryHandler(
                     : OrgUnitErrors.OrgUnitNotFound);
         }
 
-        var filtered = hierarchy.AsEnumerable();
-        if (query.IsActive.HasValue)
-        {
-            filtered = filtered.Where(node => node.IsActive == query.IsActive.Value);
-        }
-
-        if (query.OrgUnitTypeId.HasValue)
-        {
-            filtered = filtered.Where(node => node.OrgUnitTypeId == query.OrgUnitTypeId.Value);
-        }
-
-        if (query.FunctionalAreaId.HasValue)
-        {
-            filtered = filtered.Where(node => node.FunctionalAreaId == query.FunctionalAreaId.Value);
-        }
-
-        if (query.ParentId.HasValue)
-        {
-            filtered = filtered.Where(node => node.ParentId == query.ParentId.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.Search))
-        {
-            var normalizedSearch = query.Search.Trim().ToUpperInvariant();
-            var byId = hierarchy.ToDictionary(node => node.Id);
-            filtered = filtered.Where(node =>
-                node.Code.ToUpperInvariant().Contains(normalizedSearch) ||
-                node.Name.ToUpperInvariant().Contains(normalizedSearch) ||
-                (node.ParentId.HasValue &&
-                 byId.TryGetValue(node.ParentId.Value, out var parentNode) &&
-                 parentNode.Name.ToUpperInvariant().Contains(normalizedSearch)));
-        }
-
-        var nodesById = hierarchy.ToDictionary(node => node.Id);
-
-        var rows = filtered
-            .OrderBy(node => node.SortOrder ?? int.MaxValue)
-            .ThenBy(node => node.Name)
-            .ThenBy(node => node.Code)
-            .Select(node =>
-            {
-                var parent = node.ParentId.HasValue && nodesById.TryGetValue(node.ParentId.Value, out var parentNode)
-                    ? parentNode
-                    : null;
-
-                return new OrgUnitExportRow(
-                    node.Id,
-                    node.Code,
-                    node.Name,
-                    node.OrgUnitTypeId,
-                    node.OrgUnitTypeCode,
-                    node.OrgUnitTypeName,
-                    node.FunctionalAreaId,
-                    node.FunctionalAreaCode,
-                    node.FunctionalAreaName,
-                    parent?.Code,
-                    parent?.Name,
-                    node.SortOrder,
-                    node.Description,
-                    node.CostCenterCode,
-                    node.ManagerEmployeeId,
-                    node.IsActive,
-                    node.CreatedAtUtc,
-                    node.ModifiedAtUtc);
-            })
-            .ToArray();
+        var rows = await repository.GetExportRowsAsync(
+            query.CompanyId,
+            query.IsActive,
+            query.Search,
+            query.OrgUnitTypeId,
+            query.FunctionalAreaId,
+            query.ParentId,
+            query.MaxRows,
+            cancellationToken);
 
         return Result<IReadOnlyCollection<OrgUnitExportRow>>.Success(rows);
     }

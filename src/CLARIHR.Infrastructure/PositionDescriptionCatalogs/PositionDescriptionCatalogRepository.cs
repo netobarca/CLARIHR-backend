@@ -34,16 +34,19 @@ internal sealed class PositionDescriptionCatalogRepository(
 
     public Task<bool> ExistsCatalogItemOutsideTenantAsync(Guid itemId, CancellationToken cancellationToken) =>
         dbContext.PositionDescriptionCatalogItems
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(item => item.PublicId == itemId, cancellationToken);
 
     public Task<bool> ExistsClassificationOutsideTenantAsync(Guid classificationId, CancellationToken cancellationToken) =>
         dbContext.PositionCategoryClassifications
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(item => item.PublicId == classificationId, cancellationToken);
 
     public Task<bool> ExistsCategoryOutsideTenantAsync(Guid categoryId, CancellationToken cancellationToken) =>
         dbContext.PositionCategories
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(item => item.PublicId == categoryId, cancellationToken);
 

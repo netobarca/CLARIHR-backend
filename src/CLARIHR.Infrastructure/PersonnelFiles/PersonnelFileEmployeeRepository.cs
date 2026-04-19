@@ -285,12 +285,20 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         string? search,
         string? sortBy,
         PersonnelFileSortDirection sortDirection,
+        int? maxRows,
         CancellationToken cancellationToken)
     {
         var query = BuildPersonnelActionsBaseQuery(personnelFileId);
         query = ApplyPersonnelActionFilters(query, fromUtc, toUtc, type, status, search);
 
-        var items = await ApplyPersonnelActionSorting(query, sortBy, sortDirection)
+        var ordered = ApplyPersonnelActionSorting(query, sortBy, sortDirection);
+        IQueryable<PersonnelFilePersonnelAction> limited = ordered;
+        if (maxRows.HasValue)
+        {
+            limited = limited.Take(maxRows.Value);
+        }
+
+        var items = await limited
             .Select(item => new PersonnelFilePersonnelActionExportRow(
                 item.PublicId,
                 item.ActionTypeCode,
@@ -359,12 +367,20 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         string? search,
         string? sortBy,
         PersonnelFileSortDirection sortDirection,
+        int? maxRows,
         CancellationToken cancellationToken)
     {
         var query = BuildPayrollTransactionsBaseQuery(personnelFileId);
         query = ApplyPayrollTransactionFilters(query, fromUtc, toUtc, type, status, search);
 
-        var items = await ApplyPayrollTransactionSorting(query, sortBy, sortDirection)
+        var ordered = ApplyPayrollTransactionSorting(query, sortBy, sortDirection);
+        IQueryable<PersonnelFilePayrollTransaction> limited = ordered;
+        if (maxRows.HasValue)
+        {
+            limited = limited.Take(maxRows.Value);
+        }
+
+        var items = await limited
             .Select(item => new PersonnelFilePayrollTransactionExportRow(
                 item.PublicId,
                 item.TransactionTypeCode,

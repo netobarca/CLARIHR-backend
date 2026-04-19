@@ -26,11 +26,13 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
 
     public Task<bool> UserPublicIdExistsAsync(Guid userId, CancellationToken cancellationToken) =>
         dbContext.IamUsers
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(user => user.PublicId == userId, cancellationToken);
 
     public Task<bool> RolePublicIdExistsAsync(Guid roleId, CancellationToken cancellationToken) =>
         dbContext.IamRoles
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(role => role.PublicId == roleId, cancellationToken);
 
@@ -56,6 +58,7 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
         CancellationToken cancellationToken)
     {
         IQueryable<IamUser> query = dbContext.IamUsers
+            // Intentional tenant filter bypass: applies explicit tenantId filter before materializing IAM user data.
             .IgnoreQueryFilters()
             .Where(user => user.TenantId == tenantId);
 

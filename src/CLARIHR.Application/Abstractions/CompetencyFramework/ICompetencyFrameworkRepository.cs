@@ -103,5 +103,6 @@ public interface ICompetencyFrameworkRepository
 
     Task<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>> GetJobProfileCompetencyMatrixExportRowsAsync(
         Guid jobProfileId,
+        int? maxRows,
         CancellationToken cancellationToken);
 }

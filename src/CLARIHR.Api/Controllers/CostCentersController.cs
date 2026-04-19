@@ -1,9 +1,3 @@
-using System.Globalization;
-using System.IO.Compression;
-using System.Security;
-using System.Text;
-using CLARIHR.Application.Abstractions.Auditing;
-using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -11,6 +5,7 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CostCenters;
 using CLARIHR.Application.Features.CostCenters.Common;
+using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Domain.CostCenters;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,8 +17,7 @@ namespace CLARIHR.Api.Controllers;
 public sealed class CostCentersController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork) : ControllerBase
+    ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
     [HttpGet("api/v1/companies/{companyId:guid}/cost-centers")]
     [ProducesResponseType<PagedResponse<CostCenterListItemResponse>>(StatusCodes.Status200OK)]
@@ -74,6 +68,7 @@ public sealed class CostCentersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     public async Task<IActionResult> Export(
         Guid companyId,
         [FromQuery] string format = "xlsx",
@@ -83,7 +78,12 @@ public sealed class CostCentersController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new ExportCostCentersQuery(companyId, type, isActive, search),
+            new ExportCostCentersQuery(
+                companyId,
+                type,
+                isActive,
+                search,
+                reportExportDeliveryService.SynchronousReadLimit),
             cancellationToken);
 
         if (result.IsFailure)
@@ -91,58 +91,18 @@ public sealed class CostCentersController(
             return this.ToActionResult(Result<IReadOnlyCollection<CostCenterExportRow>>.Failure(result.Error)).Result!;
         }
 
-        if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
-        {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.CostCenter,
-                    null,
-                    CostCenterPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported cost centers report.",
-                    After: new
-                    {
-                        resourceKey = CostCenterPermissionCodes.ResourceKey,
-                        format = "csv",
-                        filters = new { type, isActive, q = search },
-                        rowCount = result.Value.Count
-                    }),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var csv = BuildCsv(result.Value);
-            return File(Encoding.UTF8.GetBytes(csv), "text/csv", "cost-centers.csv");
-        }
-
-        if (string.Equals(format, "xlsx", StringComparison.OrdinalIgnoreCase))
-        {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.CostCenter,
-                    null,
-                    CostCenterPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported cost centers report.",
-                    After: new
-                    {
-                        resourceKey = CostCenterPermissionCodes.ResourceKey,
-                        format = "xlsx",
-                        filters = new { type, isActive, q = search },
-                        rowCount = result.Value.Count
-                    }),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var xlsx = BuildXlsx(result.Value);
-            return File(
-                xlsx,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "cost-centers.xlsx");
-        }
-
-        return this.ToActionResult(Result<IReadOnlyCollection<CostCenterExportRow>>.Failure(CostCenterErrors.ExportFormatInvalid)).Result!;
+        return await reportExportDeliveryService.CreateFileResultAsync(
+            this,
+            result.Value,
+            format,
+            "cost-centers",
+            "CostCenters",
+            AuditEntityTypes.CostCenter,
+            ReportExportResources.CostCenters,
+            "Exported cost centers report.",
+            new { type, isActive, q = search },
+            CostCenterErrors.ExportFormatInvalid,
+            cancellationToken);
     }
 
     [HttpPost("api/v1/companies/{companyId:guid}/cost-centers")]
@@ -237,166 +197,6 @@ public sealed class CostCentersController(
             cancellationToken);
 
         return this.ToActionResult(result);
-    }
-
-    private static string BuildCsv(IReadOnlyCollection<CostCenterExportRow> rows)
-    {
-        var lines = new List<string>
-        {
-            "PublicId,Code,Name,Type,PayrollExpenseAccountCode,EmployerContributionAccountCode,ProvisionAccountCode,Description,IsActive,CreatedAtUtc,ModifiedAtUtc"
-        };
-
-        lines.AddRange(rows.Select(row => string.Join(",",
-            EscapeCsv(row.Id.ToString()),
-            EscapeCsv(row.Code),
-            EscapeCsv(row.Name),
-            EscapeCsv(row.Type.ToString()),
-            EscapeCsv(row.PayrollExpenseAccountCode),
-            EscapeCsv(row.EmployerContributionAccountCode),
-            EscapeCsv(row.ProvisionAccountCode),
-            EscapeCsv(row.Description),
-            row.IsActive ? "true" : "false",
-            EscapeCsv(row.CreatedAtUtc.ToString("O", CultureInfo.InvariantCulture)),
-            EscapeCsv(row.ModifiedAtUtc?.ToString("O", CultureInfo.InvariantCulture)))));
-
-        return string.Join("\n", lines);
-    }
-
-    private static byte[] BuildXlsx(IReadOnlyCollection<CostCenterExportRow> rows)
-    {
-        static string Cell(string? value) =>
-            $"<c t=\"inlineStr\"><is><t>{EscapeXml(value)}</t></is></c>";
-
-        var headers = new[]
-        {
-            "PublicId",
-            "Code",
-            "Name",
-            "Type",
-            "PayrollExpenseAccountCode",
-            "EmployerContributionAccountCode",
-            "ProvisionAccountCode",
-            "Description",
-            "IsActive",
-            "CreatedAtUtc",
-            "ModifiedAtUtc"
-        };
-
-        var sheetRows = new StringBuilder();
-        sheetRows.Append("<row r=\"1\">");
-        foreach (var header in headers)
-        {
-            sheetRows.Append(Cell(header));
-        }
-
-        sheetRows.Append("</row>");
-
-        var rowIndex = 2;
-        foreach (var row in rows)
-        {
-            sheetRows.Append($"<row r=\"{rowIndex++}\">");
-            sheetRows.Append(Cell(row.Id.ToString()));
-            sheetRows.Append(Cell(row.Code));
-            sheetRows.Append(Cell(row.Name));
-            sheetRows.Append(Cell(row.Type.ToString()));
-            sheetRows.Append(Cell(row.PayrollExpenseAccountCode));
-            sheetRows.Append(Cell(row.EmployerContributionAccountCode));
-            sheetRows.Append(Cell(row.ProvisionAccountCode));
-            sheetRows.Append(Cell(row.Description));
-            sheetRows.Append(Cell(row.IsActive ? "true" : "false"));
-            sheetRows.Append(Cell(row.CreatedAtUtc.ToString("O", CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.ModifiedAtUtc?.ToString("O", CultureInfo.InvariantCulture)));
-            sheetRows.Append("</row>");
-        }
-
-        var sheetXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
-            "<sheetData>" + sheetRows + "</sheetData>" +
-            "</worksheet>";
-
-        var contentTypesXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
-            "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" +
-            "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
-            "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
-            "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
-            "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>" +
-            "</Types>";
-
-        var relsXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
-            "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>" +
-            "</Relationships>";
-
-        var workbookXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
-            "<sheets><sheet name=\"CostCenters\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
-            "</workbook>";
-
-        var workbookRelsXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
-            "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>" +
-            "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>" +
-            "</Relationships>";
-
-        var stylesXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
-            "<fonts count=\"1\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font></fonts>" +
-            "<fills count=\"1\"><fill><patternFill patternType=\"none\"/></fill></fills>" +
-            "<borders count=\"1\"><border/></borders>" +
-            "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>" +
-            "<cellXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/></cellXfs>" +
-            "<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles>" +
-            "</styleSheet>";
-
-        using var stream = new MemoryStream();
-        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            WriteEntry(archive, "[Content_Types].xml", contentTypesXml);
-            WriteEntry(archive, "_rels/.rels", relsXml);
-            WriteEntry(archive, "xl/workbook.xml", workbookXml);
-            WriteEntry(archive, "xl/_rels/workbook.xml.rels", workbookRelsXml);
-            WriteEntry(archive, "xl/worksheets/sheet1.xml", sheetXml);
-            WriteEntry(archive, "xl/styles.xml", stylesXml);
-        }
-
-        return stream.ToArray();
-    }
-
-    private static void WriteEntry(ZipArchive archive, string name, string content)
-    {
-        var entry = archive.CreateEntry(name, CompressionLevel.Fastest);
-        using var entryStream = entry.Open();
-        using var writer = new StreamWriter(entryStream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        writer.Write(content);
-    }
-
-    private static string EscapeCsv(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        var needsQuotes = value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r');
-        var escaped = value.Replace("\"", "\"\"");
-        return needsQuotes ? $"\"{escaped}\"" : escaped;
-    }
-
-    private static string EscapeXml(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        return SecurityElement.Escape(value) ?? string.Empty;
     }
 
     public sealed record CreateCostCenterRequest(

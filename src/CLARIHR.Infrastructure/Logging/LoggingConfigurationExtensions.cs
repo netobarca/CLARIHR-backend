@@ -29,6 +29,7 @@ public static class LoggingConfigurationExtensions
             .MinimumLevel.Override("CLARIHR", hostEnvironment.EnvironmentName == "Development"
                 ? LogEventLevel.Debug
                 : logLevel)
+            .MinimumLevel.Override("CLARIHR.Infrastructure.Reports", LogEventLevel.Information)
             .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
             .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
             .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Information)
