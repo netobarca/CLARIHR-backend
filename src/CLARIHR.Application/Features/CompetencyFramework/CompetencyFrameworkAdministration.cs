@@ -245,7 +245,7 @@ public sealed record UpdateCompetencyConductBehaviorsCommand(
 public sealed record GetJobProfileCompetencyMatrixQuery(Guid JobProfileId)
     : IQuery<JobProfileCompetencyMatrixResponse>;
 
-public sealed record ExportJobProfileCompetencyMatrixQuery(Guid JobProfileId)
+public sealed record ExportJobProfileCompetencyMatrixQuery(Guid JobProfileId, int? MaxRows = null)
     : IQuery<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>;
 
 public sealed record UpdateJobProfileCompetencyMatrixCommand(
@@ -1459,7 +1459,7 @@ internal sealed class ExportJobProfileCompetencyMatrixQueryHandler(
             return Result<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>.Failure(authorizationResult.Error);
         }
 
-        var rows = await repository.GetJobProfileCompetencyMatrixExportRowsAsync(query.JobProfileId, cancellationToken);
+        var rows = await repository.GetJobProfileCompetencyMatrixExportRowsAsync(query.JobProfileId, query.MaxRows, cancellationToken);
         if (rows.Count > 0)
         {
             return Result<IReadOnlyCollection<JobProfileCompetencyMatrixExportRow>>.Success(rows);

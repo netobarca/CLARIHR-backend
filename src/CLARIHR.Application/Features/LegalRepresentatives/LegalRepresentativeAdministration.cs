@@ -131,7 +131,8 @@ public sealed record ExportLegalRepresentativesQuery(
     bool? IsActive,
     bool? IsPrimary,
     LegalRepresentativeRepresentationType? RepresentationType,
-    string? Search)
+    string? Search,
+    int? MaxRows = null)
     : IQuery<IReadOnlyCollection<LegalRepresentativeExportRow>>;
 
 public sealed record CreateLegalRepresentativeCommand(
@@ -493,6 +494,7 @@ internal sealed class ExportLegalRepresentativesQueryHandler(
             query.IsPrimary,
             query.RepresentationType,
             query.Search,
+            query.MaxRows,
             cancellationToken);
 
         return Result<IReadOnlyCollection<LegalRepresentativeExportRow>>.Success(rows);

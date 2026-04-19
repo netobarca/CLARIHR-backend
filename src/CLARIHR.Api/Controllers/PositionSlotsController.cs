@@ -1,11 +1,7 @@
 using System.Globalization;
-using System.IO.Compression;
-using System.Security;
 using System.Text;
 using System.Text.Json;
 using System.Xml;
-using CLARIHR.Application.Abstractions.Auditing;
-using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -13,6 +9,7 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.PositionSlots;
 using CLARIHR.Application.Features.PositionSlots.Common;
+using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Domain.PositionSlots;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,8 +21,7 @@ namespace CLARIHR.Api.Controllers;
 public sealed class PositionSlotsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork) : ControllerBase
+    ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
     [HttpGet("api/v1/companies/{companyId:guid}/position-slots")]
     [ProducesResponseType<PagedResponse<PositionSlotListItemResponse>>(StatusCodes.Status200OK)]
@@ -99,6 +95,7 @@ public sealed class PositionSlotsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     public async Task<IActionResult> DiagramExport(
         Guid companyId,
         [FromQuery] string format = "graphml",
@@ -116,25 +113,21 @@ public sealed class PositionSlotsController(
             return this.ToActionResult(Result<PositionSlotGraphResponse>.Failure(graphResult.Error)).Result!;
         }
 
+        if (graphResult.Value.Nodes.Count > reportExportDeliveryService.MaxDiagramNodes)
+        {
+            return CLARIHR.Api.Common.ProblemDetailsFactory.Create(HttpContext, ReportPolicyErrors.ExportLimitExceeded);
+        }
+
         if (string.Equals(format, "graphml", StringComparison.OrdinalIgnoreCase))
         {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.PositionSlot,
-                    null,
-                    PositionSlotPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported position slots diagram.",
-                    After: new
-                    {
-                        resourceKey = PositionSlotPermissionCodes.ResourceKey,
-                        format = "graphml",
-                        filters = new { rootId, depth, includeFunctional },
-                        rowCount = graphResult.Value.Nodes.Count
-                    }),
+            await reportExportDeliveryService.LogExportAsync(
+                AuditEntityTypes.PositionSlot,
+                ReportExportResources.PositionSlots,
+                "Exported position slots diagram.",
+                "graphml",
+                new { rootId, depth, includeFunctional },
+                graphResult.Value.Nodes.Count,
                 cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var graphml = BuildGraphMl(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(graphml), "application/graphml+xml", "position-slots-diagram.graphml");
@@ -142,23 +135,14 @@ public sealed class PositionSlotsController(
 
         if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
         {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.PositionSlot,
-                    null,
-                    PositionSlotPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported position slots diagram.",
-                    After: new
-                    {
-                        resourceKey = PositionSlotPermissionCodes.ResourceKey,
-                        format = "json",
-                        filters = new { rootId, depth, includeFunctional },
-                        rowCount = graphResult.Value.Nodes.Count
-                    }),
+            await reportExportDeliveryService.LogExportAsync(
+                AuditEntityTypes.PositionSlot,
+                ReportExportResources.PositionSlots,
+                "Exported position slots diagram.",
+                "json",
+                new { rootId, depth, includeFunctional },
+                graphResult.Value.Nodes.Count,
                 cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var json = JsonSerializer.Serialize(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(json), "application/json", "position-slots-diagram.json");
@@ -166,23 +150,14 @@ public sealed class PositionSlotsController(
 
         if (string.Equals(format, "dot", StringComparison.OrdinalIgnoreCase))
         {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.PositionSlot,
-                    null,
-                    PositionSlotPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported position slots diagram.",
-                    After: new
-                    {
-                        resourceKey = PositionSlotPermissionCodes.ResourceKey,
-                        format = "dot",
-                        filters = new { rootId, depth, includeFunctional },
-                        rowCount = graphResult.Value.Nodes.Count
-                    }),
+            await reportExportDeliveryService.LogExportAsync(
+                AuditEntityTypes.PositionSlot,
+                ReportExportResources.PositionSlots,
+                "Exported position slots diagram.",
+                "dot",
+                new { rootId, depth, includeFunctional },
+                graphResult.Value.Nodes.Count,
                 cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var dot = BuildDot(graphResult.Value);
             return File(Encoding.UTF8.GetBytes(dot), "text/vnd.graphviz", "position-slots-diagram.dot");
@@ -196,6 +171,7 @@ public sealed class PositionSlotsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     public async Task<IActionResult> Export(
         Guid companyId,
         [FromQuery] string format = "xlsx",
@@ -208,7 +184,15 @@ public sealed class PositionSlotsController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new GetPositionSlotExportRowsQuery(companyId, status, jobProfileId, orgUnitId, workCenterId, contractTypeId, search),
+            new GetPositionSlotExportRowsQuery(
+                companyId,
+                status,
+                jobProfileId,
+                orgUnitId,
+                workCenterId,
+                contractTypeId,
+                search,
+                reportExportDeliveryService.SynchronousReadLimit),
             cancellationToken);
 
         if (result.IsFailure)
@@ -216,58 +200,18 @@ public sealed class PositionSlotsController(
             return this.ToActionResult(Result<IReadOnlyCollection<PositionSlotExportRow>>.Failure(result.Error)).Result!;
         }
 
-        if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
-        {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.PositionSlot,
-                    null,
-                    PositionSlotPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported position slots report.",
-                    After: new
-                    {
-                        resourceKey = PositionSlotPermissionCodes.ResourceKey,
-                        format = "csv",
-                        filters = new { status, jobProfileId, orgUnitId, workCenterId, contractTypeId, q = search },
-                        rowCount = result.Value.Count
-                    }),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var csv = BuildCsv(result.Value);
-            return File(Encoding.UTF8.GetBytes(csv), "text/csv", "position-slots.csv");
-        }
-
-        if (string.Equals(format, "xlsx", StringComparison.OrdinalIgnoreCase))
-        {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.PositionSlot,
-                    null,
-                    PositionSlotPermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported position slots report.",
-                    After: new
-                    {
-                        resourceKey = PositionSlotPermissionCodes.ResourceKey,
-                        format = "xlsx",
-                        filters = new { status, jobProfileId, orgUnitId, workCenterId, contractTypeId, q = search },
-                        rowCount = result.Value.Count
-                    }),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var xlsx = BuildXlsx(result.Value);
-            return File(
-                xlsx,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "position-slots.xlsx");
-        }
-
-        return this.ToActionResult(Result<IReadOnlyCollection<PositionSlotExportRow>>.Failure(PositionSlotErrors.ExportFormatInvalid)).Result!;
+        return await reportExportDeliveryService.CreateFileResultAsync(
+            this,
+            result.Value,
+            format,
+            "position-slots",
+            "PositionSlots",
+            AuditEntityTypes.PositionSlot,
+            ReportExportResources.PositionSlots,
+            "Exported position slots report.",
+            new { status, jobProfileId, orgUnitId, workCenterId, contractTypeId, q = search },
+            PositionSlotErrors.ExportFormatInvalid,
+            cancellationToken);
     }
 
     [HttpPost("api/v1/companies/{companyId:guid}/position-slots")]
@@ -399,43 +343,6 @@ public sealed class PositionSlotsController(
         return this.ToActionResult(result);
     }
 
-    private static string BuildCsv(IReadOnlyCollection<PositionSlotExportRow> rows)
-    {
-        var lines = new List<string>
-        {
-            "PublicId,Code,Title,Status,JobProfileCode,JobProfileTitle,RolePublicId,RoleName,OrgUnitCode,OrgUnitName,WorkCenterCode,WorkCenterName,CostCenterCode,DirectDependencyCode,FunctionalDependencyCode,ContractTypePublicId,ContractTypeCode,ContractTypeName,MaxEmployees,OccupiedEmployees,EffectiveFromUtc,EffectiveToUtc,IsActive,CreatedAtUtc,ModifiedAtUtc"
-        };
-
-        lines.AddRange(rows.Select(row => string.Join(",",
-            EscapeCsv(row.Id.ToString()),
-            EscapeCsv(row.Code),
-            EscapeCsv(row.Title),
-            EscapeCsv(row.Status.ToString()),
-            EscapeCsv(row.JobProfileCode),
-            EscapeCsv(row.JobProfileTitle),
-            EscapeCsv(row.RoleId?.ToString()),
-            EscapeCsv(row.RoleName),
-            EscapeCsv(row.OrgUnitCode),
-            EscapeCsv(row.OrgUnitName),
-            EscapeCsv(row.WorkCenterCode),
-            EscapeCsv(row.WorkCenterName),
-            EscapeCsv(row.CostCenterCode),
-            EscapeCsv(row.DirectDependencyCode),
-            EscapeCsv(row.FunctionalDependencyCode),
-            EscapeCsv(row.ContractTypeId?.ToString()),
-            EscapeCsv(row.ContractTypeCode),
-            EscapeCsv(row.ContractTypeName),
-            row.MaxEmployees.ToString(CultureInfo.InvariantCulture),
-            row.OccupiedEmployees.ToString(CultureInfo.InvariantCulture),
-            EscapeCsv(row.EffectiveFromUtc.ToString("O", CultureInfo.InvariantCulture)),
-            EscapeCsv(row.EffectiveToUtc?.ToString("O", CultureInfo.InvariantCulture)),
-            row.IsActive ? "true" : "false",
-            EscapeCsv(row.CreatedAtUtc.ToString("O", CultureInfo.InvariantCulture)),
-            EscapeCsv(row.ModifiedAtUtc?.ToString("O", CultureInfo.InvariantCulture)))));
-
-        return string.Join("\n", lines);
-    }
-
     private static string BuildDot(PositionSlotGraphResponse graph)
     {
         var builder = new StringBuilder();
@@ -536,171 +443,6 @@ public sealed class PositionSlotsController(
         }
 
         return Encoding.UTF8.GetString(stream.ToArray());
-    }
-
-    private static byte[] BuildXlsx(IReadOnlyCollection<PositionSlotExportRow> rows)
-    {
-        static string Cell(string? value) =>
-            $"<c t=\"inlineStr\"><is><t>{EscapeXml(value)}</t></is></c>";
-
-        var sheetRows = new StringBuilder();
-        var headers = new[]
-        {
-            "PublicId",
-            "Code",
-            "Title",
-            "Status",
-            "JobProfileCode",
-            "JobProfileTitle",
-            "RolePublicId",
-            "RoleName",
-            "OrgUnitCode",
-            "OrgUnitName",
-            "WorkCenterCode",
-            "WorkCenterName",
-            "CostCenterCode",
-            "DirectDependencyCode",
-            "FunctionalDependencyCode",
-            "ContractTypePublicId",
-            "ContractTypeCode",
-            "ContractTypeName",
-            "MaxEmployees",
-            "OccupiedEmployees",
-            "EffectiveFromUtc",
-            "EffectiveToUtc",
-            "IsActive",
-            "CreatedAtUtc",
-            "ModifiedAtUtc"
-        };
-
-        sheetRows.Append("<row r=\"1\">");
-        foreach (var header in headers)
-        {
-            sheetRows.Append(Cell(header));
-        }
-
-        sheetRows.Append("</row>");
-
-        var rowIndex = 2;
-        foreach (var row in rows)
-        {
-            sheetRows.Append($"<row r=\"{rowIndex++}\">");
-            sheetRows.Append(Cell(row.Id.ToString()));
-            sheetRows.Append(Cell(row.Code));
-            sheetRows.Append(Cell(row.Title));
-            sheetRows.Append(Cell(row.Status.ToString()));
-            sheetRows.Append(Cell(row.JobProfileCode));
-            sheetRows.Append(Cell(row.JobProfileTitle));
-            sheetRows.Append(Cell(row.RoleId?.ToString()));
-            sheetRows.Append(Cell(row.RoleName));
-            sheetRows.Append(Cell(row.OrgUnitCode));
-            sheetRows.Append(Cell(row.OrgUnitName));
-            sheetRows.Append(Cell(row.WorkCenterCode));
-            sheetRows.Append(Cell(row.WorkCenterName));
-            sheetRows.Append(Cell(row.CostCenterCode));
-            sheetRows.Append(Cell(row.DirectDependencyCode));
-            sheetRows.Append(Cell(row.FunctionalDependencyCode));
-            sheetRows.Append(Cell(row.ContractTypeId?.ToString()));
-            sheetRows.Append(Cell(row.ContractTypeCode));
-            sheetRows.Append(Cell(row.ContractTypeName));
-            sheetRows.Append(Cell(row.MaxEmployees.ToString(CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.OccupiedEmployees.ToString(CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.EffectiveFromUtc.ToString("O", CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.EffectiveToUtc?.ToString("O", CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.IsActive ? "true" : "false"));
-            sheetRows.Append(Cell(row.CreatedAtUtc.ToString("O", CultureInfo.InvariantCulture)));
-            sheetRows.Append(Cell(row.ModifiedAtUtc?.ToString("O", CultureInfo.InvariantCulture)));
-            sheetRows.Append("</row>");
-        }
-
-        var sheetXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
-            "<sheetData>" + sheetRows + "</sheetData>" +
-            "</worksheet>";
-
-        var contentTypesXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
-            "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" +
-            "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
-            "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
-            "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
-            "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>" +
-            "</Types>";
-
-        var relsXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
-            "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>" +
-            "</Relationships>";
-
-        var workbookXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
-            "<sheets><sheet name=\"PositionSlots\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
-            "</workbook>";
-
-        var workbookRelsXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
-            "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
-            "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>" +
-            "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>" +
-            "</Relationships>";
-
-        var stylesXml =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
-            "<fonts count=\"1\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font></fonts>" +
-            "<fills count=\"1\"><fill><patternFill patternType=\"none\"/></fill></fills>" +
-            "<borders count=\"1\"><border/></borders>" +
-            "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>" +
-            "<cellXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/></cellXfs>" +
-            "<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles>" +
-            "</styleSheet>";
-
-        using var stream = new MemoryStream();
-        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            WriteEntry(archive, "[Content_Types].xml", contentTypesXml);
-            WriteEntry(archive, "_rels/.rels", relsXml);
-            WriteEntry(archive, "xl/workbook.xml", workbookXml);
-            WriteEntry(archive, "xl/_rels/workbook.xml.rels", workbookRelsXml);
-            WriteEntry(archive, "xl/worksheets/sheet1.xml", sheetXml);
-            WriteEntry(archive, "xl/styles.xml", stylesXml);
-        }
-
-        return stream.ToArray();
-    }
-
-    private static void WriteEntry(ZipArchive archive, string name, string content)
-    {
-        var entry = archive.CreateEntry(name, CompressionLevel.Fastest);
-        using var entryStream = entry.Open();
-        using var writer = new StreamWriter(entryStream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        writer.Write(content);
-    }
-
-    private static string EscapeCsv(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        var needsQuotes = value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r');
-        var escaped = value.Replace("\"", "\"\"");
-        return needsQuotes ? $"\"{escaped}\"" : escaped;
-    }
-
-    private static string EscapeXml(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        return SecurityElement.Escape(value) ?? string.Empty;
     }
 
     private static string EscapeDot(string value) => value.Replace("\"", "\\\"");

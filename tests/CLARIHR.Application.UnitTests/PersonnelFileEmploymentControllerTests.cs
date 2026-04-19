@@ -1,4 +1,5 @@
 using CLARIHR.Api.Controllers;
+using CLARIHR.Api.Common;
 using CLARIHR.Api.Contracts.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Persistence;
@@ -6,8 +7,10 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace CLARIHR.Application.UnitTests;
 
@@ -18,11 +21,7 @@ public sealed class PersonnelFileEmploymentControllerTests
     {
         var dispatcher = new CaptureFinalizeCommandDispatcher();
         var queryDispatcher = new CapturePreviewQueryDispatcher();
-        var controller = new PersonnelFileEmploymentController(
-            dispatcher,
-            queryDispatcher,
-            new NoOpAuditService(),
-            new NoOpUnitOfWork());
+        var controller = CreateController(dispatcher, queryDispatcher);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()
@@ -42,11 +41,7 @@ public sealed class PersonnelFileEmploymentControllerTests
     {
         var commandDispatcher = new CaptureFinalizeCommandDispatcher();
         var queryDispatcher = new CapturePreviewQueryDispatcher();
-        var controller = new PersonnelFileEmploymentController(
-            commandDispatcher,
-            queryDispatcher,
-            new NoOpAuditService(),
-            new NoOpUnitOfWork());
+        var controller = CreateController(commandDispatcher, queryDispatcher);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()
@@ -66,11 +61,7 @@ public sealed class PersonnelFileEmploymentControllerTests
     {
         var commandDispatcher = new CaptureFinalizeCommandDispatcher();
         var queryDispatcher = new CapturePreviewQueryDispatcher();
-        var controller = new PersonnelFileEmploymentController(
-            commandDispatcher,
-            queryDispatcher,
-            new NoOpAuditService(),
-            new NoOpUnitOfWork());
+        var controller = CreateController(commandDispatcher, queryDispatcher);
         controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext()
@@ -84,6 +75,17 @@ public sealed class PersonnelFileEmploymentControllerTests
         Assert.NotNull(queryDispatcher.LastQuery);
         Assert.False(queryDispatcher.LastQuery!.CreateUserAccount);
     }
+
+    private static PersonnelFileEmploymentController CreateController(
+        ICommandDispatcher commandDispatcher,
+        IQueryDispatcher queryDispatcher) =>
+        new(
+            commandDispatcher,
+            queryDispatcher,
+            new ReportExportDeliveryService(
+                new NoOpAuditService(),
+                new NoOpUnitOfWork(),
+                Options.Create(new ReportPerformanceOptions())));
 
     private sealed class CaptureFinalizeCommandDispatcher : ICommandDispatcher
     {

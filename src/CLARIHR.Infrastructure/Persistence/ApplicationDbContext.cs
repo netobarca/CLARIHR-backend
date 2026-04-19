@@ -21,6 +21,7 @@ using CLARIHR.Domain.Platform;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
 using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Domain.Preferences;
+using CLARIHR.Domain.Reports;
 using CLARIHR.Domain.SalaryTabulator;
 using Microsoft.EntityFrameworkCore;
 
@@ -270,6 +271,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<SalaryTabulatorChangeRequestItem> SalaryTabulatorChangeRequestItems => Set<SalaryTabulatorChangeRequestItem>();
 
+    public DbSet<ReportExportJob> ReportExportJobs => Set<ReportExportJob>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
@@ -374,6 +377,6 @@ public sealed class ApplicationDbContext(
         where TEntity : class, ITenantScopedEntity
     {
         modelBuilder.Entity<TEntity>()
-            .HasQueryFilter(entity => !HasTenantScope || entity.TenantId == CurrentTenantIdOrDefault);
+            .HasQueryFilter(entity => HasTenantScope && entity.TenantId == CurrentTenantIdOrDefault);
     }
 }

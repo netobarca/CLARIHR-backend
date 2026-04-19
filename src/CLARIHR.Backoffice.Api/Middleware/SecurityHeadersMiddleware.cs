@@ -8,7 +8,7 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next)
         context.Response.Headers["Referrer-Policy"] = "no-referrer";
         context.Response.Headers["X-Permitted-Cross-Domain-Policies"] = "none";
 
-        if (context.Request.Path.StartsWithSegments("/api/platform/auth", StringComparison.OrdinalIgnoreCase))
+        if (context.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
         {
             context.Response.Headers["Cache-Control"] = "no-store";
             context.Response.Headers["Pragma"] = "no-cache";

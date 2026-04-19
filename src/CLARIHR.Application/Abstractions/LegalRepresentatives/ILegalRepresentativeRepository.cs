@@ -52,6 +52,7 @@ public interface ILegalRepresentativeRepository
         bool? isPrimary,
         LegalRepresentativeRepresentationType? representationType,
         string? search,
+        int? maxRows,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<ActiveLegalRepresentativeSummary>> GetActiveSummariesByCompanyAsync(

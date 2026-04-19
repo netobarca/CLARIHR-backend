@@ -14,6 +14,36 @@ public static class ReportPolicyErrors
         "The requested report format is not supported.",
         ErrorType.Validation);
 
+    public static readonly Error ExportTooLarge = new(
+        "REPORT_EXPORT_TOO_LARGE",
+        "The requested export is too large for synchronous generation.",
+        ErrorType.PayloadTooLarge);
+
+    public static readonly Error ExportLimitExceeded = new(
+        "REPORT_EXPORT_LIMIT_EXCEEDED",
+        "The requested export exceeds the maximum allowed row count.",
+        ErrorType.PayloadTooLarge);
+
+    public static readonly Error ExportJobNotFound = new(
+        "REPORT_EXPORT_JOB_NOT_FOUND",
+        "The report export job could not be found.",
+        ErrorType.NotFound);
+
+    public static readonly Error ExportJobNotReady = new(
+        "REPORT_EXPORT_JOB_NOT_READY",
+        "The report export job is not ready for download.",
+        ErrorType.Conflict);
+
+    public static readonly Error ExportJobExpired = new(
+        "REPORT_EXPORT_JOB_EXPIRED",
+        "The report export job artifact has expired.",
+        ErrorType.Gone);
+
+    public static readonly Error ExportStorageNotConfigured = new(
+        "REPORT_EXPORT_STORAGE_NOT_CONFIGURED",
+        "Report export storage is not configured.",
+        ErrorType.ServiceUnavailable);
+
     public static readonly Error Forbidden = new(
         "REPORT_FORBIDDEN",
         "You do not have permission to access the requested report resource.",

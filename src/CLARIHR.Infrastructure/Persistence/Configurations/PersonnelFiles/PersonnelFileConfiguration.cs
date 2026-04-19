@@ -62,6 +62,15 @@ internal sealed class PersonnelFileConfiguration : IEntityTypeConfiguration<Pers
         builder.HasIndex(file => new { file.TenantId, file.LifecycleStatus, file.RecordType })
             .HasDatabaseName("ix_personnel_files__tenant_lifecycle_type");
 
+        builder.HasIndex(file => new { file.TenantId, file.CreatedUtc, file.PublicId })
+            .HasDatabaseName("ix_personnel_files__tenant_created_public");
+
+        builder.HasIndex(file => new { file.TenantId, file.BirthDate, file.PublicId })
+            .HasDatabaseName("ix_personnel_files__tenant_birth_public");
+
+        builder.HasIndex(file => new { file.TenantId, file.LifecycleStatus, file.RecordType, file.OrgUnitPublicId })
+            .HasDatabaseName("ix_personnel_files__tenant_lifecycle_type_org_unit");
+
         builder.HasIndex(file => new { file.TenantId, file.OrgUnitPublicId })
             .HasDatabaseName("ix_personnel_files__tenant_org_unit");
 

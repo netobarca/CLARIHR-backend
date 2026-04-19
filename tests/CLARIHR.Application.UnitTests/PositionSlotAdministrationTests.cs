@@ -446,6 +446,7 @@ public sealed class PositionSlotAdministrationTests
             Guid? workCenterId,
             Guid? contractTypeId,
             string? search,
+            int? maxRows,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
@@ -562,6 +563,7 @@ public sealed class PositionSlotAdministrationTests
             CostCenterType? type,
             bool? isActive,
             string? search,
+            int? maxRows,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
     }

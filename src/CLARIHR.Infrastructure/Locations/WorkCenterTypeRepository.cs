@@ -16,6 +16,7 @@ internal sealed class WorkCenterTypeRepository(ApplicationDbContext dbContext) :
 
     public Task<bool> ExistsOutsideTenantAsync(Guid workCenterTypeId, CancellationToken cancellationToken) =>
         dbContext.WorkCenterTypes
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(type => type.PublicId == workCenterTypeId, cancellationToken);
 

@@ -80,6 +80,7 @@ internal sealed class AuditLogRepository(ApplicationDbContext dbContext) : IAudi
 
     public Task<bool> ExistsOutsideTenantAsync(Guid auditLogId, CancellationToken cancellationToken) =>
         dbContext.Set<AuditLog>()
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(log => log.PublicId == auditLogId, cancellationToken);
 }

@@ -12,8 +12,6 @@ public interface ILocationGroupRepository
 
     Task<bool> ExistsOutsideTenantAsync(Guid groupId, CancellationToken cancellationToken);
 
-    Task<LocationGroup?> GetByIdIgnoreFiltersAsync(Guid groupId, CancellationToken cancellationToken);
-
     Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingGroupId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<LocationGroupTreeNodeData>> GetTreeAsync(Guid tenantId, CancellationToken cancellationToken);

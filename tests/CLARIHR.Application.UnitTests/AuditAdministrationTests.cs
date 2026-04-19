@@ -16,24 +16,40 @@ public sealed class AuditAdministrationTests
     private static readonly Guid OtherTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
     [Fact]
-    public void SanitizeToJson_WhenPayloadContainsSensitiveFields_ShouldRemoveThem()
+    public void SanitizeToJson_WhenPayloadContainsSensitiveAndPiiFields_ShouldRemoveSecretsAndRedactPii()
     {
         var sanitizer = new AuditSanitizer();
 
         var json = sanitizer.SanitizeToJson(new
         {
             Email = "admin@acme.test",
+            PersonalEmail = "ana.personal@acme.test",
+            PersonalPhone = "+503 2222-3333",
+            BirthDate = new DateTime(1990, 1, 1),
+            CustomDataJson = "{\"shirtSize\":\"M\"}",
             PasswordHash = "super-secret-hash",
             RefreshTokens = new[] { "abc", "def" },
+            BankAccount = new
+            {
+                AccountNumber = "1234567890"
+            },
             Profile = new
             {
                 FirstName = "Ana",
+                AddressLine = "Main Street 123",
                 RawToken = "token-value"
             }
         });
 
         Assert.NotNull(json);
-        Assert.Contains("admin@acme.test", json, StringComparison.Ordinal);
+        Assert.Contains("[REDACTED]", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("admin@acme.test", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("ana.personal@acme.test", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("+503 2222-3333", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("1990-01-01", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("1234567890", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("Main Street 123", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ana", json, StringComparison.Ordinal);
         Assert.DoesNotContain("PasswordHash", json, StringComparison.Ordinal);
         Assert.DoesNotContain("RefreshTokens", json, StringComparison.Ordinal);
         Assert.DoesNotContain("RawToken", json, StringComparison.Ordinal);

@@ -17,6 +17,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
 
     public Task<bool> ExistsOutsideTenantAsync(Guid slotId, CancellationToken cancellationToken) =>
         dbContext.Set<PositionSlot>()
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(slot => slot.PublicId == slotId, cancellationToken);
 
@@ -36,6 +37,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
 
     public Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(profile => profile.PublicId == jobProfileId, cancellationToken);
 
@@ -48,6 +50,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
 
     public Task<bool> WorkCenterExistsOutsideTenantAsync(Guid workCenterId, CancellationToken cancellationToken) =>
         dbContext.WorkCenters
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(center => center.PublicId == workCenterId, cancellationToken);
 
@@ -294,6 +297,7 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         Guid? workCenterId,
         Guid? contractTypeId,
         string? search,
+        int? maxRows,
         CancellationToken cancellationToken)
     {
         var query =
@@ -369,9 +373,17 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                  (item.WorkCenter.NormalizedCode.Contains(normalizedSearch) || item.WorkCenter.NormalizedName.Contains(normalizedSearch))));
         }
 
-        return await query
+        var ordered = query
             .OrderBy(item => item.Slot.Code)
-            .ThenBy(item => item.Slot.Title)
+            .ThenBy(item => item.Slot.Title);
+
+        var limited = ordered.AsQueryable();
+        if (maxRows.HasValue)
+        {
+            limited = limited.Take(maxRows.Value);
+        }
+
+        return await limited
             .Select(item => new PositionSlotExportRow(
                 item.Slot.PublicId,
                 item.Slot.Code,

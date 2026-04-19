@@ -2,7 +2,7 @@
 
 ## 1. Resumen ejecutivo
 
-La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La validacion actualizada al **11 de abril de 2026** verifico:
+La estrategia de pruebas del backend es mejor de lo que reflejaba la version anterior de este documento. La validacion actualizada al **18 de abril de 2026** verifico:
 
 - `5` unit tests dirigidos aprobados para manejo de estados de suscripcion empresarial
 - `6` integration tests dirigidos aprobados para Platform Backoffice API de suscripciones empresariales
@@ -11,8 +11,10 @@ La estrategia de pruebas del backend es mejor de lo que reflejaba la version ant
 - `20` unit tests dirigidos aprobados para gobernanza comercial de planes y provisioning owner, incluyendo el guard de `MASTER`
 - `9` integration tests dirigidos aprobados para seeds/migraciones comerciales y visibilidad owner/backoffice de `FREE` y `MASTER`
 - `3` unit tests dirigidos aprobados para aceptacion de invitaciones de usuarios de compania y resincronizacion de rol por plaza
+- `19` unit tests dirigidos aprobados para hardening multi-tenant y datos sensibles: filtro tenant fail-closed, gobernanza de `IgnoreQueryFilters()`, redaccion PII de auditoria, headers `no-store` y guardrails de upload documental
+- `7` unit tests dirigidos aprobados para exportes de reporte: writer CSV/XLSX comun, lifecycle de `ReportExportJob`, contexto tenant ambiente del worker y gobernanza para evitar builders de export en controllers
 - `dotnet build` limpio con `0 warnings`
-- el suite completo aun conserva fallas previas no relacionadas en normalizacion y algunos escenarios legacy de integracion
+- el suite unitario actual queda estable; la integracion completa debe seguir validandose por ciclo de entrega porque no existe snapshot automatico de OpenAPI contra Swagger runtime
 
 La base actual de testing es saludable para evolucion diaria del backend, pero sigue teniendo huecos justamente en las zonas de riesgo mas alto detectadas por la auditoria revisada.
 
@@ -34,6 +36,10 @@ Cobertura visible sobre:
 - autorizacion RBAC
 - autorizacion de plataforma por `PlatformOperator`
 - permisos por campo
+- filtro tenant global fail-closed y escrituras tenant-scoped sin tenant
+- gobernanza de bypasses `IgnoreQueryFilters()` mediante comentario obligatorio
+- headers anti-cache en Core API y Backoffice API para rutas `/api`
+- writer comun de exportes, ciclo de vida de jobs persistidos y gobernanza de controllers sin builders CSV/XLSX fuera de exenciones
 - personnel files
 - salary tabulator
 - org units, locations, cost centers
@@ -97,17 +103,17 @@ La version anterior de este analisis ya no representaba el codigo real:
 
 Esto no empeora la calidad de las pruebas, pero si la confiabilidad de la documentacion viva.
 
-### 4.2 Cobertura de auditoria insuficiente para PII real de RRHH
+### 4.2 Cobertura de auditoria para PII real de RRHH
 
-[AuditAdministrationTests.cs#L18](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/tests/CLARIHR.Application.UnitTests/AuditAdministrationTests.cs#L18) valida remocion de secretos y tokens, pero tambien confirma que `Email` permanece en el JSON auditado.
+`AuditAdministrationTests` valida remocion de secretos y tokens y ahora tambien confirma que PII visible de RRHH se redacta con `"[REDACTED]"`.
 
-No hay pruebas visibles para:
+La cobertura actual incluye:
 
 - cuentas bancarias
-- salarios
-- beneficiarios
 - `customData`
-- payloads completos de expedientes o secciones de empleado
+- emails, telefonos, fecha de nacimiento, direccion y nombres
+
+El hueco residual es de minimizacion por evento: los tests cubren el sanitizer comun, no que cada flujo de negocio envie un diff minimo.
 
 ### 4.3 No hay pruebas para controles anti abuso
 
@@ -131,13 +137,28 @@ El backoffice de suscripciones empresariales ya tiene pruebas de integracion par
 
 La API sigue sin snapshots o validacion automatica de `openapi.yaml` contra Swagger runtime o contra la superficie real de controllers.
 
+### 4.7 Upload documental y cache HTTP ya tienen pruebas dirigidas
+
+`PersonnelFileDocumentUploadGuardTests` cubre archivo faltante/vacio, tamano mayor a `10 MiB`, extension/MIME no permitido, firma invalida y casos exitosos para PDF, JPG, PNG y DOCX.
+
+`SecurityHeadersMiddlewareTests` cubre que Core API y Backoffice API emiten `Cache-Control: no-store`, `Pragma: no-cache` y `Expires: 0` para rutas `/api`.
+
+### 4.8 Exportes de reporte ya tienen pruebas de gobernanza base
+
+`ReportExportFileWriterTests` valida CSV escapado y XLSX generado como stream ZIP con XML escapado.
+
+`ReportExportJobDomainTests` cubre normalizacion, transiciones `Queued -> Running -> Succeeded`, retry controlado, `Failed`, cancelacion y expiracion.
+
+`ReportExportGovernanceTests` evita reintroducir builders manuales de tabla (`BuildCsv`, `BuildXlsx`, `Encoding.UTF8.GetBytes(csv)`) en controllers fuera de la exencion explicita de `JobProfilesController`.
+
 ## 5. Huecos actuales priorizados
 
-1. Redaccion de PII de RRHH en auditoria.
-2. Controles anti abuso en auth.
-3. `X-Forwarded-*` y confianza de proxy.
-4. Cobertura explicita de auditoria durable para todo el CRUD global restante de plataforma.
-5. Contrato API versionado y validado automaticamente.
+1. Controles anti abuso en auth.
+2. `X-Forwarded-*` y confianza de proxy.
+3. Cobertura explicita de auditoria durable para todo el CRUD global restante de plataforma.
+4. Contrato API versionado y validado automaticamente.
+5. Integration tests completos del pipeline asincrono de export con Blob Storage fake o test double end-to-end.
+6. Minimizacion por evento de payloads de auditoria, mas alla del sanitizer comun.
 
 ## 6. Conclusiones
 
@@ -147,7 +168,7 @@ La suite actual sirve bien para detectar regresiones funcionales y de wiring. No
 
 Toda correccion derivada de esta auditoria deberia agregar, como minimo, una de estas coberturas segun corresponda:
 
-- prueba unitaria de redaccion de auditoria con DTOs reales de RRHH
+- prueba unitaria de minimizacion de auditoria por evento cuando se reduzcan payloads especificos
 - integration test de anti abuso para auth
 - prueba de configuracion o integracion para forwarded headers
 - prueba de auditoria global para todo el backoffice de plataforma

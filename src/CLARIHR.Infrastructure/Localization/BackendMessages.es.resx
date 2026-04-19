@@ -412,11 +412,17 @@
   <data name="PERSONNEL_FILE_DOCUMENT_DATES_INVALID" xml:space="preserve">
     <value>Las fechas de prestamo y devolucion del documento son invalidas.</value>
   </data>
+  <data name="PERSONNEL_FILE_DOCUMENT_CONTENT_TYPE_UNSUPPORTED" xml:space="preserve">
+    <value>El tipo de archivo del documento no es soportado.</value>
+  </data>
   <data name="PERSONNEL_FILE_DOCUMENT_FILE_REQUIRED" xml:space="preserve">
     <value>A document file es requerido.</value>
   </data>
   <data name="PERSONNEL_FILE_DOCUMENT_NOT_FOUND" xml:space="preserve">
     <value>No se pudo encontrar personnel file document.</value>
+  </data>
+  <data name="PERSONNEL_FILE_DOCUMENT_TOO_LARGE" xml:space="preserve">
+    <value>El archivo del documento excede el tamano maximo permitido.</value>
   </data>
   <data name="PERSONNEL_FILE_EFFECTIVE_DATES_INVALID" xml:space="preserve">
     <value>date range no es valido.</value>
@@ -1248,5 +1254,38 @@
   </data>
   <data name="validation.message.workphone_format_is_invalid" xml:space="preserve">
     <value>El formato de WorkPhone no es valido.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPENSATION_TABULATOR_LINE_NOT_FOUND" xml:space="preserve">
+    <value>La linea del tabulador salarial seleccionada no esta activa para la fecha efectiva del perfil.</value>
+  </data>
+  <data name="SALARY_TABULATOR_JOB_PROFILE_COVERAGE_CONFLICT" xml:space="preserve">
+    <value>La operacion dejaria uno o mas perfiles de puesto sin cobertura de tabulador salarial para su referencia de compensacion.</value>
+  </data>
+  <data name="REPORT_EXPORT_TOO_LARGE" xml:space="preserve">
+    <value>El exporte es demasiado grande para generarse de forma sincrona. Use un job de exporte asincrono.</value>
+  </data>
+  <data name="REPORT_EXPORT_LIMIT_EXCEEDED" xml:space="preserve">
+    <value>El exporte de reporte supera el limite de filas configurado.</value>
+  </data>
+  <data name="REPORT_EXPORT_JOB_NOT_FOUND" xml:space="preserve">
+    <value>El job de exporte de reporte no fue encontrado.</value>
+  </data>
+  <data name="REPORT_EXPORT_JOB_NOT_READY" xml:space="preserve">
+    <value>El job de exporte de reporte aun no esta listo para descarga.</value>
+  </data>
+  <data name="REPORT_EXPORT_JOB_EXPIRED" xml:space="preserve">
+    <value>El artefacto de exporte de reporte expiro.</value>
+  </data>
+  <data name="REPORT_EXPORT_STORAGE_NOT_CONFIGURED" xml:space="preserve">
+    <value>El almacenamiento de exportes de reporte no esta configurado.</value>
+  </data>
+  <data name="validation.message.format_is_not_supported" xml:space="preserve">
+    <value>El formato no es soportado.</value>
+  </data>
+  <data name="validation.message.parameters_must_be_a_valid_json_object" xml:space="preserve">
+    <value>Parameters debe ser un objeto JSON valido.</value>
+  </data>
+  <data name="validation.message.resourcekey_is_not_supported_for_report_exports" xml:space="preserve">
+    <value>ResourceKey no es soportado para exportes de reportes.</value>
   </data>
 </root>

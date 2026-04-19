@@ -68,6 +68,7 @@ public static class DependencyInjection
         services.Configure<JwtTokenOptions>(configuration.GetSection(JwtTokenOptions.SectionName));
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
         services.Configure<BlobStorageOptions>(configuration.GetSection(BlobStorageOptions.SectionName));
+        services.Configure<ReportPerformanceOptions>(configuration.GetSection(ReportPerformanceOptions.SectionName));
         services.Configure<FieldPermissionCacheOptions>(configuration.GetSection(FieldPermissionCacheOptions.SectionName));
         services.Configure<CompanyOwnershipOptions>(configuration.GetSection(CompanyOwnershipOptions.SectionName));
         services.Configure<CompanySubscriptionLifecycleOptions>(configuration.GetSection(CompanySubscriptionLifecycleOptions.SectionName));
@@ -80,6 +81,7 @@ public static class DependencyInjection
         services.AddSingleton<IRefreshTokenHasher>(serviceProvider => serviceProvider.GetRequiredService<RefreshTokenHasher>());
         services.AddSingleton<IInvitationTokenHasher>(serviceProvider => serviceProvider.GetRequiredService<RefreshTokenHasher>());
         services.AddSingleton<IGoogleIdTokenValidator, GoogleIdTokenValidator>();
+        services.AddSingleton<AmbientTenantContext>();
         services.AddScoped<ITenantContext, HttpTenantContext>();
         services.AddScoped<ICurrentUserService, HttpCurrentUserService>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
@@ -138,6 +140,10 @@ public static class DependencyInjection
         services.AddScoped<ISalaryTabulatorRepository, SalaryTabulatorRepository>();
         services.AddScoped<ISalaryTabulatorAuthorizationService, SalaryTabulatorAuthorizationService>();
         services.AddSingleton<IReportCapabilityRegistry, ReportCapabilityRegistry>();
+        services.AddScoped<IReportExportJobRepository, ReportExportJobRepository>();
+        services.AddScoped<IReportExportStorage, ReportExportBlobStorage>();
+        services.AddScoped<IReportExportJobGenerator, ReportExportJobGenerator>();
+        services.AddScoped<IReportExportJobProcessor, ReportExportJobProcessor>();
         services.AddScoped<IResourceActionPolicyService, ResourceActionPolicyService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IExternalAuthProviderService, GoogleExternalAuthProviderService>();
@@ -156,6 +162,7 @@ public static class DependencyInjection
         services.AddScoped<IFieldPermissionService, FieldPermissionService>();
         services.AddSingleton<IFieldSerializationService, FieldSerializationService>();
         services.AddHostedService<CompanySubscriptionLifecycleBackgroundService>();
+        services.AddHostedService<ReportExportJobBackgroundService>();
 
         services.AddDbContext<ApplicationDbContext>((serviceProvider, optionsBuilder) =>
         {

@@ -170,6 +170,7 @@ internal sealed class PersonnelEducationCatalogRepository(ApplicationDbContext d
         CancellationToken cancellationToken)
         where TCatalogItem : PersonnelEducationCatalogItem =>
         dbContext.Set<TCatalogItem>()
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(item => item.PublicId == id, cancellationToken);
 

@@ -80,6 +80,7 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
         if (linkedUserPublicId.HasValue)
         {
             var normalizedRoleNames = await dbContext.IamUsers
+                // Intentional tenant filter bypass: applies explicit companyPublicId tenant filter before materializing IAM roles.
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Where(user =>
@@ -107,6 +108,7 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
                 (membership, _) => membership.RoleId)
             .Join(
                 dbContext.IamRoles
+                    // Intentional tenant filter bypass: resolves fallback membership role by internal RoleId without exposing cross-tenant rows.
                     .IgnoreQueryFilters()
                     .AsNoTracking(),
                 roleId => roleId,
@@ -240,12 +242,14 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
         {
             query = query.Where(item =>
                 dbContext.IamUsers
+                    // Intentional tenant filter bypass: applies explicit companyPublicId tenant filter before role matching.
                     .IgnoreQueryFilters()
                     .Any(iamUser =>
                         iamUser.TenantId == companyPublicId &&
                         iamUser.LinkedUserPublicId == item.PublicId &&
                         iamUser.RoleAssignments.Any(assignment => assignment.Role.PublicId == roleId.Value)) ||
                 dbContext.IamRoles
+                    // Intentional tenant filter bypass: resolves fallback membership role by internal RoleId without exposing cross-tenant rows.
                     .IgnoreQueryFilters()
                     .Any(role => role.Id == item.RoleId && role.PublicId == roleId.Value));
         }
@@ -363,6 +367,7 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
         }
 
         var iamAdminUsers = await dbContext.IamUsers
+            // Intentional tenant filter bypass: applies explicit companyPublicId tenant filter before materializing IAM administrators.
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(user =>
@@ -385,6 +390,7 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
 
         return activeMemberUserIds
             .Where(item => dbContext.IamRoles
+                // Intentional tenant filter bypass: resolves fallback membership role by internal RoleId without exposing cross-tenant rows.
                 .IgnoreQueryFilters()
                 .Any(role =>
                     role.Id == item.RoleId &&
@@ -407,6 +413,7 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
         }
 
         var assignments = await dbContext.IamUsers
+            // Intentional tenant filter bypass: applies explicit companyPublicId tenant filter before materializing role assignments.
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(user =>
@@ -445,6 +452,7 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
         }
 
         return await dbContext.IamRoles
+            // Intentional tenant filter bypass: resolves fallback role metadata by internal RoleId set from tenant-scoped memberships.
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(role => roleIds.Contains(role.Id))

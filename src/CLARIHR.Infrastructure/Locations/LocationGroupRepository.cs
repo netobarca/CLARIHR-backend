@@ -16,13 +16,9 @@ internal sealed class LocationGroupRepository(ApplicationDbContext dbContext) : 
 
     public Task<bool> ExistsOutsideTenantAsync(Guid groupId, CancellationToken cancellationToken) =>
         dbContext.LocationGroups
+            // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
             .IgnoreQueryFilters()
             .AnyAsync(group => group.PublicId == groupId, cancellationToken);
-
-    public Task<LocationGroup?> GetByIdIgnoreFiltersAsync(Guid groupId, CancellationToken cancellationToken) =>
-        dbContext.LocationGroups
-            .IgnoreQueryFilters()
-            .SingleOrDefaultAsync(group => group.PublicId == groupId, cancellationToken);
 
     public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingGroupId, CancellationToken cancellationToken) =>
         dbContext.LocationGroups.AnyAsync(

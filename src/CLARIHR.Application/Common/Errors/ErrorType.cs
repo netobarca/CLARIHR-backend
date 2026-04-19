@@ -10,5 +10,8 @@ public enum ErrorType
     Conflict = 6,
     TooManyRequests = 7,
     Failure = 8,
-    Unexpected = 9
+    Unexpected = 9,
+    PayloadTooLarge = 10,
+    Gone = 11,
+    ServiceUnavailable = 12
 }

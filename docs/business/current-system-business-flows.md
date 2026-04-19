@@ -290,7 +290,11 @@ El sistema permite:
 
 1. El frontend consulta capacidades de reporte por recurso.
 2. Cada modulo expone sus propios exportes cuando el recurso lo soporta.
-3. Los reportes siguen el alcance del tenant activo y de los permisos del usuario.
+3. Los exportes sincronos se usan para datasets pequenos y conservan el mismo request shape del modulo.
+4. Si un export sincrono supera `5,000` filas, el backend lo rechaza con `413` y el usuario debe solicitar un export asincrono.
+5. Para exportes grandes, el usuario crea un job de reporte; el sistema lo deja en cola, lo procesa en background, genera el archivo en almacenamiento de artefactos y permite consultar estado, cancelar o descargar cuando termine.
+6. Los artefactos de jobs expiran despues de `24` horas; si el usuario intenta descargar antes de terminar recibe estado no listo, y si ya expiro debe reencolar.
+7. Los reportes siguen el alcance del tenant activo y de los permisos del usuario.
 
 ## 12. Reglas funcionales visibles
 
