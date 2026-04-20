@@ -5556,6 +5556,40 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task SalaryTabulator_SearchLines_WithIncludeAllowedActions_ShouldReflectRequestPermission()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
+        using var readClient = factory.CreateClientFor(CreateSalaryTabulatorReadContext(scenario));
+
+        var createdRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-ACTIONS", "S1", 1350m);
+
+        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
+        {
+            concurrencyToken = createdRequest.ConcurrencyToken
+        });
+        submitResponse.EnsureSuccessStatusCode();
+        var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(submitted);
+
+        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        {
+            decisionComment = "approved",
+            concurrencyToken = submitted!.ConcurrencyToken
+        });
+        approveResponse.EnsureSuccessStatusCode();
+
+        var requesterLinesResponse = await requesterClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/salary-tabulator?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstActiveSalaryLineAllowedActionsAsync(requesterLinesResponse, expectedCanEdit: true, expectedCanInactivate: true);
+
+        var readLinesResponse = await readClient.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/salary-tabulator?page=1&pageSize=20&includeAllowedActions=true");
+        await AssertFirstActiveSalaryLineAllowedActionsAsync(readLinesResponse, expectedCanEdit: false, expectedCanInactivate: false);
+    }
+
+    [Fact]
     public async Task SalaryTabulator_Approve_WithAuditPermission_ShouldWriteAuditEvent()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -7129,6 +7163,35 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.True(allowedActions.TryGetProperty("canEdit", out _));
         Assert.True(allowedActions.TryGetProperty("reasons", out var reasons));
         Assert.Equal(JsonValueKind.Array, reasons.ValueKind);
+    }
+
+    private static async Task AssertFirstActiveSalaryLineAllowedActionsAsync(
+        HttpResponseMessage response,
+        bool expectedCanEdit,
+        bool expectedCanInactivate)
+    {
+        response.EnsureSuccessStatusCode();
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var items = document.RootElement.GetProperty("items");
+        Assert.True(items.GetArrayLength() > 0);
+
+        var foundActive = false;
+        JsonElement activeLine = default;
+        foreach (var item in items.EnumerateArray())
+        {
+            if (item.TryGetProperty("isActive", out var isActiveElement) && isActiveElement.GetBoolean())
+            {
+                activeLine = item;
+                foundActive = true;
+                break;
+            }
+        }
+
+        Assert.True(foundActive);
+        var allowedActions = activeLine.GetProperty("allowedActions");
+        Assert.Equal(expectedCanEdit, allowedActions.GetProperty("canEdit").GetBoolean());
+        Assert.Equal(expectedCanInactivate, allowedActions.GetProperty("canInactivate").GetBoolean());
     }
 
     private static async Task AssertProblemDetailsAsync(HttpResponseMessage response, HttpStatusCode expectedStatusCode, string expectedCode)
