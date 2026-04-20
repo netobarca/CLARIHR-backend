@@ -435,8 +435,9 @@ internal sealed class SearchSalaryTabulatorLinesQueryHandler(
             return Result<PagedResponse<SalaryTabulatorLineListItemResponse>>.Success(response);
         }
 
+        var canRequest = (await authorizationService.EnsureCanRequestAsync(query.CompanyId, cancellationToken)).IsSuccess;
         var items = response.Items
-            .Select(item => SalaryTabulatorPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService))
+            .Select(item => SalaryTabulatorPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canRequest))
             .ToArray();
         response = response with { Items = items };
 
@@ -469,7 +470,8 @@ internal sealed class GetSalaryTabulatorLineByIdQueryHandler(
         var response = await repository.GetLineResponseByIdAsync(query.LineId, cancellationToken);
         if (response is not null)
         {
-            response = SalaryTabulatorPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService);
+            var canRequest = (await authorizationService.EnsureCanRequestAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            response = SalaryTabulatorPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canRequest);
             return Result<SalaryTabulatorLineResponse>.Success(response);
         }
 
@@ -638,36 +640,44 @@ internal static class SalaryTabulatorPolicyAdapter
 {
     public static SalaryTabulatorLineListItemResponse ApplyAllowedActions(
         SalaryTabulatorLineListItemResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canRequest)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
                 SalaryTabulatorPermissionCodes.ResourceKey,
                 response.IsActive ? "Active" : "Inactive",
                 response.IsActive,
-                SupportsEdit: false,
+                SupportsEdit: true,
+                EditAllowed: canRequest,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: false,
-                SupportsInactivate: false));
+                SupportsInactivate: true,
+                InactivateAllowed: canRequest,
+                NonEditableStates: ["Inactive"]));
 
         return response with { AllowedActions = allowedActions };
     }
 
     public static SalaryTabulatorLineResponse ApplyAllowedActions(
         SalaryTabulatorLineResponse response,
-        IResourceActionPolicyService resourceActionPolicyService)
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canRequest)
     {
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
                 SalaryTabulatorPermissionCodes.ResourceKey,
                 response.IsActive ? "Active" : "Inactive",
                 response.IsActive,
-                SupportsEdit: false,
+                SupportsEdit: true,
+                EditAllowed: canRequest,
                 SupportsDelete: false,
                 SupportsArchive: false,
                 SupportsActivate: false,
-                SupportsInactivate: false));
+                SupportsInactivate: true,
+                InactivateAllowed: canRequest,
+                NonEditableStates: ["Inactive"]));
 
         return response with { AllowedActions = allowedActions };
     }
