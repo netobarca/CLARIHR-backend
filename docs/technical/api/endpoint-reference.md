@@ -126,7 +126,7 @@ Exenciones observables: el export de un unico `JOB_PROFILE` sigue siendo sincron
 | Legal representatives | `LegalRepresentativesController` | `/api/v1/companies/{companyPublicId}/legal-representatives*` | ciclo de vida y uso de representantes legales |
 | Job and competency design | `JobCatalogsController`, `JobProfilesController`, `CompetencyFrameworkController`, `PositionDescriptionCatalogsController`, `PositionSlotsController` | `/api/v1/companies/{companyPublicId}/job-*`, `/api/v1/companies/{companyPublicId}/occupational-*`, `/api/v1/companies/{companyPublicId}/position-*` | diseno de puestos, competencias, catalogos y posiciones |
 | Personnel files | `PersonnelFilesController`, `PersonnelFileProfileController`, `PersonnelFileEmploymentController`, `PersonnelFileCompensationController`, `PersonnelFileTalentController`, `PersonnelFileDocumentsController`, `PersonnelFileAdministrationController`, `PersonnelFileReportingController` | `/api/v1/companies/{companyPublicId}/personnel-files*`, `/api/v1/personnel-files/*`, `/api/v1/personnel-custom-field-definitions*` | ciclo de vida del expediente, perfil, empleo, compensacion, talento, documentos y reporting |
-| Salary governance | `SalaryTabulatorController` | `/api/v1/companies/{companyPublicId}/salary-tabulator*` | lineas salariales, exportes y change requests |
+| Salary governance | `SalaryTabulatorController` | `/api/v1/companies/{companyPublicId}/salary-tabulator/*` | lineas salariales, exportes y change requests |
 | Report capabilities | `ReportsController` | `/api/v1/companies/{companyPublicId}/reports/capabilities` | descubrimiento de capacidades de reporte para frontend |
 | Report export jobs | `ReportExportJobsController` | `/api/v1/companies/{companyPublicId}/report-export-jobs*`, `/api/v1/report-export-jobs/*` | cola persistida de exportes grandes, estado, cancelacion y descarga segura |
 
@@ -315,7 +315,7 @@ Comportamiento observable:
 
 Endpoints representativos:
 
-- `GET /api/v1/companies/{companyPublicId}/salary-tabulator`
+- `GET /api/v1/companies/{companyPublicId}/salary-tabulator/lines`
 - `GET /api/v1/companies/{companyPublicId}/salary-tabulator/export`
 - `GET /api/v1/companies/{companyPublicId}/salary-tabulator/change-requests`
 - `POST /api/v1/companies/{companyPublicId}/salary-tabulator/change-requests`
@@ -324,6 +324,7 @@ Endpoints representativos:
 Comportamiento observable:
 
 - los cambios salariales se modelan como `change requests` con transiciones explicitas de estado
+- la estrategia de eliminar `companyId` de rutas tenant-scoped nuevas y migrar rutas legacy esta registrada en `docs/technical/api/tenant-route-technical-debt.md`
 
 ### 4.8 Report export jobs
 

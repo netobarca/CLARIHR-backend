@@ -19,7 +19,7 @@ public sealed class SalaryTabulatorController(
     IQueryDispatcher queryDispatcher,
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
-    [HttpGet("api/v1/companies/{companyId:guid}/salary-tabulator")]
+    [HttpGet("api/v1/companies/{companyId:guid}/salary-tabulator/lines")]
     [ProducesResponseType<PagedResponse<SalaryTabulatorLineListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]

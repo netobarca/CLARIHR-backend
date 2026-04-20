@@ -2549,7 +2549,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         await AssertFirstItemHasAllowedActionsAsync(legalRepresentativesList);
 
         var salaryLinesList = await approverClient.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/salary-tabulator?page=1&pageSize=20&includeAllowedActions=true");
+            $"/api/v1/companies/{scenario.TenantId}/salary-tabulator/lines?page=1&pageSize=20&includeAllowedActions=true");
         await AssertFirstItemHasAllowedActionsAsync(salaryLinesList);
 
         var salaryRequestsList = await approverClient.GetAsync(
@@ -3022,7 +3022,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         approveResponse.EnsureSuccessStatusCode();
 
-        var listLinesResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator?salaryClassPublicId={salaryClass.Id}&page=1&pageSize=20");
+        var listLinesResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/lines?salaryClassPublicId={salaryClass.Id}&page=1&pageSize=20");
         listLinesResponse.EnsureSuccessStatusCode();
         var linesPayload = await listLinesResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<SalaryTabulatorLineItem>>(JsonOptions);
         Assert.NotNull(linesPayload);
@@ -5460,7 +5460,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(approved);
         Assert.Equal(SalaryTabulatorChangeRequestStatus.Approved, approved!.Status);
 
-        var listLinesResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator?salaryClassPublicId={salaryClass.Id}&page=1&pageSize=20");
+        var listLinesResponse = await approverClient.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/lines?salaryClassPublicId={salaryClass.Id}&page=1&pageSize=20");
         listLinesResponse.EnsureSuccessStatusCode();
         var linesPayload = await listLinesResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<SalaryTabulatorLineItem>>(JsonOptions);
         Assert.NotNull(linesPayload);
@@ -5539,7 +5539,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateSalaryTabulatorReadContext(scenario));
 
-        var response = await client.GetAsync($"/api/v1/companies/{scenario.OtherTenantId}/salary-tabulator?page=1&pageSize=20");
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.OtherTenantId}/salary-tabulator/lines?page=1&pageSize=20");
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
     }
@@ -5550,7 +5550,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator?page=1&pageSize=20");
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/lines?page=1&pageSize=20");
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "SALARY_TABULATOR_FORBIDDEN");
     }
@@ -5581,11 +5581,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         approveResponse.EnsureSuccessStatusCode();
 
         var requesterLinesResponse = await requesterClient.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/salary-tabulator?page=1&pageSize=20&includeAllowedActions=true");
+            $"/api/v1/companies/{scenario.TenantId}/salary-tabulator/lines?page=1&pageSize=20&includeAllowedActions=true");
         await AssertFirstActiveSalaryLineAllowedActionsAsync(requesterLinesResponse, expectedCanEdit: true, expectedCanInactivate: true);
 
         var readLinesResponse = await readClient.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/salary-tabulator?page=1&pageSize=20&includeAllowedActions=true");
+            $"/api/v1/companies/{scenario.TenantId}/salary-tabulator/lines?page=1&pageSize=20&includeAllowedActions=true");
         await AssertFirstActiveSalaryLineAllowedActionsAsync(readLinesResponse, expectedCanEdit: false, expectedCanInactivate: false);
     }
 
