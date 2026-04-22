@@ -2424,6 +2424,7 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - `POST/PUT /position-slots` aceptan `RolePublicId` opcional; si se envia debe resolver un rol valido del catalogo IAM del mismo tenant.
 - En `PositionSlots`, el tipo de contrato no lo envia el cliente: se deriva desde `JobProfile -> PositionCategory -> PositionCategoryClassification -> PositionContractType`.
 - `PATCH /salary-tabulator/change-requests/{id}/approve` ahora aplica un guardrail de cobertura: si el cambio deja `JobProfiles` referenciando una combinacion `salaryClass + salaryScale` sin linea activa para su fecha efectiva, responde `SALARY_TABULATOR_JOB_PROFILE_COVERAGE_CONFLICT` (`409`) y revierte la aprobacion.
+- `POST /salary-tabulator/change-requests` crea una solicitud con `items[]`; cada item usa el mismo contrato de linea que el `PUT`, incluyendo `changeType`. No recibe `reason`; el backend conserva una razon interna por defecto.
 
 #### 5.9.4 Autorizacion observable
 

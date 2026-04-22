@@ -117,6 +117,7 @@ internal sealed class SalaryTabulatorChangeRequestConfiguration : IEntityTypeCon
             .HasMaxLength(20);
 
         builder.Property(request => request.EffectiveFromUtc).HasColumnName("effective_from_utc");
+        builder.Property(request => request.EffectiveToUtc).HasColumnName("effective_to_utc");
         builder.Property(request => request.RequestedByUserId).HasColumnName("requested_by_user_id");
         builder.Property(request => request.SubmittedAtUtc).HasColumnName("submitted_at_utc");
         builder.Property(request => request.DecidedByUserId).HasColumnName("decided_by_user_id");
