@@ -23,7 +23,7 @@ Salvedad actual: `job-catalogs` permite listar, crear, activar e inactivar items
 | Comportamientos | `job-catalogs/Behavior` | Conductas observables atomicas. |
 | Piramide ocupacional | `occupational-pyramid-levels` | Niveles jerarquicos del puesto. |
 | Conductas esperadas | `competency-conducts` | Une competencia + tipo + nivel + descripcion. |
-| Matriz del puesto | `job-profiles/{id}/competency-matrix` | Asocia expectativas al perfil de puesto. |
+| Matriz del puesto | `job-profiles/{id}` / `competencies` | Asocia expectativas al perfil de puesto. |
 
 ## Permisos
 
@@ -193,6 +193,8 @@ GET /api/v1/companies/{companyId}/competency-conducts?isActive=true&page=1&pageS
 GET /api/v1/companies/{companyId}/competency-conducts?competencyId={competencyId}&competencyTypeId={typeId}&behaviorLevelId={levelId}
 ```
 
+Cuando la consulta usa filtros de combinacion, `competencyId`, `competencyTypeId` y `behaviorLevelId` deben enviarse juntos. La API rechaza filtros parciales para no mezclar conductas de distintos niveles de comportamiento.
+
 Crear conducta:
 
 ```http
@@ -267,23 +269,23 @@ Regla importante: este endpoint reemplaza todo el set de behaviors. Si el fronte
 
 En la pantalla de detalle del puesto se recomienda una pestana llamada `Matriz de competencias`.
 
-Al abrir la pestana:
+Al abrir la pestana, usar el detalle del perfil de puesto:
 
 ```http
-GET /api/v1/job-profiles/{jobProfileId}/competency-matrix
+GET /api/v1/job-profiles/{jobProfileId}
 ```
 
-Respuesta conceptual:
+La matriz se devuelve en la propiedad `competencies` del perfil:
 
 ```json
 {
-  "jobProfileId": "id-job-profile",
-  "jobProfileCode": "JP-002",
-  "jobProfileTitle": "Analista de RRHH",
-  "jobProfileStatus": "Draft",
-  "jobProfileVersion": 22,
+  "id": "id-job-profile",
+  "code": "JP-002",
+  "title": "Analista de RRHH",
+  "status": "Draft",
+  "version": 22,
   "concurrencyToken": "matrix-concurrency-token",
-  "items": []
+  "competencies": []
 }
 ```
 
@@ -305,6 +307,15 @@ Guardar matriz:
 PUT /api/v1/job-profiles/{jobProfileId}/competency-matrix
 Content-Type: application/json
 ```
+
+Tambien puede enviarse como parte del guardado general del perfil:
+
+```http
+PUT /api/v1/job-profiles/{jobProfileId}
+Content-Type: application/json
+```
+
+En ese caso, la propiedad `competencies` representa la matriz y usa IDs publicos de nivel, competencia, tipo, nivel de comportamiento y conductas. No se envia `name`, porque el backend resuelve los nombres desde los catalogos.
 
 ```json
 {
@@ -345,6 +356,7 @@ Reglas importantes:
 - Cada conducta seleccionada debe pertenecer exactamente a la misma competencia, tipo y nivel declarados en el item.
 - Si el perfil esta archivado, la API no permite modificar la matriz.
 - Al guardar la matriz, el backend incrementa la version del `JobProfile` y regenera el `ConcurrencyToken`.
+- El `GET /api/v1/job-profiles/{jobProfileId}/competency-matrix` ya no forma parte del contrato; leer desde `GET /api/v1/job-profiles/{jobProfileId}`.
 
 ### 6. Exportar matriz
 

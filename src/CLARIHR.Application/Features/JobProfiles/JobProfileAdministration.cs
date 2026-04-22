@@ -50,10 +50,26 @@ public sealed record JobProfileRelationResponse(
     int SortOrder);
 
 public sealed record JobProfileCompetencyResponse(
-    Guid? CatalogItemId,
-    string Name,
-    string? ExpectedLevel,
-    string? Notes,
+    Guid OccupationalPyramidLevelId,
+    string OccupationalPyramidLevelCode,
+    string OccupationalPyramidLevelName,
+    int OccupationalPyramidLevelOrder,
+    Guid CompetencyId,
+    string CompetencyCode,
+    string CompetencyName,
+    Guid CompetencyTypeId,
+    string CompetencyTypeCode,
+    string CompetencyTypeName,
+    Guid BehaviorLevelId,
+    string BehaviorLevelCode,
+    string BehaviorLevelName,
+    string? ExpectedEvidence,
+    int SortOrder,
+    IReadOnlyCollection<JobProfileCompetencyConductResponse> Conducts);
+
+public sealed record JobProfileCompetencyConductResponse(
+    Guid ConductId,
+    string Description,
     int SortOrder);
 
 public sealed record JobProfileTrainingResponse(
@@ -2377,7 +2393,7 @@ internal static class JobProfileCsvExporter
             $"Relation,{Escape(item.RelationType.ToString())},{Escape(item.Counterpart)},{Escape(item.Notes)},{Escape(item.CatalogItemId?.ToString())},{item.SortOrder}"));
 
         lines.AddRange(profile.Competencies.Select(item =>
-            $"Competency,,{Escape(item.Name)},{Escape(item.ExpectedLevel)},{Escape(item.Notes)},{item.SortOrder}"));
+            $"Competency,{Escape(item.CompetencyTypeName)},{Escape(item.CompetencyName)},{Escape(item.BehaviorLevelName)},{Escape(item.ExpectedEvidence)},{item.SortOrder}"));
 
         lines.AddRange(profile.Trainings.Select(item =>
             $"Training,,{Escape(item.Name)},{Escape(item.Notes)},,{item.SortOrder}"));

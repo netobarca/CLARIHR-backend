@@ -332,6 +332,17 @@ internal sealed class SearchCompetencyConductsQueryValidator : AbstractValidator
         RuleFor(query => query.CompetencyId).NotEqual(Guid.Empty).When(static query => query.CompetencyId.HasValue);
         RuleFor(query => query.CompetencyTypeId).NotEqual(Guid.Empty).When(static query => query.CompetencyTypeId.HasValue);
         RuleFor(query => query.BehaviorLevelId).NotEqual(Guid.Empty).When(static query => query.BehaviorLevelId.HasValue);
+        RuleFor(query => query)
+            .Must(static query =>
+            {
+                var selectedFilters = 0;
+                selectedFilters += query.CompetencyId.HasValue ? 1 : 0;
+                selectedFilters += query.CompetencyTypeId.HasValue ? 1 : 0;
+                selectedFilters += query.BehaviorLevelId.HasValue ? 1 : 0;
+
+                return selectedFilters is 0 or 3;
+            })
+            .WithMessage("CompetencyId, CompetencyTypeId and BehaviorLevelId must be provided together.");
         RuleFor(query => query.Search).MaximumLength(150);
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, CompetencyFrameworkValidationRules.MaxPageSize);

@@ -1288,4 +1288,10 @@
   <data name="validation.message.resourcekey_is_not_supported_for_report_exports" xml:space="preserve">
     <value>ResourceKey is not supported for report exports.</value>
   </data>
+  <data name="validation.message.a_salary_tabulator_line_or_salary_class_reference_is_required_for_compensation" xml:space="preserve">
+    <value>A salary tabulator line or salary class reference is required for compensation.</value>
+  </data>
+  <data name="validation.message.competencyid_competencytypeid_and_behaviorlevelid_must_be_provided_together" xml:space="preserve">
+    <value>CompetencyId, CompetencyTypeId and BehaviorLevelId must be provided together.</value>
+  </data>
 </root>

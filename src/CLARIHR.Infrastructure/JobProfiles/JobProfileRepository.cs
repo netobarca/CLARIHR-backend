@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.JobProfiles;
+using CLARIHR.Domain.CompetencyFramework;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -309,16 +310,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 item.SortOrder))
             .ToArray();
 
-        var competencyItems = profile.Competencies
-            .OrderBy(item => item.SortOrder)
-            .ThenBy(item => item.Name)
-            .Select(item => new JobProfileCompetencyResponse(
-                item.CatalogItem?.PublicId,
-                item.Name,
-                item.ExpectedLevel,
-                item.Notes,
-                item.SortOrder))
-            .ToArray();
+        var competencyItems = await GetCompetencyMatrixItemsAsync(profile.Id, cancellationToken);
 
         var trainingItems = profile.Trainings
             .OrderBy(item => item.SortOrder)
@@ -477,6 +469,83 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
 
     private static Guid? ResolveCatalogPublicId(long? internalId, IReadOnlyDictionary<long, Guid> lookup) =>
         internalId.HasValue && lookup.TryGetValue(internalId.Value, out var publicId) ? publicId : null;
+
+    private async Task<IReadOnlyCollection<JobProfileCompetencyResponse>> GetCompetencyMatrixItemsAsync(
+        long jobProfileInternalId,
+        CancellationToken cancellationToken)
+    {
+        var rows = await
+            (from expectation in dbContext.Set<JobProfileCompetencyExpectation>().AsNoTracking()
+             join level in dbContext.Set<OccupationalPyramidLevel>().AsNoTracking() on expectation.OccupationalPyramidLevelId equals level.Id
+             join competency in dbContext.JobCatalogItems.AsNoTracking() on expectation.CompetencyCatalogItemId equals competency.Id
+             join competencyType in dbContext.JobCatalogItems.AsNoTracking() on expectation.CompetencyTypeCatalogItemId equals competencyType.Id
+             join behaviorLevel in dbContext.JobCatalogItems.AsNoTracking() on expectation.BehaviorLevelCatalogItemId equals behaviorLevel.Id
+             join link in dbContext.Set<JobProfileCompetencyExpectationConduct>().AsNoTracking()
+                 on expectation.Id equals link.JobProfileCompetencyExpectationId into conductLinks
+             from link in conductLinks.DefaultIfEmpty()
+             join conduct in dbContext.Set<CompetencyConduct>().AsNoTracking()
+                 on link.CompetencyConductId equals conduct.Id into conductJoin
+             from conduct in conductJoin.DefaultIfEmpty()
+             where expectation.JobProfileId == jobProfileInternalId
+             orderby expectation.SortOrder, link.SortOrder
+             select new
+             {
+                 ExpectationId = expectation.Id,
+                 expectation.SortOrder,
+                 expectation.ExpectedEvidence,
+                 LevelId = level.PublicId,
+                 LevelCode = level.Code,
+                 LevelName = level.Name,
+                 level.LevelOrder,
+                 CompetencyId = competency.PublicId,
+                 CompetencyCode = competency.Code,
+                 CompetencyName = competency.Name,
+                 CompetencyTypeId = competencyType.PublicId,
+                 CompetencyTypeCode = competencyType.Code,
+                 CompetencyTypeName = competencyType.Name,
+                 BehaviorLevelId = behaviorLevel.PublicId,
+                 BehaviorLevelCode = behaviorLevel.Code,
+                 BehaviorLevelName = behaviorLevel.Name,
+                 ConductId = conduct != null ? conduct.PublicId : (Guid?)null,
+                 ConductDescription = conduct != null ? conduct.Description : null,
+                 ConductSortOrder = link != null ? link.SortOrder : (int?)null
+             })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(row => row.ExpectationId)
+            .OrderBy(group => group.First().SortOrder)
+            .Select(group =>
+            {
+                var head = group.First();
+                var conducts = group
+                    .Where(row => row.ConductId.HasValue)
+                    .Select(row => new JobProfileCompetencyConductResponse(
+                        row.ConductId!.Value,
+                        row.ConductDescription!,
+                        row.ConductSortOrder ?? 0))
+                    .ToArray();
+
+                return new JobProfileCompetencyResponse(
+                    head.LevelId,
+                    head.LevelCode,
+                    head.LevelName,
+                    head.LevelOrder,
+                    head.CompetencyId,
+                    head.CompetencyCode,
+                    head.CompetencyName,
+                    head.CompetencyTypeId,
+                    head.CompetencyTypeCode,
+                    head.CompetencyTypeName,
+                    head.BehaviorLevelId,
+                    head.BehaviorLevelCode,
+                    head.BehaviorLevelName,
+                    head.ExpectedEvidence,
+                    head.SortOrder,
+                    conducts);
+            })
+            .ToArray();
+    }
 
     public async Task<JobProfileVacancyTemplateResponse?> GetVacancyTemplateByIdAsync(Guid profileId, CancellationToken cancellationToken)
     {
