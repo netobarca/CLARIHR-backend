@@ -4581,11 +4581,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(conductWithBehaviors);
         Assert.Single(conductWithBehaviors!.Behaviors);
 
-        var matrixBeforeResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix");
-        matrixBeforeResponse.EnsureSuccessStatusCode();
-        var matrixBefore = await matrixBeforeResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions);
-        Assert.NotNull(matrixBefore);
-        Assert.Empty(matrixBefore!.Items);
+        var profileBeforeResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}");
+        profileBeforeResponse.EnsureSuccessStatusCode();
+        var profileBefore = await profileBeforeResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+        Assert.NotNull(profileBefore);
+        Assert.Empty(profileBefore!.Competencies);
 
         var matrixUpdateResponse = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix", new
         {
@@ -4602,7 +4602,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                     sortOrder = 1
                 }
             },
-            concurrencyToken = matrixBefore.ConcurrencyToken
+            concurrencyToken = profileBefore.ConcurrencyToken
         });
         matrixUpdateResponse.EnsureSuccessStatusCode();
         var matrixUpdated = await matrixUpdateResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions);
@@ -4612,6 +4612,15 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(level.Id, matrixItem.OccupationalPyramidLevelId);
         Assert.Equal(competency.Id, matrixItem.CompetencyId);
         Assert.Single(matrixItem.Conducts);
+
+        var profileAfterResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}");
+        profileAfterResponse.EnsureSuccessStatusCode();
+        var profileAfter = await profileAfterResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+        Assert.NotNull(profileAfter);
+        var competencyItem = Assert.Single(profileAfter!.Competencies);
+        Assert.Equal(level.Id, competencyItem.OccupationalPyramidLevelId);
+        Assert.Equal(competency.Id, competencyItem.CompetencyId);
+        Assert.Single(competencyItem.Conducts);
 
         var csvResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/export?format=csv");
         csvResponse.EnsureSuccessStatusCode();
@@ -4657,6 +4666,135 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task JobProfiles_Update_WithCompetencyMatrixItems_ShouldNotRequireCompetencyName()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-PUT", "Perfil Competencias PUT");
+        var detailResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}");
+        detailResponse.EnsureSuccessStatusCode();
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+        Assert.NotNull(detail);
+
+        var competency = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-PUT-001", "Comunicacion efectiva");
+        var competencyType = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.CompetencyType, "CTYPE-PUT-001", "Gerencial");
+        var behaviorLevel = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.BehaviorLevel, "BLEVEL-PUT-001", "Basico");
+
+        var levelResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/occupational-pyramid-levels", new
+        {
+            code = "OPL-PUT-001",
+            name = "Analista",
+            levelOrder = 30,
+            description = (string?)null
+        });
+        levelResponse.EnsureSuccessStatusCode();
+        var level = await levelResponse.Content.ReadFromJsonAsync<OccupationalPyramidLevelItem>(JsonOptions);
+        Assert.NotNull(level);
+
+        var conduct = await CreateCompetencyConductAsync(
+            client,
+            scenario.TenantId,
+            competency.Id,
+            competencyType.Id,
+            behaviorLevel.Id,
+            "Comunica informacion clara.",
+            1);
+
+        var updateResponse = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
+        {
+            code = detail!.Code,
+            title = detail.Title,
+            objective = detail.Objective,
+            orgUnitPublicId = detail.OrgUnitId,
+            reportsToJobProfilePublicId = detail.ReportsToJobProfileId,
+            positionCategoryPublicId = detail.PositionCategoryId,
+            strategicObjectiveCatalogItemPublicId = detail.StrategicObjectiveCatalogItemId,
+            assignedWorkEquipmentCatalogItemPublicId = detail.AssignedWorkEquipmentCatalogItemId,
+            responsibilityCatalogItemPublicId = detail.ResponsibilityCatalogItemId,
+            decisionScope = detail.DecisionScope,
+            assignedResources = detail.AssignedResources,
+            responsibilities = detail.Responsibilities,
+            benefitsSummary = detail.BenefitsSummary,
+            workingConditionSummary = detail.WorkingConditionSummary,
+            marketSalaryReference = detail.MarketSalaryReference,
+            valuationNotes = detail.ValuationNotes,
+            effectiveFromUtc = detail.EffectiveFromUtc,
+            effectiveToUtc = detail.EffectiveToUtc,
+            allowInlineCatalogCreate = false,
+            requirements = Array.Empty<object>(),
+            functions = Array.Empty<object>(),
+            relations = Array.Empty<object>(),
+            competencies = new[]
+            {
+                new
+                {
+                    occupationalPyramidLevelPublicId = level!.Id,
+                    competencyPublicId = competency.Id,
+                    competencyTypePublicId = competencyType.Id,
+                    behaviorLevelPublicId = behaviorLevel.Id,
+                    expectedEvidence = "Esperado",
+                    sortOrder = 1,
+                    conductPublicIds = new[] { conduct.Id }
+                }
+            },
+            trainings = Array.Empty<object>(),
+            compensation = (object?)null,
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = Array.Empty<object>(),
+            concurrencyToken = detail.ConcurrencyToken
+        });
+
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+
+        Assert.NotNull(updated);
+        var competencyItem = Assert.Single(updated!.Competencies);
+        Assert.Equal(competency.Id, competencyItem.CompetencyId);
+        Assert.Equal(behaviorLevel.Id, competencyItem.BehaviorLevelId);
+        Assert.Single(competencyItem.Conducts);
+    }
+
+    [Fact]
+    public async Task CompetencyConducts_Search_WithCombinationFilters_ShouldReturnOnlyExactBehaviorLevel()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var competency = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-COM-EF", "Comunicacion efectiva");
+        var competencyType = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.CompetencyType, "CTYPE-GER", "Gerencial");
+        var basicLevel = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.BehaviorLevel, "BLEVEL-BAS", "Basico");
+        var intermediateLevel = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.BehaviorLevel, "BLEVEL-INT", "Intermedio");
+
+        await CreateCompetencyConductAsync(client, scenario.TenantId, competency.Id, competencyType.Id, basicLevel.Id, "La comunicacion efectiva para gerencial basico", 1);
+        await CreateCompetencyConductAsync(client, scenario.TenantId, competency.Id, competencyType.Id, basicLevel.Id, "Se comunica bien con sus subalternos", 2);
+        await CreateCompetencyConductAsync(client, scenario.TenantId, competency.Id, competencyType.Id, basicLevel.Id, "Se comunica bien con sus superiores", 3);
+        await CreateCompetencyConductAsync(client, scenario.TenantId, competency.Id, competencyType.Id, intermediateLevel.Id, "Seguimiento A", 4);
+        await CreateCompetencyConductAsync(client, scenario.TenantId, competency.Id, competencyType.Id, intermediateLevel.Id, "Seguimiento B", 5);
+
+        var basicResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/competency-conducts?competencyId={competency.Id}&competencyTypeId={competencyType.Id}&behaviorLevelId={basicLevel.Id}&isActive=true&page=1&pageSize=100");
+        basicResponse.EnsureSuccessStatusCode();
+        var basicPayload = await basicResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<CompetencyConductListItem>>(JsonOptions);
+
+        Assert.NotNull(basicPayload);
+        Assert.Equal(3, basicPayload!.TotalCount);
+        Assert.All(basicPayload.Items, item => Assert.Equal(basicLevel.Id, item.BehaviorLevelId));
+        Assert.DoesNotContain(basicPayload.Items, static item => item.Description is "Seguimiento A" or "Seguimiento B");
+
+        var intermediateResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/competency-conducts?competencyId={competency.Id}&competencyTypeId={competencyType.Id}&behaviorLevelId={intermediateLevel.Id}&isActive=true&page=1&pageSize=100");
+        intermediateResponse.EnsureSuccessStatusCode();
+        var intermediatePayload = await intermediateResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<CompetencyConductListItem>>(JsonOptions);
+
+        Assert.NotNull(intermediatePayload);
+        Assert.Equal(2, intermediatePayload!.TotalCount);
+        Assert.All(intermediatePayload.Items, item => Assert.Equal(intermediateLevel.Id, item.BehaviorLevelId));
+
+        var partialFilterResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/competency-conducts?competencyId={competency.Id}&competencyTypeId={competencyType.Id}&isActive=true&page=1&pageSize=100");
+        await AssertProblemDetailsAsync(partialFilterResponse, HttpStatusCode.BadRequest, "common.validation");
     }
 
     [Fact]
@@ -6781,6 +6919,30 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return payload!;
     }
 
+    private async Task<CompetencyConductItem> CreateCompetencyConductAsync(
+        HttpClient client,
+        Guid companyId,
+        Guid competencyId,
+        Guid competencyTypeId,
+        Guid behaviorLevelId,
+        string description,
+        int sortOrder)
+    {
+        var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/competency-conducts", new
+        {
+            competencyPublicId = competencyId,
+            competencyTypePublicId = competencyTypeId,
+            behaviorLevelPublicId = behaviorLevelId,
+            description,
+            sortOrder
+        });
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions);
+        Assert.NotNull(payload);
+        return payload!;
+    }
+
     private async Task<PositionDescriptionCatalogItem> EnsurePositionDescriptionCatalogItemAsync(
         HttpClient client,
         Guid companyId,
@@ -7673,6 +7835,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         bool IsActive,
         IReadOnlyCollection<CompetencyConductBehaviorItem> Behaviors,
         Guid ConcurrencyToken);
+
+    private sealed record CompetencyConductListItem(
+        Guid Id,
+        Guid CompanyId,
+        Guid CompetencyId,
+        Guid CompetencyTypeId,
+        Guid BehaviorLevelId,
+        string Description,
+        int SortOrder,
+        bool IsActive);
 
     private sealed record JobProfileCompetencyMatrixConductItem(
         Guid ConductId,

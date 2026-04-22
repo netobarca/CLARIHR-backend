@@ -2628,7 +2628,6 @@ Route family:
 - `PATCH /api/v1/competency-conducts/{id}/activate`
 - `PATCH /api/v1/competency-conducts/{id}/inactivate`
 - `PUT /api/v1/competency-conducts/{id}/behaviors`
-- `GET /api/v1/job-profiles/{id}/competency-matrix`
 - `PUT /api/v1/job-profiles/{id}/competency-matrix`
 - `GET /api/v1/job-profiles/{id}/competency-matrix/export`
 
@@ -2645,6 +2644,7 @@ Observaciones funcionales:
 - `create/update` de niveles exigen unicidad de `code` y unicidad de `LevelOrder`.
 - `inactivate` de nivel falla si matrices activas aun lo estan usando.
 - `competency-conducts` soporta filtros `competencyId`, `competencyTypeId`, `behaviorLevelId`, `isActive`, `q`, `page`, `pageSize` e `includeAllowedActions`.
+- Si se usa cualquiera de `competencyId`, `competencyTypeId` o `behaviorLevelId`, deben enviarse los tres para evitar resultados ambiguos entre niveles de comportamiento.
 - `q` busca por descripcion del conducto, por `code/name` de la competencia y por `code` de `competencyType` y `behaviorLevel`.
 - el orden observable de conductos es `SortOrder`, luego `Description`.
 - `create/update` de conductos resuelven `Competency`, `CompetencyType` y `BehaviorLevel` desde `job-catalogs`, siempre como referencias activas.
@@ -2653,8 +2653,9 @@ Observaciones funcionales:
 - en ese endpoint no se permiten `BehaviorId` duplicados dentro de la misma solicitud.
 - cada `BehaviorId` debe existir como item activo de `JobCatalogCategory.Behavior`.
 - `inactivate` de conducto falla si el conducto sigue vinculado a expectativas activas de perfiles.
-- `GET /job-profiles/{id}/competency-matrix` devuelve `JobProfileId`, `JobProfileCode`, `JobProfileTitle`, `JobProfileStatus`, `JobProfileVersion`, `ConcurrencyToken` e `Items`.
+- `GET /job-profiles/{id}` devuelve la matriz de competencias en la propiedad `competencies`.
 - `PUT /job-profiles/{id}/competency-matrix` es de reemplazo total; una lista vacia limpia la matriz del perfil.
+- `PUT /job-profiles/{id}` tambien acepta `competencies` como matriz de competencias; cada item usa IDs publicos y no requiere `name`.
 - cada item de matriz debe ser unico por combinacion `OccupationalPyramidLevelId + CompetencyId + CompetencyTypeId + BehaviorLevelId`.
 - dentro de un item, `ConductIds` tambien deben ser unicos.
 - cada conducto referenciado debe pertenecer exactamente al mismo eje `competency + competencyType + behaviorLevel` declarado en el item.

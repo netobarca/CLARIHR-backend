@@ -136,9 +136,9 @@ public sealed class CompetencyFrameworkController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<PagedResponse<CompetencyConductListItemResponse>>> SearchCompetencyConducts(
         Guid companyId,
-        [FromQuery] Guid? competencyId,
-        [FromQuery] Guid? competencyTypeId,
-        [FromQuery] Guid? behaviorLevelId,
+        [FromQuery(Name = "competencyId")] Guid? competencyId,
+        [FromQuery(Name = "competencyTypeId")] Guid? competencyTypeId,
+        [FromQuery(Name = "behaviorLevelId")] Guid? behaviorLevelId,
         [FromQuery] bool? isActive,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
@@ -285,19 +285,6 @@ public sealed class CompetencyFrameworkController(
                 request.ConcurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
-    }
-
-    [HttpGet("api/v1/job-profiles/{id:guid}/competency-matrix")]
-    [ProducesResponseType<JobProfileCompetencyMatrixResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<JobProfileCompetencyMatrixResponse>> GetJobProfileCompetencyMatrix(
-        Guid id,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetJobProfileCompetencyMatrixQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 

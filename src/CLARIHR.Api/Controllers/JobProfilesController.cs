@@ -8,6 +8,7 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.CompetencyFramework;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Domain.JobProfiles;
@@ -213,7 +214,7 @@ public sealed class JobProfilesController(
                 MapRequirements(request.Requirements),
                 MapFunctions(request.Functions),
                 MapRelations(request.Relations),
-                MapCompetencies(request.Competencies),
+                [],
                 MapTrainings(request.Trainings),
                 MapCompensation(request.ResolveCompensation()),
                 MapBenefits(request.Benefits),
@@ -221,9 +222,15 @@ public sealed class JobProfilesController(
                 MapDependentPositions(request.DependentPositions)),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(Result<JobProfileResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(Result<JobProfileResponse>.Failure(result.Error));
+        }
+
+        var profile = await ApplyCompetencyMatrixAsync(result.Value, request.Competencies, cancellationToken);
+        return profile.IsFailure
+            ? this.ToActionResult(profile)
+            : StatusCode(StatusCodes.Status201Created, profile.Value);
     }
 
     [HttpPut("api/v1/job-profiles/{id:guid}")]
@@ -264,7 +271,7 @@ public sealed class JobProfilesController(
                 MapRequirements(request.Requirements),
                 MapFunctions(request.Functions),
                 MapRelations(request.Relations),
-                MapCompetencies(request.Competencies),
+                [],
                 MapTrainings(request.Trainings),
                 MapCompensation(request.ResolveCompensation()),
                 MapBenefits(request.Benefits),
@@ -273,7 +280,13 @@ public sealed class JobProfilesController(
                 request.ConcurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result);
+        }
+
+        var profile = await ApplyCompetencyMatrixAsync(result.Value, request.Competencies, cancellationToken);
+        return this.ToActionResult(profile);
     }
 
     [HttpPatch("api/v1/job-profiles/{id:guid}/publish")]
@@ -345,16 +358,37 @@ public sealed class JobProfilesController(
                 value.SortOrder))
             .ToArray() ?? [];
 
-    private static IReadOnlyCollection<JobProfileCompetencyInput> MapCompetencies(IReadOnlyCollection<JobProfileCompetencyRequest>? values) =>
-        values?.Select(value => new JobProfileCompetencyInput(
-                value.ResolvedCatalogItemPublicId,
-                value.CatalogCode,
-                value.CatalogName,
-                value.Name,
-                value.ExpectedLevel,
-                value.Notes,
-                value.SortOrder))
-            .ToArray() ?? [];
+    private async Task<Result<JobProfileResponse>> ApplyCompetencyMatrixAsync(
+        JobProfileResponse profile,
+        IReadOnlyCollection<JobProfileCompetencyRequest>? competencies,
+        CancellationToken cancellationToken)
+    {
+        if (competencies is null)
+        {
+            return Result<JobProfileResponse>.Success(profile);
+        }
+
+        var matrixResult = await commandDispatcher.SendAsync(
+            new UpdateJobProfileCompetencyMatrixCommand(
+                profile.Id,
+                competencies.Select(item => new JobProfileCompetencyMatrixItemInput(
+                        item.OccupationalPyramidLevelPublicId,
+                        item.CompetencyPublicId,
+                        item.CompetencyTypePublicId,
+                        item.BehaviorLevelPublicId,
+                        item.ConductPublicIds ?? [],
+                        item.ExpectedEvidence,
+                        item.SortOrder))
+                    .ToArray(),
+                profile.ConcurrencyToken),
+            cancellationToken);
+        if (matrixResult.IsFailure)
+        {
+            return Result<JobProfileResponse>.Failure(matrixResult.Error);
+        }
+
+        return await queryDispatcher.SendAsync(new GetJobProfileByIdQuery(profile.Id), cancellationToken);
+    }
 
     private static IReadOnlyCollection<JobProfileTrainingInput> MapTrainings(IReadOnlyCollection<JobProfileTrainingRequest>? values) =>
         values?.Select(value => new JobProfileTrainingInput(
@@ -559,17 +593,13 @@ public sealed class JobProfilesController(
 
     public sealed class JobProfileCompetencyRequest
     {
-        public Guid? CatalogItemPublicId { get; init; }
-        public Guid? CatalogItemId { get; init; }
-        public string? CatalogCode { get; init; }
-        public string? CatalogName { get; init; }
-        public string Name { get; init; } = string.Empty;
-        public string? ExpectedLevel { get; init; }
-        public string? Notes { get; init; }
+        public Guid OccupationalPyramidLevelPublicId { get; init; }
+        public Guid CompetencyPublicId { get; init; }
+        public Guid CompetencyTypePublicId { get; init; }
+        public Guid BehaviorLevelPublicId { get; init; }
+        public string? ExpectedEvidence { get; init; }
         public int SortOrder { get; init; }
-
-        [JsonIgnore]
-        public Guid? ResolvedCatalogItemPublicId => CatalogItemPublicId ?? CatalogItemId;
+        public IReadOnlyCollection<Guid>? ConductPublicIds { get; init; }
     }
 
     public sealed class JobProfileTrainingRequest
