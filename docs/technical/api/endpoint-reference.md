@@ -2425,6 +2425,9 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - En `PositionSlots`, el tipo de contrato no lo envia el cliente: se deriva desde `JobProfile -> PositionCategory -> PositionCategoryClassification -> PositionContractType`.
 - `PATCH /salary-tabulator/change-requests/{id}/approve` ahora aplica un guardrail de cobertura: si el cambio deja `JobProfiles` referenciando una combinacion `salaryClass + salaryScale` sin linea activa para su fecha efectiva, responde `SALARY_TABULATOR_JOB_PROFILE_COVERAGE_CONFLICT` (`409`) y revierte la aprobacion.
 - `POST /salary-tabulator/change-requests` crea una solicitud con `items[]`; cada item usa el mismo contrato de linea que el `PUT`, incluyendo `changeType`. No recibe `reason`; el backend conserva una razon interna por defecto.
+- `allowedActions` conserva `canEdit`, `canDelete`, `canArchive`, `canActivate`, `canInactivate` y `reasons`, y agrega flags de workflow `canSubmit`, `canApprove`, `canReject`, `canCancel`, `canPublish` y `canFinalize`.
+- En tabulador salarial, `allowedActions.actionPermissions[]` expone por accion `{ action, permissionCode, allowed, reasons }`; `SalaryTabulator.Request` respalda `edit`, `submit` y `cancel`, mientras `SalaryTabulator.Approve` respalda `approve` y `reject`.
+- En `change requests`, `Draft` habilita `canSubmit/canCancel` para usuarios con `SalaryTabulator.Request`; `Submitted` habilita `canApprove/canReject` para usuarios con `SalaryTabulator.Approve`, pero `canApprove=false` cuando el usuario actual es el solicitante.
 
 #### 5.9.4 Autorizacion observable
 
