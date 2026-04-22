@@ -15,6 +15,7 @@ public sealed class SalaryTabulatorChangeRequest : TenantEntity
         string requestNumber,
         string reason,
         DateTime effectiveFromUtc,
+        DateTime? effectiveToUtc,
         Guid requestedByUserId,
         IReadOnlyCollection<SalaryTabulatorChangeRequestItem> items)
     {
@@ -37,6 +38,7 @@ public sealed class SalaryTabulatorChangeRequest : TenantEntity
         RequestNumber = SalaryTabulatorNormalization.Clean(requestNumber, nameof(requestNumber));
         Reason = SalaryTabulatorNormalization.Clean(reason, nameof(reason));
         EffectiveFromUtc = effectiveFromUtc;
+        EffectiveToUtc = NormalizeAndValidateEffectiveTo(effectiveFromUtc, effectiveToUtc);
         RequestedByUserId = requestedByUserId;
         Status = SalaryTabulatorChangeRequestStatus.Draft;
         ConcurrencyToken = Guid.NewGuid();
@@ -51,6 +53,8 @@ public sealed class SalaryTabulatorChangeRequest : TenantEntity
     public SalaryTabulatorChangeRequestStatus Status { get; private set; }
 
     public DateTime EffectiveFromUtc { get; private set; }
+
+    public DateTime? EffectiveToUtc { get; private set; }
 
     public Guid RequestedByUserId { get; private set; }
 
@@ -70,6 +74,7 @@ public sealed class SalaryTabulatorChangeRequest : TenantEntity
         string requestNumber,
         string reason,
         DateTime effectiveFromUtc,
+        DateTime? effectiveToUtc,
         Guid requestedByUserId,
         IReadOnlyCollection<SalaryTabulatorChangeRequestItem> items) =>
         new(
@@ -77,12 +82,14 @@ public sealed class SalaryTabulatorChangeRequest : TenantEntity
             requestNumber,
             reason,
             effectiveFromUtc,
+            effectiveToUtc,
             requestedByUserId,
             items);
 
     public void UpdateDraft(
         string reason,
         DateTime effectiveFromUtc,
+        DateTime? effectiveToUtc,
         IReadOnlyCollection<SalaryTabulatorChangeRequestItem> items)
     {
         EnsureDraft();
@@ -95,6 +102,7 @@ public sealed class SalaryTabulatorChangeRequest : TenantEntity
         EffectiveFromUtc = effectiveFromUtc == default
             ? throw new InvalidOperationException("EffectiveFromUtc is required.")
             : effectiveFromUtc;
+        EffectiveToUtc = NormalizeAndValidateEffectiveTo(EffectiveFromUtc, effectiveToUtc);
 
         _items.Clear();
         _items.AddRange(items);
@@ -173,6 +181,18 @@ public sealed class SalaryTabulatorChangeRequest : TenantEntity
         {
             throw new InvalidOperationException("Only draft change requests can be modified.");
         }
+    }
+
+    private static DateTime? NormalizeAndValidateEffectiveTo(DateTime effectiveFromUtc, DateTime? effectiveToUtc)
+    {
+        var normalizedEffectiveFrom = effectiveFromUtc.Date;
+        var normalizedEffectiveTo = effectiveToUtc?.Date;
+        if (normalizedEffectiveTo.HasValue && normalizedEffectiveTo.Value < normalizedEffectiveFrom)
+        {
+            throw new InvalidOperationException("EffectiveToUtc cannot be less than EffectiveFromUtc.");
+        }
+
+        return normalizedEffectiveTo;
     }
 
     private void EnsureSubmitted()

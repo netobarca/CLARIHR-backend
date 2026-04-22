@@ -556,6 +556,7 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
             request.Reason,
             request.Status,
             request.EffectiveFromUtc,
+            request.EffectiveToUtc,
             request.RequestedByUserId,
             request.SubmittedAtUtc,
             request.DecidedByUserId,

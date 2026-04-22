@@ -175,9 +175,9 @@ public sealed class SalaryTabulatorController(
         var result = await commandDispatcher.SendAsync(
             new CreateSalaryTabulatorChangeRequestCommand(
                 companyId,
-                request.Reason,
                 request.EffectiveFromUtc,
-                MapItems(request.Items)),
+                request.EffectiveToUtc,
+                MapCreateItems(request)),
             cancellationToken);
 
         return result.IsFailure
@@ -203,6 +203,7 @@ public sealed class SalaryTabulatorController(
                 id,
                 request.Reason,
                 request.EffectiveFromUtc,
+                request.EffectiveToUtc,
                 MapItems(request.Items),
                 request.ConcurrencyToken),
             cancellationToken);
@@ -288,6 +289,9 @@ public sealed class SalaryTabulatorController(
         return this.ToActionResult(result);
     }
 
+    private static IReadOnlyCollection<SalaryTabulatorChangeRequestItemInput> MapCreateItems(CreateSalaryTabulatorChangeRequestRequest request)
+        => MapItems(request.Items ?? []);
+
     private static IReadOnlyCollection<SalaryTabulatorChangeRequestItemInput> MapItems(IReadOnlyCollection<SalaryTabulatorChangeRequestItemRequest> items) =>
         items.Select(item => new SalaryTabulatorChangeRequestItemInput(
                 item.SalaryClassPublicId,
@@ -300,14 +304,17 @@ public sealed class SalaryTabulatorController(
                 item.Notes))
             .ToArray();
 
-    public sealed record CreateSalaryTabulatorChangeRequestRequest(
-        string Reason,
-        DateTime EffectiveFromUtc,
-        IReadOnlyCollection<SalaryTabulatorChangeRequestItemRequest> Items);
+    public sealed class CreateSalaryTabulatorChangeRequestRequest
+    {
+        public DateTime EffectiveFromUtc { get; init; }
+        public DateTime? EffectiveToUtc { get; init; }
+        public IReadOnlyCollection<SalaryTabulatorChangeRequestItemRequest> Items { get; init; } = [];
+    }
 
     public sealed record UpdateSalaryTabulatorChangeRequestRequest(
         string Reason,
         DateTime EffectiveFromUtc,
+        DateTime? EffectiveToUtc,
         IReadOnlyCollection<SalaryTabulatorChangeRequestItemRequest> Items,
         Guid ConcurrencyToken);
 

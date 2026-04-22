@@ -1,9 +1,45 @@
+using CLARIHR.Application.Features.SalaryTabulator;
 using CLARIHR.Domain.SalaryTabulator;
 
 namespace CLARIHR.Application.UnitTests;
 
 public sealed class SalaryTabulatorDomainTests
 {
+    [Fact]
+    public void CreateSalaryTabulatorChangeRequestValidator_WhenMultipleItems_ShouldBeValid()
+    {
+        var validator = new CreateSalaryTabulatorChangeRequestCommandValidator();
+        var command = new CreateSalaryTabulatorChangeRequestCommand(
+            CompanyId: Guid.NewGuid(),
+            EffectiveFromUtc: DateTime.UtcNow.Date,
+            EffectiveToUtc: null,
+            Items:
+            [
+                new SalaryTabulatorChangeRequestItemInput(
+                    SalaryClassId: Guid.NewGuid(),
+                    SalaryScaleCode: "S1",
+                    CurrencyCode: "USD",
+                    ChangeType: SalaryTabulatorChangeType.Create,
+                    ProposedBaseAmount: 1200m,
+                    ProposedMinAmount: 1000m,
+                    ProposedMaxAmount: 1500m,
+                    Notes: "linea uno"),
+                new SalaryTabulatorChangeRequestItemInput(
+                    SalaryClassId: Guid.NewGuid(),
+                    SalaryScaleCode: "S2",
+                    CurrencyCode: "USD",
+                    ChangeType: SalaryTabulatorChangeType.Create,
+                    ProposedBaseAmount: 1400m,
+                    ProposedMinAmount: 1200m,
+                    ProposedMaxAmount: 1700m,
+                    Notes: "linea dos")
+            ]);
+
+        var result = validator.Validate(command);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors.Select(error => error.ErrorMessage)));
+    }
+
     [Fact]
     public void SalaryTabulatorLine_Create_ShouldNormalizeCodesAndInitializeVersion()
     {
@@ -76,6 +112,7 @@ public sealed class SalaryTabulatorDomainTests
             requestNumber: "STR-0001",
             reason: "revision",
             effectiveFromUtc: DateTime.UtcNow.Date,
+            effectiveToUtc: null,
             requestedByUserId: requesterId,
             items: [item]);
 
@@ -105,12 +142,13 @@ public sealed class SalaryTabulatorDomainTests
             requestNumber: "STR-0001",
             reason: "revision",
             effectiveFromUtc: DateTime.UtcNow.Date,
+            effectiveToUtc: null,
             requestedByUserId: Guid.NewGuid(),
             items: [item]);
 
         request.Submit(DateTime.UtcNow);
 
         Assert.Throws<InvalidOperationException>(() =>
-            request.UpdateDraft("new reason", DateTime.UtcNow.Date, [item]));
+            request.UpdateDraft("new reason", DateTime.UtcNow.Date, effectiveToUtc: null, items: [item]));
     }
 }

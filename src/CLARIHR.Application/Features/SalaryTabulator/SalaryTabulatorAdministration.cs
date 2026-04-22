@@ -91,6 +91,7 @@ public sealed record SalaryTabulatorChangeRequestResponse(
     string Reason,
     SalaryTabulatorChangeRequestStatus Status,
     DateTime EffectiveFromUtc,
+    DateTime? EffectiveToUtc,
     Guid RequestedByUserId,
     DateTime? SubmittedAtUtc,
     Guid? DecidedByUserId,
@@ -194,8 +195,8 @@ public sealed record GetSalaryTabulatorChangeRequestImpactQuery(Guid RequestId) 
 
 public sealed record CreateSalaryTabulatorChangeRequestCommand(
     Guid CompanyId,
-    string Reason,
     DateTime EffectiveFromUtc,
+    DateTime? EffectiveToUtc,
     IReadOnlyCollection<SalaryTabulatorChangeRequestItemInput> Items)
     : ICommand<SalaryTabulatorChangeRequestResponse>;
 
@@ -203,6 +204,7 @@ public sealed record UpdateSalaryTabulatorChangeRequestCommand(
     Guid RequestId,
     string Reason,
     DateTime EffectiveFromUtc,
+    DateTime? EffectiveToUtc,
     IReadOnlyCollection<SalaryTabulatorChangeRequestItemInput> Items,
     Guid ConcurrencyToken)
     : ICommand<SalaryTabulatorChangeRequestResponse>;
@@ -297,8 +299,10 @@ internal sealed class CreateSalaryTabulatorChangeRequestCommandValidator : Abstr
     public CreateSalaryTabulatorChangeRequestCommandValidator()
     {
         RuleFor(command => command.CompanyId).NotEmpty();
-        RuleFor(command => command.Reason).NotEmpty().MaximumLength(1000);
         RuleFor(command => command.EffectiveFromUtc).NotEqual(default(DateTime));
+        RuleFor(command => command)
+            .Must(static command => !command.EffectiveToUtc.HasValue || command.EffectiveToUtc.Value.Date >= command.EffectiveFromUtc.Date)
+            .WithMessage("EffectiveToUtc cannot be less than EffectiveFromUtc.");
         RuleFor(command => command.Items).NotEmpty();
         RuleForEach(command => command.Items).SetValidator(new SalaryTabulatorChangeRequestItemInputValidator());
     }
@@ -311,6 +315,9 @@ internal sealed class UpdateSalaryTabulatorChangeRequestCommandValidator : Abstr
         RuleFor(command => command.RequestId).NotEmpty();
         RuleFor(command => command.Reason).NotEmpty().MaximumLength(1000);
         RuleFor(command => command.EffectiveFromUtc).NotEqual(default(DateTime));
+        RuleFor(command => command)
+            .Must(static command => !command.EffectiveToUtc.HasValue || command.EffectiveToUtc.Value.Date >= command.EffectiveFromUtc.Date)
+            .WithMessage("EffectiveToUtc cannot be less than EffectiveFromUtc.");
         RuleFor(command => command.Items).NotEmpty();
         RuleForEach(command => command.Items).SetValidator(new SalaryTabulatorChangeRequestItemInputValidator());
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
@@ -781,8 +788,9 @@ internal sealed class CreateSalaryTabulatorChangeRequestCommandHandler(
         {
             request = SalaryTabulatorChangeRequest.Create(
                 SalaryTabulatorCommandSupport.GenerateRequestNumber(dateTimeProvider.UtcNow),
-                command.Reason,
+                SalaryTabulatorCommandSupport.DefaultCreateReason,
                 command.EffectiveFromUtc,
+                command.EffectiveToUtc,
                 requestedByUserId,
                 itemResult.Value);
         }
@@ -881,7 +889,7 @@ internal sealed class UpdateSalaryTabulatorChangeRequestCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            request.UpdateDraft(command.Reason, command.EffectiveFromUtc, itemResult.Value);
+            request.UpdateDraft(command.Reason, command.EffectiveFromUtc, command.EffectiveToUtc, itemResult.Value);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetChangeRequestResponseByIdAsync(request.PublicId, cancellationToken)
@@ -1057,6 +1065,7 @@ internal sealed class ApproveSalaryTabulatorChangeRequestCommandHandler(
                 var applyResult = await SalaryTabulatorCommandSupport.ApplyChangeRequestItemAsync(
                     request.TenantId,
                     request.EffectiveFromUtc.Date,
+                    request.EffectiveToUtc,
                     item,
                     repository,
                     cancellationToken);
@@ -1309,6 +1318,8 @@ internal sealed record SalaryTabulatorLineAuditPayload(
 
 internal static class SalaryTabulatorCommandSupport
 {
+    public const string DefaultCreateReason = "Salary tabulator line creation request.";
+
     public static async Task<Result<IReadOnlyCollection<SalaryTabulatorChangeRequestItem>>> BuildItemsAsync(
         Guid tenantId,
         DateTime effectiveFromUtc,
@@ -1378,6 +1389,7 @@ internal static class SalaryTabulatorCommandSupport
     public static async Task<Result<IReadOnlyCollection<SalaryTabulatorLineAuditPayload>>> ApplyChangeRequestItemAsync(
         Guid tenantId,
         DateTime effectiveFromUtc,
+        DateTime? effectiveToUtc,
         SalaryTabulatorChangeRequestItem item,
         ISalaryTabulatorRepository repository,
         CancellationToken cancellationToken)
@@ -1414,7 +1426,7 @@ internal static class SalaryTabulatorCommandSupport
                     item.ProposedMinAmount,
                     item.ProposedMaxAmount,
                     effectiveFromUtc,
-                    effectiveToUtc: null,
+                    effectiveToUtc,
                     item.Notes);
                 createdLine.SetTenantId(tenantId);
                 repository.AddLine(createdLine);
@@ -1489,7 +1501,7 @@ internal static class SalaryTabulatorCommandSupport
                     item.ProposedMinAmount,
                     item.ProposedMaxAmount,
                     effectiveFromUtc,
-                    effectiveToUtc: null,
+                    effectiveToUtc,
                     item.Notes);
                 newLine.SetTenantId(tenantId);
                 repository.AddLine(newLine);

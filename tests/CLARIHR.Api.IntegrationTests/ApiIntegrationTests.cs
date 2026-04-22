@@ -5529,8 +5529,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var createResponse = await requesterClient.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/change-requests", new
         {
-            reason = "Ajuste anual",
             effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
             items = new[]
             {
                 new
@@ -7201,8 +7201,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var response = await client.PostJsonAsync($"/api/v1/companies/{companyId}/salary-tabulator/change-requests", new
         {
-            reason = "Ajuste",
             effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
             items = new[]
             {
                 new
