@@ -5728,6 +5728,128 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task SalaryTabulator_ChangeRequests_WithIncludeAllowedActions_ShouldReflectWorkflowPermissions()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
+        using var requestAndApproveClient = factory.CreateClientFor(CreateSalaryTabulatorRequestAndApproveContext(scenario));
+
+        var draft = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-WFA-DRAFT", "S1", 1100m);
+        await AssertSalaryTabulatorChangeRequestAllowedActionsAsync(
+            requesterClient,
+            scenario.TenantId,
+            draft.Id,
+            allowedActions =>
+            {
+                AssertWorkflowAllowedActions(
+                    allowedActions,
+                    canEdit: true,
+                    canSubmit: true,
+                    canApprove: false,
+                    canReject: false,
+                    canCancel: true);
+                AssertActionPermission(allowedActions, "submit", SalaryTabulatorPermissionCodes.Request, allowed: true);
+                AssertActionPermission(allowedActions, "cancel", SalaryTabulatorPermissionCodes.Request, allowed: true);
+                AssertActionPermission(allowedActions, "approve", SalaryTabulatorPermissionCodes.Approve, allowed: false);
+            });
+
+        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{draft.Id}/submit", new
+        {
+            concurrencyToken = draft.ConcurrencyToken
+        });
+        submitResponse.EnsureSuccessStatusCode();
+        var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(submitted);
+
+        await AssertSalaryTabulatorChangeRequestAllowedActionsAsync(
+            approverClient,
+            scenario.TenantId,
+            draft.Id,
+            allowedActions =>
+            {
+                AssertWorkflowAllowedActions(
+                    allowedActions,
+                    canEdit: false,
+                    canSubmit: false,
+                    canApprove: true,
+                    canReject: true,
+                    canCancel: false);
+                AssertActionPermission(allowedActions, "approve", SalaryTabulatorPermissionCodes.Approve, allowed: true);
+                AssertActionPermission(allowedActions, "reject", SalaryTabulatorPermissionCodes.Approve, allowed: true);
+            });
+
+        var selfApprovalRequest = await CreateSalaryTabulatorRequestAsync(requestAndApproveClient, scenario.TenantId, "CLS-WFA-SELF", "S1", 1200m);
+        var selfSubmitResponse = await requestAndApproveClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{selfApprovalRequest.Id}/submit", new
+        {
+            concurrencyToken = selfApprovalRequest.ConcurrencyToken
+        });
+        selfSubmitResponse.EnsureSuccessStatusCode();
+
+        await AssertSalaryTabulatorChangeRequestAllowedActionsAsync(
+            requestAndApproveClient,
+            scenario.TenantId,
+            selfApprovalRequest.Id,
+            allowedActions =>
+            {
+                AssertWorkflowAllowedActions(
+                    allowedActions,
+                    canEdit: false,
+                    canSubmit: false,
+                    canApprove: false,
+                    canReject: true,
+                    canCancel: false);
+                AssertActionPermission(allowedActions, "approve", SalaryTabulatorPermissionCodes.Approve, allowed: false);
+                AssertActionPermission(allowedActions, "reject", SalaryTabulatorPermissionCodes.Approve, allowed: true);
+            });
+
+        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{draft.Id}/approve", new
+        {
+            decisionComment = "approved",
+            concurrencyToken = submitted!.ConcurrencyToken
+        });
+        approveResponse.EnsureSuccessStatusCode();
+        await AssertSalaryTabulatorChangeRequestAllowedActionsAsync(
+            approverClient,
+            scenario.TenantId,
+            draft.Id,
+            AssertNoWorkflowAllowedActions);
+
+        var rejectedRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-WFA-REJECT", "S1", 1300m);
+        var rejectedSubmitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{rejectedRequest.Id}/submit", new
+        {
+            concurrencyToken = rejectedRequest.ConcurrencyToken
+        });
+        rejectedSubmitResponse.EnsureSuccessStatusCode();
+        var rejectedSubmitted = await rejectedSubmitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
+        Assert.NotNull(rejectedSubmitted);
+
+        var rejectResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{rejectedRequest.Id}/reject", new
+        {
+            decisionComment = "rejected",
+            concurrencyToken = rejectedSubmitted!.ConcurrencyToken
+        });
+        rejectResponse.EnsureSuccessStatusCode();
+        await AssertSalaryTabulatorChangeRequestAllowedActionsAsync(
+            approverClient,
+            scenario.TenantId,
+            rejectedRequest.Id,
+            AssertNoWorkflowAllowedActions);
+
+        var canceledRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-WFA-CANCEL", "S1", 1400m);
+        var cancelResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{canceledRequest.Id}/cancel", new
+        {
+            concurrencyToken = canceledRequest.ConcurrencyToken
+        });
+        cancelResponse.EnsureSuccessStatusCode();
+        await AssertSalaryTabulatorChangeRequestAllowedActionsAsync(
+            requesterClient,
+            scenario.TenantId,
+            canceledRequest.Id,
+            AssertNoWorkflowAllowedActions);
+    }
+
+    [Fact]
     public async Task SalaryTabulator_Approve_WithAuditPermission_ShouldWriteAuditEvent()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -7327,6 +7449,73 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(JsonValueKind.Array, reasons.ValueKind);
     }
 
+    private static async Task AssertSalaryTabulatorChangeRequestAllowedActionsAsync(
+        HttpClient client,
+        Guid companyId,
+        Guid requestId,
+        Action<JsonElement> assertAllowedActions)
+    {
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{companyId}/salary-tabulator/change-requests?page=1&pageSize=50&includeAllowedActions=true");
+        response.EnsureSuccessStatusCode();
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var matchingRequest = document.RootElement
+            .GetProperty("items")
+            .EnumerateArray()
+            .Single(item => GetPublicIdentifier(item) == requestId);
+
+        Assert.True(matchingRequest.TryGetProperty("allowedActions", out var allowedActions));
+        assertAllowedActions(allowedActions);
+    }
+
+    private static Guid GetPublicIdentifier(JsonElement item) =>
+        item.TryGetProperty("publicId", out var publicId)
+            ? publicId.GetGuid()
+            : item.GetProperty("id").GetGuid();
+
+    private static void AssertWorkflowAllowedActions(
+        JsonElement allowedActions,
+        bool canEdit,
+        bool canSubmit,
+        bool canApprove,
+        bool canReject,
+        bool canCancel)
+    {
+        Assert.Equal(canEdit, allowedActions.GetProperty("canEdit").GetBoolean());
+        Assert.Equal(canSubmit, allowedActions.GetProperty("canSubmit").GetBoolean());
+        Assert.Equal(canApprove, allowedActions.GetProperty("canApprove").GetBoolean());
+        Assert.Equal(canReject, allowedActions.GetProperty("canReject").GetBoolean());
+        Assert.Equal(canCancel, allowedActions.GetProperty("canCancel").GetBoolean());
+        Assert.False(allowedActions.GetProperty("canPublish").GetBoolean());
+        Assert.False(allowedActions.GetProperty("canFinalize").GetBoolean());
+    }
+
+    private static void AssertNoWorkflowAllowedActions(JsonElement allowedActions) =>
+        AssertWorkflowAllowedActions(
+            allowedActions,
+            canEdit: false,
+            canSubmit: false,
+            canApprove: false,
+            canReject: false,
+            canCancel: false);
+
+    private static void AssertActionPermission(
+        JsonElement allowedActions,
+        string action,
+        string permissionCode,
+        bool allowed)
+    {
+        var actionPermission = allowedActions
+            .GetProperty("actionPermissions")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("action").GetString() == action);
+
+        Assert.Equal(permissionCode, actionPermission.GetProperty("permissionCode").GetString());
+        Assert.Equal(allowed, actionPermission.GetProperty("allowed").GetBoolean());
+        Assert.Equal(JsonValueKind.Array, actionPermission.GetProperty("reasons").ValueKind);
+    }
+
     private static async Task AssertFirstActiveSalaryLineAllowedActionsAsync(
         HttpResponseMessage response,
         bool expectedCanEdit,
@@ -7354,6 +7543,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var allowedActions = activeLine.GetProperty("allowedActions");
         Assert.Equal(expectedCanEdit, allowedActions.GetProperty("canEdit").GetBoolean());
         Assert.Equal(expectedCanInactivate, allowedActions.GetProperty("canInactivate").GetBoolean());
+        AssertActionPermission(allowedActions, "edit", SalaryTabulatorPermissionCodes.Request, expectedCanEdit);
+        AssertActionPermission(allowedActions, "inactivate", SalaryTabulatorPermissionCodes.Request, expectedCanInactivate);
     }
 
     private static async Task AssertProblemDetailsAsync(HttpResponseMessage response, HttpStatusCode expectedStatusCode, string expectedCode)

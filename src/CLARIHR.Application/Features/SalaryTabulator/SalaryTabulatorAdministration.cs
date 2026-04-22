@@ -534,7 +534,8 @@ internal sealed class ExportSalaryTabulatorLinesQueryHandler(
 internal sealed class SearchSalaryTabulatorChangeRequestsQueryHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
     ISalaryTabulatorRepository repository,
-    IResourceActionPolicyService resourceActionPolicyService)
+    IResourceActionPolicyService resourceActionPolicyService,
+    ICurrentUserService currentUserService)
     : IQueryHandler<SearchSalaryTabulatorChangeRequestsQuery, PagedResponse<SalaryTabulatorChangeRequestListItemResponse>>
 {
     public async Task<Result<PagedResponse<SalaryTabulatorChangeRequestListItemResponse>>> Handle(
@@ -563,8 +564,15 @@ internal sealed class SearchSalaryTabulatorChangeRequestsQueryHandler(
         }
 
         var canRequest = (await authorizationService.EnsureCanRequestAsync(query.CompanyId, cancellationToken)).IsSuccess;
+        var canApprove = (await authorizationService.EnsureCanApproveAsync(query.CompanyId, cancellationToken)).IsSuccess;
+        var currentUserId = SalaryTabulatorPolicyAdapter.ResolveCurrentUserId(currentUserService);
         var items = response.Items
-            .Select(item => SalaryTabulatorPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canRequest))
+            .Select(item => SalaryTabulatorPolicyAdapter.ApplyAllowedActions(
+                item,
+                resourceActionPolicyService,
+                canRequest,
+                canApprove,
+                currentUserId))
             .ToArray();
         response = response with { Items = items };
 
@@ -576,7 +584,8 @@ internal sealed class GetSalaryTabulatorChangeRequestByIdQueryHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
     ISalaryTabulatorRepository repository,
     ITenantContext tenantContext,
-    IResourceActionPolicyService resourceActionPolicyService)
+    IResourceActionPolicyService resourceActionPolicyService,
+    ICurrentUserService currentUserService)
     : IQueryHandler<GetSalaryTabulatorChangeRequestByIdQuery, SalaryTabulatorChangeRequestResponse>
 {
     public async Task<Result<SalaryTabulatorChangeRequestResponse>> Handle(
@@ -598,7 +607,14 @@ internal sealed class GetSalaryTabulatorChangeRequestByIdQueryHandler(
         if (response is not null)
         {
             var canRequest = (await authorizationService.EnsureCanRequestAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
-            response = SalaryTabulatorPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canRequest);
+            var canApprove = (await authorizationService.EnsureCanApproveAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            var currentUserId = SalaryTabulatorPolicyAdapter.ResolveCurrentUserId(currentUserService);
+            response = SalaryTabulatorPolicyAdapter.ApplyAllowedActions(
+                response,
+                resourceActionPolicyService,
+                canRequest,
+                canApprove,
+                currentUserId);
             return Result<SalaryTabulatorChangeRequestResponse>.Success(response);
         }
 
@@ -645,6 +661,18 @@ internal sealed class GetSalaryTabulatorChangeRequestImpactQueryHandler(
 
 internal static class SalaryTabulatorPolicyAdapter
 {
+    private const string ActionEdit = "edit";
+    private const string ActionInactivate = "inactivate";
+    private const string ActionSubmit = "submit";
+    private const string ActionApprove = "approve";
+    private const string ActionReject = "reject";
+    private const string ActionCancel = "cancel";
+
+    public static Guid? ResolveCurrentUserId(ICurrentUserService currentUserService) =>
+        Guid.TryParse(currentUserService.UserId, out var currentUserId)
+            ? currentUserId
+            : null;
+
     public static SalaryTabulatorLineListItemResponse ApplyAllowedActions(
         SalaryTabulatorLineListItemResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
@@ -663,6 +691,23 @@ internal static class SalaryTabulatorPolicyAdapter
                 SupportsInactivate: true,
                 InactivateAllowed: canRequest,
                 NonEditableStates: ["Inactive"]));
+
+        allowedActions = allowedActions with
+        {
+            ActionPermissions =
+            [
+                CreateActionPermission(
+                    ActionEdit,
+                    SalaryTabulatorPermissionCodes.Request,
+                    allowedActions.CanEdit,
+                    GetEditReasons(canRequest, response.IsActive, response.IsActive ? "Active" : "Inactive")),
+                CreateActionPermission(
+                    ActionInactivate,
+                    SalaryTabulatorPermissionCodes.Request,
+                    allowedActions.CanInactivate,
+                    GetInactivateReasons(canRequest, response.IsActive))
+            ]
+        };
 
         return response with { AllowedActions = allowedActions };
     }
@@ -686,13 +731,32 @@ internal static class SalaryTabulatorPolicyAdapter
                 InactivateAllowed: canRequest,
                 NonEditableStates: ["Inactive"]));
 
+        allowedActions = allowedActions with
+        {
+            ActionPermissions =
+            [
+                CreateActionPermission(
+                    ActionEdit,
+                    SalaryTabulatorPermissionCodes.Request,
+                    allowedActions.CanEdit,
+                    GetEditReasons(canRequest, response.IsActive, response.IsActive ? "Active" : "Inactive")),
+                CreateActionPermission(
+                    ActionInactivate,
+                    SalaryTabulatorPermissionCodes.Request,
+                    allowedActions.CanInactivate,
+                    GetInactivateReasons(canRequest, response.IsActive))
+            ]
+        };
+
         return response with { AllowedActions = allowedActions };
     }
 
     public static SalaryTabulatorChangeRequestListItemResponse ApplyAllowedActions(
         SalaryTabulatorChangeRequestListItemResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
-        bool canRequest)
+        bool canRequest,
+        bool canApprove,
+        Guid? currentUserId)
     {
         var isActive = response.Status is SalaryTabulatorChangeRequestStatus.Draft or SalaryTabulatorChangeRequestStatus.Submitted;
         var allowedActions = resourceActionPolicyService.Evaluate(
@@ -713,6 +777,14 @@ internal static class SalaryTabulatorPolicyAdapter
                     SalaryTabulatorChangeRequestStatus.Rejected.ToString(),
                     SalaryTabulatorChangeRequestStatus.Canceled.ToString()
                 ]));
+
+        allowedActions = ApplyChangeRequestWorkflowActions(
+            allowedActions,
+            response.Status,
+            response.RequestedByUserId,
+            canRequest,
+            canApprove,
+            currentUserId);
 
         return response with { AllowedActions = allowedActions };
     }
@@ -720,7 +792,9 @@ internal static class SalaryTabulatorPolicyAdapter
     public static SalaryTabulatorChangeRequestResponse ApplyAllowedActions(
         SalaryTabulatorChangeRequestResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
-        bool canRequest)
+        bool canRequest,
+        bool canApprove,
+        Guid? currentUserId)
     {
         var isActive = response.Status is SalaryTabulatorChangeRequestStatus.Draft or SalaryTabulatorChangeRequestStatus.Submitted;
         var allowedActions = resourceActionPolicyService.Evaluate(
@@ -742,7 +816,193 @@ internal static class SalaryTabulatorPolicyAdapter
                     SalaryTabulatorChangeRequestStatus.Canceled.ToString()
                 ]));
 
+        allowedActions = ApplyChangeRequestWorkflowActions(
+            allowedActions,
+            response.Status,
+            response.RequestedByUserId,
+            canRequest,
+            canApprove,
+            currentUserId);
+
         return response with { AllowedActions = allowedActions };
+    }
+
+    private static AllowedActionsResponse ApplyChangeRequestWorkflowActions(
+        AllowedActionsResponse allowedActions,
+        SalaryTabulatorChangeRequestStatus status,
+        Guid requestedByUserId,
+        bool canRequest,
+        bool canApprove,
+        Guid? currentUserId)
+    {
+        var canSubmit = status == SalaryTabulatorChangeRequestStatus.Draft && canRequest;
+        var canCancel = status == SalaryTabulatorChangeRequestStatus.Draft && canRequest;
+        var canApproveWorkflow =
+            status == SalaryTabulatorChangeRequestStatus.Submitted &&
+            canApprove &&
+            currentUserId.HasValue &&
+            currentUserId.Value != requestedByUserId;
+        var canReject = status == SalaryTabulatorChangeRequestStatus.Submitted && canApprove && currentUserId.HasValue;
+
+        return allowedActions with
+        {
+            CanSubmit = canSubmit,
+            CanApprove = canApproveWorkflow,
+            CanReject = canReject,
+            CanCancel = canCancel,
+            ActionPermissions =
+            [
+                CreateActionPermission(
+                    ActionEdit,
+                    SalaryTabulatorPermissionCodes.Request,
+                    allowedActions.CanEdit,
+                    GetEditReasons(canRequest, status == SalaryTabulatorChangeRequestStatus.Draft, status.ToString())),
+                CreateActionPermission(
+                    ActionSubmit,
+                    SalaryTabulatorPermissionCodes.Request,
+                    canSubmit,
+                    GetSubmitReasons(status, canRequest)),
+                CreateActionPermission(
+                    ActionCancel,
+                    SalaryTabulatorPermissionCodes.Request,
+                    canCancel,
+                    GetCancelReasons(status, canRequest)),
+                CreateActionPermission(
+                    ActionApprove,
+                    SalaryTabulatorPermissionCodes.Approve,
+                    canApproveWorkflow,
+                    GetApproveReasons(status, canApprove, currentUserId, requestedByUserId)),
+                CreateActionPermission(
+                    ActionReject,
+                    SalaryTabulatorPermissionCodes.Approve,
+                    canReject,
+                    GetRejectReasons(status, canApprove, currentUserId))
+            ]
+        };
+    }
+
+    private static AllowedActionPermissionResponse CreateActionPermission(
+        string action,
+        string permissionCode,
+        bool allowed,
+        IReadOnlyCollection<string> reasons) =>
+        new(action, permissionCode, allowed, reasons);
+
+    private static IReadOnlyCollection<string> GetEditReasons(bool hasPermission, bool isEditableState, string state)
+    {
+        var reasons = new List<string>();
+        if (!hasPermission)
+        {
+            reasons.Add("The current user is not authorized to edit this record.");
+        }
+
+        if (!isEditableState)
+        {
+            reasons.Add($"Records in state '{state}' cannot be edited.");
+        }
+
+        return reasons;
+    }
+
+    private static IReadOnlyCollection<string> GetInactivateReasons(bool hasPermission, bool isActive)
+    {
+        var reasons = new List<string>();
+        if (!hasPermission)
+        {
+            reasons.Add("The current user is not authorized to inactivate this record.");
+        }
+
+        if (!isActive)
+        {
+            reasons.Add("The record is already inactive.");
+        }
+
+        return reasons;
+    }
+
+    private static IReadOnlyCollection<string> GetSubmitReasons(SalaryTabulatorChangeRequestStatus status, bool hasPermission)
+    {
+        var reasons = new List<string>();
+        if (!hasPermission)
+        {
+            reasons.Add("The current user is not authorized to request salary tabulator changes.");
+        }
+
+        if (status != SalaryTabulatorChangeRequestStatus.Draft)
+        {
+            reasons.Add("Only draft change requests can be submitted.");
+        }
+
+        return reasons;
+    }
+
+    private static IReadOnlyCollection<string> GetCancelReasons(SalaryTabulatorChangeRequestStatus status, bool hasPermission)
+    {
+        var reasons = new List<string>();
+        if (!hasPermission)
+        {
+            reasons.Add("The current user is not authorized to request salary tabulator changes.");
+        }
+
+        if (status != SalaryTabulatorChangeRequestStatus.Draft)
+        {
+            reasons.Add("Only draft change requests can be canceled from the workflow action menu.");
+        }
+
+        return reasons;
+    }
+
+    private static IReadOnlyCollection<string> GetApproveReasons(
+        SalaryTabulatorChangeRequestStatus status,
+        bool hasPermission,
+        Guid? currentUserId,
+        Guid requestedByUserId)
+    {
+        var reasons = new List<string>();
+        if (!hasPermission)
+        {
+            reasons.Add("The current user is not authorized to approve salary tabulator change requests.");
+        }
+
+        if (!currentUserId.HasValue)
+        {
+            reasons.Add("The current user could not be resolved for approval.");
+        }
+        else if (currentUserId.Value == requestedByUserId)
+        {
+            reasons.Add("Requester cannot approve their own salary tabulator request.");
+        }
+
+        if (status != SalaryTabulatorChangeRequestStatus.Submitted)
+        {
+            reasons.Add("Only submitted change requests can be approved.");
+        }
+
+        return reasons;
+    }
+
+    private static IReadOnlyCollection<string> GetRejectReasons(
+        SalaryTabulatorChangeRequestStatus status,
+        bool hasPermission,
+        Guid? currentUserId)
+    {
+        var reasons = new List<string>();
+        if (!hasPermission)
+        {
+            reasons.Add("The current user is not authorized to reject salary tabulator change requests.");
+        }
+
+        if (!currentUserId.HasValue)
+        {
+            reasons.Add("The current user could not be resolved for rejection.");
+        }
+
+        if (status != SalaryTabulatorChangeRequestStatus.Submitted)
+        {
+            reasons.Add("Only submitted change requests can be rejected.");
+        }
+
+        return reasons;
     }
 }
 
