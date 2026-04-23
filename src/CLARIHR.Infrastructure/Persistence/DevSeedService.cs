@@ -1,5 +1,5 @@
 using CLARIHR.Application.Abstractions.Auth;
-using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Common;
@@ -24,6 +24,7 @@ namespace CLARIHR.Infrastructure.Persistence;
 internal sealed class DevSeedService(
     ApplicationDbContext dbContext,
     IPasswordHasher passwordHasher,
+    ICompanyProvisioningService companyProvisioningService,
     ILogger<DevSeedService> logger)
 {
     private const string DevEmail = "dev@clarihr.local";
@@ -38,7 +39,8 @@ internal sealed class DevSeedService(
 
         if (exists)
         {
-            logger.LogInformation("Dev seed already exists. Skipping.");
+            await EnsureExistingDevOwnerRbacAsync(cancellationToken);
+            logger.LogInformation("Dev seed already exists. Owner RBAC synchronized.");
             return;
         }
 
@@ -71,6 +73,41 @@ internal sealed class DevSeedService(
             DevEmail,
             company.Name,
             tenantId);
+    }
+
+    private async Task EnsureExistingDevOwnerRbacAsync(CancellationToken cancellationToken)
+    {
+        var user = await dbContext.AuthUsers
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.NormalizedEmail == DevEmail.ToLowerInvariant(), cancellationToken);
+        if (user is null)
+        {
+            return;
+        }
+
+        var companyPublicId = await dbContext.Companies
+            .AsNoTracking()
+            .Where(company => company.CreatedByUserPublicId == user.PublicId)
+            .OrderBy(company => company.Id)
+            .Select(company => company.PublicId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (companyPublicId == Guid.Empty)
+        {
+            logger.LogWarning("Dev seed user {Email} exists but no owned company was found for RBAC synchronization.", DevEmail);
+            return;
+        }
+
+        var result = await companyProvisioningService.EnsureOwnerAdministrationAsync(
+            user.PublicId,
+            companyPublicId,
+            cancellationToken);
+        if (result.IsFailure)
+        {
+            logger.LogWarning(
+                "Dev seed owner RBAC synchronization failed for {Email}: {ErrorCode}",
+                DevEmail,
+                result.Error.Code);
+        }
     }
 
     private async Task<User> SeedAuthUserAsync(CancellationToken cancellationToken)
@@ -141,33 +178,8 @@ internal sealed class DevSeedService(
 
     private async Task SeedRbacAsync(User user, Company company, Guid tenantId, CancellationToken cancellationToken)
     {
-        var adminPermissions = new List<IamPermission>();
-        foreach (var definition in ProvisioningConstants.CompanyAdminPermissions)
-        {
-            var permission = IamPermission.CreateScreenAction(
-                definition.Code,
-                definition.Name,
-                definition.Description,
-                definition.Module,
-                definition.Screen,
-                definition.Action);
-            permission.SetTenantId(tenantId);
-            adminPermissions.Add(permission);
-        }
-
-        var matrixPermissions = new List<IamPermission>();
-        foreach (var screen in PermissionMatrixCatalog.Screens)
-        {
-            foreach (var action in screen.SupportedActions)
-            {
-                var permission = PermissionMatrixCatalog.CreatePermission(screen.ScreenKey, action);
-                permission.SetTenantId(tenantId);
-                matrixPermissions.Add(permission);
-            }
-        }
-
-        dbContext.IamPermissions.AddRange(adminPermissions);
-        dbContext.IamPermissions.AddRange(matrixPermissions);
+        var ownerPermissions = OwnerPermissionCatalog.CreateDefaultOwnerPermissions(tenantId);
+        dbContext.IamPermissions.AddRange(ownerPermissions);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var adminRole = IamRole.Create(
@@ -185,8 +197,7 @@ internal sealed class DevSeedService(
         dbContext.IamRoles.AddRange(adminRole, standardRole);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var allPermissions = adminPermissions.Concat(matrixPermissions).ToArray();
-        adminRole.SyncPermissions(allPermissions);
+        adminRole.SyncPermissions(ownerPermissions);
         StampTenant(adminRole.PermissionAssignments, tenantId);
         await dbContext.SaveChangesAsync(cancellationToken);
 

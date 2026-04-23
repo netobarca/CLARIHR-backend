@@ -484,6 +484,13 @@ public sealed class JwtTokenServiceTests
         public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) =>
             Task.FromResult<IamRole?>(null);
 
+        public Task<IamRole?> FindSystemRoleByTenantAndNormalizedNameAsync(
+            Guid tenantId,
+            string normalizedRoleName,
+            bool includePermissions,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IamRole?>(null);
+
         public Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<IamRole>>([]);
 
@@ -500,6 +507,17 @@ public sealed class JwtTokenServiceTests
             Task.FromResult<IReadOnlyCollection<Guid>>([]);
 
         public Task<IReadOnlyList<IamPermission>> GetPermissionsByNormalizedCodesAsync(
+            IReadOnlyCollection<string> normalizedPermissionCodes,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamPermission>>([]);
+
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAsync(
+            Guid tenantId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamPermission>>([]);
+
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAndNormalizedCodesAsync(
+            Guid tenantId,
             IReadOnlyCollection<string> normalizedPermissionCodes,
             CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<IamPermission>>([]);

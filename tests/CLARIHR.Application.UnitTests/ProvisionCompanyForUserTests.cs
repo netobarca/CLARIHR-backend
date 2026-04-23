@@ -112,7 +112,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenUserAlreadyProvisioned_ShouldReturnAlreadyProvisionedWithoutDuplicates()
+    public async Task Handle_WhenUserAlreadyProvisioned_ShouldReturnAlreadyProvisionedAndRepairOwnerRbac()
     {
         var userRepository = new TestUserRepository();
         var companyRepository = new TestCompanyRepository();
@@ -146,10 +146,79 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         Assert.True(result.Value.AlreadyProvisioned);
         Assert.Single(companyRepository.Items);
         Assert.Empty(subscriptionRepository.Items);
-        Assert.Empty(iamRepository.Roles);
-        Assert.Empty(iamRepository.Permissions);
-        Assert.Empty(iamRepository.Users);
+        var adminRole = Assert.Single(iamRepository.Roles, role => role.Name == ProvisioningConstants.CompanyAdminRoleName && role.IsSystemRole);
+        Assert.Equal(
+            ProvisioningConstants.CompanyAdminPermissions.Length + PermissionMatrixCatalog.AllMatrixCodes.Count,
+            iamRepository.Permissions.Count);
+        Assert.Equal(
+            iamRepository.Permissions.Select(static permission => permission.Id).OrderBy(static id => id),
+            adminRole.PermissionAssignments.Select(static assignment => assignment.PermissionId).OrderBy(static id => id));
+        Assert.Single(iamRepository.Users);
+        Assert.Equal(user.PublicId, iamRepository.Users[0].LinkedUserPublicId);
         Assert.True(unitOfWork.Transaction.CommitCalled);
+    }
+
+    [Fact]
+    public async Task Handle_WhenOwnerRoleExistsWithStalePermissions_ShouldAddMissingPermissionsAndSyncRole()
+    {
+        var userRepository = new TestUserRepository();
+        var companyRepository = new TestCompanyRepository();
+        var subscriptionRepository = new TestCompanySubscriptionRepository(companyRepository);
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository);
+        var legalRepresentativeRepository = new TestLegalRepresentativeRepository();
+        var unitOfWork = new TestUnitOfWork();
+        var user = CreatePersistedUser("ana@company.com");
+        userRepository.Seed(user);
+
+        var company = Company.Create("Acme HR", "acme-hr", user.PublicId, "SV", 1);
+        companyRepository.Add(company);
+        userCompanyRepository.Add(UserCompanyMembership.Create(user.Id, company.Id, roleId: 10, isPrimary: true));
+
+        var stalePermissions = OwnerPermissionCatalog.CreateDefaultOwnerPermissions(company.PublicId)
+            .Take(2)
+            .ToArray();
+        foreach (var permission in stalePermissions)
+        {
+            iamRepository.AddPermission(permission);
+        }
+
+        var adminRole = IamRole.Create(
+            ProvisioningConstants.CompanyAdminRoleName,
+            "Administrador inicial del tenant.",
+            isSystemRole: true);
+        adminRole.SetTenantId(company.PublicId);
+        iamRepository.AddRole(adminRole);
+        adminRole.SyncPermissions(stalePermissions);
+        foreach (var assignment in adminRole.PermissionAssignments)
+        {
+            assignment.SetTenantId(company.PublicId);
+        }
+
+        var handler = CreateHandler(
+            userRepository,
+            companyRepository,
+            subscriptionRepository,
+            userCompanyRepository,
+            iamRepository,
+            legalRepresentativeRepository,
+            new TestPlanEntitlementService(),
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new ProvisionCompanyForUserCommand(user.PublicId, "Another Name", "SV"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value.AlreadyProvisioned);
+        Assert.Equal(
+            ProvisioningConstants.CompanyAdminPermissions.Length + PermissionMatrixCatalog.AllMatrixCodes.Count,
+            iamRepository.Permissions.Count);
+        Assert.Equal(
+            iamRepository.Permissions.Select(static permission => permission.Id).OrderBy(static id => id),
+            adminRole.PermissionAssignments.Select(static assignment => assignment.PermissionId).OrderBy(static id => id));
+        Assert.Single(iamRepository.Users);
+        Assert.Equal(user.PublicId, iamRepository.Users[0].LinkedUserPublicId);
     }
 
     [Fact]
@@ -1034,12 +1103,25 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(Guid tenantId, Guid linkedUserPublicId, bool includeRoles, CancellationToken cancellationToken) =>
             Task.FromResult<IamUser?>(Users.SingleOrDefault(user => user.TenantId == tenantId && user.LinkedUserPublicId == linkedUserPublicId));
         public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) => Task.FromResult<IamRole?>(null);
+        public Task<IamRole?> FindSystemRoleByTenantAndNormalizedNameAsync(Guid tenantId, string normalizedRoleName, bool includePermissions, CancellationToken cancellationToken) =>
+            Task.FromResult<IamRole?>(Roles.SingleOrDefault(role =>
+                role.TenantId == tenantId &&
+                role.NormalizedName == normalizedRoleName &&
+                role.IsSystemRole));
         public Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<IamRole>>([]);
         public Task<IReadOnlyList<IamUser>> GetUsersByPublicIdsAsync(IReadOnlyCollection<Guid> userIds, bool includeRoles, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<IamUser>>([]);
         public Task<IReadOnlyList<IamUser>> GetUsersAssignedToRoleAsync(Guid roleId, bool includeRoles, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<IamUser>>([]);
         public Task<IReadOnlyList<IamUser>> GetActiveUsersAsync(bool includeRoles, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<IamUser>>([]);
         public Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(CancellationToken cancellationToken) => Task.FromResult<IReadOnlyCollection<Guid>>([]);
         public Task<IReadOnlyList<IamPermission>> GetPermissionsByNormalizedCodesAsync(IReadOnlyCollection<string> normalizedPermissionCodes, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<IamPermission>>([]);
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAsync(Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamPermission>>(Permissions.Where(permission => permission.TenantId == tenantId).ToArray());
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAndNormalizedCodesAsync(Guid tenantId, IReadOnlyCollection<string> normalizedPermissionCodes, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamPermission>>(Permissions
+                .Where(permission =>
+                    permission.TenantId == tenantId &&
+                    normalizedPermissionCodes.Contains(permission.NormalizedCode))
+                .ToArray());
         public Task<IReadOnlyList<IamPermission>> GetPermissionsByPublicIdsAsync(IReadOnlyCollection<Guid> permissionIds, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<IamPermission>>([]);
         public Task<PagedResponse<IamUserSummaryResponse>> GetUsersAsync(int pageNumber, int pageSize, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IamUserResponse?> GetUserAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();

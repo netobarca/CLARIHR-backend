@@ -32,6 +32,12 @@ public interface IIamAdministrationRepository
 
     Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken);
 
+    Task<IamRole?> FindSystemRoleByTenantAndNormalizedNameAsync(
+        Guid tenantId,
+        string normalizedRoleName,
+        bool includePermissions,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(
         IReadOnlyCollection<Guid> roleIds,
         CancellationToken cancellationToken);
@@ -53,6 +59,15 @@ public interface IIamAdministrationRepository
     Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(CancellationToken cancellationToken);
 
     Task<IReadOnlyList<IamPermission>> GetPermissionsByNormalizedCodesAsync(
+        IReadOnlyCollection<string> normalizedPermissionCodes,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAndNormalizedCodesAsync(
+        Guid tenantId,
         IReadOnlyCollection<string> normalizedPermissionCodes,
         CancellationToken cancellationToken);
 

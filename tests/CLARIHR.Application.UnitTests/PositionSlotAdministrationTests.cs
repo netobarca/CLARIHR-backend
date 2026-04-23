@@ -481,6 +481,7 @@ public sealed class PositionSlotAdministrationTests
         public Task<IamUser?> FindUserByTenantAndLinkedUserPublicIdAsync(Guid tenantId, Guid linkedUserPublicId, bool includeRoles, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) =>
             Task.FromResult<IamRole?>(Roles.SingleOrDefault(role => role.PublicId == roleId));
+        public Task<IamRole?> FindSystemRoleByTenantAndNormalizedNameAsync(Guid tenantId, string normalizedRoleName, bool includePermissions, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<IamRole>>(Roles.Where(role => roleIds.Contains(role.PublicId)).ToArray());
         public Task<IReadOnlyList<IamUser>> GetUsersByPublicIdsAsync(IReadOnlyCollection<Guid> userIds, bool includeRoles, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -488,6 +489,8 @@ public sealed class PositionSlotAdministrationTests
         public Task<IReadOnlyList<IamUser>> GetActiveUsersAsync(bool includeRoles, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<IamPermission>> GetPermissionsByNormalizedCodesAsync(IReadOnlyCollection<string> normalizedPermissionCodes, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAsync(Guid tenantId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAndNormalizedCodesAsync(Guid tenantId, IReadOnlyCollection<string> normalizedPermissionCodes, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<IamPermission>> GetPermissionsByPublicIdsAsync(IReadOnlyCollection<Guid> permissionIds, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PagedResponse<IamUserSummaryResponse>> GetUsersAsync(int pageNumber, int pageSize, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IamUserResponse?> GetUserAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();

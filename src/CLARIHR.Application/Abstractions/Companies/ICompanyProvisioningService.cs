@@ -8,6 +8,11 @@ public interface ICompanyProvisioningService
     Task<Result<ProvisionedCompanyResult>> ProvisionAsync(
         ProvisionCompanyRequest request,
         CancellationToken cancellationToken);
+
+    Task<Result> EnsureOwnerAdministrationAsync(
+        Guid ownerUserPublicId,
+        Guid companyPublicId,
+        CancellationToken cancellationToken);
 }
 
 public sealed record ProvisionCompanyRequest(
