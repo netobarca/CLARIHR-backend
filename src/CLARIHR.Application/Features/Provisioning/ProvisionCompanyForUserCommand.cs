@@ -81,6 +81,19 @@ internal sealed class ProvisionCompanyForUserCommandHandler(
             if (await userCompanyRepository.HasPrimaryCompanyAsync(user.Id, cancellationToken))
             {
                 var existingCompanyId = await userCompanyRepository.GetPrimaryCompanyPublicIdAsync(user.Id, cancellationToken);
+                if (existingCompanyId.HasValue)
+                {
+                    var ownerAdministrationResult = await companyProvisioningService.EnsureOwnerAdministrationAsync(
+                        user.PublicId,
+                        existingCompanyId.Value,
+                        cancellationToken);
+                    if (ownerAdministrationResult.IsFailure)
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        return Result<ProvisionCompanyForUserResult>.Failure(ownerAdministrationResult.Error);
+                    }
+                }
+
                 await transaction.CommitAsync(cancellationToken);
 
                 logger.LogInformation(

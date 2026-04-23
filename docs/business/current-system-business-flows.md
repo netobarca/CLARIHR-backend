@@ -70,6 +70,9 @@ El provisioning actual deja creada la base operativa minima del tenant:
 - niveles de location
 - grupos de locations por plantilla de pais cuando existe una plantilla detallada, o un nivel generico minimo cuando el pais solo requiere bootstrap basico
 - metadatos iniciales requeridos para operar la estructura
+- roles de sistema `Admin de Empresa` y `Usuario Estandar`
+- catalogo default de permisos owner, incluyendo permisos admin por modulo y la matriz RBAC
+- vinculacion del owner al rol `Admin de Empresa`; si el owner ya existia, el backend resincroniza el rol admin contra todos los permisos tenant-scoped existentes para evitar drift cuando se agregan permisos nuevos
 
 Para `SV`, la plantilla estructurada vigente siembra `14` departamentos y `44` municipios para mantener consistencia entre onboarding y expedientes de personal.
 

@@ -87,6 +87,30 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
         return query.SingleOrDefaultAsync(role => role.PublicId == roleId, cancellationToken);
     }
 
+    public Task<IamRole?> FindSystemRoleByTenantAndNormalizedNameAsync(
+        Guid tenantId,
+        string normalizedRoleName,
+        bool includePermissions,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<IamRole> query = dbContext.IamRoles
+            // Intentional tenant filter bypass: provisioning repairs a specific tenant before a request tenant context exists.
+            .IgnoreQueryFilters()
+            .Where(role =>
+                role.TenantId == tenantId &&
+                role.NormalizedName == normalizedRoleName &&
+                role.IsSystemRole);
+
+        if (includePermissions)
+        {
+            query = query
+                .Include(role => role.PermissionAssignments)
+                .ThenInclude(assignment => assignment.Permission);
+        }
+
+        return query.SingleOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(
         IReadOnlyCollection<Guid> roleIds,
         CancellationToken cancellationToken)
@@ -181,6 +205,31 @@ internal sealed class IamAdministrationRepository(ApplicationDbContext dbContext
     {
         return await dbContext.IamPermissions
             .Where(permission => normalizedPermissionCodes.Contains(permission.NormalizedCode))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.IamPermissions
+            // Intentional tenant filter bypass: provisioning repairs a specific tenant before a request tenant context exists.
+            .IgnoreQueryFilters()
+            .Where(permission => permission.TenantId == tenantId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAndNormalizedCodesAsync(
+        Guid tenantId,
+        IReadOnlyCollection<string> normalizedPermissionCodes,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.IamPermissions
+            // Intentional tenant filter bypass: provisioning repairs a specific tenant before a request tenant context exists.
+            .IgnoreQueryFilters()
+            .Where(permission =>
+                permission.TenantId == tenantId &&
+                normalizedPermissionCodes.Contains(permission.NormalizedCode))
             .ToListAsync(cancellationToken);
     }
 

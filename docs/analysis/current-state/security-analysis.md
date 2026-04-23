@@ -187,6 +187,7 @@ Cobertura positiva visible:
 - tokens y refresh rotation con reuse detection
 - separacion de audiencias y `client_type` entre core y backoffice
 - aprovisionamiento explicito de usuarios desde `PersonnelFiles` con rol tenant-scoped derivado de la plaza y activacion diferida por invitacion
+- provisioning owner con rol `Admin de Empresa` resincronizado contra el catalogo default y todos los permisos tenant-scoped existentes, reduciendo drift de RBAC cuando se agregan permisos nuevos
 - tenant mismatch en auditoria
 - CRUD global de `CommercialPlan` y `CommercialAddon` sin tenant
 - login de backoffice bloqueado sin `PlatformOperator`

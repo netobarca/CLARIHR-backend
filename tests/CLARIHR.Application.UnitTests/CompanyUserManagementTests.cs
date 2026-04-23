@@ -1383,6 +1383,16 @@ public sealed class CompanyUserManagementTests
         public Task<IamRole?> FindRoleByPublicIdAsync(Guid roleId, bool includePermissions, CancellationToken cancellationToken) =>
             Task.FromResult(Roles.SingleOrDefault(role => role.PublicId == roleId));
 
+        public Task<IamRole?> FindSystemRoleByTenantAndNormalizedNameAsync(
+            Guid tenantId,
+            string normalizedRoleName,
+            bool includePermissions,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(Roles.SingleOrDefault(role =>
+                role.TenantId == tenantId &&
+                role.NormalizedName == normalizedRoleName &&
+                role.IsSystemRole));
+
         public Task<IReadOnlyList<IamRole>> GetRolesByPublicIdsAsync(IReadOnlyCollection<Guid> roleIds, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<IamRole>>(Roles.Where(role => roleIds.Contains(role.PublicId)).ToArray());
 
@@ -1423,6 +1433,23 @@ public sealed class CompanyUserManagementTests
             CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<IamPermission>>(Permissions
                 .Where(permission => normalizedPermissionCodes.Contains(permission.NormalizedCode))
+                .ToArray());
+
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAsync(
+            Guid tenantId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamPermission>>(Permissions
+                .Where(permission => permission.TenantId == tenantId)
+                .ToArray());
+
+        public Task<IReadOnlyList<IamPermission>> GetPermissionsByTenantAndNormalizedCodesAsync(
+            Guid tenantId,
+            IReadOnlyCollection<string> normalizedPermissionCodes,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<IamPermission>>(Permissions
+                .Where(permission =>
+                    permission.TenantId == tenantId &&
+                    normalizedPermissionCodes.Contains(permission.NormalizedCode))
                 .ToArray());
 
         public Task<IReadOnlyList<IamPermission>> GetPermissionsByPublicIdsAsync(IReadOnlyCollection<Guid> permissionIds, CancellationToken cancellationToken) =>

@@ -8,7 +8,6 @@ using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Common.Errors;
-using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Common;
@@ -103,16 +102,7 @@ internal sealed class CompanyProvisioningService(
             freePlan,
             dateTimeProvider.UtcNow));
 
-        var adminPermissions = CreateAdminPermissions(company.PublicId);
-        var matrixPermissions = CreateMatrixPermissions(company.PublicId);
-        var tenantPermissions = adminPermissions.Concat(matrixPermissions).ToArray();
-
-        foreach (var permission in tenantPermissions)
-        {
-            iamRepository.AddPermission(permission);
-        }
-
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        var tenantPermissions = await EnsureOwnerPermissionCatalogAsync(company.PublicId, cancellationToken);
 
         var adminRole = IamRole.Create(
             ProvisioningConstants.CompanyAdminRoleName,
@@ -165,6 +155,37 @@ internal sealed class CompanyProvisioningService(
             company.CreatedUtc));
     }
 
+    public async Task<Result> EnsureOwnerAdministrationAsync(
+        Guid ownerUserPublicId,
+        Guid companyPublicId,
+        CancellationToken cancellationToken)
+    {
+        var user = await userRepository.GetByPublicIdAsync(ownerUserPublicId, cancellationToken);
+        if (user is null)
+        {
+            return Result.Failure(ProvisioningErrors.UserNotFound);
+        }
+
+        var company = await companyRepository.FindByPublicIdAsync(companyPublicId, cancellationToken);
+        if (company is null)
+        {
+            return Result.Failure(ProvisioningErrors.ProvisioningFailed);
+        }
+
+        if (company.CreatedByUserPublicId != ownerUserPublicId)
+        {
+            return Result.Success();
+        }
+
+        var tenantPermissions = await EnsureOwnerPermissionCatalogAsync(company.PublicId, cancellationToken);
+        var adminRole = await EnsureCompanyAdminRoleAsync(company.PublicId, tenantPermissions, cancellationToken);
+        await EnsureOwnerIamUserAsync(user, company.PublicId, adminRole, cancellationToken);
+
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
+    }
+
     private async Task<string> GenerateUniqueSlugAsync(string companyName, CancellationToken cancellationToken)
     {
         var baseSlug = CreateSlug(companyName);
@@ -206,39 +227,92 @@ internal sealed class CompanyProvisioningService(
         return $"Empresa de {firstName.Trim()}";
     }
 
-    private static IReadOnlyList<IamPermission> CreateAdminPermissions(Guid tenantId)
+    private async Task<IReadOnlyList<IamPermission>> EnsureOwnerPermissionCatalogAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken)
     {
-        var permissions = ProvisioningConstants.CompanyAdminPermissions
-            .Select(definition =>
-            {
-                var permission = IamPermission.CreateScreenAction(
-                    definition.Code,
-                    definition.Name,
-                    definition.Description,
-                    definition.Module,
-                    definition.Screen,
-                    definition.Action);
-                permission.SetTenantId(tenantId);
-                return permission;
-            })
+        var expectedPermissions = OwnerPermissionCatalog.CreateDefaultOwnerPermissions(tenantId);
+        var expectedCodes = expectedPermissions
+            .Select(static permission => permission.NormalizedCode)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var existingPermissions = await iamRepository.GetPermissionsByTenantAndNormalizedCodesAsync(
+            tenantId,
+            expectedCodes,
+            cancellationToken);
+        var existingCodes = existingPermissions
+            .Select(static permission => permission.NormalizedCode)
+            .ToHashSet(StringComparer.Ordinal);
+        var missingPermissions = expectedPermissions
+            .Where(permission => !existingCodes.Contains(permission.NormalizedCode))
             .ToArray();
 
-        return permissions;
+        foreach (var permission in missingPermissions)
+        {
+            iamRepository.AddPermission(permission);
+        }
+
+        if (missingPermissions.Length > 0)
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        return await iamRepository.GetPermissionsByTenantAsync(tenantId, cancellationToken);
     }
 
-    private static IReadOnlyList<IamPermission> CreateMatrixPermissions(Guid tenantId)
+    private async Task<IamRole> EnsureCompanyAdminRoleAsync(
+        Guid tenantId,
+        IReadOnlyList<IamPermission> tenantPermissions,
+        CancellationToken cancellationToken)
     {
-        var permissions = PermissionMatrixCatalog.Screens
-            .SelectMany(static definition => definition.SupportedActions.Select(action => (Screen: definition.ScreenKey, Action: action)))
-            .Select(definition =>
-            {
-                var permission = PermissionMatrixCatalog.CreatePermission(definition.Screen, definition.Action);
-                permission.SetTenantId(tenantId);
-                return permission;
-            })
-            .ToArray();
+        var adminRole = await iamRepository.FindSystemRoleByTenantAndNormalizedNameAsync(
+            tenantId,
+            Normalize(ProvisioningConstants.CompanyAdminRoleName),
+            includePermissions: true,
+            cancellationToken);
 
-        return permissions;
+        if (adminRole is null)
+        {
+            adminRole = IamRole.Create(
+                ProvisioningConstants.CompanyAdminRoleName,
+                "Administrador inicial del tenant.",
+                isSystemRole: true);
+            adminRole.SetTenantId(tenantId);
+            iamRepository.AddRole(adminRole);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        adminRole.SyncPermissions(tenantPermissions);
+        StampTenant(adminRole.PermissionAssignments, tenantId);
+
+        return adminRole;
+    }
+
+    private async Task EnsureOwnerIamUserAsync(
+        CLARIHR.Domain.Auth.User user,
+        Guid tenantId,
+        IamRole adminRole,
+        CancellationToken cancellationToken)
+    {
+        var iamUser = await iamRepository.FindUserByTenantAndLinkedUserPublicIdAsync(
+            tenantId,
+            user.PublicId,
+            includeRoles: true,
+            cancellationToken);
+        if (iamUser is null)
+        {
+            iamUser = IamUser.CreateLinked(
+                user.PublicId,
+                user.FirstName,
+                user.LastName,
+                user.Email,
+                isActive: true);
+            iamUser.SetTenantId(tenantId);
+            iamRepository.AddUser(iamUser);
+        }
+
+        iamUser.EnsureRole(adminRole);
+        StampTenant(iamUser.RoleAssignments, tenantId);
     }
 
     private static void StampTenant<TTenantEntity>(IEnumerable<TTenantEntity> entities, Guid tenantId)
@@ -285,4 +359,6 @@ internal sealed class CompanyProvisioningService(
         var slug = builder.ToString().Trim('-');
         return string.IsNullOrWhiteSpace(slug) ? "company" : slug;
     }
+
+    private static string Normalize(string value) => value.Trim().ToUpperInvariant();
 }

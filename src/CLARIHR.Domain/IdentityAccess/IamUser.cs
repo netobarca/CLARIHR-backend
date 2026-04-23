@@ -67,4 +67,19 @@ public sealed class IamUser : TenantEntity
             _roleAssignments.Add(IamUserRoleAssignment.Create(roleId));
         }
     }
+
+    public void EnsureRole(IamRole role)
+    {
+        if (role.Id <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(role), "Role id must be greater than zero.");
+        }
+
+        if (_roleAssignments.Any(assignment => assignment.RoleId == role.Id))
+        {
+            return;
+        }
+
+        _roleAssignments.Add(IamUserRoleAssignment.Create(role.Id));
+    }
 }
