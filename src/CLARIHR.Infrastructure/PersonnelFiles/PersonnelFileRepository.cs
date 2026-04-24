@@ -173,6 +173,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .Include(item => item.FamilyMembers)
             .Include(item => item.Hobbies)
             .Include(item => item.EmployeeRelations)
+                .ThenInclude(item => item.RelatedPersonnelFile)
             .Include(item => item.BankAccounts)
             .Include(item => item.Associations)
             .Include(item => item.Educations).ThenInclude(item => item.EducationStatusCatalogItem)
@@ -324,8 +325,13 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 .Select(item => new PersonnelFileHobbyResponse(item.PublicId, item.HobbyName))
                 .ToArray(),
             file.EmployeeRelations
-                .OrderBy(item => item.RelatedEmployeeName)
-                .Select(item => new PersonnelFileEmployeeRelationResponse(item.PublicId, item.RelatedEmployeeName, item.Relationship))
+                .OrderBy(item => item.RelatedPersonnelFile.FullName)
+                .ThenBy(item => item.PublicId)
+                .Select(item => new PersonnelFileEmployeeRelationResponse(
+                    item.PublicId,
+                    item.RelatedPersonnelFile.PublicId,
+                    item.RelatedPersonnelFile.FullName,
+                    item.Relationship))
                 .ToArray(),
             file.BankAccounts
                 .OrderByDescending(item => item.IsPrimary)
@@ -637,10 +643,12 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
         await dbContext.Set<PersonnelFileEmployeeRelation>()
             .AsNoTracking()
             .Where(item => item.PersonnelFile.PublicId == personnelFileId)
-            .OrderBy(item => item.RelatedEmployeeName)
+            .OrderBy(item => item.RelatedPersonnelFile.FullName)
+            .ThenBy(item => item.PublicId)
             .Select(item => new PersonnelFileEmployeeRelationResponse(
                 item.PublicId,
-                item.RelatedEmployeeName,
+                item.RelatedPersonnelFile.PublicId,
+                item.RelatedPersonnelFile.FullName,
                 item.Relationship))
             .ToArrayAsync(cancellationToken);
 

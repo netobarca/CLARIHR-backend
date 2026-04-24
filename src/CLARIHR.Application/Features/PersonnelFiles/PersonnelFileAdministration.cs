@@ -109,7 +109,11 @@ public sealed record PersonnelFileFamilyMemberResponse(
 
 public sealed record PersonnelFileHobbyResponse(Guid Id, string HobbyName);
 
-public sealed record PersonnelFileEmployeeRelationResponse(Guid Id, string RelatedEmployeeName, string Relationship);
+public sealed record PersonnelFileEmployeeRelationResponse(
+    Guid Id,
+    Guid RelatedEmployeePublicId,
+    string RelatedEmployeeFullName,
+    string Relationship);
 
 public sealed record PersonnelFileBankAccountResponse(
     Guid Id,
@@ -733,7 +737,7 @@ public sealed record FamilyMemberInput(
 
 public sealed record HobbyInput(string HobbyName);
 
-public sealed record EmployeeRelationInput(string RelatedEmployeeName, string Relationship);
+public sealed record EmployeeRelationInput(Guid RelatedEmployeePublicId, string Relationship);
 
 public sealed record BankAccountInput(
     string BankCode,
@@ -1548,7 +1552,7 @@ internal sealed class EmployeeRelationInputValidator : AbstractValidator<Employe
 {
     public EmployeeRelationInputValidator()
     {
-        RuleFor(input => input.RelatedEmployeeName).NotEmpty().MaximumLength(200);
+        RuleFor(input => input.RelatedEmployeePublicId).NotEmpty();
         RuleFor(input => input.Relationship).NotEmpty().MaximumLength(80);
     }
 }
@@ -3628,9 +3632,34 @@ internal sealed class ReplacePersonnelFileEmployeeRelationsCommandHandler(
             return failure;
         }
 
-        var entities = command.Relations
-            .Select(item => PersonnelFileEmployeeRelation.Create(item.RelatedEmployeeName, item.Relationship))
-            .ToArray();
+        var relations = command.Relations.ToArray();
+        var entities = new List<PersonnelFileEmployeeRelation>(relations.Length);
+        for (var index = 0; index < relations.Length; index++)
+        {
+            var relation = relations[index];
+            if (relation.RelatedEmployeePublicId == personnelFile!.PublicId)
+            {
+                return Result<PersonnelFileResponse>.Failure(
+                    ErrorCatalog.Validation(
+                        new Dictionary<string, string[]>
+                        {
+                            [$"relations[{index}].relatedEmployeePublicId"] = ["A personnel file cannot be related to itself."]
+                        }));
+            }
+
+            var relatedPersonnelFile = await repository.GetByIdAsync(relation.RelatedEmployeePublicId, cancellationToken);
+            if (relatedPersonnelFile is null || relatedPersonnelFile.RecordType != PersonnelFileRecordType.Employee)
+            {
+                return Result<PersonnelFileResponse>.Failure(
+                    ErrorCatalog.Validation(
+                        new Dictionary<string, string[]>
+                        {
+                            [$"relations[{index}].relatedEmployeePublicId"] = ["RelatedEmployeePublicId must reference an existing employee personnel file in the same tenant."]
+                        }));
+            }
+
+            entities.Add(PersonnelFileEmployeeRelation.Create(relatedPersonnelFile.Id, relation.Relationship));
+        }
 
         personnelFile!.ReplaceEmployeeRelations(entities);
 

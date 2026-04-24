@@ -309,7 +309,7 @@ public sealed class PersonnelFileProfileController(
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileEmployeeRelationsCommand(
                 id,
-                request.Items.Select(item => new EmployeeRelationInput(item.RelatedEmployeeName, item.Relationship)).ToArray(),
+                request.Items.Select(item => new EmployeeRelationInput(item.RelatedEmployeePublicId, item.Relationship)).ToArray(),
                 request.ConcurrencyToken),
             cancellationToken);
 

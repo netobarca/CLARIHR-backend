@@ -55,6 +55,36 @@ public sealed class PersonnelFileAdministrationValidationTests
         Assert.DoesNotContain(result.Errors, static error => string.IsNullOrWhiteSpace(error.PropertyName));
     }
 
+    [Fact]
+    public void EmployeeRelationInputValidator_WhenRelatedEmployeePublicIdIsEmpty_ShouldAttachError()
+    {
+        var validator = new EmployeeRelationInputValidator();
+
+        var result = validator.TestValidate(new EmployeeRelationInput(Guid.Empty, "Sibling"));
+
+        Assert.Contains(
+            result.Errors,
+            static error => error.PropertyName == "RelatedEmployeePublicId");
+    }
+
+    [Fact]
+    public void ReplaceEmployeeRelationsValidator_WhenRelationshipIsMissing_ShouldAttachIndexedFieldError()
+    {
+        var validator = new ReplacePersonnelFileEmployeeRelationsCommandValidator();
+        var command = new ReplacePersonnelFileEmployeeRelationsCommand(
+            Guid.NewGuid(),
+            [new EmployeeRelationInput(Guid.NewGuid(), string.Empty)],
+            Guid.NewGuid());
+
+        var result = validator.TestValidate(command);
+
+        Assert.Contains(
+            result.Errors,
+            static error =>
+                error.PropertyName == "Relations[0].Relationship" &&
+                error.ErrorMessage == "'Relationship' must not be empty.");
+    }
+
     private static CreatePersonnelFileCommand CreateCreateCommand(
         PersonnelFileRecordType recordType,
         Guid? assignedPositionSlotId)

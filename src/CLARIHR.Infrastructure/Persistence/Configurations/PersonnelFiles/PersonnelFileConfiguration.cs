@@ -384,8 +384,8 @@ internal sealed class PersonnelFileEmployeeRelationConfiguration : IEntityTypeCo
         builder.Property(item => item.Id).HasColumnName("id");
         builder.Property(item => item.TenantId).HasColumnName("tenant_id");
         builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
+        builder.Property(item => item.RelatedPersonnelFileId).HasColumnName("related_personnel_file_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
-        builder.Property(item => item.RelatedEmployeeName).HasColumnName("related_employee_name").HasMaxLength(200);
         builder.Property(item => item.Relationship).HasColumnName("relationship").HasMaxLength(80);
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
@@ -396,6 +396,15 @@ internal sealed class PersonnelFileEmployeeRelationConfiguration : IEntityTypeCo
 
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId })
             .HasDatabaseName("ix_personnel_file_employee_relations__tenant_file");
+
+        builder.HasIndex(item => new { item.TenantId, item.RelatedPersonnelFileId })
+            .HasDatabaseName("ix_personnel_file_employee_relations__tenant_related_file");
+
+        builder.HasOne(item => item.RelatedPersonnelFile)
+            .WithMany()
+            .HasForeignKey(item => item.RelatedPersonnelFileId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_personnel_file_employee_relations__related_personnel_file");
     }
 }
 
