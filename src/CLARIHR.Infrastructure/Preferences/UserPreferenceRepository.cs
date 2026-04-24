@@ -10,7 +10,9 @@ internal sealed class UserPreferenceRepository(ApplicationDbContext dbContext) :
     public void Add(UserPreference preference) => dbContext.UserPreferences.Add(preference);
 
     public Task<UserPreference?> GetByUserIdAsync(long userId, CancellationToken cancellationToken) =>
-        dbContext.UserPreferences.SingleOrDefaultAsync(preference => preference.UserId == userId, cancellationToken);
+        dbContext.UserPreferences
+            .Include(preference => preference.SocialLinks)
+            .SingleOrDefaultAsync(preference => preference.UserId == userId, cancellationToken);
 
     public Task<string?> ResolveLanguageAsync(long userId, CancellationToken cancellationToken) =>
         dbContext.UserPreferences

@@ -1294,4 +1294,25 @@
   <data name="validation.message.competencyid_competencytypeid_and_behaviorlevelid_must_be_provided_together" xml:space="preserve">
     <value>CompetencyId, CompetencyTypeId y BehaviorLevelId deben enviarse juntos.</value>
   </data>
+  <data name="auth.password_reset.invalid_token" xml:space="preserve">
+    <value>El token de restablecimiento de contrasena es invalido o expiro.</value>
+  </data>
+  <data name="auth.password_reset.password_policy_violation" xml:space="preserve">
+    <value>La nueva contrasena no cumple con la politica de contrasenas.</value>
+  </data>
+  <data name="validation.message.a_maximum_of_10_social_links_is_allowed" xml:space="preserve">
+    <value>Se permite un maximo de 10 enlaces sociales.</value>
+  </data>
+  <data name="validation.message.effectivetoutc_cannot_be_less_than_effectivefromutc" xml:space="preserve">
+    <value>EffectiveToUtc no puede ser menor que EffectiveFromUtc.</value>
+  </data>
+  <data name="validation.message.provider_code_format_is_invalid" xml:space="preserve">
+    <value>El formato del codigo del proveedor no es valido.</value>
+  </data>
+  <data name="validation.message.provider_codes_must_be_unique" xml:space="preserve">
+    <value>Los codigos del proveedor deben ser unicos.</value>
+  </data>
+  <data name="validation.message.url_must_be_an_absolute_https_url" xml:space="preserve">
+    <value>La URL debe ser una URL https absoluta.</value>
+  </data>
 </root>

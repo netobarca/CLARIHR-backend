@@ -14,6 +14,7 @@ La estrategia de pruebas del backend es mejor de lo que reflejaba la version ant
 - `19` unit tests dirigidos aprobados para hardening multi-tenant y datos sensibles: filtro tenant fail-closed, gobernanza de `IgnoreQueryFilters()`, redaccion PII de auditoria, headers `no-store` y guardrails de upload documental
 - `7` unit tests dirigidos aprobados para exportes de reporte: writer CSV/XLSX comun, lifecycle de `ReportExportJob`, contexto tenant ambiente del worker y gobernanza para evitar builders de export en controllers
 - `2` unit tests dirigidos agregados el 23 de abril de 2026 para resincronizacion idempotente de permisos del owner ya provisionado y rol admin con permisos stale
+- `6` unit tests dirigidos agregados el 24 de abril de 2026 para `password-reset`, `socialLinks` de preferencias de usuario y detalle puntual de `company/users/{userPublicId}`
 - `dotnet build` limpio con `0 warnings`
 - el suite unitario actual queda estable; la integracion completa debe seguir validandose por ciclo de entrega porque no existe snapshot automatico de OpenAPI contra Swagger runtime
 
@@ -120,7 +121,7 @@ El hueco residual es de minimizacion por evento: los tests cubren el sanitizer c
 
 No se observa cobertura para:
 
-- rate limiting
+- rate limiting end-to-end fuera del flujo nuevo de `password-reset`
 - lockout
 - throttling por IP o identidad
 - abuso del flujo de `refresh`

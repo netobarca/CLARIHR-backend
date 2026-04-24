@@ -38,5 +38,27 @@ public sealed class UserPreferencesController(
         return this.ToActionResult(result);
     }
 
+    [HttpPut("social-links")]
+    [ProducesResponseType<UserPreferenceResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<UserPreferenceResponse>> ReplaceSocialLinks(
+        [FromBody] ReplaceUserSocialLinksRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ReplaceCurrentUserSocialLinksCommand(
+                request.Items
+                    .Select(static item => new UpdateCurrentUserSocialLinkItem(item.ProviderCode, item.Url))
+                    .ToArray()),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
     public sealed record UpdateUserPreferencesRequest(string Language);
+
+    public sealed record ReplaceUserSocialLinksRequest(IReadOnlyCollection<UserSocialLinkItemRequest> Items);
+
+    public sealed record UserSocialLinkItemRequest(string ProviderCode, string Url);
 }

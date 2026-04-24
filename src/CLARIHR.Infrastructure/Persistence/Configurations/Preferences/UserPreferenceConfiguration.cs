@@ -46,5 +46,11 @@ internal sealed class UserPreferenceConfiguration : IEntityTypeConfiguration<Use
             .HasForeignKey(preference => preference.UserId)
             .OnDelete(DeleteBehavior.Cascade)
             .HasConstraintName("fk_user_preferences__auth_users");
+
+        builder.HasMany(preference => preference.SocialLinks)
+            .WithOne()
+            .HasForeignKey(socialLink => socialLink.UserPreferenceId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_user_social_links__user_preferences");
     }
 }

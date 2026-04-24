@@ -1294,4 +1294,25 @@
   <data name="validation.message.competencyid_competencytypeid_and_behaviorlevelid_must_be_provided_together" xml:space="preserve">
     <value>CompetencyId, CompetencyTypeId and BehaviorLevelId must be provided together.</value>
   </data>
+  <data name="auth.password_reset.invalid_token" xml:space="preserve">
+    <value>The password reset token is invalid or expired.</value>
+  </data>
+  <data name="auth.password_reset.password_policy_violation" xml:space="preserve">
+    <value>The new password does not meet the password policy.</value>
+  </data>
+  <data name="validation.message.a_maximum_of_10_social_links_is_allowed" xml:space="preserve">
+    <value>A maximum of 10 social links is allowed.</value>
+  </data>
+  <data name="validation.message.effectivetoutc_cannot_be_less_than_effectivefromutc" xml:space="preserve">
+    <value>EffectiveToUtc cannot be less than EffectiveFromUtc.</value>
+  </data>
+  <data name="validation.message.provider_code_format_is_invalid" xml:space="preserve">
+    <value>Provider code format is invalid.</value>
+  </data>
+  <data name="validation.message.provider_codes_must_be_unique" xml:space="preserve">
+    <value>Provider codes must be unique.</value>
+  </data>
+  <data name="validation.message.url_must_be_an_absolute_https_url" xml:space="preserve">
+    <value>Url must be an absolute https URL.</value>
+  </data>
 </root>

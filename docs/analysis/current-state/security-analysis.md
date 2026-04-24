@@ -20,7 +20,7 @@ Base verificada durante la auditoria:
 
 La conclusion revisada es que la solucion **todavia requiere remediaciones antes de aprobar produccion** en un SaaS multi-tenant de RRHH, pero el hardening del 18 de abril cerro dos riesgos estructurales: el filtro tenant global ya es `fail-closed` y la auditoria ya redacta PII sensible en payloads serializados. Siguen vigentes hallazgos de riesgo alto con evidencia verificable:
 
-- ausencia visible de controles anti abuso para auth
+- ausencia visible de controles anti abuso para auth, salvo el hardening puntual aplicado al request de `password-reset`
 - confianza excesiva en `X-Forwarded-*` si el entorno no la cierra externamente
 - drift contractual y documental severo entre codigo, OpenAPI y analisis vivos
 - riesgo residual de auditoria por payloads completos, aunque ahora con PII redactada
@@ -73,7 +73,7 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 - Residual:
   el sistema aun audita `Before`, `After` y `Diff` completos en varios flujos; ahora se almacenan con PII redactada, pero la recomendacion de mediano plazo sigue siendo minimizar el payload en origen.
 
-### 3.3 Auth sin controles visibles de anti abuso
+### 3.3 Auth con hardening parcial de anti abuso, aun insuficiente
 
 - Severidad: `Importante`
 - Estado: `Confirmado`
@@ -83,15 +83,16 @@ No se asumieron protecciones externas de WAF, API gateway, reverse proxy, SIEM o
 - Precondiciones:
   ninguna adicional; basta con exponer la API a trafico no confiable.
 - Evidencia:
-  [Program.cs#L66](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Program.cs#L66) a [Program.cs#L105](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Program.cs#L105) no muestran `AddRateLimiter`, `UseRateLimiter` ni middleware equivalente.
-  [AuthController.cs#L18](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L18), [AuthController.cs#L45](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L45), [AuthController.cs#L76](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L76), [AuthController.cs#L95](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L95) y [AuthController.cs#L97](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Api/Controllers/AuthController.cs#L97) exponen `register`, `external`, `login`, `refresh` y `company-user-invitations/accept` como anonimos.
-  [LoginCommand.cs#L34](/Users/christophercanas/Developments/CLARI%20NEW%20VERSION/clarihr-backend/CLARIHR-backend/src/CLARIHR.Application/Features/Auth/Login/LoginCommand.cs#L34) falla por credenciales invalidas sin contador, enfriamiento o lockout.
+  `Program.cs` ya registra `AddRateLimiter` y `UseRateLimiter`, pero solo para la policy `auth-password-reset-request`.
+  `AuthController` aplica `EnableRateLimiting("auth-password-reset-request")` a `POST /api/auth/password-reset/request`.
+  `PasswordResetAdministration.cs` agrega respuesta uniforme para `request`, token hash persistido, un solo uso, expiracion corta, cooldown por cuenta y revocacion de sesiones al redimir.
+  `register`, `external`, `login`, `refresh` y `company-user-invitations/accept` siguen sin throttling o lockout visible.
 - Cobertura actual:
   no se observa cobertura automatica para rate limiting, lockout, retrasos progresivos ni abuso de `refresh`.
 - Por que el hallazgo es valido:
   en una superficie de auth expuesta a internet, la ausencia de controles de anti abuso es una brecha operativa real aunque el flujo funcional y los tests actuales pasen.
 - Remediacion concreta:
-  incorporar rate limiting por IP y por identidad, respuestas `429`, lockout o enfriamiento para credenciales invalidas, y pruebas de integracion sobre rutas de auth.
+  extender rate limiting por IP e identidad a `register`, `login`, `refresh` y `company-user-invitations/accept`, agregar lockout o enfriamiento para credenciales invalidas y cubrir esas rutas con pruebas de integracion.
 
 ### 3.4 Filtro tenant global en modo `fail-closed`
 

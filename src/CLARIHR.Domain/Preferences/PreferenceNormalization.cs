@@ -34,7 +34,7 @@ internal static class PreferenceNormalization
         return normalized;
     }
 
-    private static string NormalizeRequired(string value, string parameterName)
+    internal static string NormalizeRequired(string value, string parameterName)
     {
         if (string.IsNullOrWhiteSpace(value))
         {

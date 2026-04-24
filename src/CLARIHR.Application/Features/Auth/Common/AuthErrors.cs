@@ -64,6 +64,11 @@ public static class AuthErrors
         "The invitation token is invalid or expired.",
         ErrorType.Unauthorized);
 
+    public static readonly Error PasswordResetTokenInvalid = new(
+        "auth.password_reset.invalid_token",
+        "The password reset token is invalid or expired.",
+        ErrorType.Unauthorized);
+
     public static readonly Error TokenConfigurationInvalid = new(
         "auth.token_configuration_invalid",
         "JWT token generation is not configured correctly.",

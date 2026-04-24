@@ -5,17 +5,73 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Auth.External;
 using CLARIHR.Application.Features.Auth.Login;
 using CLARIHR.Application.Features.Auth.Logout;
+using CLARIHR.Application.Features.Auth.PasswordReset;
 using CLARIHR.Application.Features.Auth.RefreshToken;
 using CLARIHR.Application.Features.Auth.RegisterUser;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(ICommandDispatcher commandDispatcher) : ControllerBase
+public sealed class AuthController(
+    ICommandDispatcher commandDispatcher,
+    IQueryDispatcher queryDispatcher) : ControllerBase
 {
+    [AllowAnonymous]
+    [EnableRateLimiting("auth-password-reset-request")]
+    [HttpPost("password-reset/request")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> RequestPasswordReset(
+        [FromBody] RequestPasswordResetRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await commandDispatcher.SendAsync(new RequestPasswordResetCommand(request.Email), cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result).Result!;
+        }
+
+        return Accepted();
+    }
+
+    [AllowAnonymous]
+    [HttpPost("password-reset/validate")]
+    [ProducesResponseType<PasswordResetTokenValidationResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<PasswordResetTokenValidationResponse>> ValidatePasswordReset(
+        [FromBody] ValidatePasswordResetRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await queryDispatcher.SendAsync(new ValidatePasswordResetTokenQuery(request.Token), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("password-reset/redeem")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RedeemPasswordReset(
+        [FromBody] RedeemPasswordResetRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new RedeemPasswordResetCommand(request.Token, request.NewPassword),
+            cancellationToken);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result).Result!;
+        }
+
+        return NoContent();
+    }
+
     [AllowAnonymous]
     [HttpPost("register")]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status201Created)]
@@ -146,4 +202,10 @@ public sealed class AuthController(ICommandDispatcher commandDispatcher) : Contr
 
         return NoContent();
     }
+
+    public sealed record RequestPasswordResetRequest(string Email);
+
+    public sealed record ValidatePasswordResetRequest(string Token);
+
+    public sealed record RedeemPasswordResetRequest(string Token, string NewPassword);
 }
