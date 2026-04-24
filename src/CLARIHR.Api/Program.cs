@@ -8,6 +8,7 @@ using CLARIHR.Domain.Auth;
 using CLARIHR.Infrastructure;
 using CLARIHR.Infrastructure.Configuration;
 using CLARIHR.Infrastructure.Logging;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
@@ -90,6 +91,24 @@ builder.Services.AddSwaggerGen(options =>
 });
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth-password-reset-request", httpContext =>
+    {
+        var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            remoteIp,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+});
 builder.Services.AddAuthorization(options =>
 {
     var policy = new AuthorizationPolicyBuilder()
@@ -138,6 +157,7 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseAuthentication();
 app.UseMiddleware<RequestLanguageMiddleware>();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 

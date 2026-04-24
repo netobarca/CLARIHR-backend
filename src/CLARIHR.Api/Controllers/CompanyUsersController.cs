@@ -28,6 +28,21 @@ public sealed class CompanyUsersController(
         return this.ToActionResult(result);
     }
 
+    [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Read)]
+    [HttpGet("{userPublicId:guid}")]
+    [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<CompanyUserResponse>> Get(
+        Guid userPublicId,
+        CancellationToken cancellationToken)
+    {
+        var result = await queryDispatcher.SendAsync(new GetCompanyUserQuery(userPublicId), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Create)]
     [HttpPost]
     [ProducesResponseType<CompanyUserInvitationResponse>(StatusCodes.Status201Created)]

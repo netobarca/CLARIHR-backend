@@ -66,6 +66,7 @@ public static class DependencyInjection
     {
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<JwtTokenOptions>(configuration.GetSection(JwtTokenOptions.SectionName));
+        services.Configure<PasswordResetOptions>(configuration.GetSection(PasswordResetOptions.SectionName));
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
         services.Configure<BlobStorageOptions>(configuration.GetSection(BlobStorageOptions.SectionName));
         services.Configure<ReportPerformanceOptions>(configuration.GetSection(ReportPerformanceOptions.SectionName));
@@ -80,6 +81,8 @@ public static class DependencyInjection
         services.AddSingleton<RefreshTokenHasher>();
         services.AddSingleton<IRefreshTokenHasher>(serviceProvider => serviceProvider.GetRequiredService<RefreshTokenHasher>());
         services.AddSingleton<IInvitationTokenHasher>(serviceProvider => serviceProvider.GetRequiredService<RefreshTokenHasher>());
+        services.AddSingleton<IPasswordResetTokenHasher>(serviceProvider => serviceProvider.GetRequiredService<RefreshTokenHasher>());
+        services.AddSingleton<IPasswordResetTokenGenerator, PasswordResetTokenGenerator>();
         services.AddSingleton<IGoogleIdTokenValidator, GoogleIdTokenValidator>();
         services.AddSingleton<AmbientTenantContext>();
         services.AddScoped<ITenantContext, HttpTenantContext>();
@@ -98,6 +101,10 @@ public static class DependencyInjection
         services.AddScoped<ICompanyOwnershipPolicy, CompanyOwnershipPolicy>();
         services.AddScoped<IInvitationTokenRepository, InvitationTokenRepository>();
         services.AddScoped<IEmailService, LoggingEmailService>();
+        services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+        services.AddScoped<IAuthEmailService, LoggingAuthEmailService>();
+        services.AddScoped<IPasswordResetLinkBuilder, PasswordResetLinkBuilder>();
+        services.AddScoped<IPasswordResetPolicyProvider, PasswordResetPolicyProvider>();
         services.AddScoped<ICompanyUserAuthorizationService, CompanyUserAuthorizationService>();
         services.AddScoped<IPlanEntitlementService, PlanEntitlementService>();
         services.AddScoped<IPlatformOperatorRepository, PlatformOperatorRepository>();

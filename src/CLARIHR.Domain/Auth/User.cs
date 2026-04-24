@@ -199,6 +199,17 @@ public sealed class User : AuditableEntity
         Status = UserStatus.Active;
     }
 
+    public void ResetLocalPassword(string passwordHash)
+    {
+        if (AuthProvider != AuthProvider.Local)
+        {
+            throw new InvalidOperationException("Password reset is only supported for local users.");
+        }
+
+        PasswordHash = AuthNormalization.Clean(passwordHash, nameof(passwordHash));
+        Status = UserStatus.Active;
+    }
+
     public void Deactivate() => Status = UserStatus.Inactive;
 
     public void Reactivate()

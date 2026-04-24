@@ -73,6 +73,60 @@ public sealed class UserPreferenceAdministrationTests
         Assert.Equal("it", preferenceRepository.GetByUserId(user.Id)!.Language);
     }
 
+    [Fact]
+    public void ReplaceCurrentUserSocialLinksCommandValidator_WhenProviderCodesRepeat_ShouldReturnValidationError()
+    {
+        var validator = new ReplaceCurrentUserSocialLinksCommandValidator();
+
+        var result = validator.Validate(new ReplaceCurrentUserSocialLinksCommand(
+        [
+            new UpdateCurrentUserSocialLinkItem("linkedin", "https://linkedin.com/in/ana"),
+            new UpdateCurrentUserSocialLinkItem("LINKEDIN", "https://linkedin.com/in/ana-2")
+        ]));
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.ErrorMessage == "Provider codes must be unique.");
+    }
+
+    [Fact]
+    public async Task ReplaceCurrentUserSocialLinksCommandHandler_WhenRequestIsValid_ShouldReplaceLinks()
+    {
+        var user = SeededUser(17, Guid.NewGuid(), "diana@clarihr.test");
+        var currentUserService = new TestCurrentUserService(user.PublicId.ToString());
+        var userRepository = new TestUserRepository(user);
+        var preferenceRepository = new TestUserPreferenceRepository(UserPreference.Create(user.Id, "en"));
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new ReplaceCurrentUserSocialLinksCommandHandler(
+            currentUserService,
+            userRepository,
+            preferenceRepository,
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new ReplaceCurrentUserSocialLinksCommand(
+            [
+                new UpdateCurrentUserSocialLinkItem("linkedin", "https://linkedin.com/in/diana"),
+                new UpdateCurrentUserSocialLinkItem("github", "https://github.com/diana")
+            ]),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Value.SocialLinks.Count);
+        Assert.Collection(
+            result.Value.SocialLinks,
+            link =>
+            {
+                Assert.Equal("LINKEDIN", link.ProviderCode);
+                Assert.Equal("https://linkedin.com/in/diana", link.Url);
+            },
+            link =>
+            {
+                Assert.Equal("GITHUB", link.ProviderCode);
+                Assert.Equal("https://github.com/diana", link.Url);
+            });
+        Assert.Equal(1, unitOfWork.SaveChangesCalls);
+    }
+
     private static User SeededUser(long id, Guid publicId, string email)
     {
         var user = User.RegisterLocal("Ana", "Mendoza", email, "hash", "SV", "tests");

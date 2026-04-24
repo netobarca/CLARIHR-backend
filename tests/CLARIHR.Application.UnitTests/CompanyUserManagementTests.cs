@@ -568,6 +568,33 @@ public sealed class CompanyUserManagementTests
     }
 
     [Fact]
+    public async Task Handle_WhenGettingSingleUser_ShouldReturnTenantScopedUser()
+    {
+        var userRepository = new TestUserRepository();
+        var companyRepository = SeedCompanyRepository(TenantId, "Acme HR");
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository, userRepository, iamRepository);
+
+        var role = CreateRole(iamRepository, TenantId, "Usuario Estandar");
+        var user = CreatePersistedLocalUser("sofia@acme.test");
+        userRepository.Seed(user);
+        userCompanyRepository.Add(UserCompanyMembership.Create(user.Id, companyRepository.Items[0].Id, role.Id, isPrimary: true));
+
+        var handler = new GetCompanyUserQueryHandler(
+            userCompanyRepository,
+            new AllowCompanyUserAuthorizationService(),
+            new TestTenantContext(TenantId),
+            CreateFieldPermissionService(),
+            CreateFieldSerializationService());
+
+        var result = await handler.Handle(new GetCompanyUserQuery(user.PublicId), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(user.PublicId, result.Value.Id);
+        Assert.Equal("sofia@acme.test", result.Value.Email);
+    }
+
+    [Fact]
     public async Task Handle_WhenUserBelongsToAnotherTenant_ShouldReturnTenantMismatch()
     {
         var userRepository = new TestUserRepository();

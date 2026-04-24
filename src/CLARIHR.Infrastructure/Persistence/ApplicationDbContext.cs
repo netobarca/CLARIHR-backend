@@ -43,7 +43,11 @@ public sealed class ApplicationDbContext(
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+
     public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
+
+    public DbSet<UserSocialLink> UserSocialLinks => Set<UserSocialLink>();
 
     public DbSet<Company> Companies => Set<Company>();
 

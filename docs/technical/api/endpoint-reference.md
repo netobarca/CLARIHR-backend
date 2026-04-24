@@ -107,7 +107,7 @@ Exenciones observables: el export de un unico `JOB_PROFILE` sigue siendo sincron
 | Modulo | Controladores | Familias principales de rutas | Proposito |
 |---|---|---|---|
 | System | `SystemController` | `/api/system/status` | salud y estado de runtime |
-| Auth | `AuthController` | `/api/auth/*` | registro, auth externa, login, refresh y logout |
+| Auth | `AuthController` | `/api/auth/*` | registro, auth externa, login, refresh, recuperacion de contrasena y logout |
 | Account companies | `AccountCompaniesController` | `/api/account/companies*` | crear, listar, archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
 | Account company subscriptions | `AccountCompanySubscriptionsController` | `/api/account/companies/{publicId}/subscription*` | consultar y administrar como owner el plan activo, marketplace de add-ons y modulos efectivos de la compania |
 | Account internal catalogs | `AccountInternalCatalogsController` | `/api/account/internal-catalogs*` | exponer catalogos internos globales reutilizables por frontend y permitir altas controladas por similitud |
@@ -117,7 +117,7 @@ Exenciones observables: el export de un unico `JOB_PROFILE` sigue siendo sincron
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables |
 | Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar, cambiar plan, administrar add-ons y listar suscripciones empresariales globales |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
-| Preferences | `UserPreferencesController`, `CompanyPreferencesController` | `/api/account/me/preferences`, `/api/v1/companies/{companyId}/preferences` | administrar preferencias personales (language) y preferencias operativas de compania (moneda y zona horaria) |
+| Preferences | `UserPreferencesController`, `CompanyPreferencesController` | `/api/account/me/preferences`, `/api/v1/companies/{companyId}/preferences` | administrar preferencias personales (language y `socialLinks`) y preferencias operativas de compania (moneda y zona horaria) |
 | Account company authorization | `AccountCompaniesController`, `AccountCompanyAuthorizationController` | `/api/account/companies/{companyPublicId}/access-context`, `/api/account/companies/{companyPublicId}/authorization*` | contexto de acceso, catalogo filtrado, roles, grants y policies del tenant |
 | Audit | `AuditController` | `/api/audit*` | consulta y detalle de logs de auditoria |
 | Org structure catalogs | `OrgStructureCatalogsController` | `/api/account/org-structure-catalogs/*`, `/api/v1/companies/{companyPublicId}/org-structure-catalogs/*` | tipos de compania, tipos de unidad y areas funcionales |
@@ -138,10 +138,14 @@ Exenciones observables: el export de un unico `JOB_PROFILE` sigue siendo sincron
 - `POST /api/auth/external`: crea o autentica un usuario mediante proveedor externo
 - `POST /api/auth/login`: inicia sesion local
 - `POST /api/auth/refresh`: rota la sesion usando un refresh token
+- `POST /api/auth/password-reset/request`: solicita recuperacion de contrasena con respuesta uniforme `202`
+- `POST /api/auth/password-reset/validate`: valida un token de recuperacion vigente
+- `POST /api/auth/password-reset/redeem`: redime el token con la nueva contrasena y revoca sesiones activas
 - `POST /api/auth/company-user-invitations/accept`: activa un usuario invitado por compania y define su contrasena final
 - `POST /api/auth/logout`: revoca la sesion autenticada
 - `GET /api/account/me/preferences`: obtiene preferencias de perfil del usuario autenticado
 - `PUT /api/account/me/preferences`: actualiza preferencias de perfil (por ejemplo `language`) del usuario autenticado
+- `PUT /api/account/me/preferences/social-links`: reemplaza la coleccion completa de links sociales del usuario autenticado
 - `GET /api/v1/companies/{companyId}/preferences`: obtiene preferencias administrativas de la compania en contexto tenant
 - `PUT /api/v1/companies/{companyId}/preferences`: actualiza preferencias administrativas de la compania (`currencyCode`, `timeZone`)
 
@@ -149,6 +153,8 @@ Comportamiento observable:
 
 - el claim `language` del JWT core se resuelve desde preferencias del usuario autenticado; ya no depende de la configuracion de compania
 - cuando no existe preferencia de usuario, la API emite y resuelve fallback `en`
+- los `socialLinks` pertenecen al usuario autenticado y no al `personnel file`; el contrato usa `{ providerCode, url }`, exige `https` y reemplazo completo de la coleccion
+- `password-reset` usa token hash persistido, un solo uso, expiracion corta, respuesta uniforme para evitar enumeracion y revocacion de refresh tokens al redimir
 
 ### 4.2 Onboarding de compania
 
@@ -443,6 +449,13 @@ Reglas comunes:
 - Validaciones: `page > 0`, `pageSize` entre `1` y `100`, `roleId` no puede ser `Guid.Empty`, `search` maximo `100`.
 - Response: `PagedResponse<CompanyUserSummaryResponse>`.
 - Observaciones: la lista ya sale filtrada por permisos de campo del usuario autenticado.
+
+##### `GET /api/company/users/{userPublicId}`
+
+- Proposito: obtener un usuario operativo puntual de la compania activa por `userPublicId`.
+- Autorizacion: `RBAC_USERS:Read`.
+- Response: `CompanyUserResponse`.
+- Observaciones: mantiene tenant scope implicito y el campo `id` del response representa el `publicId` externo del usuario.
 
 ##### `POST /api/company/users`
 
