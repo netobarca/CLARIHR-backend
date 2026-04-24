@@ -821,10 +821,15 @@ public sealed class PersonnelFileEmployeeRelation : TenantEntity
     {
     }
 
-    private PersonnelFileEmployeeRelation(string relatedEmployeeName, string relationship)
+    private PersonnelFileEmployeeRelation(long relatedPersonnelFileId, string relationship)
     {
+        if (relatedPersonnelFileId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(relatedPersonnelFileId));
+        }
+
         PublicId = Guid.NewGuid();
-        RelatedEmployeeName = PersonnelFileNormalization.Clean(relatedEmployeeName, nameof(relatedEmployeeName));
+        RelatedPersonnelFileId = relatedPersonnelFileId;
         Relationship = PersonnelFileNormalization.Clean(relationship, nameof(relationship));
     }
 
@@ -832,12 +837,14 @@ public sealed class PersonnelFileEmployeeRelation : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
-    public string RelatedEmployeeName { get; private set; } = string.Empty;
+    public long RelatedPersonnelFileId { get; private set; }
+
+    public PersonnelFile RelatedPersonnelFile { get; private set; } = null!;
 
     public string Relationship { get; private set; } = string.Empty;
 
-    public static PersonnelFileEmployeeRelation Create(string relatedEmployeeName, string relationship) =>
-        new(relatedEmployeeName, relationship);
+    public static PersonnelFileEmployeeRelation Create(long relatedPersonnelFileId, string relationship) =>
+        new(relatedPersonnelFileId, relationship);
 }
 
 public sealed class PersonnelFileBankAccount : TenantEntity

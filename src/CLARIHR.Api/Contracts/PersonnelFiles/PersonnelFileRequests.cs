@@ -337,7 +337,7 @@ public sealed record ReplaceHobbiesRequest(
     IReadOnlyCollection<HobbyItemRequest> Items,
     Guid ConcurrencyToken);
 
-public sealed record EmployeeRelationItemRequest(string RelatedEmployeeName, string Relationship);
+public sealed record EmployeeRelationItemRequest(Guid RelatedEmployeePublicId, string Relationship);
 
 public sealed record ReplaceEmployeeRelationsRequest(
     IReadOnlyCollection<EmployeeRelationItemRequest> Items,

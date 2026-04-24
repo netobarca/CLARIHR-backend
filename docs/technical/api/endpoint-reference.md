@@ -3112,6 +3112,7 @@ Observaciones funcionales:
 - `employee-profile` hace upsert del perfil laboral y permite vincular `PositionSlotId`, `JobProfileId`, `OrgUnitId`, `WorkCenterId`, `CostCenterId`, vigencias contractuales y `VacationConfigurationJson`.
 - la creacion del usuario ya no depende del `employee-profile`; ese subrecurso queda para datos laborales posteriores a `finalize`.
 - `employment-assignments`, `contract-history`, `authorization-substitutions` y `assets-accesses` reemplazan la coleccion completa de ese subrecurso.
+- `employee-relations` ya no acepta nombres libres: cada item debe referenciar otro expediente existente del mismo tenant mediante `RelatedEmployeePublicId`, y la respuesta devuelve tambien `RelatedEmployeeFullName`.
 - `position-hierarchy` devuelve `ImmediateSupervisorPersonnelFileId`, `ImmediateSupervisorName` y la coleccion de subordinados.
 - `personnel-actions` agrega un evento individual de personal con fechas efectivas, monto opcional, moneda, descripcion y referencia.
 - `search personnel-actions` soporta `fromUtc`, `toUtc`, `type`, `status`, `q`, `sortBy`, `sortDirection`, `page` y `pageSize`.
