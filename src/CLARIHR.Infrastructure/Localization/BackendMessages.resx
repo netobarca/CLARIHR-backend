@@ -421,6 +421,9 @@
   <data name="PERSONNEL_FILE_DOCUMENT_NOT_FOUND" xml:space="preserve">
     <value>The personnel file document could not be found.</value>
   </data>
+  <data name="PERSONNEL_FILE_DOCUMENT_STORAGE_NOT_CONFIGURED" xml:space="preserve">
+    <value>Personnel file document storage is not configured.</value>
+  </data>
   <data name="PERSONNEL_FILE_DOCUMENT_TOO_LARGE" xml:space="preserve">
     <value>The document file exceeds the maximum allowed size.</value>
   </data>

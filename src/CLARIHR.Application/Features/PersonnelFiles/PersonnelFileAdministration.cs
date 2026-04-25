@@ -210,6 +210,7 @@ public sealed record PersonnelFileDocumentMetadataResponse(
     DateTime? ReturnDate,
     string FileName,
     string ContentType,
+    string? FileUrl,
     int SizeBytes,
     bool IsActive,
     Guid ConcurrencyToken,
@@ -255,6 +256,27 @@ public sealed record PersonnelFilePersonalInfoResponse(
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
+    DateTime? ModifiedAtUtc);
+
+public sealed record PersonnelFileShellResponse(
+    Guid Id,
+    Guid CompanyId,
+    PersonnelFileRecordType RecordType,
+    PersonnelFileLifecycleStatus LifecycleStatus,
+    string FullName,
+    string? PhotoUrl,
+    bool IsActive,
+    Guid? OrgUnitId,
+    Guid? AssignedPositionSlotId,
+    Guid? LinkedUserId,
+    Guid ConcurrencyToken,
+    DateTime CreatedAtUtc,
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
+
+public sealed record PersonnelFileSectionResult<TData>(
+    TData Data,
+    Guid PersonnelFileConcurrencyToken,
     DateTime? ModifiedAtUtc);
 
 public sealed record PersonnelFileResponse(
@@ -323,15 +345,6 @@ public sealed record PersonnelReferenceCatalogItemResponse(
     string Name,
     int SortOrder);
 
-public sealed record PersonnelFileDocumentDownloadResponse(
-    Guid Id,
-    Guid PersonnelFileId,
-    string FileName,
-    string ContentType,
-    byte[] FileData,
-    Guid ConcurrencyToken,
-    bool IsActive);
-
 public sealed record PersonnelFileExportRow(
     Guid Id,
     PersonnelFileRecordType RecordType,
@@ -369,6 +382,23 @@ public enum PersonnelFileSortDirection
 {
     Asc = 1,
     Desc = 2
+}
+
+public enum PersonnelFileTrackedSection
+{
+    Identifications = 1,
+    Addresses = 2,
+    EmergencyContacts = 3,
+    FamilyMembers = 4,
+    Hobbies = 5,
+    EmployeeRelations = 6,
+    BankAccounts = 7,
+    Associations = 8,
+    Educations = 9,
+    Languages = 10,
+    Trainings = 11,
+    PreviousEmployments = 12,
+    References = 13
 }
 
 public sealed record PersonnelFilePrintResponse(
@@ -432,7 +462,7 @@ public sealed record SearchPersonnelFilesQuery(
     bool IncludeAllowedActions = false)
     : IQuery<PagedResponse<PersonnelFileListItemResponse>>;
 
-public sealed record GetPersonnelFileByIdQuery(Guid PersonnelFileId) : IQuery<PersonnelFileResponse>;
+public sealed record GetPersonnelFileByIdQuery(Guid PersonnelFileId) : IQuery<PersonnelFileShellResponse>;
 
 public sealed record GetPersonnelFilePersonalInfoQuery(Guid PersonnelFileId) : IQuery<PersonnelFilePersonalInfoResponse>;
 
@@ -448,6 +478,8 @@ public sealed record GetPersonnelFileHobbiesQuery(Guid PersonnelFileId) : IQuery
 
 public sealed record GetPersonnelFileEmployeeRelationsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>;
 
+public sealed record GetPersonnelFileBankAccountsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileBankAccountResponse>>;
+
 public sealed record GetPersonnelFileAssociationsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileAssociationResponse>>;
 
 public sealed record GetPersonnelFileEducationsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileEducationResponse>>;
@@ -461,6 +493,8 @@ public sealed record GetPersonnelFilePreviousEmploymentsQuery(Guid PersonnelFile
 public sealed record GetPersonnelFileReferencesQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileReferenceResponse>>;
 
 public sealed record GetPersonnelFileDocumentsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>>;
+
+public sealed record GetPersonnelFileObservationsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileObservationResponse>>;
 
 public sealed record GetPersonnelFilePrintQuery(
     Guid PersonnelFileId,
@@ -512,8 +546,6 @@ public sealed record GetPersonnelFilesAnalyticsSummaryQuery(
     string? Search)
     : IQuery<PersonnelFileAnalyticsSummaryResponse>;
 
-public sealed record GetPersonnelFileDocumentDownloadQuery(Guid DocumentId) : IQuery<PersonnelFileDocumentDownloadResponse>;
-
 public sealed record GetPersonnelCustomFieldDefinitionsQuery(Guid CompanyId, bool? IsActive) : IQuery<IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>>;
 
 public sealed record CreatePersonnelFileCommand(
@@ -560,85 +592,85 @@ public sealed record UpdatePersonnelFilePersonalInfoCommand(
     Guid? AssignedPositionSlotId,
     string? CustomDataJson,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>;
 
 public sealed record ReplacePersonnelFileIdentificationsCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<IdentificationInput> Identifications,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileIdentificationResponse>>>;
 
 public sealed record ReplacePersonnelFileAddressesCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<AddressInput> Addresses,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAddressResponse>>>;
 
 public sealed record ReplacePersonnelFileEmergencyContactsCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<EmergencyContactInput> Contacts,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>>>;
 
 public sealed record ReplacePersonnelFileFamilyMembersCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<FamilyMemberInput> FamilyMembers,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>>;
 
 public sealed record ReplacePersonnelFileHobbiesCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<HobbyInput> Hobbies,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileHobbyResponse>>>;
 
 public sealed record ReplacePersonnelFileEmployeeRelationsCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<EmployeeRelationInput> Relations,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>;
 
 public sealed record ReplacePersonnelFileBankAccountsCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<BankAccountInput> BankAccounts,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>;
 
 public sealed record ReplacePersonnelFileAssociationsCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<AssociationInput> Associations,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>;
 
 public sealed record ReplacePersonnelFileEducationsCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<EducationInput> Educations,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>;
 
 public sealed record ReplacePersonnelFileLanguagesCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<LanguageInput> Languages,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileLanguageResponse>>>;
 
 public sealed record ReplacePersonnelFileTrainingsCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<TrainingInput> Trainings,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileTrainingResponse>>>;
 
 public sealed record ReplacePersonnelFilePreviousEmploymentsCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<PreviousEmploymentInput> PreviousEmployments,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>>>;
 
 public sealed record ReplacePersonnelFileReferencesCommand(
     Guid PersonnelFileId,
     IReadOnlyCollection<ReferenceInput> References,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileResponse>;
+    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileReferenceResponse>>>;
 
 public sealed record ActivatePersonnelFileCommand(Guid PersonnelFileId, Guid ConcurrencyToken)
     : ICommand<PersonnelFileResponse>;
@@ -653,6 +685,14 @@ public sealed record UploadPersonnelFileDocumentCommand(
     DateTime? DeliveryDate,
     DateTime? LoanDate,
     DateTime? ReturnDate,
+    string FileName,
+    string ContentType,
+    byte[] FileData,
+    Guid ConcurrencyToken)
+    : ICommand<PersonnelFileDocumentMetadataResponse>;
+
+public sealed record ReplacePersonnelFileDocumentFileCommand(
+    Guid DocumentId,
     string FileName,
     string ContentType,
     byte[] FileData,
@@ -1092,14 +1132,6 @@ internal sealed class GetPersonnelFilesAnalyticsSummaryQueryValidator : Abstract
     }
 }
 
-internal sealed class GetPersonnelFileDocumentDownloadQueryValidator : AbstractValidator<GetPersonnelFileDocumentDownloadQuery>
-{
-    public GetPersonnelFileDocumentDownloadQueryValidator()
-    {
-        RuleFor(query => query.DocumentId).NotEmpty();
-    }
-}
-
 internal sealed class CreatePersonnelFileCommandValidator : AbstractValidator<CreatePersonnelFileCommand>
 {
     public CreatePersonnelFileCommandValidator()
@@ -1394,6 +1426,18 @@ internal sealed class UploadPersonnelFileDocumentCommandValidator : AbstractVali
         RuleFor(command => command)
             .Must(static command => !command.LoanDate.HasValue || !command.ReturnDate.HasValue || command.ReturnDate.Value.Date >= command.LoanDate.Value.Date)
             .WithMessage(PersonnelFileErrors.DocumentLoanDatesInvalid.Message);
+    }
+}
+
+internal sealed class ReplacePersonnelFileDocumentFileCommandValidator : AbstractValidator<ReplacePersonnelFileDocumentFileCommand>
+{
+    public ReplacePersonnelFileDocumentFileCommandValidator()
+    {
+        RuleFor(command => command.DocumentId).NotEmpty();
+        RuleFor(command => command.FileName).NotEmpty().MaximumLength(260);
+        RuleFor(command => command.ContentType).NotEmpty().MaximumLength(200);
+        RuleFor(command => command.FileData).NotNull().Must(static data => data.Length > 0).WithMessage("FileData is required.");
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -2181,32 +2225,32 @@ internal sealed class GetPersonnelFileByIdQueryHandler(
     IPersonnelFileRepository repository,
     ITenantContext tenantContext,
     IResourceActionPolicyService resourceActionPolicyService)
-    : IQueryHandler<GetPersonnelFileByIdQuery, PersonnelFileResponse>
+    : IQueryHandler<GetPersonnelFileByIdQuery, PersonnelFileShellResponse>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileShellResponse>> Handle(
         GetPersonnelFileByIdQuery query,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<PersonnelFileResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PersonnelFileShellResponse>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<PersonnelFileResponse>.Failure(authorizationResult.Error);
+            return Result<PersonnelFileShellResponse>.Failure(authorizationResult.Error);
         }
 
-        var response = await repository.GetResponseByIdAsync(query.PersonnelFileId, cancellationToken);
+        var response = await repository.GetShellByIdAsync(query.PersonnelFileId, cancellationToken);
         if (response is not null)
         {
             var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
             response = PersonnelFilePolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage);
-            return Result<PersonnelFileResponse>.Success(response);
+            return Result<PersonnelFileShellResponse>.Success(response);
         }
 
-        return Result<PersonnelFileResponse>.Failure(
+        return Result<PersonnelFileShellResponse>.Failure(
             await repository.ExistsOutsideTenantAsync(query.PersonnelFileId, cancellationToken)
                 ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                 : PersonnelFileErrors.NotFound);
@@ -2233,7 +2277,7 @@ internal abstract class GetPersonnelFileSectionQueryHandlerBase
             return Result<TResponse>.Failure(authorizationResult.Error);
         }
 
-        var personnelFile = await repository.GetByIdAsync(personnelFileId, cancellationToken);
+        var personnelFile = await repository.GetForAccessCheckAsync(personnelFileId, cancellationToken);
         if (personnelFile is not null)
         {
             return null;
@@ -2437,6 +2481,33 @@ internal sealed class GetPersonnelFileEmployeeRelationsQueryHandler(
     }
 }
 
+internal sealed class GetPersonnelFileBankAccountsQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext)
+    : GetPersonnelFileSectionQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileBankAccountsQuery, IReadOnlyCollection<PersonnelFileBankAccountResponse>>
+{
+    public async Task<Result<IReadOnlyCollection<PersonnelFileBankAccountResponse>>> Handle(
+        GetPersonnelFileBankAccountsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var failure = await EnsureCanReadAsync<IReadOnlyCollection<PersonnelFileBankAccountResponse>>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            repository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await repository.GetBankAccountsAsync(query.PersonnelFileId, cancellationToken);
+        return Result<IReadOnlyCollection<PersonnelFileBankAccountResponse>>.Success(response);
+    }
+}
+
 internal sealed class GetPersonnelFileAssociationsQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
@@ -2626,6 +2697,33 @@ internal sealed class GetPersonnelFileDocumentsQueryHandler(
     }
 }
 
+internal sealed class GetPersonnelFileObservationsQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext)
+    : GetPersonnelFileSectionQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileObservationsQuery, IReadOnlyCollection<PersonnelFileObservationResponse>>
+{
+    public async Task<Result<IReadOnlyCollection<PersonnelFileObservationResponse>>> Handle(
+        GetPersonnelFileObservationsQuery query,
+        CancellationToken cancellationToken)
+    {
+        var failure = await EnsureCanReadAsync<IReadOnlyCollection<PersonnelFileObservationResponse>>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            repository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await repository.GetObservationsAsync(query.PersonnelFileId, cancellationToken);
+        return Result<IReadOnlyCollection<PersonnelFileObservationResponse>>.Success(response);
+    }
+}
+
 internal sealed class GetPersonnelFilePrintQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
@@ -2648,7 +2746,17 @@ internal sealed class GetPersonnelFilePrintQueryHandler(
             return Result<PersonnelFilePrintResponse>.Failure(authorizationResult.Error);
         }
 
-        var response = await repository.GetResponseByIdAsync(query.PersonnelFileId, cancellationToken);
+        var includedSections = PersonnelFilePrintSections.Resolve(query.Sections);
+        PersonnelFileResponse? response;
+        if (query.Sections is null || query.Sections.Count == 0)
+        {
+            response = await repository.GetResponseByIdAsync(query.PersonnelFileId, cancellationToken);
+        }
+        else
+        {
+            response = await BuildSectionScopedResponseAsync(query.PersonnelFileId, includedSections, cancellationToken);
+        }
+
         if (response is null)
         {
             return Result<PersonnelFilePrintResponse>.Failure(
@@ -2659,11 +2767,120 @@ internal sealed class GetPersonnelFilePrintQueryHandler(
 
         var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
         response = PersonnelFilePolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage);
-        var includedSections = PersonnelFilePrintSections.Resolve(query.Sections);
         var filtered = PersonnelFilePrintSections.Filter(response, includedSections);
 
         return Result<PersonnelFilePrintResponse>.Success(
             new PersonnelFilePrintResponse(DateTime.UtcNow, includedSections, filtered));
+    }
+
+    private async Task<PersonnelFileResponse?> BuildSectionScopedResponseAsync(
+        Guid personnelFileId,
+        IReadOnlyCollection<string> includedSections,
+        CancellationToken cancellationToken)
+    {
+        var personalInfo = await repository.GetPersonalInfoAsync(personnelFileId, cancellationToken);
+        if (personalInfo is null)
+        {
+            return null;
+        }
+
+        var include = includedSections.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var identifications = include.Contains(PersonnelFilePrintSections.Identifications)
+            ? await repository.GetIdentificationsAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileIdentificationResponse>();
+        var addresses = include.Contains(PersonnelFilePrintSections.Addresses)
+            ? await repository.GetAddressesAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileAddressResponse>();
+        var emergencyContacts = include.Contains(PersonnelFilePrintSections.EmergencyContacts)
+            ? await repository.GetEmergencyContactsAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileEmergencyContactResponse>();
+        var familyMembers = include.Contains(PersonnelFilePrintSections.FamilyMembers)
+            ? await repository.GetFamilyMembersAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileFamilyMemberResponse>();
+        var hobbies = include.Contains(PersonnelFilePrintSections.Hobbies)
+            ? await repository.GetHobbiesAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileHobbyResponse>();
+        var employeeRelations = include.Contains(PersonnelFilePrintSections.EmployeeRelations)
+            ? await repository.GetEmployeeRelationsAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileEmployeeRelationResponse>();
+        var bankAccounts = include.Contains(PersonnelFilePrintSections.BankAccounts)
+            ? await repository.GetBankAccountsAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileBankAccountResponse>();
+        var associations = include.Contains(PersonnelFilePrintSections.Associations)
+            ? await repository.GetAssociationsAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileAssociationResponse>();
+        var educations = include.Contains(PersonnelFilePrintSections.Educations)
+            ? await repository.GetEducationsAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileEducationResponse>();
+        var languages = include.Contains(PersonnelFilePrintSections.Languages)
+            ? await repository.GetLanguagesAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileLanguageResponse>();
+        var trainings = include.Contains(PersonnelFilePrintSections.Trainings)
+            ? await repository.GetTrainingsAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileTrainingResponse>();
+        var previousEmployments = include.Contains(PersonnelFilePrintSections.PreviousEmployments)
+            ? await repository.GetPreviousEmploymentsAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFilePreviousEmploymentResponse>();
+        var references = include.Contains(PersonnelFilePrintSections.References)
+            ? await repository.GetReferencesAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileReferenceResponse>();
+        var documents = include.Contains(PersonnelFilePrintSections.Documents)
+            ? await repository.GetDocumentsAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileDocumentMetadataResponse>();
+        var observations = include.Contains(PersonnelFilePrintSections.Observations)
+            ? await repository.GetObservationsAsync(personnelFileId, cancellationToken)
+            : Array.Empty<PersonnelFileObservationResponse>();
+
+        return new PersonnelFileResponse(
+            personalInfo.Id,
+            personalInfo.CompanyId,
+            personalInfo.RecordType,
+            personalInfo.LifecycleStatus,
+            personalInfo.FirstName,
+            personalInfo.LastName,
+            personalInfo.FullName,
+            personalInfo.BirthDate,
+            personalInfo.Age,
+            personalInfo.MaritalStatusCode,
+            personalInfo.MaritalStatusName,
+            personalInfo.ProfessionCode,
+            personalInfo.ProfessionName,
+            personalInfo.Nationality,
+            personalInfo.PersonalEmail,
+            personalInfo.InstitutionalEmail,
+            personalInfo.PersonalPhone,
+            personalInfo.InstitutionalPhone,
+            personalInfo.BirthCountryCode,
+            personalInfo.BirthCountryName,
+            personalInfo.BirthDepartmentCode,
+            personalInfo.BirthDepartmentName,
+            personalInfo.BirthMunicipalityCode,
+            personalInfo.BirthMunicipalityName,
+            personalInfo.PhotoUrl,
+            personalInfo.OrgUnitId,
+            personalInfo.AssignedPositionSlotId,
+            personalInfo.LinkedUserId,
+            personalInfo.CustomDataJson,
+            personalInfo.IsActive,
+            personalInfo.ConcurrencyToken,
+            personalInfo.CreatedAtUtc,
+            personalInfo.ModifiedAtUtc,
+            identifications,
+            addresses,
+            emergencyContacts,
+            familyMembers,
+            hobbies,
+            employeeRelations,
+            bankAccounts,
+            associations,
+            educations,
+            languages,
+            trainings,
+            previousEmployments,
+            references,
+            documents,
+            observations);
     }
 }
 
@@ -2818,40 +3035,6 @@ internal sealed class GetPersonnelFilesAnalyticsSummaryQueryHandler(
     }
 }
 
-internal sealed class GetPersonnelFileDocumentDownloadQueryHandler(
-    IPersonnelFileAuthorizationService authorizationService,
-    IPersonnelFileRepository repository,
-    ITenantContext tenantContext)
-    : IQueryHandler<GetPersonnelFileDocumentDownloadQuery, PersonnelFileDocumentDownloadResponse>
-{
-    public async Task<Result<PersonnelFileDocumentDownloadResponse>> Handle(
-        GetPersonnelFileDocumentDownloadQuery query,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileDocumentDownloadResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileDocumentDownloadResponse>.Failure(authorizationResult.Error);
-        }
-
-        var response = await repository.GetDocumentDownloadByIdAsync(query.DocumentId, cancellationToken);
-        if (response is not null)
-        {
-            return Result<PersonnelFileDocumentDownloadResponse>.Success(response);
-        }
-
-        return Result<PersonnelFileDocumentDownloadResponse>.Failure(
-            await repository.DocumentExistsOutsideTenantAsync(query.DocumentId, cancellationToken)
-                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
-                : PersonnelFileErrors.DocumentNotFound);
-    }
-}
-
 internal sealed class GetPersonnelCustomFieldDefinitionsQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository)
@@ -2876,6 +3059,28 @@ internal static class PersonnelFilePolicyAdapter
 {
     public static PersonnelFileListItemResponse ApplyAllowedActions(
         PersonnelFileListItemResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManage)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                PersonnelFilePermissionCodes.ResourceKey,
+                response.RecordType.ToString(),
+                response.IsActive,
+                SupportsEdit: true,
+                EditAllowed: canManage,
+                SupportsDelete: false,
+                SupportsArchive: false,
+                SupportsActivate: true,
+                ActivateAllowed: canManage,
+                SupportsInactivate: true,
+                InactivateAllowed: canManage));
+
+        return response with { AllowedActions = allowedActions };
+    }
+
+    public static PersonnelFileShellResponse ApplyAllowedActions(
+        PersonnelFileShellResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
         bool canManage)
     {
@@ -3093,27 +3298,27 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
     IPersonnelFileProfilePhotoService profilePhotoService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdatePersonnelFilePersonalInfoCommand, PersonnelFileResponse>
+    : ICommandHandler<UpdatePersonnelFilePersonalInfoCommand, PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>> Handle(
         UpdatePersonnelFilePersonalInfoCommand command,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<PersonnelFileResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<PersonnelFileResponse>.Failure(authorizationResult.Error);
+            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(authorizationResult.Error);
         }
 
-        var personnelFile = await repository.GetByIdAsync(command.PersonnelFileId, cancellationToken);
+        var personnelFile = await repository.GetForAccessCheckAsync(command.PersonnelFileId, cancellationToken);
         if (personnelFile is null)
         {
-            return Result<PersonnelFileResponse>.Failure(
+            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : PersonnelFileErrors.NotFound);
@@ -3121,19 +3326,19 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
 
         if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         if (personnelFile.RecordType != command.RecordType)
         {
-            return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.RecordTypeTransitionNotAllowed);
+            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(PersonnelFileErrors.RecordTypeTransitionNotAllowed);
         }
 
         var definitions = await repository.GetCustomFieldDefinitionsAsync(personnelFile.TenantId, isActive: true, cancellationToken);
         var customDataValidation = PersonnelFileValidationRules.ValidateCustomData(definitions, command.CustomDataJson);
         if (customDataValidation != Error.None)
         {
-            return Result<PersonnelFileResponse>.Failure(customDataValidation);
+            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(customDataValidation);
         }
 
         var personalInfoCatalogValidation = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
@@ -3147,7 +3352,7 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
             cancellationToken);
         if (personalInfoCatalogValidation != Error.None)
         {
-            return Result<PersonnelFileResponse>.Failure(personalInfoCatalogValidation);
+            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(personalInfoCatalogValidation);
         }
 
         var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
@@ -3158,13 +3363,13 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
             cancellationToken);
         if (photoWritePlanResult.IsFailure)
         {
-            return Result<PersonnelFileResponse>.Failure(photoWritePlanResult.Error);
+            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(photoWritePlanResult.Error);
         }
 
         var photoWritePlan = photoWritePlanResult.Value;
 
-        var before = await repository.GetResponseByIdAsync(personnelFile.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Personnel file response could not be resolved before update.");
+        var before = await repository.GetPersonalInfoAsync(personnelFile.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Personnel file personal info could not be resolved before update.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -3194,13 +3399,13 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
             catch (InvalidOperationException)
             {
                 await profilePhotoService.CleanupAfterPersistenceFailureAsync(photoWritePlan, cancellationToken);
-                return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.ProvisioningFieldsLocked);
+                return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(PersonnelFileErrors.ProvisioningFieldsLocked);
             }
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var after = await repository.GetResponseByIdAsync(personnelFile.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Personnel file response could not be resolved after update.");
+            var after = await repository.GetPersonalInfoAsync(personnelFile.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Personnel file personal info could not be resolved after update.");
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -3210,15 +3415,28 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
                     personnelFile.FullName,
                     AuditActions.Update,
                     $"Updated personnel file {personnelFile.FullName} personal info.",
-                    Before: before,
-                    After: after),
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.PersonalInfo,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.PersonalInfo,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
                 cancellationToken);
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             await profilePhotoService.CleanupAfterPersistenceSuccessAsync(photoWritePlan, cancellationToken);
 
-            return Result<PersonnelFileResponse>.Success(after);
+            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Success(
+                ReplacePersonnelFileSectionCommandHandlerBase.CreateSectionResult(personnelFile, after));
         }
         catch
         {
@@ -3231,9 +3449,15 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
 
 internal abstract class ReplacePersonnelFileSectionCommandHandlerBase
 {
-    protected static async Task<(Result<PersonnelFileResponse>? Failure, PersonnelFile? File)> LoadForUpdateAsync(
+    internal static PersonnelFileSectionResult<TSection> CreateSectionResult<TSection>(
+        PersonnelFile personnelFile,
+        TSection data) =>
+        new(data, personnelFile.ConcurrencyToken, personnelFile.ModifiedUtc);
+
+    protected static async Task<(Result<PersonnelFileSectionResult<TSection>>? Failure, PersonnelFile? File)> LoadForUpdateAsync<TSection>(
         Guid personnelFileId,
         Guid concurrencyToken,
+        PersonnelFileTrackedSection trackedSection,
         ITenantContext tenantContext,
         IPersonnelFileAuthorizationService authorizationService,
         IPersonnelFileRepository repository,
@@ -3241,20 +3465,20 @@ internal abstract class ReplacePersonnelFileSectionCommandHandlerBase
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return (Result<PersonnelFileResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+            return (Result<PersonnelFileSectionResult<TSection>>.Failure(AuthorizationErrors.Unauthenticated), null);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return (Result<PersonnelFileResponse>.Failure(authorizationResult.Error), null);
+            return (Result<PersonnelFileSectionResult<TSection>>.Failure(authorizationResult.Error), null);
         }
 
-        var personnelFile = await repository.GetByIdAsync(personnelFileId, cancellationToken);
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(personnelFileId, trackedSection, cancellationToken);
         if (personnelFile is null)
         {
             return (
-                Result<PersonnelFileResponse>.Failure(
+                Result<PersonnelFileSectionResult<TSection>>.Failure(
                     await repository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
                         ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                         : PersonnelFileErrors.NotFound),
@@ -3263,31 +3487,30 @@ internal abstract class ReplacePersonnelFileSectionCommandHandlerBase
 
         if (personnelFile.ConcurrencyToken != concurrencyToken)
         {
-            return (Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
+            return (Result<PersonnelFileSectionResult<TSection>>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
         }
 
         return (null, personnelFile);
     }
 
-    protected static async Task<Result<PersonnelFileResponse>> PersistSectionAsync(
+    protected static async Task<Result<PersonnelFileSectionResult<TSection>>> PersistSectionAsync<TSection>(
         PersonnelFile personnelFile,
+        string sectionName,
         string auditMessage,
+        Func<Guid, CancellationToken, Task<TSection>> sectionLoader,
         IAuditService auditService,
-        IPersonnelFileRepository repository,
         IUnitOfWork unitOfWork,
         string eventType,
         CancellationToken cancellationToken)
     {
-        var before = await repository.GetResponseByIdAsync(personnelFile.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Personnel file response could not be resolved before section update.");
+        var before = await sectionLoader(personnelFile.PublicId, cancellationToken);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var after = await repository.GetResponseByIdAsync(personnelFile.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Personnel file response could not be resolved after section update.");
+            var after = await sectionLoader(personnelFile.PublicId, cancellationToken);
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -3297,13 +3520,25 @@ internal abstract class ReplacePersonnelFileSectionCommandHandlerBase
                     personnelFile.FullName,
                     AuditActions.Update,
                     auditMessage,
-                    Before: before,
-                    After: after),
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = sectionName,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = sectionName,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
                 cancellationToken);
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<PersonnelFileResponse>.Success(after);
+            return Result<PersonnelFileSectionResult<TSection>>.Success(CreateSectionResult(personnelFile, after));
         }
         catch
         {
@@ -3320,15 +3555,16 @@ internal sealed class ReplacePersonnelFileIdentificationsCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileIdentificationsCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileIdentificationsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileIdentificationResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileIdentificationResponse>>>> Handle(
         ReplacePersonnelFileIdentificationsCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileIdentificationResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.Identifications,
             tenantContext,
             authorizationService,
             repository,
@@ -3349,7 +3585,7 @@ internal sealed class ReplacePersonnelFileIdentificationsCommandHandler(
                 cancellationToken);
             if (identificationTypeValidation != Error.None)
             {
-                return Result<PersonnelFileResponse>.Failure(identificationTypeValidation);
+                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileIdentificationResponse>>>.Failure(identificationTypeValidation);
             }
 
             var normalized = item.IdentificationNumber.Trim().ToUpperInvariant();
@@ -3360,7 +3596,7 @@ internal sealed class ReplacePersonnelFileIdentificationsCommandHandler(
                     personnelFile.Id,
                     cancellationToken))
             {
-                return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.IdentificationConflict);
+                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileIdentificationResponse>>>.Failure(PersonnelFileErrors.IdentificationConflict);
             }
 
             entities.Add(PersonnelFileIdentification.Create(
@@ -3375,9 +3611,10 @@ internal sealed class ReplacePersonnelFileIdentificationsCommandHandler(
         personnelFile!.ReplaceIdentifications(entities);
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.Identifications,
             $"Updated personnel file {personnelFile.FullName} identifications.",
+            repository.GetIdentificationsAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -3391,15 +3628,16 @@ internal sealed class ReplacePersonnelFileAddressesCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileAddressesCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileAddressesCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAddressResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAddressResponse>>>> Handle(
         ReplacePersonnelFileAddressesCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileAddressResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.Addresses,
             tenantContext,
             authorizationService,
             repository,
@@ -3423,9 +3661,10 @@ internal sealed class ReplacePersonnelFileAddressesCommandHandler(
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.Addresses,
             $"Updated personnel file {personnelFile.FullName} addresses.",
+            repository.GetAddressesAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -3439,15 +3678,16 @@ internal sealed class ReplacePersonnelFileEmergencyContactsCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileEmergencyContactsCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileEmergencyContactsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>>>> Handle(
         ReplacePersonnelFileEmergencyContactsCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.EmergencyContacts,
             tenantContext,
             authorizationService,
             repository,
@@ -3470,9 +3710,10 @@ internal sealed class ReplacePersonnelFileEmergencyContactsCommandHandler(
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.EmergencyContacts,
             $"Updated personnel file {personnelFile.FullName} emergency contacts.",
+            repository.GetEmergencyContactsAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -3486,15 +3727,16 @@ internal sealed class ReplacePersonnelFileFamilyMembersCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileFamilyMembersCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileFamilyMembersCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>>> Handle(
         ReplacePersonnelFileFamilyMembersCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.FamilyMembers,
             tenantContext,
             authorizationService,
             repository,
@@ -3519,7 +3761,7 @@ internal sealed class ReplacePersonnelFileFamilyMembersCommandHandler(
                     cancellationToken);
                 if (kinshipCodeValidation != Error.None)
                 {
-                    return Result<PersonnelFileResponse>.Failure(kinshipCodeValidation);
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>>.Failure(kinshipCodeValidation);
                 }
 
                 entities.Add(PersonnelFileFamilyMember.Create(
@@ -3549,16 +3791,17 @@ internal sealed class ReplacePersonnelFileFamilyMembersCommandHandler(
         }
         catch (InvalidOperationException)
         {
-            return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.FamilyMemberRuleViolation);
+            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>>.Failure(PersonnelFileErrors.FamilyMemberRuleViolation);
         }
 
         personnelFile!.ReplaceFamilyMembers(entities);
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.FamilyMembers,
             $"Updated personnel file {personnelFile.FullName} family members.",
+            repository.GetFamilyMembersAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -3572,15 +3815,16 @@ internal sealed class ReplacePersonnelFileHobbiesCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileHobbiesCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileHobbiesCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileHobbyResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileHobbyResponse>>>> Handle(
         ReplacePersonnelFileHobbiesCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileHobbyResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.Hobbies,
             tenantContext,
             authorizationService,
             repository,
@@ -3598,9 +3842,10 @@ internal sealed class ReplacePersonnelFileHobbiesCommandHandler(
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.Hobbies,
             $"Updated personnel file {personnelFile.FullName} hobbies.",
+            repository.GetHobbiesAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -3614,15 +3859,16 @@ internal sealed class ReplacePersonnelFileEmployeeRelationsCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileEmployeeRelationsCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileEmployeeRelationsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>> Handle(
         ReplacePersonnelFileEmployeeRelationsCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.EmployeeRelations,
             tenantContext,
             authorizationService,
             repository,
@@ -3639,7 +3885,7 @@ internal sealed class ReplacePersonnelFileEmployeeRelationsCommandHandler(
             var relation = relations[index];
             if (relation.RelatedEmployeePublicId == personnelFile!.PublicId)
             {
-                return Result<PersonnelFileResponse>.Failure(
+                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>.Failure(
                     ErrorCatalog.Validation(
                         new Dictionary<string, string[]>
                         {
@@ -3647,10 +3893,10 @@ internal sealed class ReplacePersonnelFileEmployeeRelationsCommandHandler(
                         }));
             }
 
-            var relatedPersonnelFile = await repository.GetByIdAsync(relation.RelatedEmployeePublicId, cancellationToken);
+            var relatedPersonnelFile = await repository.GetForAccessCheckAsync(relation.RelatedEmployeePublicId, cancellationToken);
             if (relatedPersonnelFile is null || relatedPersonnelFile.RecordType != PersonnelFileRecordType.Employee)
             {
-                return Result<PersonnelFileResponse>.Failure(
+                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>.Failure(
                     ErrorCatalog.Validation(
                         new Dictionary<string, string[]>
                         {
@@ -3665,9 +3911,10 @@ internal sealed class ReplacePersonnelFileEmployeeRelationsCommandHandler(
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.EmployeeRelations,
             $"Updated personnel file {personnelFile.FullName} employee relations.",
+            repository.GetEmployeeRelationsAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -3681,15 +3928,16 @@ internal sealed class ReplacePersonnelFileBankAccountsCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileBankAccountsCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileBankAccountsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>> Handle(
         ReplacePersonnelFileBankAccountsCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileBankAccountResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.BankAccounts,
             tenantContext,
             authorizationService,
             repository,
@@ -3712,9 +3960,10 @@ internal sealed class ReplacePersonnelFileBankAccountsCommandHandler(
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.BankAccounts,
             $"Updated personnel file {personnelFile.FullName} bank accounts.",
+            repository.GetBankAccountsAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -3728,15 +3977,16 @@ internal sealed class ReplacePersonnelFileAssociationsCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileAssociationsCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileAssociationsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>> Handle(
         ReplacePersonnelFileAssociationsCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileAssociationResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.Associations,
             tenantContext,
             authorizationService,
             repository,
@@ -3758,16 +4008,17 @@ internal sealed class ReplacePersonnelFileAssociationsCommandHandler(
         }
         catch (InvalidOperationException)
         {
-            return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
+            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
         }
 
         personnelFile!.ReplaceAssociations(entities);
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.Associations,
             $"Updated personnel file {personnelFile.FullName} associations.",
+            repository.GetAssociationsAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -3782,15 +4033,16 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileEducationsCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileEducationsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>> Handle(
         ReplacePersonnelFileEducationsCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileEducationResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.Educations,
             tenantContext,
             authorizationService,
             repository,
@@ -3812,7 +4064,7 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
                     cancellationToken);
                 if (statusLookup is null)
                 {
-                    return Result<PersonnelFileResponse>.Failure(CreateEducationCatalogValidationError(nameof(item.StatusPublicId), item.StatusPublicId));
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(CreateEducationCatalogValidationError(nameof(item.StatusPublicId), item.StatusPublicId));
                 }
 
                 var studyTypeLookup = await personnelEducationCatalogRepository.GetActiveLookupByIdAsync(
@@ -3822,7 +4074,7 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
                     cancellationToken);
                 if (studyTypeLookup is null)
                 {
-                    return Result<PersonnelFileResponse>.Failure(CreateEducationCatalogValidationError(nameof(item.StudyTypePublicId), item.StudyTypePublicId));
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(CreateEducationCatalogValidationError(nameof(item.StudyTypePublicId), item.StudyTypePublicId));
                 }
 
                 var countryError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
@@ -3834,7 +4086,7 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
                     cancellationToken);
                 if (countryError != Error.None)
                 {
-                    return Result<PersonnelFileResponse>.Failure(countryError);
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(countryError);
                 }
 
                 PersonnelEducationCatalogLookup? shiftValue = null;
@@ -3847,7 +4099,7 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
                         cancellationToken);
                     if (shiftValue is null)
                     {
-                        return Result<PersonnelFileResponse>.Failure(CreateEducationCatalogValidationError(nameof(item.ShiftPublicId), item.ShiftPublicId.Value));
+                        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(CreateEducationCatalogValidationError(nameof(item.ShiftPublicId), item.ShiftPublicId.Value));
                     }
                 }
 
@@ -3861,7 +4113,7 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
                         cancellationToken);
                     if (modalityValue is null)
                     {
-                        return Result<PersonnelFileResponse>.Failure(CreateEducationCatalogValidationError(nameof(item.ModalityPublicId), item.ModalityPublicId.Value));
+                        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(CreateEducationCatalogValidationError(nameof(item.ModalityPublicId), item.ModalityPublicId.Value));
                     }
                 }
 
@@ -3872,7 +4124,7 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
                     cancellationToken);
                 if (careerLookup is null)
                 {
-                    return Result<PersonnelFileResponse>.Failure(CreateEducationCatalogValidationError(nameof(item.CareerPublicId), item.CareerPublicId));
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(CreateEducationCatalogValidationError(nameof(item.CareerPublicId), item.CareerPublicId));
                 }
 
                 entities.Add(PersonnelFileEducation.Create(
@@ -3894,16 +4146,17 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
         }
         catch (InvalidOperationException)
         {
-            return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
+            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
         }
 
         personnelFile!.ReplaceEducations(entities);
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.Educations,
             $"Updated personnel file {personnelFile.FullName} educations.",
+            repository.GetEducationsAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -3924,15 +4177,16 @@ internal sealed class ReplacePersonnelFileLanguagesCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileLanguagesCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileLanguagesCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileLanguageResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileLanguageResponse>>>> Handle(
         ReplacePersonnelFileLanguagesCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileLanguageResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.Languages,
             tenantContext,
             authorizationService,
             repository,
@@ -3956,7 +4210,7 @@ internal sealed class ReplacePersonnelFileLanguagesCommandHandler(
                     cancellationToken);
                 if (languageError != Error.None)
                 {
-                    return Result<PersonnelFileResponse>.Failure(languageError);
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileLanguageResponse>>>.Failure(languageError);
                 }
 
                 var levelError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
@@ -3968,7 +4222,7 @@ internal sealed class ReplacePersonnelFileLanguagesCommandHandler(
                     cancellationToken);
                 if (levelError != Error.None)
                 {
-                    return Result<PersonnelFileResponse>.Failure(levelError);
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileLanguageResponse>>>.Failure(levelError);
                 }
 
                 entities.Add(PersonnelFileLanguage.Create(
@@ -3981,16 +4235,17 @@ internal sealed class ReplacePersonnelFileLanguagesCommandHandler(
         }
         catch (InvalidOperationException)
         {
-            return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileLanguageResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
         personnelFile!.ReplaceLanguages(entities);
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.Languages,
             $"Updated personnel file {personnelFile.FullName} languages.",
+            repository.GetLanguagesAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -4004,15 +4259,16 @@ internal sealed class ReplacePersonnelFileTrainingsCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileTrainingsCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileTrainingsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileTrainingResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileTrainingResponse>>>> Handle(
         ReplacePersonnelFileTrainingsCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileTrainingResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.Trainings,
             tenantContext,
             authorizationService,
             repository,
@@ -4036,7 +4292,7 @@ internal sealed class ReplacePersonnelFileTrainingsCommandHandler(
                     cancellationToken);
                 if (typeError != Error.None)
                 {
-                    return Result<PersonnelFileResponse>.Failure(typeError);
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileTrainingResponse>>>.Failure(typeError);
                 }
 
                 var countryError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
@@ -4048,7 +4304,7 @@ internal sealed class ReplacePersonnelFileTrainingsCommandHandler(
                     cancellationToken);
                 if (countryError != Error.None)
                 {
-                    return Result<PersonnelFileResponse>.Failure(countryError);
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileTrainingResponse>>>.Failure(countryError);
                 }
 
                 var durationUnitError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
@@ -4060,7 +4316,7 @@ internal sealed class ReplacePersonnelFileTrainingsCommandHandler(
                     cancellationToken);
                 if (durationUnitError != Error.None)
                 {
-                    return Result<PersonnelFileResponse>.Failure(durationUnitError);
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileTrainingResponse>>>.Failure(durationUnitError);
                 }
 
                 var currencyError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
@@ -4072,7 +4328,7 @@ internal sealed class ReplacePersonnelFileTrainingsCommandHandler(
                     cancellationToken);
                 if (currencyError != Error.None)
                 {
-                    return Result<PersonnelFileResponse>.Failure(currencyError);
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileTrainingResponse>>>.Failure(currencyError);
                 }
 
                 entities.Add(PersonnelFileTraining.Create(
@@ -4096,16 +4352,17 @@ internal sealed class ReplacePersonnelFileTrainingsCommandHandler(
         }
         catch (InvalidOperationException)
         {
-            return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
+            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileTrainingResponse>>>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
         }
 
         personnelFile!.ReplaceTrainings(entities);
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.Trainings,
             $"Updated personnel file {personnelFile.FullName} trainings.",
+            repository.GetTrainingsAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -4119,15 +4376,16 @@ internal sealed class ReplacePersonnelFilePreviousEmploymentsCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFilePreviousEmploymentsCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFilePreviousEmploymentsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>>>> Handle(
         ReplacePersonnelFilePreviousEmploymentsCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.PreviousEmployments,
             tenantContext,
             authorizationService,
             repository,
@@ -4151,7 +4409,7 @@ internal sealed class ReplacePersonnelFilePreviousEmploymentsCommandHandler(
                     cancellationToken);
                 if (currencyError != Error.None)
                 {
-                    return Result<PersonnelFileResponse>.Failure(currencyError);
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>>>.Failure(currencyError);
                 }
 
                 entities.Add(PersonnelFilePreviousEmployment.Create(
@@ -4171,16 +4429,17 @@ internal sealed class ReplacePersonnelFilePreviousEmploymentsCommandHandler(
         }
         catch (InvalidOperationException)
         {
-            return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
+            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>>>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
         }
 
         personnelFile!.ReplacePreviousEmployments(entities);
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.PreviousEmployments,
             $"Updated personnel file {personnelFile.FullName} previous employments.",
+            repository.GetPreviousEmploymentsAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -4194,15 +4453,16 @@ internal sealed class ReplacePersonnelFileReferencesCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileReferencesCommand, PersonnelFileResponse>
+      ICommandHandler<ReplacePersonnelFileReferencesCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileReferenceResponse>>>
 {
-    public async Task<Result<PersonnelFileResponse>> Handle(
+    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileReferenceResponse>>>> Handle(
         ReplacePersonnelFileReferencesCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync(
+        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileReferenceResponse>>(
             command.PersonnelFileId,
             command.ConcurrencyToken,
+            PersonnelFileTrackedSection.References,
             tenantContext,
             authorizationService,
             repository,
@@ -4226,7 +4486,7 @@ internal sealed class ReplacePersonnelFileReferencesCommandHandler(
                     cancellationToken);
                 if (typeError != Error.None)
                 {
-                    return Result<PersonnelFileResponse>.Failure(typeError);
+                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileReferenceResponse>>>.Failure(typeError);
                 }
 
                 entities.Add(PersonnelFileReference.Create(
@@ -4242,16 +4502,17 @@ internal sealed class ReplacePersonnelFileReferencesCommandHandler(
         }
         catch (InvalidOperationException)
         {
-            return Result<PersonnelFileResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileReferenceResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
         personnelFile!.ReplaceReferences(entities);
 
         return await PersistSectionAsync(
             personnelFile,
+            PersonnelFilePrintSections.References,
             $"Updated personnel file {personnelFile.FullName} references.",
+            repository.GetReferencesAsync,
             auditService,
-            repository,
             unitOfWork,
             AuditEventTypes.PersonnelFileUpdated,
             cancellationToken);
@@ -4281,7 +4542,7 @@ internal sealed class ActivatePersonnelFileCommandHandler(
             return Result<PersonnelFileResponse>.Failure(authorizationResult.Error);
         }
 
-        var personnelFile = await repository.GetByIdAsync(command.PersonnelFileId, cancellationToken);
+        var personnelFile = await repository.GetForAccessCheckAsync(command.PersonnelFileId, cancellationToken);
         if (personnelFile is null)
         {
             return Result<PersonnelFileResponse>.Failure(
@@ -4354,7 +4615,7 @@ internal sealed class InactivatePersonnelFileCommandHandler(
             return Result<PersonnelFileResponse>.Failure(authorizationResult.Error);
         }
 
-        var personnelFile = await repository.GetByIdAsync(command.PersonnelFileId, cancellationToken);
+        var personnelFile = await repository.GetForAccessCheckAsync(command.PersonnelFileId, cancellationToken);
         if (personnelFile is null)
         {
             return Result<PersonnelFileResponse>.Failure(
@@ -4407,6 +4668,7 @@ internal sealed class InactivatePersonnelFileCommandHandler(
 internal sealed class UploadPersonnelFileDocumentCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
+    IPersonnelFileDocumentStorageService documentStorageService,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -4427,6 +4689,11 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(authorizationResult.Error);
         }
 
+        if (!documentStorageService.IsConfigured)
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentStorageNotConfigured);
+        }
+
         if (command.FileData.Length > PersonnelFileValidationRules.MaxDocumentFileSizeBytes)
         {
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentFileTooLarge);
@@ -4438,7 +4705,7 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentContentTypeUnsupported);
         }
 
-        var personnelFile = await repository.GetByIdAsync(command.PersonnelFileId, cancellationToken);
+        var personnelFile = await repository.GetForAccessCheckAsync(command.PersonnelFileId, cancellationToken);
         if (personnelFile is null)
         {
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(
@@ -4454,29 +4721,39 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
 
         var shaBytes = SHA256.HashData(command.FileData);
         var sha256 = Convert.ToHexString(shaBytes).ToLowerInvariant();
+        var documentId = Guid.NewGuid();
 
         PersonnelFileDocument document;
+        PersonnelFileStoredDocumentArtifact? storedArtifact = null;
         try
         {
+            storedArtifact = await documentStorageService.UploadAsync(
+                personnelFile.TenantId,
+                personnelFile.PublicId,
+                documentId,
+                command.FileName,
+                command.ContentType,
+                command.FileData,
+                cancellationToken);
+
             document = PersonnelFileDocument.Create(
+                documentId,
                 command.DocumentType,
                 command.Observations,
                 command.DeliveryDate,
                 command.LoanDate,
                 command.ReturnDate,
+                storedArtifact.BlobName,
+                storedArtifact.BlobUrl,
                 command.FileName,
                 command.ContentType,
                 command.FileData.Length,
-                sha256,
-                command.FileData);
+                sha256);
         }
         catch (InvalidOperationException)
         {
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentLoanDatesInvalid);
         }
-
-        var before = await repository.GetResponseByIdAsync(personnelFile.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Personnel file response could not be resolved before document upload.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -4484,10 +4761,8 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
             personnelFile.AddDocument(document);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var after = await repository.GetResponseByIdAsync(personnelFile.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Personnel file response could not be resolved after document upload.");
-
-            var uploaded = after.Documents.Single(item => item.Id == document.PublicId);
+            var uploaded = await repository.GetDocumentMetadataByIdAsync(document.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Personnel file document could not be resolved after upload.");
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -4497,7 +4772,6 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
                     personnelFile.FullName,
                     AuditActions.Update,
                     $"Uploaded document {uploaded.FileName} for personnel file {personnelFile.FullName}.",
-                    Before: before,
                     After: uploaded),
                 cancellationToken);
 
@@ -4508,6 +4782,121 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
+            if (storedArtifact is not null)
+            {
+                await documentStorageService.DeleteIfExistsAsync(storedArtifact.BlobName, cancellationToken);
+            }
+            throw;
+        }
+    }
+}
+
+internal sealed class ReplacePersonnelFileDocumentFileCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IPersonnelFileDocumentStorageService documentStorageService,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<ReplacePersonnelFileDocumentFileCommand, PersonnelFileDocumentMetadataResponse>
+{
+    public async Task<Result<PersonnelFileDocumentMetadataResponse>> Handle(
+        ReplacePersonnelFileDocumentFileCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(authorizationResult.Error);
+        }
+
+        if (!documentStorageService.IsConfigured)
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentStorageNotConfigured);
+        }
+
+        if (command.FileData.Length > PersonnelFileValidationRules.MaxDocumentFileSizeBytes)
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentFileTooLarge);
+        }
+
+        if (!PersonnelFileValidationRules.IsAllowedDocumentExtension(command.FileName) ||
+            !PersonnelFileValidationRules.IsAllowedDocumentContentType(command.FileName, command.ContentType))
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentContentTypeUnsupported);
+        }
+
+        var document = await repository.GetDocumentByIdAsync(command.DocumentId, cancellationToken);
+        if (document is null)
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(
+                await repository.DocumentExistsOutsideTenantAsync(command.DocumentId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.DocumentNotFound);
+        }
+
+        if (document.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetDocumentMetadataByIdAsync(command.DocumentId, cancellationToken)
+            ?? throw new InvalidOperationException("Personnel file document could not be resolved before file replacement.");
+
+        var shaBytes = SHA256.HashData(command.FileData);
+        var sha256 = Convert.ToHexString(shaBytes).ToLowerInvariant();
+        var previousBlobName = document.BlobName;
+
+        var storedArtifact = await documentStorageService.UploadAsync(
+            document.TenantId,
+            document.PersonnelFile.PublicId,
+            document.PublicId,
+            command.FileName,
+            command.ContentType,
+            command.FileData,
+            cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            document.ReplaceFile(
+                storedArtifact.BlobName,
+                storedArtifact.BlobUrl,
+                command.FileName,
+                command.ContentType,
+                command.FileData.Length,
+                sha256);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetDocumentMetadataByIdAsync(command.DocumentId, cancellationToken)
+                ?? throw new InvalidOperationException("Personnel file document could not be resolved after file replacement.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileDocumentFileReplaced,
+                    AuditEntityTypes.PersonnelFile,
+                    document.PersonnelFile.PublicId,
+                    document.PersonnelFile.FullName,
+                    AuditActions.Update,
+                    $"Replaced file for personnel document {after.FileName} in personnel file {document.PersonnelFile.FullName}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            await documentStorageService.DeleteIfExistsAsync(previousBlobName, cancellationToken);
+            return Result<PersonnelFileDocumentMetadataResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            await documentStorageService.DeleteIfExistsAsync(storedArtifact.BlobName, cancellationToken);
             throw;
         }
     }
@@ -4556,33 +4945,18 @@ internal sealed class InactivatePersonnelFileDocumentCommandHandler(
             document.Inactivate();
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var download = await repository.GetDocumentDownloadByIdAsync(command.DocumentId, cancellationToken)
+            var response = await repository.GetDocumentMetadataByIdAsync(command.DocumentId, cancellationToken)
                 ?? throw new InvalidOperationException("Document could not be resolved after inactivation.");
-
-            var response = new PersonnelFileDocumentMetadataResponse(
-                download.Id,
-                DocumentType: string.Empty,
-                Observations: null,
-                DeliveryDate: null,
-                LoanDate: null,
-                ReturnDate: null,
-                download.FileName,
-                download.ContentType,
-                download.FileData.Length,
-                download.IsActive,
-                download.ConcurrencyToken,
-                CreatedAtUtc: DateTime.UtcNow,
-                ModifiedAtUtc: DateTime.UtcNow);
 
             await auditService.LogAsync(
                 new AuditLogEntry(
                     AuditEventTypes.PersonnelFileDocumentInactivated,
                     AuditEntityTypes.PersonnelFile,
-                    download.PersonnelFileId,
-                    download.FileName,
+                    document.PersonnelFile.PublicId,
+                    response.FileName,
                     AuditActions.Deactivate,
-                    $"Inactivated personnel file document {download.FileName}.",
-                    After: new { documentId = download.Id, isActive = download.IsActive }),
+                    $"Inactivated personnel file document {response.FileName}.",
+                    After: new { documentId = response.Id, isActive = response.IsActive }),
                 cancellationToken);
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -4626,7 +5000,7 @@ internal sealed class AddPersonnelFileObservationCommandHandler(
             return Result<PersonnelFileObservationResponse>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
-        var personnelFile = await repository.GetByIdAsync(command.PersonnelFileId, cancellationToken);
+        var personnelFile = await repository.GetForAccessCheckAsync(command.PersonnelFileId, cancellationToken);
         if (personnelFile is null)
         {
             return Result<PersonnelFileObservationResponse>.Failure(

@@ -479,6 +479,10 @@ public sealed record UploadPersonnelFileDocumentRequest(
     Guid ConcurrencyToken,
     IFormFile File);
 
+public sealed record ReplacePersonnelFileDocumentFileRequest(
+    Guid ConcurrencyToken,
+    IFormFile File);
+
 public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
 
 public sealed record AddObservationRequest(string Note, Guid ConcurrencyToken);

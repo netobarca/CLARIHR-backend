@@ -48,6 +48,17 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .AsSplitQuery()
             .SingleOrDefaultAsync(file => file.PublicId == personnelFileId, cancellationToken);
 
+    public Task<PersonnelFile?> GetForAccessCheckAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFile>()
+            .SingleOrDefaultAsync(file => file.PublicId == personnelFileId, cancellationToken);
+
+    public Task<PersonnelFile?> GetForProfileSectionUpdateAsync(
+        Guid personnelFileId,
+        PersonnelFileTrackedSection section,
+        CancellationToken cancellationToken) =>
+        BuildProfileSectionUpdateQuery(section)
+            .SingleOrDefaultAsync(file => file.PublicId == personnelFileId, cancellationToken);
+
     public Task<PersonnelFile?> GetByLinkedUserIdAsync(Guid tenantId, Guid linkedUserPublicId, CancellationToken cancellationToken) =>
         dbContext.Set<PersonnelFile>()
             .SingleOrDefaultAsync(
@@ -162,6 +173,26 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
 
         return new PagedResponse<PersonnelFileListItemResponse>(items, pageNumber, pageSize, totalCount);
     }
+
+    public Task<PersonnelFileShellResponse?> GetShellByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFile>()
+            .AsNoTracking()
+            .Where(item => item.PublicId == personnelFileId)
+            .Select(item => new PersonnelFileShellResponse(
+                item.PublicId,
+                item.TenantId,
+                item.RecordType,
+                item.LifecycleStatus,
+                item.FullName,
+                item.PhotoUrl,
+                item.IsActive,
+                item.OrgUnitPublicId,
+                item.AssignedPositionSlotPublicId,
+                item.LinkedUserPublicId,
+                item.ConcurrencyToken,
+                item.CreatedUtc,
+                item.ModifiedUtc))
+            .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<PersonnelFileResponse?> GetResponseByIdAsync(Guid personnelFileId, CancellationToken cancellationToken)
     {
@@ -433,6 +464,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                     item.ReturnDate,
                     item.FileName,
                     item.ContentType,
+                    item.BlobUrl,
                     item.SizeBytes,
                     item.IsActive,
                     item.ConcurrencyToken,
@@ -652,6 +684,32 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 item.Relationship))
             .ToArrayAsync(cancellationToken);
 
+    public async Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileBankAccount>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.IsPrimary)
+            .ThenBy(item => item.BankCode)
+            .Select(item => new PersonnelFileBankAccountResponse(
+                item.PublicId,
+                item.BankCode,
+                item.CurrencyCode,
+                item.AccountNumber,
+                item.AccountTypeCode,
+                item.IsPrimary))
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<Guid>> GetBankAccountIdsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileBankAccount>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .Select(item => item.PublicId)
+            .ToArrayAsync(cancellationToken);
+
     public async Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken) =>
@@ -821,11 +879,49 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 item.ReturnDate,
                 item.FileName,
                 item.ContentType,
+                item.BlobUrl,
                 item.SizeBytes,
                 item.IsActive,
                 item.ConcurrencyToken,
                 item.CreatedUtc,
                 item.ModifiedUtc))
+            .ToArrayAsync(cancellationToken);
+
+    public Task<PersonnelFileDocumentMetadataResponse?> GetDocumentMetadataByIdAsync(
+        Guid documentId,
+        CancellationToken cancellationToken) =>
+        dbContext.Set<PersonnelFileDocument>()
+            .AsNoTracking()
+            .Where(item => item.PublicId == documentId)
+            .Select(item => new PersonnelFileDocumentMetadataResponse(
+                item.PublicId,
+                item.DocumentType,
+                item.Observations,
+                item.DeliveryDate,
+                item.LoanDate,
+                item.ReturnDate,
+                item.FileName,
+                item.ContentType,
+                item.BlobUrl,
+                item.SizeBytes,
+                item.IsActive,
+                item.ConcurrencyToken,
+                item.CreatedUtc,
+                item.ModifiedUtc))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<PersonnelFileObservationResponse>> GetObservationsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileObservation>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderByDescending(item => item.CreatedUtc)
+            .Select(item => new PersonnelFileObservationResponse(
+                item.PublicId,
+                item.AuthorUserPublicId,
+                item.Note,
+                item.CreatedUtc))
             .ToArrayAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(
@@ -994,22 +1090,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
         return query.AnyAsync(cancellationToken);
     }
 
-    public Task<PersonnelFileDocumentDownloadResponse?> GetDocumentDownloadByIdAsync(Guid documentId, CancellationToken cancellationToken) =>
-        dbContext.Set<PersonnelFileDocument>()
-            .AsNoTracking()
-            .Where(item => item.PublicId == documentId)
-            .Select(item => new PersonnelFileDocumentDownloadResponse(
-                item.PublicId,
-                item.PersonnelFile.PublicId,
-                item.FileName,
-                item.ContentType,
-                item.FileData,
-                item.ConcurrencyToken,
-                item.IsActive))
-            .SingleOrDefaultAsync(cancellationToken);
-
     public Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken) =>
         dbContext.Set<PersonnelFileDocument>()
+            .Include(item => item.PersonnelFile)
             .SingleOrDefaultAsync(item => item.PublicId == documentId, cancellationToken);
 
     public Task<bool> DocumentExistsOutsideTenantAsync(Guid documentId, CancellationToken cancellationToken) =>
@@ -1269,6 +1352,31 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             byRecordType,
             byAgeRange,
             byOrgUnit);
+    }
+
+    private IQueryable<PersonnelFile> BuildProfileSectionUpdateQuery(PersonnelFileTrackedSection section)
+    {
+        IQueryable<PersonnelFile> query = dbContext.Set<PersonnelFile>();
+
+        query = section switch
+        {
+            PersonnelFileTrackedSection.Identifications => query.Include(file => file.Identifications),
+            PersonnelFileTrackedSection.Addresses => query.Include(file => file.Addresses),
+            PersonnelFileTrackedSection.EmergencyContacts => query.Include(file => file.EmergencyContacts),
+            PersonnelFileTrackedSection.FamilyMembers => query.Include(file => file.FamilyMembers),
+            PersonnelFileTrackedSection.Hobbies => query.Include(file => file.Hobbies),
+            PersonnelFileTrackedSection.EmployeeRelations => query.Include(file => file.EmployeeRelations),
+            PersonnelFileTrackedSection.BankAccounts => query.Include(file => file.BankAccounts),
+            PersonnelFileTrackedSection.Associations => query.Include(file => file.Associations),
+            PersonnelFileTrackedSection.Educations => query.Include(file => file.Educations),
+            PersonnelFileTrackedSection.Languages => query.Include(file => file.Languages),
+            PersonnelFileTrackedSection.Trainings => query.Include(file => file.Trainings),
+            PersonnelFileTrackedSection.PreviousEmployments => query.Include(file => file.PreviousEmployments),
+            PersonnelFileTrackedSection.References => query.Include(file => file.References),
+            _ => query
+        };
+
+        return query;
     }
 
     private IQueryable<PersonnelFile> BuildBaseQuery(Guid tenantId) =>

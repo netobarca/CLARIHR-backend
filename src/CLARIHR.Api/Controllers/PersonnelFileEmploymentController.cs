@@ -22,7 +22,7 @@ public sealed class PersonnelFileEmploymentController(
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
     [HttpGet("api/v1/personnel-files/{id:guid}/employee-profile")]
-    [ProducesResponseType<PersonnelFileEmployeeProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<PersonnelFileEmployeeProfileResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -80,7 +80,7 @@ public sealed class PersonnelFileEmploymentController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileEmployeeProfileResponse>> UpdateEmployeeProfile(
+    public async Task<ActionResult<PersonnelFileSectionResult<PersonnelFileEmployeeProfileResponse>>> UpdateEmployeeProfile(
         Guid id,
         [FromBody] UpdatePersonnelFileEmployeeProfileRequest request,
         CancellationToken cancellationToken = default)
@@ -114,7 +114,7 @@ public sealed class PersonnelFileEmploymentController(
     }
 
     [HttpGet("api/v1/personnel-files/{id:guid}/employment-assignments")]
-    [ProducesResponseType<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -135,7 +135,7 @@ public sealed class PersonnelFileEmploymentController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>> ReplaceEmploymentAssignments(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>>> ReplaceEmploymentAssignments(
         Guid id,
         [FromBody] ReplaceEmploymentAssignmentsRequest request,
         CancellationToken cancellationToken = default)
@@ -161,7 +161,7 @@ public sealed class PersonnelFileEmploymentController(
     }
 
     [HttpGet("api/v1/personnel-files/{id:guid}/contract-history")]
-    [ProducesResponseType<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -182,7 +182,7 @@ public sealed class PersonnelFileEmploymentController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>> ReplaceContractHistory(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>>> ReplaceContractHistory(
         Guid id,
         [FromBody] ReplaceContractHistoryRequest request,
         CancellationToken cancellationToken = default)
@@ -217,14 +217,14 @@ public sealed class PersonnelFileEmploymentController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/authorization-substitutions")]
-    [ProducesResponseType<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>> ReplaceAuthorizationSubstitutions(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>>> ReplaceAuthorizationSubstitutions(
         Guid id,
         [FromBody] ReplaceAuthorizationSubstitutionsRequest request,
         CancellationToken cancellationToken = default)
@@ -382,14 +382,14 @@ public sealed class PersonnelFileEmploymentController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/assets-accesses")]
-    [ProducesResponseType<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>> ReplaceAssetsAccesses(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>>> ReplaceAssetsAccesses(
         Guid id,
         [FromBody] ReplaceAssetsAccessesRequest request,
         CancellationToken cancellationToken = default)

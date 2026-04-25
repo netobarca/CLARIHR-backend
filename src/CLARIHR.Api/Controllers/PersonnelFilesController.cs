@@ -115,11 +115,11 @@ public sealed class PersonnelFilesController(
     }
 
     [HttpGet("api/v1/personnel-files/{id:guid}")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileShellResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<PersonnelFileResponse>> GetById(Guid id, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<PersonnelFileShellResponse>> GetById(Guid id, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetPersonnelFileByIdQuery(id), cancellationToken);
         return this.ToActionResult(result);

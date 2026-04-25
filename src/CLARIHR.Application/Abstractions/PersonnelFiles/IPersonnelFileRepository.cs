@@ -14,6 +14,13 @@ public interface IPersonnelFileRepository
 
     Task<PersonnelFile?> GetByIdAsync(Guid personnelFileId, CancellationToken cancellationToken);
 
+    Task<PersonnelFile?> GetForAccessCheckAsync(Guid personnelFileId, CancellationToken cancellationToken);
+
+    Task<PersonnelFile?> GetForProfileSectionUpdateAsync(
+        Guid personnelFileId,
+        PersonnelFileTrackedSection section,
+        CancellationToken cancellationToken);
+
     Task<PersonnelFile?> GetByLinkedUserIdAsync(Guid tenantId, Guid linkedUserPublicId, CancellationToken cancellationToken);
 
     Task<bool> ExistsOutsideTenantAsync(Guid personnelFileId, CancellationToken cancellationToken);
@@ -44,6 +51,8 @@ public interface IPersonnelFileRepository
         int pageSize,
         CancellationToken cancellationToken);
 
+    Task<PersonnelFileShellResponse?> GetShellByIdAsync(Guid personnelFileId, CancellationToken cancellationToken);
+
     Task<PersonnelFileResponse?> GetResponseByIdAsync(Guid personnelFileId, CancellationToken cancellationToken);
 
     Task<PersonnelFilePersonalInfoResponse?> GetPersonalInfoAsync(Guid personnelFileId, CancellationToken cancellationToken);
@@ -72,6 +81,10 @@ public interface IPersonnelFileRepository
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken);
@@ -97,6 +110,18 @@ public interface IPersonnelFileRepository
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> GetDocumentsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileDocumentMetadataResponse?> GetDocumentMetadataByIdAsync(
+        Guid documentId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileObservationResponse>> GetObservationsAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<Guid>> GetBankAccountIdsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
@@ -132,8 +157,6 @@ public interface IPersonnelFileRepository
         string departmentCode,
         string municipalityCode,
         CancellationToken cancellationToken);
-
-    Task<PersonnelFileDocumentDownloadResponse?> GetDocumentDownloadByIdAsync(Guid documentId, CancellationToken cancellationToken);
 
     Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken);
 

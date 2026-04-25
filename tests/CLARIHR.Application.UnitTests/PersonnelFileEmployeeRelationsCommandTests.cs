@@ -35,7 +35,8 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var relation = Assert.Single(personnelFile.EmployeeRelations);
         Assert.Equal(relatedEmployee.Id, relation.RelatedPersonnelFileId);
         Assert.Equal("Sibling", relation.Relationship);
-        Assert.True(repository.GetResponseByIdCalls >= 1);
+        Assert.Equal(0, repository.GetResponseByIdCalls);
+        Assert.Equal(2, repository.GetEmployeeRelationsCalls);
     }
 
     [Fact]
@@ -200,6 +201,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         private readonly Dictionary<Guid, PersonnelFile> _files = files.ToDictionary(file => file.PublicId);
 
         public int GetResponseByIdCalls { get; private set; }
+        public int GetEmployeeRelationsCalls { get; private set; }
 
         public void Add(PersonnelFile personnelFile) => throw new NotSupportedException();
 
@@ -210,6 +212,12 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         public Task<PersonnelFile?> GetByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
             Task.FromResult(_files.GetValueOrDefault(personnelFileId));
 
+        public Task<PersonnelFile?> GetForAccessCheckAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
+            GetByIdAsync(personnelFileId, cancellationToken);
+
+        public Task<PersonnelFile?> GetForProfileSectionUpdateAsync(Guid personnelFileId, PersonnelFileTrackedSection section, CancellationToken cancellationToken) =>
+            GetByIdAsync(personnelFileId, cancellationToken);
+
         public Task<PersonnelFile?> GetByLinkedUserIdAsync(Guid tenantId, Guid linkedUserPublicId, CancellationToken cancellationToken) =>
             Task.FromResult<PersonnelFile?>(null);
 
@@ -218,6 +226,25 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         public Task<bool> IdentificationExistsAsync(Guid tenantId, string identificationType, string normalizedIdentificationNumber, long? excludingPersonnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<PagedResponse<PersonnelFileListItemResponse>> SearchAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? maritalStatus, string? nationality, string? profession, DateTime? createdFromUtc, DateTime? createdToUtc, string? search, string? sortBy, PersonnelFileSortDirection sortDirection, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileShellResponse?> GetShellByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
+            Task.FromResult(
+                _files.TryGetValue(personnelFileId, out var file)
+                    ? new PersonnelFileShellResponse(
+                        file.PublicId,
+                        file.TenantId,
+                        file.RecordType,
+                        file.LifecycleStatus,
+                        file.FullName,
+                        file.PhotoUrl,
+                        file.IsActive,
+                        file.OrgUnitPublicId,
+                        file.AssignedPositionSlotPublicId,
+                        file.LinkedUserPublicId,
+                        file.ConcurrencyToken,
+                        file.CreatedUtc,
+                        file.ModifiedUtc)
+                    : null);
 
         public Task<PersonnelFileResponse?> GetResponseByIdAsync(Guid personnelFileId, CancellationToken cancellationToken)
         {
@@ -237,7 +264,37 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
 
         public Task<IReadOnlyCollection<PersonnelFileHobbyResponse>> GetHobbiesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(Guid personnelFileId, CancellationToken cancellationToken)
+        {
+            GetEmployeeRelationsCalls++;
+
+            if (!_files.TryGetValue(personnelFileId, out var file))
+            {
+                return Task.FromResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>(Array.Empty<PersonnelFileEmployeeRelationResponse>());
+            }
+
+            var response = file.EmployeeRelations
+                .Select(relation =>
+                {
+                    var relatedEmployeePublicId = relation.RelatedPersonnelFileId is long relatedPersonnelFileId
+                        ? _files.Values.FirstOrDefault(candidate => candidate.Id == relatedPersonnelFileId)?.PublicId ?? Guid.Empty
+                        : Guid.Empty;
+                    var relatedEmployeeFullName = relation.RelatedPersonnelFileId is long relatedId
+                        ? _files.Values.FirstOrDefault(candidate => candidate.Id == relatedId)?.FullName ?? string.Empty
+                        : string.Empty;
+
+                    return new PersonnelFileEmployeeRelationResponse(
+                        relation.PublicId,
+                        relatedEmployeePublicId,
+                        relatedEmployeeFullName,
+                        relation.Relationship);
+                })
+                .ToArray();
+
+            return Task.FromResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>(response);
+        }
+
+        public Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
@@ -253,6 +310,13 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
 
         public Task<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> GetDocumentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<PersonnelFileDocumentMetadataResponse?> GetDocumentMetadataByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyCollection<PersonnelFileObservationResponse>> GetObservationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyCollection<Guid>> GetBankAccountIdsAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyCollection<Guid>>(Array.Empty<Guid>());
+
         public Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(Guid companyId, string category, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(Guid companyId, string category, string? parentCode, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -266,8 +330,6 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         public Task<bool> ReferenceCatalogCodeIsActiveAsync(string countryCode, string category, string code, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<bool> ReferenceMunicipalityBelongsToDepartmentAsync(string countryCode, string departmentCode, string municipalityCode, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<PersonnelFileDocumentDownloadResponse?> GetDocumentDownloadByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
 

@@ -1052,10 +1052,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
         getResponse.EnsureSuccessStatusCode();
 
-        var file = await getResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        var file = await getResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
         Assert.NotNull(file);
-        Assert.Single(file!.Identifications);
-        Assert.Equal("DUI", file.Identifications.First().IdentificationTypeCode);
+        Assert.Equal("Maria Rodriguez", file!.FullName);
+
+        var identificationsResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/identifications");
+        identificationsResponse.EnsureSuccessStatusCode();
+        var identifications = await identificationsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileIdentificationItem>>(JsonOptions);
+        Assert.NotNull(identifications);
+        Assert.Single(identifications!);
+        Assert.Equal("DUI", identifications.First().IdentificationTypeCode);
     }
 
     [Fact]
@@ -1433,7 +1439,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             profession: "ANALISTA_DE_DATOS",
             maritalStatus: "SOLTERO_A");
 
-        var detailResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        var detailResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/personal-info");
         detailResponse.EnsureSuccessStatusCode();
         using var detailDocument = JsonDocument.Parse(await detailResponse.Content.ReadAsStringAsync());
         var detail = detailDocument.RootElement;
@@ -1449,7 +1455,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal("SAN_SALVADOR_CENTRO", detail.GetProperty("birthMunicipalityCode").GetString());
         Assert.Equal("San Salvador Centro", detail.GetProperty("birthMunicipalityName").GetString());
 
-        var identifications = detail.GetProperty("identifications");
+        var identificationsResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/identifications");
+        identificationsResponse.EnsureSuccessStatusCode();
+        using var identificationsDocument = JsonDocument.Parse(await identificationsResponse.Content.ReadAsStringAsync());
+        var identifications = identificationsDocument.RootElement;
         Assert.True(identifications.GetArrayLength() > 0);
         var firstIdentification = identifications[0];
         Assert.Equal("DUI", firstIdentification.GetProperty("identificationTypeCode").GetString());
@@ -1472,7 +1481,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task PersonnelFiles_DocumentUploadAndDownload_ShouldReturnFile()
+    public async Task PersonnelFiles_DocumentUpload_ShouldReturnMetadataWithResolvedFileUrl()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
@@ -1493,12 +1502,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
         var document = await uploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
         Assert.NotNull(document);
-
-        var downloadResponse = await client.GetAsync($"/api/v1/personnel-files/documents/{document!.Id}/download");
-        downloadResponse.EnsureSuccessStatusCode();
-        Assert.Equal("application/pdf", downloadResponse.Content.Headers.ContentType?.MediaType);
-        var downloaded = await downloadResponse.Content.ReadAsByteArrayAsync();
-        Assert.Equal(fileBytes, downloaded);
+        Assert.Equal("proof.pdf", document!.FileName);
+        Assert.Equal("application/pdf", document.ContentType);
+        Assert.Equal(fileBytes.Length, document.SizeBytes);
+        Assert.NotNull(document.FileUrl);
+        Assert.Contains("sig=fake", document.FileUrl, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1526,7 +1534,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var personnelFileResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
         personnelFileResponse.EnsureSuccessStatusCode();
-        var personnelFile = await personnelFileResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        var personnelFile = await personnelFileResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
         Assert.NotNull(personnelFile);
 
         using var newerUploadContent = new MultipartFormDataContent();
@@ -1556,10 +1564,101 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal("DIPLOMA", documentItems[0].DocumentType);
         Assert.Equal("newer.pdf", documentItems[0].FileName);
         Assert.Equal("application/pdf", documentItems[0].ContentType);
+        Assert.NotNull(documentItems[0].FileUrl);
+        Assert.Contains("sig=fake", documentItems[0].FileUrl!, StringComparison.Ordinal);
         Assert.Equal(newerFileBytes.Length, documentItems[0].SizeBytes);
         Assert.True(documentItems[0].IsActive);
         Assert.Equal(olderDocument!.Id, documentItems[1].Id);
         Assert.Equal("older.png", documentItems[1].FileName);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_ReplaceDocumentFile_ShouldRotateConcurrencyAndUpdateResolvedFileUrl()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Marcos", "Soto", "DUI", "01234567-8");
+
+        using var uploadContent = new MultipartFormDataContent();
+        uploadContent.Add(new StringContent("CONSTANCIA"), "documentType");
+        uploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
+
+        var originalBytes = "%PDF-original payload"u8.ToArray();
+        var originalFileContent = new ByteArrayContent(originalBytes);
+        originalFileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        uploadContent.Add(originalFileContent, "file", "original.pdf");
+
+        var uploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", uploadContent);
+        Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
+        var document = await uploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        Assert.NotNull(document);
+
+        using var replaceContent = new MultipartFormDataContent();
+        replaceContent.Add(new StringContent(document!.ConcurrencyToken.ToString()), "concurrencyToken");
+
+        byte[] replacementBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x10, 0x20, 0x30];
+        var replacementFileContent = new ByteArrayContent(replacementBytes);
+        replacementFileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        replaceContent.Add(replacementFileContent, "file", "replacement.png");
+
+        var replaceResponse = await client.PatchAsync($"/api/v1/personnel-files/documents/{document.Id}/file", replaceContent);
+        replaceResponse.EnsureSuccessStatusCode();
+
+        var replaced = await replaceResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        Assert.NotNull(replaced);
+        Assert.Equal(document.Id, replaced!.Id);
+        Assert.Equal("replacement.png", replaced.FileName);
+        Assert.Equal("image/png", replaced.ContentType);
+        Assert.Equal(replacementBytes.Length, replaced.SizeBytes);
+        Assert.NotEqual(document.ConcurrencyToken, replaced.ConcurrencyToken);
+        Assert.NotNull(replaced.FileUrl);
+        Assert.Contains("sig=fake", replaced.FileUrl!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_GetObservations_ShouldReturnNewestFirst()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Lucia", "Herrera", "DUI", "06543210-9");
+
+        var firstCreateResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/observations", new
+        {
+            note = "Primera observacion",
+            concurrencyToken = created.ConcurrencyToken
+        });
+        Assert.Equal(HttpStatusCode.Created, firstCreateResponse.StatusCode);
+        var firstObservation = await firstCreateResponse.Content.ReadFromJsonAsync<PersonnelFileObservationItem>(JsonOptions);
+        Assert.NotNull(firstObservation);
+
+        var shellResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        shellResponse.EnsureSuccessStatusCode();
+        var shell = await shellResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
+        Assert.NotNull(shell);
+
+        var secondCreateResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/observations", new
+        {
+            note = "Segunda observacion",
+            concurrencyToken = shell!.ConcurrencyToken
+        });
+        Assert.Equal(HttpStatusCode.Created, secondCreateResponse.StatusCode);
+        var secondObservation = await secondCreateResponse.Content.ReadFromJsonAsync<PersonnelFileObservationItem>(JsonOptions);
+        Assert.NotNull(secondObservation);
+
+        var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/observations");
+        getResponse.EnsureSuccessStatusCode();
+
+        var observations = await getResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileObservationItem>>(JsonOptions);
+        Assert.NotNull(observations);
+
+        var observationItems = observations!.ToArray();
+        Assert.Equal(2, observationItems.Length);
+        Assert.Equal(secondObservation!.Id, observationItems[0].Id);
+        Assert.Equal("Segunda observacion", observationItems[0].Note);
+        Assert.Equal(firstObservation!.Id, observationItems[1].Id);
+        Assert.Equal("Primera observacion", observationItems[1].Note);
     }
 
     [Fact]
@@ -1601,10 +1700,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             concurrencyToken
         });
         educationsResponse.EnsureSuccessStatusCode();
-        var educationPayload = await educationsResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        var educationPayload = await educationsResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFileEducationItem>>>(JsonOptions);
         Assert.NotNull(educationPayload);
-        Assert.Single(educationPayload!.Educations);
-        concurrencyToken = educationPayload.ConcurrencyToken;
+        Assert.Single(educationPayload!.Data);
+        concurrencyToken = educationPayload.PersonnelFileConcurrencyToken;
 
         var languagesResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
         {
@@ -1622,10 +1721,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             concurrencyToken
         });
         languagesResponse.EnsureSuccessStatusCode();
-        var languagePayload = await languagesResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        var languagePayload = await languagesResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFileLanguageItem>>>(JsonOptions);
         Assert.NotNull(languagePayload);
-        Assert.Single(languagePayload!.Languages);
-        concurrencyToken = languagePayload.ConcurrencyToken;
+        Assert.Single(languagePayload!.Data);
+        concurrencyToken = languagePayload.PersonnelFileConcurrencyToken;
 
         var trainingsResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/trainings", new
         {
@@ -1654,10 +1753,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             concurrencyToken
         });
         trainingsResponse.EnsureSuccessStatusCode();
-        var trainingPayload = await trainingsResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        var trainingPayload = await trainingsResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFileTrainingItem>>>(JsonOptions);
         Assert.NotNull(trainingPayload);
-        Assert.Single(trainingPayload!.Trainings);
-        concurrencyToken = trainingPayload.ConcurrencyToken;
+        Assert.Single(trainingPayload!.Data);
+        concurrencyToken = trainingPayload.PersonnelFileConcurrencyToken;
 
         var employmentsResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/previous-employments", new
         {
@@ -1682,10 +1781,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             concurrencyToken
         });
         employmentsResponse.EnsureSuccessStatusCode();
-        var employmentPayload = await employmentsResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        var employmentPayload = await employmentsResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFilePreviousEmploymentItem>>>(JsonOptions);
         Assert.NotNull(employmentPayload);
-        Assert.Single(employmentPayload!.PreviousEmployments);
-        concurrencyToken = employmentPayload.ConcurrencyToken;
+        Assert.Single(employmentPayload!.Data);
+        concurrencyToken = employmentPayload.PersonnelFileConcurrencyToken;
 
         var referencesResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/references", new
         {
@@ -1706,19 +1805,39 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             concurrencyToken
         });
         referencesResponse.EnsureSuccessStatusCode();
-        var referencePayload = await referencesResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        var referencePayload = await referencesResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFileReferenceItem>>>(JsonOptions);
         Assert.NotNull(referencePayload);
-        Assert.Single(referencePayload!.References);
+        Assert.Single(referencePayload!.Data);
 
-        var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
-        getResponse.EnsureSuccessStatusCode();
-        var file = await getResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
-        Assert.NotNull(file);
-        Assert.Single(file!.Educations);
-        Assert.Single(file.Languages);
-        Assert.Single(file.Trainings);
-        Assert.Single(file.PreviousEmployments);
-        Assert.Single(file.References);
+        var getEducationsResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/educations");
+        getEducationsResponse.EnsureSuccessStatusCode();
+        var getEducations = await getEducationsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileEducationItem>>(JsonOptions);
+        Assert.NotNull(getEducations);
+        Assert.Single(getEducations!);
+
+        var getLanguagesResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/languages");
+        getLanguagesResponse.EnsureSuccessStatusCode();
+        var getLanguages = await getLanguagesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileLanguageItem>>(JsonOptions);
+        Assert.NotNull(getLanguages);
+        Assert.Single(getLanguages!);
+
+        var getTrainingsResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/trainings");
+        getTrainingsResponse.EnsureSuccessStatusCode();
+        var getTrainings = await getTrainingsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileTrainingItem>>(JsonOptions);
+        Assert.NotNull(getTrainings);
+        Assert.Single(getTrainings!);
+
+        var getPreviousEmploymentsResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/previous-employments");
+        getPreviousEmploymentsResponse.EnsureSuccessStatusCode();
+        var getPreviousEmployments = await getPreviousEmploymentsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFilePreviousEmploymentItem>>(JsonOptions);
+        Assert.NotNull(getPreviousEmployments);
+        Assert.Single(getPreviousEmployments!);
+
+        var getReferencesResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/references");
+        getReferencesResponse.EnsureSuccessStatusCode();
+        var getReferences = await getReferencesResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileReferenceItem>>(JsonOptions);
+        Assert.NotNull(getReferences);
+        Assert.Single(getReferences!);
     }
 
     [Fact]
@@ -7680,6 +7799,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string DocumentType,
         string FileName,
         string ContentType,
+        string? FileUrl,
         int SizeBytes,
         bool IsActive,
         Guid ConcurrencyToken);
@@ -7693,11 +7813,18 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         DateTime? ReturnDate,
         string FileName,
         string ContentType,
+        string? FileUrl,
         int SizeBytes,
         bool IsActive,
         Guid ConcurrencyToken,
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc);
+
+    private sealed record PersonnelFileObservationItem(
+        Guid Id,
+        Guid AuthorUserId,
+        string Note,
+        DateTime CreatedAtUtc);
 
     private sealed record PersonnelEducationCatalogReferenceItem(
         Guid Id,
@@ -7774,6 +7901,20 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         IReadOnlyCollection<PersonnelFilePreviousEmploymentItem> PreviousEmployments,
         IReadOnlyCollection<PersonnelFileReferenceItem> References,
         IReadOnlyCollection<PersonnelFileDocumentItem> Documents);
+
+    private sealed record PersonnelFileShellItem(
+        Guid Id,
+        Guid CompanyId,
+        string RecordType,
+        string LifecycleStatus,
+        string FullName,
+        bool IsActive,
+        Guid ConcurrencyToken);
+
+    private sealed record PersonnelFileSectionResultItem<TData>(
+        TData Data,
+        Guid PersonnelFileConcurrencyToken,
+        DateTime? ModifiedAtUtc);
 
     private sealed record PersonnelFilePrintItem(
         DateTime GeneratedAtUtc,

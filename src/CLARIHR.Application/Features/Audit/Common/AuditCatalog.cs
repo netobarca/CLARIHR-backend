@@ -99,6 +99,7 @@ public static class AuditEventTypes
     public const string PersonnelFileActivated = "PERSONNEL_FILE_ACTIVATED";
     public const string PersonnelFileInactivated = "PERSONNEL_FILE_INACTIVATED";
     public const string PersonnelFileDocumentUploaded = "PERSONNEL_FILE_DOCUMENT_UPLOADED";
+    public const string PersonnelFileDocumentFileReplaced = "PERSONNEL_FILE_DOCUMENT_FILE_REPLACED";
     public const string PersonnelFileDocumentInactivated = "PERSONNEL_FILE_DOCUMENT_INACTIVATED";
     public const string PersonnelFileObservationAdded = "PERSONNEL_FILE_OBSERVATION_ADDED";
     public const string PersonnelCustomFieldDefinitionCreated = "PERSONNEL_CUSTOM_FIELD_DEFINITION_CREATED";
@@ -223,6 +224,7 @@ public static class AuditEventTypes
         PersonnelFileActivated,
         PersonnelFileInactivated,
         PersonnelFileDocumentUploaded,
+        PersonnelFileDocumentFileReplaced,
         PersonnelFileDocumentInactivated,
         PersonnelFileObservationAdded,
         PersonnelCustomFieldDefinitionCreated,
