@@ -1602,7 +1602,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         replacementFileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
         replaceContent.Add(replacementFileContent, "file", "replacement.png");
 
-        var replaceResponse = await client.PatchAsync($"/api/v1/personnel-files/documents/{document.Id}/file", replaceContent);
+        var replaceResponse = await client.PatchAsync($"/api/v1/personnel-file-documents/{document.Id}/file", replaceContent);
         replaceResponse.EnsureSuccessStatusCode();
 
         var replaced = await replaceResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
@@ -1614,6 +1614,72 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotEqual(document.ConcurrencyToken, replaced.ConcurrencyToken);
         Assert.NotNull(replaced.FileUrl);
         Assert.Contains("sig=fake", replaced.FileUrl!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_InactivateDocument_ShouldDisableDocument_AndRotateConcurrencyToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Elena", "Rivas", "DUI", "04561234-7");
+
+        using var uploadContent = new MultipartFormDataContent();
+        uploadContent.Add(new StringContent("EXPEDIENTE"), "documentType");
+        uploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
+
+        var originalBytes = "%PDF-inactivate payload"u8.ToArray();
+        var originalFileContent = new ByteArrayContent(originalBytes);
+        originalFileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        uploadContent.Add(originalFileContent, "file", "inactivate.pdf");
+
+        var uploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", uploadContent);
+        Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
+        var document = await uploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        Assert.NotNull(document);
+
+        var inactivateResponse = await client.PatchAsJsonAsync(
+            $"/api/v1/personnel-file-documents/{document!.Id}/inactivate",
+            new
+            {
+                concurrencyToken = document.ConcurrencyToken
+            });
+
+        Assert.Equal(HttpStatusCode.OK, inactivateResponse.StatusCode);
+
+        var inactivated = await inactivateResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        Assert.NotNull(inactivated);
+        Assert.Equal(document.Id, inactivated!.Id);
+        Assert.False(inactivated.IsActive);
+        Assert.NotEqual(document.ConcurrencyToken, inactivated.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_LegacyDocumentRoutes_ShouldNotExist()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var replaceContent = new MultipartFormDataContent();
+        replaceContent.Add(new StringContent(Guid.NewGuid().ToString()), "concurrencyToken");
+
+        byte[] replacementBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x10];
+        var replacementFileContent = new ByteArrayContent(replacementBytes);
+        replacementFileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        replaceContent.Add(replacementFileContent, "file", "legacy.png");
+
+        var legacyReplaceResponse = await client.PatchAsync(
+            $"/api/v1/personnel-files/documents/{Guid.NewGuid()}/file",
+            replaceContent);
+        Assert.Equal(HttpStatusCode.NotFound, legacyReplaceResponse.StatusCode);
+
+        var legacyInactivateResponse = await client.PatchAsJsonAsync(
+            $"/api/v1/personnel-files/documents/{Guid.NewGuid()}/inactivate",
+            new
+            {
+                concurrencyToken = Guid.NewGuid()
+            });
+        Assert.Equal(HttpStatusCode.NotFound, legacyInactivateResponse.StatusCode);
     }
 
     [Fact]

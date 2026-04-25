@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.Banks;
 using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.CompetencyFramework;
 using CLARIHR.Application.Abstractions.CostCenters;
@@ -28,6 +29,7 @@ using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Infrastructure.Auth;
 using CLARIHR.Infrastructure.Auditing;
 using CLARIHR.Infrastructure.Authentication;
+using CLARIHR.Infrastructure.Banks;
 using CLARIHR.Infrastructure.Companies;
 using CLARIHR.Infrastructure.CompetencyFramework;
 using CLARIHR.Infrastructure.Configuration;
@@ -110,6 +112,7 @@ public static class DependencyInjection
         services.AddScoped<IPlatformOperatorRepository, PlatformOperatorRepository>();
         services.AddScoped<IPlatformAuthorizationService, PlatformAuthorizationService>();
         services.AddScoped<ICountryCatalogRepository, CountryCatalogRepository>();
+        services.AddScoped<IBankCatalogRepository, BankCatalogRepository>();
         services.AddScoped<ISystemCatalogRepository, SystemCatalogRepository>();
         services.AddScoped<IInternalCatalogRepository, InternalCatalogRepository>();
         services.AddScoped<ILocationHierarchyRepository, LocationHierarchyRepository>();

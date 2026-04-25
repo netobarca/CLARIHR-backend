@@ -1,4 +1,5 @@
 using CLARIHR.Domain.PersonnelFiles;
+using CLARIHR.Domain.Banks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -421,6 +422,7 @@ internal sealed class PersonnelFileBankAccountConfiguration : IEntityTypeConfigu
         builder.Property(item => item.TenantId).HasColumnName("tenant_id");
         builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
+        builder.Property(item => item.BankCatalogItemId).HasColumnName("bank_catalog_item_id");
         builder.Property(item => item.BankCode).HasColumnName("bank_code").HasMaxLength(80);
         builder.Property(item => item.CurrencyCode).HasColumnName("currency_code").HasMaxLength(40);
         builder.Property(item => item.AccountNumber).HasColumnName("account_number").HasMaxLength(80);
@@ -436,6 +438,15 @@ internal sealed class PersonnelFileBankAccountConfiguration : IEntityTypeConfigu
 
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId })
             .HasDatabaseName("ix_personnel_file_bank_accounts__tenant_file");
+
+        builder.HasIndex(item => item.BankCatalogItemId)
+            .HasDatabaseName("ix_personnel_file_bank_accounts__bank_catalog_item_id");
+
+        builder.HasOne(item => item.BankCatalogItem)
+            .WithMany()
+            .HasForeignKey(item => item.BankCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_personnel_file_bank_accounts__bank_catalog_item");
     }
 }
 

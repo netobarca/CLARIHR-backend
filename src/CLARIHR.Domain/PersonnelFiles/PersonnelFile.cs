@@ -1,4 +1,5 @@
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.Banks;
 
 namespace CLARIHR.Domain.PersonnelFiles;
 
@@ -854,6 +855,7 @@ public sealed class PersonnelFileBankAccount : TenantEntity
     }
 
     private PersonnelFileBankAccount(
+        long? bankCatalogItemId,
         string bankCode,
         string currencyCode,
         string accountNumber,
@@ -861,6 +863,7 @@ public sealed class PersonnelFileBankAccount : TenantEntity
         bool isPrimary)
     {
         PublicId = Guid.NewGuid();
+        BankCatalogItemId = bankCatalogItemId;
         BankCode = PersonnelFileNormalization.Clean(bankCode, nameof(bankCode));
         CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode));
         AccountNumber = PersonnelFileNormalization.Clean(accountNumber, nameof(accountNumber));
@@ -872,6 +875,10 @@ public sealed class PersonnelFileBankAccount : TenantEntity
     public long PersonnelFileId { get; private set; }
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
+
+    public long? BankCatalogItemId { get; private set; }
+
+    public BankCatalogItem? BankCatalogItem { get; private set; }
 
     public string BankCode { get; private set; } = string.Empty;
 
@@ -886,12 +893,13 @@ public sealed class PersonnelFileBankAccount : TenantEntity
     public bool IsPrimary { get; private set; }
 
     public static PersonnelFileBankAccount Create(
+        long? bankCatalogItemId,
         string bankCode,
         string currencyCode,
         string accountNumber,
         string accountTypeCode,
         bool isPrimary) =>
-        new(bankCode, currencyCode, accountNumber, accountTypeCode, isPrimary);
+        new(bankCatalogItemId, bankCode, currencyCode, accountNumber, accountTypeCode, isPrimary);
 }
 
 public sealed class PersonnelFileAssociation : TenantEntity

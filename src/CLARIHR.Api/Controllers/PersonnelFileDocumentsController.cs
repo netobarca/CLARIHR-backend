@@ -88,7 +88,7 @@ public sealed class PersonnelFileDocumentsController(
             : StatusCode(StatusCodes.Status201Created, result.Value);
     }
 
-    [HttpPatch("api/v1/personnel-files/documents/{documentId:guid}/inactivate")]
+    [HttpPatch("api/v1/personnel-file-documents/{publicId:guid}/inactivate")]
     [ProducesResponseType<PersonnelFileDocumentMetadataResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -96,17 +96,17 @@ public sealed class PersonnelFileDocumentsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<PersonnelFileDocumentMetadataResponse>> InactivateDocument(
-        Guid documentId,
+        Guid publicId,
         [FromBody] ConcurrencyRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new InactivatePersonnelFileDocumentCommand(documentId, request.ConcurrencyToken),
+            new InactivatePersonnelFileDocumentCommand(publicId, request.ConcurrencyToken),
             cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("api/v1/personnel-files/documents/{documentId:guid}/file")]
+    [HttpPatch("api/v1/personnel-file-documents/{publicId:guid}/file")]
     [ProducesResponseType<PersonnelFileDocumentMetadataResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -116,7 +116,7 @@ public sealed class PersonnelFileDocumentsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<PersonnelFileDocumentMetadataResponse>> ReplaceDocumentFile(
-        Guid documentId,
+        Guid publicId,
         [FromForm] ReplacePersonnelFileDocumentFileRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -135,7 +135,7 @@ public sealed class PersonnelFileDocumentsController(
 
         var result = await commandDispatcher.SendAsync(
             new ReplacePersonnelFileDocumentFileCommand(
-                documentId,
+                publicId,
                 safeFileName,
                 normalizedContentType,
                 memory.ToArray(),

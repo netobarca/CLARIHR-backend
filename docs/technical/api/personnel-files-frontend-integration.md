@@ -167,11 +167,9 @@ Expected usage:
 - render file name, type, size, dates, observations
 - use `fileUrl` for preview, open or direct download actions
 
-Do not call:
+Do not call a backend document download endpoint.
 
-- `GET /api/v1/personnel-files/documents/{documentId}/download`
-
-That endpoint was removed.
+Document responses already provide `fileUrl`, and there is no dedicated `/api/v1/personnel-file-documents/{documentId}/download` route.
 
 ## New Document Upload Contract
 
@@ -191,7 +189,7 @@ Frontend should update the documents list from the response instead of assuming 
 
 ### Endpoint
 
-`PATCH /api/v1/personnel-files/documents/{documentId}/file`
+`PATCH /api/v1/personnel-file-documents/{documentId}/file`
 
 ### Purpose
 
@@ -221,7 +219,7 @@ Fields:
 Example:
 
 ```http
-PATCH /api/v1/personnel-files/documents/{documentId}/file
+PATCH /api/v1/personnel-file-documents/{documentId}/file
 Content-Type: multipart/form-data
 ```
 
@@ -239,7 +237,7 @@ file = <binary file>
 3. Build a `FormData`.
 4. Append the new file under `file`.
 5. Append the current `concurrencyToken`.
-6. Send `PATCH /api/v1/personnel-files/documents/{documentId}/file`.
+6. Send `PATCH /api/v1/personnel-file-documents/{documentId}/file`.
 7. Replace the local document item with the response payload.
 
 Do not:
@@ -263,7 +261,7 @@ async function replacePersonnelFileDocumentFile(
   formData.append("file", file);
 
   const response = await fetch(
-    `/api/v1/personnel-files/documents/${documentId}/file`,
+    `/api/v1/personnel-file-documents/${documentId}/file`,
     {
       method: "PATCH",
       body: formData,
@@ -286,7 +284,7 @@ Frontend should now support these actions:
 - upload document
 - list documents
 - open/download document via `fileUrl`
-- replace file via `PATCH /documents/{documentId}/file`
+- replace file via `PATCH /api/v1/personnel-file-documents/{documentId}/file`
 - inactivate document
 
 Recommended behavior after upload or replacement:
@@ -314,9 +312,9 @@ If a request fails because of concurrency:
 
 - Stop using full-detail `GET /api/v1/personnel-files/{id}` as the source for all tabs.
 - Lazy-load section endpoints by tab.
-- Stop using `/api/v1/personnel-files/documents/{documentId}/download`.
+- Do not expect `/download` endpoints for personnel file documents.
 - Use `fileUrl` from document responses for open/download.
-- Add support for `PATCH /api/v1/personnel-files/documents/{documentId}/file`.
+- Add support for `PATCH /api/v1/personnel-file-documents/{documentId}/file`.
 - Send document file replacements as `multipart/form-data`.
 - Refresh local concurrency tokens after every successful document mutation.
 

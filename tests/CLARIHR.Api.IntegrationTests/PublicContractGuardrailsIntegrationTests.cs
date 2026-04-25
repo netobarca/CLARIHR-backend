@@ -131,6 +131,42 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
     }
 
     [Fact]
+    public async Task Swagger_ShouldNotExposeHybridParentChildActionRoutes()
+    {
+        await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/swagger/v1/swagger.json");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var pathNames = document.RootElement.GetProperty("paths")
+            .EnumerateObject()
+            .Select(static path => path.Name)
+            .ToArray();
+
+        var nestedCollections = pathNames
+            .Select(TryParseNestedCollectionRoute)
+            .Where(static route => route is not null)
+            .Cast<NestedCollectionRoute>()
+            .ToArray();
+
+        foreach (var collection in nestedCollections)
+        {
+            var hybridPrefix = $"/api/v1/{collection.ParentSegment}/{collection.ChildSegment}/{{";
+            var hybridRoutes = pathNames
+                .Where(path => path.StartsWith(hybridPrefix, StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.True(
+                hybridRoutes.Length == 0,
+                $"Swagger exposes hybrid parent/child action routes for nested collection '/api/v1/{collection.ParentSegment}/{{{collection.ParentIdentifier}}}/{collection.ChildSegment}'. " +
+                $"Move direct child actions to a flat child resource route instead of keeping '/api/v1/{collection.ParentSegment}/{collection.ChildSegment}/{{...}}/...'. " +
+                $"Found: {string.Join(", ", hybridRoutes)}");
+        }
+    }
+
+    [Fact]
     public async Task ApplicationDbContext_Model_ShouldRequirePublicId_ForEveryPersistedEntity()
     {
         _ = await factory.ResetDatabaseAsync();
@@ -161,4 +197,41 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
 
     private static bool HasDuplicatedPublicSegment(string name) =>
         name.Contains("PublicPublic", StringComparison.Ordinal);
+
+    private static NestedCollectionRoute? TryParseNestedCollectionRoute(string path)
+    {
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length != 5)
+        {
+            return null;
+        }
+
+        if (!segments[0].Equals("api", StringComparison.Ordinal) ||
+            !segments[1].Equals("v1", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (!TryGetPlaceholderName(segments[3], out var parentIdentifier) || !IsPublicIdentifierName(parentIdentifier))
+        {
+            return null;
+        }
+
+        return new NestedCollectionRoute(segments[2], parentIdentifier, segments[4]);
+    }
+
+    private static bool TryGetPlaceholderName(string segment, out string placeholderName)
+    {
+        var match = RoutePlaceholderRegex.Match(segment);
+        if (!match.Success)
+        {
+            placeholderName = string.Empty;
+            return false;
+        }
+
+        placeholderName = match.Groups["name"].Value;
+        return true;
+    }
+
+    private sealed record NestedCollectionRoute(string ParentSegment, string ParentIdentifier, string ChildSegment);
 }

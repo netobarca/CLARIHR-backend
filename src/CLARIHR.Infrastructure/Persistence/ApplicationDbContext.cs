@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Domain.Auditing;
 using CLARIHR.Domain.Auth;
+using CLARIHR.Domain.Banks;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.CompetencyFramework;
@@ -106,6 +107,8 @@ public sealed class ApplicationDbContext(
     public DbSet<LocationGroup> LocationGroups => Set<LocationGroup>();
 
     public DbSet<CountryCatalogItem> CountryCatalogItems => Set<CountryCatalogItem>();
+
+    public DbSet<BankCatalogItem> BankCatalogItems => Set<BankCatalogItem>();
 
     public DbSet<InternalCatalogValue> InternalCatalogValues => Set<InternalCatalogValue>();
 

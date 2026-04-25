@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Banks;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.PersonnelEducationCatalogs;
 using CLARIHR.Application.Abstractions.Persistence;
@@ -117,7 +118,12 @@ public sealed record PersonnelFileEmployeeRelationResponse(
 
 public sealed record PersonnelFileBankAccountResponse(
     Guid Id,
+    Guid? BankPublicId,
     string BankCode,
+    string? BankName,
+    string? BankAlias,
+    string? SwiftCode,
+    string? RoutingCode,
     string CurrencyCode,
     string AccountNumber,
     string AccountTypeCode,
@@ -780,7 +786,7 @@ public sealed record HobbyInput(string HobbyName);
 public sealed record EmployeeRelationInput(Guid RelatedEmployeePublicId, string Relationship);
 
 public sealed record BankAccountInput(
-    string BankCode,
+    Guid BankPublicId,
     string CurrencyCode,
     string AccountNumber,
     string AccountTypeCode,
@@ -1605,7 +1611,7 @@ internal sealed class BankAccountInputValidator : AbstractValidator<BankAccountI
 {
     public BankAccountInputValidator()
     {
-        RuleFor(input => input.BankCode).NotEmpty().MaximumLength(80);
+        RuleFor(input => input.BankPublicId).NotEmpty();
         RuleFor(input => input.CurrencyCode).NotEmpty().MaximumLength(40);
         RuleFor(input => input.AccountNumber).NotEmpty().MaximumLength(80);
         RuleFor(input => input.AccountTypeCode).NotEmpty().MaximumLength(80);
@@ -3924,6 +3930,7 @@ internal sealed class ReplacePersonnelFileEmployeeRelationsCommandHandler(
 internal sealed class ReplacePersonnelFileBankAccountsCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
+    IBankCatalogRepository bankCatalogRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -3947,14 +3954,44 @@ internal sealed class ReplacePersonnelFileBankAccountsCommandHandler(
             return failure;
         }
 
-        var entities = command.BankAccounts
-            .Select(item => PersonnelFileBankAccount.Create(
-                item.BankCode,
+        var companyCountryCode = await repository.GetCompanyCountryCodeAsync(personnelFile!.TenantId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(companyCountryCode))
+        {
+            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>.Failure(
+                ErrorCatalog.NotFound);
+        }
+
+        var entities = new List<PersonnelFileBankAccount>(command.BankAccounts.Count);
+        var index = 0;
+        foreach (var item in command.BankAccounts)
+        {
+            var bankLookup = await bankCatalogRepository.GetActiveLookupByCountryAsync(
+                companyCountryCode,
+                item.BankPublicId,
+                cancellationToken);
+            if (bankLookup is null)
+            {
+                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>.Failure(
+                    ErrorCatalog.Validation(
+                        new Dictionary<string, string[]>
+                        {
+                            [$"bankAccounts[{index}].bankPublicId"] =
+                            [
+                                "BankPublicId must reference an active bank catalog item for the company country."
+                            ]
+                        }));
+            }
+
+            entities.Add(PersonnelFileBankAccount.Create(
+                bankLookup.InternalId,
+                bankLookup.Code,
                 item.CurrencyCode,
                 item.AccountNumber,
                 item.AccountTypeCode,
-                item.IsPrimary))
-            .ToArray();
+                item.IsPrimary));
+
+            index++;
+        }
 
         personnelFile!.ReplaceBankAccounts(entities);
 

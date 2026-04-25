@@ -27,6 +27,10 @@ public static class AuditEventTypes
     public const string CommercialPlanUpdated = "COMMERCIAL_PLAN_UPDATED";
     public const string CommercialPlanActivated = "COMMERCIAL_PLAN_ACTIVATED";
     public const string CommercialPlanInactivated = "COMMERCIAL_PLAN_INACTIVATED";
+    public const string BankCatalogItemCreated = "BANK_CATALOG_ITEM_CREATED";
+    public const string BankCatalogItemUpdated = "BANK_CATALOG_ITEM_UPDATED";
+    public const string BankCatalogItemActivated = "BANK_CATALOG_ITEM_ACTIVATED";
+    public const string BankCatalogItemInactivated = "BANK_CATALOG_ITEM_INACTIVATED";
     public const string CompanySubscriptionActivated = "COMPANY_SUBSCRIPTION_ACTIVATED";
     public const string CompanySubscriptionScheduled = "COMPANY_SUBSCRIPTION_SCHEDULED";
     public const string CompanySubscriptionStatusChanged = "COMPANY_SUBSCRIPTION_STATUS_CHANGED";
@@ -152,6 +156,10 @@ public static class AuditEventTypes
         CommercialPlanUpdated,
         CommercialPlanActivated,
         CommercialPlanInactivated,
+        BankCatalogItemCreated,
+        BankCatalogItemUpdated,
+        BankCatalogItemActivated,
+        BankCatalogItemInactivated,
         CompanySubscriptionActivated,
         CompanySubscriptionScheduled,
         CompanySubscriptionStatusChanged,
@@ -272,6 +280,7 @@ public static class AuditEntityTypes
     public const string Company = "Company";
     public const string CommercialAddon = "CommercialAddon";
     public const string CommercialPlan = "CommercialPlan";
+    public const string BankCatalogItem = "BankCatalogItem";
     public const string CompanySubscription = "CompanySubscription";
     public const string CompanySubscriptionStatusChangeRequest = "CompanySubscriptionStatusChangeRequest";
     public const string CompanySubscriptionPlanChange = "CompanySubscriptionPlanChange";
@@ -305,6 +314,7 @@ public static class AuditEntityTypes
         Company,
         CommercialAddon,
         CommercialPlan,
+        BankCatalogItem,
         CompanySubscription,
         CompanySubscriptionStatusChangeRequest,
         CompanySubscriptionPlanChange,
