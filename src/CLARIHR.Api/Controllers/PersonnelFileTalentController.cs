@@ -15,14 +15,14 @@ public sealed class PersonnelFileTalentController(
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
     [HttpPut("api/v1/personnel-files/{id:guid}/evaluations")]
-    [ProducesResponseType<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>>> ReplaceEvaluations(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>>>> ReplaceEvaluations(
         Guid id,
         [FromBody] ReplacePerformanceEvaluationsRequest request,
         CancellationToken cancellationToken = default)
@@ -60,14 +60,14 @@ public sealed class PersonnelFileTalentController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/position-competency-results")]
-    [ProducesResponseType<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>>> ReplacePositionCompetencyResults(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>>>> ReplacePositionCompetencyResults(
         Guid id,
         [FromBody] ReplacePositionCompetencyResultsRequest request,
         CancellationToken cancellationToken = default)
@@ -91,13 +91,13 @@ public sealed class PersonnelFileTalentController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-files/{id:guid}/position-competencies")]
+    [HttpGet("api/v1/personnel-files/{id:guid}/position-competency-results")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>>> GetPositionCompetencies(
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>>> GetPositionCompetencyResults(
         Guid id,
         CancellationToken cancellationToken = default)
     {
@@ -106,14 +106,14 @@ public sealed class PersonnelFileTalentController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/selection-contests")]
-    [ProducesResponseType<IReadOnlyCollection<PersonnelFileSelectionContestResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSelectionContestResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileSelectionContestResponse>>> ReplaceSelectionContests(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSelectionContestResponse>>>> ReplaceSelectionContests(
         Guid id,
         [FromBody] ReplaceSelectionContestsRequest request,
         CancellationToken cancellationToken = default)
@@ -151,14 +151,14 @@ public sealed class PersonnelFileTalentController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/curricular-competencies")]
-    [ProducesResponseType<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>>> ReplaceCurricularCompetencies(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>>>> ReplaceCurricularCompetencies(
         Guid id,
         [FromBody] ReplaceCurricularCompetenciesRequest request,
         CancellationToken cancellationToken = default)
@@ -179,6 +179,20 @@ public sealed class PersonnelFileTalentController(
                 request.ConcurrencyToken),
             cancellationToken);
 
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{id:guid}/curricular-competencies")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>>> GetCurricularCompetencies(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileCurricularCompetenciesQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 }

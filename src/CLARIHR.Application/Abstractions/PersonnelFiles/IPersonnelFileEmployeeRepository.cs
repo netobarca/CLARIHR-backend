@@ -203,4 +203,8 @@ public interface IPersonnelFileEmployeeRepository
         Guid tenantId,
         IReadOnlyCollection<PersonnelFileCurricularCompetency> entities,
         CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>> GetCurricularCompetenciesAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken);
 }

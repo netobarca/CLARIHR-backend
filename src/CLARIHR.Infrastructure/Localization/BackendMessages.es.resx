@@ -421,6 +421,9 @@
   <data name="PERSONNEL_FILE_DOCUMENT_NOT_FOUND" xml:space="preserve">
     <value>No se pudo encontrar personnel file document.</value>
   </data>
+  <data name="PERSONNEL_FILE_DOCUMENT_STORAGE_NOT_CONFIGURED" xml:space="preserve">
+    <value>El almacenamiento de documentos del expediente no esta configurado.</value>
+  </data>
   <data name="PERSONNEL_FILE_DOCUMENT_TOO_LARGE" xml:space="preserve">
     <value>El archivo del documento excede el tamano maximo permitido.</value>
   </data>

@@ -29,6 +29,19 @@ public sealed class PersonnelFileDocumentsController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{id:guid}/observations")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileObservationResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileObservationResponse>>> GetObservations(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileObservationsQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPost("api/v1/personnel-files/{id:guid}/documents")]
     [ProducesResponseType<PersonnelFileDocumentMetadataResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -93,20 +106,43 @@ public sealed class PersonnelFileDocumentsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-files/documents/{documentId:guid}/download")]
-    [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
+    [HttpPatch("api/v1/personnel-files/documents/{documentId:guid}/file")]
+    [ProducesResponseType<PersonnelFileDocumentMetadataResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DownloadDocument(Guid documentId, CancellationToken cancellationToken = default)
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileDocumentMetadataResponse>> ReplaceDocumentFile(
+        Guid documentId,
+        [FromForm] ReplacePersonnelFileDocumentFileRequest request,
+        CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetPersonnelFileDocumentDownloadQuery(documentId), cancellationToken);
-        if (result.IsFailure)
+        var fileValidation = await PersonnelFileDocumentUploadGuard.ValidateAsync(request.File, cancellationToken);
+        if (fileValidation != Error.None)
         {
-            return this.ToActionResult(Result<PersonnelFileDocumentDownloadResponse>.Failure(result.Error)).Result!;
+            return this.ToActionResult(Result<PersonnelFileDocumentMetadataResponse>.Failure(fileValidation));
         }
 
-        return File(result.Value.FileData, result.Value.ContentType, result.Value.FileName);
+        var safeFileName = PersonnelFileDocumentUploadGuard.GetSafeFileName(request.File);
+        var normalizedContentType = request.File.ContentType.Trim();
+
+        await using var stream = request.File.OpenReadStream();
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory, cancellationToken);
+
+        var result = await commandDispatcher.SendAsync(
+            new ReplacePersonnelFileDocumentFileCommand(
+                documentId,
+                safeFileName,
+                normalizedContentType,
+                memory.ToArray(),
+                request.ConcurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResult(result);
     }
 
     [HttpPost("api/v1/personnel-files/{id:guid}/observations")]

@@ -1472,33 +1472,36 @@ public sealed class PersonnelFileDocument : TenantEntity
     }
 
     private PersonnelFileDocument(
+        Guid publicId,
         string documentType,
         string? observations,
         DateTime? deliveryDate,
         DateTime? loanDate,
         DateTime? returnDate,
+        string blobName,
+        string blobUrl,
         string fileName,
         string contentType,
         int sizeBytes,
-        string sha256,
-        byte[] fileData)
+        string sha256)
     {
         if (loanDate.HasValue && returnDate.HasValue && returnDate.Value.Date < loanDate.Value.Date)
         {
             throw new InvalidOperationException("ReturnDate cannot be earlier than LoanDate.");
         }
 
-        PublicId = Guid.NewGuid();
+        PublicId = publicId;
         DocumentType = PersonnelFileNormalization.Clean(documentType, nameof(documentType));
         Observations = PersonnelFileNormalization.CleanOptional(observations);
         DeliveryDate = PersonnelFileNormalization.NormalizeDate(deliveryDate);
         LoanDate = PersonnelFileNormalization.NormalizeDate(loanDate);
         ReturnDate = PersonnelFileNormalization.NormalizeDate(returnDate);
+        BlobName = PersonnelFileNormalization.Clean(blobName, nameof(blobName));
+        BlobUrl = PersonnelFileNormalization.Clean(blobUrl, nameof(blobUrl));
         FileName = PersonnelFileNormalization.Clean(fileName, nameof(fileName));
         ContentType = PersonnelFileNormalization.Clean(contentType, nameof(contentType));
         SizeBytes = sizeBytes;
         Sha256 = PersonnelFileNormalization.Clean(sha256, nameof(sha256));
-        FileData = fileData;
         IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
@@ -1517,6 +1520,10 @@ public sealed class PersonnelFileDocument : TenantEntity
 
     public DateTime? ReturnDate { get; private set; }
 
+    public string BlobName { get; private set; } = string.Empty;
+
+    public string BlobUrl { get; private set; } = string.Empty;
+
     public string FileName { get; private set; } = string.Empty;
 
     public string ContentType { get; private set; } = string.Empty;
@@ -1525,24 +1532,41 @@ public sealed class PersonnelFileDocument : TenantEntity
 
     public string Sha256 { get; private set; } = string.Empty;
 
-    public byte[] FileData { get; private set; } = [];
-
     public bool IsActive { get; private set; }
 
     public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileDocument Create(
+        Guid publicId,
         string documentType,
         string? observations,
         DateTime? deliveryDate,
         DateTime? loanDate,
         DateTime? returnDate,
+        string blobName,
+        string blobUrl,
         string fileName,
         string contentType,
         int sizeBytes,
-        string sha256,
-        byte[] fileData) =>
-        new(documentType, observations, deliveryDate, loanDate, returnDate, fileName, contentType, sizeBytes, sha256, fileData);
+        string sha256) =>
+        new(publicId, documentType, observations, deliveryDate, loanDate, returnDate, blobName, blobUrl, fileName, contentType, sizeBytes, sha256);
+
+    public void ReplaceFile(
+        string blobName,
+        string blobUrl,
+        string fileName,
+        string contentType,
+        int sizeBytes,
+        string sha256)
+    {
+        BlobName = PersonnelFileNormalization.Clean(blobName, nameof(blobName));
+        BlobUrl = PersonnelFileNormalization.Clean(blobUrl, nameof(blobUrl));
+        FileName = PersonnelFileNormalization.Clean(fileName, nameof(fileName));
+        ContentType = PersonnelFileNormalization.Clean(contentType, nameof(contentType));
+        SizeBytes = sizeBytes;
+        Sha256 = PersonnelFileNormalization.Clean(sha256, nameof(sha256));
+        ConcurrencyToken = Guid.NewGuid();
+    }
 
     public void Inactivate()
     {

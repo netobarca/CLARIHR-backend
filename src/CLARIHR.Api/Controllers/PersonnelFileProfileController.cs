@@ -28,13 +28,13 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/personal-info")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileResponse>> UpdatePersonalInfo(
+    public async Task<ActionResult<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>> UpdatePersonalInfo(
         Guid id,
         [FromBody] UpdatePersonnelFilePersonalInfoRequest request,
         CancellationToken cancellationToken = default)
@@ -80,13 +80,13 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/identifications")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileIdentificationResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplaceIdentifications(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileIdentificationResponse>>>> ReplaceIdentifications(
         Guid id,
         [FromBody] ReplaceIdentificationsRequest request,
         CancellationToken cancellationToken = default)
@@ -121,13 +121,13 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/addresses")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAddressResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplaceAddresses(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAddressResponse>>>> ReplaceAddresses(
         Guid id,
         [FromBody] ReplaceAddressesRequest request,
         CancellationToken cancellationToken = default)
@@ -162,13 +162,13 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/emergency-contacts")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplaceEmergencyContacts(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>>>> ReplaceEmergencyContacts(
         Guid id,
         [FromBody] ReplaceEmergencyContactsRequest request,
         CancellationToken cancellationToken = default)
@@ -202,14 +202,14 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/family-members")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplaceFamilyMembers(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>>> ReplaceFamilyMembers(
         Guid id,
         [FromBody] ReplaceFamilyMembersRequest request,
         CancellationToken cancellationToken = default)
@@ -260,13 +260,13 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/hobbies")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileHobbyResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplaceHobbies(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileHobbyResponse>>>> ReplaceHobbies(
         Guid id,
         [FromBody] ReplaceHobbiesRequest request,
         CancellationToken cancellationToken = default)
@@ -295,13 +295,13 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/employee-relations")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplaceEmployeeRelations(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>> ReplaceEmployeeRelations(
         Guid id,
         [FromBody] ReplaceEmployeeRelationsRequest request,
         CancellationToken cancellationToken = default)
@@ -310,6 +310,46 @@ public sealed class PersonnelFileProfileController(
             new ReplacePersonnelFileEmployeeRelationsCommand(
                 id,
                 request.Items.Select(item => new EmployeeRelationInput(item.RelatedEmployeePublicId, item.Relationship)).ToArray(),
+                request.ConcurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{id:guid}/bank-accounts")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileBankAccountResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>> GetBankAccounts(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileBankAccountsQuery(id), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPut("api/v1/personnel-files/{id:guid}/bank-accounts")]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>> ReplaceBankAccounts(
+        Guid id,
+        [FromBody] ReplaceBankAccountsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new ReplacePersonnelFileBankAccountsCommand(
+                id,
+                request.Items.Select(item => new BankAccountInput(
+                    item.BankCode,
+                    item.CurrencyCode,
+                    item.AccountNumber,
+                    item.AccountTypeCode,
+                    item.IsPrimary)).ToArray(),
                 request.ConcurrencyToken),
             cancellationToken);
 
@@ -330,13 +370,13 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/associations")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplaceAssociations(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>> ReplaceAssociations(
         Guid id,
         [FromBody] ReplaceAssociationsRequest request,
         CancellationToken cancellationToken = default)
@@ -370,14 +410,14 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/educations")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplaceEducations(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>> ReplaceEducations(
         Guid id,
         [FromBody] ReplaceEducationsRequest request,
         CancellationToken cancellationToken = default)
@@ -420,14 +460,14 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/languages")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileLanguageResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplaceLanguages(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileLanguageResponse>>>> ReplaceLanguages(
         Guid id,
         [FromBody] ReplaceLanguagesRequest request,
         CancellationToken cancellationToken = default)
@@ -461,14 +501,14 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/trainings")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileTrainingResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplaceTrainings(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileTrainingResponse>>>> ReplaceTrainings(
         Guid id,
         [FromBody] ReplaceTrainingsRequest request,
         CancellationToken cancellationToken = default)
@@ -513,14 +553,14 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/previous-employments")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplacePreviousEmployments(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>>>> ReplacePreviousEmployments(
         Guid id,
         [FromBody] ReplacePreviousEmploymentsRequest request,
         CancellationToken cancellationToken = default)
@@ -561,14 +601,14 @@ public sealed class PersonnelFileProfileController(
     }
 
     [HttpPut("api/v1/personnel-files/{id:guid}/references")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileReferenceResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileResponse>> ReplaceReferences(
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileReferenceResponse>>>> ReplaceReferences(
         Guid id,
         [FromBody] ReplaceReferencesRequest request,
         CancellationToken cancellationToken = default)

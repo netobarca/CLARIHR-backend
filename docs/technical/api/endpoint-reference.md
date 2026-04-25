@@ -298,12 +298,13 @@ Compensation:
 Talent:
 
 - `PUT /api/v1/personnel-files/{publicId}/evaluations`
-- `GET /api/v1/personnel-files/{publicId}/position-competencies`
+- `GET /api/v1/personnel-files/{publicId}/position-competency-results`
+- `GET /api/v1/personnel-files/{publicId}/curricular-competencies`
 
 Documents and reporting:
 
 - `POST /api/v1/personnel-files/{publicId}/documents`
-- `GET /api/v1/personnel-files/documents/{documentPublicId}/download`
+- `PATCH /api/v1/personnel-files/documents/{documentPublicId}/file`
 - `GET /api/v1/personnel-files/{publicId}/print`
 - `POST /api/v1/companies/{companyPublicId}/personnel-files/dynamic-query`
 - `GET /api/v1/companies/{companyPublicId}/personnel-files/export`
@@ -2850,7 +2851,6 @@ Familias de rutas:
 - `/api/v1/personnel-files/{id}/bank-accounts`
 - `/api/v1/personnel-files/{id}/evaluations`
 - `/api/v1/personnel-files/{id}/position-competency-results`
-- `/api/v1/personnel-files/{id}/position-competencies`
 - `/api/v1/personnel-files/{id}/selection-contests`
 - `/api/v1/personnel-files/{id}/curricular-competencies`
 - `/api/v1/personnel-files/{id}/documents`
@@ -2860,7 +2860,7 @@ Familias de rutas:
 - `/api/v1/companies/{companyId}/personnel-files/export`
 - `/api/v1/companies/{companyId}/personnel-files/analytics/summary`
 - `/api/v1/personnel-files/documents/{documentId}/inactivate`
-- `/api/v1/personnel-files/documents/{documentId}/download`
+- `/api/v1/personnel-files/documents/{documentId}/file`
 - `/api/v1/companies/{companyId}/general-catalogs/{catalogKey}`
 - `/api/v1/companies/{companyId}/reference-catalogs/{catalogKey}`
 - `/api/v1/companies/{companyId}/personnel-custom-field-definitions`
@@ -2898,22 +2898,22 @@ En terminos de negocio, este bloque une dos mundos:
 - Todas las escrituras generan auditoria.
 - `print`, `export`, `personnel-actions/export` y `payroll-transactions/export` tambien generan auditoria.
 - La mayoria de escrituras por subseccion son de reemplazo total, no de merge parcial.
-- En `Profile`, cada `PUT` reemplaza la coleccion completa de la subseccion y devuelve el `PersonnelFileResponse` completo con el nuevo `ConcurrencyToken` del expediente.
-- En `Employment`, `Compensation` y `Talent`, las escrituras tambien usan el `ConcurrencyToken` del expediente padre, pero la respuesta suele ser una coleccion o un `employee profile`, no el expediente completo.
-- El efecto observable de ese diseno es que el cliente normalmente necesita releer `/api/v1/personnel-files/{id}` antes de encadenar otra mutacion file-scoped sobre el mismo expediente.
+- `GET /api/v1/personnel-files/{id}` ya no devuelve el agregado base completo; responde un shell liviano del expediente con metadatos, estado y `AllowedActions`.
+- Todas las escrituras por subseccion de `Profile`, `Employment`, `Compensation` y `Talent` usan el `ConcurrencyToken` del expediente padre y responden `PersonnelFileSectionResult<T>` con `data`, `personnelFileConcurrencyToken` y `modifiedAtUtc`.
+- El cliente ya no necesita releer `/api/v1/personnel-files/{id}` para encadenar mutaciones seccionales; puede usar el token devuelto por cada escritura.
 - Todo expediente nuevo nace con `LifecycleStatus = Draft`.
 - Si `RecordType = Employee`, `AssignedPositionSlotId` es obligatorio desde `create` y `personal-info`; si `RecordType = Candidate`, ese campo no se permite.
 - `RecordType` no puede cambiarse dentro de `personnel files`; la transicion funcional del modulo es `finalize`, no una conversion `Candidate -> Employee`.
 - `finalize` solo aplica a expedientes `Employee` en `Draft`, exige `InstitutionalEmail` y plaza asignada; el rol IAM valido de la plaza solo se exige cuando `createUserAccount = true`.
 - Despues de `Completed`, `InstitutionalEmail` y `AssignedPositionSlotId` quedan bloqueados en `personal-info`.
 - Los endpoints de `Employment`, `Compensation` y `Talent` son de uso exclusivo para expedientes `Employee` ya completados.
-- `GET /api/v1/personnel-files/{id}` y `GET /print` solo cubren el agregado base del expediente:
+- `GET /print` solo cubre el agregado base del expediente:
 - datos personales y curriculares
 - cuentas bancarias
 - documentos
 - observaciones
 - no incluyen `employee profile`, asignaciones, acciones de personal, transacciones de planilla, seguros, evaluaciones ni otros subrecursos del bloque laboral
-- `bank-accounts` se muta desde `PersonnelFileCompensationController`, pero sigue viviendo sobre el agregado base y por eso aparece en `GetById` y en `print`.
+- `bank-accounts` se lee y se muta desde `PersonnelFileProfileController`, porque sigue viviendo sobre el agregado base y por eso aparece en `GetById` y en `print`.
 - `search` y `dynamic-query` soportan busqueda libre por nombre completo y por numero de identificacion.
 - `export` y `analytics/summary` reutilizan la ruta de export rows, por lo que su `q` solo opera sobre nombre completo; no busca por identificaciones.
 
@@ -2927,7 +2927,7 @@ En terminos de negocio, este bloque une dos mundos:
 - Si el `companyId` de la ruta no coincide con el tenant activo, la API responde `TENANT_MISMATCH`.
 - Si el usuario esta autenticado en el tenant correcto pero no cumple permisos, la API responde `PERSONNEL_FILES_FORBIDDEN`.
 - `search` y `dynamic-query` pueden devolver `AllowedActions` cuando el cliente lo pide con `includeAllowedActions=true`.
-- `get by id` siempre aplica `AllowedActions` sobre el expediente base.
+- `get by id` siempre aplica `AllowedActions` sobre el shell del expediente.
 - `print` reutiliza la misma lectura autorizada del expediente y devuelve el expediente filtrado por secciones, no un bypass de autorizacion.
 
 #### 5.10.5 Errores observables relevantes en Personnel files
@@ -2992,7 +2992,7 @@ Uso principal:
 
 - abrir un expediente nuevo
 - listar expedientes del tenant
-- consultar el agregado base del expediente
+- consultar el shell liviano del expediente
 - activar o inactivar logicamente el expediente
 
 Observaciones funcionales:
@@ -3011,8 +3011,7 @@ Observaciones funcionales:
 - `search` busca por nombre completo normalizado y por numero de identificacion.
 - listados y detalle exponen pares `Code + Name` resueltos para `MaritalStatus`, `Profession`, `BirthCountry`, `BirthDepartment`, `BirthMunicipality` e `IdentificationType`.
 - listados, detalle y exportes exponen `LifecycleStatus`, `AssignedPositionSlotId` y `LinkedUserId`.
-- `get by id` devuelve el agregado base del expediente con identificaciones, direcciones, contactos, familiares, hobbies, relaciones, bank accounts, asociaciones, educacion, idiomas, trainings, previous employments, referencias, documentos y observaciones.
-- `get by id` no devuelve `employee profile`, asignaciones, contract history, personnel actions, payroll transactions, seguros, evaluaciones ni concursos.
+- `get by id` devuelve solo el shell del expediente: `id`, `companyId`, `recordType`, `lifecycleStatus`, `fullName`, `photoUrl`, `isActive`, `orgUnitId`, `assignedPositionSlotId`, `linkedUserId`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y `allowedActions`.
 - `activate` e `inactivate` son transiciones soft-state y requieren `ConcurrencyToken`.
 
 #### 5.10.7 Profile
@@ -3033,6 +3032,8 @@ Route family:
 - `PUT /api/v1/personnel-files/{id}/hobbies`
 - `GET /api/v1/personnel-files/{id}/employee-relations`
 - `PUT /api/v1/personnel-files/{id}/employee-relations`
+- `GET /api/v1/personnel-files/{id}/bank-accounts`
+- `PUT /api/v1/personnel-files/{id}/bank-accounts`
 - `GET /api/v1/personnel-files/{id}/associations`
 - `PUT /api/v1/personnel-files/{id}/associations`
 - `GET /api/v1/personnel-files/{id}/educations`
@@ -3053,7 +3054,7 @@ Uso principal:
 Observaciones funcionales:
 
 - Los endpoints `GET` de `Profile` devuelven el bloque solicitado sin exigir `ConcurrencyToken`; `personal-info` responde con el bloque escalar del expediente y las demas rutas responden la coleccion completa del subrecurso.
-- Todos los endpoints `PUT` de `Profile` usan el `ConcurrencyToken` del expediente y devuelven el `PersonnelFileResponse` completo.
+- Todos los endpoints `PUT` de `Profile` usan el `ConcurrencyToken` del expediente y devuelven `PersonnelFileSectionResult<T>` con la seccion mutada y el nuevo token del expediente.
 - Todos los `PUT` de colecciones son de reemplazo total de la subseccion.
 - En `Profile`, los `PUT` de colecciones usan `items` como propiedad principal del payload.
 - `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite transiciones de `RecordType`.
@@ -3109,6 +3110,7 @@ Observaciones funcionales:
 - `finalize` cambia el expediente a `Completed`; cuando `createUserAccount = true` crea o reutiliza el usuario de compania, deja la cuenta local en `PendingActivation`, emite invitacion y vincula el usuario al expediente, y cuando `createUserAccount = false` completa sin aprovisionar usuario.
 - Todo el resto del bloque exige que el expediente ya sea un `Employee` completado; si no, responde `PERSONNEL_FILE_STATE_RULE_VIOLATION`.
 - Los endpoints `GET` del bloque devuelven el subrecurso solicitado sin exigir `ConcurrencyToken`.
+- Los endpoints `PUT` del bloque devuelven `PersonnelFileSectionResult<T>` para que frontend pueda encadenar mutaciones usando el nuevo `personnelFileConcurrencyToken`.
 - `employee-profile` hace upsert del perfil laboral y permite vincular `PositionSlotId`, `JobProfileId`, `OrgUnitId`, `WorkCenterId`, `CostCenterId`, vigencias contractuales y `VacationConfigurationJson`.
 - la creacion del usuario ya no depende del `employee-profile`; ese subrecurso queda para datos laborales posteriores a `finalize`.
 - `employment-assignments`, `contract-history`, `authorization-substitutions` y `assets-accesses` reemplazan la coleccion completa de ese subrecurso.
@@ -3139,7 +3141,6 @@ Route family:
 - `PUT /api/v1/personnel-files/{id}/insurances`
 - `GET /api/v1/personnel-files/{id}/medical-claims`
 - `PUT /api/v1/personnel-files/{id}/medical-claims`
-- `PUT /api/v1/personnel-files/{id}/bank-accounts`
 
 Uso principal:
 
@@ -3149,8 +3150,7 @@ Observaciones funcionales:
 
 - Todo el bloque exige que el expediente sea `Employee`.
 - Los endpoints `GET` del bloque devuelven la coleccion completa del subrecurso y no exigen `ConcurrencyToken`.
-- Todos los `PUT` son de reemplazo total de la subseccion.
-- `bank-accounts` usa `items` como propiedad canonica del payload.
+- Todos los `PUT` son de reemplazo total de la subseccion y responden `PersonnelFileSectionResult<T>`.
 - `salary-items` mantiene rubros salariales con vigencias, tipo de ingreso, rubrica, moneda y periodo de pago.
 - `additional-benefits` mantiene beneficios adicionales activos o historicos.
 - `payment-methods` usa vigencias `EffectiveFromUtc/EffectiveToUtc` y puede apuntar a un `BankAccountId`.
@@ -3163,11 +3163,6 @@ Observaciones funcionales:
 - `payroll-transactions/export` soporta `csv|xlsx`.
 - `payroll-transactions/export` admite `sortBy` observable en `transactionDateUtc`, `createdAtUtc`, `type/transactionTypeCode` y `amount`.
 - `insurances` reemplaza tambien el conjunto de beneficiarios de cada seguro.
-- `bank-accounts` es una excepcion del bloque:
-- se expone desde `Compensation`
-- muta el agregado base del expediente
-- devuelve `PersonnelFileResponse` completo
-- aparece tambien en `get by id` y `print`
 - Las escrituras de `Compensation` tambien tocan el expediente padre y por eso hacen rotar su `ConcurrencyToken`.
 
 #### 5.10.10 Talent
@@ -3177,10 +3172,11 @@ Route family:
 - `PUT /api/v1/personnel-files/{id}/evaluations`
 - `GET /api/v1/personnel-files/{id}/evaluations`
 - `PUT /api/v1/personnel-files/{id}/position-competency-results`
-- `GET /api/v1/personnel-files/{id}/position-competencies`
+- `GET /api/v1/personnel-files/{id}/position-competency-results`
 - `PUT /api/v1/personnel-files/{id}/selection-contests`
 - `GET /api/v1/personnel-files/{id}/selection-contests`
 - `PUT /api/v1/personnel-files/{id}/curricular-competencies`
+- `GET /api/v1/personnel-files/{id}/curricular-competencies`
 
 Uso principal:
 
@@ -3189,7 +3185,7 @@ Uso principal:
 Observaciones funcionales:
 
 - Todo el bloque exige que el expediente sea `Employee`.
-- Todos los `PUT` son de reemplazo total.
+- Todos los `PUT` son de reemplazo total y responden `PersonnelFileSectionResult<T>`.
 - Los endpoints `GET` del bloque devuelven la coleccion completa del subrecurso; no hay paginacion.
 - `evaluations` mantiene resultados de evaluacion con score cuantitativo, score cualitativo y comentario.
 - `position-competency-results` mantiene resultados observados por `CompetencyCode`; el endpoint lee el estado persistido del expediente, no una recomputacion en vivo desde `CompetencyFramework`.
@@ -3204,32 +3200,37 @@ Route family:
 
 - `GET /api/v1/personnel-files/{id}/documents`
 - `POST /api/v1/personnel-files/{id}/documents`
+- `GET /api/v1/personnel-files/{id}/observations`
 - `PATCH /api/v1/personnel-files/documents/{documentId}/inactivate`
-- `GET /api/v1/personnel-files/documents/{documentId}/download`
+- `PATCH /api/v1/personnel-files/documents/{documentId}/file`
 - `POST /api/v1/personnel-files/{id}/observations`
 
 Uso principal:
 
 - adjuntar evidencias documentales al expediente
-- descargar documentos
+- reemplazar el archivo binario de un documento ya existente
 - inactivar documentos historicos
 - registrar observaciones internas
 
 Observaciones funcionales:
 
-- `GET /documents` devuelve una lista liviana de `PersonnelFileDocumentMetadataResponse` sin `FileData`.
-- `GET /documents` es la vista recomendada para renderizar listados o previews de adjuntos antes de descargar un binario puntual.
+- `GET /documents` devuelve una lista liviana de `PersonnelFileDocumentMetadataResponse` con `fileUrl` resuelto para el frontend; la API ya no expone `FileData` ni un endpoint separado de descarga.
+- `GET /documents` es la vista recomendada para renderizar listados o abrir adjuntos directamente desde la URL firmada del documento.
 - `GET /documents` ordena por `CreatedAtUtc` descendente.
 - `upload document` usa `multipart/form-data`.
 - `upload document` exige archivo no vacio, maximo `10 MiB`, extension/MIME permitido y firma basica valida antes de leer el binario completo.
 - formatos permitidos para `upload document`: `.pdf`, `.jpg`, `.jpeg`, `.png`, `.docx`.
 - `upload document` usa el `ConcurrencyToken` actual del expediente.
+- `upload document` persiste la metadata en BD y sube el archivo a Azure Blob Storage privado; en BD queda la URL canonica del blob y el nombre interno (`blobName`).
 - `upload document` calcula y persiste `sha256` del binario cargado.
 - `upload document` valida fechas de entrega, prestamo y devolucion; rangos invalidos responden `PERSONNEL_FILE_DOCUMENT_DATES_INVALID`.
+- `PATCH /documents/{documentId}/file` usa `multipart/form-data` y reemplaza solo el archivo; no requiere reenviar `documentType`, observaciones ni fechas.
+- `PATCH /documents/{documentId}/file` usa el `ConcurrencyToken` del documento, no el del expediente.
+- `fileUrl` es una URL SAS temporal resuelta por la API para consumo directo del frontend.
 - `upload document` devuelve `PersonnelFileDocumentMetadataResponse`, no el expediente completo.
 - `inactivate document` usa `ConcurrencyToken` del documento, no del expediente.
 - `inactivate document` es soft-delete logico sobre el documento.
-- `download document` devuelve el binario y valida tenant scope del documento.
+- `replace document file` reemplaza el blob asociado, rota el `ConcurrencyToken` del documento y devuelve nueva metadata con `fileUrl` resuelto.
 - `add observation` usa el `ConcurrencyToken` del expediente y devuelve solo la observacion creada.
 - Comportamiento observable actual de `inactivate document`:
 - la respuesta tiene shape de metadata

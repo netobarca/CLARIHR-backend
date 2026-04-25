@@ -565,6 +565,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             map: Map,
             cancellationToken);
 
+    public async Task<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>> GetCurricularCompetenciesAsync(
+        Guid personnelFileId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileCurricularCompetency>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId)
+            .OrderBy(item => item.RequirementTypeCode)
+            .ThenBy(item => item.RequirementName)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
+
     private async Task<IReadOnlyCollection<TResponse>> ReplaceSectionAsync<TEntity, TResponse>(
         long personnelFileInternalId,
         Guid tenantId,

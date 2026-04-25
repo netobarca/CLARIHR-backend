@@ -248,6 +248,11 @@ public static class PersonnelFileErrors
         "The document file type is not supported.",
         ErrorType.Validation);
 
+    public static readonly Error DocumentStorageNotConfigured = new(
+        "PERSONNEL_FILE_DOCUMENT_STORAGE_NOT_CONFIGURED",
+        "Personnel file document storage is not configured.",
+        ErrorType.ServiceUnavailable);
+
     public static readonly Error DocumentLoanDatesInvalid = new(
         "PERSONNEL_FILE_DOCUMENT_DATES_INVALID",
         "Document loan and return dates are invalid.",

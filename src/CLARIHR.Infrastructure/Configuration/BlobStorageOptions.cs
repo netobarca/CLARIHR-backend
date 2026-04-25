@@ -10,9 +10,13 @@ public sealed class BlobStorageOptions
 
     public string ProfileImagesContainer { get; init; } = "clarihr-profile-images";
 
+    public string PersonnelDocumentsContainer { get; init; } = "clarihr-personnel-documents";
+
     public string ReportExportsContainer { get; init; } = "clarihr-report-exports";
 
     public int ProfileImageSasTtlMinutes { get; init; } = 15;
+
+    public int PersonnelDocumentSasTtlMinutes { get; init; } = 15;
 
     public int ReportExportSasTtlMinutes { get; init; } = 15;
 
@@ -27,4 +31,9 @@ public sealed class BlobStorageOptions
         !string.IsNullOrWhiteSpace(ConnectionString) &&
         !string.IsNullOrWhiteSpace(AccountName) &&
         !string.IsNullOrWhiteSpace(ReportExportsContainer);
+
+    public bool IsPersonnelDocumentStorageConfigured =>
+        !string.IsNullOrWhiteSpace(ConnectionString) &&
+        !string.IsNullOrWhiteSpace(AccountName) &&
+        !string.IsNullOrWhiteSpace(PersonnelDocumentsContainer);
 }
