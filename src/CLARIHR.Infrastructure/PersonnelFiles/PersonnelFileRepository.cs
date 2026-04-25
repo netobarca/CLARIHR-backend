@@ -4,6 +4,7 @@ using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.Banks;
 using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
@@ -369,7 +370,12 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 .ThenBy(item => item.BankCode)
                 .Select(item => new PersonnelFileBankAccountResponse(
                     item.PublicId,
+                    item.BankCatalogItem != null ? item.BankCatalogItem.PublicId : null,
                     item.BankCode,
+                    item.BankCatalogItem != null ? item.BankCatalogItem.Name : null,
+                    item.BankCatalogItem != null ? item.BankCatalogItem.Alias : null,
+                    item.BankCatalogItem != null ? item.BankCatalogItem.SwiftCode : null,
+                    item.BankCatalogItem != null ? item.BankCatalogItem.RoutingCode : null,
                     item.CurrencyCode,
                     item.AccountNumber,
                     item.AccountTypeCode,
@@ -694,7 +700,12 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .ThenBy(item => item.BankCode)
             .Select(item => new PersonnelFileBankAccountResponse(
                 item.PublicId,
+                item.BankCatalogItem != null ? item.BankCatalogItem.PublicId : null,
                 item.BankCode,
+                item.BankCatalogItem != null ? item.BankCatalogItem.Name : null,
+                item.BankCatalogItem != null ? item.BankCatalogItem.Alias : null,
+                item.BankCatalogItem != null ? item.BankCatalogItem.SwiftCode : null,
+                item.BankCatalogItem != null ? item.BankCatalogItem.RoutingCode : null,
                 item.CurrencyCode,
                 item.AccountNumber,
                 item.AccountTypeCode,

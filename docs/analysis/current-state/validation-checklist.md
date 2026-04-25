@@ -56,6 +56,7 @@ Este checklist sirve para revisar cambios backend y documentales antes de cerrar
 - [ ] `endpoint-reference.md` fue actualizado si hubo cambio observable.
 - [ ] `openapi.yaml` fue actualizado o se dejo trazado por que no aplica.
 - [ ] Si la superficie HTTP cambio, se verifico que no aumente el drift entre contrato versionado y runtime.
+- [ ] Si coexistieron colecciones anidadas y acciones directas por subrecurso, se valido consistencia de rutas entre la coleccion bajo el padre y la ruta plana del hijo sin prefijos hibridos del padre.
 
 ## 8. Documentacion viva
 

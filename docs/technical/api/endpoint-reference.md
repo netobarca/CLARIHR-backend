@@ -114,6 +114,7 @@ Exenciones observables: el export de un unico `JOB_PROFILE` sigue siendo sincron
 | Platform auth | `PlatformAuthController` | `/api/platform/auth*` | login, refresh y logout de operadores del backoffice global |
 | Platform commercial modules | `CommercialModulesController` | `/api/platform/commercial-modules` | exponer el catalogo canonico de modulos comerciales asignables a planes y add-ons |
 | Platform commercial addons | `CommercialAddonsController` | `/api/platform/commercial-addons*` | administrar el catalogo comercial global de add-ons reutilizables con pricing masivo o especializado |
+| Platform bank catalogs | `BankCatalogsController` | `/api/platform/bank-catalogs*` | administrar el catalogo global de bancos por pais para consumo del core RH |
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables |
 | Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar, cambiar plan, administrar add-ons y listar suscripciones empresariales globales |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
@@ -304,7 +305,8 @@ Talent:
 Documents and reporting:
 
 - `POST /api/v1/personnel-files/{publicId}/documents`
-- `PATCH /api/v1/personnel-files/documents/{documentPublicId}/file`
+- `PATCH /api/v1/personnel-file-documents/{publicId}/file`
+- `PATCH /api/v1/personnel-file-documents/{publicId}/inactivate`
 - `GET /api/v1/personnel-files/{publicId}/print`
 - `POST /api/v1/companies/{companyPublicId}/personnel-files/dynamic-query`
 - `GET /api/v1/companies/{companyPublicId}/personnel-files/export`
@@ -1316,7 +1318,65 @@ Contratos principales:
 - Errores relevantes: `COMMERCIAL_ADDON_NOT_FOUND`, `CONCURRENCY_CONFLICT`, `COMMERCIAL_ADDON_ALREADY_INACTIVE`, `PLATFORM_ACCESS_FORBIDDEN`.
 - Observaciones: no existe delete fisico; la baja operativa del catalogo se resuelve por estado.
 
-#### 5.3A.8 `PlatformCompanySubscriptionsController`
+#### 5.3A.8 `BankCatalogsController`
+
+Base route: `/api/platform/bank-catalogs`
+
+Contratos principales:
+
+- `BankCatalogItemResponse`: `publicId`, `countryCode`, `code`, `name`, `alias`, `swiftCode`, `routingCode`, `isActive`, `sortOrder`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc`
+
+##### `GET /api/platform/bank-catalogs`
+
+- Proposito: listar el catalogo global de bancos filtrado por pais.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Query: `countryCode`, `isActive`, `q`, `page`, `pageSize`.
+- Validaciones: `countryCode` obligatorio; `page > 0`; `pageSize` entre `1` y `100`; `q` maximo `150`.
+- Response: `PagedResponse<BankCatalogItemResponse>`.
+- Observaciones: la busqueda aplica sobre `code`, `name`, `alias`, `swiftCode` y `routingCode`.
+
+##### `GET /api/platform/bank-catalogs/{publicId}`
+
+- Proposito: obtener el detalle de un banco del catalogo global.
+- Autenticacion: `Bearer` requerido con token `platform`.
+- Response: `BankCatalogItemResponse`.
+- Errores relevantes: `BANK_CATALOG_NOT_FOUND`.
+
+##### `POST /api/platform/bank-catalogs`
+
+- Proposito: crear un banco global country-scoped.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `countryCode`, `code`, `name`, `alias`, `swiftCode`, `routingCode`, `sortOrder`.
+- Validaciones base: `countryCode` activo; `code` obligatorio maximo `80`; `name` obligatorio maximo `200`; `alias` maximo `120`; `swiftCode` y `routingCode` maximo `40`; `sortOrder >= 0`.
+- Response: `201 Created` con `BankCatalogItemResponse`.
+- Errores relevantes: `BANK_CATALOG_COUNTRY_NOT_FOUND`, `BANK_CATALOG_CODE_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
+
+##### `PUT /api/platform/bank-catalogs/{publicId}`
+
+- Proposito: actualizar un banco existente del catalogo global.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `countryCode`, `code`, `name`, `alias`, `swiftCode`, `routingCode`, `sortOrder`, `concurrencyToken`.
+- Response: `BankCatalogItemResponse`.
+- Errores relevantes: `BANK_CATALOG_NOT_FOUND`, `BANK_CATALOG_COUNTRY_CHANGE_FORBIDDEN`, `BANK_CATALOG_CODE_CONFLICT`, `CONCURRENCY_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
+
+##### `PATCH /api/platform/bank-catalogs/{publicId}/activate`
+
+- Proposito: reactivar un banco del catalogo global.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `concurrencyToken`.
+- Response: `BankCatalogItemResponse`.
+- Errores relevantes: `BANK_CATALOG_NOT_FOUND`, `BANK_CATALOG_ALREADY_ACTIVE`, `CONCURRENCY_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
+
+##### `PATCH /api/platform/bank-catalogs/{publicId}/inactivate`
+
+- Proposito: inactivar un banco del catalogo global.
+- Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
+- Request body: `concurrencyToken`.
+- Response: `BankCatalogItemResponse`.
+- Errores relevantes: `BANK_CATALOG_NOT_FOUND`, `BANK_CATALOG_ALREADY_INACTIVE`, `CONCURRENCY_CONFLICT`, `PLATFORM_ACCESS_FORBIDDEN`.
+- Observaciones: los bancos inactivos siguen pudiendo verse en cuentas bancarias ya asociadas, pero dejan de salir en el lookup activo del core.
+
+#### 5.3A.9 `PlatformCompanySubscriptionsController`
 
 Base route: `/api/platform/companies/{companyPublicId}/subscription*`
 
@@ -2859,8 +2919,8 @@ Familias de rutas:
 - `/api/v1/companies/{companyId}/personnel-files/dynamic-query`
 - `/api/v1/companies/{companyId}/personnel-files/export`
 - `/api/v1/companies/{companyId}/personnel-files/analytics/summary`
-- `/api/v1/personnel-files/documents/{documentId}/inactivate`
-- `/api/v1/personnel-files/documents/{documentId}/file`
+- `/api/v1/personnel-file-documents/{publicId}/inactivate`
+- `/api/v1/personnel-file-documents/{publicId}/file`
 - `/api/v1/companies/{companyId}/general-catalogs/{catalogKey}`
 - `/api/v1/companies/{companyId}/reference-catalogs/{catalogKey}`
 - `/api/v1/companies/{companyId}/personnel-custom-field-definitions`
@@ -3073,6 +3133,9 @@ Observaciones funcionales:
 - `educations`, `languages`, `trainings`, `previous-employments` y `references` validan codigos contra catalogos activos del modulo.
 - Los catalogos curriculares observables usados desde este bloque incluyen `CurriculumEducationStatus`, `CurriculumStudyType`, `CurriculumShift`, `CurriculumModality`, `CurriculumLanguage`, `CurriculumLanguageLevel`, `CurriculumTrainingType`, `CurriculumDurationUnit`, `CurriculumReferenceType`, `Country` y `Currency`.
 - `educations` exige `EndDate` cuando `IsCurrentlyStudying=false` y evita `ApprovedSubjects > TotalSubjects`.
+- `bank-accounts` ya no recibe `bankCode`; la escritura usa `bankPublicId` y valida que el banco este activo para el pais de la compania.
+- `bank-accounts` responde `bankPublicId`, `bankCode`, `bankName`, `bankAlias`, `swiftCode` y `routingCode` ademas de los datos propios de la cuenta.
+- si un banco queda inactivo despues de haber sido asociado, la cuenta bancaria existente sigue siendo legible y renderizable.
 - `languages` exige que al menos uno de `Speaks`, `Writes` o `Reads` sea `true`.
 - `trainings` valida pais, tipo, unidad de duracion y moneda de costo contra catalogos activos.
 
@@ -3201,8 +3264,8 @@ Route family:
 - `GET /api/v1/personnel-files/{id}/documents`
 - `POST /api/v1/personnel-files/{id}/documents`
 - `GET /api/v1/personnel-files/{id}/observations`
-- `PATCH /api/v1/personnel-files/documents/{documentId}/inactivate`
-- `PATCH /api/v1/personnel-files/documents/{documentId}/file`
+- `PATCH /api/v1/personnel-file-documents/{publicId}/inactivate`
+- `PATCH /api/v1/personnel-file-documents/{publicId}/file`
 - `POST /api/v1/personnel-files/{id}/observations`
 
 Uso principal:
@@ -3224,11 +3287,11 @@ Observaciones funcionales:
 - `upload document` persiste la metadata en BD y sube el archivo a Azure Blob Storage privado; en BD queda la URL canonica del blob y el nombre interno (`blobName`).
 - `upload document` calcula y persiste `sha256` del binario cargado.
 - `upload document` valida fechas de entrega, prestamo y devolucion; rangos invalidos responden `PERSONNEL_FILE_DOCUMENT_DATES_INVALID`.
-- `PATCH /documents/{documentId}/file` usa `multipart/form-data` y reemplaza solo el archivo; no requiere reenviar `documentType`, observaciones ni fechas.
-- `PATCH /documents/{documentId}/file` usa el `ConcurrencyToken` del documento, no el del expediente.
+- `PATCH /api/v1/personnel-file-documents/{publicId}/file` usa `multipart/form-data` y reemplaza solo el archivo; no requiere reenviar `documentType`, observaciones ni fechas.
+- `PATCH /api/v1/personnel-file-documents/{publicId}/file` usa el `ConcurrencyToken` del documento, no el del expediente.
 - `fileUrl` es una URL SAS temporal resuelta por la API para consumo directo del frontend.
 - `upload document` devuelve `PersonnelFileDocumentMetadataResponse`, no el expediente completo.
-- `inactivate document` usa `ConcurrencyToken` del documento, no del expediente.
+- `PATCH /api/v1/personnel-file-documents/{publicId}/inactivate` usa `ConcurrencyToken` del documento, no del expediente.
 - `inactivate document` es soft-delete logico sobre el documento.
 - `replace document file` reemplaza el blob asociado, rota el `ConcurrencyToken` del documento y devuelve nueva metadata con `fileUrl` resuelto.
 - `add observation` usa el `ConcurrencyToken` del expediente y devuelve solo la observacion creada.
@@ -3243,6 +3306,7 @@ Route family:
 
 - `GET /api/v1/companies/{companyId}/general-catalogs/{catalogKey}`
 - `GET /api/v1/companies/{companyId}/reference-catalogs/{catalogKey}`
+- `GET /api/v1/companies/{companyId}/bank-catalogs`
 - `GET /api/v1/companies/{companyId}/personnel-custom-field-definitions`
 - `POST /api/v1/companies/{companyId}/personnel-custom-field-definitions`
 - `PUT /api/v1/personnel-custom-field-definitions/{id}`
@@ -3256,6 +3320,8 @@ Observaciones funcionales:
 
 - `general-catalogs/{catalogKey}` y `reference-catalogs/{catalogKey}` son read-only y devuelven solo items activos.
 - ambos endpoints filtran internamente por el pais de la compania (`Company.CountryCode`); el frontend no envia `countryCode`.
+- `bank-catalogs` tambien resuelve internamente por el pais de la compania, pero usa busqueda paginada con `q`, `page` y `pageSize`.
+- `bank-catalogs` devuelve solo bancos activos e incluye `publicId`, `code`, `name`, `alias`, `swiftCode` y `routingCode`.
 - `reference-catalogs/municipalities` acepta `parentCode` para filtrar por departamento.
 - `professions`, `marital-statuses`, `identification-types`, `kinships`, `departments` y `municipalities` salen de entidades separadas por pais.
 - `general-catalogs/countries` sigue devolviendo paises globales activos.

@@ -271,6 +271,9 @@ Cuando aplique por seguridad, las respuestas deben evitar revelar si un recurso 
 - Los listados deben ser paginados.
 - Las respuestas deben ser claras, mínimas y específicas para el caso de uso.
 - El contrato de API debe priorizar claridad, estabilidad y seguridad.
+- Las colecciones hijas pueden vivir bajo el recurso padre cuando la operación depende del contexto del padre.
+- Si el hijo ya es direccionable por `publicId` y expone acciones propias, esas acciones deben usar una ruta plana del recurso hijo.
+- Se prohíbe el patrón híbrido `/parent-resource/child-resource/{childPublicId}/...` en contratos nuevos o refactors.
 
 ## 10.2 Manejo de errores HTTP
 Mapeo base:

@@ -345,7 +345,7 @@ public sealed class PersonnelFileProfileController(
             new ReplacePersonnelFileBankAccountsCommand(
                 id,
                 request.Items.Select(item => new BankAccountInput(
-                    item.BankCode,
+                    item.BankPublicId,
                     item.CurrencyCode,
                     item.AccountNumber,
                     item.AccountTypeCode,

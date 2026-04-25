@@ -258,6 +258,15 @@ RRHH o compensacion puede mantener:
 - cuentas bancarias
 - metodos de pago
 - transacciones de planilla
+
+Para cuentas bancarias del expediente, el flujo vigente opera asi:
+
+1. Un operador de plataforma administra el catalogo global de bancos por pais desde `api/platform/bank-catalogs`.
+2. Cada banco queda asociado a un pais, codigo unico por pais, nombre visible, alias opcional, `swiftCode`, `routingCode`, estado activo y orden.
+3. RRHH no mantiene bancos manualmente dentro del tenant; el core RH resuelve el catalogo disponible segun el pais de la compania usando `GET /api/v1/companies/{companyId}/bank-catalogs`.
+4. En `Personnel Files -> bank accounts`, la escritura ya no usa `bankCode` libre: selecciona `bankPublicId` del catalogo activo del pais de la compania.
+5. La lectura de cuentas bancarias devuelve el banco enriquecido con `bankPublicId`, `bankCode`, `bankName`, `bankAlias`, `swiftCode` y `routingCode`.
+6. Si un banco luego se inactiva, las cuentas ya asociadas siguen visibles para mantener trazabilidad historica, pero el banco deja de estar disponible para nuevas selecciones.
 - seguros
 - reclamos medicos
 

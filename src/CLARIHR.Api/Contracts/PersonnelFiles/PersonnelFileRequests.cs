@@ -344,7 +344,7 @@ public sealed record ReplaceEmployeeRelationsRequest(
     Guid ConcurrencyToken);
 
 public sealed record BankAccountItemRequest(
-    string BankCode,
+    Guid BankPublicId,
     string CurrencyCode,
     string AccountNumber,
     string AccountTypeCode,

@@ -8,7 +8,7 @@ public sealed class SecurityHeadersMiddlewareTests
 {
     [Theory]
     [InlineData("/api/auth/login")]
-    [InlineData("/api/v1/personnel-files/documents/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/download")]
+    [InlineData("/api/v1/personnel-file-documents/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/file")]
     public async Task CoreApiSecurityHeaders_WhenPathStartsWithApi_ShouldDisableCaching(string path)
     {
         var context = new DefaultHttpContext();

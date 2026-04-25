@@ -1,4 +1,5 @@
 using CLARIHR.Application.Features.Provisioning.Common;
+using CLARIHR.Domain.Banks;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
 
@@ -118,5 +119,54 @@ internal static class GlobalCatalogSeedData
             CreatedUtc = SeededAtUtc,
             ModifiedUtc = SeededAtUtc
         });
+
+    public static IEnumerable<object> GetBankCatalogItems() =>
+    [
+        CreateBankCatalogSeed(-9000L, "SV", "BANCO_AGRICOLA", "Banco Agricola", "Agricola", alias: "Agricola"),
+        CreateBankCatalogSeed(-9001L, "SV", "DAVIVIENDA", "Davivienda", "Davivienda", alias: "Davivienda"),
+        CreateBankCatalogSeed(-9002L, "SV", "CUSCATLAN", "Cuscatlan", "Cuscatlan", alias: "Cuscatlan"),
+        CreateBankCatalogSeed(-9003L, "SV", "BAC", "BAC Credomatic", "BAC Credomatic", alias: "BAC"),
+        CreateBankCatalogSeed(-9010L, "US", "BANK_OF_AMERICA", "Bank of America", "Bank of America", alias: "BofA"),
+        CreateBankCatalogSeed(-9011L, "US", "CITIBANK", "Citibank", "Citibank", alias: "Citi"),
+        CreateBankCatalogSeed(-9012L, "US", "WELLS_FARGO", "Wells Fargo", "Wells Fargo", alias: "Wells"),
+        CreateBankCatalogSeed(-9013L, "US", "CHASE", "Chase", "Chase", alias: "JPMorgan Chase")
+    ];
+
+    private static object CreateBankCatalogSeed(
+        long id,
+        string countryCode,
+        string code,
+        string name,
+        string normalizedName,
+        string? alias = null,
+        string? swiftCode = null,
+        string? routingCode = null) =>
+        new
+        {
+            Id = id,
+            PublicId = CreateSeedPublicId("BANK_CATALOG", $"{countryCode}:{code}"),
+            CountryCatalogItemId = ResolveCountryId(countryCode),
+            CountryCode = countryCode,
+            Code = code,
+            NormalizedCode = code.ToUpperInvariant(),
+            Name = name,
+            NormalizedName = normalizedName.ToUpperInvariant(),
+            Alias = alias,
+            NormalizedAlias = alias?.ToUpperInvariant(),
+            SwiftCode = swiftCode,
+            NormalizedSwiftCode = swiftCode?.ToUpperInvariant(),
+            RoutingCode = routingCode,
+            NormalizedRoutingCode = routingCode?.ToUpperInvariant(),
+            IsActive = true,
+            SortOrder = Math.Abs((int)id) - 8900,
+            ConcurrencyToken = CreateSeedPublicId("BANK_CATALOG_CONCURRENCY", $"{countryCode}:{code}"),
+            CreatedUtc = SeededAtUtc,
+            ModifiedUtc = SeededAtUtc
+        };
+
+    private static long ResolveCountryId(string countryCode) =>
+        CLARIHR.Domain.Locations.CountryCatalog.Items
+            .Single(item => string.Equals(item.Code, countryCode, StringComparison.OrdinalIgnoreCase))
+            .Id;
 
 }

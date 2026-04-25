@@ -648,7 +648,7 @@ internal sealed class DevSeedService(
                 approvedSubjects: 60),
         ]);
         maria.ReplaceBankAccounts([
-            PersonnelFileBankAccount.Create("AGRI", "USD", "0001-1234-5678", "SAVINGS", isPrimary: true),
+            PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0001-1234-5678", "SAVINGS", isPrimary: true),
         ]);
 
         var carlos = PersonnelFile.Create(
@@ -707,7 +707,7 @@ internal sealed class DevSeedService(
             PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", speaks: true, writes: true, reads: true),
         ]);
         carlos.ReplaceBankAccounts([
-            PersonnelFileBankAccount.Create("DAVI", "USD", "0002-9876-5432", "CHECKING", isPrimary: true),
+            PersonnelFileBankAccount.Create(null, "DAVI", "USD", "0002-9876-5432", "CHECKING", isPrimary: true),
         ]);
         carlos.ReplacePreviousEmployments([
             PersonnelFilePreviousEmployment.Create("Grupo Roble", "San Salvador", "Coordinador Financiero",
@@ -814,7 +814,7 @@ internal sealed class DevSeedService(
             PersonnelFileLanguage.Create("SPANISH", "ADVANCED", speaks: true, writes: true, reads: true),
         ]);
         jose.ReplaceBankAccounts([
-            PersonnelFileBankAccount.Create("AGRI", "USD", "0003-5555-7777", "SAVINGS", isPrimary: true),
+            PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0003-5555-7777", "SAVINGS", isPrimary: true),
         ]);
         jose.ReplaceFamilyMembers([
             PersonnelFileFamilyMember.Create("Carmen", "Alvarez de Martinez", "Esposa", "Salvadorena",
