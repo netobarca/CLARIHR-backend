@@ -29,6 +29,7 @@ public sealed class PersonnelFilePhotoUrlResultFilter(
             PersonnelFileResponse response => await ResolvePersonnelFileResponseAsync(response, cancellationToken),
             PersonnelFilePersonalInfoResponse response => await ResolvePersonalInfoResponseAsync(response, cancellationToken),
             PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse> response => await ResolvePersonalInfoSectionResultAsync(response, cancellationToken),
+            PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> response => await ResolveDocumentSectionResultAsync(response, cancellationToken),
             FinalizePersonnelFileResponse response => await ResolveFinalizeResponseAsync(response, cancellationToken),
             PersonnelFilePrintResponse response => await ResolvePrintResponseAsync(response, cancellationToken),
             _ => value
@@ -57,6 +58,14 @@ public sealed class PersonnelFilePhotoUrlResultFilter(
         CancellationToken cancellationToken)
     {
         var data = await ResolvePersonalInfoResponseAsync(response.Data, cancellationToken);
+        return response with { Data = data };
+    }
+
+    private async Task<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>>> ResolveDocumentSectionResultAsync(
+        PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> response,
+        CancellationToken cancellationToken)
+    {
+        var data = await ResolveDocumentCollectionAsync(response.Data, cancellationToken);
         return response with { Data = data };
     }
 

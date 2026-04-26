@@ -166,6 +166,43 @@ public sealed class PersonnelFileDomainTests
     }
 
     [Fact]
+    public void PersonnelFile_AddIdentification_ShouldAppendRowAndRefreshConcurrencyToken()
+    {
+        var file = PersonnelFile.Create(
+            PersonnelFileRecordType.Candidate,
+            "Oscar",
+            "Ruiz",
+            new DateTime(1993, 3, 3),
+            maritalStatus: null,
+            profession: null,
+            nationality: null,
+            personalEmail: null,
+            institutionalEmail: null,
+            personalPhone: null,
+            institutionalPhone: null,
+            birthCountry: null,
+            birthDepartment: null,
+            birthMunicipality: null,
+            photoUrl: null,
+            orgUnitPublicId: null,
+            assignedPositionSlotPublicId: null,
+            customDataJson: null);
+        var tenantId = Guid.NewGuid();
+        file.SetTenantId(tenantId);
+        var initialToken = file.ConcurrencyToken;
+
+        var identification = PersonnelFileIdentification.Create("DUI", "01234567-8", null, null, null, true);
+
+        file.AddIdentification(identification);
+
+        var stored = Assert.Single(file.Identifications);
+        Assert.Equal("DUI", stored.IdentificationType);
+        Assert.Equal("01234567-8", stored.IdentificationNumber);
+        Assert.Equal(tenantId, stored.TenantId);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
     public void PersonnelFileIdentification_Create_WithInvalidDates_ShouldThrow()
     {
         _ = Assert.Throws<InvalidOperationException>(() => PersonnelFileIdentification.Create(

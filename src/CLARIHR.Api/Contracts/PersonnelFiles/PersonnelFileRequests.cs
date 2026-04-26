@@ -2,29 +2,38 @@ using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using Microsoft.AspNetCore.Http;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CLARIHR.Api.Contracts.PersonnelFiles;
 
-public sealed record CreatePersonnelFileRequest(
-    PersonnelFileRecordType RecordType,
-    string FirstName,
-    string LastName,
-    DateTime BirthDate,
-    string? MaritalStatusCode,
-    string? ProfessionCode,
-    string? Nationality,
-    string? PersonalEmail,
-    string? InstitutionalEmail,
-    string? PersonalPhone,
-    string? InstitutionalPhone,
-    string? BirthCountryCode,
-    string? BirthDepartmentCode,
-    string? BirthMunicipalityCode,
-    string? PhotoUrl,
-    Guid? OrgUnitPublicId,
-    Guid? AssignedPositionSlotPublicId,
-    string? CustomDataJson,
-    IReadOnlyCollection<IdentificationItemRequest> Items);
+public sealed class CreatePersonnelFileRequest
+{
+    public PersonnelFileRecordType RecordType { get; init; }
+    public string FirstName { get; init; } = string.Empty;
+    public string LastName { get; init; } = string.Empty;
+    public DateTime BirthDate { get; init; }
+    public string? MaritalStatusCode { get; init; }
+    public string? ProfessionCode { get; init; }
+    public string? Nationality { get; init; }
+    public string? PersonalEmail { get; init; }
+    public string? InstitutionalEmail { get; init; }
+    public string? PersonalPhone { get; init; }
+    public string? InstitutionalPhone { get; init; }
+    public string? BirthCountryCode { get; init; }
+    public string? BirthDepartmentCode { get; init; }
+    public string? BirthMunicipalityCode { get; init; }
+    public string? PhotoUrl { get; init; }
+    public Guid? OrgUnitPublicId { get; init; }
+    public Guid? AssignedPositionSlotPublicId { get; init; }
+    public string? CustomDataJson { get; init; }
+
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? AdditionalProperties { get; init; }
+
+    public bool HasLegacyItemsPayload() =>
+        AdditionalProperties?.Keys.Any(static key => key.Equals("items", StringComparison.OrdinalIgnoreCase)) == true;
+}
 
 public sealed record UpdatePersonnelFilePersonalInfoRequest(
     PersonnelFileRecordType RecordType,
@@ -280,6 +289,15 @@ public sealed record ReplaceIdentificationsRequest(
     IReadOnlyCollection<IdentificationItemRequest> Items,
     Guid ConcurrencyToken);
 
+public sealed record AddIdentificationRequest(
+    string IdentificationTypeCode,
+    string IdentificationNumber,
+    DateTime? IssuedDate,
+    DateTime? ExpiryDate,
+    string? Issuer,
+    bool IsPrimary,
+    Guid ConcurrencyToken);
+
 public sealed record AddressItemRequest(
     string AddressLine,
     string? Country,
@@ -478,6 +496,22 @@ public sealed record UploadPersonnelFileDocumentRequest(
     DateTime? ReturnDate,
     Guid ConcurrencyToken,
     IFormFile File);
+
+public sealed record ReplacePersonnelFileDocumentsRequest(
+    string ManifestJson,
+    Guid ConcurrencyToken);
+
+public sealed record ReplacePersonnelFileDocumentsManifestRequest(
+    IReadOnlyCollection<ReplacePersonnelFileDocumentItemRequest>? Items);
+
+public sealed record ReplacePersonnelFileDocumentItemRequest(
+    Guid? DocumentPublicId,
+    string DocumentType,
+    string? Observations,
+    DateTime? DeliveryDate,
+    DateTime? LoanDate,
+    DateTime? ReturnDate,
+    string? FileKey);
 
 public sealed record ReplacePersonnelFileDocumentFileRequest(
     Guid ConcurrencyToken,

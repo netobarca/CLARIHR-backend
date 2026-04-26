@@ -1,6 +1,7 @@
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Contracts.PersonnelFiles;
 using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.PersonnelFiles;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -105,6 +106,37 @@ public sealed class PersonnelFileProfileController(
             cancellationToken);
 
         return this.ToActionResult(result);
+    }
+
+    [HttpPost("api/v1/personnel-files/{id:guid}/identifications")]
+    [ProducesResponseType<PersonnelFileIdentificationResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileIdentificationResponse>> AddIdentification(
+        Guid id,
+        [FromBody] AddIdentificationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new AddPersonnelFileIdentificationCommand(
+                id,
+                new IdentificationInput(
+                    request.IdentificationTypeCode,
+                    request.IdentificationNumber,
+                    request.IssuedDate,
+                    request.ExpiryDate,
+                    request.Issuer,
+                    request.IsPrimary),
+                request.ConcurrencyToken),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(Result<PersonnelFileIdentificationResponse>.Failure(result.Error))
+            : StatusCode(StatusCodes.Status201Created, result.Value);
     }
 
     [HttpGet("api/v1/personnel-files/{id:guid}/addresses")]

@@ -157,7 +157,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 file.RecordType,
                 file.LifecycleStatus,
                 file.FullName,
-                file.BirthDate,
                 PersonnelFileValidationRules.CalculateAge(file.BirthDate, DateTime.UtcNow),
                 file.MaritalStatus,
                 TryResolveName(maritalStatusNames, file.MaritalStatus),
@@ -167,7 +166,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 file.AssignedPositionSlotPublicId,
                 file.LinkedUserPublicId,
                 file.IsActive,
-                file.ConcurrencyToken,
                 file.CreatedUtc,
                 file.ModifiedUtc))
             .ToArray();
@@ -1186,7 +1184,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 file.RecordType,
                 file.LifecycleStatus,
                 file.FullName,
-                file.BirthDate,
                 PersonnelFileValidationRules.CalculateAge(file.BirthDate, DateTime.UtcNow),
                 file.MaritalStatus,
                 TryResolveName(maritalStatusNames, file.MaritalStatus),
@@ -1196,7 +1193,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 file.AssignedPositionSlotPublicId,
                 file.LinkedUserPublicId,
                 file.IsActive,
-                file.ConcurrencyToken,
                 file.CreatedUtc,
                 file.ModifiedUtc))
             .ToArray();
@@ -1384,6 +1380,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             PersonnelFileTrackedSection.Trainings => query.Include(file => file.Trainings),
             PersonnelFileTrackedSection.PreviousEmployments => query.Include(file => file.PreviousEmployments),
             PersonnelFileTrackedSection.References => query.Include(file => file.References),
+            PersonnelFileTrackedSection.Documents => query.Include(file => file.Documents),
             _ => query
         };
 

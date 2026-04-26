@@ -4,6 +4,7 @@ using CLARIHR.Api.Common;
 using CLARIHR.Api.Configuration;
 using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
+using CLARIHR.Application.Common.Errors;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Infrastructure;
 using CLARIHR.Infrastructure.Configuration;
@@ -94,6 +95,17 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        var problemDetails = ProblemDetailsFactory.CreateProblemDetails(context.HttpContext, ErrorCatalog.TooManyRequests);
+        await context.HttpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
+    };
     options.AddPolicy("auth-password-reset-request", httpContext =>
     {
         var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -108,6 +120,9 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             });
     });
+    options.AddPolicy("personnel-files-create", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Create:PermitLimit", 20));
+    options.AddPolicy("personnel-files-search", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Search:PermitLimit", 120));
+    options.AddPolicy("personnel-files-lifecycle", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Lifecycle:PermitLimit", 30));
 });
 builder.Services.AddAuthorization(options =>
 {
@@ -251,6 +266,29 @@ static void LogJwtConfiguration(Microsoft.Extensions.Logging.ILogger logger, ICo
         jwtOptions.Audience,
         jwtOptions.PlatformAudience,
         keyFingerprint);
+}
+
+static RateLimitPartition<string> CreateUserTenantPartitionedLimiter(HttpContext httpContext, string configurationKey, int defaultPermitLimit)
+{
+    var permitLimit = httpContext.RequestServices.GetRequiredService<IConfiguration>().GetValue(configurationKey, defaultPermitLimit);
+    var tenantId = httpContext.User.FindFirst("tid")?.Value;
+    var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        ?? httpContext.User.FindFirst("sub")?.Value;
+    var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var partitionKey = !string.IsNullOrWhiteSpace(tenantId) && !string.IsNullOrWhiteSpace(userId)
+        ? $"{tenantId}:{userId}"
+        : remoteIp;
+
+    return RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey,
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = permitLimit,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0,
+            AutoReplenishment = true
+        });
 }
 
 public partial class Program;

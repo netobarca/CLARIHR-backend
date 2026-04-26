@@ -9,6 +9,7 @@ using CLARIHR.Domain.PersonnelFiles;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CLARIHR.Api.Controllers;
 
@@ -18,21 +19,32 @@ public sealed class PersonnelFilesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
-    [HttpPost("api/v1/companies/{companyId:guid}/personnel-files")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status201Created)]
+    [EnableRateLimiting("personnel-files-create")]
+    [HttpPost("api/v1/companies/{companyPublicId:guid}/personnel-files")]
+    [ProducesResponseType<PersonnelFileShellResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileResponse>> Create(
-        Guid companyId,
+    public async Task<ActionResult<PersonnelFileShellResponse>> Create(
+        Guid companyPublicId,
         [FromBody] CreatePersonnelFileRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (request.HasLegacyItemsPayload())
+        {
+            return this.ToActionResult(Result<PersonnelFileShellResponse>.Failure(
+                ErrorCatalog.Validation(new Dictionary<string, string[]>
+                {
+                    ["items"] = ["Items is no longer accepted on personnel file create. Use POST /api/v1/personnel-files/{id}/identifications instead."]
+                })));
+        }
+
         var result = await commandDispatcher.SendAsync(
             new CreatePersonnelFileCommand(
-                companyId,
+                companyPublicId,
                 request.RecordType,
                 request.FirstName,
                 request.LastName,
@@ -50,28 +62,23 @@ public sealed class PersonnelFilesController(
                 request.PhotoUrl,
                 request.OrgUnitPublicId,
                 request.AssignedPositionSlotPublicId,
-                request.CustomDataJson,
-                request.Items.Select(item => new IdentificationInput(
-                    item.IdentificationTypeCode,
-                    item.IdentificationNumber,
-                    item.IssuedDate,
-                    item.ExpiryDate,
-                    item.Issuer,
-                    item.IsPrimary)).ToArray()),
+                request.CustomDataJson),
             cancellationToken);
 
         return result.IsFailure
-            ? this.ToActionResult(Result<PersonnelFileResponse>.Failure(result.Error))
+            ? this.ToActionResult(Result<PersonnelFileShellResponse>.Failure(result.Error))
             : StatusCode(StatusCodes.Status201Created, result.Value);
     }
 
-    [HttpGet("api/v1/companies/{companyId:guid}/personnel-files")]
+    [EnableRateLimiting("personnel-files-search")]
+    [HttpGet("api/v1/companies/{companyPublicId:guid}/personnel-files")]
     [ProducesResponseType<PagedResponse<PersonnelFileListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<PagedResponse<PersonnelFileListItemResponse>>> Search(
-        Guid companyId,
+        Guid companyPublicId,
         [FromQuery] bool? isActive,
         [FromQuery] PersonnelFileRecordType? recordType,
         [FromQuery] Guid? orgUnitId,
@@ -92,7 +99,7 @@ public sealed class PersonnelFilesController(
     {
         var result = await queryDispatcher.SendAsync(
             new SearchPersonnelFilesQuery(
-                companyId,
+                companyPublicId,
                 isActive,
                 recordType,
                 orgUnitId,
@@ -114,46 +121,50 @@ public sealed class PersonnelFilesController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-files/{id:guid}")]
+    [HttpGet("api/v1/personnel-files/{publicId:guid}")]
     [ProducesResponseType<PersonnelFileShellResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<PersonnelFileShellResponse>> GetById(Guid id, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<PersonnelFileShellResponse>> GetById(Guid publicId, CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetPersonnelFileByIdQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileByIdQuery(publicId), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("api/v1/personnel-files/{id:guid}/activate")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [EnableRateLimiting("personnel-files-lifecycle")]
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/activate")]
+    [ProducesResponseType<PersonnelFileShellResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileResponse>> Activate(
-        Guid id,
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult<PersonnelFileShellResponse>> Activate(
+        Guid publicId,
         [FromBody] ConcurrencyRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await commandDispatcher.SendAsync(new ActivatePersonnelFileCommand(id, request.ConcurrencyToken), cancellationToken);
+        var result = await commandDispatcher.SendAsync(new ActivatePersonnelFileCommand(publicId, request.ConcurrencyToken), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("api/v1/personnel-files/{id:guid}/inactivate")]
-    [ProducesResponseType<PersonnelFileResponse>(StatusCodes.Status200OK)]
+    [EnableRateLimiting("personnel-files-lifecycle")]
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/inactivate")]
+    [ProducesResponseType<PersonnelFileShellResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileResponse>> Inactivate(
-        Guid id,
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult<PersonnelFileShellResponse>> Inactivate(
+        Guid publicId,
         [FromBody] ConcurrencyRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await commandDispatcher.SendAsync(new InactivatePersonnelFileCommand(id, request.ConcurrencyToken), cancellationToken);
+        var result = await commandDispatcher.SendAsync(new InactivatePersonnelFileCommand(publicId, request.ConcurrencyToken), cancellationToken);
         return this.ToActionResult(result);
     }
 }

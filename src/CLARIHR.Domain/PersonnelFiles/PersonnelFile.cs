@@ -286,6 +286,13 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
+    public void AddIdentification(PersonnelFileIdentification item)
+    {
+        item.SetTenantId(TenantId);
+        _identifications.Add(item);
+        RefreshConcurrencyToken();
+    }
+
     public void ReplaceAddresses(IEnumerable<PersonnelFileAddress> items)
     {
         _addresses.Clear();
@@ -436,6 +443,8 @@ public sealed class PersonnelFile : TenantEntity
         _documents.Add(document);
         RefreshConcurrencyToken();
     }
+
+    public void MarkDocumentsUpdated() => RefreshConcurrencyToken();
 
     public void AddObservation(PersonnelFileObservation observation)
     {
@@ -1573,6 +1582,27 @@ public sealed class PersonnelFileDocument : TenantEntity
         ContentType = PersonnelFileNormalization.Clean(contentType, nameof(contentType));
         SizeBytes = sizeBytes;
         Sha256 = PersonnelFileNormalization.Clean(sha256, nameof(sha256));
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    public void UpdateMetadata(
+        string documentType,
+        string? observations,
+        DateTime? deliveryDate,
+        DateTime? loanDate,
+        DateTime? returnDate)
+    {
+        if (loanDate.HasValue && returnDate.HasValue && returnDate.Value.Date < loanDate.Value.Date)
+        {
+            throw new InvalidOperationException("ReturnDate cannot be earlier than LoanDate.");
+        }
+
+        DocumentType = PersonnelFileNormalization.Clean(documentType, nameof(documentType));
+        Observations = PersonnelFileNormalization.CleanOptional(observations);
+        DeliveryDate = PersonnelFileNormalization.NormalizeDate(deliveryDate);
+        LoanDate = PersonnelFileNormalization.NormalizeDate(loanDate);
+        ReturnDate = PersonnelFileNormalization.NormalizeDate(returnDate);
+        IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
 
