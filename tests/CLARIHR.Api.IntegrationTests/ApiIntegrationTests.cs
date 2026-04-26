@@ -1028,24 +1028,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
             photoUrl = (string?)null,
             orgUnitPublicId = (Guid?)null,
-            customDataJson = "{ \"shirt_size\": \"M\" }",
-            items = new[]
-            {
-                new
-                {
-                    identificationTypeCode = "DUI",
-                    identificationNumber = "01234567-8",
-                    issuedDate = (DateTime?)null,
-                    expiryDate = (DateTime?)null,
-                    issuer = (string?)null,
-                    isPrimary = true
-                }
-            }
+            customDataJson = "{ \"shirt_size\": \"M\" }"
         });
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-        var created = await createResponse.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        var created = await createResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
         Assert.NotNull(created);
         Assert.Equal("Maria Rodriguez", created!.FullName);
 
@@ -1060,57 +1048,134 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         identificationsResponse.EnsureSuccessStatusCode();
         var identifications = await identificationsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileIdentificationItem>>(JsonOptions);
         Assert.NotNull(identifications);
-        Assert.Single(identifications!);
-        Assert.Equal("DUI", identifications.First().IdentificationTypeCode);
+        Assert.Empty(identifications!);
     }
 
     [Fact]
-    public async Task PersonnelFiles_Create_WithDuplicateIdentification_ShouldReturnConflict()
+    public async Task PersonnelFiles_Search_ShouldNotExposeBirthDateOrConcurrencyToken()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
-        async Task<HttpResponseMessage> CreateAsync(string firstName)
+        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Ana", "Lopez", "DUI", "02222222-2");
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files?page=1&pageSize=20");
+        response.EnsureSuccessStatusCode();
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var item = document.RootElement.GetProperty("items")[0];
+        Assert.False(item.TryGetProperty("birthDate", out _));
+        Assert.False(item.TryGetProperty("concurrencyToken", out _));
+        Assert.True(item.TryGetProperty("age", out _));
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Create_WithLegacyItemsPayload_ShouldReturnValidation()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
         {
-            return await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
+            recordType = "Candidate",
+            firstName = "Ana",
+            lastName = "Lopez",
+            birthDate = new DateTime(1991, 1, 1),
+            maritalStatusCode = "SOLTERO_A",
+            professionCode = "ANALISTA_DE_DATOS",
+            nationality = "SV",
+            personalEmail = (string?)null,
+            institutionalEmail = (string?)null,
+            personalPhone = "+50370000002",
+            institutionalPhone = (string?)null,
+            birthCountryCode = "SV",
+            birthDepartmentCode = "LA_LIBERTAD",
+            birthMunicipalityCode = "LA_LIBERTAD_SUR",
+            photoUrl = (string?)null,
+            orgUnitPublicId = (Guid?)null,
+            customDataJson = (string?)null,
+            items = new[]
             {
-                recordType = "Candidate",
-                firstName,
-                lastName = "Lopez",
-                birthDate = new DateTime(1991, 1, 1),
-                maritalStatusCode = "SOLTERO_A",
-                professionCode = "ANALISTA_DE_DATOS",
-                nationality = "SV",
-                personalEmail = (string?)null,
-                institutionalEmail = (string?)null,
-                personalPhone = "+50370000002",
-                institutionalPhone = (string?)null,
-                birthCountryCode = "SV",
-                birthDepartmentCode = "LA_LIBERTAD",
-                birthMunicipalityCode = "LA_LIBERTAD_SUR",
-                photoUrl = (string?)null,
-                orgUnitPublicId = (Guid?)null,
-                customDataJson = (string?)null,
-                items = new[]
+                new
                 {
-                    new
-                    {
-                        identificationTypeCode = "DUI",
-                        identificationNumber = "09999999-9",
-                        issuedDate = (DateTime?)null,
-                        expiryDate = (DateTime?)null,
-                        issuer = (string?)null,
-                        isPrimary = true
-                    }
+                    identificationTypeCode = "DUI",
+                    identificationNumber = "09999999-9",
+                    issuedDate = (DateTime?)null,
+                    expiryDate = (DateTime?)null,
+                    issuer = (string?)null,
+                    isPrimary = true
                 }
-            });
-        }
+            }
+        });
 
-        var firstResponse = await CreateAsync("Ana");
-        firstResponse.EnsureSuccessStatusCode();
+        await AssertProblemDetailsAsync(response, HttpStatusCode.BadRequest, "common.validation");
+    }
 
-        var secondResponse = await CreateAsync("Beatriz");
-        await AssertProblemDetailsAsync(secondResponse, HttpStatusCode.Conflict, "PERSONNEL_FILE_IDENTIFICATION_CONFLICT");
+    [Fact]
+    public async Task PersonnelFileIdentifications_Add_ShouldPersistCreatedIdentification()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreateBarePersonnelFileAsync(client, scenario.TenantId, "Ana", "Lopez");
+
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/identifications", new
+        {
+            identificationTypeCode = "DUI",
+            identificationNumber = "09999999-9",
+            issuedDate = (DateTime?)null,
+            expiryDate = (DateTime?)null,
+            issuer = (string?)null,
+            isPrimary = true,
+            concurrencyToken = created.ConcurrencyToken
+        });
+
+        Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
+
+        var added = await addResponse.Content.ReadFromJsonAsync<PersonnelFileIdentificationItem>(JsonOptions);
+        Assert.NotNull(added);
+        Assert.Equal("DUI", added!.IdentificationTypeCode);
+        Assert.Equal("09999999-9", added.IdentificationNumber);
+
+        var identificationsResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/identifications");
+        identificationsResponse.EnsureSuccessStatusCode();
+        var identifications = await identificationsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileIdentificationItem>>(JsonOptions);
+        var stored = Assert.Single(identifications!);
+        Assert.Equal(added.Id, stored.Id);
+    }
+
+    [Fact]
+    public async Task PersonnelFileIdentifications_Add_WithDuplicateIdentification_ShouldReturnConflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var firstFile = await CreateBarePersonnelFileAsync(client, scenario.TenantId, "Ana", "Lopez");
+        var firstAddResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{firstFile.Id}/identifications", new
+        {
+            identificationTypeCode = "DUI",
+            identificationNumber = "09999999-9",
+            issuedDate = (DateTime?)null,
+            expiryDate = (DateTime?)null,
+            issuer = (string?)null,
+            isPrimary = true,
+            concurrencyToken = firstFile.ConcurrencyToken
+        });
+        firstAddResponse.EnsureSuccessStatusCode();
+
+        var secondFile = await CreateBarePersonnelFileAsync(client, scenario.TenantId, "Beatriz", "Lopez");
+        var duplicateResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{secondFile.Id}/identifications", new
+        {
+            identificationTypeCode = "DUI",
+            identificationNumber = "09999999-9",
+            issuedDate = (DateTime?)null,
+            expiryDate = (DateTime?)null,
+            issuer = (string?)null,
+            isPrimary = true,
+            concurrencyToken = secondFile.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(duplicateResponse, HttpStatusCode.Conflict, "PERSONNEL_FILE_IDENTIFICATION_CONFLICT");
     }
 
     [Fact]
@@ -1187,54 +1252,21 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
             photoUrl = (string?)null,
             orgUnitPublicId = (Guid?)null,
-            customDataJson = (string?)null,
-            items = new[]
-            {
-                new
-                {
-                    identificationTypeCode = "DUI",
-                    identificationNumber = "09811111-1",
-                    issuedDate = (DateTime?)null,
-                    expiryDate = (DateTime?)null,
-                    issuer = (string?)null,
-                    isPrimary = true
-                }
-            }
+            customDataJson = (string?)null
         });
 
         await AssertProblemDetailsAsync(invalidProfessionResponse, HttpStatusCode.BadRequest, "common.validation");
 
-        var invalidIdentificationTypeResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
+        var created = await CreateBarePersonnelFileAsync(client, scenario.TenantId, "Marta", "Castillo");
+        var invalidIdentificationTypeResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/identifications", new
         {
-            recordType = "Candidate",
-            firstName = "Marta",
-            lastName = "Castillo",
-            birthDate = new DateTime(1991, 3, 11),
-            maritalStatusCode = "SOLTERO_A",
-            professionCode = "ANALISTA_DE_DATOS",
-            nationality = "SV",
-            personalEmail = (string?)null,
-            institutionalEmail = (string?)null,
-            personalPhone = "+50370000011",
-            institutionalPhone = (string?)null,
-            birthCountryCode = "SV",
-            birthDepartmentCode = "SAN_SALVADOR",
-            birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
-            photoUrl = (string?)null,
-            orgUnitPublicId = (Guid?)null,
-            customDataJson = (string?)null,
-            items = new[]
-            {
-                new
-                {
-                    identificationTypeCode = "UNKNOWN_DOCUMENT",
-                    identificationNumber = "09822222-2",
-                    issuedDate = (DateTime?)null,
-                    expiryDate = (DateTime?)null,
-                    issuer = (string?)null,
-                    isPrimary = true
-                }
-            }
+            identificationTypeCode = "UNKNOWN_DOCUMENT",
+            identificationNumber = "09822222-2",
+            issuedDate = (DateTime?)null,
+            expiryDate = (DateTime?)null,
+            issuer = (string?)null,
+            isPrimary = true,
+            concurrencyToken = created.ConcurrencyToken
         });
 
         await AssertProblemDetailsAsync(invalidIdentificationTypeResponse, HttpStatusCode.BadRequest, "common.validation");
@@ -1372,19 +1404,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthMunicipalityCode = (string?)null,
             photoUrl = (string?)null,
             orgUnitPublicId = (Guid?)null,
-            customDataJson = (string?)null,
-            items = new[]
-            {
-                new
-                {
-                    identificationTypeCode = "DUI",
-                    identificationNumber = "09833333-3",
-                    issuedDate = (DateTime?)null,
-                    expiryDate = (DateTime?)null,
-                    issuer = (string?)null,
-                    isPrimary = true
-                }
-            }
+            customDataJson = (string?)null
         });
         await AssertProblemDetailsAsync(missingCountryResponse, HttpStatusCode.BadRequest, "common.validation");
 
@@ -1406,19 +1426,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
             photoUrl = (string?)null,
             orgUnitPublicId = (Guid?)null,
-            customDataJson = (string?)null,
-            items = new[]
-            {
-                new
-                {
-                    identificationTypeCode = "DUI",
-                    identificationNumber = "09844444-4",
-                    issuedDate = (DateTime?)null,
-                    expiryDate = (DateTime?)null,
-                    issuer = (string?)null,
-                    isPrimary = true
-                }
-            }
+            customDataJson = (string?)null
         });
         await AssertProblemDetailsAsync(mismatchedMunicipalityResponse, HttpStatusCode.BadRequest, "common.validation");
     }
@@ -1573,85 +1581,144 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task PersonnelFiles_ReplaceDocumentFile_ShouldRotateConcurrencyAndUpdateResolvedFileUrl()
+    public async Task PersonnelFiles_ReplaceDocuments_ShouldSyncCollection_WithoutUploadingUnchangedFiles()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
         var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Marcos", "Soto", "DUI", "01234567-8");
 
-        using var uploadContent = new MultipartFormDataContent();
-        uploadContent.Add(new StringContent("CONSTANCIA"), "documentType");
-        uploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
+        using var firstUploadContent = new MultipartFormDataContent();
+        firstUploadContent.Add(new StringContent("CONSTANCIA"), "documentType");
+        firstUploadContent.Add(new StringContent("Documento base"), "observations");
+        firstUploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
 
-        var originalBytes = "%PDF-original payload"u8.ToArray();
-        var originalFileContent = new ByteArrayContent(originalBytes);
-        originalFileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
-        uploadContent.Add(originalFileContent, "file", "original.pdf");
+        var firstBytes = "%PDF-original payload"u8.ToArray();
+        var firstFileContent = new ByteArrayContent(firstBytes);
+        firstFileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        firstUploadContent.Add(firstFileContent, "file", "original.pdf");
 
-        var uploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", uploadContent);
-        Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
-        var document = await uploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
-        Assert.NotNull(document);
+        var firstUploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", firstUploadContent);
+        Assert.Equal(HttpStatusCode.Created, firstUploadResponse.StatusCode);
+        var firstDocument = await firstUploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        Assert.NotNull(firstDocument);
+
+        var shellResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        shellResponse.EnsureSuccessStatusCode();
+        var shell = await shellResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
+        Assert.NotNull(shell);
+
+        using var secondUploadContent = new MultipartFormDataContent();
+        secondUploadContent.Add(new StringContent("EXPEDIENTE"), "documentType");
+        secondUploadContent.Add(new StringContent("Documento a reemplazar"), "observations");
+        secondUploadContent.Add(new StringContent(shell!.ConcurrencyToken.ToString()), "concurrencyToken");
+
+        byte[] secondBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x10, 0x20, 0x30];
+        var secondFileContent = new ByteArrayContent(secondBytes);
+        secondFileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        secondUploadContent.Add(secondFileContent, "file", "replace-me.png");
+
+        var secondUploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", secondUploadContent);
+        Assert.Equal(HttpStatusCode.Created, secondUploadResponse.StatusCode);
+        var secondDocument = await secondUploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        Assert.NotNull(secondDocument);
+
+        var latestShellResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        latestShellResponse.EnsureSuccessStatusCode();
+        var latestShell = await latestShellResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
+        Assert.NotNull(latestShell);
+
+        var beforeUploadCount = factory.DocumentStorage.UploadCount;
+        var beforeDeleteCount = factory.DocumentStorage.DeleteCount;
+        var beforeBlobCount = factory.DocumentStorage.BlobCount;
 
         using var replaceContent = new MultipartFormDataContent();
-        replaceContent.Add(new StringContent(document!.ConcurrencyToken.ToString()), "concurrencyToken");
+        replaceContent.Add(new StringContent(latestShell!.ConcurrencyToken.ToString()), "concurrencyToken");
+        replaceContent.Add(new StringContent(JsonSerializer.Serialize(new
+        {
+            items = new object[]
+            {
+                new
+                {
+                    documentPublicId = firstDocument!.Id,
+                    documentType = "CONSTANCIA-LABORAL",
+                    observations = "Solo metadatos",
+                    deliveryDate = "2026-04-25T00:00:00Z",
+                    loanDate = (string?)null,
+                    returnDate = (string?)null
+                },
+                new
+                {
+                    documentPublicId = secondDocument!.Id,
+                    documentType = "EXPEDIENTE-ACTUALIZADO",
+                    observations = "Reemplazo con archivo nuevo",
+                    deliveryDate = "2026-04-26T00:00:00Z",
+                    loanDate = "2026-04-27T00:00:00Z",
+                    returnDate = "2026-04-30T00:00:00Z",
+                    fileKey = "replacementFile"
+                },
+                new
+                {
+                    documentType = "DIPLOMA",
+                    observations = "Documento nuevo",
+                    deliveryDate = "2026-05-01T00:00:00Z",
+                    loanDate = (string?)null,
+                    returnDate = (string?)null,
+                    fileKey = "newFile"
+                }
+            }
+        })), "manifestJson");
 
-        byte[] replacementBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x10, 0x20, 0x30];
-        var replacementFileContent = new ByteArrayContent(replacementBytes);
-        replacementFileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-        replaceContent.Add(replacementFileContent, "file", "replacement.png");
+        byte[] replacementBytes = [0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00, 0x08, 0x00];
+        var replacementFile = new ByteArrayContent(replacementBytes);
+        replacementFile.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        replaceContent.Add(replacementFile, "replacementFile", "replacement.docx");
 
-        var replaceResponse = await client.PatchAsync($"/api/v1/personnel-file-documents/{document.Id}/file", replaceContent);
+        var newBytes = "%PDF-new document payload"u8.ToArray();
+        var newFile = new ByteArrayContent(newBytes);
+        newFile.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        replaceContent.Add(newFile, "newFile", "new-put.pdf");
+
+        var replaceResponse = await client.PutAsync($"/api/v1/personnel-files/{created.Id}/documents", replaceContent);
         replaceResponse.EnsureSuccessStatusCode();
 
-        var replaced = await replaceResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
-        Assert.NotNull(replaced);
-        Assert.Equal(document.Id, replaced!.Id);
-        Assert.Equal("replacement.png", replaced.FileName);
-        Assert.Equal("image/png", replaced.ContentType);
+        var payload = await replaceResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFileDocumentDetailItem>>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.NotEqual(latestShell.ConcurrencyToken, payload!.PersonnelFileConcurrencyToken);
+        Assert.Equal(3, payload.Data.Count);
+
+        var synchronizedDocuments = payload.Data.OrderBy(item => item.CreatedAtUtc).ToArray();
+        var metadataOnly = synchronizedDocuments.Single(item => item.Id == firstDocument.Id);
+        var replaced = synchronizedDocuments.Single(item => item.Id == secondDocument.Id);
+        var createdByPut = synchronizedDocuments.Single(item => item.Id != firstDocument.Id && item.Id != secondDocument.Id);
+
+        Assert.Equal("CONSTANCIA-LABORAL", metadataOnly.DocumentType);
+        Assert.Equal("Solo metadatos", metadataOnly.Observations);
+        Assert.Equal("original.pdf", metadataOnly.FileName);
+        Assert.Equal("application/pdf", metadataOnly.ContentType);
+        Assert.True(metadataOnly.IsActive);
+        Assert.NotEqual(firstDocument.ConcurrencyToken, metadataOnly.ConcurrencyToken);
+        Assert.NotNull(metadataOnly.FileUrl);
+        Assert.Contains("sig=fake", metadataOnly.FileUrl!, StringComparison.Ordinal);
+
+        Assert.Equal("replacement.docx", replaced.FileName);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.wordprocessingml.document", replaced.ContentType);
         Assert.Equal(replacementBytes.Length, replaced.SizeBytes);
-        Assert.NotEqual(document.ConcurrencyToken, replaced.ConcurrencyToken);
+        Assert.Equal("EXPEDIENTE-ACTUALIZADO", replaced.DocumentType);
+        Assert.True(replaced.IsActive);
+        Assert.NotEqual(secondDocument.ConcurrencyToken, replaced.ConcurrencyToken);
         Assert.NotNull(replaced.FileUrl);
-        Assert.Contains("sig=fake", replaced.FileUrl!, StringComparison.Ordinal);
-    }
 
-    [Fact]
-    public async Task PersonnelFiles_InactivateDocument_ShouldDisableDocument_AndRotateConcurrencyToken()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+        Assert.Equal("DIPLOMA", createdByPut.DocumentType);
+        Assert.Equal("new-put.pdf", createdByPut.FileName);
+        Assert.Equal("application/pdf", createdByPut.ContentType);
+        Assert.Equal(newBytes.Length, createdByPut.SizeBytes);
+        Assert.True(createdByPut.IsActive);
+        Assert.NotEqual(Guid.Empty, createdByPut.ConcurrencyToken);
 
-        var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Elena", "Rivas", "DUI", "04561234-7");
-
-        using var uploadContent = new MultipartFormDataContent();
-        uploadContent.Add(new StringContent("EXPEDIENTE"), "documentType");
-        uploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
-
-        var originalBytes = "%PDF-inactivate payload"u8.ToArray();
-        var originalFileContent = new ByteArrayContent(originalBytes);
-        originalFileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
-        uploadContent.Add(originalFileContent, "file", "inactivate.pdf");
-
-        var uploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", uploadContent);
-        Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
-        var document = await uploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
-        Assert.NotNull(document);
-
-        var inactivateResponse = await client.PatchAsJsonAsync(
-            $"/api/v1/personnel-file-documents/{document!.Id}/inactivate",
-            new
-            {
-                concurrencyToken = document.ConcurrencyToken
-            });
-
-        Assert.Equal(HttpStatusCode.OK, inactivateResponse.StatusCode);
-
-        var inactivated = await inactivateResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
-        Assert.NotNull(inactivated);
-        Assert.Equal(document.Id, inactivated!.Id);
-        Assert.False(inactivated.IsActive);
-        Assert.NotEqual(document.ConcurrencyToken, inactivated.ConcurrencyToken);
+        Assert.Equal(beforeUploadCount + 2, factory.DocumentStorage.UploadCount);
+        Assert.Equal(beforeDeleteCount + 1, factory.DocumentStorage.DeleteCount);
+        Assert.Equal(beforeBlobCount + 1, factory.DocumentStorage.BlobCount);
     }
 
     [Fact]
@@ -1660,17 +1727,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
-        var replaceContent = new MultipartFormDataContent();
-        replaceContent.Add(new StringContent(Guid.NewGuid().ToString()), "concurrencyToken");
-
-        byte[] replacementBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x10];
-        var replacementFileContent = new ByteArrayContent(replacementBytes);
-        replacementFileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-        replaceContent.Add(replacementFileContent, "file", "legacy.png");
-
         var legacyReplaceResponse = await client.PatchAsync(
             $"/api/v1/personnel-files/documents/{Guid.NewGuid()}/file",
-            replaceContent);
+            CreateLegacyReplaceContent());
         Assert.Equal(HttpStatusCode.NotFound, legacyReplaceResponse.StatusCode);
 
         var legacyInactivateResponse = await client.PatchAsJsonAsync(
@@ -1680,6 +1739,155 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 concurrencyToken = Guid.NewGuid()
             });
         Assert.Equal(HttpStatusCode.NotFound, legacyInactivateResponse.StatusCode);
+
+        var directReplaceResponse = await client.PatchAsync(
+            $"/api/v1/personnel-file-documents/{Guid.NewGuid()}/file",
+            CreateLegacyReplaceContent());
+        Assert.Equal(HttpStatusCode.NotFound, directReplaceResponse.StatusCode);
+
+        var directInactivateResponse = await client.PatchAsJsonAsync(
+            $"/api/v1/personnel-file-documents/{Guid.NewGuid()}/inactivate",
+            new
+            {
+                concurrencyToken = Guid.NewGuid()
+            });
+        Assert.Equal(HttpStatusCode.NotFound, directInactivateResponse.StatusCode);
+
+        static MultipartFormDataContent CreateLegacyReplaceContent()
+        {
+            var replaceContent = new MultipartFormDataContent();
+            replaceContent.Add(new StringContent(Guid.NewGuid().ToString()), "concurrencyToken");
+
+            byte[] replacementBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x10];
+            var replacementFileContent = new ByteArrayContent(replacementBytes);
+            replacementFileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            replaceContent.Add(replacementFileContent, "file", "legacy.png");
+            return replaceContent;
+        }
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_LifecycleEndpoints_ShouldReturnShellPayload()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreateBarePersonnelFileAsync(client, scenario.TenantId, "Lucia", "Reyes");
+
+        var inactivateResponse = await client.PatchAsJsonAsync($"/api/v1/personnel-files/{created.Id}/inactivate", new
+        {
+            concurrencyToken = created.ConcurrencyToken
+        });
+        inactivateResponse.EnsureSuccessStatusCode();
+
+        using var inactivateDocument = JsonDocument.Parse(await inactivateResponse.Content.ReadAsStringAsync());
+        var inactivated = inactivateDocument.RootElement;
+        Assert.True(inactivated.TryGetProperty("lifecycleStatus", out _));
+        Assert.True(inactivated.TryGetProperty("concurrencyToken", out var inactivatedToken));
+        Assert.False(inactivated.TryGetProperty("firstName", out _));
+        Assert.False(inactivated.TryGetProperty("documents", out _));
+        Assert.False(inactivated.GetProperty("isActive").GetBoolean());
+
+        var activateResponse = await client.PatchAsJsonAsync($"/api/v1/personnel-files/{created.Id}/activate", new
+        {
+            concurrencyToken = inactivatedToken.GetGuid()
+        });
+        activateResponse.EnsureSuccessStatusCode();
+
+        using var activateDocument = JsonDocument.Parse(await activateResponse.Content.ReadAsStringAsync());
+        var activated = activateDocument.RootElement;
+        Assert.True(activated.GetProperty("isActive").GetBoolean());
+        Assert.False(activated.TryGetProperty("firstName", out _));
+        Assert.False(activated.TryGetProperty("documents", out _));
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Create_ShouldRateLimit()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        HttpResponseMessage? lastResponse = null;
+        for (var index = 0; index < 21; index++)
+        {
+            lastResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files", new
+            {
+                recordType = "Candidate",
+                firstName = $"Rate{index}",
+                lastName = "Create",
+                birthDate = new DateTime(1992, 5, 6),
+                maritalStatusCode = "SOLTERO_A",
+                professionCode = "ANALISTA_DE_DATOS",
+                nationality = "SV",
+                personalEmail = (string?)null,
+                institutionalEmail = (string?)null,
+                personalPhone = $"+5037001{index:0000}",
+                institutionalPhone = (string?)null,
+                birthCountryCode = "SV",
+                birthDepartmentCode = "SAN_SALVADOR",
+                birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
+                photoUrl = (string?)null,
+                orgUnitPublicId = (Guid?)null,
+                customDataJson = (string?)null
+            });
+
+            if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(lastResponse);
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastResponse!.StatusCode);
+        await AssertProblemDetailsAsync(lastResponse, HttpStatusCode.TooManyRequests, "common.too_many_requests");
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Search_ShouldRateLimit()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        HttpResponseMessage? lastResponse = null;
+        for (var index = 0; index < 121; index++)
+        {
+            lastResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files?page=1&pageSize=20&q={index}");
+            if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(lastResponse);
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastResponse!.StatusCode);
+        await AssertProblemDetailsAsync(lastResponse, HttpStatusCode.TooManyRequests, "common.too_many_requests");
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_Lifecycle_ShouldRateLimit()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreateBarePersonnelFileAsync(client, scenario.TenantId, "Mario", "Lifecycle");
+        HttpResponseMessage? lastResponse = null;
+
+        for (var index = 0; index < 31; index++)
+        {
+            lastResponse = await client.PatchAsJsonAsync($"/api/v1/personnel-files/{created.Id}/inactivate", new
+            {
+                concurrencyToken = Guid.NewGuid()
+            });
+
+            if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(lastResponse);
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastResponse!.StatusCode);
+        await AssertProblemDetailsAsync(lastResponse, HttpStatusCode.TooManyRequests, "common.too_many_requests");
     }
 
     [Fact]
@@ -7152,13 +7360,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return payload!;
     }
 
-    private async Task<PersonnelFileItem> CreatePersonnelFileAsync(
+    private async Task<PersonnelFileShellItem> CreateBarePersonnelFileAsync(
         HttpClient client,
         Guid companyId,
         string firstName,
         string lastName,
-        string identificationType,
-        string identificationNumber,
         string profession = "ANALISTA_DE_DATOS",
         string maritalStatus = "SOLTERO_A",
         string nationality = "SV")
@@ -7181,19 +7387,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
             photoUrl = (string?)null,
             orgUnitPublicId = (Guid?)null,
-            customDataJson = (string?)null,
-            items = new[]
-            {
-                new
-                {
-                    identificationTypeCode = identificationType,
-                    identificationNumber,
-                    issuedDate = (DateTime?)null,
-                    expiryDate = (DateTime?)null,
-                    issuer = (string?)null,
-                    isPrimary = true
-                }
-            }
+            customDataJson = (string?)null
         });
         if (!response.IsSuccessStatusCode)
         {
@@ -7202,9 +7396,59 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 $"Personnel file create failed with {(int)response.StatusCode} {response.StatusCode}. Body: {body}");
         }
 
-        var payload = await response.Content.ReadFromJsonAsync<PersonnelFileItem>(JsonOptions);
+        var payload = await response.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
         Assert.NotNull(payload);
         return payload!;
+    }
+
+    private async Task<PersonnelFileShellItem> CreatePersonnelFileAsync(
+        HttpClient client,
+        Guid companyId,
+        string firstName,
+        string lastName,
+        string identificationType,
+        string identificationNumber,
+        string profession = "ANALISTA_DE_DATOS",
+        string maritalStatus = "SOLTERO_A",
+        string nationality = "SV")
+    {
+        var created = await CreateBarePersonnelFileAsync(
+            client,
+            companyId,
+            firstName,
+            lastName,
+            profession,
+            maritalStatus,
+            nationality);
+
+        var addIdentificationResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/identifications", new
+        {
+            identificationTypeCode = identificationType,
+            identificationNumber,
+            issuedDate = (DateTime?)null,
+            expiryDate = (DateTime?)null,
+            issuer = (string?)null,
+            isPrimary = true,
+            concurrencyToken = created.ConcurrencyToken
+        });
+        if (!addIdentificationResponse.IsSuccessStatusCode)
+        {
+            var body = await addIdentificationResponse.Content.ReadAsStringAsync();
+            throw new Xunit.Sdk.XunitException(
+                $"Personnel file identification add failed with {(int)addIdentificationResponse.StatusCode} {addIdentificationResponse.StatusCode}. Body: {body}");
+        }
+
+        var shellResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        shellResponse.EnsureSuccessStatusCode();
+
+        var refreshed = await shellResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
+        Assert.NotNull(refreshed);
+
+        var identificationsResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/identifications");
+        identificationsResponse.EnsureSuccessStatusCode();
+        Assert.NotNull(await identificationsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileIdentificationItem>>(JsonOptions));
+
+        return refreshed!;
     }
 
     private async Task<JobCatalogItemItem> CreateJobCatalogItemAsync(

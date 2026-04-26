@@ -40,6 +40,17 @@ public sealed class PersonnelFileAdministrationValidationTests
     }
 
     [Fact]
+    public void CreateValidator_WhenIdentificationsAreRemovedFromCreate_ShouldRemainValid()
+    {
+        var validator = new CreatePersonnelFileCommandValidator();
+        var command = CreateCreateCommand(PersonnelFileRecordType.Candidate, assignedPositionSlotId: null);
+
+        var result = validator.TestValidate(command);
+
+        Assert.DoesNotContain(result.Errors, static error => error.PropertyName == "Identifications");
+    }
+
+    [Fact]
     public void UpdatePersonalInfoValidator_WhenEmployeeMissingAssignedPositionSlot_ShouldAttachErrorToPublicFieldKey()
     {
         var validator = new UpdatePersonnelFilePersonalInfoCommandValidator();
@@ -108,17 +119,7 @@ public sealed class PersonnelFileAdministrationValidationTests
             PhotoUrl: null,
             OrgUnitId: null,
             AssignedPositionSlotId: assignedPositionSlotId,
-            CustomDataJson: null,
-            Identifications:
-            [
-                new IdentificationInput(
-                    IdentificationTypeCode: "DUI",
-                    IdentificationNumber: "01234567-8",
-                    IssuedDate: null,
-                    ExpiryDate: null,
-                    Issuer: null,
-                    IsPrimary: true)
-            ]);
+            CustomDataJson: null);
     }
 
     private static UpdatePersonnelFilePersonalInfoCommand CreateUpdateCommand(

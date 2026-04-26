@@ -52,19 +52,7 @@ public sealed class CompanyBankCatalogsIntegrationTests(IntegrationTestWebApplic
             birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
             photoUrl = (string?)null,
             orgUnitPublicId = (Guid?)null,
-            customDataJson = (string?)null,
-            items = new[]
-            {
-                new
-                {
-                    identificationTypeCode = "DUI",
-                    identificationNumber = "01234567-9",
-                    issuedDate = (DateTime?)null,
-                    expiryDate = (DateTime?)null,
-                    issuer = (string?)null,
-                    isPrimary = true
-                }
-            }
+            customDataJson = (string?)null
         });
         createResponse.EnsureSuccessStatusCode();
 

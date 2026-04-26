@@ -140,14 +140,51 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
 internal sealed class InMemoryPersonnelFileDocumentStorageService : IPersonnelFileDocumentStorageService
 {
     private readonly Dictionary<string, StoredBlob> _blobs = new(StringComparer.Ordinal);
+    private int _uploadCount;
+    private int _deleteCount;
 
     public bool IsConfigured => true;
+
+    public int BlobCount
+    {
+        get
+        {
+            lock (_blobs)
+            {
+                return _blobs.Count;
+            }
+        }
+    }
+
+    public int UploadCount
+    {
+        get
+        {
+            lock (_blobs)
+            {
+                return _uploadCount;
+            }
+        }
+    }
+
+    public int DeleteCount
+    {
+        get
+        {
+            lock (_blobs)
+            {
+                return _deleteCount;
+            }
+        }
+    }
 
     public void Clear()
     {
         lock (_blobs)
         {
             _blobs.Clear();
+            _uploadCount = 0;
+            _deleteCount = 0;
         }
     }
 
@@ -166,6 +203,7 @@ internal sealed class InMemoryPersonnelFileDocumentStorageService : IPersonnelFi
         lock (_blobs)
         {
             _blobs[blobName] = new StoredBlob(content.ToArray(), contentType);
+            _uploadCount++;
         }
 
         return Task.FromResult(new PersonnelFileStoredDocumentArtifact(
@@ -188,7 +226,10 @@ internal sealed class InMemoryPersonnelFileDocumentStorageService : IPersonnelFi
     {
         lock (_blobs)
         {
-            _ = _blobs.Remove(blobName);
+            if (_blobs.Remove(blobName))
+            {
+                _deleteCount++;
+            }
         }
 
         return Task.CompletedTask;

@@ -267,6 +267,7 @@ Profile:
 - `GET /api/v1/personnel-files/{publicId}/personal-info`
 - `PUT /api/v1/personnel-files/{publicId}/personal-info`
 - `GET /api/v1/personnel-files/{publicId}/identifications`
+- `POST /api/v1/personnel-files/{publicId}/identifications`
 - `PUT /api/v1/personnel-files/{publicId}/identifications`
 - `GET /api/v1/personnel-files/{publicId}/family-members`
 - `PUT /api/v1/personnel-files/{publicId}/family-members`
@@ -304,9 +305,8 @@ Talent:
 
 Documents and reporting:
 
+- `PUT /api/v1/personnel-files/{publicId}/documents`
 - `POST /api/v1/personnel-files/{publicId}/documents`
-- `PATCH /api/v1/personnel-file-documents/{publicId}/file`
-- `PATCH /api/v1/personnel-file-documents/{publicId}/inactivate`
 - `GET /api/v1/personnel-files/{publicId}/print`
 - `POST /api/v1/companies/{companyPublicId}/personnel-files/dynamic-query`
 - `GET /api/v1/companies/{companyPublicId}/personnel-files/export`
@@ -2919,8 +2919,6 @@ Familias de rutas:
 - `/api/v1/companies/{companyId}/personnel-files/dynamic-query`
 - `/api/v1/companies/{companyId}/personnel-files/export`
 - `/api/v1/companies/{companyId}/personnel-files/analytics/summary`
-- `/api/v1/personnel-file-documents/{publicId}/inactivate`
-- `/api/v1/personnel-file-documents/{publicId}/file`
 - `/api/v1/companies/{companyId}/general-catalogs/{catalogKey}`
 - `/api/v1/companies/{companyId}/reference-catalogs/{catalogKey}`
 - `/api/v1/companies/{companyId}/personnel-custom-field-definitions`
@@ -3042,11 +3040,11 @@ Errores `400` de validacion frecuentes:
 
 Route family:
 
-- `POST /api/v1/companies/{companyId}/personnel-files`
-- `GET /api/v1/companies/{companyId}/personnel-files`
-- `GET /api/v1/personnel-files/{id}`
-- `PATCH /api/v1/personnel-files/{id}/activate`
-- `PATCH /api/v1/personnel-files/{id}/inactivate`
+- `POST /api/v1/companies/{companyPublicId}/personnel-files`
+- `GET /api/v1/companies/{companyPublicId}/personnel-files`
+- `GET /api/v1/personnel-files/{publicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/activate`
+- `PATCH /api/v1/personnel-files/{publicId}/inactivate`
 
 Uso principal:
 
@@ -3059,53 +3057,56 @@ Observaciones funcionales:
 
 - `RecordType` hoy expone `Candidate` y `Employee`.
 - `LifecycleStatus` hoy expone `Draft` y `Completed`.
-- `create` exige al menos una identificacion inicial.
-- En `create`, la coleccion principal usa `items` como nombre canonico del payload.
-- `create` valida formato de nombres, emails y telefonos, valida custom fields activos, valida codigos activos de catalogo y evita duplicidad tenant-wide de identificaciones.
-- `create` y `personal-info` reciben codigos de catalogo en `maritalStatusCode`, `professionCode`, `birthCountryCode`, `birthDepartmentCode`, `birthMunicipalityCode` e `identificationTypeCode`; ya no aceptan texto libre para esos campos.
+- `create` ya no recibe identificaciones; el expediente se abre solo con los datos base y queda en `Draft`.
+- si el cliente sigue enviando `items` legacy en `create`, la API responde `400` y obliga a usar `POST /api/v1/personnel-files/{publicId}/identifications`.
+- `create` valida formato de nombres, emails y telefonos, valida custom fields activos y valida codigos activos de catalogo del bloque personal; ya no valida identifications en esta ruta.
+- `create` y `personal-info` reciben codigos de catalogo en `maritalStatusCode`, `professionCode`, `birthCountryCode`, `birthDepartmentCode` y `birthMunicipalityCode`; `identificationTypeCode` se valida en los endpoints propios de identifications.
 - `create` y `personal-info` exigen consistencia geografica por jerarquia: `birthDepartmentCode` requiere `birthCountryCode`; `birthMunicipalityCode` requiere `birthDepartmentCode`; en esta fase `Department/Municipality` solo aplica para `birthCountryCode=SV`.
 - `create` acepta `AssignedPositionSlotId`; es obligatorio para `Employee` y no se permite para `Candidate`.
 - `search` soporta filtros `isActive`, `recordType`, `orgUnitId`, `minAge`, `maxAge`, `maritalStatus`, `nationality`, `profession`, `createdFromUtc`, `createdToUtc`, `q`, `sortBy`, `sortDirection`, `page`, `pageSize` e `includeAllowedActions`.
 - `search` usa como orden default `FullName ASC`.
 - `search` acepta estos `sortBy`: `fullname`, `firstname`, `lastname`, `birthdate`, `age`, `recordtype`, `maritalstatus`, `nationality`, `profession`, `orgunitid`, `isactive`, `createdatutc`, `modifiedatutc`.
 - `search` busca por nombre completo normalizado y por numero de identificacion.
-- listados y detalle exponen pares `Code + Name` resueltos para `MaritalStatus`, `Profession`, `BirthCountry`, `BirthDepartment`, `BirthMunicipality` e `IdentificationType`.
-- listados, detalle y exportes exponen `LifecycleStatus`, `AssignedPositionSlotId` y `LinkedUserId`.
+- `search` devuelve una proyeccion de tabla y ya no expone `birthDate` ni `concurrencyToken`; para mutaciones el cliente debe resolver primero el shell (`GET /api/v1/personnel-files/{publicId}`) o el detalle/seccion correspondiente.
+- listados y detalle exponen pares `Code + Name` resueltos para `MaritalStatus` y `Profession`; los nombres geograficos e identifications viven en endpoints de detalle o secciones.
+- listados, shell y exportes exponen `LifecycleStatus`, `AssignedPositionSlotId` y `LinkedUserId`.
 - `get by id` devuelve solo el shell del expediente: `id`, `companyId`, `recordType`, `lifecycleStatus`, `fullName`, `photoUrl`, `isActive`, `orgUnitId`, `assignedPositionSlotId`, `linkedUserId`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y `allowedActions`.
-- `activate` e `inactivate` son transiciones soft-state y requieren `ConcurrencyToken`.
+- `activate` e `inactivate` son transiciones soft-state, requieren `ConcurrencyToken` y devuelven el shell refrescado con el token nuevo.
+- `create`, `search`, `activate` e `inactivate` tienen rate limiting especifico del modulo y pueden devolver `429 Too Many Requests` con `ProblemDetails`.
 
 #### 5.10.7 Profile
 
 Route family:
 
-- `GET /api/v1/personnel-files/{id}/personal-info`
-- `PUT /api/v1/personnel-files/{id}/personal-info`
-- `GET /api/v1/personnel-files/{id}/identifications`
-- `PUT /api/v1/personnel-files/{id}/identifications`
-- `GET /api/v1/personnel-files/{id}/addresses`
-- `PUT /api/v1/personnel-files/{id}/addresses`
-- `GET /api/v1/personnel-files/{id}/emergency-contacts`
-- `PUT /api/v1/personnel-files/{id}/emergency-contacts`
-- `GET /api/v1/personnel-files/{id}/family-members`
-- `PUT /api/v1/personnel-files/{id}/family-members`
-- `GET /api/v1/personnel-files/{id}/hobbies`
-- `PUT /api/v1/personnel-files/{id}/hobbies`
-- `GET /api/v1/personnel-files/{id}/employee-relations`
-- `PUT /api/v1/personnel-files/{id}/employee-relations`
-- `GET /api/v1/personnel-files/{id}/bank-accounts`
-- `PUT /api/v1/personnel-files/{id}/bank-accounts`
-- `GET /api/v1/personnel-files/{id}/associations`
-- `PUT /api/v1/personnel-files/{id}/associations`
-- `GET /api/v1/personnel-files/{id}/educations`
-- `PUT /api/v1/personnel-files/{id}/educations`
-- `GET /api/v1/personnel-files/{id}/languages`
-- `PUT /api/v1/personnel-files/{id}/languages`
-- `GET /api/v1/personnel-files/{id}/trainings`
-- `PUT /api/v1/personnel-files/{id}/trainings`
-- `GET /api/v1/personnel-files/{id}/previous-employments`
-- `PUT /api/v1/personnel-files/{id}/previous-employments`
-- `GET /api/v1/personnel-files/{id}/references`
-- `PUT /api/v1/personnel-files/{id}/references`
+- `GET /api/v1/personnel-files/{publicId}/personal-info`
+- `PUT /api/v1/personnel-files/{publicId}/personal-info`
+- `GET /api/v1/personnel-files/{publicId}/identifications`
+- `POST /api/v1/personnel-files/{publicId}/identifications`
+- `PUT /api/v1/personnel-files/{publicId}/identifications`
+- `GET /api/v1/personnel-files/{publicId}/addresses`
+- `PUT /api/v1/personnel-files/{publicId}/addresses`
+- `GET /api/v1/personnel-files/{publicId}/emergency-contacts`
+- `PUT /api/v1/personnel-files/{publicId}/emergency-contacts`
+- `GET /api/v1/personnel-files/{publicId}/family-members`
+- `PUT /api/v1/personnel-files/{publicId}/family-members`
+- `GET /api/v1/personnel-files/{publicId}/hobbies`
+- `PUT /api/v1/personnel-files/{publicId}/hobbies`
+- `GET /api/v1/personnel-files/{publicId}/employee-relations`
+- `PUT /api/v1/personnel-files/{publicId}/employee-relations`
+- `GET /api/v1/personnel-files/{publicId}/bank-accounts`
+- `PUT /api/v1/personnel-files/{publicId}/bank-accounts`
+- `GET /api/v1/personnel-files/{publicId}/associations`
+- `PUT /api/v1/personnel-files/{publicId}/associations`
+- `GET /api/v1/personnel-files/{publicId}/educations`
+- `PUT /api/v1/personnel-files/{publicId}/educations`
+- `GET /api/v1/personnel-files/{publicId}/languages`
+- `PUT /api/v1/personnel-files/{publicId}/languages`
+- `GET /api/v1/personnel-files/{publicId}/trainings`
+- `PUT /api/v1/personnel-files/{publicId}/trainings`
+- `GET /api/v1/personnel-files/{publicId}/previous-employments`
+- `PUT /api/v1/personnel-files/{publicId}/previous-employments`
+- `GET /api/v1/personnel-files/{publicId}/references`
+- `PUT /api/v1/personnel-files/{publicId}/references`
 
 Uso principal:
 
@@ -3113,10 +3114,13 @@ Uso principal:
 
 Observaciones funcionales:
 
+- `PersonnelFilesController` conserva el recurso raiz: create, search, shell y lifecycle. `PersonnelFileProfileController` conserva las secciones editables y es la fuente de verdad del bloque `personal-info`.
 - Los endpoints `GET` de `Profile` devuelven el bloque solicitado sin exigir `ConcurrencyToken`; `personal-info` responde con el bloque escalar del expediente y las demas rutas responden la coleccion completa del subrecurso.
+- `POST /identifications` agrega una sola identificacion por request y usa el `ConcurrencyToken` del expediente padre.
 - Todos los endpoints `PUT` de `Profile` usan el `ConcurrencyToken` del expediente y devuelven `PersonnelFileSectionResult<T>` con la seccion mutada y el nuevo token del expediente.
 - Todos los `PUT` de colecciones son de reemplazo total de la subseccion.
 - En `Profile`, los `PUT` de colecciones usan `items` como propiedad principal del payload.
+- `POST /identifications` responde `201` con la identificacion creada; no devuelve `PersonnelFileSectionResult`.
 - `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite transiciones de `RecordType`.
 - `personal-info` tambien actualiza `AssignedPositionSlotId` mientras el expediente sigue en `Draft`; al completar el expediente, `AssignedPositionSlotId` e `InstitutionalEmail` quedan bloqueados.
 - `create` y `personal-info` aceptan `photoUrl` como `null`, URL `http/https` o `data:image/...;base64,...` para `png|jpg|jpeg|webp|svg+xml` (maximo `2 MB`); en `svg` se bloquea contenido activo (`script`, eventos inline y enlaces `javascript:`).
@@ -3125,6 +3129,7 @@ Observaciones funcionales:
 - si `RecordType = Employee`, `AssignedPositionSlotId` sigue siendo obligatorio; si `RecordType = Candidate`, no puede enviarse.
 - `personal-info` valida que `maritalStatusCode`, `professionCode`, `birthCountryCode`, `birthDepartmentCode` y `birthMunicipalityCode` existan y esten activos segun catalogo global de referencia.
 - `identifications` valida que `identificationTypeCode` exista y este activo, y revalida unicidad tenant-wide por `IdentificationTypeCode + IdentificationNumber` normalizado.
+- `POST /identifications` es la ruta canonica para crear nuevas filas; `PUT /identifications` se mantiene como reemplazo total de la subseccion.
 - `family-members` exige consistencia entre banderas condicionales y datos dependientes:
 - si `IsStudying=true`, se esperan `StudyPlace` y `AcademicLevel`
 - si `IsWorking=true`, se esperan `Workplace` y `JobTitle`
@@ -3262,17 +3267,17 @@ Observaciones funcionales:
 Route family:
 
 - `GET /api/v1/personnel-files/{id}/documents`
+- `PUT /api/v1/personnel-files/{id}/documents`
 - `POST /api/v1/personnel-files/{id}/documents`
 - `GET /api/v1/personnel-files/{id}/observations`
-- `PATCH /api/v1/personnel-file-documents/{publicId}/inactivate`
-- `PATCH /api/v1/personnel-file-documents/{publicId}/file`
 - `POST /api/v1/personnel-files/{id}/observations`
 
 Uso principal:
 
 - adjuntar evidencias documentales al expediente
-- reemplazar el archivo binario de un documento ya existente
-- inactivar documentos historicos
+- sincronizar documentos nuevos y existentes desde una sola escritura
+- reemplazar archivo y metadatos en una misma operacion cuando aplique
+- inactivar logicamente documentos omitidos del payload de sincronizacion
 - registrar observaciones internas
 
 Observaciones funcionales:
@@ -3280,6 +3285,12 @@ Observaciones funcionales:
 - `GET /documents` devuelve una lista liviana de `PersonnelFileDocumentMetadataResponse` con `fileUrl` resuelto para el frontend; la API ya no expone `FileData` ni un endpoint separado de descarga.
 - `GET /documents` es la vista recomendada para renderizar listados o abrir adjuntos directamente desde la URL firmada del documento.
 - `GET /documents` ordena por `CreatedAtUtc` descendente.
+- `PUT /documents` usa `multipart/form-data` con `concurrencyToken` del expediente + `manifestJson` y partes binarias adicionales cuyo nombre debe coincidir con el `fileKey` de cada item.
+- `PUT /documents` es el contrato canonico de actualizacion para frontend: crea items sin `documentPublicId`, actualiza items con `documentPublicId` y deja inactivos los documentos activos omitidos del manifiesto.
+- En `PUT /documents`, un item existente sin `fileKey` actualiza solo metadatos y conserva el blob actual; no debe generar un upload nuevo a Azure Blob Storage.
+- En `PUT /documents`, un item existente con `fileKey` reemplaza el archivo binario y actualiza sus metadatos en la misma operacion.
+- En `PUT /documents`, un item nuevo exige archivo y siempre crea `publicId` nuevo para el documento.
+- `PUT /documents` responde `PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>>` y rota el `ConcurrencyToken` del expediente padre.
 - `upload document` usa `multipart/form-data`.
 - `upload document` exige archivo no vacio, maximo `10 MiB`, extension/MIME permitido y firma basica valida antes de leer el binario completo.
 - formatos permitidos para `upload document`: `.pdf`, `.jpg`, `.jpeg`, `.png`, `.docx`.
@@ -3287,18 +3298,12 @@ Observaciones funcionales:
 - `upload document` persiste la metadata en BD y sube el archivo a Azure Blob Storage privado; en BD queda la URL canonica del blob y el nombre interno (`blobName`).
 - `upload document` calcula y persiste `sha256` del binario cargado.
 - `upload document` valida fechas de entrega, prestamo y devolucion; rangos invalidos responden `PERSONNEL_FILE_DOCUMENT_DATES_INVALID`.
-- `PATCH /api/v1/personnel-file-documents/{publicId}/file` usa `multipart/form-data` y reemplaza solo el archivo; no requiere reenviar `documentType`, observaciones ni fechas.
-- `PATCH /api/v1/personnel-file-documents/{publicId}/file` usa el `ConcurrencyToken` del documento, no el del expediente.
 - `fileUrl` es una URL SAS temporal resuelta por la API para consumo directo del frontend.
 - `upload document` devuelve `PersonnelFileDocumentMetadataResponse`, no el expediente completo.
-- `PATCH /api/v1/personnel-file-documents/{publicId}/inactivate` usa `ConcurrencyToken` del documento, no del expediente.
-- `inactivate document` es soft-delete logico sobre el documento.
-- `replace document file` reemplaza el blob asociado, rota el `ConcurrencyToken` del documento y devuelve nueva metadata con `fileUrl` resuelto.
+- `PUT /documents` usa el `ConcurrencyToken` del expediente; los `ConcurrencyToken` de cada documento siguen visibles en response pero ya no son el contrato de escritura canonico.
+- `PUT /documents` reactiva implicitamente un documento existente si vuelve a aparecer en el manifiesto.
+- `PUT /documents` no borra fisicamente blobs ni filas por omision; la omision solo inactiva el documento.
 - `add observation` usa el `ConcurrencyToken` del expediente y devuelve solo la observacion creada.
-- Comportamiento observable actual de `inactivate document`:
-- la respuesta tiene shape de metadata
-- pero varios campos se rehidratan de forma parcial en la implementacion actual
-- por eso solo deben considerarse confiables `Id`, `FileName`, `ContentType`, `SizeBytes`, `IsActive` y `ConcurrencyToken`
 
 #### 5.10.12 Administration
 

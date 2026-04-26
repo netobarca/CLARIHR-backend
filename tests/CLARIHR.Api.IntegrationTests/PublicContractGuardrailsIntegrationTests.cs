@@ -123,11 +123,15 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
         Assert.Contains("/api/account/companies/{companyPublicId}/switch", pathNames);
         Assert.Contains("/api/v1/companies/{companyPublicId}/cost-centers", pathNames);
         Assert.Contains("/api/v1/companies/{companyPublicId}/job-profiles", pathNames);
+        Assert.Contains("/api/v1/personnel-files/{publicId}/identifications", pathNames);
+        Assert.Contains("/api/v1/personnel-files/{publicId}/documents", pathNames);
 
         Assert.DoesNotContain("/api/account/companies/{publicId}", pathNames);
         Assert.DoesNotContain("/api/account/companies/{publicId}/switch", pathNames);
         Assert.DoesNotContain("/api/v1/job-profiles/{id}", pathNames);
         Assert.DoesNotContain(pathNames, static path => path.Contains("{companyId}", StringComparison.Ordinal));
+        Assert.DoesNotContain("/api/v1/personnel-file-documents/{publicId}/file", pathNames);
+        Assert.DoesNotContain("/api/v1/personnel-file-documents/{publicId}/inactivate", pathNames);
     }
 
     [Fact]
@@ -163,6 +167,111 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
                 $"Swagger exposes hybrid parent/child action routes for nested collection '/api/v1/{collection.ParentSegment}/{{{collection.ParentIdentifier}}}/{collection.ChildSegment}'. " +
                 $"Move direct child actions to a flat child resource route instead of keeping '/api/v1/{collection.ParentSegment}/{collection.ChildSegment}/{{...}}/...'. " +
                 $"Found: {string.Join(", ", hybridRoutes)}");
+        }
+    }
+
+    [Fact]
+    public async Task Swagger_ShouldExposeTypedCreatePersonnelFileRequest_AndShellResponse()
+    {
+        await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/swagger/v1/swagger.json");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var postOperation = document.RootElement.GetProperty("paths")
+            .GetProperty("/api/v1/companies/{companyPublicId}/personnel-files")
+            .GetProperty("post");
+
+        var requestSchemaReference = postOperation.GetProperty("requestBody")
+            .GetProperty("content")
+            .GetProperty("application/json")
+            .GetProperty("schema")
+            .GetProperty("$ref")
+            .GetString();
+        Assert.Contains("CreatePersonnelFileRequest", requestSchemaReference, StringComparison.Ordinal);
+
+        var responseSchemaReference = postOperation.GetProperty("responses")
+            .GetProperty("201")
+            .GetProperty("content")
+            .GetProperty("application/json")
+            .GetProperty("schema")
+            .GetProperty("$ref")
+            .GetString();
+        Assert.Contains("PersonnelFileShellResponse", responseSchemaReference, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Swagger_ShouldExposePersonnelFilesCoreContracts_WithShellLifecycleAndLimitedSearchProjection()
+    {
+        await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/swagger/v1/swagger.json");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var paths = document.RootElement.GetProperty("paths");
+
+        Assert.True(paths.TryGetProperty("/api/v1/companies/{companyPublicId}/personnel-files", out var collectionPath));
+        Assert.True(paths.TryGetProperty("/api/v1/personnel-files/{publicId}", out var shellPath));
+        Assert.True(paths.TryGetProperty("/api/v1/personnel-files/{publicId}/activate", out var activatePath));
+        Assert.True(paths.TryGetProperty("/api/v1/personnel-files/{publicId}/inactivate", out var inactivatePath));
+
+        var searchOperation = collectionPath.GetProperty("get");
+        Assert.True(searchOperation.GetProperty("responses").TryGetProperty("429", out _));
+
+        var searchResponseSchemaReference = searchOperation.GetProperty("responses")
+            .GetProperty("200")
+            .GetProperty("content")
+            .GetProperty("application/json")
+            .GetProperty("schema")
+            .GetProperty("$ref")
+            .GetString();
+        Assert.NotNull(searchResponseSchemaReference);
+        Assert.Contains("PagedResponse", searchResponseSchemaReference, StringComparison.Ordinal);
+
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+        var searchSchemaName = searchResponseSchemaReference[(searchResponseSchemaReference.LastIndexOf('/') + 1)..];
+        var searchSchema = schemas.GetProperty(searchSchemaName);
+        var listItemSchemaReference = searchSchema.GetProperty("properties")
+            .GetProperty("items")
+            .GetProperty("items")
+            .GetProperty("$ref")
+            .GetString();
+        Assert.NotNull(listItemSchemaReference);
+
+        var listItemSchemaName = listItemSchemaReference[(listItemSchemaReference.LastIndexOf('/') + 1)..];
+        var listItemSchema = schemas.GetProperty(listItemSchemaName);
+        var listItemPropertyNames = listItemSchema.GetProperty("properties")
+            .EnumerateObject()
+            .Select(static property => property.Name)
+            .ToArray();
+        Assert.DoesNotContain("birthDate", listItemPropertyNames, StringComparer.Ordinal);
+        Assert.DoesNotContain("concurrencyToken", listItemPropertyNames, StringComparer.Ordinal);
+
+        Assert.True(shellPath.GetProperty("get").GetProperty("responses").TryGetProperty("200", out var shellResponse));
+        var shellResponseSchemaReference = shellResponse.GetProperty("content")
+            .GetProperty("application/json")
+            .GetProperty("schema")
+            .GetProperty("$ref")
+            .GetString();
+        Assert.Contains("PersonnelFileShellResponse", shellResponseSchemaReference, StringComparison.Ordinal);
+
+        foreach (var lifecyclePath in new[] { activatePath, inactivatePath })
+        {
+            var patchOperation = lifecyclePath.GetProperty("patch");
+            Assert.True(patchOperation.GetProperty("responses").TryGetProperty("429", out _));
+
+            var lifecycleResponseSchemaReference = patchOperation.GetProperty("responses")
+                .GetProperty("200")
+                .GetProperty("content")
+                .GetProperty("application/json")
+                .GetProperty("schema")
+                .GetProperty("$ref")
+                .GetString();
+            Assert.Contains("PersonnelFileShellResponse", lifecycleResponseSchemaReference, StringComparison.Ordinal);
         }
     }
 

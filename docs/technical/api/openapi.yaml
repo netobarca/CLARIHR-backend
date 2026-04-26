@@ -847,14 +847,13 @@ components:
           maxLength: 120
         isPrimary:
           type: boolean
-    PersonnelFileCreateRequest:
+    CreatePersonnelFileRequest:
       type: object
       required:
         - recordType
         - firstName
         - lastName
         - birthDate
-        - items
       properties:
         recordType:
           $ref: '#/components/schemas/PersonnelFileRecordType'
@@ -919,15 +918,9 @@ components:
         customDataJson:
           type: string
           nullable: true
-        items:
-          type: array
-          minItems: 1
-          description: Canonical collection payload for initial identifications.
-          items:
-            $ref: '#/components/schemas/PersonnelFileIdentificationItemRequest'
     PersonnelFileUpdatePersonalInfoRequest:
       allOf:
-        - $ref: '#/components/schemas/PersonnelFileCreateRequest'
+        - $ref: '#/components/schemas/CreatePersonnelFileRequest'
         - type: object
           required:
             - concurrencyToken
@@ -935,6 +928,78 @@ components:
             concurrencyToken:
               type: string
               format: uuid
+    PersonnelFileAddIdentificationRequest:
+      allOf:
+        - $ref: '#/components/schemas/PersonnelFileIdentificationItemRequest'
+        - type: object
+          required:
+            - concurrencyToken
+          properties:
+            concurrencyToken:
+              type: string
+              format: uuid
+    ReplaceIdentificationsRequest:
+      type: object
+      required:
+        - items
+        - concurrencyToken
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PersonnelFileIdentificationItemRequest'
+        concurrencyToken:
+          type: string
+          format: uuid
+    PersonnelFileIdentificationResponse:
+      type: object
+      required:
+        - id
+        - identificationTypeCode
+        - identificationNumber
+        - isPrimary
+      properties:
+        id:
+          type: string
+          format: uuid
+        identificationTypeCode:
+          type: string
+        identificationTypeName:
+          type: string
+          nullable: true
+        identificationNumber:
+          type: string
+        issuedDate:
+          type: string
+          format: date-time
+          nullable: true
+        expiryDate:
+          type: string
+          format: date-time
+          nullable: true
+        issuer:
+          type: string
+          nullable: true
+        isPrimary:
+          type: boolean
+    PersonnelFileSectionResultOfPersonnelFileIdentificationResponseCollection:
+      type: object
+      required:
+        - data
+        - personnelFileConcurrencyToken
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFileIdentificationResponse'
+        personnelFileConcurrencyToken:
+          type: string
+          format: uuid
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
     PersonnelFileContractResponse:
       type: object
       description: Partial checked-in contract for personnel file create, personal-info update and finalize flows.
@@ -1118,6 +1183,89 @@ components:
           nullable: true
         allowedActions:
           $ref: '#/components/schemas/AllowedActionsResponse'
+    PersonnelFileListItemResponse:
+      type: object
+      required:
+        - id
+        - companyId
+        - recordType
+        - lifecycleStatus
+        - fullName
+        - age
+        - isActive
+        - createdAtUtc
+      properties:
+        id:
+          type: string
+          format: uuid
+        companyId:
+          type: string
+          format: uuid
+        recordType:
+          $ref: '#/components/schemas/PersonnelFileRecordType'
+        lifecycleStatus:
+          $ref: '#/components/schemas/PersonnelFileLifecycleStatus'
+        fullName:
+          type: string
+        age:
+          type: integer
+          format: int32
+        maritalStatusCode:
+          type: string
+          nullable: true
+        maritalStatusName:
+          type: string
+          nullable: true
+        professionCode:
+          type: string
+          nullable: true
+        professionName:
+          type: string
+          nullable: true
+        orgUnitId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedPositionSlotId:
+          type: string
+          format: uuid
+          nullable: true
+        linkedUserId:
+          type: string
+          format: uuid
+          nullable: true
+        isActive:
+          type: boolean
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+    PagedPersonnelFileListItemResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFileListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     PersonnelFilePersonalInfoResponse:
       type: object
       required:
@@ -1532,6 +1680,23 @@ components:
           type: string
           format: date-time
           nullable: true
+    PersonnelFileSectionResultOfPersonnelFileDocumentMetadataResponseCollection:
+      type: object
+      required:
+        - data
+        - personnelFileConcurrencyToken
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFileDocumentMetadataResponse'
+        personnelFileConcurrencyToken:
+          type: string
+          format: uuid
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
     PerformanceEvaluationItemRequest:
       type: object
       required:
@@ -1886,11 +2051,14 @@ components:
           nullable: true
         fileName:
           type: string
+          description: Original file name stored for the document. Present on every successful response because document persistence requires a concrete uploaded file.
         contentType:
           type: string
+          description: MIME type stored for the document. Present on every successful response because document persistence requires a validated content type.
         fileUrl:
           type: string
           nullable: true
+          description: Resolved read URL for the stored file. This is normally present in successful responses after upload, replace and standard reads. It can be `null` only when the API cannot resolve a readable URL from the persisted blob reference at response time, for example because the managed storage read configuration is unavailable or legacy data lacks a persisted blob URL.
         sizeBytes:
           type: integer
           format: int32
@@ -6161,17 +6329,17 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/companies/{companyId}/personnel-files:
+  /api/v1/companies/{companyPublicId}/personnel-files:
     post:
       tags:
         - personnel-files
       operationId: CreatePersonnelFile
       summary: Create a personnel file in draft
-      description: Creates a tenant-scoped personnel file. New files always start with `lifecycleStatus=Draft`. `assignedPositionSlotPublicId` is required for `Employee` files and must be omitted for `Candidate` files.
+      description: Creates a tenant-scoped personnel file. New files always start with `lifecycleStatus=Draft`. `assignedPositionSlotPublicId` is required for `Employee` files and must be omitted for `Candidate` files. Initial identifications are no longer accepted in this request and must be created through `POST /api/v1/personnel-files/{publicId}/identifications`.
       security:
         - Bearer: []
       parameters:
-        - name: companyId
+        - name: companyPublicId
           in: path
           required: true
           schema:
@@ -6182,16 +6350,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PersonnelFileCreateRequest'
+              $ref: '#/components/schemas/CreatePersonnelFileRequest'
       responses:
         '201':
-          description: Personnel file created successfully.
+          description: Personnel file created successfully and returns the shell/bootstrap payload.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileContractResponse'
+                $ref: '#/components/schemas/PersonnelFileShellResponse'
         '400':
-          description: Validation error, such as invalid identifiers, missing items or malformed custom data.
+          description: Validation error, such as invalid identifiers, malformed custom data or legacy `items` payload still being sent during create.
           content:
             application/problem+json:
               schema:
@@ -6216,6 +6384,144 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Business-rule violation, such as invalid record type and assigned position slot combination.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '429':
+          description: Too many create attempts for the same tenant/user window.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    get:
+      tags:
+        - personnel-files
+      operationId: SearchPersonnelFiles
+      summary: Search personnel files for a company
+      description: Returns a paged list projection for table and search scenarios. This collection response intentionally omits `birthDate` and `concurrencyToken`; clients that need a write token must resolve the shell or section detail first.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: recordType
+          in: query
+          schema:
+            $ref: '#/components/schemas/PersonnelFileRecordType'
+        - name: orgUnitId
+          in: query
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+        - name: minAge
+          in: query
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+        - name: maxAge
+          in: query
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+        - name: maritalStatus
+          in: query
+          schema:
+            type: string
+            maxLength: 80
+        - name: nationality
+          in: query
+          schema:
+            type: string
+            maxLength: 120
+        - name: profession
+          in: query
+          schema:
+            type: string
+            maxLength: 120
+        - name: createdFromUtc
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: createdToUtc
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 150
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            maxLength: 80
+          description: Supported values include `fullname`, `firstname`, `lastname`, `birthdate`, `age`, `recordtype`, `maritalstatus`, `nationality`, `profession`, `orgunitid`, `isactive`, `createdatutc`, `modifiedatutc`.
+        - name: sortDirection
+          in: query
+          schema:
+            $ref: '#/components/schemas/PersonnelFileSortDirection'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Paged list projection returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPersonnelFileListItemResponse'
+        '400':
+          description: Validation error, such as paging, sort or filter input outside the supported range.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '429':
+          description: Too many search requests for the same tenant/user window.
           content:
             application/problem+json:
               schema:
@@ -6385,7 +6691,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{id}:
+  /api/v1/personnel-files/{publicId}:
     get:
       tags:
         - personnel-files
@@ -6395,7 +6701,7 @@ paths:
       security:
         - Bearer: []
       parameters:
-        - name: id
+        - name: publicId
           in: path
           required: true
           schema:
@@ -6422,6 +6728,306 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
           description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/activate:
+    patch:
+      tags:
+        - personnel-files
+      operationId: ActivatePersonnelFile
+      summary: Activate a personnel file
+      description: Reactivates a previously inactive personnel file and returns the refreshed shell payload, including the new `concurrencyToken`.
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConcurrencyRequest'
+      responses:
+        '200':
+          description: Personnel file activated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileShellResponse'
+        '400':
+          description: Validation error, such as a missing concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict. Refresh and retry with the latest concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '429':
+          description: Too many lifecycle transitions for the same tenant/user window.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/inactivate:
+    patch:
+      tags:
+        - personnel-files
+      operationId: InactivatePersonnelFile
+      summary: Inactivate a personnel file
+      description: Soft-inactivates the target personnel file and returns the refreshed shell payload, including the new `concurrencyToken`.
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConcurrencyRequest'
+      responses:
+        '200':
+          description: Personnel file inactivated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileShellResponse'
+        '400':
+          description: Validation error, such as a missing concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict. Refresh and retry with the latest concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '429':
+          description: Too many lifecycle transitions for the same tenant/user window.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{id}/identifications:
+    get:
+      tags:
+        - personnel-files
+      operationId: GetPersonnelFileIdentifications
+      summary: List personnel file identifications
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Identification collection returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileIdentificationResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - personnel-files
+      operationId: AddPersonnelFileIdentification
+      summary: Add one identification to a personnel file
+      description: Creates a single identification row for the target personnel file. The request uses the parent personnel file `concurrencyToken`.
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonnelFileAddIdentificationRequest'
+      responses:
+        '201':
+          description: Identification created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileIdentificationResponse'
+        '400':
+          description: Validation error, such as invalid identification format or inactive identification type.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The parent `concurrencyToken` is stale or the identification is already used by another personnel file in the tenant.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation, such as invalid effective date range.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - personnel-files
+      operationId: ReplacePersonnelFileIdentifications
+      summary: Replace the identifications section of a personnel file
+      description: Replaces the full identifications collection for the target personnel file.
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceIdentificationsRequest'
+      responses:
+        '200':
+          description: Identifications replaced successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileIdentificationResponseCollection'
+        '400':
+          description: Validation error, such as invalid identification format or inactive identification type.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The parent `concurrencyToken` is stale or one of the submitted identifications is already used by another personnel file in the tenant.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation, such as invalid effective date range.
           content:
             application/problem+json:
               schema:
@@ -6465,6 +7071,90 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
           description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+        - personnel-files
+      operationId: ReplacePersonnelFileDocuments
+      summary: Replace the documents section of a personnel file
+      description: Synchronizes the complete documents section using a multipart manifest. Items with `documentPublicId` update existing documents, items without `documentPublicId` create new documents, and active documents omitted from the manifest are inactivated. Existing documents only upload a new blob when their item includes a `fileKey`.
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - manifestJson
+                - concurrencyToken
+              properties:
+                manifestJson:
+                  type: string
+                  description: JSON payload with shape `{ "items": [...] }`. Each item accepts `documentPublicId`, `documentType`, `observations`, `deliveryDate`, `loanDate`, `returnDate` and optional `fileKey`. For new documents `fileKey` is required. For existing documents `fileKey` is optional and only required when replacing the binary file.
+                concurrencyToken:
+                  type: string
+                  format: uuid
+                  description: Current concurrency token of the personnel file shell/section.
+            encoding:
+              manifestJson:
+                contentType: application/json
+      responses:
+        '200':
+          description: Documents section synchronized successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileDocumentMetadataResponseCollection'
+        '400':
+          description: Validation error, malformed manifest, missing file mapping, unsupported content type or malformed payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: At least one uploaded document exceeds the 10 MiB size limit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file or a referenced document was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as stale personnel file concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation, such as invalid document dates.
           content:
             application/problem+json:
               schema:
@@ -6675,117 +7365,6 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Business conflict such as stale concurrency token.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-file-documents/{publicId}/inactivate:
-    patch:
-      tags:
-        - personnel-files
-      operationId: InactivatePersonnelFileDocument
-      summary: Inactivate a personnel file document
-      description: Performs a logical inactivation of the selected personnel file document using the document concurrency token.
-      security:
-        - Bearer: []
-      parameters:
-        - name: publicId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
-      responses:
-        '200':
-          description: Document inactivated successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileDocumentMetadataResponse'
-        '400':
-          description: Validation error, such as missing concurrency token.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: The target document was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Business conflict such as stale concurrency token.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-file-documents/{publicId}/file:
-    patch:
-      tags:
-        - personnel-files
-      operationId: ReplacePersonnelFileDocumentFile
-      summary: Replace the binary file of a personnel file document
-      description: Replaces only the stored file content of an existing personnel file document and returns the updated metadata with a resolved `fileUrl`.
-      security:
-        - Bearer: []
-      parameters:
-        - name: publicId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required:
-                - concurrencyToken
-                - file
-              properties:
-                concurrencyToken:
-                  type: string
-                  format: uuid
-                file:
-                  type: string
-                  format: binary
-                  description: Binary document payload. Maximum 10 MiB. Allowed formats are .pdf, .jpg, .jpeg, .png and .docx.
-      responses:
-        '200':
-          description: Document file replaced successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileDocumentMetadataResponse'
-        '400':
-          description: Validation error, missing file, unsupported content type or malformed payload.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '413':
-          description: The uploaded document exceeds the 10 MiB size limit.
           content:
             application/problem+json:
               schema:
