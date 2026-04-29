@@ -800,6 +800,91 @@ public sealed class PersonnelFileDomainTests
         Assert.NotEqual(initialToken, file.ConcurrencyToken);
     }
 
+    [Fact]
+    public void PersonnelFile_AddAssociation_ShouldAppendRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var tenantId = Guid.NewGuid();
+        file.SetTenantId(tenantId);
+        var initialToken = file.ConcurrencyToken;
+        var association = PersonnelFileAssociation.Create("Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m);
+
+        file.AddAssociation(association);
+
+        var stored = Assert.Single(file.Associations);
+        Assert.Equal("Colegio de Abogados", stored.AssociationName);
+        Assert.Equal("Miembro", stored.Role);
+        Assert.Equal(50.00m, stored.Payment);
+        Assert.Equal(tenantId, stored.TenantId);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateAssociation_ShouldUpdateFieldsAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var association = PersonnelFileAssociation.Create("Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m);
+        file.AddAssociation(association);
+        var initialToken = file.ConcurrencyToken;
+
+        file.UpdateAssociation(association.PublicId, "Camara de Comercio", "Presidente", new DateTime(2021, 1, 1), new DateTime(2023, 12, 31), 100.00m);
+
+        var stored = Assert.Single(file.Associations);
+        Assert.Equal("Camara de Comercio", stored.AssociationName);
+        Assert.Equal("Presidente", stored.Role);
+        Assert.Equal(new DateTime(2021, 1, 1), stored.JoinedDate);
+        Assert.Equal(new DateTime(2023, 12, 31), stored.LeftDate);
+        Assert.Equal(100.00m, stored.Payment);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateAssociation_WhenNotFound_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+
+        Assert.Throws<InvalidOperationException>(() => file.UpdateAssociation(
+            Guid.NewGuid(), "Test", null, null, null, null));
+    }
+
+    [Fact]
+    public void PersonnelFile_RemoveAssociation_ShouldRemoveRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var association = PersonnelFileAssociation.Create("Colegio de Abogados", "Miembro", null, null, null);
+        file.AddAssociation(association);
+        var initialToken = file.ConcurrencyToken;
+
+        file.RemoveAssociation(association.PublicId);
+
+        Assert.Empty(file.Associations);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_RemoveAssociation_WhenNotFound_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+
+        Assert.Throws<InvalidOperationException>(() => file.RemoveAssociation(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void PersonnelFileAssociation_Update_WhenLeftDateBeforeJoinedDate_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var association = PersonnelFileAssociation.Create("Test", null, null, null, null);
+        file.AddAssociation(association);
+
+        Assert.Throws<InvalidOperationException>(() => file.UpdateAssociation(
+            association.PublicId,
+            "Test",
+            null,
+            new DateTime(2025, 6, 1),
+            new DateTime(2025, 1, 1),
+            null));
+    }
+
     private static PersonnelFile CreatePersonnelFile(PersonnelFileRecordType recordType, string firstName, string lastName)
     {
         var file = PersonnelFile.Create(

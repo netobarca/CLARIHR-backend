@@ -731,11 +731,24 @@ public sealed record DeletePersonnelFileBankAccountCommand(
     Guid ConcurrencyToken)
     : ICommand<bool>;
 
-public sealed record ReplacePersonnelFileAssociationsCommand(
+public sealed record AddPersonnelFileAssociationCommand(
     Guid PersonnelFileId,
-    IReadOnlyCollection<AssociationInput> Associations,
+    AssociationInput Association,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>;
+    : ICommand<PersonnelFileAssociationResponse>;
+
+public sealed record UpdatePersonnelFileAssociationCommand(
+    Guid PersonnelFileId,
+    Guid AssociationPublicId,
+    AssociationInput Association,
+    Guid ConcurrencyToken)
+    : ICommand<PersonnelFileAssociationResponse>;
+
+public sealed record DeletePersonnelFileAssociationCommand(
+    Guid PersonnelFileId,
+    Guid AssociationPublicId,
+    Guid ConcurrencyToken)
+    : ICommand<bool>;
 
 public sealed record ReplacePersonnelFileEducationsCommand(
     Guid PersonnelFileId,
@@ -1582,13 +1595,34 @@ internal sealed class DeletePersonnelFileBankAccountCommandValidator : AbstractV
     }
 }
 
-internal sealed class ReplacePersonnelFileAssociationsCommandValidator : AbstractValidator<ReplacePersonnelFileAssociationsCommand>
+internal sealed class AddPersonnelFileAssociationCommandValidator : AbstractValidator<AddPersonnelFileAssociationCommand>
 {
-    public ReplacePersonnelFileAssociationsCommandValidator()
+    public AddPersonnelFileAssociationCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
-        RuleForEach(command => command.Associations).SetValidator(new AssociationInputValidator());
+        RuleFor(command => command.Association).SetValidator(new AssociationInputValidator());
+    }
+}
+
+internal sealed class UpdatePersonnelFileAssociationCommandValidator : AbstractValidator<UpdatePersonnelFileAssociationCommand>
+{
+    public UpdatePersonnelFileAssociationCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.AssociationPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Association).SetValidator(new AssociationInputValidator());
+    }
+}
+
+internal sealed class DeletePersonnelFileAssociationCommandValidator : AbstractValidator<DeletePersonnelFileAssociationCommand>
+{
+    public DeletePersonnelFileAssociationCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.AssociationPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -5996,58 +6030,297 @@ internal sealed class DeletePersonnelFileBankAccountCommandHandler(
     }
 }
 
-internal sealed class ReplacePersonnelFileAssociationsCommandHandler(
+internal sealed class AddPersonnelFileAssociationCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileAssociationsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>
+    : ICommandHandler<AddPersonnelFileAssociationCommand, PersonnelFileAssociationResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>> Handle(
-        ReplacePersonnelFileAssociationsCommand command,
+    public async Task<Result<PersonnelFileAssociationResponse>> Handle(
+        AddPersonnelFileAssociationCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileAssociationResponse>>(
-            command.PersonnelFileId,
-            command.ConcurrencyToken,
-            PersonnelFileTrackedSection.Associations,
-            tenantContext,
-            authorizationService,
-            repository,
-            cancellationToken);
-        if (failure is not null)
+        if (!tenantContext.TenantId.HasValue)
         {
-            return failure;
+            return Result<PersonnelFileAssociationResponse>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
-        var entities = new List<PersonnelFileAssociation>();
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.Associations,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        PersonnelFileAssociation association;
         try
         {
-            entities.AddRange(command.Associations.Select(item => PersonnelFileAssociation.Create(
-                item.AssociationName,
-                item.Role,
-                item.JoinedDate,
-                item.LeftDate,
-                item.Payment)));
+            association = PersonnelFileAssociation.Create(
+                command.Association.AssociationName,
+                command.Association.Role,
+                command.Association.JoinedDate,
+                command.Association.LeftDate,
+                command.Association.Payment);
         }
         catch (InvalidOperationException)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
+            return Result<PersonnelFileAssociationResponse>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
         }
 
-        personnelFile!.ReplaceAssociations(entities);
+        var before = await repository.GetAssociationsAsync(personnelFile.PublicId, cancellationToken);
 
-        return await PersistSectionAsync(
-            personnelFile,
-            PersonnelFilePrintSections.Associations,
-            $"Updated personnel file {personnelFile.FullName} associations.",
-            repository.GetAssociationsAsync,
-            auditService,
-            unitOfWork,
-            AuditEventTypes.PersonnelFileUpdated,
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.AddAssociation(association);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetAssociationsAsync(personnelFile.PublicId, cancellationToken);
+            var response = after.SingleOrDefault(item => item.Id == association.PublicId)
+                ?? throw new InvalidOperationException("Personnel file association response could not be resolved after creation.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Added association for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Associations,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Associations,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileAssociationResponse>.Success(response);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class UpdatePersonnelFileAssociationCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<UpdatePersonnelFileAssociationCommand, PersonnelFileAssociationResponse>
+{
+    public async Task<Result<PersonnelFileAssociationResponse>> Handle(
+        UpdatePersonnelFileAssociationCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.Associations,
             cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetAssociationsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.UpdateAssociation(
+                command.AssociationPublicId,
+                command.Association.AssociationName,
+                command.Association.Role,
+                command.Association.JoinedDate,
+                command.Association.LeftDate,
+                command.Association.Payment);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetAssociationsAsync(personnelFile.PublicId, cancellationToken);
+            var response = after.SingleOrDefault(item => item.Id == command.AssociationPublicId)
+                ?? throw new InvalidOperationException("Personnel file association response could not be resolved after update.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Updated association for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Associations,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Associations,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileAssociationResponse>.Success(response);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(PersonnelFileErrors.NotFound);
+        }
+        catch (InvalidOperationException)
+        {
+            return Result<PersonnelFileAssociationResponse>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class DeletePersonnelFileAssociationCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<DeletePersonnelFileAssociationCommand, bool>
+{
+    public async Task<Result<bool>> Handle(
+        DeletePersonnelFileAssociationCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<bool>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.Associations,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<bool>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<bool>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetAssociationsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.RemoveAssociation(command.AssociationPublicId);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetAssociationsAsync(personnelFile.PublicId, cancellationToken);
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Deleted association for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Associations,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Associations,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<bool>.Success(true);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return Result<bool>.Failure(PersonnelFileErrors.NotFound);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 }
 

@@ -758,31 +758,85 @@ public sealed class PersonnelFileProfileController(
         return this.ToActionResult(result);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/associations")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>(StatusCodes.Status200OK)]
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/associations")]
+    [ProducesResponseType<PersonnelFileAssociationResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>>> ReplaceAssociations(
+    public async Task<ActionResult<PersonnelFileAssociationResponse>> AddAssociation(
         Guid publicId,
-        [FromBody] ReplaceAssociationsRequest request,
+        [FromBody] AddAssociationRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ReplacePersonnelFileAssociationsCommand(
+            new AddPersonnelFileAssociationCommand(
                 publicId,
-                request.Items.Select(item => new AssociationInput(
-                    item.AssociationName,
-                    item.Role,
-                    item.JoinedDate,
-                    item.LeftDate,
-                    item.Payment)).ToArray(),
+                new AssociationInput(
+                    request.AssociationName,
+                    request.Role,
+                    request.JoinedDate,
+                    request.LeftDate,
+                    request.Payment),
+                request.ConcurrencyToken),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(Result<PersonnelFileAssociationResponse>.Failure(result.Error))
+            : StatusCode(StatusCodes.Status201Created, result.Value);
+    }
+
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/associations/{itemPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileAssociationResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileAssociationResponse>> UpdateAssociation(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] UpdateAssociationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new UpdatePersonnelFileAssociationCommand(
+                publicId,
+                itemPublicId,
+                new AssociationInput(
+                    request.AssociationName,
+                    request.Role,
+                    request.JoinedDate,
+                    request.LeftDate,
+                    request.Payment),
                 request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
+    }
+
+    [HttpDelete("api/v1/personnel-files/{publicId:guid}/associations/{itemPublicId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteAssociation(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] ConcurrencyRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeletePersonnelFileAssociationCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(result).Result!
+            : NoContent();
     }
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/educations")]
