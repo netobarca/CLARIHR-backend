@@ -38,7 +38,7 @@ public sealed class PersonnelFilesController(
             return this.ToActionResult(Result<PersonnelFileShellResponse>.Failure(
                 ErrorCatalog.Validation(new Dictionary<string, string[]>
                 {
-                    ["items"] = ["Items is no longer accepted on personnel file create. Use POST /api/v1/personnel-files/{id}/identifications instead."]
+                    ["items"] = ["Items is no longer accepted on personnel file create. Use POST /api/v1/personnel-files/{publicId}/identifications instead."]
                 })));
         }
 

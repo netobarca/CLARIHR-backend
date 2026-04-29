@@ -1273,7 +1273,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task PersonnelFileFamilyMembers_Replace_WithValidKinshipCode_ShouldPersist()
+    public async Task PersonnelFileAddresses_ItemCrud_ShouldPersist()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
@@ -1286,52 +1286,59 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             "DUI",
             "09877777-1");
 
-        var replaceResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/family-members", new
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/addresses", new
         {
-            items = new[]
-            {
-                new
-                {
-                    firstName = "Luis",
-                    lastName = "Ramirez",
-                    kinshipCode = "HERMANO_A",
-                    nationality = "SV",
-                    birthDate = new DateTime(2000, 7, 15),
-                    sex = "Male",
-                    maritalStatus = (string?)null,
-                    occupation = (string?)null,
-                    documentType = (string?)null,
-                    documentNumber = (string?)null,
-                    phone = (string?)null,
-                    isStudying = false,
-                    studyPlace = (string?)null,
-                    academicLevel = (string?)null,
-                    isBeneficiary = false,
-                    isWorking = false,
-                    workplace = (string?)null,
-                    jobTitle = (string?)null,
-                    workPhone = (string?)null,
-                    salary = (decimal?)null,
-                    isDeceased = false,
-                    deceasedDate = (DateTime?)null
-                }
-            },
+            addressLine = "Colonia Escalon",
+            country = "SV",
+            department = "SAN_SALVADOR",
+            municipality = "SAN_SALVADOR_CENTRO",
+            postalCode = "1101",
+            isCurrent = true,
             concurrencyToken = created.ConcurrencyToken
         });
 
-        replaceResponse.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
+        var added = await addResponse.Content.ReadFromJsonAsync<PersonnelFileAddressItem>(JsonOptions);
+        Assert.NotNull(added);
 
-        var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/family-members");
+        var shellAfterAdd = await GetPersonnelFileShellAsync(client, created.Id);
+        var updateResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/addresses/{added!.Id}", new
+        {
+            addressLine = "Residencial San Benito",
+            country = "SV",
+            department = "SAN_SALVADOR",
+            municipality = "SAN_SALVADOR_CENTRO",
+            postalCode = "1101",
+            isCurrent = false,
+            concurrencyToken = shellAfterAdd.ConcurrencyToken
+        });
+
+        updateResponse.EnsureSuccessStatusCode();
+
+        var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/addresses");
         getResponse.EnsureSuccessStatusCode();
+        var addresses = await getResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileAddressItem>>(JsonOptions);
+        var address = Assert.Single(addresses!);
+        Assert.Equal("Residencial San Benito", address.AddressLine);
+        Assert.False(address.IsCurrent);
 
-        var familyMembers = await getResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileFamilyMemberItem>>(JsonOptions);
-        Assert.NotNull(familyMembers);
-        var member = Assert.Single(familyMembers!);
-        Assert.Equal("HERMANO_A", member.KinshipCode);
+        var shellAfterUpdate = await GetPersonnelFileShellAsync(client, created.Id);
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/addresses/{added.Id}")
+        {
+            Content = JsonContent.Create(new { concurrencyToken = shellAfterUpdate.ConcurrencyToken })
+        };
+        var deleteResponse = await client.SendAsync(deleteRequest);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        var getAfterDeleteResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/addresses");
+        getAfterDeleteResponse.EnsureSuccessStatusCode();
+        var addressesAfterDelete = await getAfterDeleteResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileAddressItem>>(JsonOptions);
+        Assert.NotNull(addressesAfterDelete);
+        Assert.Empty(addressesAfterDelete!);
     }
 
     [Fact]
-    public async Task PersonnelFileFamilyMembers_Replace_WithInvalidKinshipCode_ShouldReturnValidation()
+    public async Task PersonnelFileEmergencyContacts_ItemCrud_ShouldPersist()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
@@ -1344,40 +1351,241 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             "DUI",
             "09877777-2");
 
-        var replaceResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/family-members", new
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/emergency-contacts", new
         {
-            items = new[]
-            {
-                new
-                {
-                    firstName = "Marcos",
-                    lastName = "Molina",
-                    kinshipCode = "UNKNOWN_KINSHIP",
-                    nationality = "SV",
-                    birthDate = new DateTime(2001, 1, 5),
-                    sex = "Male",
-                    maritalStatus = (string?)null,
-                    occupation = (string?)null,
-                    documentType = (string?)null,
-                    documentNumber = (string?)null,
-                    phone = (string?)null,
-                    isStudying = false,
-                    studyPlace = (string?)null,
-                    academicLevel = (string?)null,
-                    isBeneficiary = false,
-                    isWorking = false,
-                    workplace = (string?)null,
-                    jobTitle = (string?)null,
-                    workPhone = (string?)null,
-                    salary = (decimal?)null,
-                    isDeceased = false,
-                    deceasedDate = (DateTime?)null
-                }
-            },
+            name = "Rosa Molina",
+            relationship = "Madre",
+            phone = "+50370000020",
+            address = "San Salvador",
+            workplace = "Casa",
             concurrencyToken = created.ConcurrencyToken
         });
 
-        await AssertProblemDetailsAsync(replaceResponse, HttpStatusCode.BadRequest, "common.validation");
+        Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
+        var added = await addResponse.Content.ReadFromJsonAsync<PersonnelFileEmergencyContactItem>(JsonOptions);
+        Assert.NotNull(added);
+
+        var shellAfterAdd = await GetPersonnelFileShellAsync(client, created.Id);
+        var updateResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/emergency-contacts/{added!.Id}", new
+        {
+            name = "Juan Molina",
+            relationship = "Padre",
+            phone = "+50370000021",
+            address = "Santa Tecla",
+            workplace = "Oficina",
+            concurrencyToken = shellAfterAdd.ConcurrencyToken
+        });
+
+        updateResponse.EnsureSuccessStatusCode();
+
+        var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/emergency-contacts");
+        getResponse.EnsureSuccessStatusCode();
+        var contacts = await getResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileEmergencyContactItem>>(JsonOptions);
+        var contact = Assert.Single(contacts!);
+        Assert.Equal("Juan Molina", contact.Name);
+        Assert.Equal("Padre", contact.Relationship);
+
+        var shellAfterUpdate = await GetPersonnelFileShellAsync(client, created.Id);
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/emergency-contacts/{added.Id}")
+        {
+            Content = JsonContent.Create(new { concurrencyToken = shellAfterUpdate.ConcurrencyToken })
+        };
+        var deleteResponse = await client.SendAsync(deleteRequest);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        var getAfterDeleteResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/emergency-contacts");
+        getAfterDeleteResponse.EnsureSuccessStatusCode();
+        var contactsAfterDelete = await getAfterDeleteResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileEmergencyContactItem>>(JsonOptions);
+        Assert.NotNull(contactsAfterDelete);
+        Assert.Empty(contactsAfterDelete!);
+    }
+
+    [Fact]
+    public async Task PersonnelFileFamilyMembers_Add_WithValidKinshipCode_ShouldPersist()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(
+            client,
+            scenario.TenantId,
+            "Dario",
+            "Mena",
+            "DUI",
+            "09877777-3");
+
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/family-members", new
+        {
+            firstName = "Luis",
+            lastName = "Mena",
+            kinshipCode = "HERMANO_A",
+            nationality = "SV",
+            birthDate = new DateTime(2000, 7, 15),
+            sex = "Male",
+            maritalStatus = (string?)null,
+            occupation = (string?)null,
+            documentType = (string?)null,
+            documentNumber = (string?)null,
+            phone = (string?)null,
+            isStudying = false,
+            studyPlace = (string?)null,
+            academicLevel = (string?)null,
+            isBeneficiary = false,
+            isWorking = false,
+            workplace = (string?)null,
+            jobTitle = (string?)null,
+            workPhone = (string?)null,
+            salary = (decimal?)null,
+            isDeceased = false,
+            deceasedDate = (DateTime?)null,
+            concurrencyToken = created.ConcurrencyToken
+        });
+
+        Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
+
+        var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/family-members");
+        getResponse.EnsureSuccessStatusCode();
+
+        var familyMembers = await getResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileFamilyMemberItem>>(JsonOptions);
+        Assert.NotNull(familyMembers);
+        var member = Assert.Single(familyMembers!);
+        Assert.Equal("HERMANO_A", member.KinshipCode);
+    }
+
+    [Fact]
+    public async Task PersonnelFileFamilyMembers_Update_WithInvalidKinshipCode_ShouldReturnValidation()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(
+            client,
+            scenario.TenantId,
+            "Elena",
+            "Molina",
+            "DUI",
+            "09877777-4");
+
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/family-members", new
+        {
+            firstName = "Marcos",
+            lastName = "Molina",
+            kinshipCode = "HERMANO_A",
+            nationality = "SV",
+            birthDate = new DateTime(2001, 1, 5),
+            sex = "Male",
+            maritalStatus = (string?)null,
+            occupation = (string?)null,
+            documentType = (string?)null,
+            documentNumber = (string?)null,
+            phone = (string?)null,
+            isStudying = false,
+            studyPlace = (string?)null,
+            academicLevel = (string?)null,
+            isBeneficiary = false,
+            isWorking = false,
+            workplace = (string?)null,
+            jobTitle = (string?)null,
+            workPhone = (string?)null,
+            salary = (decimal?)null,
+            isDeceased = false,
+            deceasedDate = (DateTime?)null,
+            concurrencyToken = created.ConcurrencyToken
+        });
+        addResponse.EnsureSuccessStatusCode();
+
+        var added = await addResponse.Content.ReadFromJsonAsync<PersonnelFileFamilyMemberItem>(JsonOptions);
+        Assert.NotNull(added);
+        var shellAfterAdd = await GetPersonnelFileShellAsync(client, created.Id);
+
+        var updateResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/family-members/{added!.Id}", new
+        {
+            firstName = "Marcos",
+            lastName = "Molina",
+            kinshipCode = "UNKNOWN_KINSHIP",
+            nationality = "SV",
+            birthDate = new DateTime(2001, 1, 5),
+            sex = "Male",
+            maritalStatus = (string?)null,
+            occupation = (string?)null,
+            documentType = (string?)null,
+            documentNumber = (string?)null,
+            phone = (string?)null,
+            isStudying = false,
+            studyPlace = (string?)null,
+            academicLevel = (string?)null,
+            isBeneficiary = false,
+            isWorking = false,
+            workplace = (string?)null,
+            jobTitle = (string?)null,
+            workPhone = (string?)null,
+            salary = (decimal?)null,
+            isDeceased = false,
+            deceasedDate = (DateTime?)null,
+            concurrencyToken = shellAfterAdd.ConcurrencyToken
+        });
+
+        await AssertProblemDetailsAsync(updateResponse, HttpStatusCode.BadRequest, "common.validation");
+    }
+
+    [Fact]
+    public async Task PersonnelFileFamilyMembers_Delete_ShouldRemoveItem()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(
+            client,
+            scenario.TenantId,
+            "Julia",
+            "Molina",
+            "DUI",
+            "09877777-5");
+
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/family-members", new
+        {
+            firstName = "Marcos",
+            lastName = "Molina",
+            kinshipCode = "HERMANO_A",
+            nationality = "SV",
+            birthDate = new DateTime(2001, 1, 5),
+            sex = "Male",
+            maritalStatus = (string?)null,
+            occupation = (string?)null,
+            documentType = (string?)null,
+            documentNumber = (string?)null,
+            phone = (string?)null,
+            isStudying = false,
+            studyPlace = (string?)null,
+            academicLevel = (string?)null,
+            isBeneficiary = false,
+            isWorking = false,
+            workplace = (string?)null,
+            jobTitle = (string?)null,
+            workPhone = (string?)null,
+            salary = (decimal?)null,
+            isDeceased = false,
+            deceasedDate = (DateTime?)null,
+            concurrencyToken = created.ConcurrencyToken
+        });
+        addResponse.EnsureSuccessStatusCode();
+
+        var added = await addResponse.Content.ReadFromJsonAsync<PersonnelFileFamilyMemberItem>(JsonOptions);
+        Assert.NotNull(added);
+        var shellAfterAdd = await GetPersonnelFileShellAsync(client, created.Id);
+
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/family-members/{added!.Id}")
+        {
+            Content = JsonContent.Create(new { concurrencyToken = shellAfterAdd.ConcurrencyToken })
+        };
+        var deleteResponse = await client.SendAsync(deleteRequest);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/family-members");
+        getResponse.EnsureSuccessStatusCode();
+        var familyMembers = await getResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileFamilyMemberItem>>(JsonOptions);
+        Assert.NotNull(familyMembers);
+        Assert.Empty(familyMembers!);
     }
 
     [Fact]
@@ -7076,7 +7284,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario.TenantId,
             JobProfilePermissionCodes.Admin,
             PositionDescriptionCatalogPermissionCodes.Admin,
-            OrgUnitPermissionCodes.Admin);
+            OrgUnitPermissionCodes.Admin,
+            CompetencyFrameworkPermissionCodes.Admin);
 
     private static TestUserContext CreateJobProfileAdminWithCatalogContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(
@@ -7085,7 +7294,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             JobProfilePermissionCodes.Admin,
             JobProfilePermissionCodes.CatalogAdmin,
             PositionDescriptionCatalogPermissionCodes.Admin,
-            OrgUnitPermissionCodes.Admin);
+            OrgUnitPermissionCodes.Admin,
+            CompetencyFrameworkPermissionCodes.Admin);
 
     private static TestUserContext CreateJobProfileAdminWithAuditContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(
@@ -7094,6 +7304,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             JobProfilePermissionCodes.Admin,
             PositionDescriptionCatalogPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
+            CompetencyFrameworkPermissionCodes.Admin,
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
 
@@ -7132,7 +7343,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             PositionSlotPermissionCodes.Admin,
             OrgUnitPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
-            PositionDescriptionCatalogPermissionCodes.Admin);
+            PositionDescriptionCatalogPermissionCodes.Admin,
+            CompetencyFrameworkPermissionCodes.Admin);
 
     private static TestUserContext CreatePositionSlotAdminWithAuditContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(
@@ -7142,6 +7354,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             OrgUnitPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
             PositionDescriptionCatalogPermissionCodes.Admin,
+            CompetencyFrameworkPermissionCodes.Admin,
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
 
@@ -7156,7 +7369,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             OrgUnitPermissionCodes.Admin,
             JobProfilePermissionCodes.Admin,
             PositionSlotPermissionCodes.Admin,
-            PositionDescriptionCatalogPermissionCodes.Admin);
+            PositionDescriptionCatalogPermissionCodes.Admin,
+            CompetencyFrameworkPermissionCodes.Admin);
 
     private static TestUserContext CreateCostCenterAdminWithAuditContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(
@@ -7167,6 +7381,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             JobProfilePermissionCodes.Admin,
             PositionSlotPermissionCodes.Admin,
             PositionDescriptionCatalogPermissionCodes.Admin,
+            CompetencyFrameworkPermissionCodes.Admin,
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
 
@@ -7449,6 +7664,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(await identificationsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileIdentificationItem>>(JsonOptions));
 
         return refreshed!;
+    }
+
+    private async Task<PersonnelFileShellItem> GetPersonnelFileShellAsync(HttpClient client, Guid personnelFileId)
+    {
+        var shellResponse = await client.GetAsync($"/api/v1/personnel-files/{personnelFileId}");
+        shellResponse.EnsureSuccessStatusCode();
+
+        var shell = await shellResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
+        Assert.NotNull(shell);
+        return shell!;
     }
 
     private async Task<JobCatalogItemItem> CreateJobCatalogItemAsync(
@@ -8186,6 +8411,23 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string LastName,
         string FullName,
         string KinshipCode);
+
+    private sealed record PersonnelFileAddressItem(
+        Guid Id,
+        string AddressLine,
+        string? Country,
+        string? Department,
+        string? Municipality,
+        string? PostalCode,
+        bool IsCurrent);
+
+    private sealed record PersonnelFileEmergencyContactItem(
+        Guid Id,
+        string Name,
+        string Relationship,
+        string Phone,
+        string? Address,
+        string? Workplace);
 
     private sealed record PersonnelFileListProjectionItem(
         Guid Id,

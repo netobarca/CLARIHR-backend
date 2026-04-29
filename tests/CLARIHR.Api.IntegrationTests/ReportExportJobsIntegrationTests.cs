@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.Reports;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
@@ -246,6 +247,9 @@ public sealed class ReportExportIntegrationTestWebApplicationFactory : WebApplic
 
             await dbContext.Database.EnsureDeletedAsync();
             await dbContext.Database.MigrateAsync();
+
+            var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
+            await planEntitlementService.EnsureSystemPlanDefaultsAsync(CancellationToken.None);
 
             var scenario = await IntegrationTestSeeder.SeedAsync(dbContext);
             if (customSeed is not null)

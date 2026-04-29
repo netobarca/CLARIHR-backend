@@ -293,6 +293,38 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
+    public void UpdateIdentification(
+        Guid identificationPublicId,
+        string identificationType,
+        string identificationNumber,
+        DateTime? issuedDate,
+        DateTime? expiryDate,
+        string? issuer,
+        bool isPrimary)
+    {
+        var identification = _identifications.FirstOrDefault(i => i.PublicId == identificationPublicId)
+            ?? throw new InvalidOperationException($"Identification with public id {identificationPublicId} not found.");
+
+        identification.Update(
+            identificationType,
+            identificationNumber,
+            issuedDate,
+            expiryDate,
+            issuer,
+            isPrimary);
+
+        RefreshConcurrencyToken();
+    }
+
+    public void RemoveIdentification(Guid identificationPublicId)
+    {
+        var identification = _identifications.FirstOrDefault(i => i.PublicId == identificationPublicId)
+            ?? throw new InvalidOperationException($"Identification with public id {identificationPublicId} not found.");
+
+        _identifications.Remove(identification);
+        RefreshConcurrencyToken();
+    }
+
     public void ReplaceAddresses(IEnumerable<PersonnelFileAddress> items)
     {
         _addresses.Clear();
@@ -302,6 +334,38 @@ public sealed class PersonnelFile : TenantEntity
             _addresses.Add(item);
         }
 
+        RefreshConcurrencyToken();
+    }
+
+    public void AddAddress(PersonnelFileAddress item)
+    {
+        item.SetTenantId(TenantId);
+        _addresses.Add(item);
+        RefreshConcurrencyToken();
+    }
+
+    public void UpdateAddress(
+        Guid addressPublicId,
+        string addressLine,
+        string? country,
+        string? department,
+        string? municipality,
+        string? postalCode,
+        bool isCurrent)
+    {
+        var address = _addresses.FirstOrDefault(i => i.PublicId == addressPublicId)
+            ?? throw new InvalidOperationException($"Address with public id {addressPublicId} not found.");
+
+        address.Update(addressLine, country, department, municipality, postalCode, isCurrent);
+        RefreshConcurrencyToken();
+    }
+
+    public void RemoveAddress(Guid addressPublicId)
+    {
+        var address = _addresses.FirstOrDefault(i => i.PublicId == addressPublicId)
+            ?? throw new InvalidOperationException($"Address with public id {addressPublicId} not found.");
+
+        _addresses.Remove(address);
         RefreshConcurrencyToken();
     }
 
@@ -317,6 +381,37 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
+    public void AddEmergencyContact(PersonnelFileEmergencyContact item)
+    {
+        item.SetTenantId(TenantId);
+        _emergencyContacts.Add(item);
+        RefreshConcurrencyToken();
+    }
+
+    public void UpdateEmergencyContact(
+        Guid emergencyContactPublicId,
+        string name,
+        string relationship,
+        string phone,
+        string? address,
+        string? workplace)
+    {
+        var emergencyContact = _emergencyContacts.FirstOrDefault(i => i.PublicId == emergencyContactPublicId)
+            ?? throw new InvalidOperationException($"Emergency contact with public id {emergencyContactPublicId} not found.");
+
+        emergencyContact.Update(name, relationship, phone, address, workplace);
+        RefreshConcurrencyToken();
+    }
+
+    public void RemoveEmergencyContact(Guid emergencyContactPublicId)
+    {
+        var emergencyContact = _emergencyContacts.FirstOrDefault(i => i.PublicId == emergencyContactPublicId)
+            ?? throw new InvalidOperationException($"Emergency contact with public id {emergencyContactPublicId} not found.");
+
+        _emergencyContacts.Remove(emergencyContact);
+        RefreshConcurrencyToken();
+    }
+
     public void ReplaceFamilyMembers(IEnumerable<PersonnelFileFamilyMember> items)
     {
         _familyMembers.Clear();
@@ -329,15 +424,99 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
-    public void ReplaceHobbies(IEnumerable<PersonnelFileHobby> items)
+    public void AddFamilyMember(PersonnelFileFamilyMember item)
     {
-        _hobbies.Clear();
-        foreach (var item in items)
-        {
-            item.SetTenantId(TenantId);
-            _hobbies.Add(item);
-        }
+        item.SetTenantId(TenantId);
+        _familyMembers.Add(item);
+        RefreshConcurrencyToken();
+    }
 
+    public void UpdateFamilyMember(
+        Guid familyMemberPublicId,
+        string firstName,
+        string lastName,
+        string kinshipCode,
+        string? nationality,
+        DateTime? birthDate,
+        PersonnelFamilyMemberSex sex,
+        string? maritalStatus,
+        string? occupation,
+        string? documentType,
+        string? documentNumber,
+        string? phone,
+        bool isStudying,
+        string? studyPlace,
+        string? academicLevel,
+        bool isBeneficiary,
+        bool isWorking,
+        string? workplace,
+        string? jobTitle,
+        string? workPhone,
+        decimal? salary,
+        bool isDeceased,
+        DateTime? deceasedDate)
+    {
+        var familyMember = _familyMembers.FirstOrDefault(i => i.PublicId == familyMemberPublicId)
+            ?? throw new InvalidOperationException($"Family member with public id {familyMemberPublicId} not found.");
+
+        familyMember.Update(
+            firstName,
+            lastName,
+            kinshipCode,
+            nationality,
+            birthDate,
+            sex,
+            maritalStatus,
+            occupation,
+            documentType,
+            documentNumber,
+            phone,
+            isStudying,
+            studyPlace,
+            academicLevel,
+            isBeneficiary,
+            isWorking,
+            workplace,
+            jobTitle,
+            workPhone,
+            salary,
+            isDeceased,
+            deceasedDate);
+
+        RefreshConcurrencyToken();
+    }
+
+    public void RemoveFamilyMember(Guid familyMemberPublicId)
+    {
+        var familyMember = _familyMembers.FirstOrDefault(i => i.PublicId == familyMemberPublicId)
+            ?? throw new InvalidOperationException($"Family member with public id {familyMemberPublicId} not found.");
+
+        _familyMembers.Remove(familyMember);
+        RefreshConcurrencyToken();
+    }
+
+    public void AddHobby(PersonnelFileHobby item)
+    {
+        item.SetTenantId(TenantId);
+        _hobbies.Add(item);
+        RefreshConcurrencyToken();
+    }
+
+    public void UpdateHobby(Guid hobbyPublicId, string hobbyName)
+    {
+        var hobby = _hobbies.FirstOrDefault(i => i.PublicId == hobbyPublicId)
+            ?? throw new InvalidOperationException($"Hobby with public id {hobbyPublicId} not found.");
+
+        hobby.Update(hobbyName);
+        RefreshConcurrencyToken();
+    }
+
+    public void RemoveHobby(Guid hobbyPublicId)
+    {
+        var hobby = _hobbies.FirstOrDefault(i => i.PublicId == hobbyPublicId)
+            ?? throw new InvalidOperationException($"Hobby with public id {hobbyPublicId} not found.");
+
+        _hobbies.Remove(hobby);
         RefreshConcurrencyToken();
     }
 
@@ -537,6 +716,28 @@ public sealed class PersonnelFileIdentification : TenantEntity
         string? issuer,
         bool isPrimary) =>
         new(identificationType, identificationNumber, issuedDate, expiryDate, issuer, isPrimary);
+
+    internal void Update(
+        string identificationType,
+        string identificationNumber,
+        DateTime? issuedDate,
+        DateTime? expiryDate,
+        string? issuer,
+        bool isPrimary)
+    {
+        if (issuedDate.HasValue && expiryDate.HasValue && expiryDate.Value.Date < issuedDate.Value.Date)
+        {
+            throw new InvalidOperationException("ExpiryDate cannot be earlier than IssuedDate.");
+        }
+
+        IdentificationType = PersonnelFileNormalization.NormalizeCode(identificationType);
+        IdentificationNumber = PersonnelFileNormalization.Clean(identificationNumber, nameof(identificationNumber));
+        NormalizedIdentificationNumber = PersonnelFileNormalization.NormalizeCode(identificationNumber);
+        IssuedDate = PersonnelFileNormalization.NormalizeDate(issuedDate);
+        ExpiryDate = PersonnelFileNormalization.NormalizeDate(expiryDate);
+        Issuer = PersonnelFileNormalization.CleanOptional(issuer);
+        IsPrimary = isPrimary;
+    }
 }
 
 public sealed class PersonnelFileAddress : TenantEntity
@@ -586,6 +787,22 @@ public sealed class PersonnelFileAddress : TenantEntity
         string? postalCode,
         bool isCurrent) =>
         new(addressLine, country, department, municipality, postalCode, isCurrent);
+
+    internal void Update(
+        string addressLine,
+        string? country,
+        string? department,
+        string? municipality,
+        string? postalCode,
+        bool isCurrent)
+    {
+        AddressLine = PersonnelFileNormalization.Clean(addressLine, nameof(addressLine));
+        Country = PersonnelFileNormalization.CleanOptional(country);
+        Department = PersonnelFileNormalization.CleanOptional(department);
+        Municipality = PersonnelFileNormalization.CleanOptional(municipality);
+        PostalCode = PersonnelFileNormalization.CleanOptional(postalCode);
+        IsCurrent = isCurrent;
+    }
 }
 
 public sealed class PersonnelFileEmergencyContact : TenantEntity
@@ -630,6 +847,20 @@ public sealed class PersonnelFileEmergencyContact : TenantEntity
         string? address,
         string? workplace) =>
         new(name, relationship, phone, address, workplace);
+
+    internal void Update(
+        string name,
+        string relationship,
+        string phone,
+        string? address,
+        string? workplace)
+    {
+        Name = PersonnelFileNormalization.Clean(name, nameof(name));
+        Relationship = PersonnelFileNormalization.Clean(relationship, nameof(relationship));
+        Phone = PersonnelFileNormalization.Clean(phone, nameof(phone));
+        Address = PersonnelFileNormalization.CleanOptional(address);
+        Workplace = PersonnelFileNormalization.CleanOptional(workplace);
+    }
 }
 
 public sealed class PersonnelFileFamilyMember : TenantEntity
@@ -801,6 +1032,72 @@ public sealed class PersonnelFileFamilyMember : TenantEntity
             salary,
             isDeceased,
             deceasedDate);
+
+    internal void Update(
+        string firstName,
+        string lastName,
+        string kinshipCode,
+        string? nationality,
+        DateTime? birthDate,
+        PersonnelFamilyMemberSex sex,
+        string? maritalStatus,
+        string? occupation,
+        string? documentType,
+        string? documentNumber,
+        string? phone,
+        bool isStudying,
+        string? studyPlace,
+        string? academicLevel,
+        bool isBeneficiary,
+        bool isWorking,
+        string? workplace,
+        string? jobTitle,
+        string? workPhone,
+        decimal? salary,
+        bool isDeceased,
+        DateTime? deceasedDate)
+    {
+        if (isStudying)
+        {
+            _ = PersonnelFileNormalization.Clean(studyPlace ?? string.Empty, nameof(studyPlace));
+            _ = PersonnelFileNormalization.Clean(academicLevel ?? string.Empty, nameof(academicLevel));
+        }
+
+        if (isWorking)
+        {
+            _ = PersonnelFileNormalization.Clean(workplace ?? string.Empty, nameof(workplace));
+            _ = PersonnelFileNormalization.Clean(jobTitle ?? string.Empty, nameof(jobTitle));
+        }
+
+        if (isDeceased && !deceasedDate.HasValue)
+        {
+            throw new InvalidOperationException("DeceasedDate is required when IsDeceased is true.");
+        }
+
+        FirstName = PersonnelFileNormalization.Clean(firstName, nameof(firstName));
+        LastName = PersonnelFileNormalization.Clean(lastName, nameof(lastName));
+        FullName = $"{FirstName} {LastName}";
+        KinshipCode = PersonnelFileNormalization.Clean(kinshipCode, nameof(kinshipCode));
+        Nationality = PersonnelFileNormalization.CleanOptional(nationality);
+        BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
+        Sex = sex;
+        MaritalStatus = PersonnelFileNormalization.CleanOptional(maritalStatus);
+        Occupation = PersonnelFileNormalization.CleanOptional(occupation);
+        DocumentType = PersonnelFileNormalization.CleanOptional(documentType);
+        DocumentNumber = PersonnelFileNormalization.CleanOptional(documentNumber);
+        Phone = PersonnelFileNormalization.CleanOptional(phone);
+        IsStudying = isStudying;
+        StudyPlace = PersonnelFileNormalization.CleanOptional(studyPlace);
+        AcademicLevel = PersonnelFileNormalization.CleanOptional(academicLevel);
+        IsBeneficiary = isBeneficiary;
+        IsWorking = isWorking;
+        Workplace = PersonnelFileNormalization.CleanOptional(workplace);
+        JobTitle = PersonnelFileNormalization.CleanOptional(jobTitle);
+        WorkPhone = PersonnelFileNormalization.CleanOptional(workPhone);
+        Salary = salary;
+        IsDeceased = isDeceased;
+        DeceasedDate = PersonnelFileNormalization.NormalizeDate(deceasedDate);
+    }
 }
 
 public sealed class PersonnelFileHobby : TenantEntity
@@ -823,6 +1120,11 @@ public sealed class PersonnelFileHobby : TenantEntity
 
     public static PersonnelFileHobby Create(string hobbyName) =>
         new(hobbyName);
+
+    internal void Update(string hobbyName)
+    {
+        HobbyName = PersonnelFileNormalization.Clean(hobbyName, nameof(hobbyName));
+    }
 }
 
 public sealed class PersonnelFileEmployeeRelation : TenantEntity

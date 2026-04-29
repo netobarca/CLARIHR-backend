@@ -1,0 +1,352 @@
+using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.PersonnelFiles;
+using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.Pagination;
+using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Domain.PersonnelFiles;
+
+namespace CLARIHR.Application.UnitTests;
+
+public sealed class PersonnelFileProfileItemCommandTests
+{
+    private static readonly Guid TenantId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+
+    [Fact]
+    public async Task AddAddress_WhenRequestIsValid_ShouldPersistAndReturnCreatedItem()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateAddAddressHandler(repository);
+
+        var result = await handler.Handle(
+            new AddPersonnelFileAddressCommand(
+                personnelFile.PublicId,
+                new AddressInput("Colonia Escalon", "SV", "SAN_SALVADOR", "SAN_SALVADOR_CENTRO", "1101", true),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Colonia Escalon", result.Value.AddressLine);
+        Assert.Single(personnelFile.Addresses);
+        Assert.Equal(2, repository.GetAddressesCalls);
+    }
+
+    [Fact]
+    public async Task DeleteEmergencyContact_WhenItemExists_ShouldRemoveItem()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var emergencyContact = PersonnelFileEmergencyContact.Create("Maria", "Madre", "+50370000001", null, null);
+        personnelFile.AddEmergencyContact(emergencyContact);
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateDeleteEmergencyContactHandler(repository);
+
+        var result = await handler.Handle(
+            new DeletePersonnelFileEmergencyContactCommand(
+                personnelFile.PublicId,
+                emergencyContact.PublicId,
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value);
+        Assert.Empty(personnelFile.EmergencyContacts);
+        Assert.Equal(2, repository.GetEmergencyContactsCalls);
+    }
+
+    [Fact]
+    public async Task UpdateFamilyMember_WhenKinshipCodeIsInvalid_ShouldReturnValidationError()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var familyMember = PersonnelFileFamilyMember.Create(
+            "Luis",
+            "Lopez",
+            "HERMANO_A",
+            null,
+            null,
+            PersonnelFamilyMemberSex.Male,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            null,
+            false,
+            false,
+            null,
+            null,
+            null,
+            null,
+            false,
+            null);
+        personnelFile.AddFamilyMember(familyMember);
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateUpdateFamilyMemberHandler(repository);
+
+        var result = await handler.Handle(
+            new UpdatePersonnelFileFamilyMemberCommand(
+                personnelFile.PublicId,
+                familyMember.PublicId,
+                new FamilyMemberInput(
+                    "Luis",
+                    "Lopez",
+                    "INVALID_KINSHIP",
+                    null,
+                    null,
+                    PersonnelFamilyMemberSex.Male,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    false,
+                    null,
+                    null,
+                    false,
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    false,
+                    null),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.Validation, result.Error.Type);
+        Assert.NotNull(result.Error.ValidationErrors);
+        Assert.Contains("kinshipCode", result.Error.ValidationErrors!.Keys);
+    }
+
+    private static AddPersonnelFileAddressCommandHandler CreateAddAddressHandler(TestPersonnelFileRepository repository)
+    {
+        return new AddPersonnelFileAddressCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
+    private static DeletePersonnelFileEmergencyContactCommandHandler CreateDeleteEmergencyContactHandler(TestPersonnelFileRepository repository)
+    {
+        return new DeletePersonnelFileEmergencyContactCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
+    private static UpdatePersonnelFileFamilyMemberCommandHandler CreateUpdateFamilyMemberHandler(TestPersonnelFileRepository repository)
+    {
+        return new UpdatePersonnelFileFamilyMemberCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
+    private static PersonnelFile CreatePersonnelFile(PersonnelFileRecordType recordType, string firstName, string lastName)
+    {
+        var file = PersonnelFile.Create(
+            recordType,
+            firstName,
+            lastName,
+            new DateTime(1990, 1, 1),
+            maritalStatus: null,
+            profession: null,
+            nationality: null,
+            personalEmail: null,
+            institutionalEmail: null,
+            personalPhone: null,
+            institutionalPhone: null,
+            birthCountry: null,
+            birthDepartment: null,
+            birthMunicipality: null,
+            photoUrl: null,
+            orgUnitPublicId: null,
+            assignedPositionSlotPublicId: recordType == PersonnelFileRecordType.Employee ? Guid.NewGuid() : null,
+            customDataJson: null);
+        file.SetTenantId(TenantId);
+        SetEntityId(file, Random.Shared.NextInt64(1, long.MaxValue));
+        return file;
+    }
+
+    private static void SetEntityId(PersonnelFile file, long value)
+    {
+        var property = typeof(PersonnelFile).BaseType?.BaseType?.GetProperty("Id");
+        property?.SetValue(file, value);
+    }
+
+    private sealed class FixedTenantContext(Guid? tenantId) : ITenantContext
+    {
+        public Guid? TenantId { get; } = tenantId;
+    }
+
+    private sealed class NoOpAuditService : IAuditService
+    {
+        public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task LogForTenantAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class AllowPersonnelFileAuthorizationService : IPersonnelFileAuthorizationService
+    {
+        public Task<Result> EnsureCanReadAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
+
+        public Task<Result> EnsureCanManageAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
+
+        public Error TenantMismatch(RbacPermissionAction action) =>
+            new("TENANT_MISMATCH", "Tenant mismatch.", ErrorType.Forbidden);
+    }
+
+    private sealed class TestPersonnelFileRepository(params PersonnelFile[] files) : IPersonnelFileRepository
+    {
+        private readonly Dictionary<Guid, PersonnelFile> _files = files.ToDictionary(file => file.PublicId);
+
+        public int GetAddressesCalls { get; private set; }
+        public int GetEmergencyContactsCalls { get; private set; }
+
+        public void Add(PersonnelFile personnelFile) => throw new NotSupportedException();
+
+        public void AddCustomFieldDefinition(PersonnelFileCustomFieldDefinition definition) => throw new NotSupportedException();
+
+        public Task<int> CountActiveEmployeesAsync(Guid tenantId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFile?> GetByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
+            Task.FromResult(_files.GetValueOrDefault(personnelFileId));
+
+        public Task<PersonnelFile?> GetForAccessCheckAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
+            GetByIdAsync(personnelFileId, cancellationToken);
+
+        public Task<PersonnelFile?> GetForProfileSectionUpdateAsync(Guid personnelFileId, PersonnelFileTrackedSection section, CancellationToken cancellationToken) =>
+            GetByIdAsync(personnelFileId, cancellationToken);
+
+        public Task<PersonnelFile?> GetByLinkedUserIdAsync(Guid tenantId, Guid linkedUserPublicId, CancellationToken cancellationToken) =>
+            Task.FromResult<PersonnelFile?>(null);
+
+        public Task<bool> ExistsOutsideTenantAsync(Guid personnelFileId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task<bool> IdentificationExistsAsync(Guid tenantId, string identificationType, string normalizedIdentificationNumber, long? excludingPersonnelFileId, CancellationToken cancellationToken) => Task.FromResult(false);
+
+        public Task<PagedResponse<PersonnelFileListItemResponse>> SearchAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? maritalStatus, string? nationality, string? profession, DateTime? createdFromUtc, DateTime? createdToUtc, string? search, string? sortBy, PersonnelFileSortDirection sortDirection, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileShellResponse?> GetShellByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileResponse?> GetResponseByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFilePersonalInfoResponse?> GetPersonalInfoAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyCollection<PersonnelFileIdentificationResponse>> GetIdentificationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyCollection<PersonnelFileAddressResponse>> GetAddressesAsync(Guid personnelFileId, CancellationToken cancellationToken)
+        {
+            GetAddressesCalls++;
+            if (!_files.TryGetValue(personnelFileId, out var file))
+            {
+                return Task.FromResult<IReadOnlyCollection<PersonnelFileAddressResponse>>(Array.Empty<PersonnelFileAddressResponse>());
+            }
+
+            return Task.FromResult<IReadOnlyCollection<PersonnelFileAddressResponse>>(
+                file.Addresses.Select(item => new PersonnelFileAddressResponse(
+                    item.PublicId,
+                    item.AddressLine,
+                    item.Country,
+                    item.Department,
+                    item.Municipality,
+                    item.PostalCode,
+                    item.IsCurrent)).ToArray());
+        }
+
+        public Task<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>> GetEmergencyContactsAsync(Guid personnelFileId, CancellationToken cancellationToken)
+        {
+            GetEmergencyContactsCalls++;
+            if (!_files.TryGetValue(personnelFileId, out var file))
+            {
+                return Task.FromResult<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>>(Array.Empty<PersonnelFileEmergencyContactResponse>());
+            }
+
+            return Task.FromResult<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>>(
+                file.EmergencyContacts.Select(item => new PersonnelFileEmergencyContactResponse(
+                    item.PublicId,
+                    item.Name,
+                    item.Relationship,
+                    item.Phone,
+                    item.Address,
+                    item.Workplace)).ToArray());
+        }
+
+        public Task<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>> GetFamilyMembersAsync(Guid personnelFileId, CancellationToken cancellationToken)
+        {
+            if (!_files.TryGetValue(personnelFileId, out var file))
+            {
+                return Task.FromResult<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>(Array.Empty<PersonnelFileFamilyMemberResponse>());
+            }
+
+            return Task.FromResult<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>>(
+                file.FamilyMembers.Select(item => new PersonnelFileFamilyMemberResponse(
+                    item.PublicId,
+                    item.FirstName,
+                    item.LastName,
+                    item.FullName,
+                    item.KinshipCode,
+                    item.Nationality,
+                    item.BirthDate,
+                    item.Sex,
+                    item.MaritalStatus,
+                    item.Occupation,
+                    item.DocumentType,
+                    item.DocumentNumber,
+                    item.Phone,
+                    item.IsStudying,
+                    item.StudyPlace,
+                    item.AcademicLevel,
+                    item.IsBeneficiary,
+                    item.IsWorking,
+                    item.Workplace,
+                    item.JobTitle,
+                    item.WorkPhone,
+                    item.Salary,
+                    item.IsDeceased,
+                    item.DeceasedDate)).ToArray());
+        }
+
+        public Task<IReadOnlyCollection<PersonnelFileHobbyResponse>> GetHobbiesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileEducationResponse>> GetEducationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileLanguageResponse>> GetLanguagesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileTrainingResponse>> GetTrainingsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>> GetPreviousEmploymentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileReferenceResponse>> GetReferencesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> GetDocumentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileDocumentMetadataResponse?> GetDocumentMetadataByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileObservationResponse>> GetObservationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<Guid>> GetBankAccountIdsAsync(Guid personnelFileId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyCollection<Guid>>(Array.Empty<Guid>());
+        public Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(Guid companyId, string category, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(Guid companyId, string category, string? parentCode, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<string?> GetCompanyCountryCodeAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult<string?>("SV");
+        public Task<bool> CatalogCodeIsActiveAsync(Guid companyId, string category, string code, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken) => Task.FromResult(true);
+        public Task<bool> ReferenceCatalogCodeIsActiveAsync(string countryCode, string category, string code, CancellationToken cancellationToken) =>
+            Task.FromResult(category != PersonnelReferenceCatalogCategories.Kinship || string.Equals(code, "HERMANO_A", StringComparison.OrdinalIgnoreCase));
+        public Task<bool> ReferenceMunicipalityBelongsToDepartmentAsync(string countryCode, string departmentCode, string municipalityCode, CancellationToken cancellationToken) => Task.FromResult(true);
+        public Task<PersonnelFileDocument?> GetDocumentByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> DocumentExistsOutsideTenantAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileExportRow>> GetExportRowsAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? maritalStatus, string? nationality, string? profession, DateTime? createdFromUtc, DateTime? createdToUtc, string? search, string? sortBy, PersonnelFileSortDirection sortDirection, int? maxRows, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileDynamicQueryResponse> DynamicQueryAsync(Guid tenantId, IReadOnlyCollection<PersonnelFileDynamicFilterInput> filters, IReadOnlyCollection<string> groupBy, IReadOnlyCollection<PersonnelFileDynamicSortInput> sort, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileAnalyticsSummaryResponse> GetAnalyticsSummaryAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>> GetCustomFieldDefinitionsAsync(Guid tenantId, bool? isActive, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileCustomFieldDefinition?> GetCustomFieldDefinitionByIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> CustomFieldKeyExistsAsync(Guid tenantId, string normalizedKey, long? excludingId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<Guid>> GetLinkedUserIdsByAssignedPositionSlotAsync(Guid tenantId, Guid assignedPositionSlotId, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+}

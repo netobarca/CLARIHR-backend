@@ -938,17 +938,139 @@ components:
             concurrencyToken:
               type: string
               format: uuid
-    ReplaceIdentificationsRequest:
+    PersonnelFileUpdateIdentificationRequest:
+      allOf:
+        - $ref: '#/components/schemas/PersonnelFileIdentificationItemRequest'
+        - type: object
+          required:
+            - concurrencyToken
+          properties:
+            concurrencyToken:
+              type: string
+              format: uuid
+    PersonnelFileAddressMutationRequest:
       type: object
       required:
-        - items
+        - addressLine
+        - isCurrent
         - concurrencyToken
       properties:
-        items:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/PersonnelFileIdentificationItemRequest'
+        addressLine:
+          type: string
+        country:
+          type: string
+          nullable: true
+        department:
+          type: string
+          nullable: true
+        municipality:
+          type: string
+          nullable: true
+        postalCode:
+          type: string
+          nullable: true
+        isCurrent:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+    PersonnelFileEmergencyContactMutationRequest:
+      type: object
+      required:
+        - name
+        - relationship
+        - phone
+        - concurrencyToken
+      properties:
+        name:
+          type: string
+        relationship:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+          nullable: true
+        workplace:
+          type: string
+          nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+    PersonnelFileFamilyMemberMutationRequest:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - kinshipCode
+        - sex
+        - isStudying
+        - isBeneficiary
+        - isWorking
+        - isDeceased
+        - concurrencyToken
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        kinshipCode:
+          type: string
+        nationality:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date-time
+          nullable: true
+        sex:
+          $ref: '#/components/schemas/PersonnelFamilyMemberSex'
+        maritalStatus:
+          type: string
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+        documentType:
+          type: string
+          nullable: true
+        documentNumber:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        isStudying:
+          type: boolean
+        studyPlace:
+          type: string
+          nullable: true
+        academicLevel:
+          type: string
+          nullable: true
+        isBeneficiary:
+          type: boolean
+        isWorking:
+          type: boolean
+        workplace:
+          type: string
+          nullable: true
+        jobTitle:
+          type: string
+          nullable: true
+        workPhone:
+          type: string
+          nullable: true
+        salary:
+          type: number
+          format: decimal
+          nullable: true
+        isDeceased:
+          type: boolean
+        deceasedDate:
+          type: string
+          format: date-time
+          nullable: true
         concurrencyToken:
           type: string
           format: uuid
@@ -983,20 +1105,132 @@ components:
           nullable: true
         isPrimary:
           type: boolean
-    PersonnelFileSectionResultOfPersonnelFileIdentificationResponseCollection:
+    PersonnelFileAddressResponse:
       type: object
       required:
-        - data
-        - personnelFileConcurrencyToken
+        - id
+        - addressLine
+        - isCurrent
       properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/PersonnelFileIdentificationResponse'
-        personnelFileConcurrencyToken:
+        id:
           type: string
           format: uuid
-        modifiedAtUtc:
+        addressLine:
+          type: string
+        country:
+          type: string
+          nullable: true
+        department:
+          type: string
+          nullable: true
+        municipality:
+          type: string
+          nullable: true
+        postalCode:
+          type: string
+          nullable: true
+        isCurrent:
+          type: boolean
+    PersonnelFileEmergencyContactResponse:
+      type: object
+      required:
+        - id
+        - name
+        - relationship
+        - phone
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        relationship:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+          nullable: true
+        workplace:
+          type: string
+          nullable: true
+    PersonnelFileFamilyMemberResponse:
+      type: object
+      required:
+        - id
+        - firstName
+        - lastName
+        - fullName
+        - kinshipCode
+        - sex
+        - isStudying
+        - isBeneficiary
+        - isWorking
+        - isDeceased
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        fullName:
+          type: string
+        kinshipCode:
+          type: string
+        nationality:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date-time
+          nullable: true
+        sex:
+          $ref: '#/components/schemas/PersonnelFamilyMemberSex'
+        maritalStatus:
+          type: string
+          nullable: true
+        occupation:
+          type: string
+          nullable: true
+        documentType:
+          type: string
+          nullable: true
+        documentNumber:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        isStudying:
+          type: boolean
+        studyPlace:
+          type: string
+          nullable: true
+        academicLevel:
+          type: string
+          nullable: true
+        isBeneficiary:
+          type: boolean
+        isWorking:
+          type: boolean
+        workplace:
+          type: string
+          nullable: true
+        jobTitle:
+          type: string
+          nullable: true
+        workPhone:
+          type: string
+          nullable: true
+        salary:
+          type: number
+          format: decimal
+          nullable: true
+        isDeceased:
+          type: boolean
+        deceasedDate:
           type: string
           format: date-time
           nullable: true
@@ -6862,7 +7096,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{id}/identifications:
+  /api/v1/personnel-files/{publicId}/identifications:
     get:
       tags:
         - personnel-files
@@ -6871,7 +7105,7 @@ paths:
       security:
         - Bearer: []
       parameters:
-        - name: id
+        - name: publicId
           in: path
           required: true
           schema:
@@ -6913,7 +7147,7 @@ paths:
       security:
         - Bearer: []
       parameters:
-        - name: id
+        - name: publicId
           in: path
           required: true
           schema:
@@ -6968,16 +7202,23 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}:
     put:
       tags:
         - personnel-files
-      operationId: ReplacePersonnelFileIdentifications
-      summary: Replace the identifications section of a personnel file
-      description: Replaces the full identifications collection for the target personnel file.
+      operationId: UpdatePersonnelFileIdentification
+      summary: Update one identification of a personnel file
+      description: Updates a single identification row for the target personnel file. The request uses the parent personnel file `concurrencyToken`.
       security:
         - Bearer: []
       parameters:
-        - name: id
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
           in: path
           required: true
           schema:
@@ -6988,14 +7229,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReplaceIdentificationsRequest'
+              $ref: '#/components/schemas/PersonnelFileUpdateIdentificationRequest'
       responses:
         '200':
-          description: Identifications replaced successfully.
+          description: Identification updated successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileIdentificationResponseCollection'
+                $ref: '#/components/schemas/PersonnelFileIdentificationResponse'
         '400':
           description: Validation error, such as invalid identification format or inactive identification type.
           content:
@@ -7021,13 +7262,691 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
-          description: The parent `concurrencyToken` is stale or one of the submitted identifications is already used by another personnel file in the tenant.
+          description: The parent `concurrencyToken` is stale or the identification is already used by another personnel file in the tenant.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Business-rule violation, such as invalid effective date range.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/addresses:
+    get:
+      tags:
+        - personnel-files
+      operationId: GetPersonnelFileAddresses
+      summary: List personnel file addresses
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Address collection returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileAddressResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - personnel-files
+      operationId: AddPersonnelFileAddress
+      summary: Add one address to a personnel file
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonnelFileAddressMutationRequest'
+      responses:
+        '201':
+          description: Address created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileAddressResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The parent `concurrencyToken` is stale.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}:
+    put:
+      tags:
+        - personnel-files
+      operationId: UpdatePersonnelFileAddress
+      summary: Update one address of a personnel file
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonnelFileAddressMutationRequest'
+      responses:
+        '200':
+          description: Address updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileAddressResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file or address was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The parent `concurrencyToken` is stale.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - personnel-files
+      operationId: DeletePersonnelFileAddress
+      summary: Delete one address of a personnel file
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConcurrencyRequest'
+      responses:
+        '204':
+          description: Address deleted successfully.
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file or address was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The parent `concurrencyToken` is stale.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/emergency-contacts:
+    get:
+      tags:
+        - personnel-files
+      operationId: GetPersonnelFileEmergencyContacts
+      summary: List personnel file emergency contacts
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Emergency contact collection returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileEmergencyContactResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - personnel-files
+      operationId: AddPersonnelFileEmergencyContact
+      summary: Add one emergency contact to a personnel file
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonnelFileEmergencyContactMutationRequest'
+      responses:
+        '201':
+          description: Emergency contact created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileEmergencyContactResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The parent `concurrencyToken` is stale.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}:
+    put:
+      tags:
+        - personnel-files
+      operationId: UpdatePersonnelFileEmergencyContact
+      summary: Update one emergency contact of a personnel file
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonnelFileEmergencyContactMutationRequest'
+      responses:
+        '200':
+          description: Emergency contact updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileEmergencyContactResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file or emergency contact was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The parent `concurrencyToken` is stale.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - personnel-files
+      operationId: DeletePersonnelFileEmergencyContact
+      summary: Delete one emergency contact of a personnel file
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConcurrencyRequest'
+      responses:
+        '204':
+          description: Emergency contact deleted successfully.
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file or emergency contact was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The parent `concurrencyToken` is stale.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/family-members:
+    get:
+      tags:
+        - personnel-files
+      operationId: GetPersonnelFileFamilyMembers
+      summary: List personnel file family members
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Family member collection returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileFamilyMemberResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - personnel-files
+      operationId: AddPersonnelFileFamilyMember
+      summary: Add one family member to a personnel file
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonnelFileFamilyMemberMutationRequest'
+      responses:
+        '201':
+          description: Family member created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileFamilyMemberResponse'
+        '400':
+          description: Validation error, such as inactive kinship code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The parent `concurrencyToken` is stale.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation, such as inconsistent dependent fields.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}:
+    put:
+      tags:
+        - personnel-files
+      operationId: UpdatePersonnelFileFamilyMember
+      summary: Update one family member of a personnel file
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonnelFileFamilyMemberMutationRequest'
+      responses:
+        '200':
+          description: Family member updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileFamilyMemberResponse'
+        '400':
+          description: Validation error, such as inactive kinship code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file or family member was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The parent `concurrencyToken` is stale.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation, such as inconsistent dependent fields.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - personnel-files
+      operationId: DeletePersonnelFileFamilyMember
+      summary: Delete one family member of a personnel file
+      security:
+        - Bearer: []
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConcurrencyRequest'
+      responses:
+        '204':
+          description: Family member deleted successfully.
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target personnel file or family member was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: The parent `concurrencyToken` is stale.
           content:
             application/problem+json:
               schema:

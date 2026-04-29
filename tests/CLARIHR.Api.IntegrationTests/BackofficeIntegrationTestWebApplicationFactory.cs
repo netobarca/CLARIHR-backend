@@ -1,3 +1,4 @@
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -89,6 +90,9 @@ public sealed class BackofficeIntegrationTestWebApplicationFactory
             await dbContext.Database.EnsureDeletedAsync();
             await dbContext.Database.MigrateAsync();
 
+            var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
+            await planEntitlementService.EnsureSystemPlanDefaultsAsync(CancellationToken.None);
+
             var scenario = await IntegrationTestSeeder.SeedAsync(dbContext);
             if (customSeed is not null)
             {
@@ -115,6 +119,9 @@ public sealed class BackofficeIntegrationTestWebApplicationFactory
 
             await dbContext.Database.EnsureDeletedAsync();
             await dbContext.Database.MigrateAsync();
+
+            var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
+            await planEntitlementService.EnsureSystemPlanDefaultsAsync(CancellationToken.None);
 
             var scenario = await IntegrationTestSeeder.SeedAsync(dbContext);
             await customSeed(scope.ServiceProvider, dbContext);

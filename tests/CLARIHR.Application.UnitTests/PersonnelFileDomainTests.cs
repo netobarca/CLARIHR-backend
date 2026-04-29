@@ -215,6 +215,281 @@ public sealed class PersonnelFileDomainTests
     }
 
     [Fact]
+    public void PersonnelFile_UpdateIdentification_ShouldUpdateRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Jose", "Gomez");
+        var identification = PersonnelFileIdentification.Create("DUI", "01234567-8", null, null, null, true);
+        file.AddIdentification(identification);
+        var initialToken = file.ConcurrencyToken;
+
+        file.UpdateIdentification(
+            identification.PublicId,
+            "NIT",
+            "0614-123456-101-1",
+            new DateTime(2020, 1, 1),
+            new DateTime(2030, 1, 1),
+            "Issuer Name",
+            false);
+
+        var stored = Assert.Single(file.Identifications);
+        Assert.Equal("NIT", stored.IdentificationType);
+        Assert.Equal("0614-123456-101-1", stored.IdentificationNumber);
+        Assert.Equal(new DateTime(2020, 1, 1), stored.IssuedDate);
+        Assert.Equal(new DateTime(2030, 1, 1), stored.ExpiryDate);
+        Assert.Equal("Issuer Name", stored.Issuer);
+        Assert.False(stored.IsPrimary);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateIdentification_WhenNotFound_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Jose", "Gomez");
+
+        Assert.Throws<InvalidOperationException>(() => file.UpdateIdentification(
+            Guid.NewGuid(),
+            "NIT",
+            "0614-123456-101-1",
+            null,
+            null,
+            null,
+            false));
+    }
+
+    [Fact]
+    public void PersonnelFile_AddAddress_ShouldAppendRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var tenantId = Guid.NewGuid();
+        file.SetTenantId(tenantId);
+        var initialToken = file.ConcurrencyToken;
+        var address = PersonnelFileAddress.Create("Calle 1", "SV", "SAN_SALVADOR", "SAN_SALVADOR_CENTRO", "1101", true);
+
+        file.AddAddress(address);
+
+        var stored = Assert.Single(file.Addresses);
+        Assert.Equal("Calle 1", stored.AddressLine);
+        Assert.Equal(tenantId, stored.TenantId);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateAddress_ShouldUpdateRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var address = PersonnelFileAddress.Create("Calle 1", "SV", null, null, null, true);
+        file.AddAddress(address);
+        var initialToken = file.ConcurrencyToken;
+
+        file.UpdateAddress(address.PublicId, "Avenida 2", "GT", "GUATEMALA", "MIXCO", "01057", false);
+
+        var stored = Assert.Single(file.Addresses);
+        Assert.Equal("Avenida 2", stored.AddressLine);
+        Assert.Equal("GT", stored.Country);
+        Assert.False(stored.IsCurrent);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_RemoveAddress_ShouldRemoveRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var address = PersonnelFileAddress.Create("Calle 1", "SV", null, null, null, true);
+        file.AddAddress(address);
+        var initialToken = file.ConcurrencyToken;
+
+        file.RemoveAddress(address.PublicId);
+
+        Assert.Empty(file.Addresses);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_AddEmergencyContact_ShouldAppendRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var tenantId = Guid.NewGuid();
+        file.SetTenantId(tenantId);
+        var initialToken = file.ConcurrencyToken;
+        var emergencyContact = PersonnelFileEmergencyContact.Create("Maria", "Madre", "+50370000001", "Colonia", "Empresa");
+
+        file.AddEmergencyContact(emergencyContact);
+
+        var stored = Assert.Single(file.EmergencyContacts);
+        Assert.Equal("Maria", stored.Name);
+        Assert.Equal(tenantId, stored.TenantId);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateEmergencyContact_ShouldUpdateRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var emergencyContact = PersonnelFileEmergencyContact.Create("Maria", "Madre", "+50370000001", null, null);
+        file.AddEmergencyContact(emergencyContact);
+        var initialToken = file.ConcurrencyToken;
+
+        file.UpdateEmergencyContact(emergencyContact.PublicId, "Jose", "Padre", "+50370000002", "Centro", "Oficina");
+
+        var stored = Assert.Single(file.EmergencyContacts);
+        Assert.Equal("Jose", stored.Name);
+        Assert.Equal("Padre", stored.Relationship);
+        Assert.Equal("+50370000002", stored.Phone);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_RemoveEmergencyContact_ShouldRemoveRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var emergencyContact = PersonnelFileEmergencyContact.Create("Maria", "Madre", "+50370000001", null, null);
+        file.AddEmergencyContact(emergencyContact);
+        var initialToken = file.ConcurrencyToken;
+
+        file.RemoveEmergencyContact(emergencyContact.PublicId);
+
+        Assert.Empty(file.EmergencyContacts);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_AddFamilyMember_ShouldAppendRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var tenantId = Guid.NewGuid();
+        file.SetTenantId(tenantId);
+        var initialToken = file.ConcurrencyToken;
+        var familyMember = PersonnelFileFamilyMember.Create(
+            "Luis",
+            "Gomez",
+            "HERMANO_A",
+            "SV",
+            new DateTime(2000, 1, 1),
+            PersonnelFamilyMemberSex.Male,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            null,
+            false,
+            false,
+            null,
+            null,
+            null,
+            null,
+            false,
+            null);
+
+        file.AddFamilyMember(familyMember);
+
+        var stored = Assert.Single(file.FamilyMembers);
+        Assert.Equal("Luis Gomez", stored.FullName);
+        Assert.Equal(tenantId, stored.TenantId);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateFamilyMember_ShouldUpdateRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var familyMember = PersonnelFileFamilyMember.Create(
+            "Luis",
+            "Gomez",
+            "HERMANO_A",
+            "SV",
+            null,
+            PersonnelFamilyMemberSex.Male,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            null,
+            false,
+            false,
+            null,
+            null,
+            null,
+            null,
+            false,
+            null);
+        file.AddFamilyMember(familyMember);
+        var initialToken = file.ConcurrencyToken;
+
+        file.UpdateFamilyMember(
+            familyMember.PublicId,
+            "Lucia",
+            "Gomez",
+            "HERMANA",
+            "SV",
+            new DateTime(2001, 2, 3),
+            PersonnelFamilyMemberSex.Female,
+            "SOLTERA",
+            "Estudiante",
+            null,
+            null,
+            null,
+            true,
+            "UES",
+            "UNIVERSITARIO",
+            true,
+            false,
+            null,
+            null,
+            null,
+            null,
+            false,
+            null);
+
+        var stored = Assert.Single(file.FamilyMembers);
+        Assert.Equal("Lucia Gomez", stored.FullName);
+        Assert.Equal("HERMANA", stored.KinshipCode);
+        Assert.True(stored.IsStudying);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_RemoveFamilyMember_ShouldRemoveRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var familyMember = PersonnelFileFamilyMember.Create(
+            "Luis",
+            "Gomez",
+            "HERMANO_A",
+            null,
+            null,
+            PersonnelFamilyMemberSex.Male,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            null,
+            null,
+            false,
+            false,
+            null,
+            null,
+            null,
+            null,
+            false,
+            null);
+        file.AddFamilyMember(familyMember);
+        var initialToken = file.ConcurrencyToken;
+
+        file.RemoveFamilyMember(familyMember.PublicId);
+
+        Assert.Empty(file.FamilyMembers);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
     public void PersonnelFile_Complete_ShouldSetLifecycleAndLinkedUser()
     {
         var file = PersonnelFile.Create(
@@ -461,5 +736,30 @@ public sealed class PersonnelFileDomainTests
             workplace: null,
             workPhone: null,
             knownTimeYears: -1));
+    }
+
+    private static PersonnelFile CreatePersonnelFile(PersonnelFileRecordType recordType, string firstName, string lastName)
+    {
+        var file = PersonnelFile.Create(
+            recordType,
+            firstName,
+            lastName,
+            new DateTime(1990, 1, 1),
+            maritalStatus: null,
+            profession: null,
+            nationality: null,
+            personalEmail: null,
+            institutionalEmail: null,
+            personalPhone: null,
+            institutionalPhone: null,
+            birthCountry: null,
+            birthDepartment: null,
+            birthMunicipality: null,
+            photoUrl: null,
+            orgUnitPublicId: null,
+            assignedPositionSlotPublicId: recordType == PersonnelFileRecordType.Employee ? Guid.NewGuid() : null,
+            customDataJson: null);
+        file.SetTenantId(Guid.NewGuid());
+        return file;
     }
 }
