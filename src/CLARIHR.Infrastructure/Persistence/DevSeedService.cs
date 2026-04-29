@@ -647,9 +647,8 @@ internal sealed class DevSeedService(
                 totalSubjects: 60,
                 approvedSubjects: 60),
         ]);
-        maria.ReplaceBankAccounts([
-            PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0001-1234-5678", "SAVINGS", isPrimary: true),
-        ]);
+        maria.AddBankAccount(
+            PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0001-1234-5678", "SAVINGS", isPrimary: true));
 
         var carlos = PersonnelFile.Create(
             PersonnelFileRecordType.Employee,
@@ -706,9 +705,8 @@ internal sealed class DevSeedService(
         carlos.ReplaceLanguages([
             PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", speaks: true, writes: true, reads: true),
         ]);
-        carlos.ReplaceBankAccounts([
-            PersonnelFileBankAccount.Create(null, "DAVI", "USD", "0002-9876-5432", "CHECKING", isPrimary: true),
-        ]);
+        carlos.AddBankAccount(
+            PersonnelFileBankAccount.Create(null, "DAVI", "USD", "0002-9876-5432", "CHECKING", isPrimary: true));
         carlos.ReplacePreviousEmployments([
             PersonnelFilePreviousEmployment.Create("Grupo Roble", "San Salvador", "Coordinador Financiero",
                 "Roberto Mendez", new DateTime(2008, 7, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -813,9 +811,8 @@ internal sealed class DevSeedService(
             PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", speaks: true, writes: true, reads: true),
             PersonnelFileLanguage.Create("SPANISH", "ADVANCED", speaks: true, writes: true, reads: true),
         ]);
-        jose.ReplaceBankAccounts([
-            PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0003-5555-7777", "SAVINGS", isPrimary: true),
-        ]);
+        jose.AddBankAccount(
+            PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0003-5555-7777", "SAVINGS", isPrimary: true));
         jose.ReplaceFamilyMembers([
             PersonnelFileFamilyMember.Create("Carmen", "Alvarez de Martinez", "Esposa", "Salvadorena",
                 new DateTime(1990, 7, 20, 0, 0, 0, DateTimeKind.Utc), PersonnelFamilyMemberSex.Female,

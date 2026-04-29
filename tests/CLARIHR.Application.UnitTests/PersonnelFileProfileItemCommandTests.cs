@@ -1,11 +1,14 @@
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Banks;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.Banks;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PersonnelFiles;
+using CLARIHR.Domain.Banks;
 using CLARIHR.Domain.PersonnelFiles;
 
 namespace CLARIHR.Application.UnitTests;
@@ -54,6 +57,69 @@ public sealed class PersonnelFileProfileItemCommandTests
         Assert.True(result.Value);
         Assert.Empty(personnelFile.EmergencyContacts);
         Assert.Equal(2, repository.GetEmergencyContactsCalls);
+    }
+
+    [Fact]
+    public async Task AddBankAccount_WhenRequestIsValid_ShouldPersistAndReturnCreatedItem()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var bankPublicId = Guid.NewGuid();
+        var bankCatalogRepository = new TestBankCatalogRepository(bankPublicId, 1, "AGRI");
+        var handler = CreateAddBankAccountHandler(repository, bankCatalogRepository);
+
+        var result = await handler.Handle(
+            new AddPersonnelFileBankAccountCommand(
+                personnelFile.PublicId,
+                new BankAccountInput(bankPublicId, "USD", "0001-1234-5678", "SAVINGS", true),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("0001-1234-5678", result.Value.AccountNumber);
+        Assert.Single(personnelFile.BankAccounts);
+        Assert.Equal(2, repository.GetBankAccountsCalls);
+    }
+
+    [Fact]
+    public async Task DeleteBankAccount_WhenItemExists_ShouldRemoveItem()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var bankAccount = PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0001-1234-5678", "SAVINGS", isPrimary: true);
+        personnelFile.AddBankAccount(bankAccount);
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateDeleteBankAccountHandler(repository);
+
+        var result = await handler.Handle(
+            new DeletePersonnelFileBankAccountCommand(
+                personnelFile.PublicId,
+                bankAccount.PublicId,
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value);
+        Assert.Empty(personnelFile.BankAccounts);
+        Assert.Equal(2, repository.GetBankAccountsCalls);
+    }
+
+    [Fact]
+    public async Task AddBankAccount_WhenBankNotFound_ShouldReturnValidationError()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var bankCatalogRepository = new TestBankCatalogRepository(null, 0, null);
+        var handler = CreateAddBankAccountHandler(repository, bankCatalogRepository);
+
+        var result = await handler.Handle(
+            new AddPersonnelFileBankAccountCommand(
+                personnelFile.PublicId,
+                new BankAccountInput(Guid.NewGuid(), "USD", "0001-1234-5678", "SAVINGS", true),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.Validation, result.Error.Type);
     }
 
     [Fact]
@@ -143,6 +209,29 @@ public sealed class PersonnelFileProfileItemCommandTests
             new TestUnitOfWork());
     }
 
+    private static AddPersonnelFileBankAccountCommandHandler CreateAddBankAccountHandler(
+        TestPersonnelFileRepository repository,
+        TestBankCatalogRepository bankCatalogRepository)
+    {
+        return new AddPersonnelFileBankAccountCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            bankCatalogRepository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
+    private static DeletePersonnelFileBankAccountCommandHandler CreateDeleteBankAccountHandler(TestPersonnelFileRepository repository)
+    {
+        return new DeletePersonnelFileBankAccountCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
     private static UpdatePersonnelFileFamilyMemberCommandHandler CreateUpdateFamilyMemberHandler(TestPersonnelFileRepository repository)
     {
         return new UpdatePersonnelFileFamilyMemberCommandHandler(
@@ -213,6 +302,7 @@ public sealed class PersonnelFileProfileItemCommandTests
 
         public int GetAddressesCalls { get; private set; }
         public int GetEmergencyContactsCalls { get; private set; }
+        public int GetBankAccountsCalls { get; private set; }
 
         public void Add(PersonnelFile personnelFile) => throw new NotSupportedException();
 
@@ -320,7 +410,28 @@ public sealed class PersonnelFileProfileItemCommandTests
 
         public Task<IReadOnlyCollection<PersonnelFileHobbyResponse>> GetHobbiesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(Guid personnelFileId, CancellationToken cancellationToken)
+        {
+            GetBankAccountsCalls++;
+            if (!_files.TryGetValue(personnelFileId, out var file))
+            {
+                return Task.FromResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>(Array.Empty<PersonnelFileBankAccountResponse>());
+            }
+
+            return Task.FromResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>(
+                file.BankAccounts.Select(item => new PersonnelFileBankAccountResponse(
+                    item.PublicId,
+                    null,
+                    item.BankCode,
+                    null,
+                    null,
+                    null,
+                    null,
+                    item.CurrencyCode,
+                    item.AccountNumber,
+                    item.AccountTypeCode,
+                    item.IsPrimary)).ToArray());
+        }
         public Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileEducationResponse>> GetEducationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileLanguageResponse>> GetLanguagesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -348,5 +459,42 @@ public sealed class PersonnelFileProfileItemCommandTests
         public Task<PersonnelFileCustomFieldDefinition?> GetCustomFieldDefinitionByIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> CustomFieldKeyExistsAsync(Guid tenantId, string normalizedKey, long? excludingId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<Guid>> GetLinkedUserIdsByAssignedPositionSlotAsync(Guid tenantId, Guid assignedPositionSlotId, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class TestBankCatalogRepository : IBankCatalogRepository
+    {
+        private readonly Guid? _matchPublicId;
+        private readonly long _internalId;
+        private readonly string? _code;
+
+        public TestBankCatalogRepository(Guid? matchPublicId, long internalId, string? code)
+        {
+            _matchPublicId = matchPublicId;
+            _internalId = internalId;
+            _code = code;
+        }
+
+        public void Add(BankCatalogItem item) => throw new NotSupportedException();
+
+        public Task<BankCatalogItem?> GetByIdAsync(Guid publicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<bool> ExistsByCodeAsync(long countryCatalogItemId, string normalizedCode, long? excludingId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PagedResponse<BankCatalogItemResponse>> SearchAsync(long countryCatalogItemId, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<BankCatalogItemResponse?> GetResponseByIdAsync(Guid publicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PagedResponse<CompanyBankCatalogItemResponse>> SearchActiveByCompanyAsync(Guid companyId, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<BankCatalogLookup?> GetActiveLookupByCountryAsync(string countryCode, Guid publicId, CancellationToken cancellationToken)
+        {
+            if (_matchPublicId.HasValue && publicId == _matchPublicId.Value)
+            {
+                return Task.FromResult<BankCatalogLookup?>(new BankCatalogLookup(
+                    _internalId, publicId, countryCode, _code!, _code!, null, null, null, true));
+            }
+
+            return Task.FromResult<BankCatalogLookup?>(null);
+        }
     }
 }

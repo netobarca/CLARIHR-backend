@@ -712,11 +712,24 @@ public sealed record DeletePersonnelFileEmployeeRelationCommand(
     Guid ConcurrencyToken)
     : ICommand<bool>;
 
-public sealed record ReplacePersonnelFileBankAccountsCommand(
+public sealed record AddPersonnelFileBankAccountCommand(
     Guid PersonnelFileId,
-    IReadOnlyCollection<BankAccountInput> BankAccounts,
+    BankAccountInput BankAccount,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>;
+    : ICommand<PersonnelFileBankAccountResponse>;
+
+public sealed record UpdatePersonnelFileBankAccountCommand(
+    Guid PersonnelFileId,
+    Guid BankAccountPublicId,
+    BankAccountInput BankAccount,
+    Guid ConcurrencyToken)
+    : ICommand<PersonnelFileBankAccountResponse>;
+
+public sealed record DeletePersonnelFileBankAccountCommand(
+    Guid PersonnelFileId,
+    Guid BankAccountPublicId,
+    Guid ConcurrencyToken)
+    : ICommand<bool>;
 
 public sealed record ReplacePersonnelFileAssociationsCommand(
     Guid PersonnelFileId,
@@ -1538,13 +1551,34 @@ internal sealed class DeletePersonnelFileEmployeeRelationCommandValidator : Abst
     }
 }
 
-internal sealed class ReplacePersonnelFileBankAccountsCommandValidator : AbstractValidator<ReplacePersonnelFileBankAccountsCommand>
+internal sealed class AddPersonnelFileBankAccountCommandValidator : AbstractValidator<AddPersonnelFileBankAccountCommand>
 {
-    public ReplacePersonnelFileBankAccountsCommandValidator()
+    public AddPersonnelFileBankAccountCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
-        RuleForEach(command => command.BankAccounts).SetValidator(new BankAccountInputValidator());
+        RuleFor(command => command.BankAccount).SetValidator(new BankAccountInputValidator());
+    }
+}
+
+internal sealed class UpdatePersonnelFileBankAccountCommandValidator : AbstractValidator<UpdatePersonnelFileBankAccountCommand>
+{
+    public UpdatePersonnelFileBankAccountCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.BankAccountPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.BankAccount).SetValidator(new BankAccountInputValidator());
+    }
+}
+
+internal sealed class DeletePersonnelFileBankAccountCommandValidator : AbstractValidator<DeletePersonnelFileBankAccountCommand>
+{
+    public DeletePersonnelFileBankAccountCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.BankAccountPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -5628,83 +5662,337 @@ internal sealed class DeletePersonnelFileEmployeeRelationCommandHandler(
     }
 }
 
-internal sealed class ReplacePersonnelFileBankAccountsCommandHandler(
+internal sealed class AddPersonnelFileBankAccountCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
     IBankCatalogRepository bankCatalogRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileBankAccountsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>
+    : ICommandHandler<AddPersonnelFileBankAccountCommand, PersonnelFileBankAccountResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>> Handle(
-        ReplacePersonnelFileBankAccountsCommand command,
+    public async Task<Result<PersonnelFileBankAccountResponse>> Handle(
+        AddPersonnelFileBankAccountCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileBankAccountResponse>>(
-            command.PersonnelFileId,
-            command.ConcurrencyToken,
-            PersonnelFileTrackedSection.BankAccounts,
-            tenantContext,
-            authorizationService,
-            repository,
-            cancellationToken);
-        if (failure is not null)
+        if (!tenantContext.TenantId.HasValue)
         {
-            return failure;
+            return Result<PersonnelFileBankAccountResponse>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
-        var companyCountryCode = await repository.GetCompanyCountryCodeAsync(personnelFile!.TenantId, cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.BankAccounts,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var companyCountryCode = await repository.GetCompanyCountryCodeAsync(personnelFile.TenantId, cancellationToken);
         if (string.IsNullOrWhiteSpace(companyCountryCode))
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>.Failure(
-                ErrorCatalog.NotFound);
+            return Result<PersonnelFileBankAccountResponse>.Failure(ErrorCatalog.NotFound);
         }
 
-        var entities = new List<PersonnelFileBankAccount>(command.BankAccounts.Count);
-        var index = 0;
-        foreach (var item in command.BankAccounts)
+        var bankLookup = await bankCatalogRepository.GetActiveLookupByCountryAsync(
+            companyCountryCode,
+            command.BankAccount.BankPublicId,
+            cancellationToken);
+        if (bankLookup is null)
         {
-            var bankLookup = await bankCatalogRepository.GetActiveLookupByCountryAsync(
-                companyCountryCode,
-                item.BankPublicId,
-                cancellationToken);
-            if (bankLookup is null)
-            {
-                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>>.Failure(
-                    ErrorCatalog.Validation(
-                        new Dictionary<string, string[]>
-                        {
-                            [$"bankAccounts[{index}].bankPublicId"] =
-                            [
-                                "BankPublicId must reference an active bank catalog item for the company country."
-                            ]
-                        }));
-            }
+            return Result<PersonnelFileBankAccountResponse>.Failure(
+                ErrorCatalog.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["bankPublicId"] =
+                        [
+                            "BankPublicId must reference an active bank catalog item for the company country."
+                        ]
+                    }));
+        }
 
-            entities.Add(PersonnelFileBankAccount.Create(
+        var before = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
+        var bankAccount = PersonnelFileBankAccount.Create(
+            bankLookup.InternalId,
+            bankLookup.Code,
+            command.BankAccount.CurrencyCode,
+            command.BankAccount.AccountNumber,
+            command.BankAccount.AccountTypeCode,
+            command.BankAccount.IsPrimary);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.AddBankAccount(bankAccount);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
+            var response = after.SingleOrDefault(item => item.Id == bankAccount.PublicId)
+                ?? throw new InvalidOperationException("Personnel file bank account response could not be resolved after creation.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Added bank account for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.BankAccounts,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.BankAccounts,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileBankAccountResponse>.Success(response);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class UpdatePersonnelFileBankAccountCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IBankCatalogRepository bankCatalogRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<UpdatePersonnelFileBankAccountCommand, PersonnelFileBankAccountResponse>
+{
+    public async Task<Result<PersonnelFileBankAccountResponse>> Handle(
+        UpdatePersonnelFileBankAccountCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.BankAccounts,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        if (!personnelFile.BankAccounts.Any(i => i.PublicId == command.BankAccountPublicId))
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.NotFound);
+        }
+
+        var companyCountryCode = await repository.GetCompanyCountryCodeAsync(personnelFile.TenantId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(companyCountryCode))
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(ErrorCatalog.NotFound);
+        }
+
+        var bankLookup = await bankCatalogRepository.GetActiveLookupByCountryAsync(
+            companyCountryCode,
+            command.BankAccount.BankPublicId,
+            cancellationToken);
+        if (bankLookup is null)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(
+                ErrorCatalog.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["bankPublicId"] =
+                        [
+                            "BankPublicId must reference an active bank catalog item for the company country."
+                        ]
+                    }));
+        }
+
+        var before = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.UpdateBankAccount(
+                command.BankAccountPublicId,
                 bankLookup.InternalId,
                 bankLookup.Code,
-                item.CurrencyCode,
-                item.AccountNumber,
-                item.AccountTypeCode,
-                item.IsPrimary));
+                command.BankAccount.CurrencyCode,
+                command.BankAccount.AccountNumber,
+                command.BankAccount.AccountTypeCode,
+                command.BankAccount.IsPrimary);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            index++;
+            var after = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
+            var response = after.SingleOrDefault(item => item.Id == command.BankAccountPublicId)
+                ?? throw new InvalidOperationException("Personnel file bank account response could not be resolved after update.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Updated bank account for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.BankAccounts,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.BankAccounts,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileBankAccountResponse>.Success(response);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class DeletePersonnelFileBankAccountCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<DeletePersonnelFileBankAccountCommand, bool>
+{
+    public async Task<Result<bool>> Handle(
+        DeletePersonnelFileBankAccountCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
-        personnelFile!.ReplaceBankAccounts(entities);
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<bool>.Failure(authorizationResult.Error);
+        }
 
-        return await PersistSectionAsync(
-            personnelFile,
-            PersonnelFilePrintSections.BankAccounts,
-            $"Updated personnel file {personnelFile.FullName} bank accounts.",
-            repository.GetBankAccountsAsync,
-            auditService,
-            unitOfWork,
-            AuditEventTypes.PersonnelFileUpdated,
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.BankAccounts,
             cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<bool>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<bool>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        if (!personnelFile.BankAccounts.Any(i => i.PublicId == command.BankAccountPublicId))
+        {
+            return Result<bool>.Failure(PersonnelFileErrors.NotFound);
+        }
+
+        var before = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.RemoveBankAccount(command.BankAccountPublicId);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Deleted bank account from personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.BankAccounts,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.BankAccounts,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<bool>.Success(true);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 }
 

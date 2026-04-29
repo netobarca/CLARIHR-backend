@@ -393,15 +393,20 @@ public sealed record UpdateEmployeeRelationRequest(
     string Relationship,
     Guid ConcurrencyToken);
 
-public sealed record BankAccountItemRequest(
+public sealed record AddBankAccountRequest(
     Guid BankPublicId,
     string CurrencyCode,
     string AccountNumber,
     string AccountTypeCode,
-    bool IsPrimary = false);
+    bool IsPrimary,
+    Guid ConcurrencyToken);
 
-public sealed record ReplaceBankAccountsRequest(
-    IReadOnlyCollection<BankAccountItemRequest> Items,
+public sealed record UpdateBankAccountRequest(
+    Guid BankPublicId,
+    string CurrencyCode,
+    string AccountNumber,
+    string AccountTypeCode,
+    bool IsPrimary,
     Guid ConcurrencyToken);
 
 public sealed record AssociationItemRequest(
