@@ -15,18 +15,20 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
 {
     private static readonly Guid TenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
+    // ─── ADD ────────────────────────────────────────────────────────────
+
     [Fact]
-    public async Task Handle_WhenRelatedEmployeeExists_ShouldPersistRelationUsingPersonnelFileReference()
+    public async Task Add_WhenRelatedEmployeeExists_ShouldPersistRelation()
     {
         var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
         var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
         var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
-        var handler = CreateHandler(repository);
+        var handler = CreateAddHandler(repository);
 
         var result = await handler.Handle(
-            new ReplacePersonnelFileEmployeeRelationsCommand(
+            new AddPersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                [new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling")],
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
                 personnelFile.ConcurrencyToken),
             CancellationToken.None);
 
@@ -35,54 +37,320 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var relation = Assert.Single(personnelFile.EmployeeRelations);
         Assert.Equal(relatedEmployee.Id, relation.RelatedPersonnelFileId);
         Assert.Equal("Sibling", relation.Relationship);
-        Assert.Equal(0, repository.GetResponseByIdCalls);
-        Assert.Equal(2, repository.GetEmployeeRelationsCalls);
     }
 
     [Fact]
-    public async Task Handle_WhenRelatedEmployeeIsSamePersonnelFile_ShouldReturnValidationError()
+    public async Task Add_WhenRelatedEmployeeIsSamePersonnelFile_ShouldReturnValidationError()
     {
         var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
         var repository = new TestPersonnelFileRepository(personnelFile);
-        var handler = CreateHandler(repository);
+        var handler = CreateAddHandler(repository);
 
         var result = await handler.Handle(
-            new ReplacePersonnelFileEmployeeRelationsCommand(
+            new AddPersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                [new EmployeeRelationInput(personnelFile.PublicId, "Sibling")],
+                new EmployeeRelationInput(personnelFile.PublicId, "Sibling"),
                 personnelFile.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorType.Validation, result.Error.Type);
         Assert.NotNull(result.Error.ValidationErrors);
-        Assert.Contains("relations[0].relatedEmployeePublicId", result.Error.ValidationErrors!.Keys);
+        Assert.Contains("relation.relatedEmployeePublicId", result.Error.ValidationErrors!.Keys);
     }
 
     [Fact]
-    public async Task Handle_WhenRelatedPersonnelFileIsNotAnEmployee_ShouldReturnValidationError()
+    public async Task Add_WhenRelatedPersonnelFileIsNotAnEmployee_ShouldReturnValidationError()
     {
         var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
         var candidateFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Luis", "Candidate");
         var repository = new TestPersonnelFileRepository(personnelFile, candidateFile);
-        var handler = CreateHandler(repository);
+        var handler = CreateAddHandler(repository);
 
         var result = await handler.Handle(
-            new ReplacePersonnelFileEmployeeRelationsCommand(
+            new AddPersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                [new EmployeeRelationInput(candidateFile.PublicId, "Sibling")],
+                new EmployeeRelationInput(candidateFile.PublicId, "Sibling"),
                 personnelFile.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(ErrorType.Validation, result.Error.Type);
         Assert.NotNull(result.Error.ValidationErrors);
-        Assert.Contains("relations[0].relatedEmployeePublicId", result.Error.ValidationErrors!.Keys);
+        Assert.Contains("relation.relatedEmployeePublicId", result.Error.ValidationErrors!.Keys);
     }
 
-    private static ReplacePersonnelFileEmployeeRelationsCommandHandler CreateHandler(TestPersonnelFileRepository repository)
+    [Fact]
+    public async Task Add_WhenConcurrencyTokenDoesNotMatch_ShouldReturnConcurrencyConflict()
     {
-        return new ReplacePersonnelFileEmployeeRelationsCommandHandler(
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
+        var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
+        var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
+        var handler = CreateAddHandler(repository);
+
+        var result = await handler.Handle(
+            new AddPersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
+                Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.Conflict, result.Error.Type);
+    }
+
+    [Fact]
+    public async Task Add_WhenDuplicateRelationExists_ShouldReturnValidationError()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
+        var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
+        var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
+        var handler = CreateAddHandler(repository);
+
+        // Add first relation
+        var firstResult = await handler.Handle(
+            new AddPersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+        Assert.True(firstResult.IsSuccess);
+
+        // Try to add duplicate
+        var result = await handler.Handle(
+            new AddPersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.Validation, result.Error.Type);
+        Assert.NotNull(result.Error.ValidationErrors);
+        Assert.Contains("relation", result.Error.ValidationErrors!.Keys);
+    }
+
+    [Fact]
+    public async Task Add_WhenPersonnelFileNotFound_ShouldReturnNotFoundError()
+    {
+        var repository = new TestPersonnelFileRepository();
+        var handler = CreateAddHandler(repository);
+
+        var result = await handler.Handle(
+            new AddPersonnelFileEmployeeRelationCommand(
+                Guid.NewGuid(),
+                new EmployeeRelationInput(Guid.NewGuid(), "Sibling"),
+                Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.NotFound, result.Error.Type);
+    }
+
+    // ─── UPDATE ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Update_WhenRelationExists_ShouldUpdateRelation()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
+        var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
+        var newRelatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Carlos", "NewRelated");
+        var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee, newRelatedEmployee);
+        var addHandler = CreateAddHandler(repository);
+        var updateHandler = CreateUpdateHandler(repository);
+
+        // Add first
+        var addResult = await addHandler.Handle(
+            new AddPersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+        Assert.True(addResult.IsSuccess);
+
+        var relationPublicId = personnelFile.EmployeeRelations.First().PublicId;
+
+        // Update
+        var result = await updateHandler.Handle(
+            new UpdatePersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                relationPublicId,
+                new EmployeeRelationInput(newRelatedEmployee.PublicId, "Cousin"),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var relation = Assert.Single(personnelFile.EmployeeRelations);
+        Assert.Equal(newRelatedEmployee.Id, relation.RelatedPersonnelFileId);
+        Assert.Equal("Cousin", relation.Relationship);
+    }
+
+    [Fact]
+    public async Task Update_WhenRelationNotFound_ShouldReturnNotFoundError()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
+        var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
+        var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
+        var handler = CreateUpdateHandler(repository);
+
+        var result = await handler.Handle(
+            new UpdatePersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                Guid.NewGuid(),
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.NotFound, result.Error.Type);
+    }
+
+    [Fact]
+    public async Task Update_WhenSelfReference_ShouldReturnValidationError()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
+        var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
+        var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
+        var addHandler = CreateAddHandler(repository);
+        var updateHandler = CreateUpdateHandler(repository);
+
+        var addResult = await addHandler.Handle(
+            new AddPersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+        Assert.True(addResult.IsSuccess);
+
+        var relationPublicId = personnelFile.EmployeeRelations.First().PublicId;
+
+        var result = await updateHandler.Handle(
+            new UpdatePersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                relationPublicId,
+                new EmployeeRelationInput(personnelFile.PublicId, "Sibling"),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.Validation, result.Error.Type);
+        Assert.Contains("relation.relatedEmployeePublicId", result.Error.ValidationErrors!.Keys);
+    }
+
+    [Fact]
+    public async Task Update_WhenConcurrencyTokenDoesNotMatch_ShouldReturnConcurrencyConflict()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
+        var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
+        var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
+        var handler = CreateUpdateHandler(repository);
+
+        var result = await handler.Handle(
+            new UpdatePersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                Guid.NewGuid(),
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
+                Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.Conflict, result.Error.Type);
+    }
+
+    // ─── DELETE ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Delete_WhenRelationExists_ShouldRemoveRelation()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
+        var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
+        var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
+        var addHandler = CreateAddHandler(repository);
+        var deleteHandler = CreateDeleteHandler(repository);
+
+        var addResult = await addHandler.Handle(
+            new AddPersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+        Assert.True(addResult.IsSuccess);
+
+        var relationPublicId = personnelFile.EmployeeRelations.First().PublicId;
+
+        var result = await deleteHandler.Handle(
+            new DeletePersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                relationPublicId,
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(personnelFile.EmployeeRelations);
+    }
+
+    [Fact]
+    public async Task Delete_WhenRelationNotFound_ShouldReturnNotFoundError()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateDeleteHandler(repository);
+
+        var result = await handler.Handle(
+            new DeletePersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                Guid.NewGuid(),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.NotFound, result.Error.Type);
+    }
+
+    [Fact]
+    public async Task Delete_WhenConcurrencyTokenDoesNotMatch_ShouldReturnConcurrencyConflict()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateDeleteHandler(repository);
+
+        var result = await handler.Handle(
+            new DeletePersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                Guid.NewGuid(),
+                Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.Conflict, result.Error.Type);
+    }
+
+    // ─── FACTORY HELPERS ────────────────────────────────────────────────
+
+    private static AddPersonnelFileEmployeeRelationCommandHandler CreateAddHandler(TestPersonnelFileRepository repository)
+    {
+        return new AddPersonnelFileEmployeeRelationCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
+    private static UpdatePersonnelFileEmployeeRelationCommandHandler CreateUpdateHandler(TestPersonnelFileRepository repository)
+    {
+        return new UpdatePersonnelFileEmployeeRelationCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
+    private static DeletePersonnelFileEmployeeRelationCommandHandler CreateDeleteHandler(TestPersonnelFileRepository repository)
+    {
+        return new DeletePersonnelFileEmployeeRelationCommandHandler(
             new AllowPersonnelFileAuthorizationService(),
             repository,
             new NoOpAuditService(),
@@ -122,58 +390,6 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         property?.SetValue(file, value);
     }
 
-    private static PersonnelFileResponse ToResponse(PersonnelFile file) =>
-        new(
-            file.PublicId,
-            file.TenantId,
-            file.RecordType,
-            file.LifecycleStatus,
-            file.FirstName,
-            file.LastName,
-            file.FullName,
-            file.BirthDate,
-            36,
-            file.MaritalStatus,
-            null,
-            file.Profession,
-            null,
-            file.Nationality,
-            file.PersonalEmail,
-            file.InstitutionalEmail,
-            file.PersonalPhone,
-            file.InstitutionalPhone,
-            file.BirthCountry,
-            null,
-            file.BirthDepartment,
-            null,
-            file.BirthMunicipality,
-            null,
-            file.PhotoUrl,
-            file.OrgUnitPublicId,
-            file.AssignedPositionSlotPublicId,
-            file.LinkedUserPublicId,
-            file.CustomDataJson,
-            file.IsActive,
-            file.ConcurrencyToken,
-            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            null,
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            [],
-            null);
-
     private sealed class FixedTenantContext(Guid? tenantId) : ITenantContext
     {
         public Guid? TenantId { get; } = tenantId;
@@ -196,12 +412,9 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
             new("TENANT_MISMATCH", "Tenant mismatch.", ErrorType.Forbidden);
     }
 
-    private sealed class TestPersonnelFileRepository(params PersonnelFile[] files) : IPersonnelFileRepository
+    internal sealed class TestPersonnelFileRepository(params PersonnelFile[] files) : IPersonnelFileRepository
     {
         private readonly Dictionary<Guid, PersonnelFile> _files = files.ToDictionary(file => file.PublicId);
-
-        public int GetResponseByIdCalls { get; private set; }
-        public int GetEmployeeRelationsCalls { get; private set; }
 
         public void Add(PersonnelFile personnelFile) => throw new NotSupportedException();
 
@@ -227,30 +440,9 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
 
         public Task<PagedResponse<PersonnelFileListItemResponse>> SearchAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? maritalStatus, string? nationality, string? profession, DateTime? createdFromUtc, DateTime? createdToUtc, string? search, string? sortBy, PersonnelFileSortDirection sortDirection, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<PersonnelFileShellResponse?> GetShellByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
-            Task.FromResult(
-                _files.TryGetValue(personnelFileId, out var file)
-                    ? new PersonnelFileShellResponse(
-                        file.PublicId,
-                        file.TenantId,
-                        file.RecordType,
-                        file.LifecycleStatus,
-                        file.FullName,
-                        file.PhotoUrl,
-                        file.IsActive,
-                        file.OrgUnitPublicId,
-                        file.AssignedPositionSlotPublicId,
-                        file.LinkedUserPublicId,
-                        file.ConcurrencyToken,
-                        file.CreatedUtc,
-                        file.ModifiedUtc)
-                    : null);
+        public Task<PersonnelFileShellResponse?> GetShellByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<PersonnelFileResponse?> GetResponseByIdAsync(Guid personnelFileId, CancellationToken cancellationToken)
-        {
-            GetResponseByIdCalls++;
-            return Task.FromResult(_files.TryGetValue(personnelFileId, out var file) ? ToResponse(file) : null);
-        }
+        public Task<PersonnelFileResponse?> GetResponseByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<PersonnelFilePersonalInfoResponse?> GetPersonalInfoAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
@@ -266,8 +458,6 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
 
         public Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(Guid personnelFileId, CancellationToken cancellationToken)
         {
-            GetEmployeeRelationsCalls++;
-
             if (!_files.TryGetValue(personnelFileId, out var file))
             {
                 return Task.FromResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>(Array.Empty<PersonnelFileEmployeeRelationResponse>());

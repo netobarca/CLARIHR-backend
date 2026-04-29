@@ -79,12 +79,12 @@ public sealed class PersonnelFileAdministrationValidationTests
     }
 
     [Fact]
-    public void ReplaceEmployeeRelationsValidator_WhenRelationshipIsMissing_ShouldAttachIndexedFieldError()
+    public void AddEmployeeRelationValidator_WhenRelationshipIsMissing_ShouldAttachFieldError()
     {
-        var validator = new ReplacePersonnelFileEmployeeRelationsCommandValidator();
-        var command = new ReplacePersonnelFileEmployeeRelationsCommand(
+        var validator = new AddPersonnelFileEmployeeRelationCommandValidator();
+        var command = new AddPersonnelFileEmployeeRelationCommand(
             Guid.NewGuid(),
-            [new EmployeeRelationInput(Guid.NewGuid(), string.Empty)],
+            new EmployeeRelationInput(Guid.NewGuid(), string.Empty),
             Guid.NewGuid());
 
         var result = validator.TestValidate(command);
@@ -92,7 +92,7 @@ public sealed class PersonnelFileAdministrationValidationTests
         Assert.Contains(
             result.Errors,
             static error =>
-                error.PropertyName == "Relations[0].Relationship" &&
+                error.PropertyName == "Relation.Relationship" &&
                 error.ErrorMessage == "'Relationship' must not be empty.");
     }
 

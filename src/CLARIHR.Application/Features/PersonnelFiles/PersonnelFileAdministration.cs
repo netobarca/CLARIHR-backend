@@ -693,11 +693,24 @@ public sealed record DeletePersonnelFileHobbyCommand(
     Guid ConcurrencyToken)
     : ICommand<bool>;
 
-public sealed record ReplacePersonnelFileEmployeeRelationsCommand(
+public sealed record AddPersonnelFileEmployeeRelationCommand(
     Guid PersonnelFileId,
-    IReadOnlyCollection<EmployeeRelationInput> Relations,
+    EmployeeRelationInput Relation,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>;
+    : ICommand<PersonnelFileEmployeeRelationResponse>;
+
+public sealed record UpdatePersonnelFileEmployeeRelationCommand(
+    Guid PersonnelFileId,
+    Guid RelationPublicId,
+    EmployeeRelationInput Relation,
+    Guid ConcurrencyToken)
+    : ICommand<PersonnelFileEmployeeRelationResponse>;
+
+public sealed record DeletePersonnelFileEmployeeRelationCommand(
+    Guid PersonnelFileId,
+    Guid RelationPublicId,
+    Guid ConcurrencyToken)
+    : ICommand<bool>;
 
 public sealed record ReplacePersonnelFileBankAccountsCommand(
     Guid PersonnelFileId,
@@ -1494,13 +1507,34 @@ internal sealed class DeletePersonnelFileHobbyCommandValidator : AbstractValidat
     }
 }
 
-internal sealed class ReplacePersonnelFileEmployeeRelationsCommandValidator : AbstractValidator<ReplacePersonnelFileEmployeeRelationsCommand>
+internal sealed class AddPersonnelFileEmployeeRelationCommandValidator : AbstractValidator<AddPersonnelFileEmployeeRelationCommand>
 {
-    public ReplacePersonnelFileEmployeeRelationsCommandValidator()
+    public AddPersonnelFileEmployeeRelationCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
-        RuleForEach(command => command.Relations).SetValidator(new EmployeeRelationInputValidator());
+        RuleFor(command => command.Relation).SetValidator(new EmployeeRelationInputValidator());
+    }
+}
+
+internal sealed class UpdatePersonnelFileEmployeeRelationCommandValidator : AbstractValidator<UpdatePersonnelFileEmployeeRelationCommand>
+{
+    public UpdatePersonnelFileEmployeeRelationCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.RelationPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Relation).SetValidator(new EmployeeRelationInputValidator());
+    }
+}
+
+internal sealed class DeletePersonnelFileEmployeeRelationCommandValidator : AbstractValidator<DeletePersonnelFileEmployeeRelationCommand>
+{
+    public DeletePersonnelFileEmployeeRelationCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.RelationPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -5253,72 +5287,344 @@ internal sealed class DeletePersonnelFileHobbyCommandHandler(
     }
 }
 
-internal sealed class ReplacePersonnelFileEmployeeRelationsCommandHandler(
+internal sealed class AddPersonnelFileEmployeeRelationCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileEmployeeRelationsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>
+    : ICommandHandler<AddPersonnelFileEmployeeRelationCommand, PersonnelFileEmployeeRelationResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>> Handle(
-        ReplacePersonnelFileEmployeeRelationsCommand command,
+    public async Task<Result<PersonnelFileEmployeeRelationResponse>> Handle(
+        AddPersonnelFileEmployeeRelationCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>(
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
             PersonnelFileTrackedSection.EmployeeRelations,
-            tenantContext,
-            authorizationService,
-            repository,
             cancellationToken);
-        if (failure is not null)
+        if (personnelFile is null)
         {
-            return failure;
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
         }
 
-        var relations = command.Relations.ToArray();
-        var entities = new List<PersonnelFileEmployeeRelation>(relations.Length);
-        for (var index = 0; index < relations.Length; index++)
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
         {
-            var relation = relations[index];
-            if (relation.RelatedEmployeePublicId == personnelFile!.PublicId)
-            {
-                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>.Failure(
-                    ErrorCatalog.Validation(
-                        new Dictionary<string, string[]>
-                        {
-                            [$"relations[{index}].relatedEmployeePublicId"] = ["A personnel file cannot be related to itself."]
-                        }));
-            }
-
-            var relatedPersonnelFile = await repository.GetForAccessCheckAsync(relation.RelatedEmployeePublicId, cancellationToken);
-            if (relatedPersonnelFile is null || relatedPersonnelFile.RecordType != PersonnelFileRecordType.Employee)
-            {
-                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>.Failure(
-                    ErrorCatalog.Validation(
-                        new Dictionary<string, string[]>
-                        {
-                            [$"relations[{index}].relatedEmployeePublicId"] = ["RelatedEmployeePublicId must reference an existing employee personnel file in the same tenant."]
-                        }));
-            }
-
-            entities.Add(PersonnelFileEmployeeRelation.Create(relatedPersonnelFile.Id, relation.Relationship));
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
-        personnelFile!.ReplaceEmployeeRelations(entities);
+        var relation = command.Relation;
+        if (relation.RelatedEmployeePublicId == personnelFile.PublicId)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(
+                ErrorCatalog.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["relation.relatedEmployeePublicId"] = ["A personnel file cannot be related to itself."]
+                    }));
+        }
 
-        return await PersistSectionAsync(
-            personnelFile,
-            PersonnelFilePrintSections.EmployeeRelations,
-            $"Updated personnel file {personnelFile.FullName} employee relations.",
-            repository.GetEmployeeRelationsAsync,
-            auditService,
-            unitOfWork,
-            AuditEventTypes.PersonnelFileUpdated,
+        var relatedPersonnelFile = await repository.GetForAccessCheckAsync(relation.RelatedEmployeePublicId, cancellationToken);
+        if (relatedPersonnelFile is null || relatedPersonnelFile.RecordType != PersonnelFileRecordType.Employee)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(
+                ErrorCatalog.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["relation.relatedEmployeePublicId"] = ["RelatedEmployeePublicId must reference an existing employee personnel file in the same tenant."]
+                    }));
+        }
+
+        var existingDuplicate = personnelFile.EmployeeRelations.Any(existing =>
+            existing.RelatedPersonnelFileId == relatedPersonnelFile.Id &&
+            string.Equals(existing.Relationship, PersonnelFileNormalization.Clean(relation.Relationship, "relationship"), StringComparison.OrdinalIgnoreCase));
+        if (existingDuplicate)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(
+                ErrorCatalog.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["relation"] = ["An employee relation with the same related employee and relationship already exists."]
+                    }));
+        }
+
+        var before = await repository.GetEmployeeRelationsAsync(personnelFile.PublicId, cancellationToken);
+        var entity = PersonnelFileEmployeeRelation.Create(relatedPersonnelFile.Id, relation.Relationship);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.AddEmployeeRelation(entity);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetEmployeeRelationsAsync(personnelFile.PublicId, cancellationToken);
+            var response = after.SingleOrDefault(item => item.Id == entity.PublicId)
+                ?? throw new InvalidOperationException("Personnel file employee relation response could not be resolved after creation.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Added employee relation for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.EmployeeRelations,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.EmployeeRelations,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileEmployeeRelationResponse>.Success(response);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class UpdatePersonnelFileEmployeeRelationCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<UpdatePersonnelFileEmployeeRelationCommand, PersonnelFileEmployeeRelationResponse>
+{
+    public async Task<Result<PersonnelFileEmployeeRelationResponse>> Handle(
+        UpdatePersonnelFileEmployeeRelationCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.EmployeeRelations,
             cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var relation = command.Relation;
+        if (relation.RelatedEmployeePublicId == personnelFile.PublicId)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(
+                ErrorCatalog.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["relation.relatedEmployeePublicId"] = ["A personnel file cannot be related to itself."]
+                    }));
+        }
+
+        var relatedPersonnelFile = await repository.GetForAccessCheckAsync(relation.RelatedEmployeePublicId, cancellationToken);
+        if (relatedPersonnelFile is null || relatedPersonnelFile.RecordType != PersonnelFileRecordType.Employee)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(
+                ErrorCatalog.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["relation.relatedEmployeePublicId"] = ["RelatedEmployeePublicId must reference an existing employee personnel file in the same tenant."]
+                    }));
+        }
+
+        var existingDuplicate = personnelFile.EmployeeRelations.Any(existing =>
+            existing.PublicId != command.RelationPublicId &&
+            existing.RelatedPersonnelFileId == relatedPersonnelFile.Id &&
+            string.Equals(existing.Relationship, PersonnelFileNormalization.Clean(relation.Relationship, "relationship"), StringComparison.OrdinalIgnoreCase));
+        if (existingDuplicate)
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(
+                ErrorCatalog.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["relation"] = ["An employee relation with the same related employee and relationship already exists."]
+                    }));
+        }
+
+        var before = await repository.GetEmployeeRelationsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.UpdateEmployeeRelation(command.RelationPublicId, relatedPersonnelFile.Id, relation.Relationship);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetEmployeeRelationsAsync(personnelFile.PublicId, cancellationToken);
+            var response = after.SingleOrDefault(item => item.Id == command.RelationPublicId)
+                ?? throw new InvalidOperationException("Personnel file employee relation response could not be resolved after update.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Updated employee relation for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.EmployeeRelations,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.EmployeeRelations,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileEmployeeRelationResponse>.Success(response);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return Result<PersonnelFileEmployeeRelationResponse>.Failure(PersonnelFileErrors.NotFound);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class DeletePersonnelFileEmployeeRelationCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<DeletePersonnelFileEmployeeRelationCommand, bool>
+{
+    public async Task<Result<bool>> Handle(
+        DeletePersonnelFileEmployeeRelationCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<bool>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.EmployeeRelations,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<bool>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<bool>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetEmployeeRelationsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.RemoveEmployeeRelation(command.RelationPublicId);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetEmployeeRelationsAsync(personnelFile.PublicId, cancellationToken);
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Deleted employee relation for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.EmployeeRelations,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.EmployeeRelations,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<bool>.Success(true);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return Result<bool>.Failure(PersonnelFileErrors.NotFound);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 }
 

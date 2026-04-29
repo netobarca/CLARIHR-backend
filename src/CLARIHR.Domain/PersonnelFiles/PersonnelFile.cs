@@ -520,15 +520,31 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
-    public void ReplaceEmployeeRelations(IEnumerable<PersonnelFileEmployeeRelation> items)
+    public void AddEmployeeRelation(PersonnelFileEmployeeRelation item)
     {
-        _employeeRelations.Clear();
-        foreach (var item in items)
-        {
-            item.SetTenantId(TenantId);
-            _employeeRelations.Add(item);
-        }
+        item.SetTenantId(TenantId);
+        _employeeRelations.Add(item);
+        RefreshConcurrencyToken();
+    }
 
+    public void UpdateEmployeeRelation(
+        Guid relationPublicId,
+        long relatedPersonnelFileId,
+        string relationship)
+    {
+        var relation = _employeeRelations.FirstOrDefault(i => i.PublicId == relationPublicId)
+            ?? throw new InvalidOperationException($"Employee relation with public id {relationPublicId} not found.");
+
+        relation.Update(relatedPersonnelFileId, relationship);
+        RefreshConcurrencyToken();
+    }
+
+    public void RemoveEmployeeRelation(Guid relationPublicId)
+    {
+        var relation = _employeeRelations.FirstOrDefault(i => i.PublicId == relationPublicId)
+            ?? throw new InvalidOperationException($"Employee relation with public id {relationPublicId} not found.");
+
+        _employeeRelations.Remove(relation);
         RefreshConcurrencyToken();
     }
 
@@ -1157,6 +1173,17 @@ public sealed class PersonnelFileEmployeeRelation : TenantEntity
 
     public static PersonnelFileEmployeeRelation Create(long relatedPersonnelFileId, string relationship) =>
         new(relatedPersonnelFileId, relationship);
+
+    internal void Update(long relatedPersonnelFileId, string relationship)
+    {
+        if (relatedPersonnelFileId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(relatedPersonnelFileId));
+        }
+
+        RelatedPersonnelFileId = relatedPersonnelFileId;
+        Relationship = PersonnelFileNormalization.Clean(relationship, nameof(relationship));
+    }
 }
 
 public sealed class PersonnelFileBankAccount : TenantEntity

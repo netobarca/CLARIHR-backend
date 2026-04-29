@@ -580,26 +580,76 @@ public sealed class PersonnelFileProfileController(
         return this.ToActionResult(result);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/employee-relations")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>(StatusCodes.Status200OK)]
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/employee-relations")]
+    [ProducesResponseType<PersonnelFileEmployeeRelationResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>>>> ReplaceEmployeeRelations(
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileEmployeeRelationResponse>> AddEmployeeRelation(
         Guid publicId,
-        [FromBody] ReplaceEmployeeRelationsRequest request,
+        [FromBody] AddEmployeeRelationRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ReplacePersonnelFileEmployeeRelationsCommand(
+            new AddPersonnelFileEmployeeRelationCommand(
                 publicId,
-                request.Items.Select(item => new EmployeeRelationInput(item.RelatedEmployeePublicId, item.Relationship)).ToArray(),
+                new EmployeeRelationInput(request.RelatedEmployeePublicId, request.Relationship),
+                request.ConcurrencyToken),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(Result<PersonnelFileEmployeeRelationResponse>.Failure(result.Error))
+            : StatusCode(StatusCodes.Status201Created, result.Value);
+    }
+
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/employee-relations/{itemPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileEmployeeRelationResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileEmployeeRelationResponse>> UpdateEmployeeRelation(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] UpdateEmployeeRelationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new UpdatePersonnelFileEmployeeRelationCommand(
+                publicId,
+                itemPublicId,
+                new EmployeeRelationInput(request.RelatedEmployeePublicId, request.Relationship),
                 request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
+    }
+
+    [HttpDelete("api/v1/personnel-files/{publicId:guid}/employee-relations/{itemPublicId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteEmployeeRelation(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] ConcurrencyRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeletePersonnelFileEmployeeRelationCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(result).Result!
+            : NoContent();
     }
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/bank-accounts")]

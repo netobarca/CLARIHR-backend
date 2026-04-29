@@ -383,10 +383,14 @@ public sealed record AddHobbyRequest(string HobbyName, Guid ConcurrencyToken);
 
 public sealed record UpdateHobbyRequest(string HobbyName, Guid ConcurrencyToken);
 
-public sealed record EmployeeRelationItemRequest(Guid RelatedEmployeePublicId, string Relationship);
+public sealed record AddEmployeeRelationRequest(
+    Guid RelatedEmployeePublicId,
+    string Relationship,
+    Guid ConcurrencyToken);
 
-public sealed record ReplaceEmployeeRelationsRequest(
-    IReadOnlyCollection<EmployeeRelationItemRequest> Items,
+public sealed record UpdateEmployeeRelationRequest(
+    Guid RelatedEmployeePublicId,
+    string Relationship,
     Guid ConcurrencyToken);
 
 public sealed record BankAccountItemRequest(
