@@ -750,11 +750,24 @@ public sealed record DeletePersonnelFileAssociationCommand(
     Guid ConcurrencyToken)
     : ICommand<bool>;
 
-public sealed record ReplacePersonnelFileEducationsCommand(
+public sealed record AddPersonnelFileEducationCommand(
     Guid PersonnelFileId,
-    IReadOnlyCollection<EducationInput> Educations,
+    EducationInput Education,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>;
+    : ICommand<PersonnelFileEducationResponse>;
+
+public sealed record UpdatePersonnelFileEducationCommand(
+    Guid PersonnelFileId,
+    Guid EducationPublicId,
+    EducationInput Education,
+    Guid ConcurrencyToken)
+    : ICommand<PersonnelFileEducationResponse>;
+
+public sealed record DeletePersonnelFileEducationCommand(
+    Guid PersonnelFileId,
+    Guid EducationPublicId,
+    Guid ConcurrencyToken)
+    : ICommand<bool>;
 
 public sealed record ReplacePersonnelFileLanguagesCommand(
     Guid PersonnelFileId,
@@ -1626,13 +1639,34 @@ internal sealed class DeletePersonnelFileAssociationCommandValidator : AbstractV
     }
 }
 
-internal sealed class ReplacePersonnelFileEducationsCommandValidator : AbstractValidator<ReplacePersonnelFileEducationsCommand>
+internal sealed class AddPersonnelFileEducationCommandValidator : AbstractValidator<AddPersonnelFileEducationCommand>
 {
-    public ReplacePersonnelFileEducationsCommandValidator()
+    public AddPersonnelFileEducationCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
-        RuleForEach(command => command.Educations).SetValidator(new EducationInputValidator());
+        RuleFor(command => command.Education).SetValidator(new EducationInputValidator());
+    }
+}
+
+internal sealed class UpdatePersonnelFileEducationCommandValidator : AbstractValidator<UpdatePersonnelFileEducationCommand>
+{
+    public UpdatePersonnelFileEducationCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.EducationPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Education).SetValidator(new EducationInputValidator());
+    }
+}
+
+internal sealed class DeletePersonnelFileEducationCommandValidator : AbstractValidator<DeletePersonnelFileEducationCommand>
+{
+    public DeletePersonnelFileEducationCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.EducationPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -6324,141 +6358,123 @@ internal sealed class DeletePersonnelFileAssociationCommandHandler(
     }
 }
 
-internal sealed class ReplacePersonnelFileEducationsCommandHandler(
+internal sealed class AddPersonnelFileEducationCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelEducationCatalogRepository personnelEducationCatalogRepository,
     IPersonnelFileRepository repository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ReplacePersonnelFileSectionCommandHandlerBase,
-      ICommandHandler<ReplacePersonnelFileEducationsCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>
+    : ICommandHandler<AddPersonnelFileEducationCommand, PersonnelFileEducationResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>> Handle(
-        ReplacePersonnelFileEducationsCommand command,
+    public async Task<Result<PersonnelFileEducationResponse>> Handle(
+        AddPersonnelFileEducationCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForUpdateAsync<IReadOnlyCollection<PersonnelFileEducationResponse>>(
-            command.PersonnelFileId,
-            command.ConcurrencyToken,
-            PersonnelFileTrackedSection.Educations,
-            tenantContext,
-            authorizationService,
-            repository,
-            cancellationToken);
-        if (failure is not null)
+        if (!tenantContext.TenantId.HasValue)
         {
-            return failure;
+            return Result<PersonnelFileEducationResponse>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
-        var entities = new List<PersonnelFileEducation>();
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.Educations,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var (catalogError, resolvedIds) = await ResolveEducationCatalogIdsAsync(
+            personnelFile.TenantId, command.Education, personnelEducationCatalogRepository, repository, cancellationToken);
+        if (catalogError != Error.None)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(catalogError);
+        }
+
+        PersonnelFileEducation education;
         try
         {
-            foreach (var item in command.Educations)
-            {
-                var statusLookup = await personnelEducationCatalogRepository.GetActiveLookupByIdAsync(
-                    personnelFile!.TenantId,
-                    PersonnelEducationCatalogType.EducationStatus,
-                    item.StatusPublicId,
-                    cancellationToken);
-                if (statusLookup is null)
-                {
-                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(CreateEducationCatalogValidationError(nameof(item.StatusPublicId), item.StatusPublicId));
-                }
-
-                var studyTypeLookup = await personnelEducationCatalogRepository.GetActiveLookupByIdAsync(
-                    personnelFile.TenantId,
-                    PersonnelEducationCatalogType.StudyType,
-                    item.StudyTypePublicId,
-                    cancellationToken);
-                if (studyTypeLookup is null)
-                {
-                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(CreateEducationCatalogValidationError(nameof(item.StudyTypePublicId), item.StudyTypePublicId));
-                }
-
-                var countryError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
-                    repository,
-                    personnelFile.TenantId,
-                    nameof(item.CountryCode),
-                    PersonnelCurriculumCatalogCategories.Country,
-                    item.CountryCode,
-                    cancellationToken);
-                if (countryError != Error.None)
-                {
-                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(countryError);
-                }
-
-                PersonnelEducationCatalogLookup? shiftValue = null;
-                if (item.ShiftPublicId.HasValue)
-                {
-                    shiftValue = await personnelEducationCatalogRepository.GetActiveLookupByIdAsync(
-                        personnelFile.TenantId,
-                        PersonnelEducationCatalogType.Shift,
-                        item.ShiftPublicId.Value,
-                        cancellationToken);
-                    if (shiftValue is null)
-                    {
-                        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(CreateEducationCatalogValidationError(nameof(item.ShiftPublicId), item.ShiftPublicId.Value));
-                    }
-                }
-
-                PersonnelEducationCatalogLookup? modalityValue = null;
-                if (item.ModalityPublicId.HasValue)
-                {
-                    modalityValue = await personnelEducationCatalogRepository.GetActiveLookupByIdAsync(
-                        personnelFile.TenantId,
-                        PersonnelEducationCatalogType.Modality,
-                        item.ModalityPublicId.Value,
-                        cancellationToken);
-                    if (modalityValue is null)
-                    {
-                        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(CreateEducationCatalogValidationError(nameof(item.ModalityPublicId), item.ModalityPublicId.Value));
-                    }
-                }
-
-                var careerLookup = await personnelEducationCatalogRepository.GetActiveLookupByIdAsync(
-                    personnelFile.TenantId,
-                    PersonnelEducationCatalogType.Career,
-                    item.CareerPublicId,
-                    cancellationToken);
-                if (careerLookup is null)
-                {
-                    return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(CreateEducationCatalogValidationError(nameof(item.CareerPublicId), item.CareerPublicId));
-                }
-
-                entities.Add(PersonnelFileEducation.Create(
-                    statusLookup.InternalId,
-                    item.DegreeTitle,
-                    studyTypeLookup.InternalId,
-                    careerLookup.InternalId,
-                    item.Institution,
-                    item.CountryCode,
-                    item.Specialty,
-                    item.IsCurrentlyStudying,
-                    item.StartDate,
-                    item.EndDate,
-                    shiftValue?.InternalId,
-                    modalityValue?.InternalId,
-                    item.TotalSubjects,
-                    item.ApprovedSubjects));
-            }
+            education = PersonnelFileEducation.Create(
+                resolvedIds!.StatusId,
+                command.Education.DegreeTitle,
+                resolvedIds.StudyTypeId,
+                resolvedIds.CareerId,
+                command.Education.Institution,
+                command.Education.CountryCode,
+                command.Education.Specialty,
+                command.Education.IsCurrentlyStudying,
+                command.Education.StartDate,
+                command.Education.EndDate,
+                resolvedIds.ShiftId,
+                resolvedIds.ModalityId,
+                command.Education.TotalSubjects,
+                command.Education.ApprovedSubjects);
         }
         catch (InvalidOperationException)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
+            return Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
         }
 
-        personnelFile!.ReplaceEducations(entities);
+        var before = await repository.GetEducationsAsync(personnelFile.PublicId, cancellationToken);
 
-        return await PersistSectionAsync(
-            personnelFile,
-            PersonnelFilePrintSections.Educations,
-            $"Updated personnel file {personnelFile.FullName} educations.",
-            repository.GetEducationsAsync,
-            auditService,
-            unitOfWork,
-            AuditEventTypes.PersonnelFileUpdated,
-            cancellationToken);
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.AddEducation(education);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetEducationsAsync(personnelFile.PublicId, cancellationToken);
+            var response = after.SingleOrDefault(item => item.Id == education.PublicId)
+                ?? throw new InvalidOperationException("Personnel file education response could not be resolved after creation.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Added education for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Educations,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Educations,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileEducationResponse>.Success(response);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     private static Error CreateEducationCatalogValidationError(string fieldName, Guid publicId) =>
@@ -6467,6 +6483,307 @@ internal sealed class ReplacePersonnelFileEducationsCommandHandler(
             {
                 [fieldName] = [$"Catalog item '{publicId}' is not active or does not belong to the tenant."]
             });
+
+    internal static async Task<(Error Error, ResolvedEducationCatalogIds? Ids)> ResolveEducationCatalogIdsAsync(
+        Guid tenantId,
+        EducationInput input,
+        IPersonnelEducationCatalogRepository catalogRepository,
+        IPersonnelFileRepository fileRepository,
+        CancellationToken cancellationToken)
+    {
+        var statusLookup = await catalogRepository.GetActiveLookupByIdAsync(
+            tenantId,
+            PersonnelEducationCatalogType.EducationStatus,
+            input.StatusPublicId,
+            cancellationToken);
+        if (statusLookup is null)
+        {
+            return (CreateEducationCatalogValidationError(nameof(input.StatusPublicId), input.StatusPublicId), null);
+        }
+
+        var studyTypeLookup = await catalogRepository.GetActiveLookupByIdAsync(
+            tenantId,
+            PersonnelEducationCatalogType.StudyType,
+            input.StudyTypePublicId,
+            cancellationToken);
+        if (studyTypeLookup is null)
+        {
+            return (CreateEducationCatalogValidationError(nameof(input.StudyTypePublicId), input.StudyTypePublicId), null);
+        }
+
+        var careerLookup = await catalogRepository.GetActiveLookupByIdAsync(
+            tenantId,
+            PersonnelEducationCatalogType.Career,
+            input.CareerPublicId,
+            cancellationToken);
+        if (careerLookup is null)
+        {
+            return (CreateEducationCatalogValidationError(nameof(input.CareerPublicId), input.CareerPublicId), null);
+        }
+
+        var countryError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            fileRepository,
+            tenantId,
+            nameof(input.CountryCode),
+            PersonnelCurriculumCatalogCategories.Country,
+            input.CountryCode,
+            cancellationToken);
+        if (countryError != Error.None)
+        {
+            return (countryError, null);
+        }
+
+        long? shiftId = null;
+        if (input.ShiftPublicId.HasValue)
+        {
+            var shiftLookup = await catalogRepository.GetActiveLookupByIdAsync(
+                tenantId,
+                PersonnelEducationCatalogType.Shift,
+                input.ShiftPublicId.Value,
+                cancellationToken);
+            if (shiftLookup is null)
+            {
+                return (CreateEducationCatalogValidationError(nameof(input.ShiftPublicId), input.ShiftPublicId.Value), null);
+            }
+
+            shiftId = shiftLookup.InternalId;
+        }
+
+        long? modalityId = null;
+        if (input.ModalityPublicId.HasValue)
+        {
+            var modalityLookup = await catalogRepository.GetActiveLookupByIdAsync(
+                tenantId,
+                PersonnelEducationCatalogType.Modality,
+                input.ModalityPublicId.Value,
+                cancellationToken);
+            if (modalityLookup is null)
+            {
+                return (CreateEducationCatalogValidationError(nameof(input.ModalityPublicId), input.ModalityPublicId.Value), null);
+            }
+
+            modalityId = modalityLookup.InternalId;
+        }
+
+        return (Error.None, new ResolvedEducationCatalogIds(
+            statusLookup.InternalId,
+            studyTypeLookup.InternalId,
+            careerLookup.InternalId,
+            shiftId,
+            modalityId));
+    }
+
+    internal sealed record ResolvedEducationCatalogIds(
+        long StatusId,
+        long StudyTypeId,
+        long CareerId,
+        long? ShiftId,
+        long? ModalityId);
+}
+
+internal sealed class UpdatePersonnelFileEducationCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelEducationCatalogRepository personnelEducationCatalogRepository,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<UpdatePersonnelFileEducationCommand, PersonnelFileEducationResponse>
+{
+    public async Task<Result<PersonnelFileEducationResponse>> Handle(
+        UpdatePersonnelFileEducationCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.Educations,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var (catalogError, resolvedIds) = await AddPersonnelFileEducationCommandHandler.ResolveEducationCatalogIdsAsync(
+            personnelFile.TenantId, command.Education, personnelEducationCatalogRepository, repository, cancellationToken);
+        if (catalogError != Error.None)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(catalogError);
+        }
+
+        var before = await repository.GetEducationsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.UpdateEducation(
+                command.EducationPublicId,
+                resolvedIds!.StatusId,
+                command.Education.DegreeTitle,
+                resolvedIds.StudyTypeId,
+                resolvedIds.CareerId,
+                command.Education.Institution,
+                command.Education.CountryCode,
+                command.Education.Specialty,
+                command.Education.IsCurrentlyStudying,
+                command.Education.StartDate,
+                command.Education.EndDate,
+                resolvedIds.ShiftId,
+                resolvedIds.ModalityId,
+                command.Education.TotalSubjects,
+                command.Education.ApprovedSubjects);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetEducationsAsync(personnelFile.PublicId, cancellationToken);
+            var response = after.SingleOrDefault(item => item.Id == command.EducationPublicId)
+                ?? throw new InvalidOperationException("Personnel file education response could not be resolved after update.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Updated education for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Educations,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Educations,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileEducationResponse>.Success(response);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.NotFound);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class DeletePersonnelFileEducationCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<DeletePersonnelFileEducationCommand, bool>
+{
+    public async Task<Result<bool>> Handle(
+        DeletePersonnelFileEducationCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<bool>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.Educations,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<bool>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<bool>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetEducationsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.RemoveEducation(command.EducationPublicId);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetEducationsAsync(personnelFile.PublicId, cancellationToken);
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Deleted education for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Educations,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Educations,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<bool>.Success(true);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return Result<bool>.Failure(PersonnelFileErrors.NotFound);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
 }
 
 internal sealed class ReplacePersonnelFileLanguagesCommandHandler(

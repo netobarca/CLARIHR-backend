@@ -611,15 +611,58 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
-    public void ReplaceEducations(IEnumerable<PersonnelFileEducation> items)
+    public void AddEducation(PersonnelFileEducation item)
     {
-        _educations.Clear();
-        foreach (var item in items)
-        {
-            item.SetTenantId(TenantId);
-            _educations.Add(item);
-        }
+        item.SetTenantId(TenantId);
+        _educations.Add(item);
+        RefreshConcurrencyToken();
+    }
 
+    public void UpdateEducation(
+        Guid educationPublicId,
+        long educationStatusCatalogItemId,
+        string? degreeTitle,
+        long educationStudyTypeCatalogItemId,
+        long educationCareerCatalogItemId,
+        string institution,
+        string countryCode,
+        string? specialty,
+        bool isCurrentlyStudying,
+        DateTime startDate,
+        DateTime? endDate,
+        long? educationShiftCatalogItemId,
+        long? educationModalityCatalogItemId,
+        int? totalSubjects,
+        int? approvedSubjects)
+    {
+        var education = _educations.FirstOrDefault(i => i.PublicId == educationPublicId)
+            ?? throw new InvalidOperationException($"Education with public id {educationPublicId} not found.");
+
+        education.Update(
+            educationStatusCatalogItemId,
+            degreeTitle,
+            educationStudyTypeCatalogItemId,
+            educationCareerCatalogItemId,
+            institution,
+            countryCode,
+            specialty,
+            isCurrentlyStudying,
+            startDate,
+            endDate,
+            educationShiftCatalogItemId,
+            educationModalityCatalogItemId,
+            totalSubjects,
+            approvedSubjects);
+
+        RefreshConcurrencyToken();
+    }
+
+    public void RemoveEducation(Guid educationPublicId)
+    {
+        var education = _educations.FirstOrDefault(i => i.PublicId == educationPublicId)
+            ?? throw new InvalidOperationException($"Education with public id {educationPublicId} not found.");
+
+        _educations.Remove(education);
         RefreshConcurrencyToken();
     }
 
@@ -1525,6 +1568,88 @@ public sealed class PersonnelFileEducation : TenantEntity
             educationModalityCatalogItemId,
             totalSubjects,
             approvedSubjects);
+
+    internal void Update(
+        long educationStatusCatalogItemId,
+        string? degreeTitle,
+        long educationStudyTypeCatalogItemId,
+        long educationCareerCatalogItemId,
+        string institution,
+        string countryCode,
+        string? specialty,
+        bool isCurrentlyStudying,
+        DateTime startDate,
+        DateTime? endDate,
+        long? educationShiftCatalogItemId,
+        long? educationModalityCatalogItemId,
+        int? totalSubjects,
+        int? approvedSubjects)
+    {
+        if (educationStatusCatalogItemId <= 0)
+        {
+            throw new InvalidOperationException("EducationStatusCatalogItemId must be greater than zero.");
+        }
+
+        if (educationStudyTypeCatalogItemId <= 0)
+        {
+            throw new InvalidOperationException("EducationStudyTypeCatalogItemId must be greater than zero.");
+        }
+
+        if (educationCareerCatalogItemId <= 0)
+        {
+            throw new InvalidOperationException("EducationCareerCatalogItemId must be greater than zero.");
+        }
+
+        if (educationShiftCatalogItemId.HasValue && educationShiftCatalogItemId.Value <= 0)
+        {
+            throw new InvalidOperationException("EducationShiftCatalogItemId must be greater than zero.");
+        }
+
+        if (educationModalityCatalogItemId.HasValue && educationModalityCatalogItemId.Value <= 0)
+        {
+            throw new InvalidOperationException("EducationModalityCatalogItemId must be greater than zero.");
+        }
+
+        if (endDate.HasValue && endDate.Value.Date < startDate.Date)
+        {
+            throw new InvalidOperationException("EndDate cannot be earlier than StartDate.");
+        }
+
+        if (!isCurrentlyStudying && !endDate.HasValue)
+        {
+            throw new InvalidOperationException("EndDate is required when IsCurrentlyStudying is false.");
+        }
+
+        if (totalSubjects.HasValue && totalSubjects.Value < 0)
+        {
+            throw new InvalidOperationException("TotalSubjects cannot be negative.");
+        }
+
+        if (approvedSubjects.HasValue && approvedSubjects.Value < 0)
+        {
+            throw new InvalidOperationException("ApprovedSubjects cannot be negative.");
+        }
+
+        if (totalSubjects.HasValue && approvedSubjects.HasValue && approvedSubjects.Value > totalSubjects.Value)
+        {
+            throw new InvalidOperationException("ApprovedSubjects cannot be greater than TotalSubjects.");
+        }
+
+        EducationStatusCatalogItemId = educationStatusCatalogItemId;
+        DegreeTitle = PersonnelFileNormalization.CleanOptional(degreeTitle);
+        EducationStudyTypeCatalogItemId = educationStudyTypeCatalogItemId;
+        EducationCareerCatalogItemId = educationCareerCatalogItemId;
+        Institution = PersonnelFileNormalization.Clean(institution, nameof(institution));
+        CountryCode = PersonnelFileNormalization.Clean(countryCode, nameof(countryCode));
+        Specialty = PersonnelFileNormalization.CleanOptional(specialty);
+        IsCurrentlyStudying = isCurrentlyStudying;
+        StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
+        EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
+        EducationShiftCatalogItemId = educationShiftCatalogItemId;
+        EducationModalityCatalogItemId = educationModalityCatalogItemId;
+        TotalSubjects = totalSubjects;
+        ApprovedSubjects = approvedSubjects;
+    }
 }
 
 public sealed class PersonnelFileLanguage : TenantEntity

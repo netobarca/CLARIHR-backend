@@ -633,7 +633,7 @@ internal sealed class DevSeedService(
         maria.ReplaceEmergencyContacts([
             PersonnelFileEmergencyContact.Create("Ana Gonzalez", "Madre", "+503 7000-5678", null, null),
         ]);
-        maria.ReplaceEducations([
+        maria.AddEducation(
             PersonnelFileEducation.Create(
                 catalogIds.StatusGraduatedId,
                 "Ing. Industrial",
@@ -645,8 +645,7 @@ internal sealed class DevSeedService(
                 educationShiftCatalogItemId: catalogIds.ShiftMorningId,
                 educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
                 totalSubjects: 60,
-                approvedSubjects: 60),
-        ]);
+                approvedSubjects: 60));
         maria.AddBankAccount(
             PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0001-1234-5678", "SAVINGS", isPrimary: true));
 
@@ -672,7 +671,7 @@ internal sealed class DevSeedService(
         carlos.ReplaceEmergencyContacts([
             PersonnelFileEmergencyContact.Create("Laura de Ramirez", "Esposa", "+503 7111-3333", null, null),
         ]);
-        carlos.ReplaceEducations([
+        carlos.AddEducation(
             PersonnelFileEducation.Create(
                 catalogIds.StatusGraduatedId,
                 "Lic. Administracion de Empresas",
@@ -686,7 +685,8 @@ internal sealed class DevSeedService(
                 educationShiftCatalogItemId: catalogIds.ShiftMorningId,
                 educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
                 totalSubjects: 55,
-                approvedSubjects: 55),
+                approvedSubjects: 55));
+        carlos.AddEducation(
             PersonnelFileEducation.Create(
                 catalogIds.StatusGraduatedId,
                 "MBA",
@@ -700,8 +700,7 @@ internal sealed class DevSeedService(
                 educationShiftCatalogItemId: catalogIds.ShiftAfternoonId,
                 educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
                 totalSubjects: 20,
-                approvedSubjects: 20),
-        ]);
+                approvedSubjects: 20));
         carlos.ReplaceLanguages([
             PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", speaks: true, writes: true, reads: true),
         ]);
@@ -735,7 +734,7 @@ internal sealed class DevSeedService(
         andrea.ReplaceEmergencyContacts([
             PersonnelFileEmergencyContact.Create("Roberto Lopez", "Padre", "+503 7222-4444", null, null),
         ]);
-        andrea.ReplaceEducations([
+        andrea.AddEducation(
             PersonnelFileEducation.Create(
                 catalogIds.StatusGraduatedId,
                 "Lic. Psicologia",
@@ -750,8 +749,7 @@ internal sealed class DevSeedService(
                 educationShiftCatalogItemId: catalogIds.ShiftMorningId,
                 educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
                 totalSubjects: 50,
-                approvedSubjects: 50),
-        ]);
+                approvedSubjects: 50));
         andrea.ReplaceLanguages([
             PersonnelFileLanguage.Create("ENGLISH", "INTERMEDIATE", speaks: true, writes: true, reads: true),
         ]);
@@ -791,7 +789,7 @@ internal sealed class DevSeedService(
             PersonnelFileEmergencyContact.Create("Carmen de Martinez", "Esposa", "+503 7333-5555", null, null),
             PersonnelFileEmergencyContact.Create("Pedro Martinez", "Hermano", "+503 7333-6666", null, "Banco Agricola"),
         ]);
-        jose.ReplaceEducations([
+        jose.AddEducation(
             PersonnelFileEducation.Create(
                 catalogIds.StatusGraduatedId,
                 "Ing. en Sistemas Informaticos",
@@ -805,8 +803,7 @@ internal sealed class DevSeedService(
                 educationShiftCatalogItemId: catalogIds.ShiftMorningId,
                 educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
                 totalSubjects: 58,
-                approvedSubjects: 58),
-        ]);
+                approvedSubjects: 58));
         jose.ReplaceLanguages([
             PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", speaks: true, writes: true, reads: true),
             PersonnelFileLanguage.Create("SPANISH", "ADVANCED", speaks: true, writes: true, reads: true),
@@ -840,7 +837,7 @@ internal sealed class DevSeedService(
         lucia.ReplaceAddresses([
             PersonnelFileAddress.Create("Zona 10, 4a Calle, #12", "GT", "Guatemala", "Guatemala City", "01010", isCurrent: true),
         ]);
-        lucia.ReplaceEducations([
+        lucia.AddEducation(
             PersonnelFileEducation.Create(
                 catalogIds.StatusInProgressId,
                 null,
@@ -854,8 +851,7 @@ internal sealed class DevSeedService(
                 educationShiftCatalogItemId: catalogIds.ShiftAfternoonId,
                 educationModalityCatalogItemId: catalogIds.ModalityRemoteId,
                 totalSubjects: 45,
-                approvedSubjects: 38),
-        ]);
+                approvedSubjects: 38));
         lucia.ReplaceReferences([
             PersonnelFileReference.Create("Marco Estrada", "Zona 14, Guatemala", "+502 5111-2222",
                 "PERSONAL", occupation: null, workplace: null, workPhone: null, 3),

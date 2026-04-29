@@ -441,8 +441,38 @@ public sealed record EducationItemRequest(
     int? TotalSubjects,
     int? ApprovedSubjects);
 
-public sealed record ReplaceEducationsRequest(
-    IReadOnlyCollection<EducationItemRequest> Items,
+public sealed record AddEducationRequest(
+    Guid StatusPublicId,
+    string? DegreeTitle,
+    Guid StudyTypePublicId,
+    Guid CareerPublicId,
+    string Institution,
+    string CountryCode,
+    string? Specialty,
+    bool IsCurrentlyStudying,
+    DateTime StartDate,
+    DateTime? EndDate,
+    Guid? ShiftPublicId,
+    Guid? ModalityPublicId,
+    int? TotalSubjects,
+    int? ApprovedSubjects,
+    Guid ConcurrencyToken);
+
+public sealed record UpdateEducationRequest(
+    Guid StatusPublicId,
+    string? DegreeTitle,
+    Guid StudyTypePublicId,
+    Guid CareerPublicId,
+    string Institution,
+    string CountryCode,
+    string? Specialty,
+    bool IsCurrentlyStudying,
+    DateTime StartDate,
+    DateTime? EndDate,
+    Guid? ShiftPublicId,
+    Guid? ModalityPublicId,
+    int? TotalSubjects,
+    int? ApprovedSubjects,
     Guid ConcurrencyToken);
 
 public sealed record LanguageItemRequest(

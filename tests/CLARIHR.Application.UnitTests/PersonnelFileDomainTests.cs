@@ -885,6 +885,269 @@ public sealed class PersonnelFileDomainTests
             null));
     }
 
+    [Fact]
+    public void PersonnelFile_AddEducation_ShouldAppendRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var tenantId = Guid.NewGuid();
+        file.SetTenantId(tenantId);
+        var initialToken = file.ConcurrencyToken;
+        var education = PersonnelFileEducation.Create(
+            educationStatusCatalogItemId: 1,
+            degreeTitle: "Ing. Industrial",
+            educationStudyTypeCatalogItemId: 2,
+            educationCareerCatalogItemId: 3,
+            institution: "UES",
+            countryCode: "SV",
+            specialty: null,
+            isCurrentlyStudying: false,
+            startDate: new DateTime(2010, 1, 1),
+            endDate: new DateTime(2015, 1, 1),
+            educationShiftCatalogItemId: 4,
+            educationModalityCatalogItemId: 5,
+            totalSubjects: 60,
+            approvedSubjects: 60);
+
+        file.AddEducation(education);
+
+        var stored = Assert.Single(file.Educations);
+        Assert.Equal("Ing. Industrial", stored.DegreeTitle);
+        Assert.Equal("UES", stored.Institution);
+        Assert.Equal(60, stored.TotalSubjects);
+        Assert.Equal(tenantId, stored.TenantId);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateEducation_ShouldUpdateFieldsAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var education = PersonnelFileEducation.Create(
+            educationStatusCatalogItemId: 1,
+            degreeTitle: "Ing. Industrial",
+            educationStudyTypeCatalogItemId: 2,
+            educationCareerCatalogItemId: 3,
+            institution: "UES",
+            countryCode: "SV",
+            specialty: null,
+            isCurrentlyStudying: false,
+            startDate: new DateTime(2010, 1, 1),
+            endDate: new DateTime(2015, 1, 1),
+            educationShiftCatalogItemId: null,
+            educationModalityCatalogItemId: null,
+            totalSubjects: 60,
+            approvedSubjects: 55);
+        file.AddEducation(education);
+        var initialToken = file.ConcurrencyToken;
+
+        file.UpdateEducation(
+            education.PublicId,
+            educationStatusCatalogItemId: 10,
+            degreeTitle: "MBA",
+            educationStudyTypeCatalogItemId: 20,
+            educationCareerCatalogItemId: 30,
+            institution: "INCAE",
+            countryCode: "GT",
+            specialty: "Finanzas",
+            isCurrentlyStudying: false,
+            startDate: new DateTime(2016, 1, 1),
+            endDate: new DateTime(2018, 1, 1),
+            educationShiftCatalogItemId: 40,
+            educationModalityCatalogItemId: 50,
+            totalSubjects: 20,
+            approvedSubjects: 20);
+
+        var stored = Assert.Single(file.Educations);
+        Assert.Equal("MBA", stored.DegreeTitle);
+        Assert.Equal("INCAE", stored.Institution);
+        Assert.Equal("GT", stored.CountryCode);
+        Assert.Equal("Finanzas", stored.Specialty);
+        Assert.Equal(10L, stored.EducationStatusCatalogItemId);
+        Assert.Equal(20L, stored.EducationStudyTypeCatalogItemId);
+        Assert.Equal(30L, stored.EducationCareerCatalogItemId);
+        Assert.Equal(40L, stored.EducationShiftCatalogItemId);
+        Assert.Equal(50L, stored.EducationModalityCatalogItemId);
+        Assert.Equal(20, stored.TotalSubjects);
+        Assert.Equal(20, stored.ApprovedSubjects);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateEducation_WhenNotFound_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+
+        Assert.Throws<InvalidOperationException>(() => file.UpdateEducation(
+            Guid.NewGuid(),
+            educationStatusCatalogItemId: 1,
+            degreeTitle: "Test",
+            educationStudyTypeCatalogItemId: 2,
+            educationCareerCatalogItemId: 3,
+            institution: "Test",
+            countryCode: "SV",
+            specialty: null,
+            isCurrentlyStudying: false,
+            startDate: new DateTime(2020, 1, 1),
+            endDate: new DateTime(2024, 1, 1),
+            educationShiftCatalogItemId: null,
+            educationModalityCatalogItemId: null,
+            totalSubjects: null,
+            approvedSubjects: null));
+    }
+
+    [Fact]
+    public void PersonnelFile_RemoveEducation_ShouldRemoveRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var education = PersonnelFileEducation.Create(
+            educationStatusCatalogItemId: 1,
+            degreeTitle: "Test",
+            educationStudyTypeCatalogItemId: 2,
+            educationCareerCatalogItemId: 3,
+            institution: "UES",
+            countryCode: "SV",
+            specialty: null,
+            isCurrentlyStudying: false,
+            startDate: new DateTime(2010, 1, 1),
+            endDate: new DateTime(2015, 1, 1),
+            educationShiftCatalogItemId: null,
+            educationModalityCatalogItemId: null,
+            totalSubjects: null,
+            approvedSubjects: null);
+        file.AddEducation(education);
+        var initialToken = file.ConcurrencyToken;
+
+        file.RemoveEducation(education.PublicId);
+
+        Assert.Empty(file.Educations);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_RemoveEducation_WhenNotFound_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+
+        Assert.Throws<InvalidOperationException>(() => file.RemoveEducation(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void PersonnelFileEducation_Update_WhenEndDateBeforeStartDate_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var education = PersonnelFileEducation.Create(
+            educationStatusCatalogItemId: 1,
+            degreeTitle: "Test",
+            educationStudyTypeCatalogItemId: 2,
+            educationCareerCatalogItemId: 3,
+            institution: "UES",
+            countryCode: "SV",
+            specialty: null,
+            isCurrentlyStudying: false,
+            startDate: new DateTime(2010, 1, 1),
+            endDate: new DateTime(2015, 1, 1),
+            educationShiftCatalogItemId: null,
+            educationModalityCatalogItemId: null,
+            totalSubjects: null,
+            approvedSubjects: null);
+        file.AddEducation(education);
+
+        Assert.Throws<InvalidOperationException>(() => file.UpdateEducation(
+            education.PublicId,
+            educationStatusCatalogItemId: 1,
+            degreeTitle: "Test",
+            educationStudyTypeCatalogItemId: 2,
+            educationCareerCatalogItemId: 3,
+            institution: "UES",
+            countryCode: "SV",
+            specialty: null,
+            isCurrentlyStudying: false,
+            startDate: new DateTime(2020, 6, 1),
+            endDate: new DateTime(2020, 1, 1),
+            educationShiftCatalogItemId: null,
+            educationModalityCatalogItemId: null,
+            totalSubjects: null,
+            approvedSubjects: null));
+    }
+
+    [Fact]
+    public void PersonnelFileEducation_Update_WhenApprovedSubjectsOverTotal_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var education = PersonnelFileEducation.Create(
+            educationStatusCatalogItemId: 1,
+            degreeTitle: "Test",
+            educationStudyTypeCatalogItemId: 2,
+            educationCareerCatalogItemId: 3,
+            institution: "UES",
+            countryCode: "SV",
+            specialty: null,
+            isCurrentlyStudying: false,
+            startDate: new DateTime(2010, 1, 1),
+            endDate: new DateTime(2015, 1, 1),
+            educationShiftCatalogItemId: null,
+            educationModalityCatalogItemId: null,
+            totalSubjects: 60,
+            approvedSubjects: 55);
+        file.AddEducation(education);
+
+        Assert.Throws<InvalidOperationException>(() => file.UpdateEducation(
+            education.PublicId,
+            educationStatusCatalogItemId: 1,
+            degreeTitle: "Test",
+            educationStudyTypeCatalogItemId: 2,
+            educationCareerCatalogItemId: 3,
+            institution: "UES",
+            countryCode: "SV",
+            specialty: null,
+            isCurrentlyStudying: false,
+            startDate: new DateTime(2010, 1, 1),
+            endDate: new DateTime(2015, 1, 1),
+            educationShiftCatalogItemId: null,
+            educationModalityCatalogItemId: null,
+            totalSubjects: 10,
+            approvedSubjects: 11));
+    }
+
+    [Fact]
+    public void PersonnelFileEducation_Update_WhenNotCurrentlyStudyingAndNoEndDate_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var education = PersonnelFileEducation.Create(
+            educationStatusCatalogItemId: 1,
+            degreeTitle: "Test",
+            educationStudyTypeCatalogItemId: 2,
+            educationCareerCatalogItemId: 3,
+            institution: "UES",
+            countryCode: "SV",
+            specialty: null,
+            isCurrentlyStudying: true,
+            startDate: new DateTime(2020, 1, 1),
+            endDate: null,
+            educationShiftCatalogItemId: null,
+            educationModalityCatalogItemId: null,
+            totalSubjects: null,
+            approvedSubjects: null);
+        file.AddEducation(education);
+
+        Assert.Throws<InvalidOperationException>(() => file.UpdateEducation(
+            education.PublicId,
+            educationStatusCatalogItemId: 1,
+            degreeTitle: "Test",
+            educationStudyTypeCatalogItemId: 2,
+            educationCareerCatalogItemId: 3,
+            institution: "UES",
+            countryCode: "SV",
+            specialty: null,
+            isCurrentlyStudying: false,
+            startDate: new DateTime(2020, 1, 1),
+            endDate: null,
+            educationShiftCatalogItemId: null,
+            educationModalityCatalogItemId: null,
+            totalSubjects: null,
+            approvedSubjects: null));
+    }
+
     private static PersonnelFile CreatePersonnelFile(PersonnelFileRecordType recordType, string firstName, string lastName)
     {
         var file = PersonnelFile.Create(
