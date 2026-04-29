@@ -548,15 +548,35 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
-    public void ReplaceBankAccounts(IEnumerable<PersonnelFileBankAccount> items)
+    public void AddBankAccount(PersonnelFileBankAccount item)
     {
-        _bankAccounts.Clear();
-        foreach (var item in items)
-        {
-            item.SetTenantId(TenantId);
-            _bankAccounts.Add(item);
-        }
+        item.SetTenantId(TenantId);
+        _bankAccounts.Add(item);
+        RefreshConcurrencyToken();
+    }
 
+    public void UpdateBankAccount(
+        Guid bankAccountPublicId,
+        long? bankCatalogItemId,
+        string bankCode,
+        string currencyCode,
+        string accountNumber,
+        string accountTypeCode,
+        bool isPrimary)
+    {
+        var bankAccount = _bankAccounts.FirstOrDefault(i => i.PublicId == bankAccountPublicId)
+            ?? throw new InvalidOperationException($"Bank account with public id {bankAccountPublicId} not found.");
+
+        bankAccount.Update(bankCatalogItemId, bankCode, currencyCode, accountNumber, accountTypeCode, isPrimary);
+        RefreshConcurrencyToken();
+    }
+
+    public void RemoveBankAccount(Guid bankAccountPublicId)
+    {
+        var bankAccount = _bankAccounts.FirstOrDefault(i => i.PublicId == bankAccountPublicId)
+            ?? throw new InvalidOperationException($"Bank account with public id {bankAccountPublicId} not found.");
+
+        _bankAccounts.Remove(bankAccount);
         RefreshConcurrencyToken();
     }
 
@@ -1238,6 +1258,23 @@ public sealed class PersonnelFileBankAccount : TenantEntity
         string accountTypeCode,
         bool isPrimary) =>
         new(bankCatalogItemId, bankCode, currencyCode, accountNumber, accountTypeCode, isPrimary);
+
+    internal void Update(
+        long? bankCatalogItemId,
+        string bankCode,
+        string currencyCode,
+        string accountNumber,
+        string accountTypeCode,
+        bool isPrimary)
+    {
+        BankCatalogItemId = bankCatalogItemId;
+        BankCode = PersonnelFileNormalization.Clean(bankCode, nameof(bankCode));
+        CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode));
+        AccountNumber = PersonnelFileNormalization.Clean(accountNumber, nameof(accountNumber));
+        NormalizedAccountNumber = PersonnelFileNormalization.NormalizeCode(accountNumber);
+        AccountTypeCode = PersonnelFileNormalization.Clean(accountTypeCode, nameof(accountTypeCode));
+        IsPrimary = isPrimary;
+    }
 }
 
 public sealed class PersonnelFileAssociation : TenantEntity

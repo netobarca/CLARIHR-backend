@@ -738,6 +738,68 @@ public sealed class PersonnelFileDomainTests
             knownTimeYears: -1));
     }
 
+    [Fact]
+    public void PersonnelFile_AddBankAccount_ShouldAppendRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var tenantId = Guid.NewGuid();
+        file.SetTenantId(tenantId);
+        var initialToken = file.ConcurrencyToken;
+        var bankAccount = PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0001-1234-5678", "SAVINGS", isPrimary: true);
+
+        file.AddBankAccount(bankAccount);
+
+        var stored = Assert.Single(file.BankAccounts);
+        Assert.Equal("AGRI", stored.BankCode);
+        Assert.Equal("USD", stored.CurrencyCode);
+        Assert.Equal("0001-1234-5678", stored.AccountNumber);
+        Assert.Equal("SAVINGS", stored.AccountTypeCode);
+        Assert.True(stored.IsPrimary);
+        Assert.Equal(tenantId, stored.TenantId);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateBankAccount_ShouldUpdateRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var bankAccount = PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0001-1234-5678", "SAVINGS", isPrimary: true);
+        file.AddBankAccount(bankAccount);
+        var initialToken = file.ConcurrencyToken;
+
+        file.UpdateBankAccount(bankAccount.PublicId, 99, "DAVI", "USD", "0002-9876-5432", "CHECKING", false);
+
+        var stored = Assert.Single(file.BankAccounts);
+        Assert.Equal("DAVI", stored.BankCode);
+        Assert.Equal("0002-9876-5432", stored.AccountNumber);
+        Assert.Equal("CHECKING", stored.AccountTypeCode);
+        Assert.False(stored.IsPrimary);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateBankAccount_WhenNotFound_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+
+        Assert.Throws<InvalidOperationException>(() => file.UpdateBankAccount(
+            Guid.NewGuid(), null, "AGRI", "USD", "0001", "SAVINGS", true));
+    }
+
+    [Fact]
+    public void PersonnelFile_RemoveBankAccount_ShouldRemoveRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var bankAccount = PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0001-1234-5678", "SAVINGS", isPrimary: true);
+        file.AddBankAccount(bankAccount);
+        var initialToken = file.ConcurrencyToken;
+
+        file.RemoveBankAccount(bankAccount.PublicId);
+
+        Assert.Empty(file.BankAccounts);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
     private static PersonnelFile CreatePersonnelFile(PersonnelFileRecordType recordType, string firstName, string lastName)
     {
         var file = PersonnelFile.Create(
