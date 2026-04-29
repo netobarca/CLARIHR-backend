@@ -852,41 +852,104 @@ public sealed class PersonnelFileProfileController(
         return this.ToActionResult(result);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/educations")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>(StatusCodes.Status200OK)]
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/educations")]
+    [ProducesResponseType<PersonnelFileEducationResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEducationResponse>>>> ReplaceEducations(
+    public async Task<ActionResult<PersonnelFileEducationResponse>> AddEducation(
         Guid publicId,
-        [FromBody] ReplaceEducationsRequest request,
+        [FromBody] AddEducationRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ReplacePersonnelFileEducationsCommand(
+            new AddPersonnelFileEducationCommand(
                 publicId,
-                request.Items.Select(item => new EducationInput(
-                    item.StatusPublicId,
-                    item.DegreeTitle,
-                    item.StudyTypePublicId,
-                    item.CareerPublicId,
-                    item.Institution,
-                    item.CountryCode,
-                    item.Specialty,
-                    item.IsCurrentlyStudying,
-                    item.StartDate,
-                    item.EndDate,
-                    item.ShiftPublicId,
-                    item.ModalityPublicId,
-                    item.TotalSubjects,
-                    item.ApprovedSubjects)).ToArray(),
+                new EducationInput(
+                    request.StatusPublicId,
+                    request.DegreeTitle,
+                    request.StudyTypePublicId,
+                    request.CareerPublicId,
+                    request.Institution,
+                    request.CountryCode,
+                    request.Specialty,
+                    request.IsCurrentlyStudying,
+                    request.StartDate,
+                    request.EndDate,
+                    request.ShiftPublicId,
+                    request.ModalityPublicId,
+                    request.TotalSubjects,
+                    request.ApprovedSubjects),
+                request.ConcurrencyToken),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(Result<PersonnelFileEducationResponse>.Failure(result.Error))
+            : StatusCode(StatusCodes.Status201Created, result.Value);
+    }
+
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/educations/{itemPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileEducationResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileEducationResponse>> UpdateEducation(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] UpdateEducationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new UpdatePersonnelFileEducationCommand(
+                publicId,
+                itemPublicId,
+                new EducationInput(
+                    request.StatusPublicId,
+                    request.DegreeTitle,
+                    request.StudyTypePublicId,
+                    request.CareerPublicId,
+                    request.Institution,
+                    request.CountryCode,
+                    request.Specialty,
+                    request.IsCurrentlyStudying,
+                    request.StartDate,
+                    request.EndDate,
+                    request.ShiftPublicId,
+                    request.ModalityPublicId,
+                    request.TotalSubjects,
+                    request.ApprovedSubjects),
                 request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
+    }
+
+    [HttpDelete("api/v1/personnel-files/{publicId:guid}/educations/{itemPublicId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteEducation(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] ConcurrencyRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeletePersonnelFileEducationCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(result).Result!
+            : NoContent();
     }
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/languages")]
