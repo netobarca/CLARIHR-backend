@@ -189,6 +189,50 @@ public sealed class PersonnelFileProfileItemCommandTests
         Assert.Contains("kinshipCode", result.Error.ValidationErrors!.Keys);
     }
 
+    [Fact]
+    public async Task AddAssociation_WhenRequestIsValid_ShouldPersistAndReturnCreatedItem()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateAddAssociationHandler(repository);
+
+        var result = await handler.Handle(
+            new AddPersonnelFileAssociationCommand(
+                personnelFile.PublicId,
+                new AssociationInput("Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Colegio de Abogados", result.Value.AssociationName);
+        Assert.Equal("Miembro", result.Value.Role);
+        Assert.Equal(50.00m, result.Value.Payment);
+        Assert.Single(personnelFile.Associations);
+        Assert.Equal(2, repository.GetAssociationsCalls);
+    }
+
+    [Fact]
+    public async Task DeleteAssociation_WhenItemExists_ShouldRemoveItem()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var association = PersonnelFileAssociation.Create("Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m);
+        personnelFile.AddAssociation(association);
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateDeleteAssociationHandler(repository);
+
+        var result = await handler.Handle(
+            new DeletePersonnelFileAssociationCommand(
+                personnelFile.PublicId,
+                association.PublicId,
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value);
+        Assert.Empty(personnelFile.Associations);
+        Assert.Equal(2, repository.GetAssociationsCalls);
+    }
+
     private static AddPersonnelFileAddressCommandHandler CreateAddAddressHandler(TestPersonnelFileRepository repository)
     {
         return new AddPersonnelFileAddressCommandHandler(
@@ -235,6 +279,26 @@ public sealed class PersonnelFileProfileItemCommandTests
     private static UpdatePersonnelFileFamilyMemberCommandHandler CreateUpdateFamilyMemberHandler(TestPersonnelFileRepository repository)
     {
         return new UpdatePersonnelFileFamilyMemberCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
+    private static AddPersonnelFileAssociationCommandHandler CreateAddAssociationHandler(TestPersonnelFileRepository repository)
+    {
+        return new AddPersonnelFileAssociationCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
+    private static DeletePersonnelFileAssociationCommandHandler CreateDeleteAssociationHandler(TestPersonnelFileRepository repository)
+    {
+        return new DeletePersonnelFileAssociationCommandHandler(
             new AllowPersonnelFileAuthorizationService(),
             repository,
             new NoOpAuditService(),
@@ -303,6 +367,7 @@ public sealed class PersonnelFileProfileItemCommandTests
         public int GetAddressesCalls { get; private set; }
         public int GetEmergencyContactsCalls { get; private set; }
         public int GetBankAccountsCalls { get; private set; }
+        public int GetAssociationsCalls { get; private set; }
 
         public void Add(PersonnelFile personnelFile) => throw new NotSupportedException();
 
@@ -432,7 +497,23 @@ public sealed class PersonnelFileProfileItemCommandTests
                     item.AccountTypeCode,
                     item.IsPrimary)).ToArray());
         }
-        public Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(Guid personnelFileId, CancellationToken cancellationToken)
+        {
+            GetAssociationsCalls++;
+            if (!_files.TryGetValue(personnelFileId, out var file))
+            {
+                return Task.FromResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>(Array.Empty<PersonnelFileAssociationResponse>());
+            }
+
+            return Task.FromResult<IReadOnlyCollection<PersonnelFileAssociationResponse>>(
+                file.Associations.Select(item => new PersonnelFileAssociationResponse(
+                    item.PublicId,
+                    item.AssociationName,
+                    item.Role,
+                    item.JoinedDate,
+                    item.LeftDate,
+                    item.Payment)).ToArray());
+        }
         public Task<IReadOnlyCollection<PersonnelFileEducationResponse>> GetEducationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileLanguageResponse>> GetLanguagesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileTrainingResponse>> GetTrainingsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();

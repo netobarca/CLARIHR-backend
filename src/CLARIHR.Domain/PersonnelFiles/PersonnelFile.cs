@@ -580,15 +580,34 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
-    public void ReplaceAssociations(IEnumerable<PersonnelFileAssociation> items)
+    public void AddAssociation(PersonnelFileAssociation item)
     {
-        _associations.Clear();
-        foreach (var item in items)
-        {
-            item.SetTenantId(TenantId);
-            _associations.Add(item);
-        }
+        item.SetTenantId(TenantId);
+        _associations.Add(item);
+        RefreshConcurrencyToken();
+    }
 
+    public void UpdateAssociation(
+        Guid associationPublicId,
+        string associationName,
+        string? role,
+        DateTime? joinedDate,
+        DateTime? leftDate,
+        decimal? payment)
+    {
+        var association = _associations.FirstOrDefault(i => i.PublicId == associationPublicId)
+            ?? throw new InvalidOperationException($"Association with public id {associationPublicId} not found.");
+
+        association.Update(associationName, role, joinedDate, leftDate, payment);
+        RefreshConcurrencyToken();
+    }
+
+    public void RemoveAssociation(Guid associationPublicId)
+    {
+        var association = _associations.FirstOrDefault(i => i.PublicId == associationPublicId)
+            ?? throw new InvalidOperationException($"Association with public id {associationPublicId} not found.");
+
+        _associations.Remove(association);
         RefreshConcurrencyToken();
     }
 
@@ -1324,6 +1343,25 @@ public sealed class PersonnelFileAssociation : TenantEntity
         DateTime? leftDate,
         decimal? payment) =>
         new(associationName, role, joinedDate, leftDate, payment);
+
+    internal void Update(
+        string associationName,
+        string? role,
+        DateTime? joinedDate,
+        DateTime? leftDate,
+        decimal? payment)
+    {
+        if (joinedDate.HasValue && leftDate.HasValue && leftDate.Value.Date < joinedDate.Value.Date)
+        {
+            throw new InvalidOperationException("LeftDate cannot be earlier than JoinedDate.");
+        }
+
+        AssociationName = PersonnelFileNormalization.Clean(associationName, nameof(associationName));
+        Role = PersonnelFileNormalization.CleanOptional(role);
+        JoinedDate = PersonnelFileNormalization.NormalizeDate(joinedDate);
+        LeftDate = PersonnelFileNormalization.NormalizeDate(leftDate);
+        Payment = payment;
+    }
 }
 
 public sealed class PersonnelFileEducation : TenantEntity

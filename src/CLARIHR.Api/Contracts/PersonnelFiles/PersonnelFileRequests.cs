@@ -409,15 +409,20 @@ public sealed record UpdateBankAccountRequest(
     bool IsPrimary,
     Guid ConcurrencyToken);
 
-public sealed record AssociationItemRequest(
+public sealed record AddAssociationRequest(
     string AssociationName,
     string? Role,
     DateTime? JoinedDate,
     DateTime? LeftDate,
-    decimal? Payment);
+    decimal? Payment,
+    Guid ConcurrencyToken);
 
-public sealed record ReplaceAssociationsRequest(
-    IReadOnlyCollection<AssociationItemRequest> Items,
+public sealed record UpdateAssociationRequest(
+    string AssociationName,
+    string? Role,
+    DateTime? JoinedDate,
+    DateTime? LeftDate,
+    decimal? Payment,
     Guid ConcurrencyToken);
 
 public sealed record EducationItemRequest(
