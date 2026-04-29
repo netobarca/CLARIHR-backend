@@ -1318,4 +1318,28 @@
   <data name="validation.message.url_must_be_an_absolute_https_url" xml:space="preserve">
     <value>La URL debe ser una URL https absoluta.</value>
   </data>
+  <data name="BANK_CATALOG_ALREADY_ACTIVE" xml:space="preserve">
+    <value>El elemento del catalogo bancario ya esta activo.</value>
+  </data>
+  <data name="BANK_CATALOG_ALREADY_INACTIVE" xml:space="preserve">
+    <value>El elemento del catalogo bancario ya esta inactivo.</value>
+  </data>
+  <data name="BANK_CATALOG_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro elemento del catalogo bancario ya usa el codigo solicitado para ese pais.</value>
+  </data>
+  <data name="BANK_CATALOG_COMPANY_COUNTRY_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo resolver el pais de la compania para la busqueda en el catalogo bancario.</value>
+  </data>
+  <data name="BANK_CATALOG_COUNTRY_CHANGE_FORBIDDEN" xml:space="preserve">
+    <value>No es soportado cambiar el pais de un elemento existente del catalogo bancario.</value>
+  </data>
+  <data name="BANK_CATALOG_COUNTRY_NOT_FOUND" xml:space="preserve">
+    <value>El pais '{0}' no esta activo.</value>
+  </data>
+  <data name="BANK_CATALOG_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar el elemento del catalogo bancario solicitado.</value>
+  </data>
+  <data name="validation.message.filedata_is_required_for_new_documents" xml:space="preserve">
+    <value>El archivo es obligatorio al crear un nuevo documento.</value>
+  </data>
 </root>

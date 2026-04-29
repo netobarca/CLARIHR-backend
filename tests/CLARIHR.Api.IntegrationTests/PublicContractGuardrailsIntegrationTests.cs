@@ -124,6 +124,12 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
         Assert.Contains("/api/v1/companies/{companyPublicId}/cost-centers", pathNames);
         Assert.Contains("/api/v1/companies/{companyPublicId}/job-profiles", pathNames);
         Assert.Contains("/api/v1/personnel-files/{publicId}/identifications", pathNames);
+        Assert.Contains("/api/v1/personnel-files/{publicId}/addresses", pathNames);
+        Assert.Contains("/api/v1/personnel-files/{publicId}/addresses/{itemPublicId}", pathNames);
+        Assert.Contains("/api/v1/personnel-files/{publicId}/emergency-contacts", pathNames);
+        Assert.Contains("/api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}", pathNames);
+        Assert.Contains("/api/v1/personnel-files/{publicId}/family-members", pathNames);
+        Assert.Contains("/api/v1/personnel-files/{publicId}/family-members/{itemPublicId}", pathNames);
         Assert.Contains("/api/v1/personnel-files/{publicId}/documents", pathNames);
 
         Assert.DoesNotContain("/api/account/companies/{publicId}", pathNames);
@@ -132,6 +138,26 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
         Assert.DoesNotContain(pathNames, static path => path.Contains("{companyId}", StringComparison.Ordinal));
         Assert.DoesNotContain("/api/v1/personnel-file-documents/{publicId}/file", pathNames);
         Assert.DoesNotContain("/api/v1/personnel-file-documents/{publicId}/inactivate", pathNames);
+
+        var paths = document.RootElement.GetProperty("paths");
+
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/addresses").TryGetProperty("get", out _));
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/addresses").TryGetProperty("post", out _));
+        Assert.False(paths.GetProperty("/api/v1/personnel-files/{publicId}/addresses").TryGetProperty("put", out _));
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/addresses/{itemPublicId}").TryGetProperty("put", out _));
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/addresses/{itemPublicId}").TryGetProperty("delete", out _));
+
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/emergency-contacts").TryGetProperty("get", out _));
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/emergency-contacts").TryGetProperty("post", out _));
+        Assert.False(paths.GetProperty("/api/v1/personnel-files/{publicId}/emergency-contacts").TryGetProperty("put", out _));
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}").TryGetProperty("put", out _));
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}").TryGetProperty("delete", out _));
+
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/family-members").TryGetProperty("get", out _));
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/family-members").TryGetProperty("post", out _));
+        Assert.False(paths.GetProperty("/api/v1/personnel-files/{publicId}/family-members").TryGetProperty("put", out _));
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/family-members/{itemPublicId}").TryGetProperty("put", out _));
+        Assert.True(paths.GetProperty("/api/v1/personnel-files/{publicId}/family-members/{itemPublicId}").TryGetProperty("delete", out _));
     }
 
     [Fact]

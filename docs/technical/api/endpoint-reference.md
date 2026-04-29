@@ -268,9 +268,19 @@ Profile:
 - `PUT /api/v1/personnel-files/{publicId}/personal-info`
 - `GET /api/v1/personnel-files/{publicId}/identifications`
 - `POST /api/v1/personnel-files/{publicId}/identifications`
-- `PUT /api/v1/personnel-files/{publicId}/identifications`
+- `PUT /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/addresses`
+- `POST /api/v1/personnel-files/{publicId}/addresses`
+- `PUT /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/emergency-contacts`
+- `POST /api/v1/personnel-files/{publicId}/emergency-contacts`
+- `PUT /api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/family-members`
-- `PUT /api/v1/personnel-files/{publicId}/family-members`
+- `POST /api/v1/personnel-files/{publicId}/family-members`
+- `PUT /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/educations`
 - `PUT /api/v1/personnel-files/{publicId}/educations`
 
@@ -2879,10 +2889,10 @@ Familias de rutas:
 - `/api/v1/companies/{companyId}/personnel-files`
 - `/api/v1/personnel-files/{id}`
 - `/api/v1/personnel-files/{id}/personal-info`
-- `/api/v1/personnel-files/{id}/identifications`
-- `/api/v1/personnel-files/{id}/addresses`
-- `/api/v1/personnel-files/{id}/emergency-contacts`
-- `/api/v1/personnel-files/{id}/family-members`
+- `/api/v1/personnel-files/{publicId}/identifications`
+- `/api/v1/personnel-files/{publicId}/addresses`
+- `/api/v1/personnel-files/{publicId}/emergency-contacts`
+- `/api/v1/personnel-files/{publicId}/family-members`
 - `/api/v1/personnel-files/{id}/hobbies`
 - `/api/v1/personnel-files/{id}/employee-relations`
 - `/api/v1/personnel-files/{id}/associations`
@@ -3082,13 +3092,19 @@ Route family:
 - `PUT /api/v1/personnel-files/{publicId}/personal-info`
 - `GET /api/v1/personnel-files/{publicId}/identifications`
 - `POST /api/v1/personnel-files/{publicId}/identifications`
-- `PUT /api/v1/personnel-files/{publicId}/identifications`
+- `PUT /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/addresses`
-- `PUT /api/v1/personnel-files/{publicId}/addresses`
+- `POST /api/v1/personnel-files/{publicId}/addresses`
+- `PUT /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/emergency-contacts`
-- `PUT /api/v1/personnel-files/{publicId}/emergency-contacts`
+- `POST /api/v1/personnel-files/{publicId}/emergency-contacts`
+- `PUT /api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/family-members`
-- `PUT /api/v1/personnel-files/{publicId}/family-members`
+- `POST /api/v1/personnel-files/{publicId}/family-members`
+- `PUT /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/hobbies`
 - `PUT /api/v1/personnel-files/{publicId}/hobbies`
 - `GET /api/v1/personnel-files/{publicId}/employee-relations`
@@ -3116,10 +3132,10 @@ Observaciones funcionales:
 
 - `PersonnelFilesController` conserva el recurso raiz: create, search, shell y lifecycle. `PersonnelFileProfileController` conserva las secciones editables y es la fuente de verdad del bloque `personal-info`.
 - Los endpoints `GET` de `Profile` devuelven el bloque solicitado sin exigir `ConcurrencyToken`; `personal-info` responde con el bloque escalar del expediente y las demas rutas responden la coleccion completa del subrecurso.
-- `POST /identifications` agrega una sola identificacion por request y usa el `ConcurrencyToken` del expediente padre.
-- Todos los endpoints `PUT` de `Profile` usan el `ConcurrencyToken` del expediente y devuelven `PersonnelFileSectionResult<T>` con la seccion mutada y el nuevo token del expediente.
-- Todos los `PUT` de colecciones son de reemplazo total de la subseccion.
-- En `Profile`, los `PUT` de colecciones usan `items` como propiedad principal del payload.
+- `POST /identifications`, `POST /addresses`, `POST /emergency-contacts` y `POST /family-members` agregan una sola fila por request y usan el `ConcurrencyToken` del expediente padre.
+- `PUT /identifications/{itemPublicId}`, `PUT /addresses/{itemPublicId}`, `PUT /emergency-contacts/{itemPublicId}` y `PUT /family-members/{itemPublicId}` actualizan una sola fila por request y usan el `ConcurrencyToken` del expediente padre.
+- `DELETE /addresses/{itemPublicId}`, `DELETE /emergency-contacts/{itemPublicId}` y `DELETE /family-members/{itemPublicId}` eliminan una sola fila por request; reciben `ConcurrencyToken` en body y responden `204 No Content`.
+- `POST` item-level responde `201` con el item creado. `PUT` item-level responde `200` con el item actualizado. Solo `personal-info` sigue devolviendo `PersonnelFileSectionResult<T>`.
 - `POST /identifications` responde `201` con la identificacion creada; no devuelve `PersonnelFileSectionResult`.
 - `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite transiciones de `RecordType`.
 - `personal-info` tambien actualiza `AssignedPositionSlotId` mientras el expediente sigue en `Draft`; al completar el expediente, `AssignedPositionSlotId` e `InstitutionalEmail` quedan bloqueados.

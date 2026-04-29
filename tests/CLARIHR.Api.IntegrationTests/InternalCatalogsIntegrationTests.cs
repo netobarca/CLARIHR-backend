@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
@@ -155,7 +156,8 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
             scenario.TenantId,
             JobProfilePermissionCodes.Admin,
             PositionDescriptionCatalogPermissionCodes.Admin,
-            OrgUnitPermissionCodes.Admin);
+            OrgUnitPermissionCodes.Admin,
+            CompetencyFrameworkPermissionCodes.Admin);
 
     private async Task<JobProfileItem> CreateJobProfileAsync(
         HttpClient client,

@@ -277,18 +277,6 @@ public sealed record CurricularCompetencyItemRequest(
 
 public sealed record ReplaceCurricularCompetenciesRequest(IReadOnlyCollection<CurricularCompetencyItemRequest> Items, Guid ConcurrencyToken);
 
-public sealed record IdentificationItemRequest(
-    string IdentificationTypeCode,
-    string IdentificationNumber,
-    DateTime? IssuedDate,
-    DateTime? ExpiryDate,
-    string? Issuer,
-    bool IsPrimary = false);
-
-public sealed record ReplaceIdentificationsRequest(
-    IReadOnlyCollection<IdentificationItemRequest> Items,
-    Guid ConcurrencyToken);
-
 public sealed record AddIdentificationRequest(
     string IdentificationTypeCode,
     string IdentificationNumber,
@@ -298,30 +286,50 @@ public sealed record AddIdentificationRequest(
     bool IsPrimary,
     Guid ConcurrencyToken);
 
-public sealed record AddressItemRequest(
+public sealed record UpdateIdentificationRequest(
+    string IdentificationTypeCode,
+    string IdentificationNumber,
+    DateTime? IssuedDate,
+    DateTime? ExpiryDate,
+    string? Issuer,
+    bool IsPrimary,
+    Guid ConcurrencyToken);
+
+public sealed record AddAddressRequest(
     string AddressLine,
     string? Country,
     string? Department,
     string? Municipality,
     string? PostalCode,
-    bool IsCurrent = false);
-
-public sealed record ReplaceAddressesRequest(
-    IReadOnlyCollection<AddressItemRequest> Items,
+    bool IsCurrent,
     Guid ConcurrencyToken);
 
-public sealed record EmergencyContactItemRequest(
+public sealed record UpdateAddressRequest(
+    string AddressLine,
+    string? Country,
+    string? Department,
+    string? Municipality,
+    string? PostalCode,
+    bool IsCurrent,
+    Guid ConcurrencyToken);
+
+public sealed record AddEmergencyContactRequest(
     string Name,
     string Relationship,
     string Phone,
     string? Address,
-    string? Workplace);
-
-public sealed record ReplaceEmergencyContactsRequest(
-    IReadOnlyCollection<EmergencyContactItemRequest> Items,
+    string? Workplace,
     Guid ConcurrencyToken);
 
-public sealed record FamilyMemberItemRequest(
+public sealed record UpdateEmergencyContactRequest(
+    string Name,
+    string Relationship,
+    string Phone,
+    string? Address,
+    string? Workplace,
+    Guid ConcurrencyToken);
+
+public sealed record AddFamilyMemberRequest(
     string FirstName,
     string LastName,
     string KinshipCode,
@@ -343,17 +351,37 @@ public sealed record FamilyMemberItemRequest(
     string? WorkPhone,
     decimal? Salary,
     bool IsDeceased,
-    DateTime? DeceasedDate);
-
-public sealed record ReplaceFamilyMembersRequest(
-    IReadOnlyCollection<FamilyMemberItemRequest> Items,
+    DateTime? DeceasedDate,
     Guid ConcurrencyToken);
 
-public sealed record HobbyItemRequest(string HobbyName);
-
-public sealed record ReplaceHobbiesRequest(
-    IReadOnlyCollection<HobbyItemRequest> Items,
+public sealed record UpdateFamilyMemberRequest(
+    string FirstName,
+    string LastName,
+    string KinshipCode,
+    string? Nationality,
+    DateTime? BirthDate,
+    PersonnelFamilyMemberSex Sex,
+    string? MaritalStatus,
+    string? Occupation,
+    string? DocumentType,
+    string? DocumentNumber,
+    string? Phone,
+    bool IsStudying,
+    string? StudyPlace,
+    string? AcademicLevel,
+    bool IsBeneficiary,
+    bool IsWorking,
+    string? Workplace,
+    string? JobTitle,
+    string? WorkPhone,
+    decimal? Salary,
+    bool IsDeceased,
+    DateTime? DeceasedDate,
     Guid ConcurrencyToken);
+
+public sealed record AddHobbyRequest(string HobbyName, Guid ConcurrencyToken);
+
+public sealed record UpdateHobbyRequest(string HobbyName, Guid ConcurrencyToken);
 
 public sealed record EmployeeRelationItemRequest(Guid RelatedEmployeePublicId, string Relationship);
 

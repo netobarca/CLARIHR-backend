@@ -1,3 +1,4 @@
+using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
@@ -94,6 +95,10 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
 
             await dbContext.Database.EnsureDeletedAsync();
             await dbContext.Database.MigrateAsync();
+
+            var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
+            await planEntitlementService.EnsureSystemPlanDefaultsAsync(CancellationToken.None);
+
             DocumentStorage.Clear();
 
             var scenario = await IntegrationTestSeeder.SeedAsync(dbContext);
@@ -122,6 +127,10 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
 
             await dbContext.Database.EnsureDeletedAsync();
             await dbContext.Database.MigrateAsync();
+
+            var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
+            await planEntitlementService.EnsureSystemPlanDefaultsAsync(CancellationToken.None);
+
             DocumentStorage.Clear();
 
             var scenario = await IntegrationTestSeeder.SeedAsync(dbContext);
