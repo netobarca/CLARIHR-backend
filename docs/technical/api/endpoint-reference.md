@@ -126,7 +126,7 @@ Exenciones observables: el export de un unico `JOB_PROFILE` sigue siendo sincron
 | Org units and cost centers | `OrgUnitsController`, `CostCentersController` | `/api/v1/companies/{companyPublicId}/org-units*`, `/api/v1/companies/{companyPublicId}/cost-centers*` | arbol organizacional, grafos, exportes y centros de costo |
 | Legal representatives | `LegalRepresentativesController` | `/api/v1/companies/{companyPublicId}/legal-representatives*` | ciclo de vida y uso de representantes legales |
 | Job and competency design | `JobCatalogsController`, `JobProfilesController`, `CompetencyFrameworkController`, `PositionDescriptionCatalogsController`, `PositionSlotsController` | `/api/v1/companies/{companyPublicId}/job-*`, `/api/v1/companies/{companyPublicId}/occupational-*`, `/api/v1/companies/{companyPublicId}/position-*` | diseno de puestos, competencias, catalogos y posiciones |
-| Personnel files | `PersonnelFilesController`, `PersonnelFileProfileController`, `PersonnelFileEmploymentController`, `PersonnelFileCompensationController`, `PersonnelFileTalentController`, `PersonnelFileDocumentsController`, `PersonnelFileAdministrationController`, `PersonnelFileReportingController` | `/api/v1/companies/{companyPublicId}/personnel-files*`, `/api/v1/personnel-files/*`, `/api/v1/personnel-custom-field-definitions*` | ciclo de vida del expediente, perfil, empleo, compensacion, talento, documentos y reporting |
+| Personnel files | `PersonnelFilesController`, `PersonnelFilePersonalInfoController`, `PersonnelFileBackgroundController`, `PersonnelFileInterestsController`, `PersonnelFileProfileController`, `PersonnelFileEmploymentController`, `PersonnelFileCompensationController`, `PersonnelFileTalentController`, `PersonnelFileDocumentsController`, `PersonnelFileAdministrationController`, `PersonnelFileReportingController` | `/api/v1/companies/{companyPublicId}/personnel-files*`, `/api/v1/personnel-files/*`, `/api/v1/personnel-custom-field-definitions*` | ciclo de vida del expediente, datos personales, antecedentes, intereses, perfil financiero, empleo, compensacion, talento, documentos y reporting |
 | Salary governance | `SalaryTabulatorController` | `/api/v1/companies/{companyPublicId}/salary-tabulator/*` | lineas salariales, exportes y change requests |
 | Report capabilities | `ReportsController` | `/api/v1/companies/{companyPublicId}/reports/capabilities` | descubrimiento de capacidades de reporte para frontend |
 | Report export jobs | `ReportExportJobsController` | `/api/v1/companies/{companyPublicId}/report-export-jobs*`, `/api/v1/report-export-jobs/*` | cola persistida de exportes grandes, estado, cancelacion y descarga segura |
@@ -262,13 +262,14 @@ Core:
 - `PATCH /api/v1/personnel-files/{publicId}/activate`
 - `PATCH /api/v1/personnel-files/{publicId}/inactivate`
 
-Profile:
+Datos personales (`PersonnelFilePersonalInfoController`):
 
 - `GET /api/v1/personnel-files/{publicId}/personal-info`
 - `PUT /api/v1/personnel-files/{publicId}/personal-info`
 - `GET /api/v1/personnel-files/{publicId}/identifications`
 - `POST /api/v1/personnel-files/{publicId}/identifications`
 - `PUT /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/addresses`
 - `POST /api/v1/personnel-files/{publicId}/addresses`
 - `PUT /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}`
@@ -281,8 +282,51 @@ Profile:
 - `POST /api/v1/personnel-files/{publicId}/family-members`
 - `PUT /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
 - `DELETE /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
+
+Antecedentes (`PersonnelFileBackgroundController`):
+
 - `GET /api/v1/personnel-files/{publicId}/educations`
-- `PUT /api/v1/personnel-files/{publicId}/educations`
+- `POST /api/v1/personnel-files/{publicId}/educations`
+- `PUT /api/v1/personnel-files/{publicId}/educations/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/educations/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/languages`
+- `POST /api/v1/personnel-files/{publicId}/languages`
+- `PUT /api/v1/personnel-files/{publicId}/languages/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/languages/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/trainings`
+- `POST /api/v1/personnel-files/{publicId}/trainings`
+- `PUT /api/v1/personnel-files/{publicId}/trainings/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/trainings/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/previous-employments`
+- `POST /api/v1/personnel-files/{publicId}/previous-employments`
+- `PUT /api/v1/personnel-files/{publicId}/previous-employments/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/previous-employments/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/references`
+- `POST /api/v1/personnel-files/{publicId}/references`
+- `PUT /api/v1/personnel-files/{publicId}/references/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/references/{itemPublicId}`
+
+Intereses (`PersonnelFileInterestsController`):
+
+- `GET /api/v1/personnel-files/{publicId}/hobbies`
+- `POST /api/v1/personnel-files/{publicId}/hobbies`
+- `PUT /api/v1/personnel-files/{publicId}/hobbies/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/hobbies/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/associations`
+- `POST /api/v1/personnel-files/{publicId}/associations`
+- `PUT /api/v1/personnel-files/{publicId}/associations/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/associations/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/employee-relations`
+- `POST /api/v1/personnel-files/{publicId}/employee-relations`
+- `PUT /api/v1/personnel-files/{publicId}/employee-relations/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/employee-relations/{itemPublicId}`
+
+Perfil financiero (`PersonnelFileProfileController`):
+
+- `GET /api/v1/personnel-files/{publicId}/bank-accounts`
+- `POST /api/v1/personnel-files/{publicId}/bank-accounts`
+- `PUT /api/v1/personnel-files/{publicId}/bank-accounts/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/bank-accounts/{itemPublicId}`
 
 Employment:
 
@@ -2981,7 +3025,7 @@ En terminos de negocio, este bloque une dos mundos:
 - documentos
 - observaciones
 - no incluyen `employee profile`, asignaciones, acciones de personal, transacciones de planilla, seguros, evaluaciones ni otros subrecursos del bloque laboral
-- `bank-accounts` se lee y se muta desde `PersonnelFileProfileController`, porque sigue viviendo sobre el agregado base y por eso aparece en `GetById` y en `print`.
+- `bank-accounts` se lee y se muta desde `PersonnelFileProfileController`; sigue viviendo sobre el agregado base y por eso aparece en `GetById` y en `print`. Las otras secciones del expediente base se distribuyen en `PersonnelFilePersonalInfoController` (datos personales, identificaciones, direcciones, contactos de emergencia, familiares), `PersonnelFileBackgroundController` (educaciones, idiomas, capacitaciones, empleos previos, referencias) y `PersonnelFileInterestsController` (pasatiempos, asociaciones, relaciones laborales).
 - `search` y `dynamic-query` soportan busqueda libre por nombre completo y por numero de identificacion.
 - `export` y `analytics/summary` reutilizan la ruta de export rows, por lo que su `q` solo opera sobre nombre completo; no busca por identificaciones.
 
@@ -3084,7 +3128,11 @@ Observaciones funcionales:
 - `activate` e `inactivate` son transiciones soft-state, requieren `ConcurrencyToken` y devuelven el shell refrescado con el token nuevo.
 - `create`, `search`, `activate` e `inactivate` tienen rate limiting especifico del modulo y pueden devolver `429 Too Many Requests` con `ProblemDetails`.
 
-#### 5.10.7 Profile
+#### 5.10.7 Datos personales, antecedentes, intereses y perfil financiero
+
+Este bloque agrupa cuatro controladores independientes que cubren el expediente base no laboral del empleado.
+
+##### Datos personales — `PersonnelFilePersonalInfoController`
 
 Route family:
 
@@ -3093,6 +3141,7 @@ Route family:
 - `GET /api/v1/personnel-files/{publicId}/identifications`
 - `POST /api/v1/personnel-files/{publicId}/identifications`
 - `PUT /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/addresses`
 - `POST /api/v1/personnel-files/{publicId}/addresses`
 - `PUT /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}`
@@ -3105,38 +3154,68 @@ Route family:
 - `POST /api/v1/personnel-files/{publicId}/family-members`
 - `PUT /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
 - `DELETE /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
-- `GET /api/v1/personnel-files/{publicId}/hobbies`
-- `PUT /api/v1/personnel-files/{publicId}/hobbies`
-- `GET /api/v1/personnel-files/{publicId}/employee-relations`
-- `PUT /api/v1/personnel-files/{publicId}/employee-relations`
-- `GET /api/v1/personnel-files/{publicId}/bank-accounts`
-- `PUT /api/v1/personnel-files/{publicId}/bank-accounts`
-- `GET /api/v1/personnel-files/{publicId}/associations`
-- `PUT /api/v1/personnel-files/{publicId}/associations`
+
+##### Antecedentes — `PersonnelFileBackgroundController`
+
+Route family:
+
 - `GET /api/v1/personnel-files/{publicId}/educations`
-- `PUT /api/v1/personnel-files/{publicId}/educations`
+- `POST /api/v1/personnel-files/{publicId}/educations`
+- `PUT /api/v1/personnel-files/{publicId}/educations/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/educations/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/languages`
-- `PUT /api/v1/personnel-files/{publicId}/languages`
+- `POST /api/v1/personnel-files/{publicId}/languages`
+- `PUT /api/v1/personnel-files/{publicId}/languages/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/languages/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/trainings`
-- `PUT /api/v1/personnel-files/{publicId}/trainings`
+- `POST /api/v1/personnel-files/{publicId}/trainings`
+- `PUT /api/v1/personnel-files/{publicId}/trainings/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/trainings/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/previous-employments`
-- `PUT /api/v1/personnel-files/{publicId}/previous-employments`
+- `POST /api/v1/personnel-files/{publicId}/previous-employments`
+- `PUT /api/v1/personnel-files/{publicId}/previous-employments/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/previous-employments/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/references`
-- `PUT /api/v1/personnel-files/{publicId}/references`
+- `POST /api/v1/personnel-files/{publicId}/references`
+- `PUT /api/v1/personnel-files/{publicId}/references/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/references/{itemPublicId}`
+
+##### Intereses — `PersonnelFileInterestsController`
+
+Route family:
+
+- `GET /api/v1/personnel-files/{publicId}/hobbies`
+- `POST /api/v1/personnel-files/{publicId}/hobbies`
+- `PUT /api/v1/personnel-files/{publicId}/hobbies/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/hobbies/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/associations`
+- `POST /api/v1/personnel-files/{publicId}/associations`
+- `PUT /api/v1/personnel-files/{publicId}/associations/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/associations/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/employee-relations`
+- `POST /api/v1/personnel-files/{publicId}/employee-relations`
+- `PUT /api/v1/personnel-files/{publicId}/employee-relations/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/employee-relations/{itemPublicId}`
+
+##### Perfil financiero — `PersonnelFileProfileController`
+
+Route family:
+
+- `GET /api/v1/personnel-files/{publicId}/bank-accounts`
+- `POST /api/v1/personnel-files/{publicId}/bank-accounts`
+- `PUT /api/v1/personnel-files/{publicId}/bank-accounts/{itemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/bank-accounts/{itemPublicId}`
 
 Uso principal:
 
-- completar y mantener el contenido personal, familiar y curricular del expediente
+- completar y mantener el contenido personal, familiar, curricular e intereses del expediente
 
 Observaciones funcionales:
 
-- `PersonnelFilesController` conserva el recurso raiz: create, search, shell y lifecycle. `PersonnelFileProfileController` conserva las secciones editables y es la fuente de verdad del bloque `personal-info`.
-- Los endpoints `GET` de `Profile` devuelven el bloque solicitado sin exigir `ConcurrencyToken`; `personal-info` responde con el bloque escalar del expediente y las demas rutas responden la coleccion completa del subrecurso.
-- `POST /identifications`, `POST /addresses`, `POST /emergency-contacts` y `POST /family-members` agregan una sola fila por request y usan el `ConcurrencyToken` del expediente padre.
-- `PUT /identifications/{itemPublicId}`, `PUT /addresses/{itemPublicId}`, `PUT /emergency-contacts/{itemPublicId}` y `PUT /family-members/{itemPublicId}` actualizan una sola fila por request y usan el `ConcurrencyToken` del expediente padre.
-- `DELETE /addresses/{itemPublicId}`, `DELETE /emergency-contacts/{itemPublicId}` y `DELETE /family-members/{itemPublicId}` eliminan una sola fila por request; reciben `ConcurrencyToken` en body y responden `204 No Content`.
-- `POST` item-level responde `201` con el item creado. `PUT` item-level responde `200` con el item actualizado. Solo `personal-info` sigue devolviendo `PersonnelFileSectionResult<T>`.
-- `POST /identifications` responde `201` con la identificacion creada; no devuelve `PersonnelFileSectionResult`.
+- `PersonnelFilesController` conserva el recurso raiz: create, search, shell y lifecycle. Las secciones editables del expediente base se distribuyen en cuatro controladores semanticos: `PersonnelFilePersonalInfoController` (datos de identidad y contacto), `PersonnelFileBackgroundController` (antecedentes curriculares), `PersonnelFileInterestsController` (intereses y vinculos relacionales) y `PersonnelFileProfileController` (cuentas bancarias).
+- Los endpoints `GET` de cada seccion devuelven el bloque solicitado sin exigir `ConcurrencyToken`; `personal-info` responde con el bloque escalar del expediente y las demas rutas responden la coleccion completa del subrecurso.
+- Todos los subrecursos de estos cuatro controladores usan CRUD atomico a nivel de item: `POST` crea un item, `PUT /{itemPublicId}` actualiza uno, `DELETE /{itemPublicId}` elimina uno; en todos los casos el `ConcurrencyToken` del expediente padre viaja en el body del request.
+- `POST` item-level responde `201` con el item creado. `PUT` item-level responde `200` con el item actualizado. Solo `personal-info` devuelve `PersonnelFileSectionResult<T>`.
 - `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite transiciones de `RecordType`.
 - `personal-info` tambien actualiza `AssignedPositionSlotId` mientras el expediente sigue en `Draft`; al completar el expediente, `AssignedPositionSlotId` e `InstitutionalEmail` quedan bloqueados.
 - `create` y `personal-info` aceptan `photoUrl` como `null`, URL `http/https` o `data:image/...;base64,...` para `png|jpg|jpeg|webp|svg+xml` (maximo `2 MB`); en `svg` se bloquea contenido activo (`script`, eventos inline y enlaces `javascript:`).
@@ -3145,11 +3224,10 @@ Observaciones funcionales:
 - si `RecordType = Employee`, `AssignedPositionSlotId` sigue siendo obligatorio; si `RecordType = Candidate`, no puede enviarse.
 - `personal-info` valida que `maritalStatusCode`, `professionCode`, `birthCountryCode`, `birthDepartmentCode` y `birthMunicipalityCode` existan y esten activos segun catalogo global de referencia.
 - `identifications` valida que `identificationTypeCode` exista y este activo, y revalida unicidad tenant-wide por `IdentificationTypeCode + IdentificationNumber` normalizado.
-- `POST /identifications` es la ruta canonica para crear nuevas filas; `PUT /identifications` se mantiene como reemplazo total de la subseccion.
 - `family-members` exige consistencia entre banderas condicionales y datos dependientes:
-- si `IsStudying=true`, se esperan `StudyPlace` y `AcademicLevel`
-- si `IsWorking=true`, se esperan `Workplace` y `JobTitle`
-- si `IsDeceased=true`, se espera `DeceasedDate`
+  - si `IsStudying=true`, se esperan `StudyPlace` y `AcademicLevel`
+  - si `IsWorking=true`, se esperan `Workplace` y `JobTitle`
+  - si `IsDeceased=true`, se espera `DeceasedDate`
 - `family-members` usa `kinshipCode` (ya no texto libre) y valida contra `GET /api/v1/companies/{companyId}/reference-catalogs/kinships`.
 - `educations`, `languages`, `trainings`, `previous-employments` y `references` validan codigos contra catalogos activos del modulo.
 - Los catalogos curriculares observables usados desde este bloque incluyen `CurriculumEducationStatus`, `CurriculumStudyType`, `CurriculumShift`, `CurriculumModality`, `CurriculumLanguage`, `CurriculumLanguageLevel`, `CurriculumTrainingType`, `CurriculumDurationUnit`, `CurriculumReferenceType`, `Country` y `Currency`.
@@ -3159,6 +3237,7 @@ Observaciones funcionales:
 - si un banco queda inactivo despues de haber sido asociado, la cuenta bancaria existente sigue siendo legible y renderizable.
 - `languages` exige que al menos uno de `Speaks`, `Writes` o `Reads` sea `true`.
 - `trainings` valida pais, tipo, unidad de duracion y moneda de costo contra catalogos activos.
+- `employee-relations` exige que cada item referencie otro expediente existente del mismo tenant mediante `RelatedEmployeePublicId`; la respuesta devuelve tambien `RelatedEmployeeFullName`.
 
 #### 5.10.8 Employment
 

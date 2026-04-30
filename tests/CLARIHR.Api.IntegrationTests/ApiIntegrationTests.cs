@@ -2157,139 +2157,119 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var shiftId = await GetEducationCatalogIdByCodeAsync(client, scenario.TenantId, "education-shifts", "MORNING");
         var modalityId = await GetEducationCatalogIdByCodeAsync(client, scenario.TenantId, "education-modalities", "ONSITE");
 
-        var educationsResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/educations", new
+        var educationsResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/educations", new
         {
-            items = new[]
-            {
-                new
-                {
-                    statusPublicId = statusId,
-                    degreeTitle = "Ingenieria en Sistemas",
-                    studyTypePublicId = studyTypeId,
-                    careerPublicId = careerId,
-                    institution = "Universidad CLARI",
-                    countryCode = "SV",
-                    specialty = (string?)null,
-                    isCurrentlyStudying = false,
-                    startDate = new DateTime(2015, 1, 10),
-                    endDate = new DateTime(2020, 11, 30),
-                    shiftPublicId = shiftId,
-                    modalityPublicId = modalityId,
-                    totalSubjects = 50,
-                    approvedSubjects = 50
-                }
-            },
+            statusPublicId = statusId,
+            degreeTitle = "Ingenieria en Sistemas",
+            studyTypePublicId = studyTypeId,
+            careerPublicId = careerId,
+            institution = "Universidad CLARI",
+            countryCode = "SV",
+            specialty = (string?)null,
+            isCurrentlyStudying = false,
+            startDate = new DateTime(2015, 1, 10),
+            endDate = new DateTime(2020, 11, 30),
+            shiftPublicId = shiftId,
+            modalityPublicId = modalityId,
+            totalSubjects = 50,
+            approvedSubjects = 50,
             concurrencyToken
         });
         educationsResponse.EnsureSuccessStatusCode();
-        var educationPayload = await educationsResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFileEducationItem>>>(JsonOptions);
+        var educationPayload = await educationsResponse.Content.ReadFromJsonAsync<PersonnelFileEducationItem>(JsonOptions);
         Assert.NotNull(educationPayload);
-        Assert.Single(educationPayload!.Data);
-        concurrencyToken = educationPayload.PersonnelFileConcurrencyToken;
+        
+        var getEducationsResponseFirst = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        var updatedShell = await getEducationsResponseFirst.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
+        concurrencyToken = updatedShell!.ConcurrencyToken;
 
-        var languagesResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
+        var languagesResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
         {
-            items = new[]
-            {
-                new
-                {
-                    languageCode = "ENGLISH",
-                    levelCode = "ADVANCED",
-                    speaks = true,
-                    writes = true,
-                    reads = true
-                }
-            },
+            languageCode = "ENGLISH",
+            levelCode = "ADVANCED",
+            speaks = true,
+            writes = true,
+            reads = true,
             concurrencyToken
         });
         languagesResponse.EnsureSuccessStatusCode();
-        var languagePayload = await languagesResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFileLanguageItem>>>(JsonOptions);
+        var languagePayload = await languagesResponse.Content.ReadFromJsonAsync<PersonnelFileLanguageItem>(JsonOptions);
         Assert.NotNull(languagePayload);
-        Assert.Single(languagePayload!.Data);
-        concurrencyToken = languagePayload.PersonnelFileConcurrencyToken;
+        
+        var getLanguagesResponseFirst = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        updatedShell = await getLanguagesResponseFirst.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
+        concurrencyToken = updatedShell!.ConcurrencyToken;
 
-        var trainingsResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/trainings", new
+        var trainingsResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/trainings", new
         {
-            items = new[]
-            {
-                new
-                {
-                    trainingName = "Scrum Fundamentals",
-                    trainingTypeCode = "COURSE",
-                    description = "Curso de agilidad",
-                    topic = "Scrum",
-                    institution = "CLARI Academy",
-                    instructors = "Trainer One",
-                    score = 95m,
-                    startDate = new DateTime(2024, 2, 1),
-                    endDate = new DateTime(2024, 2, 15),
-                    isInternal = false,
-                    isLocal = true,
-                    countryCode = "SV",
-                    durationValue = 40m,
-                    durationUnitCode = "HOUR",
-                    costAmount = 50m,
-                    costCurrencyCode = "USD"
-                }
-            },
+            trainingName = "Scrum Fundamentals",
+            trainingTypeCode = "COURSE",
+            description = "Curso de agilidad",
+            topic = "Scrum",
+            institution = "CLARI Academy",
+            instructors = "Trainer One",
+            score = 95m,
+            startDate = new DateTime(2024, 2, 1),
+            endDate = new DateTime(2024, 2, 15),
+            isInternal = false,
+            isLocal = true,
+            countryCode = "SV",
+            durationValue = 40m,
+            durationUnitCode = "HOUR",
+            costAmount = 50m,
+            costCurrencyCode = "USD",
             concurrencyToken
         });
         trainingsResponse.EnsureSuccessStatusCode();
-        var trainingPayload = await trainingsResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFileTrainingItem>>>(JsonOptions);
+        var trainingPayload = await trainingsResponse.Content.ReadFromJsonAsync<PersonnelFileTrainingItem>(JsonOptions);
         Assert.NotNull(trainingPayload);
-        Assert.Single(trainingPayload!.Data);
-        concurrencyToken = trainingPayload.PersonnelFileConcurrencyToken;
 
-        var employmentsResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/previous-employments", new
+        var getTrainingsResponseFirst = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        updatedShell = await getTrainingsResponseFirst.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
+        concurrencyToken = updatedShell!.ConcurrencyToken;
+
+        var employmentsResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/previous-employments", new
         {
-            items = new[]
-            {
-                new
-                {
-                    institution = "Empresa Uno",
-                    place = "San Salvador",
-                    lastPosition = "Developer",
-                    managerName = "Jefe Uno",
-                    entryDate = new DateTime(2021, 1, 1),
-                    retirementDate = new DateTime(2023, 1, 1),
-                    companyPhone = "+50370001111",
-                    exitReason = "Career growth",
-                    firstSalaryAmount = 700m,
-                    lastSalaryAmount = 950m,
-                    averageCommissionAmount = 0m,
-                    currencyCode = "USD"
-                }
-            },
+            institution = "Empresa Uno",
+            place = "San Salvador",
+            lastPosition = "Developer",
+            managerName = "Jefe Uno",
+            entryDate = new DateTime(2021, 1, 1),
+            retirementDate = new DateTime(2023, 1, 1),
+            companyPhone = "+50370001111",
+            exitReason = "Career growth",
+            firstSalaryAmount = 700m,
+            lastSalaryAmount = 950m,
+            averageCommissionAmount = 0m,
+            currencyCode = "USD",
             concurrencyToken
         });
-        employmentsResponse.EnsureSuccessStatusCode();
-        var employmentPayload = await employmentsResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFilePreviousEmploymentItem>>>(JsonOptions);
+        Assert.Equal(HttpStatusCode.Created, employmentsResponse.StatusCode);
+        var employmentPayload = await employmentsResponse.Content.ReadFromJsonAsync<PersonnelFilePreviousEmploymentItem>(JsonOptions);
         Assert.NotNull(employmentPayload);
-        Assert.Single(employmentPayload!.Data);
-        concurrencyToken = employmentPayload.PersonnelFileConcurrencyToken;
+        Assert.Equal("Empresa Uno", employmentPayload!.Institution);
 
-        var referencesResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/references", new
+        var getShellForToken = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        var updatedShellForToken = await getShellForToken.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
+        concurrencyToken = updatedShellForToken!.ConcurrencyToken;
+
+        var referencesResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/references", new
         {
-            items = new[]
-            {
-                new
-                {
-                    personName = "Ana Martinez",
-                    address = "Colonia Centro",
-                    phone = "+50370002222",
-                    referenceTypeCode = "PERSONAL",
-                    occupation = "Manager",
-                    workplace = "Empresa Uno",
-                    workPhone = "+50370003333",
-                    knownTimeYears = 3m
-                }
-            },
+            personName = "Ana Martinez",
+            address = "Colonia Centro",
+            phone = "+50370002222",
+            referenceTypeCode = "PERSONAL",
+            occupation = "Manager",
+            workplace = "Empresa Uno",
+            workPhone = "+50370003333",
+            knownTimeYears = 3m,
             concurrencyToken
         });
-        referencesResponse.EnsureSuccessStatusCode();
-        var referencePayload = await referencesResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFileReferenceItem>>>(JsonOptions);
+        Assert.Equal(HttpStatusCode.Created, referencesResponse.StatusCode);
+        var referencePayload = await referencesResponse.Content.ReadFromJsonAsync<PersonnelFileReferenceItem>(JsonOptions);
         Assert.NotNull(referencePayload);
-        Assert.Single(referencePayload!.Data);
+        Assert.Equal("Ana Martinez", referencePayload!.PersonName);
+
 
         var getEducationsResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/educations");
         getEducationsResponse.EnsureSuccessStatusCode();
@@ -2329,19 +2309,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
         var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Diana", "Flores", "DUI", "04444444-4");
-        var languageResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
+        var languageResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
         {
-            items = new[]
-            {
-                new
-                {
-                    languageCode = "ENGLISH",
-                    levelCode = "ADVANCED",
-                    speaks = true,
-                    writes = true,
-                    reads = true
-                }
-            },
+            languageCode = "ENGLISH",
+            levelCode = "ADVANCED",
+            speaks = true,
+            writes = true,
+            reads = true,
             concurrencyToken = created.ConcurrencyToken
         });
         languageResponse.EnsureSuccessStatusCode();
@@ -8394,13 +8368,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string? CostCurrencyCode);
 
     private sealed record PersonnelFilePreviousEmploymentItem(
-        Guid Id,
+        Guid PublicId,
         string Institution,
         DateTime EntryDate,
         string CurrencyCode);
 
     private sealed record PersonnelFileReferenceItem(
-        Guid Id,
+        Guid PublicId,
         string PersonName,
         string ReferenceTypeCode,
         decimal KnownTimeYears);

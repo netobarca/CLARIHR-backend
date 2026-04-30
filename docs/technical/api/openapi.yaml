@@ -23,6 +23,1145 @@ servers:
   - url: /
 security:
   - Bearer: []
+  /api/v1/personnel-files/{publicId}/educations:
+    get:
+      tags:
+        - personnel-file-background
+      summary: Get educations
+      operationId: GetPersonnelFileEducations
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    post:
+      tags:
+        - personnel-file-background
+      summary: Add education
+      operationId: AddPersonnelFileEducation
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/educations/{itemPublicId}:
+    put:
+      tags:
+        - personnel-file-background
+      summary: Update education
+      operationId: UpdatePersonnelFileEducation
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+    delete:
+      tags:
+        - personnel-file-background
+      summary: Delete education
+      operationId: DeletePersonnelFileEducation
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/languages:
+    get:
+      tags:
+        - personnel-file-background
+      summary: Get languages
+      operationId: GetPersonnelFileLanguages
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    post:
+      tags:
+        - personnel-file-background
+      summary: Add language
+      operationId: AddPersonnelFileLanguage
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/languages/{itemPublicId}:
+    put:
+      tags:
+        - personnel-file-background
+      summary: Update language
+      operationId: UpdatePersonnelFileLanguage
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+    delete:
+      tags:
+        - personnel-file-background
+      summary: Delete language
+      operationId: DeletePersonnelFileLanguage
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/trainings:
+    get:
+      tags:
+        - personnel-file-background
+      summary: Get trainings
+      operationId: GetPersonnelFileTrainings
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    post:
+      tags:
+        - personnel-file-background
+      summary: Add training
+      operationId: AddPersonnelFileTraining
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/trainings/{itemPublicId}:
+    put:
+      tags:
+        - personnel-file-background
+      summary: Update training
+      operationId: UpdatePersonnelFileTraining
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+    delete:
+      tags:
+        - personnel-file-background
+      summary: Delete training
+      operationId: DeletePersonnelFileTraining
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/previous-employments:
+    get:
+      tags:
+        - personnel-file-background
+      summary: Get previous employments
+      operationId: GetPersonnelFilePreviousEmployments
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    post:
+      tags:
+        - personnel-file-background
+      summary: Add previous employment
+      operationId: AddPersonnelFilePreviousEmployment
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/previous-employments/{itemPublicId}:
+    put:
+      tags:
+        - personnel-file-background
+      summary: Update previous employment
+      operationId: UpdatePersonnelFilePreviousEmployment
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+    delete:
+      tags:
+        - personnel-file-background
+      summary: Delete previous employment
+      operationId: DeletePersonnelFilePreviousEmployment
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/references:
+    get:
+      tags:
+        - personnel-file-background
+      summary: Get references
+      operationId: GetPersonnelFileReferences
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    post:
+      tags:
+        - personnel-file-background
+      summary: Add reference
+      operationId: AddPersonnelFileReference
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/references/{itemPublicId}:
+    put:
+      tags:
+        - personnel-file-background
+      summary: Update reference
+      operationId: UpdatePersonnelFileReference
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+    delete:
+      tags:
+        - personnel-file-background
+      summary: Delete reference
+      operationId: DeletePersonnelFileReference
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/hobbies:
+    get:
+      tags:
+        - personnel-file-interests
+      summary: Get hobbies
+      operationId: GetPersonnelFileHobbies
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    post:
+      tags:
+        - personnel-file-interests
+      summary: Add hobby
+      operationId: AddPersonnelFileHobby
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/hobbies/{itemPublicId}:
+    put:
+      tags:
+        - personnel-file-interests
+      summary: Update hobby
+      operationId: UpdatePersonnelFileHobby
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+    delete:
+      tags:
+        - personnel-file-interests
+      summary: Delete hobby
+      operationId: DeletePersonnelFileHobby
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/associations:
+    get:
+      tags:
+        - personnel-file-interests
+      summary: Get associations
+      operationId: GetPersonnelFileAssociations
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    post:
+      tags:
+        - personnel-file-interests
+      summary: Add association
+      operationId: AddPersonnelFileAssociation
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/associations/{itemPublicId}:
+    put:
+      tags:
+        - personnel-file-interests
+      summary: Update association
+      operationId: UpdatePersonnelFileAssociation
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+    delete:
+      tags:
+        - personnel-file-interests
+      summary: Delete association
+      operationId: DeletePersonnelFileAssociation
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/employee-relations:
+    get:
+      tags:
+        - personnel-file-interests
+      summary: Get employee relations
+      operationId: GetPersonnelFileEmployeeRelations
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    post:
+      tags:
+        - personnel-file-interests
+      summary: Add employee relation
+      operationId: AddPersonnelFileEmployeeRelation
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+  /api/v1/personnel-files/{publicId}/employee-relations/{itemPublicId}:
+    put:
+      tags:
+        - personnel-file-interests
+      summary: Update employee relation
+      operationId: UpdatePersonnelFileEmployeeRelation
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+    delete:
+      tags:
+        - personnel-file-interests
+      summary: Delete employee relation
+      operationId: DeletePersonnelFileEmployeeRelation
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/bank-accounts:
+    get:
+      tags:
+        - personnel-file-profile
+      summary: Get bank accounts
+      operationId: GetPersonnelFileBankAccounts
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+    post:
+      tags:
+        - personnel-file-profile
+      summary: Add bank account
+      operationId: AddPersonnelFileBankAccount
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+  /api/v1/personnel-files/{publicId}/bank-accounts/{itemPublicId}:
+    put:
+      tags:
+        - personnel-file-profile
+      summary: Update bank account
+      operationId: UpdatePersonnelFileBankAccount
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+    delete:
+      tags:
+        - personnel-file-profile
+      summary: Delete bank account
+      operationId: DeletePersonnelFileBankAccount
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+
 components:
   securitySchemes:
     Bearer:
@@ -7099,7 +8238,7 @@ paths:
   /api/v1/personnel-files/{publicId}/identifications:
     get:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: GetPersonnelFileIdentifications
       summary: List personnel file identifications
       security:
@@ -7140,7 +8279,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: AddPersonnelFileIdentification
       summary: Add one identification to a personnel file
       description: Creates a single identification row for the target personnel file. The request uses the parent personnel file `concurrencyToken`.
@@ -7205,7 +8344,7 @@ paths:
   /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}:
     put:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: UpdatePersonnelFileIdentification
       summary: Update one identification of a personnel file
       description: Updates a single identification row for the target personnel file. The request uses the parent personnel file `concurrencyToken`.
@@ -7276,7 +8415,7 @@ paths:
   /api/v1/personnel-files/{publicId}/addresses:
     get:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: GetPersonnelFileAddresses
       summary: List personnel file addresses
       security:
@@ -7317,7 +8456,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: AddPersonnelFileAddress
       summary: Add one address to a personnel file
       security:
@@ -7375,7 +8514,7 @@ paths:
   /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}:
     put:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: UpdatePersonnelFileAddress
       summary: Update one address of a personnel file
       security:
@@ -7438,7 +8577,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     delete:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: DeletePersonnelFileAddress
       summary: Delete one address of a personnel file
       security:
@@ -7498,7 +8637,7 @@ paths:
   /api/v1/personnel-files/{publicId}/emergency-contacts:
     get:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: GetPersonnelFileEmergencyContacts
       summary: List personnel file emergency contacts
       security:
@@ -7539,7 +8678,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: AddPersonnelFileEmergencyContact
       summary: Add one emergency contact to a personnel file
       security:
@@ -7597,7 +8736,7 @@ paths:
   /api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}:
     put:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: UpdatePersonnelFileEmergencyContact
       summary: Update one emergency contact of a personnel file
       security:
@@ -7660,7 +8799,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     delete:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: DeletePersonnelFileEmergencyContact
       summary: Delete one emergency contact of a personnel file
       security:
@@ -7720,7 +8859,7 @@ paths:
   /api/v1/personnel-files/{publicId}/family-members:
     get:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: GetPersonnelFileFamilyMembers
       summary: List personnel file family members
       security:
@@ -7761,7 +8900,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: AddPersonnelFileFamilyMember
       summary: Add one family member to a personnel file
       security:
@@ -7825,7 +8964,7 @@ paths:
   /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}:
     put:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: UpdatePersonnelFileFamilyMember
       summary: Update one family member of a personnel file
       security:
@@ -7894,7 +9033,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     delete:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: DeletePersonnelFileFamilyMember
       summary: Delete one family member of a personnel file
       security:
@@ -8315,7 +9454,7 @@ paths:
   /api/v1/personnel-files/{id}/personal-info:
     get:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: GetPersonnelFilePersonalInfo
       summary: Get the scalar personal-info block of a personnel file
       description: Returns the personal-info tab only, including resolved reference names and the current file concurrency token.
@@ -8355,7 +9494,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
     put:
       tags:
-        - personnel-files
+        - personnel-file-personal-info
       operationId: UpdatePersonnelFilePersonalInfo
       summary: Replace the personal info block of a personnel file
       description: Updates the scalar personal-info block. `recordType` cannot transition in this module. After completion, `institutionalEmail` and `assignedPositionSlotPublicId` become immutable.
@@ -11864,7 +13003,15 @@ tags:
   - name: general-catalogs
     description: Company-scoped read-only access to system catalogs resolved by the company's country.
   - name: personnel-files
-    description: Personnel file lifecycle and subsections.
+    description: Personnel file lifecycle — create, search, shell and lifecycle transitions.
+  - name: personnel-file-personal-info
+    description: Personnel file personal data, identifications, addresses, emergency contacts and family members.
+  - name: personnel-file-background
+    description: Personnel file background data — educations, languages, trainings, previous employments and references.
+  - name: personnel-file-interests
+    description: Personnel file interests — hobbies, associations and employee relations.
+  - name: personnel-file-profile
+    description: Personnel file financial profile — bank accounts.
   - name: report-export-jobs
     description: Asynchronous report export queue, status, cancellation and artifact download endpoints.
 x-documentation-status: partial-manual-supplement
