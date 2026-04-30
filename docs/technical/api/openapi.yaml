@@ -3070,11 +3070,12 @@ components:
           type: string
           format: date-time
           nullable: true
-    PerformanceEvaluationItemRequest:
+    AddPerformanceEvaluationRequest:
       type: object
       required:
         - evaluatorName
         - evaluationDateUtc
+        - concurrencyToken
       properties:
         evaluatorName:
           type: string
@@ -3101,16 +3102,41 @@ components:
           type: string
           format: date-time
           nullable: true
-    ReplacePerformanceEvaluationsRequest:
+        concurrencyToken:
+          type: string
+          format: uuid
+    UpdatePerformanceEvaluationRequest:
       type: object
       required:
-        - items
+        - evaluatorName
+        - evaluationDateUtc
         - concurrencyToken
       properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/PerformanceEvaluationItemRequest'
+        evaluatorName:
+          type: string
+        evaluationDateUtc:
+          type: string
+          format: date-time
+        score:
+          type: number
+          format: decimal
+          nullable: true
+        qualitativeScoreCode:
+          type: string
+          nullable: true
+        comment:
+          type: string
+          nullable: true
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
         concurrencyToken:
           type: string
           format: uuid
@@ -3166,10 +3192,11 @@ components:
           type: string
           format: date-time
           nullable: true
-    PositionCompetencyResultItemRequest:
+    AddPositionCompetencyResultRequest:
       type: object
       required:
         - competencyCode
+        - concurrencyToken
       properties:
         competencyCode:
           type: string
@@ -3202,16 +3229,46 @@ components:
           type: string
           format: date-time
           nullable: true
-    ReplacePositionCompetencyResultsRequest:
+        concurrencyToken:
+          type: string
+          format: uuid
+    UpdatePositionCompetencyResultRequest:
       type: object
       required:
-        - items
+        - competencyCode
         - concurrencyToken
       properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/PositionCompetencyResultItemRequest'
+        competencyCode:
+          type: string
+        desiredBehaviors:
+          type: string
+          nullable: true
+        expectedScore:
+          type: number
+          format: decimal
+          nullable: true
+        achievedScore:
+          type: number
+          format: decimal
+          nullable: true
+        gapScore:
+          type: number
+          format: decimal
+          nullable: true
+        evaluationDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
         concurrencyToken:
           type: string
           format: uuid
@@ -3272,12 +3329,132 @@ components:
           type: string
           format: date-time
           nullable: true
-    CurricularCompetencyItemRequest:
+    AddSelectionContestRequest:
+      type: object
+      required:
+        - contestCode
+        - contestName
+        - contestDateUtc
+        - resultCode
+        - concurrencyToken
+      properties:
+        contestCode:
+          type: string
+        contestName:
+          type: string
+        contestDateUtc:
+          type: string
+          format: date-time
+        resultCode:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+    UpdateSelectionContestRequest:
+      type: object
+      required:
+        - contestCode
+        - contestName
+        - contestDateUtc
+        - resultCode
+        - concurrencyToken
+      properties:
+        contestCode:
+          type: string
+        contestName:
+          type: string
+        contestDateUtc:
+          type: string
+          format: date-time
+        resultCode:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+    PersonnelFileSelectionContestResponse:
+      type: object
+      required:
+        - id
+        - contestCode
+        - contestName
+        - contestDateUtc
+        - resultCode
+      properties:
+        id:
+          type: string
+          format: uuid
+        contestCode:
+          type: string
+        contestName:
+          type: string
+        contestDateUtc:
+          type: string
+          format: date-time
+        resultCode:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PersonnelFileSectionResultOfPersonnelFileSelectionContestResponseCollection:
+      type: object
+      required:
+        - data
+        - personnelFileConcurrencyToken
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFileSelectionContestResponse'
+        personnelFileConcurrencyToken:
+          type: string
+          format: uuid
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    AddCurricularCompetencyRequest:
       type: object
       required:
         - requirementTypeCode
         - requirementName
         - competencyDomain
+        - concurrencyToken
       properties:
         requirementTypeCode:
           type: string
@@ -3305,16 +3482,43 @@ components:
           type: string
           format: date-time
           nullable: true
-    ReplaceCurricularCompetenciesRequest:
+        concurrencyToken:
+          type: string
+          format: uuid
+    UpdateCurricularCompetencyRequest:
       type: object
       required:
-        - items
+        - requirementTypeCode
+        - requirementName
+        - competencyDomain
         - concurrencyToken
       properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/CurricularCompetencyItemRequest'
+        requirementTypeCode:
+          type: string
+        requirementName:
+          type: string
+        competencyDomain:
+          type: string
+        experienceTimeValue:
+          type: number
+          format: decimal
+          nullable: true
+        metricCode:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
         concurrencyToken:
           type: string
           format: uuid
@@ -9780,345 +9984,290 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{id}/evaluations:
+  /api/v1/personnel-files/{publicId}/evaluations:
     get:
-      tags:
-        - personnel-files
+      tags: [personnel-files]
       operationId: GetPersonnelFileEvaluations
       summary: Get the evaluations section of a personnel file
-      description: Returns the performance evaluations section only. The personnel file must already be a completed employee record.
-      security:
-        - Bearer: []
+      description: Returns the performance evaluations collection. The personnel file must already be a completed employee record.
+      security: [{Bearer: []}]
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
         '200':
           description: Evaluations returned successfully.
           content:
             application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelFilePerformanceEvaluationResponse'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Business-rule violation, such as requesting the section for a non-completed employee file.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    put:
-      tags:
-        - personnel-files
-      operationId: ReplacePersonnelFileEvaluations
-      summary: Replace the evaluations section of a personnel file
-      description: Replaces the complete evaluations section and returns the section payload together with the new personnel-file concurrency token.
-      security:
-        - Bearer: []
+              schema: {type: array, items: {$ref: '#/components/schemas/PersonnelFilePerformanceEvaluationResponse'}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+    post:
+      tags: [personnel-files]
+      operationId: AddPersonnelFileEvaluation
+      summary: Add a single evaluation to a personnel file
+      description: Creates a new performance evaluation item and returns the updated collection with the new personnel-file concurrency token.
+      security: [{Bearer: []}]
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/ReplacePerformanceEvaluationsRequest'
+            schema: {$ref: '#/components/schemas/AddPerformanceEvaluationRequest'}
       responses:
         '200':
-          description: Evaluations updated successfully.
+          description: Evaluation added successfully.
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePerformanceEvaluationResponseCollection'
-        '400':
-          description: Validation error, such as missing concurrency token or malformed section payload.
+              schema: {$ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePerformanceEvaluationResponseCollection'}
+        '400': {description: Validation error., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '409': {description: Stale concurrency token., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+  /api/v1/personnel-files/{publicId}/evaluations/{itemPublicId}:
+    put:
+      tags: [personnel-files]
+      operationId: UpdatePersonnelFileEvaluation
+      summary: Update a single evaluation in a personnel file
+      description: Updates an existing performance evaluation item by its publicId and returns the updated collection with the new personnel-file concurrency token.
+      security: [{Bearer: []}]
+      parameters:
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: itemPublicId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdatePerformanceEvaluationRequest'}
+      responses:
+        '200':
+          description: Evaluation updated successfully.
           content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Business conflict such as stale concurrency token.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Business-rule violation, such as attempting to update the section for a non-completed employee file.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{id}/position-competency-results:
+            application/json:
+              schema: {$ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePerformanceEvaluationResponseCollection'}
+        '400': {description: Validation error., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file or item not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '409': {description: Stale concurrency token., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+  /api/v1/personnel-files/{publicId}/position-competency-results:
     get:
-      tags:
-        - personnel-files
+      tags: [personnel-files]
       operationId: GetPersonnelFilePositionCompetencyResults
       summary: Get the position-competency-results section of a personnel file
-      description: Returns the persisted position-competency results for the personnel file. The personnel file must already be a completed employee record.
-      security:
-        - Bearer: []
+      description: Returns the persisted position-competency results. The personnel file must already be a completed employee record.
+      security: [{Bearer: []}]
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
         '200':
           description: Position competency results returned successfully.
           content:
             application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelFilePositionCompetencyResultResponse'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Business-rule violation, such as requesting the section for a non-completed employee file.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    put:
-      tags:
-        - personnel-files
-      operationId: ReplacePersonnelFilePositionCompetencyResults
-      summary: Replace the position-competency-results section of a personnel file
-      description: Replaces the persisted position-competency results section and returns the new personnel-file concurrency token.
-      security:
-        - Bearer: []
+              schema: {type: array, items: {$ref: '#/components/schemas/PersonnelFilePositionCompetencyResultResponse'}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+    post:
+      tags: [personnel-files]
+      operationId: AddPersonnelFilePositionCompetencyResult
+      summary: Add a single position-competency result to a personnel file
+      description: Creates a new position-competency result item and returns the updated collection with the new personnel-file concurrency token.
+      security: [{Bearer: []}]
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/ReplacePositionCompetencyResultsRequest'
+            schema: {$ref: '#/components/schemas/AddPositionCompetencyResultRequest'}
       responses:
         '200':
-          description: Position competency results updated successfully.
+          description: Position competency result added successfully.
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePositionCompetencyResultResponseCollection'
-        '400':
-          description: Validation error, such as missing concurrency token or malformed section payload.
+              schema: {$ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePositionCompetencyResultResponseCollection'}
+        '400': {description: Validation error., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '409': {description: Stale concurrency token., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+  /api/v1/personnel-files/{publicId}/position-competency-results/{itemPublicId}:
+    put:
+      tags: [personnel-files]
+      operationId: UpdatePersonnelFilePositionCompetencyResult
+      summary: Update a single position-competency result in a personnel file
+      description: Updates an existing position-competency result item by its publicId and returns the updated collection with the new personnel-file concurrency token.
+      security: [{Bearer: []}]
+      parameters:
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: itemPublicId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdatePositionCompetencyResultRequest'}
+      responses:
+        '200':
+          description: Position competency result updated successfully.
           content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Business conflict such as stale concurrency token.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Business-rule violation, such as attempting to update the section for a non-completed employee file.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{id}/curricular-competencies:
+            application/json:
+              schema: {$ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePositionCompetencyResultResponseCollection'}
+        '400': {description: Validation error., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file or item not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '409': {description: Stale concurrency token., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+  /api/v1/personnel-files/{publicId}/selection-contests:
     get:
-      tags:
-        - personnel-files
+      tags: [personnel-files]
+      operationId: GetPersonnelFileSelectionContests
+      summary: Get the selection-contests section of a personnel file
+      description: Returns the selection contests collection. The personnel file must already be a completed employee record.
+      security: [{Bearer: []}]
+      parameters:
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Selection contests returned successfully.
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/PersonnelFileSelectionContestResponse'}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+    post:
+      tags: [personnel-files]
+      operationId: AddPersonnelFileSelectionContest
+      summary: Add a single selection contest to a personnel file
+      description: Creates a new selection contest item and returns the updated collection with the new personnel-file concurrency token.
+      security: [{Bearer: []}]
+      parameters:
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AddSelectionContestRequest'}
+      responses:
+        '200':
+          description: Selection contest added successfully.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileSelectionContestResponseCollection'}
+        '400': {description: Validation error., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '409': {description: Stale concurrency token., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+  /api/v1/personnel-files/{publicId}/selection-contests/{itemPublicId}:
+    put:
+      tags: [personnel-files]
+      operationId: UpdatePersonnelFileSelectionContest
+      summary: Update a single selection contest in a personnel file
+      description: Updates an existing selection contest item by its publicId and returns the updated collection with the new personnel-file concurrency token.
+      security: [{Bearer: []}]
+      parameters:
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: itemPublicId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdateSelectionContestRequest'}
+      responses:
+        '200':
+          description: Selection contest updated successfully.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileSelectionContestResponseCollection'}
+        '400': {description: Validation error., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file or item not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '409': {description: Stale concurrency token., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+  /api/v1/personnel-files/{publicId}/curricular-competencies:
+    get:
+      tags: [personnel-files]
       operationId: GetPersonnelFileCurricularCompetencies
       summary: Get the curricular-competencies section of a personnel file
-      description: Returns the curricular competencies section only. The personnel file must already be a completed employee record.
-      security:
-        - Bearer: []
+      description: Returns the curricular competencies collection. The personnel file must already be a completed employee record.
+      security: [{Bearer: []}]
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
       responses:
         '200':
           description: Curricular competencies returned successfully.
           content:
             application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelFileCurricularCompetencyResponse'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Business-rule violation, such as requesting the section for a non-completed employee file.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    put:
-      tags:
-        - personnel-files
-      operationId: ReplacePersonnelFileCurricularCompetencies
-      summary: Replace the curricular-competencies section of a personnel file
-      description: Replaces the complete curricular-competencies section and returns the section payload together with the new personnel-file concurrency token.
-      security:
-        - Bearer: []
+              schema: {type: array, items: {$ref: '#/components/schemas/PersonnelFileCurricularCompetencyResponse'}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+    post:
+      tags: [personnel-files]
+      operationId: AddPersonnelFileCurricularCompetency
+      summary: Add a single curricular competency to a personnel file
+      description: Creates a new curricular competency item and returns the updated collection with the new personnel-file concurrency token.
+      security: [{Bearer: []}]
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/ReplaceCurricularCompetenciesRequest'
+            schema: {$ref: '#/components/schemas/AddCurricularCompetencyRequest'}
       responses:
         '200':
-          description: Curricular competencies updated successfully.
+          description: Curricular competency added successfully.
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileCurricularCompetencyResponseCollection'
-        '400':
-          description: Validation error, such as missing concurrency token or malformed section payload.
+              schema: {$ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileCurricularCompetencyResponseCollection'}
+        '400': {description: Validation error., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '409': {description: Stale concurrency token., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+  /api/v1/personnel-files/{publicId}/curricular-competencies/{itemPublicId}:
+    put:
+      tags: [personnel-files]
+      operationId: UpdatePersonnelFileCurricularCompetency
+      summary: Update a single curricular competency in a personnel file
+      description: Updates an existing curricular competency item by its publicId and returns the updated collection with the new personnel-file concurrency token.
+      security: [{Bearer: []}]
+      parameters:
+        - {name: publicId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: itemPublicId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdateCurricularCompetencyRequest'}
+      responses:
+        '200':
+          description: Curricular competency updated successfully.
           content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Business conflict such as stale concurrency token.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Business-rule violation, such as attempting to update the section for a non-completed employee file.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+            application/json:
+              schema: {$ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileCurricularCompetencyResponseCollection'}
+        '400': {description: Validation error., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '401': {description: Authentication is required., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '403': {description: Permission denied or tenant mismatch., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '404': {description: Personnel file or item not found., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '409': {description: Stale concurrency token., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
+        '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
   /api/v1/personnel-files/{id}/finalize:
     post:
       tags:

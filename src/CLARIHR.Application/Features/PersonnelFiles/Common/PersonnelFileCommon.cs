@@ -228,6 +228,11 @@ public static class PersonnelFileErrors
         "The date range is invalid.",
         ErrorType.UnprocessableEntity);
 
+    public static readonly Error ItemNotFound = new(
+        "PERSONNEL_FILE_ITEM_NOT_FOUND",
+        "The requested item could not be found in this personnel file.",
+        ErrorType.NotFound);
+
     public static readonly Error DocumentNotFound = new(
         "PERSONNEL_FILE_DOCUMENT_NOT_FOUND",
         "The personnel file document could not be found.",

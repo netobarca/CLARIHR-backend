@@ -352,11 +352,20 @@ Compensation:
 - `GET /api/v1/personnel-files/{publicId}/payroll-transactions/export`
 - `PUT /api/v1/personnel-files/{publicId}/bank-accounts`
 
-Talent:
+Talent (`PersonnelFileTalentController`):
 
-- `PUT /api/v1/personnel-files/{publicId}/evaluations`
+- `GET /api/v1/personnel-files/{publicId}/evaluations`
+- `POST /api/v1/personnel-files/{publicId}/evaluations`
+- `PUT /api/v1/personnel-files/{publicId}/evaluations/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/position-competency-results`
+- `POST /api/v1/personnel-files/{publicId}/position-competency-results`
+- `PUT /api/v1/personnel-files/{publicId}/position-competency-results/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/selection-contests`
+- `POST /api/v1/personnel-files/{publicId}/selection-contests`
+- `PUT /api/v1/personnel-files/{publicId}/selection-contests/{itemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/curricular-competencies`
+- `POST /api/v1/personnel-files/{publicId}/curricular-competencies`
+- `PUT /api/v1/personnel-files/{publicId}/curricular-competencies/{itemPublicId}`
 
 Documents and reporting:
 
@@ -2992,10 +3001,14 @@ Familias de rutas:
 - `/api/v1/personnel-files/{id}/insurances`
 - `/api/v1/personnel-files/{id}/medical-claims`
 - `/api/v1/personnel-files/{id}/bank-accounts`
-- `/api/v1/personnel-files/{id}/evaluations`
-- `/api/v1/personnel-files/{id}/position-competency-results`
-- `/api/v1/personnel-files/{id}/selection-contests`
-- `/api/v1/personnel-files/{id}/curricular-competencies`
+- `/api/v1/personnel-files/{publicId}/evaluations`
+- `/api/v1/personnel-files/{publicId}/evaluations/{itemPublicId}`
+- `/api/v1/personnel-files/{publicId}/position-competency-results`
+- `/api/v1/personnel-files/{publicId}/position-competency-results/{itemPublicId}`
+- `/api/v1/personnel-files/{publicId}/selection-contests`
+- `/api/v1/personnel-files/{publicId}/selection-contests/{itemPublicId}`
+- `/api/v1/personnel-files/{publicId}/curricular-competencies`
+- `/api/v1/personnel-files/{publicId}/curricular-competencies/{itemPublicId}`
 - `/api/v1/personnel-files/{id}/documents`
 - `/api/v1/personnel-files/{id}/observations`
 - `/api/v1/personnel-files/{id}/print`
@@ -3361,14 +3374,18 @@ Observaciones funcionales:
 
 Route family:
 
-- `PUT /api/v1/personnel-files/{id}/evaluations`
-- `GET /api/v1/personnel-files/{id}/evaluations`
-- `PUT /api/v1/personnel-files/{id}/position-competency-results`
-- `GET /api/v1/personnel-files/{id}/position-competency-results`
-- `PUT /api/v1/personnel-files/{id}/selection-contests`
-- `GET /api/v1/personnel-files/{id}/selection-contests`
-- `PUT /api/v1/personnel-files/{id}/curricular-competencies`
-- `GET /api/v1/personnel-files/{id}/curricular-competencies`
+- `GET /api/v1/personnel-files/{publicId}/evaluations`
+- `POST /api/v1/personnel-files/{publicId}/evaluations`
+- `PUT /api/v1/personnel-files/{publicId}/evaluations/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/position-competency-results`
+- `POST /api/v1/personnel-files/{publicId}/position-competency-results`
+- `PUT /api/v1/personnel-files/{publicId}/position-competency-results/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/selection-contests`
+- `POST /api/v1/personnel-files/{publicId}/selection-contests`
+- `PUT /api/v1/personnel-files/{publicId}/selection-contests/{itemPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/curricular-competencies`
+- `POST /api/v1/personnel-files/{publicId}/curricular-competencies`
+- `PUT /api/v1/personnel-files/{publicId}/curricular-competencies/{itemPublicId}`
 
 Uso principal:
 
@@ -3376,9 +3393,12 @@ Uso principal:
 
 Observaciones funcionales:
 
-- Todo el bloque exige que el expediente sea `Employee`.
-- Todos los `PUT` son de reemplazo total y responden `PersonnelFileSectionResult<T>`.
+- Todo el bloque exige que el expediente sea `Employee` completado.
+- Todos los subrecursos de `Talent` usan CRUD atomico a nivel de item: `POST` crea un item individual, `PUT /{itemPublicId}` actualiza uno; en ambos casos el `ConcurrencyToken` del expediente padre viaja en el body del request.
+- No existe endpoint `DELETE` ni soft-delete para subrecursos de talento; estos registros se tratan como historico inmutable sin posibilidad de eliminacion ni desactivacion.
 - Los endpoints `GET` del bloque devuelven la coleccion completa del subrecurso; no hay paginacion.
+- `POST` responde `200` con `PersonnelFileSectionResult<T>` incluyendo la coleccion actualizada y el nuevo `personnelFileConcurrencyToken`.
+- `PUT /{itemPublicId}` responde `200` con `PersonnelFileSectionResult<T>` de la misma forma.
 - `evaluations` mantiene resultados de evaluacion con score cuantitativo, score cualitativo y comentario.
 - `position-competency-results` mantiene resultados observados por `CompetencyCode`; el endpoint lee el estado persistido del expediente, no una recomputacion en vivo desde `CompetencyFramework`.
 - `selection-contests` registra resultados de concursos internos o externos.
