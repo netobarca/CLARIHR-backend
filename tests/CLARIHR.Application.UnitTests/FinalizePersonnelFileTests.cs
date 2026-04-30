@@ -248,8 +248,7 @@ public sealed class FinalizePersonnelFileTests
             birthMunicipality: null,
             photoUrl: null,
             orgUnitPublicId: null,
-            assignedPositionSlotPublicId: slotId,
-            customDataJson: null);
+            assignedPositionSlotPublicId: slotId);
         file.SetTenantId(TenantId);
         return file;
     }
@@ -343,7 +342,6 @@ public sealed class FinalizePersonnelFileTests
             file.OrgUnitPublicId,
             file.AssignedPositionSlotPublicId,
             file.LinkedUserPublicId,
-            file.CustomDataJson,
             file.IsActive,
             file.ConcurrencyToken,
             new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -466,8 +464,6 @@ public sealed class FinalizePersonnelFileTests
     {
         public void Add(PersonnelFile personnelFile) => throw new NotSupportedException();
 
-        public void AddCustomFieldDefinition(PersonnelFileCustomFieldDefinition definition) => throw new NotSupportedException();
-
         public Task<int> CountActiveEmployeesAsync(Guid tenantId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<PersonnelFile?> GetByIdAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
@@ -570,12 +566,6 @@ public sealed class FinalizePersonnelFileTests
         public Task<PersonnelFileDynamicQueryResponse> DynamicQueryAsync(Guid tenantId, IReadOnlyCollection<PersonnelFileDynamicFilterInput> filters, IReadOnlyCollection<string> groupBy, IReadOnlyCollection<PersonnelFileDynamicSortInput> sort, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<PersonnelFileAnalyticsSummaryResponse> GetAnalyticsSummaryAsync(Guid tenantId, bool? isActive, PersonnelFileRecordType? recordType, Guid? orgUnitId, int? minAge, int? maxAge, string? search, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>> GetCustomFieldDefinitionsAsync(Guid tenantId, bool? isActive, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<PersonnelFileCustomFieldDefinition?> GetCustomFieldDefinitionByIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<bool> CustomFieldKeyExistsAsync(Guid tenantId, string normalizedKey, long? excludingId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<Guid>> GetLinkedUserIdsByAssignedPositionSlotAsync(Guid tenantId, Guid assignedPositionSlotId, CancellationToken cancellationToken) => throw new NotSupportedException();
     }

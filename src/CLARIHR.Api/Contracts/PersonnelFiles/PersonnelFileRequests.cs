@@ -26,7 +26,6 @@ public sealed class CreatePersonnelFileRequest
     public string? PhotoUrl { get; init; }
     public Guid? OrgUnitPublicId { get; init; }
     public Guid? AssignedPositionSlotPublicId { get; init; }
-    public string? CustomDataJson { get; init; }
 
     [JsonExtensionData]
     public IDictionary<string, JsonElement>? AdditionalProperties { get; init; }
@@ -53,7 +52,6 @@ public sealed record UpdatePersonnelFilePersonalInfoRequest(
     string? PhotoUrl,
     Guid? OrgUnitPublicId,
     Guid? AssignedPositionSlotPublicId,
-    string? CustomDataJson,
     Guid ConcurrencyToken);
 
 public sealed record FinalizePersonnelFileRequest(Guid ConcurrencyToken, bool? CreateUserAccount);
@@ -80,7 +78,7 @@ public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     string? VacationConfigurationJson,
     Guid ConcurrencyToken);
 
-public sealed record EmploymentAssignmentItemRequest(
+public sealed record AddEmploymentAssignmentRequest(
     string AssignmentTypeCode,
     Guid? PositionSlotPublicId,
     Guid? OrgUnitPublicId,
@@ -90,30 +88,82 @@ public sealed record EmploymentAssignmentItemRequest(
     DateTime? EndDate,
     bool IsPrimary,
     bool IsActive,
-    string? Notes);
+    string? Notes,
+    Guid ConcurrencyToken);
 
-public sealed record ReplaceEmploymentAssignmentsRequest(IReadOnlyCollection<EmploymentAssignmentItemRequest> Items, Guid ConcurrencyToken);
+public sealed record UpdateEmploymentAssignmentRequest(
+    string AssignmentTypeCode,
+    Guid? PositionSlotPublicId,
+    Guid? OrgUnitPublicId,
+    Guid? WorkCenterPublicId,
+    Guid? CostCenterPublicId,
+    DateTime StartDate,
+    DateTime? EndDate,
+    bool IsPrimary,
+    bool IsActive,
+    string? Notes,
+    Guid ConcurrencyToken);
 
-public sealed record ContractHistoryItemRequest(
+public sealed record AddContractHistoryRequest(
     string ContractTypeCode,
     DateTime ContractDate,
     DateTime? ContractEndDate,
     Guid? PositionSlotPublicId,
-    string? Notes);
+    bool IsActive,
+    string? Notes,
+    Guid ConcurrencyToken);
 
-public sealed record ReplaceContractHistoryRequest(IReadOnlyCollection<ContractHistoryItemRequest> Items, Guid ConcurrencyToken);
+public sealed record UpdateContractHistoryRequest(
+    string ContractTypeCode,
+    DateTime ContractDate,
+    DateTime? ContractEndDate,
+    Guid? PositionSlotPublicId,
+    bool IsActive,
+    string? Notes,
+    Guid ConcurrencyToken);
 
-public sealed record AuthorizationSubstitutionItemRequest(
+public sealed record AddAuthorizationSubstitutionRequest(
     string SubstitutionTypeCode,
     Guid SubstitutePersonnelFilePublicId,
     string? SubstitutePositionTitle,
     DateTime StartDate,
     DateTime? EndDate,
     bool IsActive,
-    string? Notes);
+    string? Notes,
+    Guid ConcurrencyToken);
 
-public sealed record ReplaceAuthorizationSubstitutionsRequest(
-    IReadOnlyCollection<AuthorizationSubstitutionItemRequest> Items,
+public sealed record UpdateAuthorizationSubstitutionRequest(
+    string SubstitutionTypeCode,
+    Guid SubstitutePersonnelFilePublicId,
+    string? SubstitutePositionTitle,
+    DateTime StartDate,
+    DateTime? EndDate,
+    bool IsActive,
+    string? Notes,
+    Guid ConcurrencyToken);
+
+public sealed record AddAssetAccessRequest(
+    string AssetTypeCode,
+    string AssetOrAccessName,
+    string? AccessLevelCode,
+    DateTime StartDateUtc,
+    DateTime? EndDateUtc,
+    DateTime? DeliveryDateUtc,
+    string? DeliveryStatusCode,
+    bool IsActive,
+    string? Notes,
+    Guid ConcurrencyToken);
+
+public sealed record UpdateAssetAccessRequest(
+    string AssetTypeCode,
+    string AssetOrAccessName,
+    string? AccessLevelCode,
+    DateTime StartDateUtc,
+    DateTime? EndDateUtc,
+    DateTime? DeliveryDateUtc,
+    string? DeliveryStatusCode,
+    bool IsActive,
+    string? Notes,
     Guid ConcurrencyToken);
 
 public sealed record AddPersonnelActionRequest(
@@ -127,19 +177,6 @@ public sealed record AddPersonnelActionRequest(
     decimal? Amount,
     string? CurrencyCode,
     Guid ConcurrencyToken);
-
-public sealed record AssetAccessItemRequest(
-    string AssetTypeCode,
-    string AssetOrAccessName,
-    string? AccessLevelCode,
-    DateTime StartDateUtc,
-    DateTime? EndDateUtc,
-    DateTime? DeliveryDateUtc,
-    string? DeliveryStatusCode,
-    bool IsActive,
-    string? Notes);
-
-public sealed record ReplaceAssetsAccessesRequest(IReadOnlyCollection<AssetAccessItemRequest> Items, Guid ConcurrencyToken);
 
 public sealed record InsuranceBeneficiaryItemRequest(
     string FullName,
@@ -725,21 +762,4 @@ public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
 
 public sealed record AddObservationRequest(string Note, Guid ConcurrencyToken);
 
-public sealed record CreateCustomFieldDefinitionRequest(
-    string Key,
-    string Label,
-    PersonnelCustomFieldType FieldType,
-    bool IsRequired,
-    bool IsActive,
-    string? OptionsJson,
-    int SortOrder);
 
-public sealed record UpdateCustomFieldDefinitionRequest(
-    string Key,
-    string Label,
-    PersonnelCustomFieldType FieldType,
-    bool IsRequired,
-    bool IsActive,
-    string? OptionsJson,
-    int SortOrder,
-    Guid ConcurrencyToken);

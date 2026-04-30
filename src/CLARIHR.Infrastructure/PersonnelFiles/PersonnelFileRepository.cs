@@ -17,9 +17,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
 {
     public void Add(PersonnelFile personnelFile) => dbContext.Set<PersonnelFile>().Add(personnelFile);
 
-    public void AddCustomFieldDefinition(PersonnelFileCustomFieldDefinition definition) =>
-        dbContext.Set<PersonnelFileCustomFieldDefinition>().Add(definition);
-
     public Task<int> CountActiveEmployeesAsync(Guid tenantId, CancellationToken cancellationToken) =>
         dbContext.Set<PersonnelFile>()
             .AsNoTracking()
@@ -282,7 +279,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             file.OrgUnitPublicId,
             file.AssignedPositionSlotPublicId,
             file.LinkedUserPublicId,
-            file.CustomDataJson,
             file.IsActive,
             file.ConcurrencyToken,
             file.CreatedUtc,
@@ -548,7 +544,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             file.OrgUnitPublicId,
             file.AssignedPositionSlotPublicId,
             file.LinkedUserPublicId,
-            file.CustomDataJson,
             file.IsActive,
             file.ConcurrencyToken,
             file.CreatedUtc,
@@ -1934,51 +1929,7 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
         return new PersonnelFileDynamicGroupResponse("isactive", buckets);
     }
 
-    public Task<IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>> GetCustomFieldDefinitionsAsync(
-        Guid tenantId,
-        bool? isActive,
-        CancellationToken cancellationToken)
-    {
-        var query = dbContext.Set<PersonnelFileCustomFieldDefinition>()
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId);
 
-        if (isActive.HasValue)
-        {
-            query = query.Where(item => item.IsActive == isActive.Value);
-        }
-
-        return query
-            .OrderBy(item => item.SortOrder)
-            .ThenBy(item => item.Key)
-            .Select(item => new PersonnelCustomFieldDefinitionResponse(
-                item.PublicId,
-                item.TenantId,
-                item.Key,
-                item.Label,
-                item.FieldType,
-                item.IsRequired,
-                item.IsActive,
-                item.OptionsJson,
-                item.SortOrder,
-                item.ConcurrencyToken,
-                item.CreatedUtc,
-                item.ModifiedUtc))
-            .ToArrayAsync(cancellationToken)
-            .ContinueWith(static task => (IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>)task.Result, cancellationToken);
-    }
-
-    public Task<PersonnelFileCustomFieldDefinition?> GetCustomFieldDefinitionByIdAsync(Guid id, CancellationToken cancellationToken) =>
-        dbContext.Set<PersonnelFileCustomFieldDefinition>()
-            .SingleOrDefaultAsync(item => item.PublicId == id, cancellationToken);
-
-    public Task<bool> CustomFieldKeyExistsAsync(Guid tenantId, string normalizedKey, long? excludingId, CancellationToken cancellationToken) =>
-        dbContext.Set<PersonnelFileCustomFieldDefinition>()
-            .AnyAsync(
-                item => item.TenantId == tenantId &&
-                        item.NormalizedKey == normalizedKey &&
-                        (!excludingId.HasValue || item.Id != excludingId.Value),
-                cancellationToken);
 
     public async Task<IReadOnlyCollection<Guid>> GetLinkedUserIdsByAssignedPositionSlotAsync(
         Guid tenantId,

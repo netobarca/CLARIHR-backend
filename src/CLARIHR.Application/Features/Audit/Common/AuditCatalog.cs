@@ -106,8 +106,6 @@ public static class AuditEventTypes
     public const string PersonnelFileDocumentFileReplaced = "PERSONNEL_FILE_DOCUMENT_FILE_REPLACED";
     public const string PersonnelFileDocumentInactivated = "PERSONNEL_FILE_DOCUMENT_INACTIVATED";
     public const string PersonnelFileObservationAdded = "PERSONNEL_FILE_OBSERVATION_ADDED";
-    public const string PersonnelCustomFieldDefinitionCreated = "PERSONNEL_CUSTOM_FIELD_DEFINITION_CREATED";
-    public const string PersonnelCustomFieldDefinitionUpdated = "PERSONNEL_CUSTOM_FIELD_DEFINITION_UPDATED";
     public const string OccupationalPyramidLevelCreated = "OCCUPATIONAL_PYRAMID_LEVEL_CREATED";
     public const string OccupationalPyramidLevelUpdated = "OCCUPATIONAL_PYRAMID_LEVEL_UPDATED";
     public const string OccupationalPyramidLevelActivated = "OCCUPATIONAL_PYRAMID_LEVEL_ACTIVATED";
@@ -235,8 +233,6 @@ public static class AuditEventTypes
         PersonnelFileDocumentFileReplaced,
         PersonnelFileDocumentInactivated,
         PersonnelFileObservationAdded,
-        PersonnelCustomFieldDefinitionCreated,
-        PersonnelCustomFieldDefinitionUpdated,
         OccupationalPyramidLevelCreated,
         OccupationalPyramidLevelUpdated,
         OccupationalPyramidLevelActivated,

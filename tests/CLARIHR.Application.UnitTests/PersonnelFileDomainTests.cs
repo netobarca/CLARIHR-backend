@@ -28,7 +28,6 @@ public sealed class PersonnelFileDomainTests
             photoUrl: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: null,
-            customDataJson: null,
             identifications:
             [
                 PersonnelFileIdentification.Create("DUI", "01234567-8", null, null, null, true)
@@ -61,7 +60,6 @@ public sealed class PersonnelFileDomainTests
             photoUrl: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: null,
-            customDataJson: null,
             identifications:
             [
                 PersonnelFileIdentification.Create("DUI", "01234567-8", null, null, null, true)
@@ -86,8 +84,7 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoUrl: null,
             orgUnitPublicId: Guid.NewGuid(),
-            assignedPositionSlotPublicId: Guid.NewGuid(),
-            customDataJson: "{\"shirt_size\":\"M\"}");
+            assignedPositionSlotPublicId: Guid.NewGuid());
 
         Assert.NotEqual(initialToken, file.ConcurrencyToken);
     }
@@ -113,7 +110,6 @@ public sealed class PersonnelFileDomainTests
             photoUrl: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: null,
-            customDataJson: null,
             identifications:
             [
                 PersonnelFileIdentification.Create(" dui ", "01234567-8", null, null, null, true)
@@ -148,7 +144,6 @@ public sealed class PersonnelFileDomainTests
             photoUrl: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: null,
-            customDataJson: null,
             identifications:
             [
                 PersonnelFileIdentification.Create("DUI", "01234567-8", null, null, null, true)
@@ -185,8 +180,7 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoUrl: null,
             orgUnitPublicId: null,
-            assignedPositionSlotPublicId: null,
-            customDataJson: null);
+            assignedPositionSlotPublicId: null);
         var tenantId = Guid.NewGuid();
         file.SetTenantId(tenantId);
         var initialToken = file.ConcurrencyToken;
@@ -509,8 +503,7 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoUrl: null,
             orgUnitPublicId: null,
-            assignedPositionSlotPublicId: Guid.NewGuid(),
-            customDataJson: null);
+            assignedPositionSlotPublicId: Guid.NewGuid());
 
         var linkedUserId = Guid.NewGuid();
 
@@ -541,8 +534,7 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoUrl: null,
             orgUnitPublicId: null,
-            assignedPositionSlotPublicId: Guid.NewGuid(),
-            customDataJson: null);
+            assignedPositionSlotPublicId: Guid.NewGuid());
 
         var initialToken = file.ConcurrencyToken;
 
@@ -574,8 +566,7 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoUrl: null,
             orgUnitPublicId: null,
-            assignedPositionSlotPublicId: Guid.NewGuid(),
-            customDataJson: null);
+            assignedPositionSlotPublicId: Guid.NewGuid());
         file.Complete(Guid.NewGuid());
 
         Assert.Throws<InvalidOperationException>(() => file.UpdatePersonalInfo(
@@ -595,8 +586,7 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoUrl: null,
             orgUnitPublicId: null,
-            assignedPositionSlotPublicId: Guid.NewGuid(),
-            customDataJson: null));
+            assignedPositionSlotPublicId: Guid.NewGuid()));
     }
 
     [Fact]
@@ -627,31 +617,7 @@ public sealed class PersonnelFileDomainTests
             deceasedDate: null));
     }
 
-    [Fact]
-    public void PersonnelFileValidationRules_ValidateCustomData_ShouldFailWhenRequiredFieldMissing()
-    {
-        var definitions = new[]
-        {
-            new PersonnelCustomFieldDefinitionResponse(
-                Guid.NewGuid(),
-                Guid.NewGuid(),
-                "shirt_size",
-                "Shirt Size",
-                PersonnelCustomFieldType.String,
-                IsRequired: true,
-                IsActive: true,
-                OptionsJson: null,
-                SortOrder: 1,
-                ConcurrencyToken: Guid.NewGuid(),
-                CreatedAtUtc: DateTime.UtcNow,
-                ModifiedAtUtc: null)
-        };
 
-        var error = PersonnelFileValidationRules.ValidateCustomData(definitions, "{\"another\":\"value\"}");
-
-        Assert.NotEqual(Error.None, error);
-        Assert.Equal("common.validation", error.Code);
-    }
 
     [Fact]
     public void PersonnelFileEducation_Create_WithApprovedSubjectsOverTotal_ShouldThrow()
@@ -1249,8 +1215,7 @@ public sealed class PersonnelFileDomainTests
             birthMunicipality: null,
             photoUrl: null,
             orgUnitPublicId: null,
-            assignedPositionSlotPublicId: recordType == PersonnelFileRecordType.Employee ? Guid.NewGuid() : null,
-            customDataJson: null);
+            assignedPositionSlotPublicId: recordType == PersonnelFileRecordType.Employee ? Guid.NewGuid() : null);
         file.SetTenantId(Guid.NewGuid());
         return file;
     }

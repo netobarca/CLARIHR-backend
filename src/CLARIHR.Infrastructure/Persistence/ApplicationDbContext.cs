@@ -191,7 +191,6 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileDocument> PersonnelFileDocuments => Set<PersonnelFileDocument>();
 
-    public DbSet<PersonnelFileCustomFieldDefinition> PersonnelFileCustomFieldDefinitions => Set<PersonnelFileCustomFieldDefinition>();
 
     public DbSet<PersonnelFileObservation> PersonnelFileObservations => Set<PersonnelFileObservation>();
 

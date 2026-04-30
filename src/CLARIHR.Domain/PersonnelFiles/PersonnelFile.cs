@@ -44,8 +44,7 @@ public sealed class PersonnelFile : TenantEntity
         string? birthMunicipality,
         string? photoUrl,
         Guid? orgUnitPublicId,
-        Guid? assignedPositionSlotPublicId,
-        string? customDataJson)
+        Guid? assignedPositionSlotPublicId)
     {
         PublicId = publicId;
         RecordType = recordType;
@@ -65,7 +64,6 @@ public sealed class PersonnelFile : TenantEntity
         PhotoUrl = PersonnelFileNormalization.CleanOptional(photoUrl);
         OrgUnitPublicId = orgUnitPublicId;
         AssignedPositionSlotPublicId = assignedPositionSlotPublicId;
-        CustomDataJson = PersonnelFileNormalization.CleanOptional(customDataJson);
         IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
@@ -112,7 +110,7 @@ public sealed class PersonnelFile : TenantEntity
 
     public Guid? LinkedUserPublicId { get; private set; }
 
-    public string? CustomDataJson { get; private set; }
+
 
     public bool IsActive { get; private set; }
 
@@ -170,7 +168,6 @@ public sealed class PersonnelFile : TenantEntity
         string? photoUrl,
         Guid? orgUnitPublicId,
         Guid? assignedPositionSlotPublicId,
-        string? customDataJson,
         IReadOnlyCollection<PersonnelFileIdentification>? identifications = null)
     {
         var file = new PersonnelFile(
@@ -191,8 +188,7 @@ public sealed class PersonnelFile : TenantEntity
             birthMunicipality,
             photoUrl,
             orgUnitPublicId,
-            assignedPositionSlotPublicId,
-            customDataJson);
+            assignedPositionSlotPublicId);
 
         if (identifications is not null)
         {
@@ -219,8 +215,7 @@ public sealed class PersonnelFile : TenantEntity
         string? birthMunicipality,
         string? photoUrl,
         Guid? orgUnitPublicId,
-        Guid? assignedPositionSlotPublicId,
-        string? customDataJson)
+        Guid? assignedPositionSlotPublicId)
     {
         var normalizedInstitutionalEmail = PersonnelFileNormalization.CleanOptional(institutionalEmail);
         if (LifecycleStatus == PersonnelFileLifecycleStatus.Completed)
@@ -252,7 +247,6 @@ public sealed class PersonnelFile : TenantEntity
         PhotoUrl = PersonnelFileNormalization.CleanOptional(photoUrl);
         OrgUnitPublicId = orgUnitPublicId;
         AssignedPositionSlotPublicId = assignedPositionSlotPublicId;
-        CustomDataJson = PersonnelFileNormalization.CleanOptional(customDataJson);
         RefreshConcurrencyToken();
     }
 
@@ -2406,92 +2400,6 @@ public sealed class PersonnelFileDocument : TenantEntity
     }
 }
 
-public sealed class PersonnelFileCustomFieldDefinition : TenantEntity
-{
-    private PersonnelFileCustomFieldDefinition()
-    {
-    }
-
-    private PersonnelFileCustomFieldDefinition(
-        Guid publicId,
-        string key,
-        string label,
-        PersonnelCustomFieldType fieldType,
-        bool isRequired,
-        bool isActive,
-        string? optionsJson,
-        int sortOrder)
-    {
-        if (sortOrder < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(sortOrder), "SortOrder cannot be negative.");
-        }
-
-        PublicId = publicId;
-        Key = PersonnelFileNormalization.Clean(key, nameof(key));
-        NormalizedKey = PersonnelFileNormalization.NormalizeCode(key);
-        Label = PersonnelFileNormalization.Clean(label, nameof(label));
-        FieldType = fieldType;
-        IsRequired = isRequired;
-        IsActive = isActive;
-        OptionsJson = PersonnelFileNormalization.CleanOptional(optionsJson);
-        SortOrder = sortOrder;
-        ConcurrencyToken = Guid.NewGuid();
-    }
-
-    public string Key { get; private set; } = string.Empty;
-
-    public string NormalizedKey { get; private set; } = string.Empty;
-
-    public string Label { get; private set; } = string.Empty;
-
-    public PersonnelCustomFieldType FieldType { get; private set; }
-
-    public bool IsRequired { get; private set; }
-
-    public bool IsActive { get; private set; }
-
-    public string? OptionsJson { get; private set; }
-
-    public int SortOrder { get; private set; }
-
-    public Guid ConcurrencyToken { get; private set; }
-
-    public static PersonnelFileCustomFieldDefinition Create(
-        string key,
-        string label,
-        PersonnelCustomFieldType fieldType,
-        bool isRequired,
-        bool isActive,
-        string? optionsJson,
-        int sortOrder) =>
-        new(Guid.NewGuid(), key, label, fieldType, isRequired, isActive, optionsJson, sortOrder);
-
-    public void Update(
-        string key,
-        string label,
-        PersonnelCustomFieldType fieldType,
-        bool isRequired,
-        bool isActive,
-        string? optionsJson,
-        int sortOrder)
-    {
-        if (sortOrder < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(sortOrder), "SortOrder cannot be negative.");
-        }
-
-        Key = PersonnelFileNormalization.Clean(key, nameof(key));
-        NormalizedKey = PersonnelFileNormalization.NormalizeCode(key);
-        Label = PersonnelFileNormalization.Clean(label, nameof(label));
-        FieldType = fieldType;
-        IsRequired = isRequired;
-        IsActive = isActive;
-        OptionsJson = PersonnelFileNormalization.CleanOptional(optionsJson);
-        SortOrder = sortOrder;
-        ConcurrencyToken = Guid.NewGuid();
-    }
-}
 
 public sealed class PersonnelFileObservation : TenantEntity
 {

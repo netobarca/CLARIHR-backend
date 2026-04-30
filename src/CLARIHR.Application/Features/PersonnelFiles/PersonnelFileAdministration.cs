@@ -255,7 +255,6 @@ public sealed record PersonnelFilePersonalInfoResponse(
     Guid? OrgUnitId,
     Guid? AssignedPositionSlotId,
     Guid? LinkedUserId,
-    string? CustomDataJson,
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
@@ -279,6 +278,10 @@ public sealed record PersonnelFileShellResponse(
 
 public sealed record PersonnelFileSectionResult<TData>(
     TData Data,
+    Guid PersonnelFileConcurrencyToken,
+    DateTime? ModifiedAtUtc);
+
+public sealed record PersonnelFileSectionResult(
     Guid PersonnelFileConcurrencyToken,
     DateTime? ModifiedAtUtc);
 
@@ -311,7 +314,6 @@ public sealed record PersonnelFileResponse(
     Guid? OrgUnitId,
     Guid? AssignedPositionSlotId,
     Guid? LinkedUserId,
-    string? CustomDataJson,
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
@@ -432,19 +434,7 @@ public sealed record PersonnelFileDynamicQueryResponse(
     int PageNumber,
     int PageSize);
 
-public sealed record PersonnelCustomFieldDefinitionResponse(
-    Guid Id,
-    Guid CompanyId,
-    string Key,
-    string Label,
-    PersonnelCustomFieldType FieldType,
-    bool IsRequired,
-    bool IsActive,
-    string? OptionsJson,
-    int SortOrder,
-    Guid ConcurrencyToken,
-    DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+
 
 public sealed record SearchPersonnelFilesQuery(
     Guid CompanyId,
@@ -554,8 +544,6 @@ public sealed record GetPersonnelFilesAnalyticsSummaryQuery(
     string? Search)
     : IQuery<PersonnelFileAnalyticsSummaryResponse>;
 
-public sealed record GetPersonnelCustomFieldDefinitionsQuery(Guid CompanyId, bool? IsActive) : IQuery<IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>>;
-
 public sealed record CreatePersonnelFileCommand(
     Guid CompanyId,
     PersonnelFileRecordType RecordType,
@@ -574,8 +562,7 @@ public sealed record CreatePersonnelFileCommand(
     string? BirthMunicipalityCode,
     string? PhotoUrl,
     Guid? OrgUnitId,
-    Guid? AssignedPositionSlotId,
-    string? CustomDataJson)
+    Guid? AssignedPositionSlotId)
     : ICommand<PersonnelFileShellResponse>;
 
 public sealed record UpdatePersonnelFilePersonalInfoCommand(
@@ -597,7 +584,6 @@ public sealed record UpdatePersonnelFilePersonalInfoCommand(
     string? PhotoUrl,
     Guid? OrgUnitId,
     Guid? AssignedPositionSlotId,
-    string? CustomDataJson,
     Guid ConcurrencyToken)
     : ICommand<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>;
 
@@ -891,28 +877,7 @@ public sealed record UploadPersonnelFileDocumentCommand(
 public sealed record AddPersonnelFileObservationCommand(Guid PersonnelFileId, string Note, Guid ConcurrencyToken)
     : ICommand<PersonnelFileObservationResponse>;
 
-public sealed record CreatePersonnelCustomFieldDefinitionCommand(
-    Guid CompanyId,
-    string Key,
-    string Label,
-    PersonnelCustomFieldType FieldType,
-    bool IsRequired,
-    bool IsActive,
-    string? OptionsJson,
-    int SortOrder)
-    : ICommand<PersonnelCustomFieldDefinitionResponse>;
 
-public sealed record UpdatePersonnelCustomFieldDefinitionCommand(
-    Guid DefinitionId,
-    string Key,
-    string Label,
-    PersonnelCustomFieldType FieldType,
-    bool IsRequired,
-    bool IsActive,
-    string? OptionsJson,
-    int SortOrder,
-    Guid ConcurrencyToken)
-    : ICommand<PersonnelCustomFieldDefinitionResponse>;
 
 public sealed record IdentificationInput(
     string IdentificationTypeCode,
@@ -1938,46 +1903,7 @@ internal sealed class AddPersonnelFileObservationCommandValidator : AbstractVali
     }
 }
 
-internal sealed class GetPersonnelCustomFieldDefinitionsQueryValidator : AbstractValidator<GetPersonnelCustomFieldDefinitionsQuery>
-{
-    public GetPersonnelCustomFieldDefinitionsQueryValidator()
-    {
-        RuleFor(query => query.CompanyId).NotEmpty();
-    }
-}
 
-internal sealed class CreatePersonnelCustomFieldDefinitionCommandValidator : AbstractValidator<CreatePersonnelCustomFieldDefinitionCommand>
-{
-    public CreatePersonnelCustomFieldDefinitionCommandValidator()
-    {
-        RuleFor(command => command.CompanyId).NotEmpty();
-        RuleFor(command => command.Key)
-            .NotEmpty()
-            .MaximumLength(80)
-            .Must(PersonnelFileValidationRules.IsValidCode)
-            .WithMessage("Key format is invalid.");
-        RuleFor(command => command.Label).NotEmpty().MaximumLength(200);
-        RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
-        RuleFor(command => command.OptionsJson).MaximumLength(12000);
-    }
-}
-
-internal sealed class UpdatePersonnelCustomFieldDefinitionCommandValidator : AbstractValidator<UpdatePersonnelCustomFieldDefinitionCommand>
-{
-    public UpdatePersonnelCustomFieldDefinitionCommandValidator()
-    {
-        RuleFor(command => command.DefinitionId).NotEmpty();
-        RuleFor(command => command.Key)
-            .NotEmpty()
-            .MaximumLength(80)
-            .Must(PersonnelFileValidationRules.IsValidCode)
-            .WithMessage("Key format is invalid.");
-        RuleFor(command => command.Label).NotEmpty().MaximumLength(200);
-        RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
-        RuleFor(command => command.OptionsJson).MaximumLength(12000);
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
-    }
-}
 
 internal sealed class IdentificationInputValidator : AbstractValidator<IdentificationInput>
 {
@@ -3376,7 +3302,6 @@ internal sealed class GetPersonnelFilePrintQueryHandler(
             personalInfo.OrgUnitId,
             personalInfo.AssignedPositionSlotId,
             personalInfo.LinkedUserId,
-            personalInfo.CustomDataJson,
             personalInfo.IsActive,
             personalInfo.ConcurrencyToken,
             personalInfo.CreatedAtUtc,
@@ -3550,25 +3475,7 @@ internal sealed class GetPersonnelFilesAnalyticsSummaryQueryHandler(
     }
 }
 
-internal sealed class GetPersonnelCustomFieldDefinitionsQueryHandler(
-    IPersonnelFileAuthorizationService authorizationService,
-    IPersonnelFileRepository repository)
-    : IQueryHandler<GetPersonnelCustomFieldDefinitionsQuery, IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>>
-{
-    public async Task<Result<IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>>> Handle(
-        GetPersonnelCustomFieldDefinitionsQuery query,
-        CancellationToken cancellationToken)
-    {
-        var authorizationResult = await authorizationService.EnsureCanReadAsync(query.CompanyId, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>>.Failure(authorizationResult.Error);
-        }
 
-        var response = await repository.GetCustomFieldDefinitionsAsync(query.CompanyId, query.IsActive, cancellationToken);
-        return Result<IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>>.Success(response);
-    }
-}
 
 internal static class PersonnelFilePolicyAdapter
 {
@@ -3672,12 +3579,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
             return Result<PersonnelFileShellResponse>.Failure(authorizationResult.Error);
         }
 
-        var definitions = await repository.GetCustomFieldDefinitionsAsync(command.CompanyId, isActive: true, cancellationToken);
-        var customDataValidation = PersonnelFileValidationRules.ValidateCustomData(definitions, command.CustomDataJson);
-        if (customDataValidation != Error.None)
-        {
-            return Result<PersonnelFileShellResponse>.Failure(customDataValidation);
-        }
+
 
         var personalInfoCatalogValidation = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
             repository,
@@ -3710,8 +3612,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
             command.BirthMunicipalityCode,
             photoUrl: null,
             command.OrgUnitId,
-            command.AssignedPositionSlotId,
-            command.CustomDataJson);
+            command.AssignedPositionSlotId);
         personnelFile.SetTenantId(command.CompanyId);
 
         var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
@@ -3743,8 +3644,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
             command.BirthMunicipalityCode,
             photoWritePlan.PersistedPhotoUrl,
             command.OrgUnitId,
-            command.AssignedPositionSlotId,
-            command.CustomDataJson);
+            command.AssignedPositionSlotId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -3855,12 +3755,7 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
             return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(PersonnelFileErrors.RecordTypeTransitionNotAllowed);
         }
 
-        var definitions = await repository.GetCustomFieldDefinitionsAsync(personnelFile.TenantId, isActive: true, cancellationToken);
-        var customDataValidation = PersonnelFileValidationRules.ValidateCustomData(definitions, command.CustomDataJson);
-        if (customDataValidation != Error.None)
-        {
-            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(customDataValidation);
-        }
+
 
         var personalInfoCatalogValidation = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
             repository,
@@ -3914,8 +3809,7 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
                     command.BirthMunicipalityCode,
                     photoWritePlan.PersistedPhotoUrl,
                     command.OrgUnitId,
-                    command.AssignedPositionSlotId,
-                    command.CustomDataJson);
+                    command.AssignedPositionSlotId);
             }
             catch (InvalidOperationException)
             {
@@ -9013,151 +8907,6 @@ internal sealed class AddPersonnelFileObservationCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return Result<PersonnelFileObservationResponse>.Success(response);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
-internal sealed class CreatePersonnelCustomFieldDefinitionCommandHandler(
-    IPersonnelFileAuthorizationService authorizationService,
-    IPersonnelFileRepository repository,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<CreatePersonnelCustomFieldDefinitionCommand, PersonnelCustomFieldDefinitionResponse>
-{
-    public async Task<Result<PersonnelCustomFieldDefinitionResponse>> Handle(
-        CreatePersonnelCustomFieldDefinitionCommand command,
-        CancellationToken cancellationToken)
-    {
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(command.CompanyId, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelCustomFieldDefinitionResponse>.Failure(authorizationResult.Error);
-        }
-
-        var normalizedKey = command.Key.Trim().ToUpperInvariant();
-        if (await repository.CustomFieldKeyExistsAsync(command.CompanyId, normalizedKey, excludingId: null, cancellationToken))
-        {
-            return Result<PersonnelCustomFieldDefinitionResponse>.Failure(PersonnelFileErrors.CustomFieldKeyConflict);
-        }
-
-        var definition = PersonnelFileCustomFieldDefinition.Create(
-            command.Key,
-            command.Label,
-            command.FieldType,
-            command.IsRequired,
-            command.IsActive,
-            command.OptionsJson,
-            command.SortOrder);
-        definition.SetTenantId(command.CompanyId);
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            repository.AddCustomFieldDefinition(definition);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var created = await repository.GetCustomFieldDefinitionsAsync(command.CompanyId, null, cancellationToken);
-            var response = created.Single(item => item.Id == definition.PublicId);
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PersonnelCustomFieldDefinitionCreated,
-                    AuditEntityTypes.PersonnelFile,
-                    definition.PublicId,
-                    definition.Key,
-                    AuditActions.Create,
-                    $"Created personnel custom field definition {definition.Key}.",
-                    After: response),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PersonnelCustomFieldDefinitionResponse>.Success(response);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
-internal sealed class UpdatePersonnelCustomFieldDefinitionCommandHandler(
-    IPersonnelFileAuthorizationService authorizationService,
-    IPersonnelFileRepository repository,
-    IAuditService auditService,
-    ITenantContext tenantContext,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdatePersonnelCustomFieldDefinitionCommand, PersonnelCustomFieldDefinitionResponse>
-{
-    public async Task<Result<PersonnelCustomFieldDefinitionResponse>> Handle(
-        UpdatePersonnelCustomFieldDefinitionCommand command,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelCustomFieldDefinitionResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelCustomFieldDefinitionResponse>.Failure(authorizationResult.Error);
-        }
-
-        var definition = await repository.GetCustomFieldDefinitionByIdAsync(command.DefinitionId, cancellationToken);
-        if (definition is null)
-        {
-            return Result<PersonnelCustomFieldDefinitionResponse>.Failure(PersonnelFileErrors.CustomFieldDefinitionNotFound);
-        }
-
-        if (definition.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelCustomFieldDefinitionResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
-
-        var normalizedKey = command.Key.Trim().ToUpperInvariant();
-        if (await repository.CustomFieldKeyExistsAsync(definition.TenantId, normalizedKey, definition.Id, cancellationToken))
-        {
-            return Result<PersonnelCustomFieldDefinitionResponse>.Failure(PersonnelFileErrors.CustomFieldKeyConflict);
-        }
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            definition.Update(
-                command.Key,
-                command.Label,
-                command.FieldType,
-                command.IsRequired,
-                command.IsActive,
-                command.OptionsJson,
-                command.SortOrder);
-
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var updated = await repository.GetCustomFieldDefinitionsAsync(definition.TenantId, null, cancellationToken);
-            var response = updated.Single(item => item.Id == definition.PublicId);
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PersonnelCustomFieldDefinitionUpdated,
-                    AuditEntityTypes.PersonnelFile,
-                    definition.PublicId,
-                    definition.Key,
-                    AuditActions.Update,
-                    $"Updated personnel custom field definition {definition.Key}.",
-                    After: response),
-                cancellationToken);
-
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PersonnelCustomFieldDefinitionResponse>.Success(response);
         }
         catch
         {

@@ -45,7 +45,6 @@ internal sealed class PersonnelFileConfiguration : IEntityTypeConfiguration<Pers
         builder.Property(file => file.OrgUnitPublicId).HasColumnName("org_unit_public_id");
         builder.Property(file => file.AssignedPositionSlotPublicId).HasColumnName("assigned_position_slot_public_id");
         builder.Property(file => file.LinkedUserPublicId).HasColumnName("linked_user_public_id");
-        builder.Property(file => file.CustomDataJson).HasColumnName("custom_data").HasColumnType("jsonb");
         builder.Property(file => file.IsActive).HasColumnName("is_active");
         builder.Property(file => file.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(file => file.CreatedUtc).HasColumnName("created_utc");
@@ -783,46 +782,6 @@ internal sealed class PersonnelFileDocumentConfiguration : IEntityTypeConfigurat
 
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.IsActive })
             .HasDatabaseName("ix_personnel_file_documents__tenant_file_active");
-    }
-}
-
-internal sealed class PersonnelFileCustomFieldDefinitionConfiguration : IEntityTypeConfiguration<PersonnelFileCustomFieldDefinition>
-{
-    public void Configure(EntityTypeBuilder<PersonnelFileCustomFieldDefinition> builder)
-    {
-        builder.ToTable("personnel_file_custom_field_definitions");
-
-        builder.HasKey(item => item.Id)
-            .HasName("pk_personnel_file_custom_field_definitions");
-
-        builder.Property(item => item.Id).HasColumnName("id");
-        builder.Property(item => item.TenantId).HasColumnName("tenant_id");
-        builder.Property(item => item.PublicId).HasColumnName("public_id");
-        builder.Property(item => item.Key).HasColumnName("key").HasMaxLength(80);
-        builder.Property(item => item.NormalizedKey).HasColumnName("normalized_key").HasMaxLength(80);
-        builder.Property(item => item.Label).HasColumnName("label").HasMaxLength(200);
-        builder.Property(item => item.FieldType)
-            .HasColumnName("field_type")
-            .HasConversion<string>()
-            .HasMaxLength(20);
-        builder.Property(item => item.IsRequired).HasColumnName("is_required");
-        builder.Property(item => item.IsActive).HasColumnName("is_active");
-        builder.Property(item => item.OptionsJson).HasColumnName("options_json").HasColumnType("jsonb");
-        builder.Property(item => item.SortOrder).HasColumnName("sort_order");
-        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
-        builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
-        builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
-
-        builder.HasIndex(item => item.PublicId)
-            .IsUnique()
-            .HasDatabaseName("uq_personnel_file_custom_field_definitions__public_id");
-
-        builder.HasIndex(item => new { item.TenantId, item.NormalizedKey })
-            .IsUnique()
-            .HasDatabaseName("uq_personnel_file_custom_field_definitions__tenant_key");
-
-        builder.HasIndex(item => new { item.TenantId, item.IsActive, item.SortOrder })
-            .HasDatabaseName("ix_personnel_file_custom_field_definitions__tenant_active_sort");
     }
 }
 

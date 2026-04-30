@@ -59,18 +59,54 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return item is null ? null : Map(item);
     }
 
-    public Task<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>> ReplaceEmploymentAssignmentsAsync(
+    public async Task<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>> AddEmploymentAssignmentAsync(
         long personnelFileInternalId,
         Guid tenantId,
-        IReadOnlyCollection<PersonnelFileEmploymentAssignment> entities,
-        CancellationToken cancellationToken) =>
-        ReplaceSectionAsync(
-            personnelFileInternalId,
-            tenantId,
-            entities,
-            orderBy: items => items.OrderByDescending(item => item.IsPrimary).ThenBy(item => item.StartDate),
-            map: Map,
-            cancellationToken);
+        PersonnelFileEmploymentAssignment entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileEmploymentAssignment>().Add(entity);
+        var all = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .OrderByDescending(item => item.IsPrimary).ThenBy(item => item.StartDate)
+            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
+        return all;
+    }
+
+    public async Task<PersonnelFileEmploymentAssignmentResponse?> UpdateEmploymentAssignmentAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        string assignmentTypeCode,
+        Guid? positionSlotPublicId,
+        Guid? orgUnitPublicId,
+        Guid? workCenterPublicId,
+        Guid? costCenterPublicId,
+        DateTime startDate,
+        DateTime? endDate,
+        bool isPrimary,
+        bool isActive,
+        string? notes,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(assignmentTypeCode, positionSlotPublicId, orgUnitPublicId, workCenterPublicId, costCenterPublicId, startDate, endDate, isPrimary, isActive, notes);
+        return Map(item);
+    }
+
+    public async Task<bool> DeactivateEmploymentAssignmentAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileEmploymentAssignment>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return false;
+        item.Deactivate();
+        return true;
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>> GetEmploymentAssignmentsAsync(
         Guid personnelFileId,
@@ -83,18 +119,50 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
 
-    public Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> ReplaceContractHistoryAsync(
+    public async Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> AddContractHistoryAsync(
         long personnelFileInternalId,
         Guid tenantId,
-        IReadOnlyCollection<PersonnelFileContractHistory> entities,
-        CancellationToken cancellationToken) =>
-        ReplaceSectionAsync(
-            personnelFileInternalId,
-            tenantId,
-            entities,
-            orderBy: items => items.OrderByDescending(item => item.ContractDate),
-            map: Map,
-            cancellationToken);
+        PersonnelFileContractHistory entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileContractHistory>().Add(entity);
+        var all = await dbContext.Set<PersonnelFileContractHistory>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .OrderByDescending(item => item.ContractDate)
+            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
+        return all;
+    }
+
+    public async Task<PersonnelFileContractHistoryResponse?> UpdateContractHistoryAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        string contractTypeCode,
+        DateTime contractDate,
+        DateTime? contractEndDate,
+        Guid? positionSlotPublicId,
+        bool isActive,
+        string? notes,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileContractHistory>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(contractTypeCode, contractDate, contractEndDate, positionSlotPublicId, isActive, notes);
+        return Map(item);
+    }
+
+    public async Task<bool> DeactivateContractHistoryAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileContractHistory>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return false;
+        item.Deactivate();
+        return true;
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> GetContractHistoryAsync(
         Guid personnelFileId,
@@ -315,18 +383,51 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
 
-    public Task<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>> ReplaceAuthorizationSubstitutionsAsync(
+    public async Task<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>> AddAuthorizationSubstitutionAsync(
         long personnelFileInternalId,
         Guid tenantId,
-        IReadOnlyCollection<PersonnelFileAuthorizationSubstitution> entities,
-        CancellationToken cancellationToken) =>
-        ReplaceSectionAsync(
-            personnelFileInternalId,
-            tenantId,
-            entities,
-            orderBy: items => items.OrderByDescending(item => item.IsActive).ThenBy(item => item.StartDate),
-            map: Map,
-            cancellationToken);
+        PersonnelFileAuthorizationSubstitution entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileAuthorizationSubstitution>().Add(entity);
+        var all = await dbContext.Set<PersonnelFileAuthorizationSubstitution>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .OrderByDescending(item => item.IsActive).ThenBy(item => item.StartDate)
+            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
+        return all;
+    }
+
+    public async Task<PersonnelFileAuthorizationSubstitutionResponse?> UpdateAuthorizationSubstitutionAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        string substitutionTypeCode,
+        Guid substitutePersonnelFilePublicId,
+        string? substitutePositionTitle,
+        DateTime startDate,
+        DateTime? endDate,
+        bool isActive,
+        string? notes,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileAuthorizationSubstitution>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(substitutionTypeCode, substitutePersonnelFilePublicId, substitutePositionTitle, startDate, endDate, isActive, notes);
+        return Map(item);
+    }
+
+    public async Task<bool> DeactivateAuthorizationSubstitutionAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileAuthorizationSubstitution>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return false;
+        item.Deactivate();
+        return true;
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>> GetAuthorizationSubstitutionsAsync(
         Guid personnelFileId,
@@ -505,18 +606,53 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return items;
     }
 
-    public Task<IReadOnlyCollection<PersonnelFileAssetAccessResponse>> ReplaceAssetsAccessesAsync(
+    public async Task<IReadOnlyCollection<PersonnelFileAssetAccessResponse>> AddAssetAccessAsync(
         long personnelFileInternalId,
         Guid tenantId,
-        IReadOnlyCollection<PersonnelFileAssetAccess> entities,
-        CancellationToken cancellationToken) =>
-        ReplaceSectionAsync(
-            personnelFileInternalId,
-            tenantId,
-            entities,
-            orderBy: items => items.OrderByDescending(item => item.IsActive).ThenBy(item => item.StartDateUtc),
-            map: Map,
-            cancellationToken);
+        PersonnelFileAssetAccess entity,
+        CancellationToken cancellationToken)
+    {
+        dbContext.Set<PersonnelFileAssetAccess>().Add(entity);
+        var all = await dbContext.Set<PersonnelFileAssetAccess>()
+            .AsNoTracking()
+            .Where(item => item.TenantId == tenantId && item.PersonnelFileId == personnelFileInternalId)
+            .OrderByDescending(item => item.IsActive).ThenBy(item => item.StartDateUtc)
+            .Select(item => Map(item)).ToArrayAsync(cancellationToken);
+        return all;
+    }
+
+    public async Task<PersonnelFileAssetAccessResponse?> UpdateAssetAccessAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        string assetTypeCode,
+        string assetOrAccessName,
+        string? accessLevelCode,
+        DateTime startDateUtc,
+        DateTime? endDateUtc,
+        DateTime? deliveryDateUtc,
+        string? deliveryStatusCode,
+        bool isActive,
+        string? notes,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileAssetAccess>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(assetTypeCode, assetOrAccessName, accessLevelCode, startDateUtc, endDateUtc, deliveryDateUtc, deliveryStatusCode, isActive, notes);
+        return Map(item);
+    }
+
+    public async Task<bool> DeactivateAssetAccessAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileAssetAccess>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return false;
+        item.Deactivate();
+        return true;
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFileAssetAccessResponse>> GetAssetsAccessesAsync(
         Guid personnelFileId,

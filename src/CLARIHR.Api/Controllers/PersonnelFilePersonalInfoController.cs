@@ -62,7 +62,6 @@ public sealed class PersonnelFilePersonalInfoController(
                 request.PhotoUrl,
                 request.OrgUnitPublicId,
                 request.AssignedPositionSlotPublicId,
-                request.CustomDataJson,
                 request.ConcurrencyToken),
             cancellationToken);
 

@@ -12,14 +12,7 @@ public enum PersonnelFileLifecycleStatus
     Completed = 2
 }
 
-public enum PersonnelCustomFieldType
-{
-    String = 1,
-    Number = 2,
-    Date = 3,
-    Bool = 4,
-    Select = 5
-}
+
 
 public enum PersonnelFamilyMemberSex
 {
