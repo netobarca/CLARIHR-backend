@@ -12,6 +12,7 @@ using CLARIHR.Domain.LegalRepresentatives;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.OrgStructureCatalogs;
 using CLARIHR.Domain.OrgUnits;
+using CLARIHR.Domain.EducationCatalogs;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Domain.Preferences;
@@ -55,7 +56,7 @@ internal sealed class DevSeedService(
         await SeedRbacAsync(user, company, tenantId, cancellationToken);
         SeedLocations(tenantId);
         SeedGeneralCatalogItems(tenantId);
-        SeedPersonnelEducationCatalogItems(tenantId);
+        SeedPersonnelEducationCatalogItems();
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var orgUnitType = await SeedOrgStructureCatalogsAsync(user.PublicId, tenantId, cancellationToken);
@@ -343,10 +344,8 @@ internal sealed class DevSeedService(
         }
     }
 
-    private void SeedPersonnelEducationCatalogItems(Guid tenantId)
+    private void SeedPersonnelEducationCatalogItems()
     {
-        var companyCountry = GetSeedCompanyCountry(tenantId);
-
         var statuses = new (string Code, string Name, int SortOrder)[]
         {
             ("GRADUATED", "Graduado", 10),
@@ -384,32 +383,27 @@ internal sealed class DevSeedService(
 
         foreach (var item in statuses)
         {
-            var entity = EducationStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
-            dbContext.EducationStatusCatalogItems.Add(entity);
+            dbContext.EducationStatusCatalogItems.Add(EducationStatusCatalogItem.Create(item.Code, item.Name, item.SortOrder));
         }
 
         foreach (var item in studyTypes)
         {
-            var entity = EducationStudyTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
-            dbContext.EducationStudyTypeCatalogItems.Add(entity);
+            dbContext.EducationStudyTypeCatalogItems.Add(EducationStudyTypeCatalogItem.Create(item.Code, item.Name, item.SortOrder));
         }
 
         foreach (var item in shifts)
         {
-            var entity = EducationShiftCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
-            dbContext.EducationShiftCatalogItems.Add(entity);
+            dbContext.EducationShiftCatalogItems.Add(EducationShiftCatalogItem.Create(item.Code, item.Name, item.SortOrder));
         }
 
         foreach (var item in modalities)
         {
-            var entity = EducationModalityCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
-            dbContext.EducationModalityCatalogItems.Add(entity);
+            dbContext.EducationModalityCatalogItems.Add(EducationModalityCatalogItem.Create(item.Code, item.Name, item.SortOrder));
         }
 
         foreach (var item in careers)
         {
-            var entity = EducationCareerCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
-            dbContext.EducationCareerCatalogItems.Add(entity);
+            dbContext.EducationCareerCatalogItems.Add(EducationCareerCatalogItem.Create(item.Code, item.Name, item.SortOrder));
         }
     }
 
@@ -862,10 +856,9 @@ internal sealed class DevSeedService(
     private async Task<EducationCatalogIds> LoadEducationCatalogIdsAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         async Task<long> ResolveAsync<TCatalogItem>(string code)
-            where TCatalogItem : PersonnelEducationCatalogItem =>
+            where TCatalogItem : EducationCatalogItem =>
             await dbContext.Set<TCatalogItem>()
                 .Where(item => item.NormalizedCode == code)
-                .Where(item => dbContext.Companies.Any(company => company.PublicId == tenantId && company.CountryCatalogItemId == item.CountryCatalogItemId))
                 .Select(item => item.Id)
                 .SingleAsync(cancellationToken);
 

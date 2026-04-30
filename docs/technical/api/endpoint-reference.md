@@ -117,6 +117,7 @@ Exenciones observables: el export de un unico `JOB_PROFILE` sigue siendo sincron
 | Platform bank catalogs | `BankCatalogsController` | `/api/platform/bank-catalogs*` | administrar el catalogo global de bancos por pais para consumo del core RH |
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables |
 | Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar, cambiar plan, administrar add-ons y listar suscripciones empresariales globales |
+| **Education catalogs** | `EducationCatalogsController` (Core), `EducationCatalogsController` (Backoffice) | `/api/v1/education-catalogs/{catalogKey}` (Core lectura), `/api/platform/education-catalogs/{catalogKey}` (Backoffice CRUD) | catalogos de educacion globales de sistema administrados exclusivamente por Backoffice y consultados en modo lectura desde el Core |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
 | Preferences | `UserPreferencesController`, `CompanyPreferencesController` | `/api/account/me/preferences`, `/api/v1/companies/{companyId}/preferences` | administrar preferencias personales (language y `socialLinks`) y preferencias operativas de compania (moneda y zona horaria) |
 | Account company authorization | `AccountCompaniesController`, `AccountCompanyAuthorizationController` | `/api/account/companies/{companyPublicId}/access-context`, `/api/account/companies/{companyPublicId}/authorization*` | contexto de acceso, catalogo filtrado, roles, grants y policies del tenant |
@@ -389,7 +390,35 @@ Comportamiento observable:
 - los cambios salariales se modelan como `change requests` con transiciones explicitas de estado
 - la estrategia de eliminar `companyId` de rutas tenant-scoped nuevas y migrar rutas legacy esta registrada en `docs/technical/api/tenant-route-technical-debt.md`
 
-### 4.8 Report export jobs
+### 4.8 Education Catalogs
+
+Core (solo lectura, usuarios autenticados):
+
+- `GET /api/v1/education-catalogs/{catalogKey}` — lista paginada de items activos del catalogo indicado
+- `GET /api/v1/education-catalogs/{catalogKey}/{id}` — item activo individual por `publicId`
+
+Platform Backoffice (CRUD completo, `PlatformOperator`):
+
+- `GET /api/platform/education-catalogs/{catalogKey}` — lista paginada con filtros `isActive`, `search`
+- `GET /api/platform/education-catalogs/{catalogKey}/{id}` — detalle completo del item
+- `POST /api/platform/education-catalogs/{catalogKey}` — crea item nuevo
+- `PUT /api/platform/education-catalogs/{catalogKey}/{id}` — actualiza item existente
+- `PATCH /api/platform/education-catalogs/{catalogKey}/{id}/activate` — activa item
+- `PATCH /api/platform/education-catalogs/{catalogKey}/{id}/inactivate` — inactiva item
+
+Catalog keys validas: `education-statuses`, `study-types`, `careers`, `shifts`, `modalities`.
+
+Comportamiento observable:
+
+- los catalogos de educacion son de sistema global y no tienen scope por pais ni por tenant
+- el Core solo puede leer los items activos del catalogo; no puede crear, modificar ni inactivar items
+- el Backoffice administra el ciclo de vida completo de cada catalogo
+- los filtros `isActive` y `search` del Backoffice no estan disponibles en el Core
+- las operaciones de escritura usan `concurrencyToken` para deteccion de conflictos
+- un `catalogKey` inexistente devuelve `404 Not Found`
+- el codigo unico por tipo de catalogo se valida en creacion y actualizacion con `409 Conflict`
+
+### 4.9 Report export jobs
 
 Endpoints:
 
@@ -3513,6 +3542,152 @@ Observaciones funcionales:
 - `Reports` consume `PERSONNEL_FILES` como `resourceKey` para capacidades de export e impresion.
 
 `PersonnelFiles` es asi el modulo que aterriza el resto del sistema sobre una persona real: primero nace el expediente, luego se completa el perfil, despues puede convertirse en empleado y finalmente se conecta con puestos, estructura, compensacion, talento y evidencia documental.
+
+### 5.11 Education Catalogs
+
+#### 5.11.1 Alcance
+
+Este bloque cubre los catalogos de educacion gestionados como catalogos de sistema global, sin dependencia de pais o tenant. Incluye dos superficies diferenciadas:
+
+- `EducationCatalogsController` en la Core API con base `/api/v1/education-catalogs` — solo lectura
+- `EducationCatalogsController` en la Backoffice API con base `/api/platform/education-catalogs` — administracion completa
+
+#### 5.11.2 Proposito funcional en CLARIHR
+
+Los catalogos de educacion proveen los valores de referencia que los usuarios utilizan al registrar informacion educativa en expedientes de personal. Al ser globales de sistema, la plataforma garantiza consistencia sin requerir configuracion por compania o por pais.
+
+Catalogos disponibles:
+
+| Clave (`catalogKey`) | Descripcion |
+|---|---|
+| `education-statuses` | Estado del proceso educativo (ej. `GRADUATED`, `IN_PROGRESS`) |
+| `study-types` | Tipo de estudio (ej. `BACHELOR`, `MASTER`, `TECHNICAL`) |
+| `careers` | Carreras o especialidades academicas |
+| `shifts` | Modalidad horaria (ej. `MORNING`, `AFTERNOON`) |
+| `modalities` | Modalidad de estudio (ej. `ONSITE`, `REMOTE`) |
+
+#### 5.11.3 Modelo operativo y reglas transversales
+
+- los catalogos existen a nivel de sistema y no pertenecen a ningun tenant
+- el Core solo expone items activos; un item inactivado desde Backoffice desaparece automaticamente del Core
+- el Backoffice puede listar todos los items independientemente del estado con el filtro `isActive`
+- las mutations en Backoffice requieren `concurrencyToken` para evitar escrituras en conflicto
+- el `code` de cada item se normaliza a `UPPERCASE` y es unico por tipo de catalogo
+- el route segment `{catalogKey}` actua como discriminador de tipo y es case-insensitive
+- un `catalogKey` no reconocido devuelve `404` en ambas APIs
+
+#### 5.11.4 Contratos principales
+
+**Core — `EducationCatalogLookup`**
+
+```json
+{
+  "id": "<uuid>",
+  "code": "BACHELOR",
+  "normalizedCode": "BACHELOR",
+  "name": "Bachelor",
+  "sortOrder": 10
+}
+```
+
+**Backoffice — `EducationCatalogItemResponse`**
+
+```json
+{
+  "id": "<uuid>",
+  "code": "BACHELOR",
+  "normalizedCode": "BACHELOR",
+  "name": "Bachelor",
+  "sortOrder": 10,
+  "isActive": true,
+  "concurrencyToken": "<uuid>"
+}
+```
+
+**Backoffice — `CreateEducationCatalogItemRequest`**
+
+```json
+{ "code": "BACHELOR", "name": "Bachelor", "sortOrder": 10 }
+```
+
+**Backoffice — `UpdateEducationCatalogItemRequest`**
+
+```json
+{ "code": "BACHELOR", "name": "Bachelor", "sortOrder": 10, "concurrencyToken": "<uuid>" }
+```
+
+#### 5.11.5 Core API — lectura publica (usuario autenticado)
+
+Base route: `/api/v1/education-catalogs`
+
+Autorizacion: `Bearer` con `client_type=core`. No requiere permisos RBAC adicionales.
+
+##### `GET /api/v1/education-catalogs/{catalogKey}`
+
+- Proposito: listar items activos del catalogo para uso en formularios.
+- Autorizacion: usuario autenticado core.
+- Query: `isActive` (opcional, por defecto retorna solo activos), `search`, `pageNumber`, `pageSize`.
+- Response: `PagedResponse<EducationCatalogLookup>`.
+- Errores relevantes: `404` si `catalogKey` no es reconocido.
+
+##### `GET /api/v1/education-catalogs/{catalogKey}/{id}`
+
+- Proposito: obtener un item activo individual por `publicId`.
+- Autorizacion: usuario autenticado core.
+- Response: `EducationCatalogLookup`.
+- Errores relevantes: `404` si `catalogKey` no existe o el item no esta activo.
+
+#### 5.11.6 Backoffice API — administracion completa (`PlatformOperator`)
+
+Base route: `/api/platform/education-catalogs`
+
+Autorizacion: `Bearer` con `client_type=platform` y politica `PlatformOperator`.
+
+##### `GET /api/platform/education-catalogs/{catalogKey}`
+
+- Proposito: listar todos los items del catalogo con filtros de administracion.
+- Query: `isActive`, `search`, `pageNumber`, `pageSize`.
+- Response: `PagedResponse<EducationCatalogItemResponse>`.
+
+##### `GET /api/platform/education-catalogs/{catalogKey}/{id}`
+
+- Proposito: obtener un item completo por `publicId` independientemente de su estado.
+- Response: `EducationCatalogItemResponse`.
+- Errores relevantes: `404` si no existe.
+
+##### `POST /api/platform/education-catalogs/{catalogKey}`
+
+- Proposito: crear un item nuevo en el catalogo indicado.
+- Request body: `code`, `name`, `sortOrder`.
+- Response: `201 Created` con `EducationCatalogItemResponse`.
+- Errores relevantes: `404` si `catalogKey` no es valido, `409` si `code` ya existe en ese catalogo.
+
+##### `PUT /api/platform/education-catalogs/{catalogKey}/{id}`
+
+- Proposito: actualizar un item existente.
+- Request body: `code`, `name`, `sortOrder`, `concurrencyToken`.
+- Response: `200 OK` con `EducationCatalogItemResponse`.
+- Errores relevantes: `404` si no existe, `409` si `code` ya existe o hay conflicto de concurrencia.
+
+##### `PATCH /api/platform/education-catalogs/{catalogKey}/{id}/activate`
+
+- Proposito: activar un item inactivo.
+- Request body: `{ "concurrencyToken": "<uuid>" }`.
+- Response: `200 OK` con `EducationCatalogItemResponse`.
+
+##### `PATCH /api/platform/education-catalogs/{catalogKey}/{id}/inactivate`
+
+- Proposito: inactivar un item activo.
+- Request body: `{ "concurrencyToken": "<uuid>" }`.
+- Response: `200 OK` con `EducationCatalogItemResponse`.
+
+#### 5.11.7 Errores observables relevantes
+
+- `404 Not Found`: `catalogKey` invalido o item no encontrado.
+- `409 Conflict`: codigo duplicado en el catalogo o conflicto de concurrencia en la escritura.
+- `400 Bad Request`: validacion de campos (ej. `code` vacio, `sortOrder` invalido).
+- `401 Unauthorized`: autenticacion requerida.
+- `403 Forbidden`: rol de plataforma requerido (solo Backoffice).
 
 ## 6. Reglas observables transversales
 

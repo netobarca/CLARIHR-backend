@@ -1,5 +1,6 @@
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Banks;
+using CLARIHR.Domain.EducationCatalogs;
 
 namespace CLARIHR.Domain.PersonnelFiles;
 

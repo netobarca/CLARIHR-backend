@@ -4,7 +4,7 @@ using System.Text;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Banks;
 using CLARIHR.Application.Abstractions.Authentication;
-using CLARIHR.Application.Abstractions.PersonnelEducationCatalogs;
+using CLARIHR.Application.Abstractions.EducationCatalogs;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Policies;
@@ -14,11 +14,10 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.EducationCatalogs.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
-using CLARIHR.Application.Features.PersonnelEducationCatalogs;
-using CLARIHR.Application.Features.PersonnelEducationCatalogs.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using FluentValidation;
 
@@ -6496,7 +6495,7 @@ internal sealed class DeletePersonnelFileAssociationCommandHandler(
 
 internal sealed class AddPersonnelFileEducationCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
-    IPersonnelEducationCatalogRepository personnelEducationCatalogRepository,
+    IEducationCatalogRepository educationCatalogRepository,
     IPersonnelFileRepository repository,
     IAuditService auditService,
     ITenantContext tenantContext,
@@ -6536,7 +6535,7 @@ internal sealed class AddPersonnelFileEducationCommandHandler(
         }
 
         var (catalogError, resolvedIds) = await ResolveEducationCatalogIdsAsync(
-            personnelFile.TenantId, command.Education, personnelEducationCatalogRepository, repository, cancellationToken);
+            command.Education, educationCatalogRepository, repository, cancellationToken);
         if (catalogError != Error.None)
         {
             return Result<PersonnelFileEducationResponse>.Failure(catalogError);
@@ -6621,15 +6620,13 @@ internal sealed class AddPersonnelFileEducationCommandHandler(
             });
 
     internal static async Task<(Error Error, ResolvedEducationCatalogIds? Ids)> ResolveEducationCatalogIdsAsync(
-        Guid tenantId,
         EducationInput input,
-        IPersonnelEducationCatalogRepository catalogRepository,
+        IEducationCatalogRepository catalogRepository,
         IPersonnelFileRepository fileRepository,
         CancellationToken cancellationToken)
     {
         var statusLookup = await catalogRepository.GetActiveLookupByIdAsync(
-            tenantId,
-            PersonnelEducationCatalogType.EducationStatus,
+            EducationCatalogType.EducationStatus,
             input.StatusPublicId,
             cancellationToken);
         if (statusLookup is null)
@@ -6638,8 +6635,7 @@ internal sealed class AddPersonnelFileEducationCommandHandler(
         }
 
         var studyTypeLookup = await catalogRepository.GetActiveLookupByIdAsync(
-            tenantId,
-            PersonnelEducationCatalogType.StudyType,
+            EducationCatalogType.StudyType,
             input.StudyTypePublicId,
             cancellationToken);
         if (studyTypeLookup is null)
@@ -6648,8 +6644,7 @@ internal sealed class AddPersonnelFileEducationCommandHandler(
         }
 
         var careerLookup = await catalogRepository.GetActiveLookupByIdAsync(
-            tenantId,
-            PersonnelEducationCatalogType.Career,
+            EducationCatalogType.Career,
             input.CareerPublicId,
             cancellationToken);
         if (careerLookup is null)
@@ -6659,7 +6654,7 @@ internal sealed class AddPersonnelFileEducationCommandHandler(
 
         var countryError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
             fileRepository,
-            tenantId,
+            Guid.Empty, // country validation is now tenant-independent for education catalogs
             nameof(input.CountryCode),
             PersonnelCurriculumCatalogCategories.Country,
             input.CountryCode,
@@ -6673,8 +6668,7 @@ internal sealed class AddPersonnelFileEducationCommandHandler(
         if (input.ShiftPublicId.HasValue)
         {
             var shiftLookup = await catalogRepository.GetActiveLookupByIdAsync(
-                tenantId,
-                PersonnelEducationCatalogType.Shift,
+                EducationCatalogType.Shift,
                 input.ShiftPublicId.Value,
                 cancellationToken);
             if (shiftLookup is null)
@@ -6689,8 +6683,7 @@ internal sealed class AddPersonnelFileEducationCommandHandler(
         if (input.ModalityPublicId.HasValue)
         {
             var modalityLookup = await catalogRepository.GetActiveLookupByIdAsync(
-                tenantId,
-                PersonnelEducationCatalogType.Modality,
+                EducationCatalogType.Modality,
                 input.ModalityPublicId.Value,
                 cancellationToken);
             if (modalityLookup is null)
@@ -6719,7 +6712,7 @@ internal sealed class AddPersonnelFileEducationCommandHandler(
 
 internal sealed class UpdatePersonnelFileEducationCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
-    IPersonnelEducationCatalogRepository personnelEducationCatalogRepository,
+    IEducationCatalogRepository educationCatalogRepository,
     IPersonnelFileRepository repository,
     IAuditService auditService,
     ITenantContext tenantContext,
@@ -6759,7 +6752,7 @@ internal sealed class UpdatePersonnelFileEducationCommandHandler(
         }
 
         var (catalogError, resolvedIds) = await AddPersonnelFileEducationCommandHandler.ResolveEducationCatalogIdsAsync(
-            personnelFile.TenantId, command.Education, personnelEducationCatalogRepository, repository, cancellationToken);
+            command.Education, educationCatalogRepository, repository, cancellationToken);
         if (catalogError != Error.None)
         {
             return Result<PersonnelFileEducationResponse>.Failure(catalogError);
