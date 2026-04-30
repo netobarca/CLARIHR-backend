@@ -610,25 +610,21 @@ public sealed record UploadPersonnelFileDocumentRequest(
     Guid ConcurrencyToken,
     IFormFile File);
 
-public sealed record ReplacePersonnelFileDocumentsRequest(
-    string ManifestJson,
-    Guid ConcurrencyToken);
+// UpdatePersonnelFileDocumentRequest — file is optional; null = update metadata only, present = update metadata + replace blob
+public sealed class UpdatePersonnelFileDocumentRequest
+{
+    public string DocumentType { get; init; } = string.Empty;
+    public string? Observations { get; init; }
+    public DateTime? DeliveryDate { get; init; }
+    public DateTime? LoanDate { get; init; }
+    public DateTime? ReturnDate { get; init; }
+    public Guid ConcurrencyToken { get; init; }
+    public IFormFile? File { get; init; }
+}
 
-public sealed record ReplacePersonnelFileDocumentsManifestRequest(
-    IReadOnlyCollection<ReplacePersonnelFileDocumentItemRequest>? Items);
-
-public sealed record ReplacePersonnelFileDocumentItemRequest(
-    Guid? DocumentPublicId,
-    string DocumentType,
-    string? Observations,
-    DateTime? DeliveryDate,
-    DateTime? LoanDate,
-    DateTime? ReturnDate,
-    string? FileKey);
-
-public sealed record ReplacePersonnelFileDocumentFileRequest(
-    Guid ConcurrencyToken,
-    IFormFile File);
+// ReplacePersonnelFileDocumentsRequest, ReplacePersonnelFileDocumentsManifestRequest,
+// ReplacePersonnelFileDocumentItemRequest and ReplacePersonnelFileDocumentFileRequest removed
+// — bulk-replace pattern replaced by atomic PUT /documents/{documentPublicId}.
 
 public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
 
