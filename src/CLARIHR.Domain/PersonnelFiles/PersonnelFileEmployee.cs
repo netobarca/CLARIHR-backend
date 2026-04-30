@@ -363,6 +363,28 @@ public sealed class PersonnelFileSalaryItem : TenantEntity
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
+    public void Update(
+        string incomeTypeCode,
+        string salaryRubricCode,
+        string currencyCode,
+        string payPeriodCode,
+        decimal amount,
+        DateTime startDate,
+        DateTime? endDate,
+        bool isActive)
+    {
+        IncomeTypeCode = PersonnelFileNormalization.Clean(incomeTypeCode, nameof(incomeTypeCode));
+        SalaryRubricCode = PersonnelFileNormalization.Clean(salaryRubricCode, nameof(salaryRubricCode));
+        CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode));
+        PayPeriodCode = PersonnelFileNormalization.Clean(payPeriodCode, nameof(payPeriodCode));
+        Amount = amount;
+        StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
+        EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
+        IsActive = isActive;
+    }
+
+    public void Deactivate() => IsActive = false;
+
     public static PersonnelFileSalaryItem Create(
         string incomeTypeCode,
         string salaryRubricCode,
@@ -411,6 +433,22 @@ public sealed class PersonnelFileAdditionalBenefit : TenantEntity
     public string? Notes { get; private set; }
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
+
+    public void Update(
+        string benefitTypeCode,
+        DateTime? startDate,
+        DateTime? endDate,
+        bool isActive,
+        string? notes)
+    {
+        BenefitTypeCode = PersonnelFileNormalization.Clean(benefitTypeCode, nameof(benefitTypeCode));
+        StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
+        EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
+        IsActive = isActive;
+        Notes = PersonnelFileNormalization.CleanOptional(notes);
+    }
+
+    public void Deactivate() => IsActive = false;
 
     public static PersonnelFileAdditionalBenefit Create(
         string benefitTypeCode,
@@ -465,6 +503,26 @@ public sealed class PersonnelFilePaymentMethod : TenantEntity
     public string? Notes { get; private set; }
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
+
+    public void Update(
+        string paymentMethodCode,
+        Guid? bankAccountPublicId,
+        bool isPrimary,
+        bool isActive,
+        DateTime effectiveFromUtc,
+        DateTime? effectiveToUtc,
+        string? notes)
+    {
+        PaymentMethodCode = PersonnelFileNormalization.Clean(paymentMethodCode, nameof(paymentMethodCode));
+        BankAccountPublicId = bankAccountPublicId;
+        IsPrimary = isPrimary;
+        IsActive = isActive;
+        EffectiveFromUtc = PersonnelFileNormalization.NormalizeDate(effectiveFromUtc);
+        EffectiveToUtc = PersonnelFileNormalization.NormalizeDate(effectiveToUtc);
+        Notes = PersonnelFileNormalization.CleanOptional(notes);
+    }
+
+    public void Deactivate() => IsActive = false;
 
     public static PersonnelFilePaymentMethod Create(
         string paymentMethodCode,
@@ -659,7 +717,11 @@ public sealed class PersonnelFilePayrollTransaction : TenantEntity
 
     public DateTime? SourceSyncedUtc { get; private set; }
 
+    public bool IsActive { get; private set; } = true;
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
+
+    public void Deactivate() => IsActive = false;
 
     public static PersonnelFilePayrollTransaction Create(
         string transactionTypeCode,
@@ -821,6 +883,32 @@ public sealed class PersonnelFileInsurance : TenantEntity
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
+    public void Update(
+        string insuranceCode,
+        decimal? employeeContribution,
+        decimal? employerContribution,
+        string? rangeCode,
+        string? policyNumber,
+        decimal? insuredAmount,
+        string? currencyCode,
+        bool isActive,
+        DateTime? startDateUtc,
+        DateTime? endDateUtc)
+    {
+        InsuranceCode = PersonnelFileNormalization.Clean(insuranceCode, nameof(insuranceCode));
+        EmployeeContribution = employeeContribution;
+        EmployerContribution = employerContribution;
+        RangeCode = PersonnelFileNormalization.CleanOptional(rangeCode);
+        PolicyNumber = PersonnelFileNormalization.CleanOptional(policyNumber);
+        InsuredAmount = insuredAmount;
+        CurrencyCode = PersonnelFileNormalization.CleanOptional(currencyCode);
+        IsActive = isActive;
+        StartDateUtc = PersonnelFileNormalization.NormalizeDate(startDateUtc);
+        EndDateUtc = PersonnelFileNormalization.NormalizeDate(endDateUtc);
+    }
+
+    public void Deactivate() => IsActive = false;
+
     public static PersonnelFileInsurance Create(
         string insuranceCode,
         decimal? employeeContribution,
@@ -966,7 +1054,41 @@ public sealed class PersonnelFileMedicalClaim : TenantEntity
 
     public DateTime? SourceSyncedUtc { get; private set; }
 
+    public bool IsActive { get; private set; } = true;
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
+
+    public void Update(
+        Guid? insurancePublicId,
+        string? accountNumber,
+        string claimTypeCode,
+        string? diagnosis,
+        decimal? claimAmount,
+        string? currencyCode,
+        decimal? paidAmount,
+        int? responseTimeDays,
+        string? notes,
+        DateTime claimDateUtc,
+        string? sourceSystem,
+        string? sourceReference,
+        DateTime? sourceSyncedUtc)
+    {
+        InsurancePublicId = insurancePublicId;
+        AccountNumber = PersonnelFileNormalization.CleanOptional(accountNumber);
+        ClaimTypeCode = PersonnelFileNormalization.Clean(claimTypeCode, nameof(claimTypeCode));
+        Diagnosis = PersonnelFileNormalization.CleanOptional(diagnosis);
+        ClaimAmount = claimAmount;
+        CurrencyCode = PersonnelFileNormalization.CleanOptional(currencyCode);
+        PaidAmount = paidAmount;
+        ResponseTimeDays = responseTimeDays;
+        Notes = PersonnelFileNormalization.CleanOptional(notes);
+        ClaimDateUtc = PersonnelFileNormalization.NormalizeDate(claimDateUtc);
+        SourceSystem = PersonnelFileNormalization.CleanOptional(sourceSystem);
+        SourceReference = PersonnelFileNormalization.CleanOptional(sourceReference);
+        SourceSyncedUtc = PersonnelFileNormalization.NormalizeDate(sourceSyncedUtc);
+    }
+
+    public void Deactivate() => IsActive = false;
 
     public static PersonnelFileMedicalClaim Create(
         Guid? insurancePublicId,
@@ -1047,6 +1169,26 @@ public sealed class PersonnelFilePerformanceEvaluation : TenantEntity
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
+    public void Update(
+        string evaluatorName,
+        DateTime evaluationDateUtc,
+        decimal? score,
+        string? qualitativeScoreCode,
+        string? comment,
+        string? sourceSystem,
+        string? sourceReference,
+        DateTime? sourceSyncedUtc)
+    {
+        EvaluatorName = PersonnelFileNormalization.Clean(evaluatorName, nameof(evaluatorName));
+        EvaluationDateUtc = PersonnelFileNormalization.NormalizeDate(evaluationDateUtc);
+        Score = score;
+        QualitativeScoreCode = PersonnelFileNormalization.CleanOptional(qualitativeScoreCode);
+        Comment = PersonnelFileNormalization.CleanOptional(comment);
+        SourceSystem = PersonnelFileNormalization.CleanOptional(sourceSystem);
+        SourceReference = PersonnelFileNormalization.CleanOptional(sourceReference);
+        SourceSyncedUtc = PersonnelFileNormalization.NormalizeDate(sourceSyncedUtc);
+    }
+
     public static PersonnelFilePerformanceEvaluation Create(
         string evaluatorName,
         DateTime evaluationDateUtc,
@@ -1120,6 +1262,28 @@ public sealed class PersonnelFilePositionCompetencyResult : TenantEntity
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
+    public void Update(
+        string competencyCode,
+        string? desiredBehaviors,
+        decimal? expectedScore,
+        decimal? achievedScore,
+        decimal? gapScore,
+        DateTime? evaluationDateUtc,
+        string? sourceSystem,
+        string? sourceReference,
+        DateTime? sourceSyncedUtc)
+    {
+        CompetencyCode = PersonnelFileNormalization.Clean(competencyCode, nameof(competencyCode));
+        DesiredBehaviors = PersonnelFileNormalization.CleanOptional(desiredBehaviors);
+        ExpectedScore = expectedScore;
+        AchievedScore = achievedScore;
+        GapScore = gapScore;
+        EvaluationDateUtc = PersonnelFileNormalization.NormalizeDate(evaluationDateUtc);
+        SourceSystem = PersonnelFileNormalization.CleanOptional(sourceSystem);
+        SourceReference = PersonnelFileNormalization.CleanOptional(sourceReference);
+        SourceSyncedUtc = PersonnelFileNormalization.NormalizeDate(sourceSyncedUtc);
+    }
+
     public static PersonnelFilePositionCompetencyResult Create(
         string competencyCode,
         string? desiredBehaviors,
@@ -1191,6 +1355,26 @@ public sealed class PersonnelFileSelectionContest : TenantEntity
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
+    public void Update(
+        string contestCode,
+        string contestName,
+        DateTime contestDateUtc,
+        string resultCode,
+        string? notes,
+        string? sourceSystem,
+        string? sourceReference,
+        DateTime? sourceSyncedUtc)
+    {
+        ContestCode = PersonnelFileNormalization.Clean(contestCode, nameof(contestCode));
+        ContestName = PersonnelFileNormalization.Clean(contestName, nameof(contestName));
+        ContestDateUtc = PersonnelFileNormalization.NormalizeDate(contestDateUtc);
+        ResultCode = PersonnelFileNormalization.Clean(resultCode, nameof(resultCode));
+        Notes = PersonnelFileNormalization.CleanOptional(notes);
+        SourceSystem = PersonnelFileNormalization.CleanOptional(sourceSystem);
+        SourceReference = PersonnelFileNormalization.CleanOptional(sourceReference);
+        SourceSyncedUtc = PersonnelFileNormalization.NormalizeDate(sourceSyncedUtc);
+    }
+
     public static PersonnelFileSelectionContest Create(
         string contestCode,
         string contestName,
@@ -1255,6 +1439,28 @@ public sealed class PersonnelFileCurricularCompetency : TenantEntity
     public DateTime? SourceSyncedUtc { get; private set; }
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
+
+    public void Update(
+        string requirementTypeCode,
+        string requirementName,
+        string competencyDomain,
+        decimal? experienceTimeValue,
+        string? metricCode,
+        string? notes,
+        string? sourceSystem,
+        string? sourceReference,
+        DateTime? sourceSyncedUtc)
+    {
+        RequirementTypeCode = PersonnelFileNormalization.Clean(requirementTypeCode, nameof(requirementTypeCode));
+        RequirementName = PersonnelFileNormalization.Clean(requirementName, nameof(requirementName));
+        CompetencyDomain = PersonnelFileNormalization.Clean(competencyDomain, nameof(competencyDomain));
+        ExperienceTimeValue = experienceTimeValue;
+        MetricCode = PersonnelFileNormalization.CleanOptional(metricCode);
+        Notes = PersonnelFileNormalization.CleanOptional(notes);
+        SourceSystem = PersonnelFileNormalization.CleanOptional(sourceSystem);
+        SourceReference = PersonnelFileNormalization.CleanOptional(sourceReference);
+        SourceSyncedUtc = PersonnelFileNormalization.NormalizeDate(sourceSyncedUtc);
+    }
 
     public static PersonnelFileCurricularCompetency Create(
         string requirementTypeCode,

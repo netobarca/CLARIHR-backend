@@ -103,38 +103,6 @@ public sealed record ContractHistoryItemRequest(
 
 public sealed record ReplaceContractHistoryRequest(IReadOnlyCollection<ContractHistoryItemRequest> Items, Guid ConcurrencyToken);
 
-public sealed record SalaryItemItemRequest(
-    string IncomeTypeCode,
-    string SalaryRubricCode,
-    string CurrencyCode,
-    string PayPeriodCode,
-    decimal Amount,
-    DateTime StartDate,
-    DateTime? EndDate,
-    bool IsActive);
-
-public sealed record ReplaceSalaryItemsRequest(IReadOnlyCollection<SalaryItemItemRequest> Items, Guid ConcurrencyToken);
-
-public sealed record AdditionalBenefitItemRequest(
-    string BenefitTypeCode,
-    DateTime? StartDate,
-    DateTime? EndDate,
-    bool IsActive,
-    string? Notes);
-
-public sealed record ReplaceAdditionalBenefitsRequest(IReadOnlyCollection<AdditionalBenefitItemRequest> Items, Guid ConcurrencyToken);
-
-public sealed record PaymentMethodItemRequest(
-    string PaymentMethodCode,
-    Guid? BankAccountPublicId,
-    bool IsPrimary,
-    bool IsActive,
-    DateTime EffectiveFromUtc,
-    DateTime? EffectiveToUtc,
-    string? Notes);
-
-public sealed record ReplacePaymentMethodsRequest(IReadOnlyCollection<PaymentMethodItemRequest> Items, Guid ConcurrencyToken);
-
 public sealed record AuthorizationSubstitutionItemRequest(
     string SubstitutionTypeCode,
     Guid SubstitutePersonnelFilePublicId,
@@ -160,20 +128,6 @@ public sealed record AddPersonnelActionRequest(
     string? CurrencyCode,
     Guid ConcurrencyToken);
 
-public sealed record PayrollTransactionItemRequest(
-    string TransactionTypeCode,
-    DateTime TransactionDateUtc,
-    string PayrollPeriodCode,
-    string? Description,
-    decimal Amount,
-    string CurrencyCode,
-    bool IsDebit,
-    string? SourceSystem,
-    string? SourceReference,
-    DateTime? SourceSyncedUtc);
-
-public sealed record ReplacePayrollTransactionsRequest(IReadOnlyCollection<PayrollTransactionItemRequest> Items, Guid ConcurrencyToken);
-
 public sealed record AssetAccessItemRequest(
     string AssetTypeCode,
     string AssetOrAccessName,
@@ -193,7 +147,80 @@ public sealed record InsuranceBeneficiaryItemRequest(
     DateTime? BirthDate,
     string KinshipCode);
 
-public sealed record InsuranceItemRequest(
+// ─── Atomic compensation request contracts ────────────────────────────────────
+
+public sealed record AddSalaryItemRequest(
+    string IncomeTypeCode,
+    string SalaryRubricCode,
+    string CurrencyCode,
+    string PayPeriodCode,
+    decimal Amount,
+    DateTime StartDate,
+    DateTime? EndDate,
+    bool IsActive,
+    Guid ConcurrencyToken);
+
+public sealed record UpdateSalaryItemRequest(
+    string IncomeTypeCode,
+    string SalaryRubricCode,
+    string CurrencyCode,
+    string PayPeriodCode,
+    decimal Amount,
+    DateTime StartDate,
+    DateTime? EndDate,
+    bool IsActive,
+    Guid ConcurrencyToken);
+
+public sealed record AddAdditionalBenefitRequest(
+    string BenefitTypeCode,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    bool IsActive,
+    string? Notes,
+    Guid ConcurrencyToken);
+
+public sealed record UpdateAdditionalBenefitRequest(
+    string BenefitTypeCode,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    bool IsActive,
+    string? Notes,
+    Guid ConcurrencyToken);
+
+public sealed record AddPaymentMethodRequest(
+    string PaymentMethodCode,
+    Guid? BankAccountPublicId,
+    bool IsPrimary,
+    bool IsActive,
+    DateTime EffectiveFromUtc,
+    DateTime? EffectiveToUtc,
+    string? Notes,
+    Guid ConcurrencyToken);
+
+public sealed record UpdatePaymentMethodRequest(
+    string PaymentMethodCode,
+    Guid? BankAccountPublicId,
+    bool IsPrimary,
+    bool IsActive,
+    DateTime EffectiveFromUtc,
+    DateTime? EffectiveToUtc,
+    string? Notes,
+    Guid ConcurrencyToken);
+
+public sealed record AddPayrollTransactionRequest(
+    string TransactionTypeCode,
+    DateTime TransactionDateUtc,
+    string PayrollPeriodCode,
+    string? Description,
+    decimal Amount,
+    string CurrencyCode,
+    bool IsDebit,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc,
+    Guid ConcurrencyToken);
+
+public sealed record AddInsuranceRequest(
     string InsuranceCode,
     decimal? EmployeeContribution,
     decimal? EmployerContribution,
@@ -204,11 +231,24 @@ public sealed record InsuranceItemRequest(
     bool IsActive,
     DateTime? StartDateUtc,
     DateTime? EndDateUtc,
-    IReadOnlyCollection<InsuranceBeneficiaryItemRequest> Beneficiaries);
+    IReadOnlyCollection<InsuranceBeneficiaryItemRequest> Beneficiaries,
+    Guid ConcurrencyToken);
 
-public sealed record ReplaceInsurancesRequest(IReadOnlyCollection<InsuranceItemRequest> Items, Guid ConcurrencyToken);
+public sealed record UpdateInsuranceRequest(
+    string InsuranceCode,
+    decimal? EmployeeContribution,
+    decimal? EmployerContribution,
+    string? RangeCode,
+    string? PolicyNumber,
+    decimal? InsuredAmount,
+    string? CurrencyCode,
+    bool IsActive,
+    DateTime? StartDateUtc,
+    DateTime? EndDateUtc,
+    IReadOnlyCollection<InsuranceBeneficiaryItemRequest> Beneficiaries,
+    Guid ConcurrencyToken);
 
-public sealed record MedicalClaimItemRequest(
+public sealed record AddMedicalClaimRequest(
     Guid? InsurancePublicId,
     string? AccountNumber,
     string ClaimTypeCode,
@@ -221,11 +261,26 @@ public sealed record MedicalClaimItemRequest(
     DateTime ClaimDateUtc,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc);
+    DateTime? SourceSyncedUtc,
+    Guid ConcurrencyToken);
 
-public sealed record ReplaceMedicalClaimsRequest(IReadOnlyCollection<MedicalClaimItemRequest> Items, Guid ConcurrencyToken);
+public sealed record UpdateMedicalClaimRequest(
+    Guid? InsurancePublicId,
+    string? AccountNumber,
+    string ClaimTypeCode,
+    string? Diagnosis,
+    decimal? ClaimAmount,
+    string? CurrencyCode,
+    decimal? PaidAmount,
+    int? ResponseTimeDays,
+    string? Notes,
+    DateTime ClaimDateUtc,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc,
+    Guid ConcurrencyToken);
 
-public sealed record PerformanceEvaluationItemRequest(
+public sealed record AddPerformanceEvaluationRequest(
     string EvaluatorName,
     DateTime EvaluationDateUtc,
     decimal? Score,
@@ -233,11 +288,21 @@ public sealed record PerformanceEvaluationItemRequest(
     string? Comment,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc);
+    DateTime? SourceSyncedUtc,
+    Guid ConcurrencyToken);
 
-public sealed record ReplacePerformanceEvaluationsRequest(IReadOnlyCollection<PerformanceEvaluationItemRequest> Items, Guid ConcurrencyToken);
+public sealed record UpdatePerformanceEvaluationRequest(
+    string EvaluatorName,
+    DateTime EvaluationDateUtc,
+    decimal? Score,
+    string? QualitativeScoreCode,
+    string? Comment,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc,
+    Guid ConcurrencyToken);
 
-public sealed record PositionCompetencyResultItemRequest(
+public sealed record AddPositionCompetencyResultRequest(
     string CompetencyCode,
     string? DesiredBehaviors,
     decimal? ExpectedScore,
@@ -246,13 +311,22 @@ public sealed record PositionCompetencyResultItemRequest(
     DateTime? EvaluationDateUtc,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc);
-
-public sealed record ReplacePositionCompetencyResultsRequest(
-    IReadOnlyCollection<PositionCompetencyResultItemRequest> Items,
+    DateTime? SourceSyncedUtc,
     Guid ConcurrencyToken);
 
-public sealed record SelectionContestItemRequest(
+public sealed record UpdatePositionCompetencyResultRequest(
+    string CompetencyCode,
+    string? DesiredBehaviors,
+    decimal? ExpectedScore,
+    decimal? AchievedScore,
+    decimal? GapScore,
+    DateTime? EvaluationDateUtc,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc,
+    Guid ConcurrencyToken);
+
+public sealed record AddSelectionContestRequest(
     string ContestCode,
     string ContestName,
     DateTime ContestDateUtc,
@@ -260,11 +334,21 @@ public sealed record SelectionContestItemRequest(
     string? Notes,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc);
+    DateTime? SourceSyncedUtc,
+    Guid ConcurrencyToken);
 
-public sealed record ReplaceSelectionContestsRequest(IReadOnlyCollection<SelectionContestItemRequest> Items, Guid ConcurrencyToken);
+public sealed record UpdateSelectionContestRequest(
+    string ContestCode,
+    string ContestName,
+    DateTime ContestDateUtc,
+    string ResultCode,
+    string? Notes,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc,
+    Guid ConcurrencyToken);
 
-public sealed record CurricularCompetencyItemRequest(
+public sealed record AddCurricularCompetencyRequest(
     string RequirementTypeCode,
     string RequirementName,
     string CompetencyDomain,
@@ -273,9 +357,20 @@ public sealed record CurricularCompetencyItemRequest(
     string? Notes,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc);
+    DateTime? SourceSyncedUtc,
+    Guid ConcurrencyToken);
 
-public sealed record ReplaceCurricularCompetenciesRequest(IReadOnlyCollection<CurricularCompetencyItemRequest> Items, Guid ConcurrencyToken);
+public sealed record UpdateCurricularCompetencyRequest(
+    string RequirementTypeCode,
+    string RequirementName,
+    string CompetencyDomain,
+    decimal? ExperienceTimeValue,
+    string? MetricCode,
+    string? Notes,
+    string? SourceSystem,
+    string? SourceReference,
+    DateTime? SourceSyncedUtc,
+    Guid ConcurrencyToken);
 
 public sealed record AddIdentificationRequest(
     string IdentificationTypeCode,
