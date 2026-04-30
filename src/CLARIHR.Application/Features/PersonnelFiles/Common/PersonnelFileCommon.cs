@@ -61,96 +61,7 @@ public static partial class PersonnelFileValidationRules
         return age;
     }
 
-    public static Error ValidateCustomData(
-        IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse> definitions,
-        string? customDataJson)
-    {
-        if (string.IsNullOrWhiteSpace(customDataJson))
-        {
-            var requiredWithoutPayload = definitions
-                .Where(static definition => definition.IsActive && definition.IsRequired)
-                .Select(static definition => definition.Key)
-                .ToArray();
 
-            return requiredWithoutPayload.Length == 0
-                ? Error.None
-                : ErrorCatalog.Validation(
-                    new Dictionary<string, string[]>
-                    {
-                        ["customData"] = [$"Missing required fields: {string.Join(", ", requiredWithoutPayload)}"]
-                    });
-        }
-
-        try
-        {
-            using var document = global::System.Text.Json.JsonDocument.Parse(customDataJson);
-            if (document.RootElement.ValueKind != global::System.Text.Json.JsonValueKind.Object)
-            {
-                return PersonnelFileErrors.CustomDataInvalid;
-            }
-
-            var payload = document.RootElement;
-            foreach (var definition in definitions.Where(static definition => definition.IsActive))
-            {
-                var hasProperty = payload.TryGetProperty(definition.Key, out var property);
-                if (!hasProperty)
-                {
-                    if (definition.IsRequired)
-                    {
-                        return ErrorCatalog.Validation(
-                            new Dictionary<string, string[]>
-                            {
-                                ["customData"] = [$"Required custom field '{definition.Key}' is missing."]
-                            });
-                    }
-
-                    continue;
-                }
-
-                if (property.ValueKind == global::System.Text.Json.JsonValueKind.Null)
-                {
-                    if (definition.IsRequired)
-                    {
-                        return ErrorCatalog.Validation(
-                            new Dictionary<string, string[]>
-                            {
-                                ["customData"] = [$"Required custom field '{definition.Key}' cannot be null."]
-                            });
-                    }
-
-                    continue;
-                }
-
-                if (!IsCustomFieldTypeValid(definition.FieldType, property))
-                {
-                    return ErrorCatalog.Validation(
-                        new Dictionary<string, string[]>
-                        {
-                            ["customData"] = [$"Custom field '{definition.Key}' has invalid value type."]
-                        });
-                }
-            }
-
-            return Error.None;
-        }
-        catch
-        {
-            return PersonnelFileErrors.CustomDataInvalid;
-        }
-    }
-
-    private static bool IsCustomFieldTypeValid(PersonnelCustomFieldType fieldType, global::System.Text.Json.JsonElement property)
-    {
-        return fieldType switch
-        {
-            PersonnelCustomFieldType.String => property.ValueKind == global::System.Text.Json.JsonValueKind.String,
-            PersonnelCustomFieldType.Number => property.ValueKind == global::System.Text.Json.JsonValueKind.Number,
-            PersonnelCustomFieldType.Date => property.ValueKind == global::System.Text.Json.JsonValueKind.String,
-            PersonnelCustomFieldType.Bool => property.ValueKind is global::System.Text.Json.JsonValueKind.True or global::System.Text.Json.JsonValueKind.False,
-            PersonnelCustomFieldType.Select => property.ValueKind == global::System.Text.Json.JsonValueKind.String,
-            _ => false
-        };
-    }
 }
 
 public static class PersonnelFilePermissionCodes
@@ -268,20 +179,7 @@ public static class PersonnelFileErrors
         "Unsupported export format.",
         ErrorType.Validation);
 
-    public static readonly Error CustomFieldDefinitionNotFound = new(
-        "PERSONNEL_CUSTOM_FIELD_DEFINITION_NOT_FOUND",
-        "The custom field definition could not be found.",
-        ErrorType.NotFound);
 
-    public static readonly Error CustomFieldKeyConflict = new(
-        "PERSONNEL_CUSTOM_FIELD_KEY_CONFLICT",
-        "Another custom field definition already uses the requested key.",
-        ErrorType.Conflict);
-
-    public static readonly Error CustomDataInvalid = new(
-        "PERSONNEL_CUSTOM_DATA_INVALID",
-        "The custom data payload is invalid.",
-        ErrorType.Validation);
 
     public static readonly Error FamilyMemberRuleViolation = new(
         "PERSONNEL_FILE_FAMILY_MEMBER_RULE_VIOLATION",

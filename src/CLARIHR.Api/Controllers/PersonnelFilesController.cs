@@ -61,8 +61,7 @@ public sealed class PersonnelFilesController(
                 request.BirthMunicipalityCode,
                 request.PhotoUrl,
                 request.OrgUnitPublicId,
-                request.AssignedPositionSlotPublicId,
-                request.CustomDataJson),
+                request.AssignedPositionSlotPublicId),
             cancellationToken);
 
         return result.IsFailure

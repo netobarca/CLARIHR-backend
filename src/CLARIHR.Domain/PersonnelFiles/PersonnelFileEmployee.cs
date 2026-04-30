@@ -266,6 +266,32 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
             isPrimary,
             isActive,
             notes);
+
+    public void Update(
+        string assignmentTypeCode,
+        Guid? positionSlotPublicId,
+        Guid? orgUnitPublicId,
+        Guid? workCenterPublicId,
+        Guid? costCenterPublicId,
+        DateTime startDate,
+        DateTime? endDate,
+        bool isPrimary,
+        bool isActive,
+        string? notes)
+    {
+        AssignmentTypeCode = PersonnelFileNormalization.Clean(assignmentTypeCode, nameof(assignmentTypeCode));
+        PositionSlotPublicId = positionSlotPublicId;
+        OrgUnitPublicId = orgUnitPublicId;
+        WorkCenterPublicId = workCenterPublicId;
+        CostCenterPublicId = costCenterPublicId;
+        StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
+        EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
+        IsPrimary = isPrimary;
+        IsActive = isActive;
+        Notes = PersonnelFileNormalization.CleanOptional(notes);
+    }
+
+    public void Deactivate() => IsActive = false;
 }
 
 public sealed class PersonnelFileContractHistory : TenantEntity
@@ -279,6 +305,7 @@ public sealed class PersonnelFileContractHistory : TenantEntity
         DateTime contractDate,
         DateTime? contractEndDate,
         Guid? positionSlotPublicId,
+        bool isActive,
         string? notes)
     {
         PublicId = Guid.NewGuid();
@@ -286,6 +313,7 @@ public sealed class PersonnelFileContractHistory : TenantEntity
         ContractDate = PersonnelFileNormalization.NormalizeDate(contractDate);
         ContractEndDate = PersonnelFileNormalization.NormalizeDate(contractEndDate);
         PositionSlotPublicId = positionSlotPublicId;
+        IsActive = isActive;
         Notes = PersonnelFileNormalization.CleanOptional(notes);
     }
 
@@ -301,6 +329,8 @@ public sealed class PersonnelFileContractHistory : TenantEntity
 
     public Guid? PositionSlotPublicId { get; private set; }
 
+    public bool IsActive { get; private set; }
+
     public string? Notes { get; private set; }
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
@@ -310,8 +340,27 @@ public sealed class PersonnelFileContractHistory : TenantEntity
         DateTime contractDate,
         DateTime? contractEndDate,
         Guid? positionSlotPublicId,
+        bool isActive,
         string? notes) =>
-        new(contractTypeCode, contractDate, contractEndDate, positionSlotPublicId, notes);
+        new(contractTypeCode, contractDate, contractEndDate, positionSlotPublicId, isActive, notes);
+
+    public void Update(
+        string contractTypeCode,
+        DateTime contractDate,
+        DateTime? contractEndDate,
+        Guid? positionSlotPublicId,
+        bool isActive,
+        string? notes)
+    {
+        ContractTypeCode = PersonnelFileNormalization.Clean(contractTypeCode, nameof(contractTypeCode));
+        ContractDate = PersonnelFileNormalization.NormalizeDate(contractDate);
+        ContractEndDate = PersonnelFileNormalization.NormalizeDate(contractEndDate);
+        PositionSlotPublicId = positionSlotPublicId;
+        IsActive = isActive;
+        Notes = PersonnelFileNormalization.CleanOptional(notes);
+    }
+
+    public void Deactivate() => IsActive = false;
 }
 
 public sealed class PersonnelFileSalaryItem : TenantEntity
@@ -589,6 +638,26 @@ public sealed class PersonnelFileAuthorizationSubstitution : TenantEntity
         bool isActive,
         string? notes) =>
         new(substitutionTypeCode, substitutePersonnelFilePublicId, substitutePositionTitle, startDate, endDate, isActive, notes);
+
+    public void Update(
+        string substitutionTypeCode,
+        Guid substitutePersonnelFilePublicId,
+        string? substitutePositionTitle,
+        DateTime startDate,
+        DateTime? endDate,
+        bool isActive,
+        string? notes)
+    {
+        SubstitutionTypeCode = PersonnelFileNormalization.Clean(substitutionTypeCode, nameof(substitutionTypeCode));
+        SubstitutePersonnelFilePublicId = substitutePersonnelFilePublicId;
+        SubstitutePositionTitle = PersonnelFileNormalization.CleanOptional(substitutePositionTitle);
+        StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
+        EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
+        IsActive = isActive;
+        Notes = PersonnelFileNormalization.CleanOptional(notes);
+    }
+
+    public void Deactivate() => IsActive = false;
 }
 
 public sealed class PersonnelFilePersonnelAction : TenantEntity
@@ -820,6 +889,30 @@ public sealed class PersonnelFileAssetAccess : TenantEntity
             deliveryStatusCode,
             isActive,
             notes);
+
+    public void Update(
+        string assetTypeCode,
+        string assetOrAccessName,
+        string? accessLevelCode,
+        DateTime startDateUtc,
+        DateTime? endDateUtc,
+        DateTime? deliveryDateUtc,
+        string? deliveryStatusCode,
+        bool isActive,
+        string? notes)
+    {
+        AssetTypeCode = PersonnelFileNormalization.Clean(assetTypeCode, nameof(assetTypeCode));
+        AssetOrAccessName = PersonnelFileNormalization.Clean(assetOrAccessName, nameof(assetOrAccessName));
+        AccessLevelCode = PersonnelFileNormalization.CleanOptional(accessLevelCode);
+        StartDateUtc = PersonnelFileNormalization.NormalizeDate(startDateUtc);
+        EndDateUtc = PersonnelFileNormalization.NormalizeDate(endDateUtc);
+        DeliveryDateUtc = PersonnelFileNormalization.NormalizeDate(deliveryDateUtc);
+        DeliveryStatusCode = PersonnelFileNormalization.CleanOptional(deliveryStatusCode);
+        IsActive = isActive;
+        Notes = PersonnelFileNormalization.CleanOptional(notes);
+    }
+
+    public void Deactivate() => IsActive = false;
 }
 
 public sealed class PersonnelFileInsurance : TenantEntity

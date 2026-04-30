@@ -118,8 +118,7 @@ public sealed class PersonnelFileAdministrationValidationTests
             BirthMunicipalityCode: null,
             PhotoUrl: null,
             OrgUnitId: null,
-            AssignedPositionSlotId: assignedPositionSlotId,
-            CustomDataJson: null);
+            AssignedPositionSlotId: assignedPositionSlotId);
     }
 
     private static UpdatePersonnelFilePersonalInfoCommand CreateUpdateCommand(
@@ -145,7 +144,6 @@ public sealed class PersonnelFileAdministrationValidationTests
             PhotoUrl: null,
             OrgUnitId: null,
             AssignedPositionSlotId: assignedPositionSlotId,
-            CustomDataJson: null,
             ConcurrencyToken: Guid.NewGuid());
     }
 }

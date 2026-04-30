@@ -21,21 +21,21 @@ public sealed class PersonnelFileEmploymentController(
     IQueryDispatcher queryDispatcher,
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
-    [HttpGet("api/v1/personnel-files/{id:guid}/employee-profile")]
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/employee-profile")]
     [ProducesResponseType<PersonnelFileSectionResult<PersonnelFileEmployeeProfileResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<PersonnelFileEmployeeProfileResponse>> GetEmployeeProfile(
-        Guid id,
+        Guid publicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetPersonnelFileEmployeeProfileQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileEmployeeProfileQuery(publicId), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpPost("api/v1/personnel-files/{id:guid}/finalize")]
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/finalize")]
     [ProducesResponseType<FinalizePersonnelFileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -44,35 +44,35 @@ public sealed class PersonnelFileEmploymentController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<FinalizePersonnelFileResponse>> Finalize(
-        Guid id,
+        Guid publicId,
         [FromBody] FinalizePersonnelFileRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new FinalizePersonnelFileCommand(id, request.ConcurrencyToken, request.CreateUserAccount ?? true),
+            new FinalizePersonnelFileCommand(publicId, request.ConcurrencyToken, request.CreateUserAccount ?? true),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-files/{id:guid}/finalize/preview")]
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/finalize/preview")]
     [ProducesResponseType<FinalizePersonnelFilePreviewResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<FinalizePersonnelFilePreviewResponse>> PreviewFinalize(
-        Guid id,
+        Guid publicId,
         [FromQuery] bool? createUserAccount = null,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new PreviewFinalizePersonnelFileQuery(id, createUserAccount ?? true),
+            new PreviewFinalizePersonnelFileQuery(publicId, createUserAccount ?? true),
             cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpPut("api/v1/personnel-files/{id:guid}/employee-profile")]
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/employee-profile")]
     [ProducesResponseType<PersonnelFileEmployeeProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -81,13 +81,13 @@ public sealed class PersonnelFileEmploymentController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<PersonnelFileSectionResult<PersonnelFileEmployeeProfileResponse>>> UpdateEmployeeProfile(
-        Guid id,
+        Guid publicId,
         [FromBody] UpdatePersonnelFileEmployeeProfileRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdatePersonnelFileEmployeeProfileCommand(
-                id,
+                publicId,
                 request.EmployeeCode,
                 request.EmploymentStatusCode,
                 request.IsEmploymentActive,
@@ -113,154 +113,322 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-files/{id:guid}/employment-assignments")]
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/employment-assignments")]
     [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>> GetEmploymentAssignments(
-        Guid id,
+        Guid publicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetPersonnelFileEmploymentAssignmentsQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileEmploymentAssignmentsQuery(publicId), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpPut("api/v1/personnel-files/{id:guid}/employment-assignments")]
-    [ProducesResponseType<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>(StatusCodes.Status200OK)]
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/employment-assignments")]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>>> ReplaceEmploymentAssignments(
-        Guid id,
-        [FromBody] ReplaceEmploymentAssignmentsRequest request,
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>>> AddEmploymentAssignment(
+        Guid publicId,
+        [FromBody] AddEmploymentAssignmentRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ReplacePersonnelFileEmploymentAssignmentsCommand(
-                id,
-                request.Items.Select(item => new EmploymentAssignmentInput(
-                    item.AssignmentTypeCode,
-                    item.PositionSlotPublicId,
-                    item.OrgUnitPublicId,
-                    item.WorkCenterPublicId,
-                    item.CostCenterPublicId,
-                    item.StartDate,
-                    item.EndDate,
-                    item.IsPrimary,
-                    item.IsActive,
-                    item.Notes)).ToArray(),
+            new AddPersonnelFileEmploymentAssignmentCommand(
+                publicId,
+                new EmploymentAssignmentInput(
+                    request.AssignmentTypeCode,
+                    request.PositionSlotPublicId,
+                    request.OrgUnitPublicId,
+                    request.WorkCenterPublicId,
+                    request.CostCenterPublicId,
+                    request.StartDate,
+                    request.EndDate,
+                    request.IsPrimary,
+                    request.IsActive,
+                    request.Notes),
+                request.ConcurrencyToken),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(result)
+            : StatusCode(StatusCodes.Status201Created, result.Value);
+    }
+
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/employment-assignments/{itemPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileSectionResult<PersonnelFileEmploymentAssignmentResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileSectionResult<PersonnelFileEmploymentAssignmentResponse>>> UpdateEmploymentAssignment(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] UpdateEmploymentAssignmentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new UpdatePersonnelFileEmploymentAssignmentCommand(
+                publicId,
+                itemPublicId,
+                new EmploymentAssignmentInput(
+                    request.AssignmentTypeCode,
+                    request.PositionSlotPublicId,
+                    request.OrgUnitPublicId,
+                    request.WorkCenterPublicId,
+                    request.CostCenterPublicId,
+                    request.StartDate,
+                    request.EndDate,
+                    request.IsPrimary,
+                    request.IsActive,
+                    request.Notes),
                 request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-files/{id:guid}/contract-history")]
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/employment-assignments/{itemPublicId:guid}/deactivate")]
+    [ProducesResponseType<PersonnelFileSectionResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileSectionResult>> DeactivateEmploymentAssignment(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] ConcurrencyRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeactivatePersonnelFileEmploymentAssignmentCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/contract-history")]
     [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>> GetContractHistory(
-        Guid id,
+        Guid publicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetPersonnelFileContractHistoryQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileContractHistoryQuery(publicId), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpPut("api/v1/personnel-files/{id:guid}/contract-history")]
-    [ProducesResponseType<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>(StatusCodes.Status200OK)]
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/contract-history")]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>>> ReplaceContractHistory(
-        Guid id,
-        [FromBody] ReplaceContractHistoryRequest request,
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>>> AddContractHistory(
+        Guid publicId,
+        [FromBody] AddContractHistoryRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ReplacePersonnelFileContractHistoryCommand(
-                id,
-                request.Items.Select(item => new ContractHistoryInput(
-                    item.ContractTypeCode,
-                    item.ContractDate,
-                    item.ContractEndDate,
-                    item.PositionSlotPublicId,
-                    item.Notes)).ToArray(),
+            new AddPersonnelFileContractHistoryCommand(
+                publicId,
+                new ContractHistoryInput(
+                    request.ContractTypeCode,
+                    request.ContractDate,
+                    request.ContractEndDate,
+                    request.PositionSlotPublicId,
+                    request.IsActive,
+                    request.Notes),
+                request.ConcurrencyToken),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(result)
+            : StatusCode(StatusCodes.Status201Created, result.Value);
+    }
+
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/contract-history/{itemPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileSectionResult<PersonnelFileContractHistoryResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileSectionResult<PersonnelFileContractHistoryResponse>>> UpdateContractHistory(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] UpdateContractHistoryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new UpdatePersonnelFileContractHistoryCommand(
+                publicId,
+                itemPublicId,
+                new ContractHistoryInput(
+                    request.ContractTypeCode,
+                    request.ContractDate,
+                    request.ContractEndDate,
+                    request.PositionSlotPublicId,
+                    request.IsActive,
+                    request.Notes),
                 request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-files/{id:guid}/position-hierarchy")]
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/contract-history/{itemPublicId:guid}/deactivate")]
+    [ProducesResponseType<PersonnelFileSectionResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileSectionResult>> DeactivateContractHistory(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] ConcurrencyRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeactivatePersonnelFileContractHistoryCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/position-hierarchy")]
     [ProducesResponseType<PersonnelFilePositionHierarchyResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<PersonnelFilePositionHierarchyResponse>> GetPositionHierarchy(
-        Guid id,
+        Guid publicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetPersonnelFilePositionHierarchyQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFilePositionHierarchyQuery(publicId), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpPut("api/v1/personnel-files/{id:guid}/authorization-substitutions")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>>(StatusCodes.Status200OK)]
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/authorization-substitutions")]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>>> ReplaceAuthorizationSubstitutions(
-        Guid id,
-        [FromBody] ReplaceAuthorizationSubstitutionsRequest request,
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>>> AddAuthorizationSubstitution(
+        Guid publicId,
+        [FromBody] AddAuthorizationSubstitutionRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ReplacePersonnelFileAuthorizationSubstitutionsCommand(
-                id,
-                request.Items.Select(item => new AuthorizationSubstitutionInput(
-                    item.SubstitutionTypeCode,
-                    item.SubstitutePersonnelFilePublicId,
-                    item.SubstitutePositionTitle,
-                    item.StartDate,
-                    item.EndDate,
-                    item.IsActive,
-                    item.Notes)).ToArray(),
+            new AddPersonnelFileAuthorizationSubstitutionCommand(
+                publicId,
+                new AuthorizationSubstitutionInput(
+                    request.SubstitutionTypeCode,
+                    request.SubstitutePersonnelFilePublicId,
+                    request.SubstitutePositionTitle,
+                    request.StartDate,
+                    request.EndDate,
+                    request.IsActive,
+                    request.Notes),
+                request.ConcurrencyToken),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(result)
+            : StatusCode(StatusCodes.Status201Created, result.Value);
+    }
+
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/authorization-substitutions/{itemPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileSectionResult<PersonnelFileAuthorizationSubstitutionResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileSectionResult<PersonnelFileAuthorizationSubstitutionResponse>>> UpdateAuthorizationSubstitution(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] UpdateAuthorizationSubstitutionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new UpdatePersonnelFileAuthorizationSubstitutionCommand(
+                publicId,
+                itemPublicId,
+                new AuthorizationSubstitutionInput(
+                    request.SubstitutionTypeCode,
+                    request.SubstitutePersonnelFilePublicId,
+                    request.SubstitutePositionTitle,
+                    request.StartDate,
+                    request.EndDate,
+                    request.IsActive,
+                    request.Notes),
                 request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-files/{id:guid}/authorization-substitutions")]
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/authorization-substitutions/{itemPublicId:guid}/deactivate")]
+    [ProducesResponseType<PersonnelFileSectionResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileSectionResult>> DeactivateAuthorizationSubstitution(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] ConcurrencyRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeactivatePersonnelFileAuthorizationSubstitutionCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/authorization-substitutions")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>> GetAuthorizationSubstitutions(
-        Guid id,
+        Guid publicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetPersonnelFileAuthorizationSubstitutionsQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileAuthorizationSubstitutionsQuery(publicId), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpPost("api/v1/personnel-files/{id:guid}/personnel-actions")]
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/personnel-actions")]
     [ProducesResponseType<PersonnelFilePersonnelActionResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -269,13 +437,13 @@ public sealed class PersonnelFileEmploymentController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<PersonnelFilePersonnelActionResponse>> AddPersonnelAction(
-        Guid id,
+        Guid publicId,
         [FromBody] AddPersonnelActionRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new AddPersonnelFilePersonnelActionCommand(
-                id,
+                publicId,
                 request.ActionTypeCode,
                 request.ActionStatusCode,
                 request.ActionDateUtc,
@@ -293,7 +461,7 @@ public sealed class PersonnelFileEmploymentController(
             : StatusCode(StatusCodes.Status201Created, result.Value);
     }
 
-    [HttpGet("api/v1/personnel-files/{id:guid}/personnel-actions")]
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/personnel-actions")]
     [ProducesResponseType<PagedResponse<PersonnelFilePersonnelActionResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -301,7 +469,7 @@ public sealed class PersonnelFileEmploymentController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<PagedResponse<PersonnelFilePersonnelActionResponse>>> SearchPersonnelActions(
-        Guid id,
+        Guid publicId,
         [FromQuery] DateTime? fromUtc = null,
         [FromQuery] DateTime? toUtc = null,
         [FromQuery] string? type = null,
@@ -315,7 +483,7 @@ public sealed class PersonnelFileEmploymentController(
     {
         var result = await queryDispatcher.SendAsync(
             new SearchPersonnelFilePersonnelActionsQuery(
-                id,
+                publicId,
                 fromUtc,
                 toUtc,
                 type,
@@ -329,7 +497,7 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-files/{id:guid}/personnel-actions/export")]
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/personnel-actions/export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -338,7 +506,7 @@ public sealed class PersonnelFileEmploymentController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> ExportPersonnelActions(
-        Guid id,
+        Guid publicId,
         [FromQuery] string format = "xlsx",
         [FromQuery] DateTime? fromUtc = null,
         [FromQuery] DateTime? toUtc = null,
@@ -351,7 +519,7 @@ public sealed class PersonnelFileEmploymentController(
     {
         var result = await queryDispatcher.SendAsync(
             new ExportPersonnelFilePersonnelActionsQuery(
-                id,
+                publicId,
                 fromUtc,
                 toUtc,
                 type,
@@ -376,54 +544,111 @@ public sealed class PersonnelFileEmploymentController(
             AuditEntityTypes.PersonnelFile,
             ReportExportResources.PersonnelFilePersonnelActions,
             "Exported personnel actions report.",
-            new { personnelFileId = id, fromUtc, toUtc, type, status, q = search, sortBy, sortDirection },
+            new { personnelFileId = publicId, fromUtc, toUtc, type, status, q = search, sortBy, sortDirection },
             PersonnelFileErrors.ExportFormatInvalid,
             cancellationToken);
     }
 
-    [HttpPut("api/v1/personnel-files/{id:guid}/assets-accesses")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>>(StatusCodes.Status200OK)]
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/assets-accesses")]
+    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>>> ReplaceAssetsAccesses(
-        Guid id,
-        [FromBody] ReplaceAssetsAccessesRequest request,
+    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>>> AddAssetAccess(
+        Guid publicId,
+        [FromBody] AddAssetAccessRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ReplacePersonnelFileAssetsAccessesCommand(
-                id,
-                request.Items.Select(item => new AssetAccessInput(
-                    item.AssetTypeCode,
-                    item.AssetOrAccessName,
-                    item.AccessLevelCode,
-                    item.StartDateUtc,
-                    item.EndDateUtc,
-                    item.DeliveryDateUtc,
-                    item.DeliveryStatusCode,
-                    item.IsActive,
-                    item.Notes)).ToArray(),
+            new AddPersonnelFileAssetAccessCommand(
+                publicId,
+                new AssetAccessInput(
+                    request.AssetTypeCode,
+                    request.AssetOrAccessName,
+                    request.AccessLevelCode,
+                    request.StartDateUtc,
+                    request.EndDateUtc,
+                    request.DeliveryDateUtc,
+                    request.DeliveryStatusCode,
+                    request.IsActive,
+                    request.Notes),
+                request.ConcurrencyToken),
+            cancellationToken);
+
+        return result.IsFailure
+            ? this.ToActionResult(result)
+            : StatusCode(StatusCodes.Status201Created, result.Value);
+    }
+
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/assets-accesses/{itemPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileSectionResult<PersonnelFileAssetAccessResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileSectionResult<PersonnelFileAssetAccessResponse>>> UpdateAssetAccess(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] UpdateAssetAccessRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new UpdatePersonnelFileAssetAccessCommand(
+                publicId,
+                itemPublicId,
+                new AssetAccessInput(
+                    request.AssetTypeCode,
+                    request.AssetOrAccessName,
+                    request.AccessLevelCode,
+                    request.StartDateUtc,
+                    request.EndDateUtc,
+                    request.DeliveryDateUtc,
+                    request.DeliveryStatusCode,
+                    request.IsActive,
+                    request.Notes),
                 request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/personnel-files/{id:guid}/assets-accesses")]
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/assets-accesses/{itemPublicId:guid}/deactivate")]
+    [ProducesResponseType<PersonnelFileSectionResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<PersonnelFileSectionResult>> DeactivateAssetAccess(
+        Guid publicId,
+        Guid itemPublicId,
+        [FromBody] ConcurrencyRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeactivatePersonnelFileAssetAccessCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/assets-accesses")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>> GetAssetsAccesses(
-        Guid id,
+        Guid publicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetPersonnelFileAssetsAccessesQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetPersonnelFileAssetsAccessesQuery(publicId), cancellationToken);
         return this.ToActionResult(result);
     }
 

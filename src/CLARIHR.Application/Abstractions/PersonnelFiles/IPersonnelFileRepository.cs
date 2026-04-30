@@ -8,8 +8,6 @@ public interface IPersonnelFileRepository
 {
     void Add(PersonnelFile personnelFile);
 
-    void AddCustomFieldDefinition(PersonnelFileCustomFieldDefinition definition);
-
     Task<int> CountActiveEmployeesAsync(Guid tenantId, CancellationToken cancellationToken);
 
     Task<PersonnelFile?> GetByIdAsync(Guid personnelFileId, CancellationToken cancellationToken);
@@ -200,14 +198,7 @@ public interface IPersonnelFileRepository
         string? search,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyCollection<PersonnelCustomFieldDefinitionResponse>> GetCustomFieldDefinitionsAsync(
-        Guid tenantId,
-        bool? isActive,
-        CancellationToken cancellationToken);
 
-    Task<PersonnelFileCustomFieldDefinition?> GetCustomFieldDefinitionByIdAsync(Guid id, CancellationToken cancellationToken);
-
-    Task<bool> CustomFieldKeyExistsAsync(Guid tenantId, string normalizedKey, long? excludingId, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<Guid>> GetLinkedUserIdsByAssignedPositionSlotAsync(
         Guid tenantId,
