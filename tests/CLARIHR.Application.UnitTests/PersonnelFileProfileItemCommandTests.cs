@@ -233,6 +233,201 @@ public sealed class PersonnelFileProfileItemCommandTests
         Assert.Equal(2, repository.GetAssociationsCalls);
     }
 
+    [Fact]
+    public async Task AddLanguage_WhenRequestIsValid_ShouldPersistAndReturnCreatedItem()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateAddLanguageHandler(repository);
+
+        var result = await handler.Handle(
+            new AddPersonnelFileLanguageCommand(
+                personnelFile.PublicId,
+                new LanguageInput("ENGLISH", "ADVANCED", true, true, true),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ENGLISH", result.Value.LanguageCode);
+        Assert.Equal("ADVANCED", result.Value.LevelCode);
+        Assert.Single(personnelFile.Languages);
+        Assert.Equal(2, repository.GetLanguagesCalls);
+    }
+
+    [Fact]
+    public async Task DeleteLanguage_WhenItemExists_ShouldRemoveItem()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var language = PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", true, true, true);
+        personnelFile.AddLanguage(language);
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateDeleteLanguageHandler(repository);
+
+        var result = await handler.Handle(
+            new DeletePersonnelFileLanguageCommand(
+                personnelFile.PublicId,
+                language.PublicId,
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value);
+        Assert.Empty(personnelFile.Languages);
+        Assert.Equal(2, repository.GetLanguagesCalls);
+    }
+
+    [Fact]
+    public async Task AddReference_WhenRequestIsValid_ShouldPersistAndReturnCreatedItem()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateAddReferenceHandler(repository);
+
+        var result = await handler.Handle(
+            new AddPersonnelFileReferenceCommand(
+                personnelFile.PublicId,
+                new ReferenceInput("Juan Perez", null, "+50370001234", "PROFESSIONAL", "Gerente", "Empresa SA", null, 3),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Juan Perez", result.Value.PersonName);
+        Assert.Equal("PROFESSIONAL", result.Value.ReferenceTypeCode);
+        Assert.Single(personnelFile.References);
+        Assert.Equal(2, repository.GetReferencesCalls);
+    }
+
+    [Fact]
+    public async Task AddReference_WhenReferenceTypeCodeIsInvalid_ShouldReturnValidationError()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var repository = new TestPersonnelFileRepository([personnelFile], rejectReferenceTypes: true);
+        var handler = CreateAddReferenceHandler(repository);
+
+        var result = await handler.Handle(
+            new AddPersonnelFileReferenceCommand(
+                personnelFile.PublicId,
+                new ReferenceInput("Juan Perez", null, "+50370001234", "INVALID_TYPE", null, null, null, 3),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.Validation, result.Error.Type);
+    }
+
+    [Fact]
+    public async Task UpdateReference_WhenRequestIsValid_ShouldReturnUpdatedItem()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var reference = PersonnelFileReference.Create("Juan Perez", null, "+50370001234", "PROFESSIONAL", null, null, null, 3);
+        personnelFile.AddReference(reference);
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateUpdateReferenceHandler(repository);
+
+        var result = await handler.Handle(
+            new UpdatePersonnelFileReferenceCommand(
+                personnelFile.PublicId,
+                reference.PublicId,
+                new ReferenceInput("Juan Carlos Perez", "Col. Escalon", "+50370001234", "PROFESSIONAL", "Director", "Corp SA", null, 5),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Juan Carlos Perez", result.Value.PersonName);
+        Assert.Equal(5m, result.Value.KnownTimeYears);
+        Assert.Equal(2, repository.GetReferencesCalls);
+    }
+
+    [Fact]
+    public async Task UpdateReference_WhenItemNotFound_ShouldReturnNotFoundError()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateUpdateReferenceHandler(repository);
+
+        var result = await handler.Handle(
+            new UpdatePersonnelFileReferenceCommand(
+                personnelFile.PublicId,
+                Guid.NewGuid(),
+                new ReferenceInput("Juan Perez", null, "+50370001234", "PROFESSIONAL", null, null, null, 3),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.NotFound, result.Error.Type);
+    }
+
+    [Fact]
+    public async Task DeleteReference_WhenItemExists_ShouldRemoveItem()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var reference = PersonnelFileReference.Create("Juan Perez", null, "+50370001234", "PROFESSIONAL", null, null, null, 3);
+        personnelFile.AddReference(reference);
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateDeleteReferenceHandler(repository);
+
+        var result = await handler.Handle(
+            new DeletePersonnelFileReferenceCommand(
+                personnelFile.PublicId,
+                reference.PublicId,
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value);
+        Assert.Empty(personnelFile.References);
+        Assert.Equal(2, repository.GetReferencesCalls);
+    }
+
+    [Fact]
+    public async Task DeleteReference_WhenItemNotFound_ShouldReturnNotFoundError()
+    {
+        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Lopez");
+        var repository = new TestPersonnelFileRepository(personnelFile);
+        var handler = CreateDeleteReferenceHandler(repository);
+
+        var result = await handler.Handle(
+            new DeletePersonnelFileReferenceCommand(
+                personnelFile.PublicId,
+                Guid.NewGuid(),
+                personnelFile.ConcurrencyToken),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorType.NotFound, result.Error.Type);
+    }
+
+
+    private static AddPersonnelFileReferenceCommandHandler CreateAddReferenceHandler(TestPersonnelFileRepository repository)
+    {
+        return new AddPersonnelFileReferenceCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
+    private static UpdatePersonnelFileReferenceCommandHandler CreateUpdateReferenceHandler(TestPersonnelFileRepository repository)
+    {
+        return new UpdatePersonnelFileReferenceCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
+    private static DeletePersonnelFileReferenceCommandHandler CreateDeleteReferenceHandler(TestPersonnelFileRepository repository)
+    {
+        return new DeletePersonnelFileReferenceCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
     private static AddPersonnelFileAddressCommandHandler CreateAddAddressHandler(TestPersonnelFileRepository repository)
     {
         return new AddPersonnelFileAddressCommandHandler(
@@ -306,6 +501,26 @@ public sealed class PersonnelFileProfileItemCommandTests
             new TestUnitOfWork());
     }
 
+    private static AddPersonnelFileLanguageCommandHandler CreateAddLanguageHandler(TestPersonnelFileRepository repository)
+    {
+        return new AddPersonnelFileLanguageCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
+    private static DeletePersonnelFileLanguageCommandHandler CreateDeleteLanguageHandler(TestPersonnelFileRepository repository)
+    {
+        return new DeletePersonnelFileLanguageCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new NoOpAuditService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+    }
+
     private static PersonnelFile CreatePersonnelFile(PersonnelFileRecordType recordType, string firstName, string lastName)
     {
         var file = PersonnelFile.Create(
@@ -362,12 +577,20 @@ public sealed class PersonnelFileProfileItemCommandTests
 
     private sealed class TestPersonnelFileRepository(params PersonnelFile[] files) : IPersonnelFileRepository
     {
+        public TestPersonnelFileRepository(PersonnelFile[] files, bool rejectReferenceTypes) : this(files)
+        {
+            _rejectCatalogCodes = rejectReferenceTypes;
+        }
+
+        private readonly bool _rejectCatalogCodes;
         private readonly Dictionary<Guid, PersonnelFile> _files = files.ToDictionary(file => file.PublicId);
 
         public int GetAddressesCalls { get; private set; }
         public int GetEmergencyContactsCalls { get; private set; }
         public int GetBankAccountsCalls { get; private set; }
         public int GetAssociationsCalls { get; private set; }
+        public int GetLanguagesCalls { get; private set; }
+        public int GetReferencesCalls { get; private set; }
 
         public void Add(PersonnelFile personnelFile) => throw new NotSupportedException();
 
@@ -515,10 +738,45 @@ public sealed class PersonnelFileProfileItemCommandTests
                     item.Payment)).ToArray());
         }
         public Task<IReadOnlyCollection<PersonnelFileEducationResponse>> GetEducationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyCollection<PersonnelFileLanguageResponse>> GetLanguagesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileLanguageResponse>> GetLanguagesAsync(Guid personnelFileId, CancellationToken cancellationToken)
+        {
+            GetLanguagesCalls++;
+            if (!_files.TryGetValue(personnelFileId, out var file))
+            {
+                return Task.FromResult<IReadOnlyCollection<PersonnelFileLanguageResponse>>(Array.Empty<PersonnelFileLanguageResponse>());
+            }
+
+            return Task.FromResult<IReadOnlyCollection<PersonnelFileLanguageResponse>>(
+                file.Languages.Select(item => new PersonnelFileLanguageResponse(
+                    item.PublicId,
+                    item.LanguageCode,
+                    item.LevelCode,
+                    item.Speaks,
+                    item.Writes,
+                    item.Reads)).ToArray());
+        }
         public Task<IReadOnlyCollection<PersonnelFileTrainingResponse>> GetTrainingsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>> GetPreviousEmploymentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyCollection<PersonnelFileReferenceResponse>> GetReferencesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyCollection<PersonnelFileReferenceResponse>> GetReferencesAsync(Guid personnelFileId, CancellationToken cancellationToken)
+        {
+            GetReferencesCalls++;
+            if (!_files.TryGetValue(personnelFileId, out var file))
+            {
+                return Task.FromResult<IReadOnlyCollection<PersonnelFileReferenceResponse>>(Array.Empty<PersonnelFileReferenceResponse>());
+            }
+
+            return Task.FromResult<IReadOnlyCollection<PersonnelFileReferenceResponse>>(
+                file.References.Select(item => new PersonnelFileReferenceResponse(
+                    item.PublicId,
+                    item.PersonName,
+                    item.Address,
+                    item.Phone,
+                    item.ReferenceTypeCode,
+                    item.Occupation,
+                    item.Workplace,
+                    item.WorkPhone,
+                    item.KnownTimeYears)).ToArray());
+        }
         public Task<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> GetDocumentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PersonnelFileDocumentMetadataResponse?> GetDocumentMetadataByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileObservationResponse>> GetObservationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -526,7 +784,7 @@ public sealed class PersonnelFileProfileItemCommandTests
         public Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCatalogItemsAsync(Guid companyId, string category, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelReferenceCatalogItemResponse>> GetReferenceCatalogItemsAsync(Guid companyId, string category, string? parentCode, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string?> GetCompanyCountryCodeAsync(Guid companyId, CancellationToken cancellationToken) => Task.FromResult<string?>("SV");
-        public Task<bool> CatalogCodeIsActiveAsync(Guid companyId, string category, string code, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> CatalogCodeIsActiveAsync(Guid companyId, string category, string code, CancellationToken cancellationToken) => Task.FromResult(!_rejectCatalogCodes);
         public Task<bool> CountryCodeIsActiveAsync(string countryCode, CancellationToken cancellationToken) => Task.FromResult(true);
         public Task<bool> ReferenceCatalogCodeIsActiveAsync(string countryCode, string category, string code, CancellationToken cancellationToken) =>
             Task.FromResult(category != PersonnelReferenceCatalogCategories.Kinship || string.Equals(code, "HERMANO_A", StringComparison.OrdinalIgnoreCase));

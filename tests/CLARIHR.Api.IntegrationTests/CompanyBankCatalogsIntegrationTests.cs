@@ -67,26 +67,20 @@ public sealed class CompanyBankCatalogsIntegrationTests(IntegrationTestWebApplic
         var banks = await banksResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<CompanyBankCatalogItemEnvelope>>(JsonOptions);
         var selectedBank = Assert.Single(banks!.Items, item => item.Code == "BANCO_AGRICOLA");
 
-        var replaceResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{personnelFileId}/bank-accounts", new
+        var replaceResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{personnelFileId}/bank-accounts", new
         {
-            items = new[]
-            {
-                new
-                {
-                    bankPublicId = selectedBank.PublicId,
-                    currencyCode = "USD",
-                    accountNumber = "0001-1111-2222",
-                    accountTypeCode = "SAVINGS",
-                    isPrimary = true
-                }
-            },
+            bankPublicId = selectedBank.PublicId,
+            currencyCode = "USD",
+            accountNumber = "0001-1111-2222",
+            accountTypeCode = "SAVINGS",
+            isPrimary = true,
             concurrencyToken
         });
         replaceResponse.EnsureSuccessStatusCode();
 
-        var section = await replaceResponse.Content.ReadFromJsonAsync<PersonnelFileSectionEnvelope<IReadOnlyCollection<PersonnelFileBankAccountEnvelope>>>(JsonOptions);
-        var stored = Assert.Single(section!.Data);
-        Assert.Equal(selectedBank.PublicId, stored.BankPublicId);
+        var stored = await replaceResponse.Content.ReadFromJsonAsync<PersonnelFileBankAccountEnvelope>(JsonOptions);
+        Assert.NotNull(stored);
+        Assert.Equal(selectedBank.PublicId, stored!.BankPublicId);
         Assert.Equal("BANCO_AGRICOLA", stored.BankCode);
         Assert.Equal("Banco Agricola", stored.BankName);
 

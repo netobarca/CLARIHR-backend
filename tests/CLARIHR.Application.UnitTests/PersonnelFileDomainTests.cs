@@ -1032,6 +1032,88 @@ public sealed class PersonnelFileDomainTests
     }
 
     [Fact]
+    public void PersonnelFile_AddLanguage_ShouldAppendRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var tenantId = Guid.NewGuid();
+        file.SetTenantId(tenantId);
+        var initialToken = file.ConcurrencyToken;
+        var language = PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", true, true, true);
+
+        file.AddLanguage(language);
+
+        var stored = Assert.Single(file.Languages);
+        Assert.Equal("ENGLISH", stored.LanguageCode);
+        Assert.Equal("ADVANCED", stored.LevelCode);
+        Assert.True(stored.Speaks);
+        Assert.True(stored.Writes);
+        Assert.True(stored.Reads);
+        Assert.Equal(tenantId, stored.TenantId);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateLanguage_ShouldUpdateFieldsAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var language = PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", true, true, true);
+        file.AddLanguage(language);
+        var initialToken = file.ConcurrencyToken;
+
+        file.UpdateLanguage(language.PublicId, "SPANISH", "INTERMEDIATE", true, false, true);
+
+        var stored = Assert.Single(file.Languages);
+        Assert.Equal("SPANISH", stored.LanguageCode);
+        Assert.Equal("INTERMEDIATE", stored.LevelCode);
+        Assert.True(stored.Speaks);
+        Assert.False(stored.Writes);
+        Assert.True(stored.Reads);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_UpdateLanguage_WhenNotFound_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+
+        Assert.Throws<InvalidOperationException>(() => file.UpdateLanguage(
+            Guid.NewGuid(), "ENGLISH", "ADVANCED", true, true, true));
+    }
+
+    [Fact]
+    public void PersonnelFile_RemoveLanguage_ShouldRemoveRowAndRefreshConcurrencyToken()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var language = PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", true, true, true);
+        file.AddLanguage(language);
+        var initialToken = file.ConcurrencyToken;
+
+        file.RemoveLanguage(language.PublicId);
+
+        Assert.Empty(file.Languages);
+        Assert.NotEqual(initialToken, file.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void PersonnelFile_RemoveLanguage_WhenNotFound_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+
+        Assert.Throws<InvalidOperationException>(() => file.RemoveLanguage(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void PersonnelFileLanguage_Update_WithoutSkills_ShouldThrow()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");
+        var language = PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", true, true, true);
+        file.AddLanguage(language);
+
+        Assert.Throws<InvalidOperationException>(() => file.UpdateLanguage(
+            language.PublicId, "ENGLISH", "ADVANCED", false, false, false));
+    }
+
+    [Fact]
     public void PersonnelFileEducation_Update_WhenEndDateBeforeStartDate_ShouldThrow()
     {
         var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ana", "Gomez");

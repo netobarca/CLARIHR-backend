@@ -666,51 +666,166 @@ public sealed class PersonnelFile : TenantEntity
         RefreshConcurrencyToken();
     }
 
-    public void ReplaceLanguages(IEnumerable<PersonnelFileLanguage> items)
+    public void AddLanguage(PersonnelFileLanguage item)
     {
-        _languages.Clear();
-        foreach (var item in items)
-        {
-            item.SetTenantId(TenantId);
-            _languages.Add(item);
-        }
+        item.SetTenantId(TenantId);
+        _languages.Add(item);
+        RefreshConcurrencyToken();
+    }
+
+    public void UpdateLanguage(
+        Guid languagePublicId,
+        string languageCode,
+        string levelCode,
+        bool speaks,
+        bool writes,
+        bool reads)
+    {
+        var language = _languages.FirstOrDefault(i => i.PublicId == languagePublicId)
+            ?? throw new InvalidOperationException($"Language with public id {languagePublicId} not found.");
+
+        language.Update(languageCode, levelCode, speaks, writes, reads);
+        RefreshConcurrencyToken();
+    }
+
+    public void RemoveLanguage(Guid languagePublicId)
+    {
+        var language = _languages.FirstOrDefault(i => i.PublicId == languagePublicId)
+            ?? throw new InvalidOperationException($"Language with public id {languagePublicId} not found.");
+
+        _languages.Remove(language);
+        RefreshConcurrencyToken();
+    }
+
+    public void AddTraining(PersonnelFileTraining training)
+    {
+        training.SetTenantId(TenantId);
+        _trainings.Add(training);
+        RefreshConcurrencyToken();
+    }
+
+    public void UpdateTraining(
+        Guid trainingPublicId,
+        string trainingName,
+        string trainingTypeCode,
+        string? description,
+        string? topic,
+        string? institution,
+        string? instructors,
+        decimal? score,
+        DateTime startDate,
+        DateTime? endDate,
+        bool isInternal,
+        bool isLocal,
+        string countryCode,
+        decimal durationValue,
+        string durationUnitCode,
+        decimal? costAmount,
+        string? costCurrencyCode)
+    {
+        var training = _trainings.FirstOrDefault(i => i.PublicId == trainingPublicId)
+            ?? throw new InvalidOperationException($"Training with public id {trainingPublicId} not found.");
+
+        training.Update(
+            trainingName,
+            trainingTypeCode,
+            description,
+            topic,
+            institution,
+            instructors,
+            score,
+            startDate,
+            endDate,
+            isInternal,
+            isLocal,
+            countryCode,
+            durationValue,
+            durationUnitCode,
+            costAmount,
+            costCurrencyCode);
 
         RefreshConcurrencyToken();
     }
 
-    public void ReplaceTrainings(IEnumerable<PersonnelFileTraining> items)
+    public void RemoveTraining(Guid trainingPublicId)
     {
-        _trainings.Clear();
-        foreach (var item in items)
-        {
-            item.SetTenantId(TenantId);
-            _trainings.Add(item);
-        }
+        var training = _trainings.FirstOrDefault(i => i.PublicId == trainingPublicId)
+            ?? throw new InvalidOperationException($"Training with public id {trainingPublicId} not found.");
 
+        _trainings.Remove(training);
         RefreshConcurrencyToken();
     }
 
-    public void ReplacePreviousEmployments(IEnumerable<PersonnelFilePreviousEmployment> items)
+    public void AddPreviousEmployment(PersonnelFilePreviousEmployment item)
     {
-        _previousEmployments.Clear();
-        foreach (var item in items)
-        {
-            item.SetTenantId(TenantId);
-            _previousEmployments.Add(item);
-        }
-
+        item.SetTenantId(TenantId);
+        _previousEmployments.Add(item);
         RefreshConcurrencyToken();
     }
 
-    public void ReplaceReferences(IEnumerable<PersonnelFileReference> items)
+    public void UpdatePreviousEmployment(
+        Guid previousEmploymentPublicId,
+        string institution,
+        string? place,
+        string? lastPosition,
+        string? managerName,
+        DateTime entryDate,
+        DateTime? retirementDate,
+        string? companyPhone,
+        string? exitReason,
+        decimal? firstSalaryAmount,
+        decimal? lastSalaryAmount,
+        decimal? averageCommissionAmount,
+        string currencyCode)
     {
-        _references.Clear();
-        foreach (var item in items)
-        {
-            item.SetTenantId(TenantId);
-            _references.Add(item);
-        }
+        var item = _previousEmployments.FirstOrDefault(i => i.PublicId == previousEmploymentPublicId)
+            ?? throw new InvalidOperationException($"PreviousEmployment with public id {previousEmploymentPublicId} not found.");
 
+        item.Update(institution, place, lastPosition, managerName, entryDate, retirementDate,
+            companyPhone, exitReason, firstSalaryAmount, lastSalaryAmount, averageCommissionAmount, currencyCode);
+        RefreshConcurrencyToken();
+    }
+
+    public void RemovePreviousEmployment(Guid previousEmploymentPublicId)
+    {
+        var item = _previousEmployments.FirstOrDefault(i => i.PublicId == previousEmploymentPublicId)
+            ?? throw new InvalidOperationException($"PreviousEmployment with public id {previousEmploymentPublicId} not found.");
+
+        _previousEmployments.Remove(item);
+        RefreshConcurrencyToken();
+    }
+
+    public void AddReference(PersonnelFileReference item)
+    {
+        item.SetTenantId(TenantId);
+        _references.Add(item);
+        RefreshConcurrencyToken();
+    }
+
+    public void UpdateReference(
+        Guid referencePublicId,
+        string personName,
+        string? address,
+        string phone,
+        string referenceTypeCode,
+        string? occupation,
+        string? workplace,
+        string? workPhone,
+        decimal knownTimeYears)
+    {
+        var reference = _references.FirstOrDefault(i => i.PublicId == referencePublicId)
+            ?? throw new InvalidOperationException($"Reference with public id {referencePublicId} not found.");
+
+        reference.Update(personName, address, phone, referenceTypeCode, occupation, workplace, workPhone, knownTimeYears);
+        RefreshConcurrencyToken();
+    }
+
+    public void RemoveReference(Guid referencePublicId)
+    {
+        var reference = _references.FirstOrDefault(i => i.PublicId == referencePublicId)
+            ?? throw new InvalidOperationException($"Reference with public id {referencePublicId} not found.");
+
+        _references.Remove(reference);
         RefreshConcurrencyToken();
     }
 
@@ -1699,6 +1814,25 @@ public sealed class PersonnelFileLanguage : TenantEntity
         bool writes,
         bool reads) =>
         new(languageCode, levelCode, speaks, writes, reads);
+
+    internal void Update(
+        string languageCode,
+        string levelCode,
+        bool speaks,
+        bool writes,
+        bool reads)
+    {
+        if (!speaks && !writes && !reads)
+        {
+            throw new InvalidOperationException("At least one language skill must be true.");
+        }
+
+        LanguageCode = PersonnelFileNormalization.Clean(languageCode, nameof(languageCode));
+        LevelCode = PersonnelFileNormalization.Clean(levelCode, nameof(levelCode));
+        Speaks = speaks;
+        Writes = writes;
+        Reads = reads;
+    }
 }
 
 public sealed class PersonnelFileTraining : TenantEntity
@@ -1834,6 +1968,62 @@ public sealed class PersonnelFileTraining : TenantEntity
             durationUnitCode,
             costAmount,
             costCurrencyCode);
+
+    internal void Update(
+        string trainingName,
+        string trainingTypeCode,
+        string? description,
+        string? topic,
+        string? institution,
+        string? instructors,
+        decimal? score,
+        DateTime startDate,
+        DateTime? endDate,
+        bool isInternal,
+        bool isLocal,
+        string countryCode,
+        decimal durationValue,
+        string durationUnitCode,
+        decimal? costAmount,
+        string? costCurrencyCode)
+    {
+        if (endDate.HasValue && endDate.Value.Date < startDate.Date)
+        {
+            throw new InvalidOperationException("EndDate cannot be earlier than StartDate.");
+        }
+
+        if (durationValue <= 0)
+        {
+            throw new InvalidOperationException("DurationValue must be greater than zero.");
+        }
+
+        if (costAmount.HasValue && costAmount.Value < 0)
+        {
+            throw new InvalidOperationException("CostAmount cannot be negative.");
+        }
+
+        if (costAmount.HasValue && string.IsNullOrWhiteSpace(costCurrencyCode))
+        {
+            throw new InvalidOperationException("CostCurrencyCode is required when CostAmount is provided.");
+        }
+
+        TrainingName = PersonnelFileNormalization.Clean(trainingName, nameof(trainingName));
+        TrainingTypeCode = PersonnelFileNormalization.Clean(trainingTypeCode, nameof(trainingTypeCode));
+        Description = PersonnelFileNormalization.CleanOptional(description);
+        Topic = PersonnelFileNormalization.CleanOptional(topic);
+        Institution = PersonnelFileNormalization.CleanOptional(institution);
+        Instructors = PersonnelFileNormalization.CleanOptional(instructors);
+        Score = score;
+        StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
+        EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
+        IsInternal = isInternal;
+        IsLocal = isLocal;
+        CountryCode = PersonnelFileNormalization.Clean(countryCode, nameof(countryCode));
+        DurationValue = durationValue;
+        DurationUnitCode = PersonnelFileNormalization.Clean(durationUnitCode, nameof(durationUnitCode));
+        CostAmount = costAmount;
+        CostCurrencyCode = PersonnelFileNormalization.CleanOptional(costCurrencyCode);
+    }
 }
 
 public sealed class PersonnelFilePreviousEmployment : TenantEntity
@@ -1945,6 +2135,54 @@ public sealed class PersonnelFilePreviousEmployment : TenantEntity
             lastSalaryAmount,
             averageCommissionAmount,
             currencyCode);
+
+    internal void Update(
+        string institution,
+        string? place,
+        string? lastPosition,
+        string? managerName,
+        DateTime entryDate,
+        DateTime? retirementDate,
+        string? companyPhone,
+        string? exitReason,
+        decimal? firstSalaryAmount,
+        decimal? lastSalaryAmount,
+        decimal? averageCommissionAmount,
+        string currencyCode)
+    {
+        if (retirementDate.HasValue && retirementDate.Value.Date < entryDate.Date)
+        {
+            throw new InvalidOperationException("RetirementDate cannot be earlier than EntryDate.");
+        }
+
+        if (firstSalaryAmount.HasValue && firstSalaryAmount.Value < 0)
+        {
+            throw new InvalidOperationException("FirstSalaryAmount cannot be negative.");
+        }
+
+        if (lastSalaryAmount.HasValue && lastSalaryAmount.Value < 0)
+        {
+            throw new InvalidOperationException("LastSalaryAmount cannot be negative.");
+        }
+
+        if (averageCommissionAmount.HasValue && averageCommissionAmount.Value < 0)
+        {
+            throw new InvalidOperationException("AverageCommissionAmount cannot be negative.");
+        }
+
+        Institution = PersonnelFileNormalization.Clean(institution, nameof(institution));
+        Place = PersonnelFileNormalization.CleanOptional(place);
+        LastPosition = PersonnelFileNormalization.CleanOptional(lastPosition);
+        ManagerName = PersonnelFileNormalization.CleanOptional(managerName);
+        EntryDate = PersonnelFileNormalization.NormalizeDate(entryDate);
+        RetirementDate = PersonnelFileNormalization.NormalizeDate(retirementDate);
+        CompanyPhone = PersonnelFileNormalization.CleanOptional(companyPhone);
+        ExitReason = PersonnelFileNormalization.CleanOptional(exitReason);
+        FirstSalaryAmount = firstSalaryAmount;
+        LastSalaryAmount = lastSalaryAmount;
+        AverageCommissionAmount = averageCommissionAmount;
+        CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode));
+    }
 }
 
 public sealed class PersonnelFileReference : TenantEntity
@@ -2009,6 +2247,31 @@ public sealed class PersonnelFileReference : TenantEntity
         string? workPhone,
         decimal knownTimeYears) =>
         new(personName, address, phone, referenceTypeCode, occupation, workplace, workPhone, knownTimeYears);
+
+    public void Update(
+        string personName,
+        string? address,
+        string phone,
+        string referenceTypeCode,
+        string? occupation,
+        string? workplace,
+        string? workPhone,
+        decimal knownTimeYears)
+    {
+        if (knownTimeYears < 0)
+        {
+            throw new InvalidOperationException("KnownTimeYears cannot be negative.");
+        }
+
+        PersonName = PersonnelFileNormalization.Clean(personName, nameof(personName));
+        Address = PersonnelFileNormalization.CleanOptional(address);
+        Phone = PersonnelFileNormalization.Clean(phone, nameof(phone));
+        ReferenceTypeCode = PersonnelFileNormalization.Clean(referenceTypeCode, nameof(referenceTypeCode));
+        Occupation = PersonnelFileNormalization.CleanOptional(occupation);
+        Workplace = PersonnelFileNormalization.CleanOptional(workplace);
+        WorkPhone = PersonnelFileNormalization.CleanOptional(workPhone);
+        KnownTimeYears = knownTimeYears;
+    }
 }
 
 public sealed class PersonnelFileDocument : TenantEntity

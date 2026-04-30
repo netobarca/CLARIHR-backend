@@ -701,17 +701,15 @@ internal sealed class DevSeedService(
                 educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
                 totalSubjects: 20,
                 approvedSubjects: 20));
-        carlos.ReplaceLanguages([
-            PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", speaks: true, writes: true, reads: true),
-        ]);
+        carlos.AddLanguage(
+            PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", speaks: true, writes: true, reads: true));
         carlos.AddBankAccount(
             PersonnelFileBankAccount.Create(null, "DAVI", "USD", "0002-9876-5432", "CHECKING", isPrimary: true));
-        carlos.ReplacePreviousEmployments([
+        carlos.AddPreviousEmployment(
             PersonnelFilePreviousEmployment.Create("Grupo Roble", "San Salvador", "Coordinador Financiero",
                 "Roberto Mendez", new DateTime(2008, 7, 1, 0, 0, 0, DateTimeKind.Utc),
                 new DateTime(2015, 12, 31, 0, 0, 0, DateTimeKind.Utc),
-                "+503 2500-0000", "Crecimiento profesional", 1200.00m, 2200.00m, null, "USD"),
-        ]);
+                "+503 2500-0000", "Crecimiento profesional", 1200.00m, 2200.00m, null, "USD"));
 
         var andrea = PersonnelFile.Create(
             PersonnelFileRecordType.Employee,
@@ -750,20 +748,18 @@ internal sealed class DevSeedService(
                 educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
                 totalSubjects: 50,
                 approvedSubjects: 50));
-        andrea.ReplaceLanguages([
-            PersonnelFileLanguage.Create("ENGLISH", "INTERMEDIATE", speaks: true, writes: true, reads: true),
-        ]);
-        andrea.ReplaceTrainings([
+        andrea.AddLanguage(
+            PersonnelFileLanguage.Create("ENGLISH", "INTERMEDIATE", speaks: true, writes: true, reads: true));
+        andrea.AddTraining(
             PersonnelFileTraining.Create("Clima Laboral y Bienestar", "COURSE", "Medicion de clima organizacional",
                 "Recursos Humanos", "FUNDEMÁS", "Sandra Morales", 95.0m,
                 new DateTime(2023, 6, 1, 0, 0, 0, DateTimeKind.Utc),
                 new DateTime(2023, 6, 15, 0, 0, 0, DateTimeKind.Utc),
-                isInternal: false, isLocal: true, "SV", 40, "HOUR", 150.00m, "USD"),
-        ]);
-        andrea.ReplaceReferences([
+                isInternal: false, isLocal: true, "SV", 40, "HOUR", 150.00m, "USD"));
+        andrea.AddReference(
             PersonnelFileReference.Create("Patricia Hernandez", "Col. Miramonte, #55", "+503 7888-1111",
-                "PROFESSIONAL", "Directora de RRHH", "TalentCorp", "+503 2300-5000", 5),
-        ]);
+                "PROFESSIONAL", "Directora de RRHH", "TalentCorp", "+503 2300-5000", 5));
+
 
         var jose = PersonnelFile.Create(
             PersonnelFileRecordType.Employee,
@@ -804,10 +800,10 @@ internal sealed class DevSeedService(
                 educationModalityCatalogItemId: catalogIds.ModalityOnsiteId,
                 totalSubjects: 58,
                 approvedSubjects: 58));
-        jose.ReplaceLanguages([
-            PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", speaks: true, writes: true, reads: true),
-            PersonnelFileLanguage.Create("SPANISH", "ADVANCED", speaks: true, writes: true, reads: true),
-        ]);
+        jose.AddLanguage(
+            PersonnelFileLanguage.Create("ENGLISH", "ADVANCED", speaks: true, writes: true, reads: true));
+        jose.AddLanguage(
+            PersonnelFileLanguage.Create("SPANISH", "ADVANCED", speaks: true, writes: true, reads: true));
         jose.AddBankAccount(
             PersonnelFileBankAccount.Create(null, "AGRI", "USD", "0003-5555-7777", "SAVINGS", isPrimary: true));
         jose.ReplaceFamilyMembers([
@@ -852,12 +848,13 @@ internal sealed class DevSeedService(
                 educationModalityCatalogItemId: catalogIds.ModalityRemoteId,
                 totalSubjects: 45,
                 approvedSubjects: 38));
-        lucia.ReplaceReferences([
+        lucia.AddReference(
             PersonnelFileReference.Create("Marco Estrada", "Zona 14, Guatemala", "+502 5111-2222",
-                "PERSONAL", occupation: null, workplace: null, workPhone: null, 3),
+                "PERSONAL", occupation: null, workplace: null, workPhone: null, 3));
+        lucia.AddReference(
             PersonnelFileReference.Create("Diana Morales", "Zona 10, Guatemala", "+502 5333-4444",
-                "PROFESSIONAL", "Gerente Contable", "PwC Guatemala", "+502 2300-0000", 2),
-        ]);
+                "PROFESSIONAL", "Gerente Contable", "PwC Guatemala", "+502 2300-0000", 2));
+
 
         return [maria, carlos, andrea, jose, lucia];
     }

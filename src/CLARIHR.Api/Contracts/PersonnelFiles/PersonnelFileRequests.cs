@@ -475,18 +475,23 @@ public sealed record UpdateEducationRequest(
     int? ApprovedSubjects,
     Guid ConcurrencyToken);
 
-public sealed record LanguageItemRequest(
+public sealed record AddLanguageRequest(
     string LanguageCode,
     string LevelCode,
     bool Speaks,
     bool Writes,
-    bool Reads);
-
-public sealed record ReplaceLanguagesRequest(
-    IReadOnlyCollection<LanguageItemRequest> Items,
+    bool Reads,
     Guid ConcurrencyToken);
 
-public sealed record TrainingItemRequest(
+public sealed record UpdateLanguageRequest(
+    string LanguageCode,
+    string LevelCode,
+    bool Speaks,
+    bool Writes,
+    bool Reads,
+    Guid ConcurrencyToken);
+
+public sealed record AddTrainingRequest(
     string TrainingName,
     string TrainingTypeCode,
     string? Description,
@@ -502,13 +507,29 @@ public sealed record TrainingItemRequest(
     decimal DurationValue,
     string DurationUnitCode,
     decimal? CostAmount,
-    string? CostCurrencyCode);
-
-public sealed record ReplaceTrainingsRequest(
-    IReadOnlyCollection<TrainingItemRequest> Items,
+    string? CostCurrencyCode,
     Guid ConcurrencyToken);
 
-public sealed record PreviousEmploymentItemRequest(
+public sealed record UpdateTrainingRequest(
+    string TrainingName,
+    string TrainingTypeCode,
+    string? Description,
+    string? Topic,
+    string? Institution,
+    string? Instructors,
+    decimal? Score,
+    DateTime StartDate,
+    DateTime? EndDate,
+    bool IsInternal,
+    bool IsLocal,
+    string CountryCode,
+    decimal DurationValue,
+    string DurationUnitCode,
+    decimal? CostAmount,
+    string? CostCurrencyCode,
+    Guid ConcurrencyToken);
+
+public sealed record AddPreviousEmploymentRequest(
     string Institution,
     string? Place,
     string? LastPosition,
@@ -520,13 +541,25 @@ public sealed record PreviousEmploymentItemRequest(
     decimal? FirstSalaryAmount,
     decimal? LastSalaryAmount,
     decimal? AverageCommissionAmount,
-    string CurrencyCode);
-
-public sealed record ReplacePreviousEmploymentsRequest(
-    IReadOnlyCollection<PreviousEmploymentItemRequest> Items,
+    string CurrencyCode,
     Guid ConcurrencyToken);
 
-public sealed record ReferenceItemRequest(
+public sealed record UpdatePreviousEmploymentRequest(
+    string Institution,
+    string? Place,
+    string? LastPosition,
+    string? ManagerName,
+    DateTime EntryDate,
+    DateTime? RetirementDate,
+    string? CompanyPhone,
+    string? ExitReason,
+    decimal? FirstSalaryAmount,
+    decimal? LastSalaryAmount,
+    decimal? AverageCommissionAmount,
+    string CurrencyCode,
+    Guid ConcurrencyToken);
+
+public sealed record AddReferenceRequest(
     string PersonName,
     string? Address,
     string Phone,
@@ -534,10 +567,18 @@ public sealed record ReferenceItemRequest(
     string? Occupation,
     string? Workplace,
     string? WorkPhone,
-    decimal KnownTimeYears);
+    decimal KnownTimeYears,
+    Guid ConcurrencyToken);
 
-public sealed record ReplaceReferencesRequest(
-    IReadOnlyCollection<ReferenceItemRequest> Items,
+public sealed record UpdateReferenceRequest(
+    string PersonName,
+    string? Address,
+    string Phone,
+    string ReferenceTypeCode,
+    string? Occupation,
+    string? Workplace,
+    string? WorkPhone,
+    decimal KnownTimeYears,
     Guid ConcurrencyToken);
 
 public sealed record DynamicPersonnelFileFilterRequest(
