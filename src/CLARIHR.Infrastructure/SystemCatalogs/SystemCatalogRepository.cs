@@ -33,21 +33,6 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
             case CurrencyCatalogItem currency:
                 dbContext.CurrencyCatalogItems.Add(currency);
                 return;
-            case EducationStatusCatalogItem educationStatus:
-                dbContext.EducationStatusCatalogItems.Add(educationStatus);
-                return;
-            case EducationStudyTypeCatalogItem educationStudyType:
-                dbContext.EducationStudyTypeCatalogItems.Add(educationStudyType);
-                return;
-            case EducationCareerCatalogItem educationCareer:
-                dbContext.EducationCareerCatalogItems.Add(educationCareer);
-                return;
-            case EducationShiftCatalogItem educationShift:
-                dbContext.EducationShiftCatalogItems.Add(educationShift);
-                return;
-            case EducationModalityCatalogItem educationModality:
-                dbContext.EducationModalityCatalogItems.Add(educationModality);
-                return;
             case IdentificationTypeCatalogItem identificationType:
                 dbContext.IdentificationTypeCatalogItems.Add(identificationType);
                 return;
@@ -83,11 +68,6 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
             SystemCatalogType.DurationUnit => GetByIdAsync<DurationUnitCatalogItem>(id, cancellationToken),
             SystemCatalogType.ReferenceType => GetByIdAsync<ReferenceTypeCatalogItem>(id, cancellationToken),
             SystemCatalogType.Currency => GetByIdAsync<CurrencyCatalogItem>(id, cancellationToken),
-            SystemCatalogType.EducationStatus => GetByIdAsync<EducationStatusCatalogItem>(id, cancellationToken),
-            SystemCatalogType.EducationStudyType => GetByIdAsync<EducationStudyTypeCatalogItem>(id, cancellationToken),
-            SystemCatalogType.EducationCareer => GetByIdAsync<EducationCareerCatalogItem>(id, cancellationToken),
-            SystemCatalogType.EducationShift => GetByIdAsync<EducationShiftCatalogItem>(id, cancellationToken),
-            SystemCatalogType.EducationModality => GetByIdAsync<EducationModalityCatalogItem>(id, cancellationToken),
             SystemCatalogType.IdentificationType => GetByIdAsync<IdentificationTypeCatalogItem>(id, cancellationToken),
             SystemCatalogType.Profession => GetByIdAsync<ProfessionCatalogItem>(id, cancellationToken),
             SystemCatalogType.MaritalStatus => GetByIdAsync<MaritalStatusCatalogItem>(id, cancellationToken),
@@ -111,11 +91,6 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
             SystemCatalogType.DurationUnit => ExistsByCodeAsync<DurationUnitCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
             SystemCatalogType.ReferenceType => ExistsByCodeAsync<ReferenceTypeCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
             SystemCatalogType.Currency => ExistsByCodeAsync<CurrencyCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
-            SystemCatalogType.EducationStatus => ExistsByCodeAsync<EducationStatusCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
-            SystemCatalogType.EducationStudyType => ExistsByCodeAsync<EducationStudyTypeCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
-            SystemCatalogType.EducationCareer => ExistsByCodeAsync<EducationCareerCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
-            SystemCatalogType.EducationShift => ExistsByCodeAsync<EducationShiftCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
-            SystemCatalogType.EducationModality => ExistsByCodeAsync<EducationModalityCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
             SystemCatalogType.IdentificationType => ExistsByCodeAsync<IdentificationTypeCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
             SystemCatalogType.Profession => ExistsByCodeAsync<ProfessionCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
             SystemCatalogType.MaritalStatus => ExistsByCodeAsync<MaritalStatusCatalogItem>(countryCatalogItemId, normalizedCode, excludingId, cancellationToken),
@@ -142,11 +117,6 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
             SystemCatalogType.DurationUnit => SearchAsync<DurationUnitCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
             SystemCatalogType.ReferenceType => SearchAsync<ReferenceTypeCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
             SystemCatalogType.Currency => SearchAsync<CurrencyCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
-            SystemCatalogType.EducationStatus => SearchAsync<EducationStatusCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
-            SystemCatalogType.EducationStudyType => SearchAsync<EducationStudyTypeCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
-            SystemCatalogType.EducationCareer => SearchAsync<EducationCareerCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
-            SystemCatalogType.EducationShift => SearchAsync<EducationShiftCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
-            SystemCatalogType.EducationModality => SearchAsync<EducationModalityCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
             SystemCatalogType.IdentificationType => SearchAsync<IdentificationTypeCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
             SystemCatalogType.Profession => SearchAsync<ProfessionCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
             SystemCatalogType.MaritalStatus => SearchAsync<MaritalStatusCatalogItem>(catalogType, countryCatalogItemId, isActive, search, pageNumber, pageSize, cancellationToken),
@@ -169,11 +139,6 @@ internal sealed class SystemCatalogRepository(ApplicationDbContext dbContext) : 
             SystemCatalogType.DurationUnit => GetResponseByIdAsync<DurationUnitCatalogItem>(catalogType, id, cancellationToken),
             SystemCatalogType.ReferenceType => GetResponseByIdAsync<ReferenceTypeCatalogItem>(catalogType, id, cancellationToken),
             SystemCatalogType.Currency => GetResponseByIdAsync<CurrencyCatalogItem>(catalogType, id, cancellationToken),
-            SystemCatalogType.EducationStatus => GetResponseByIdAsync<EducationStatusCatalogItem>(catalogType, id, cancellationToken),
-            SystemCatalogType.EducationStudyType => GetResponseByIdAsync<EducationStudyTypeCatalogItem>(catalogType, id, cancellationToken),
-            SystemCatalogType.EducationCareer => GetResponseByIdAsync<EducationCareerCatalogItem>(catalogType, id, cancellationToken),
-            SystemCatalogType.EducationShift => GetResponseByIdAsync<EducationShiftCatalogItem>(catalogType, id, cancellationToken),
-            SystemCatalogType.EducationModality => GetResponseByIdAsync<EducationModalityCatalogItem>(catalogType, id, cancellationToken),
             SystemCatalogType.IdentificationType => GetResponseByIdAsync<IdentificationTypeCatalogItem>(catalogType, id, cancellationToken),
             SystemCatalogType.Profession => GetResponseByIdAsync<ProfessionCatalogItem>(catalogType, id, cancellationToken),
             SystemCatalogType.MaritalStatus => GetResponseByIdAsync<MaritalStatusCatalogItem>(catalogType, id, cancellationToken),

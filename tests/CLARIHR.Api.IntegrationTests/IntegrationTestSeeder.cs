@@ -4,6 +4,7 @@ using CLARIHR.Domain.Auditing;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
+using CLARIHR.Domain.EducationCatalogs;
 using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.LegalRepresentatives;
@@ -493,8 +494,6 @@ internal static class IntegrationTestSeeder
 
     private static void SeedPersonnelEducationCatalogItems(ApplicationDbContext dbContext, Guid tenantId)
     {
-        var companyCountry = GetSeedCompanyCountry(dbContext, tenantId);
-
         var statuses = new (string Code, string Name, int SortOrder)[]
         {
             ("GRADUATED", "Graduated", 10),
@@ -530,10 +529,9 @@ internal static class IntegrationTestSeeder
         foreach (var item in statuses)
         {
             if (!dbContext.EducationStatusCatalogItems.Any(entity =>
-                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
                     entity.NormalizedCode == item.Code.ToUpperInvariant()))
             {
-                var entity = EducationStatusCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
+                var entity = EducationStatusCatalogItem.Create(item.Code, item.Name, item.SortOrder);
                 dbContext.EducationStatusCatalogItems.Add(entity);
             }
         }
@@ -541,10 +539,9 @@ internal static class IntegrationTestSeeder
         foreach (var item in studyTypes)
         {
             if (!dbContext.EducationStudyTypeCatalogItems.Any(entity =>
-                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
                     entity.NormalizedCode == item.Code.ToUpperInvariant()))
             {
-                var entity = EducationStudyTypeCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
+                var entity = EducationStudyTypeCatalogItem.Create(item.Code, item.Name, item.SortOrder);
                 dbContext.EducationStudyTypeCatalogItems.Add(entity);
             }
         }
@@ -552,10 +549,9 @@ internal static class IntegrationTestSeeder
         foreach (var item in shifts)
         {
             if (!dbContext.EducationShiftCatalogItems.Any(entity =>
-                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
                     entity.NormalizedCode == item.Code.ToUpperInvariant()))
             {
-                var entity = EducationShiftCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
+                var entity = EducationShiftCatalogItem.Create(item.Code, item.Name, item.SortOrder);
                 dbContext.EducationShiftCatalogItems.Add(entity);
             }
         }
@@ -563,10 +559,9 @@ internal static class IntegrationTestSeeder
         foreach (var item in modalities)
         {
             if (!dbContext.EducationModalityCatalogItems.Any(entity =>
-                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
                     entity.NormalizedCode == item.Code.ToUpperInvariant()))
             {
-                var entity = EducationModalityCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
+                var entity = EducationModalityCatalogItem.Create(item.Code, item.Name, item.SortOrder);
                 dbContext.EducationModalityCatalogItems.Add(entity);
             }
         }
@@ -574,10 +569,9 @@ internal static class IntegrationTestSeeder
         foreach (var item in careers)
         {
             if (!dbContext.EducationCareerCatalogItems.Any(entity =>
-                    entity.CountryCatalogItemId == companyCountry.CountryCatalogItemId &&
                     entity.NormalizedCode == item.Code.ToUpperInvariant()))
             {
-                var entity = EducationCareerCatalogItem.Create(companyCountry.CountryCatalogItemId, companyCountry.CountryCode, item.Code, item.Name, item.SortOrder);
+                var entity = EducationCareerCatalogItem.Create(item.Code, item.Name, item.SortOrder);
                 dbContext.EducationCareerCatalogItems.Add(entity);
             }
         }

@@ -5,6 +5,7 @@ using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Banks;
+using CLARIHR.Domain.EducationCatalogs;
 using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
@@ -958,11 +959,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             "CURRICULUMDURATIONUNIT" => await GetCountryScopedCatalogItemsAsync<DurationUnitCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumDurationUnit", cancellationToken),
             "CURRICULUMREFERENCETYPE" => await GetCountryScopedCatalogItemsAsync<ReferenceTypeCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumReferenceType", cancellationToken),
             "CURRENCY" => await GetCountryScopedCatalogItemsAsync<CurrencyCatalogItem>(companyCountry.CountryCatalogItemId, "Currency", cancellationToken),
-            "CURRICULUMEDUCATIONSTATUS" => await GetCountryScopedCatalogItemsAsync<EducationStatusCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumEducationStatus", cancellationToken),
-            "CURRICULUMSTUDYTYPE" => await GetCountryScopedCatalogItemsAsync<EducationStudyTypeCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumStudyType", cancellationToken),
-            "CURRICULUMSHIFT" => await GetCountryScopedCatalogItemsAsync<EducationShiftCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumShift", cancellationToken),
-            "CURRICULUMMODALITY" => await GetCountryScopedCatalogItemsAsync<EducationModalityCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumModality", cancellationToken),
-            "CURRICULUMCAREER" => await GetCountryScopedCatalogItemsAsync<EducationCareerCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumCareer", cancellationToken),
             _ => []
         };
     }
@@ -1033,11 +1029,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             "CURRICULUMDURATIONUNIT" => await IsCountryScopedCatalogCodeActiveAsync<DurationUnitCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRICULUMREFERENCETYPE" => await IsCountryScopedCatalogCodeActiveAsync<ReferenceTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             "CURRENCY" => await IsCountryScopedCatalogCodeActiveAsync<CurrencyCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
-            "CURRICULUMEDUCATIONSTATUS" => await IsCountryScopedCatalogCodeActiveAsync<EducationStatusCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
-            "CURRICULUMSTUDYTYPE" => await IsCountryScopedCatalogCodeActiveAsync<EducationStudyTypeCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
-            "CURRICULUMSHIFT" => await IsCountryScopedCatalogCodeActiveAsync<EducationShiftCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
-            "CURRICULUMMODALITY" => await IsCountryScopedCatalogCodeActiveAsync<EducationModalityCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
-            "CURRICULUMCAREER" => await IsCountryScopedCatalogCodeActiveAsync<EducationCareerCatalogItem>(companyCountry.CountryCatalogItemId, normalizedCode, cancellationToken),
             _ => false
         };
     }

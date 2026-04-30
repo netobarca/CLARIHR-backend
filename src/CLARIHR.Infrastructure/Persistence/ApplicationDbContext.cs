@@ -17,6 +17,7 @@ using CLARIHR.Domain.LegalRepresentatives;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.OrgStructureCatalogs;
 using CLARIHR.Domain.OrgUnits;
+using CLARIHR.Domain.EducationCatalogs;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Domain.Platform;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
@@ -194,15 +195,16 @@ public sealed class ApplicationDbContext(
 
     public DbSet<PersonnelFileObservation> PersonnelFileObservations => Set<PersonnelFileObservation>();
 
-    public DbSet<EducationStatusCatalogItem> EducationStatusCatalogItems => Set<EducationStatusCatalogItem>();
+    // Education system-wide catalog DbSets (global, no country scope)
+    public DbSet<CLARIHR.Domain.EducationCatalogs.EducationStatusCatalogItem> EducationStatusCatalogItems => Set<CLARIHR.Domain.EducationCatalogs.EducationStatusCatalogItem>();
 
-    public DbSet<EducationStudyTypeCatalogItem> EducationStudyTypeCatalogItems => Set<EducationStudyTypeCatalogItem>();
+    public DbSet<CLARIHR.Domain.EducationCatalogs.EducationStudyTypeCatalogItem> EducationStudyTypeCatalogItems => Set<CLARIHR.Domain.EducationCatalogs.EducationStudyTypeCatalogItem>();
 
-    public DbSet<EducationCareerCatalogItem> EducationCareerCatalogItems => Set<EducationCareerCatalogItem>();
+    public DbSet<CLARIHR.Domain.EducationCatalogs.EducationCareerCatalogItem> EducationCareerCatalogItems => Set<CLARIHR.Domain.EducationCatalogs.EducationCareerCatalogItem>();
 
-    public DbSet<EducationShiftCatalogItem> EducationShiftCatalogItems => Set<EducationShiftCatalogItem>();
+    public DbSet<CLARIHR.Domain.EducationCatalogs.EducationShiftCatalogItem> EducationShiftCatalogItems => Set<CLARIHR.Domain.EducationCatalogs.EducationShiftCatalogItem>();
 
-    public DbSet<EducationModalityCatalogItem> EducationModalityCatalogItems => Set<EducationModalityCatalogItem>();
+    public DbSet<CLARIHR.Domain.EducationCatalogs.EducationModalityCatalogItem> EducationModalityCatalogItems => Set<CLARIHR.Domain.EducationCatalogs.EducationModalityCatalogItem>();
 
     public DbSet<LanguageCatalogItem> LanguageCatalogItems => Set<LanguageCatalogItem>();
 
