@@ -2042,10 +2042,11 @@ components:
           type: string
           nullable: true
           description: Catalog code from `GET /api/v1/companies/{companyId}/reference-catalogs/municipalities?parentCode=<DEPARTMENT_CODE>`.
-        photoUrl:
+        photoFilePublicId:
           type: string
+          format: uuid
           nullable: true
-          description: Accepts `null`, `http/https` URL, or `data:image/<png|jpeg|jpg|webp|svg+xml>;base64,...` up to 2 MB. SVG active content (scripts/events/javascript links) is rejected.
+          description: Public ID of a `StoredFile` uploaded via `POST /api/v1/files/upload-session` with `purpose = profile-photo`. The file must be in `Active` status. Send `null` to clear the photo.
         orgUnitPublicId:
           type: string
           format: uuid
@@ -2527,9 +2528,11 @@ components:
           $ref: '#/components/schemas/PersonnelFileLifecycleStatus'
         fullName:
           type: string
-        photoUrl:
+        photoFilePublicId:
           type: string
+          format: uuid
           nullable: true
+          description: Resolved to a temporary SAS read URL by the API result filter.
         isActive:
           type: boolean
         orgUnitId:
@@ -2724,9 +2727,11 @@ components:
         birthMunicipalityName:
           type: string
           nullable: true
-        photoUrl:
+        photoFilePublicId:
           type: string
+          format: uuid
           nullable: true
+          description: Resolved to a temporary SAS read URL by the API result filter.
         orgUnitId:
           type: string
           format: uuid
@@ -13589,6 +13594,174 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
 
+  # ─── File Management ───────────────────────────────────────────────────────
+  /api/v1/files/upload-session:
+    post:
+      tags:
+        - files
+      operationId: CreateUploadSession
+      summary: Create a direct upload session
+      description: |
+        Validates file metadata against the purpose rules, creates a `StoredFile` in `PendingUpload` status,
+        and returns a provider-signed upload URL for the browser to PUT the binary directly to storage.
+      security:
+        - Bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUploadSessionRequest'
+      responses:
+        '200':
+          description: Upload session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateUploadSessionResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication required.
+        '413':
+          description: File size exceeds the limit for the purpose.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Content type not allowed for the purpose or unknown purpose.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/files/{filePublicId}/complete:
+    post:
+      tags:
+        - files
+      operationId: CompleteFileUpload
+      summary: Confirm that a direct upload completed successfully
+      description: |
+        Verifies that the object exists in storage, reads its actual size/content-type,
+        and transitions the `StoredFile` to `Active` status.
+      security:
+        - Bearer: []
+      parameters:
+        - name: filePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: File marked as active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteFileUploadResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Caller is not the file owner.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: File not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: File not in PendingUpload status or object not found in storage.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/files/{filePublicId}/read-url:
+    get:
+      tags:
+        - files
+      operationId: GetFileReadUrl
+      summary: Get a temporary read-only URL for a file
+      description: Returns a short-lived signed URL to read the file from storage.
+      security:
+        - Bearer: []
+      parameters:
+        - name: filePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Signed read URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetFileReadUrlResponse'
+        '401':
+          description: Authentication required.
+        '404':
+          description: File not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: File is not in Active status.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/files/{filePublicId}:
+    delete:
+      tags:
+        - files
+      operationId: DeleteFile
+      summary: Soft-delete a file
+      description: Marks the file as `Deleted`. The physical blob is cleaned up asynchronously.
+      security:
+        - Bearer: []
+      parameters:
+        - name: filePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: File marked as deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteFileResponse'
+        '401':
+          description: Authentication required.
+        '403':
+          description: Caller is not the file owner.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: File not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
 components:
   schemas:
     EducationCatalogLookup:
@@ -13700,6 +13873,91 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    # ─── File Management schemas ──────────────────────────────────────────────
+    CreateUploadSessionRequest:
+      type: object
+      required:
+        - fileName
+        - contentType
+        - sizeBytes
+        - purpose
+      properties:
+        fileName:
+          type: string
+          description: Original file name with extension.
+        contentType:
+          type: string
+          description: MIME type of the file (e.g. `image/png`).
+        sizeBytes:
+          type: integer
+          format: int64
+          description: File size in bytes.
+        purpose:
+          type: string
+          description: Purpose key that defines allowed content types, max size, and target container (e.g. `profile-photo`).
+        entityId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional reference to the owning entity.
+    CreateUploadSessionResponse:
+      type: object
+      required:
+        - filePublicId
+        - uploadUrl
+        - expiresUtc
+        - requiredHeaders
+      properties:
+        filePublicId:
+          type: string
+          format: uuid
+        uploadUrl:
+          type: string
+          description: Provider-signed URL for direct binary upload.
+        expiresUtc:
+          type: string
+          format: date-time
+        requiredHeaders:
+          type: object
+          additionalProperties:
+            type: string
+          description: HTTP headers the client must include when uploading to `uploadUrl`.
+    CompleteFileUploadResponse:
+      type: object
+      required:
+        - filePublicId
+        - status
+      properties:
+        filePublicId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          description: Resulting file status (`Active`).
+    GetFileReadUrlResponse:
+      type: object
+      required:
+        - readUrl
+        - expiresUtc
+      properties:
+        readUrl:
+          type: string
+          description: Short-lived signed URL for reading the file.
+        expiresUtc:
+          type: string
+          format: date-time
+    DeleteFileResponse:
+      type: object
+      required:
+        - filePublicId
+        - status
+      properties:
+        filePublicId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          description: Resulting file status (`Deleted`).
   securitySchemes:
     Bearer:
       type: http
@@ -13747,5 +14005,7 @@ tags:
     description: Personnel file financial profile — bank accounts.
   - name: report-export-jobs
     description: Asynchronous report export queue, status, cancellation and artifact download endpoints.
+  - name: files
+    description: Provider-agnostic file management — upload sessions, completion, read URLs and deletion.
 x-documentation-status: partial-manual-supplement
 x-runtime-openapi-source: /swagger/v1/swagger.json

@@ -116,7 +116,7 @@ public sealed class PersonnelFileAdministrationValidationTests
             BirthCountryCode: null,
             BirthDepartmentCode: null,
             BirthMunicipalityCode: null,
-            PhotoUrl: null,
+            PhotoFilePublicId: null,
             OrgUnitId: null,
             AssignedPositionSlotId: assignedPositionSlotId);
     }
@@ -141,7 +141,7 @@ public sealed class PersonnelFileAdministrationValidationTests
             BirthCountryCode: null,
             BirthDepartmentCode: null,
             BirthMunicipalityCode: null,
-            PhotoUrl: null,
+            PhotoFilePublicId: null,
             OrgUnitId: null,
             AssignedPositionSlotId: assignedPositionSlotId,
             ConcurrencyToken: Guid.NewGuid());

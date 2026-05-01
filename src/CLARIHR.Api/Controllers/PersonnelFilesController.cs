@@ -59,7 +59,7 @@ public sealed class PersonnelFilesController(
                 request.BirthCountryCode,
                 request.BirthDepartmentCode,
                 request.BirthMunicipalityCode,
-                request.PhotoUrl,
+                request.PhotoFilePublicId,
                 request.OrgUnitPublicId,
                 request.AssignedPositionSlotPublicId),
             cancellationToken);

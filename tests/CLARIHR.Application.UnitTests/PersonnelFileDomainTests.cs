@@ -25,7 +25,7 @@ public sealed class PersonnelFileDomainTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: null,
             identifications:
@@ -57,7 +57,7 @@ public sealed class PersonnelFileDomainTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: null,
             identifications:
@@ -82,7 +82,7 @@ public sealed class PersonnelFileDomainTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: Guid.NewGuid(),
             assignedPositionSlotPublicId: Guid.NewGuid());
 
@@ -107,7 +107,7 @@ public sealed class PersonnelFileDomainTests
             birthCountry: " sv ",
             birthDepartment: " san_salvador ",
             birthMunicipality: " san_salvador_centro ",
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: null,
             identifications:
@@ -141,7 +141,7 @@ public sealed class PersonnelFileDomainTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: null,
             identifications:
@@ -178,7 +178,7 @@ public sealed class PersonnelFileDomainTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: null);
         var tenantId = Guid.NewGuid();
@@ -501,7 +501,7 @@ public sealed class PersonnelFileDomainTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: Guid.NewGuid());
 
@@ -532,7 +532,7 @@ public sealed class PersonnelFileDomainTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: Guid.NewGuid());
 
@@ -564,7 +564,7 @@ public sealed class PersonnelFileDomainTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: Guid.NewGuid());
         file.Complete(Guid.NewGuid());
@@ -584,7 +584,7 @@ public sealed class PersonnelFileDomainTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: Guid.NewGuid()));
     }
@@ -1213,7 +1213,7 @@ public sealed class PersonnelFileDomainTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: recordType == PersonnelFileRecordType.Employee ? Guid.NewGuid() : null);
         file.SetTenantId(Guid.NewGuid());

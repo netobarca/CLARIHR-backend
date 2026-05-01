@@ -23,7 +23,7 @@ public sealed class CreatePersonnelFileRequest
     public string? BirthCountryCode { get; init; }
     public string? BirthDepartmentCode { get; init; }
     public string? BirthMunicipalityCode { get; init; }
-    public string? PhotoUrl { get; init; }
+    public Guid? PhotoFilePublicId { get; init; }
     public Guid? OrgUnitPublicId { get; init; }
     public Guid? AssignedPositionSlotPublicId { get; init; }
 
@@ -49,7 +49,7 @@ public sealed record UpdatePersonnelFilePersonalInfoRequest(
     string? BirthCountryCode,
     string? BirthDepartmentCode,
     string? BirthMunicipalityCode,
-    string? PhotoUrl,
+    Guid? PhotoFilePublicId,
     Guid? OrgUnitPublicId,
     Guid? AssignedPositionSlotPublicId,
     Guid ConcurrencyToken);

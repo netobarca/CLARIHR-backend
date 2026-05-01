@@ -42,7 +42,7 @@ public sealed class PersonnelFile : TenantEntity
         string? birthCountry,
         string? birthDepartment,
         string? birthMunicipality,
-        string? photoUrl,
+        Guid? photoFilePublicId,
         Guid? orgUnitPublicId,
         Guid? assignedPositionSlotPublicId)
     {
@@ -61,7 +61,7 @@ public sealed class PersonnelFile : TenantEntity
         BirthCountry = NormalizeOptionalCode(birthCountry);
         BirthDepartment = NormalizeOptionalCode(birthDepartment);
         BirthMunicipality = NormalizeOptionalCode(birthMunicipality);
-        PhotoUrl = PersonnelFileNormalization.CleanOptional(photoUrl);
+        PhotoFilePublicId = photoFilePublicId;
         OrgUnitPublicId = orgUnitPublicId;
         AssignedPositionSlotPublicId = assignedPositionSlotPublicId;
         IsActive = true;
@@ -102,7 +102,7 @@ public sealed class PersonnelFile : TenantEntity
 
     public string? BirthMunicipality { get; private set; }
 
-    public string? PhotoUrl { get; private set; }
+    public Guid? PhotoFilePublicId { get; private set; }
 
     public Guid? OrgUnitPublicId { get; private set; }
 
@@ -165,7 +165,7 @@ public sealed class PersonnelFile : TenantEntity
         string? birthCountry,
         string? birthDepartment,
         string? birthMunicipality,
-        string? photoUrl,
+        Guid? photoFilePublicId,
         Guid? orgUnitPublicId,
         Guid? assignedPositionSlotPublicId,
         IReadOnlyCollection<PersonnelFileIdentification>? identifications = null)
@@ -186,7 +186,7 @@ public sealed class PersonnelFile : TenantEntity
             birthCountry,
             birthDepartment,
             birthMunicipality,
-            photoUrl,
+            photoFilePublicId,
             orgUnitPublicId,
             assignedPositionSlotPublicId);
 
@@ -213,7 +213,7 @@ public sealed class PersonnelFile : TenantEntity
         string? birthCountry,
         string? birthDepartment,
         string? birthMunicipality,
-        string? photoUrl,
+        Guid? photoFilePublicId,
         Guid? orgUnitPublicId,
         Guid? assignedPositionSlotPublicId)
     {
@@ -244,7 +244,7 @@ public sealed class PersonnelFile : TenantEntity
         BirthCountry = NormalizeOptionalCode(birthCountry);
         BirthDepartment = NormalizeOptionalCode(birthDepartment);
         BirthMunicipality = NormalizeOptionalCode(birthMunicipality);
-        PhotoUrl = PersonnelFileNormalization.CleanOptional(photoUrl);
+        PhotoFilePublicId = photoFilePublicId;
         OrgUnitPublicId = orgUnitPublicId;
         AssignedPositionSlotPublicId = assignedPositionSlotPublicId;
         RefreshConcurrencyToken();

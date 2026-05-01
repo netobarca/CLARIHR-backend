@@ -1,71 +1,114 @@
+using CLARIHR.Application.Abstractions.Files;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.Files.Common;
+using CLARIHR.Domain.Files;
 
 namespace CLARIHR.Infrastructure.PersonnelFiles;
 
-internal sealed class PersonnelFileProfilePhotoService : IPersonnelFileProfilePhotoService
+internal sealed class PersonnelFileProfilePhotoService(
+    IFileRepository fileRepository,
+    IFileStorageProviderResolver providerResolver) : IPersonnelFileProfilePhotoService
 {
-    private const string PhotoUrlField = "photoUrl";
-
-    public Task<Result<PersonnelFileProfilePhotoWritePlan>> PrepareWriteAsync(
+    public async Task<Result<PersonnelFileProfilePhotoWritePlan>> PrepareWriteAsync(
         Guid companyId,
-        Guid personnelFileId,
-        string? requestedPhotoUrl,
-        string? currentPersistedPhotoUrl,
+        Guid personnelFilePublicId,
+        Guid? requestedPhotoFilePublicId,
+        Guid? currentPersistedPhotoFilePublicId,
         CancellationToken cancellationToken)
     {
-        var requested = string.IsNullOrWhiteSpace(requestedPhotoUrl) ? null : requestedPhotoUrl.Trim();
-
-        if (string.IsNullOrWhiteSpace(requested))
+        // Clearing the photo
+        if (!requestedPhotoFilePublicId.HasValue)
         {
-            return Task.FromResult(Result<PersonnelFileProfilePhotoWritePlan>.Success(
+            return Result<PersonnelFileProfilePhotoWritePlan>.Success(
                 new PersonnelFileProfilePhotoWritePlan(
-                    PersistedPhotoUrl: null,
-                    UploadedManagedPhotoUrl: null,
-                    PreviousManagedPhotoUrlToDelete: null)));
+                    PersistedPhotoFilePublicId: null,
+                    PreviousPhotoFilePublicIdToDelete: currentPersistedPhotoFilePublicId));
         }
 
-        if (Uri.TryCreate(requested, UriKind.Absolute, out var absoluteUri) &&
-            (absoluteUri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
-             absoluteUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+        // Same photo as current — no change needed
+        if (requestedPhotoFilePublicId == currentPersistedPhotoFilePublicId)
         {
-            if (requested.Length > 1000)
-            {
-                return Task.FromResult(Result<PersonnelFileProfilePhotoWritePlan>.Failure(
-                    PhotoUrlValidation("PhotoUrl exceeds the maximum persisted length of 1000 characters.")));
-            }
-
-            return Task.FromResult(Result<PersonnelFileProfilePhotoWritePlan>.Success(
+            return Result<PersonnelFileProfilePhotoWritePlan>.Success(
                 new PersonnelFileProfilePhotoWritePlan(
-                    PersistedPhotoUrl: requested,
-                    UploadedManagedPhotoUrl: null,
-                    PreviousManagedPhotoUrlToDelete: null)));
+                    PersistedPhotoFilePublicId: requestedPhotoFilePublicId,
+                    PreviousPhotoFilePublicIdToDelete: null));
         }
 
-        return Task.FromResult(Result<PersonnelFileProfilePhotoWritePlan>.Failure(
-            PhotoUrlValidation("PhotoUrl must be null or a valid http/https URL.")));
+        // Validate the new file exists and is Active with correct Purpose
+        var file = await fileRepository.GetByPublicIdAsync(requestedPhotoFilePublicId.Value, cancellationToken);
+        if (file is null)
+        {
+            return Result<PersonnelFileProfilePhotoWritePlan>.Failure(FileErrors.FileNotFound);
+        }
+
+        if (file.Status != FileStatus.Active)
+        {
+            return Result<PersonnelFileProfilePhotoWritePlan>.Failure(FileErrors.FileNotActive);
+        }
+
+        if (file.Purpose != FilePurpose.ProfileImage)
+        {
+            return Result<PersonnelFileProfilePhotoWritePlan>.Failure(
+                new Error(
+                    "files.invalid_purpose_for_profile",
+                    "The referenced file is not a profile image.",
+                    ErrorType.UnprocessableEntity));
+        }
+
+        return Result<PersonnelFileProfilePhotoWritePlan>.Success(
+            new PersonnelFileProfilePhotoWritePlan(
+                PersistedPhotoFilePublicId: requestedPhotoFilePublicId,
+                PreviousPhotoFilePublicIdToDelete: currentPersistedPhotoFilePublicId));
     }
 
-    public Task<string?> ResolveForReadAsync(string? persistedPhotoUrl, CancellationToken cancellationToken)
+    public async Task<string?> ResolveForReadAsync(Guid? persistedPhotoFilePublicId, CancellationToken cancellationToken)
     {
-        var persisted = string.IsNullOrWhiteSpace(persistedPhotoUrl) ? null : persistedPhotoUrl.Trim();
-        return Task.FromResult(persisted);
+        if (!persistedPhotoFilePublicId.HasValue)
+        {
+            return null;
+        }
+
+        var file = await fileRepository.GetByPublicIdAsync(persistedPhotoFilePublicId.Value, cancellationToken);
+        if (file is null || file.Status != FileStatus.Active)
+        {
+            return null;
+        }
+
+        try
+        {
+            var provider = providerResolver.Resolve(file.Provider);
+            var readSession = await provider.CreateReadSessionAsync(
+                new CreateReadSessionCommand(file.ContainerName, file.ObjectKey),
+                cancellationToken);
+
+            return readSession.ReadUrl;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public Task CleanupAfterPersistenceFailureAsync(PersonnelFileProfilePhotoWritePlan plan, CancellationToken cancellationToken)
     {
+        // No cleanup needed on failure — the file remains in storage, cleanup job handles orphans
         return Task.CompletedTask;
     }
 
-    public Task CleanupAfterPersistenceSuccessAsync(PersonnelFileProfilePhotoWritePlan plan, CancellationToken cancellationToken)
+    public async Task CleanupAfterPersistenceSuccessAsync(PersonnelFileProfilePhotoWritePlan plan, CancellationToken cancellationToken)
     {
-        return Task.CompletedTask;
-    }
+        if (!plan.PreviousPhotoFilePublicIdToDelete.HasValue)
+        {
+            return;
+        }
 
-    private static Error PhotoUrlValidation(string message) =>
-        ErrorCatalog.Validation(
-            new Dictionary<string, string[]>
-            {
-                [PhotoUrlField] = [message]
-            });
+        // Soft-delete the previous photo file
+        var previousFile = await fileRepository.GetByPublicIdAsync(plan.PreviousPhotoFilePublicIdToDelete.Value, cancellationToken);
+        if (previousFile is not null)
+        {
+            previousFile.MarkDeleted();
+            // Note: the caller should call unitOfWork.SaveChangesAsync after this
+        }
+    }
 }

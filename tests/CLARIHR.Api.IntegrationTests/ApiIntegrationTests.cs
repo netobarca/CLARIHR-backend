@@ -1026,7 +1026,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthCountryCode = "SV",
             birthDepartmentCode = "SAN_SALVADOR",
             birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
-            photoUrl = (string?)null,
+            photoFilePublicId = (Guid?)null,
             orgUnitPublicId = (Guid?)null,
             customDataJson = "{ \"shirt_size\": \"M\" }"
         });
@@ -1091,7 +1091,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthCountryCode = "SV",
             birthDepartmentCode = "LA_LIBERTAD",
             birthMunicipalityCode = "LA_LIBERTAD_SUR",
-            photoUrl = (string?)null,
+            photoFilePublicId = (Guid?)null,
             orgUnitPublicId = (Guid?)null,
             customDataJson = (string?)null,
             items = new[]
@@ -1250,7 +1250,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthCountryCode = "SV",
             birthDepartmentCode = "SAN_SALVADOR",
             birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
-            photoUrl = (string?)null,
+            photoFilePublicId = (Guid?)null,
             orgUnitPublicId = (Guid?)null,
             customDataJson = (string?)null
         });
@@ -1610,7 +1610,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthCountryCode = (string?)null,
             birthDepartmentCode = "SAN_SALVADOR",
             birthMunicipalityCode = (string?)null,
-            photoUrl = (string?)null,
+            photoFilePublicId = (Guid?)null,
             orgUnitPublicId = (Guid?)null,
             customDataJson = (string?)null
         });
@@ -1632,7 +1632,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthCountryCode = "SV",
             birthDepartmentCode = "LA_LIBERTAD",
             birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
-            photoUrl = (string?)null,
+            photoFilePublicId = (Guid?)null,
             orgUnitPublicId = (Guid?)null,
             customDataJson = (string?)null
         });
@@ -2034,7 +2034,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 birthCountryCode = "SV",
                 birthDepartmentCode = "SAN_SALVADOR",
                 birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
-                photoUrl = (string?)null,
+                photoFilePublicId = (Guid?)null,
                 orgUnitPublicId = (Guid?)null,
                 customDataJson = (string?)null
             });
@@ -7574,7 +7574,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             birthCountryCode = "SV",
             birthDepartmentCode = "SAN_SALVADOR",
             birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
-            photoUrl = (string?)null,
+            photoFilePublicId = (Guid?)null,
             orgUnitPublicId = (Guid?)null,
             customDataJson = (string?)null
         });

@@ -40,7 +40,7 @@ public sealed class PersonnelFilePhotoUrlResultFilter(
         PersonnelFileShellResponse response,
         CancellationToken cancellationToken)
     {
-        var resolvedPhotoUrl = await profilePhotoService.ResolveForReadAsync(response.PhotoUrl, cancellationToken);
+        var resolvedPhotoUrl = await profilePhotoService.ResolveForReadAsync(ParsePhotoFilePublicId(response.PhotoUrl), cancellationToken);
         return response with { PhotoUrl = resolvedPhotoUrl };
     }
 
@@ -48,7 +48,7 @@ public sealed class PersonnelFilePhotoUrlResultFilter(
         PersonnelFileResponse response,
         CancellationToken cancellationToken)
     {
-        var resolvedPhotoUrl = await profilePhotoService.ResolveForReadAsync(response.PhotoUrl, cancellationToken);
+        var resolvedPhotoUrl = await profilePhotoService.ResolveForReadAsync(ParsePhotoFilePublicId(response.PhotoUrl), cancellationToken);
         var resolvedDocuments = await ResolveDocumentCollectionAsync(response.Documents, cancellationToken);
         return response with { PhotoUrl = resolvedPhotoUrl, Documents = resolvedDocuments };
     }
@@ -73,7 +73,7 @@ public sealed class PersonnelFilePhotoUrlResultFilter(
         PersonnelFilePersonalInfoResponse response,
         CancellationToken cancellationToken)
     {
-        var resolvedPhotoUrl = await profilePhotoService.ResolveForReadAsync(response.PhotoUrl, cancellationToken);
+        var resolvedPhotoUrl = await profilePhotoService.ResolveForReadAsync(ParsePhotoFilePublicId(response.PhotoUrl), cancellationToken);
         return response with { PhotoUrl = resolvedPhotoUrl };
     }
 
@@ -117,5 +117,22 @@ public sealed class PersonnelFilePhotoUrlResultFilter(
     {
         var resolvedFileUrl = await documentStorageService.ResolveForReadAsync(response.FileUrl, cancellationToken);
         return response with { FileUrl = resolvedFileUrl };
+    }
+
+    private static Guid? ParsePhotoFilePublicId(string? photoUrlOrGuid)
+    {
+        if (string.IsNullOrWhiteSpace(photoUrlOrGuid))
+        {
+            return null;
+        }
+
+        // Support Guid references from the new file management system
+        if (Guid.TryParse(photoUrlOrGuid, out var guid))
+        {
+            return guid;
+        }
+
+        // Legacy: if the value is not a Guid, it's a raw URL — pass through
+        return null;
     }
 }

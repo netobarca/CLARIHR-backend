@@ -23,6 +23,7 @@ using CLARIHR.Domain.Platform;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
 using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Domain.Preferences;
+using CLARIHR.Domain.Files;
 using CLARIHR.Domain.Reports;
 using CLARIHR.Domain.SalaryTabulator;
 using Microsoft.EntityFrameworkCore;
@@ -280,6 +281,8 @@ public sealed class ApplicationDbContext(
     public DbSet<SalaryTabulatorChangeRequestItem> SalaryTabulatorChangeRequestItems => Set<SalaryTabulatorChangeRequestItem>();
 
     public DbSet<ReportExportJob> ReportExportJobs => Set<ReportExportJob>();
+
+    public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

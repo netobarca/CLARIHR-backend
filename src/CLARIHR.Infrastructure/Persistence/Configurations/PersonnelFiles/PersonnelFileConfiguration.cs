@@ -41,7 +41,7 @@ internal sealed class PersonnelFileConfiguration : IEntityTypeConfiguration<Pers
         builder.Property(file => file.BirthCountry).HasColumnName("birth_country").HasMaxLength(120);
         builder.Property(file => file.BirthDepartment).HasColumnName("birth_department").HasMaxLength(120);
         builder.Property(file => file.BirthMunicipality).HasColumnName("birth_municipality").HasMaxLength(120);
-        builder.Property(file => file.PhotoUrl).HasColumnName("photo_url").HasMaxLength(1000);
+        builder.Property(file => file.PhotoFilePublicId).HasColumnName("photo_file_public_id");
         builder.Property(file => file.OrgUnitPublicId).HasColumnName("org_unit_public_id");
         builder.Property(file => file.AssignedPositionSlotPublicId).HasColumnName("assigned_position_slot_public_id");
         builder.Property(file => file.LinkedUserPublicId).HasColumnName("linked_user_public_id");

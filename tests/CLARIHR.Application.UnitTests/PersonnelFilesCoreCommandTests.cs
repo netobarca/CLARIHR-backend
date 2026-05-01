@@ -46,7 +46,7 @@ public sealed class PersonnelFilesCoreCommandTests
                 BirthCountryCode: null,
                 BirthDepartmentCode: null,
                 BirthMunicipalityCode: null,
-                PhotoUrl: null,
+                PhotoFilePublicId: null,
                 OrgUnitId: null,
                 AssignedPositionSlotId: null),
             CancellationToken.None);
@@ -129,7 +129,7 @@ public sealed class PersonnelFilesCoreCommandTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: recordType == PersonnelFileRecordType.Employee ? Guid.NewGuid() : null);
         file.SetTenantId(TenantId);
@@ -173,13 +173,13 @@ public sealed class PersonnelFilesCoreCommandTests
         public Task<Result<PersonnelFileProfilePhotoWritePlan>> PrepareWriteAsync(
             Guid companyId,
             Guid personnelFileId,
-            string? requestedPhotoUrl,
-            string? currentPersistedPhotoUrl,
+            Guid? requestedPhotoFilePublicId,
+            Guid? currentPersistedPhotoFilePublicId,
             CancellationToken cancellationToken) =>
-            Task.FromResult(Result<PersonnelFileProfilePhotoWritePlan>.Success(new PersonnelFileProfilePhotoWritePlan(null, null, null)));
+            Task.FromResult(Result<PersonnelFileProfilePhotoWritePlan>.Success(new PersonnelFileProfilePhotoWritePlan(null, null)));
 
-        public Task<string?> ResolveForReadAsync(string? persistedPhotoUrl, CancellationToken cancellationToken) =>
-            Task.FromResult(persistedPhotoUrl);
+        public Task<string?> ResolveForReadAsync(Guid? persistedPhotoFilePublicId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(persistedPhotoFilePublicId?.ToString());
 
         public Task CleanupAfterPersistenceFailureAsync(PersonnelFileProfilePhotoWritePlan plan, CancellationToken cancellationToken) =>
             Task.CompletedTask;
@@ -225,7 +225,7 @@ public sealed class PersonnelFilesCoreCommandTests
                         file.RecordType,
                         file.LifecycleStatus,
                         file.FullName,
-                        file.PhotoUrl,
+                        file.PhotoFilePublicId?.ToString(),
                         file.IsActive,
                         file.OrgUnitPublicId,
                         file.AssignedPositionSlotPublicId,
