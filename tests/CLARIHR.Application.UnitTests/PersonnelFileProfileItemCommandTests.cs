@@ -538,7 +538,7 @@ public sealed class PersonnelFileProfileItemCommandTests
             birthCountry: null,
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: recordType == PersonnelFileRecordType.Employee ? Guid.NewGuid() : null);
         file.SetTenantId(TenantId);

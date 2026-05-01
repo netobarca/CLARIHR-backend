@@ -246,7 +246,7 @@ public sealed class FinalizePersonnelFileTests
             birthCountry: "SV",
             birthDepartment: null,
             birthMunicipality: null,
-            photoUrl: null,
+            photoFilePublicId: null,
             orgUnitPublicId: null,
             assignedPositionSlotPublicId: slotId);
         file.SetTenantId(TenantId);
@@ -338,7 +338,7 @@ public sealed class FinalizePersonnelFileTests
             null,
             file.BirthMunicipality,
             null,
-            file.PhotoUrl,
+            file.PhotoFilePublicId?.ToString(),
             file.OrgUnitPublicId,
             file.AssignedPositionSlotPublicId,
             file.LinkedUserPublicId,
@@ -493,7 +493,7 @@ public sealed class FinalizePersonnelFileTests
                         file.RecordType,
                         file.LifecycleStatus,
                         file.FullName,
-                        file.PhotoUrl,
+                        file.PhotoFilePublicId?.ToString(),
                         file.IsActive,
                         file.OrgUnitPublicId,
                         file.AssignedPositionSlotPublicId,

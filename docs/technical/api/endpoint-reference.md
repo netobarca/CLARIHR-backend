@@ -3166,7 +3166,7 @@ Observaciones funcionales:
 - `search` devuelve una proyeccion de tabla y ya no expone `birthDate` ni `concurrencyToken`; para mutaciones el cliente debe resolver primero el shell (`GET /api/v1/personnel-files/{publicId}`) o el detalle/seccion correspondiente.
 - listados y detalle exponen pares `Code + Name` resueltos para `MaritalStatus` y `Profession`; los nombres geograficos e identifications viven en endpoints de detalle o secciones.
 - listados, shell y exportes exponen `LifecycleStatus`, `AssignedPositionSlotId` y `LinkedUserId`.
-- `get by id` devuelve solo el shell del expediente: `id`, `companyId`, `recordType`, `lifecycleStatus`, `fullName`, `photoUrl`, `isActive`, `orgUnitId`, `assignedPositionSlotId`, `linkedUserId`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y `allowedActions`.
+- `get by id` devuelve solo el shell del expediente: `id`, `companyId`, `recordType`, `lifecycleStatus`, `fullName`, `photoFilePublicId`, `isActive`, `orgUnitId`, `assignedPositionSlotId`, `linkedUserId`, `concurrencyToken`, `createdAtUtc`, `modifiedAtUtc` y `allowedActions`.
 - `activate` e `inactivate` son transiciones soft-state, requieren `ConcurrencyToken` y devuelven el shell refrescado con el token nuevo.
 - `create`, `search`, `activate` e `inactivate` tienen rate limiting especifico del modulo y pueden devolver `429 Too Many Requests` con `ProblemDetails`.
 
@@ -3260,9 +3260,9 @@ Observaciones funcionales:
 - `POST` item-level responde `201` con el item creado. `PUT` item-level responde `200` con el item actualizado. Solo `personal-info` devuelve `PersonnelFileSectionResult<T>`.
 - `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite transiciones de `RecordType`.
 - `personal-info` tambien actualiza `AssignedPositionSlotId` mientras el expediente sigue en `Draft`; al completar el expediente, `AssignedPositionSlotId` e `InstitutionalEmail` quedan bloqueados.
-- `create` y `personal-info` aceptan `photoUrl` como `null`, URL `http/https` o `data:image/...;base64,...` para `png|jpg|jpeg|webp|svg+xml` (maximo `2 MB`); en `svg` se bloquea contenido activo (`script`, eventos inline y enlaces `javascript:`).
-- cuando `photoUrl` llega en base64, el backend sube la imagen al contenedor privado de Azure Blob, persiste la URL canonica del blob y reemplaza la foto anterior cuando aplica.
-- las respuestas de expediente exponen `photoUrl` como URL SAS temporal para que frontend pueda renderizar la imagen sin abrir el contenedor.
+- `create` y `personal-info` aceptan `photoFilePublicId` como `Guid?` que referencia un `StoredFile` previamente subido a traves de la API de file management (`POST /api/v1/files/upload-session` → upload directo → `POST /api/v1/files/{filePublicId}/complete`). El campo acepta `null` para borrar la foto o el `publicId` de un archivo activo con `purpose = profile-photo`.
+- el backend valida que el `StoredFile` referenciado exista, pertenezca al tenant y este en estado `Active`; si la foto anterior era otro `StoredFile`, el sistema marca el anterior para limpieza.
+- las respuestas de expediente exponen `photoFilePublicId` como `string?`; el result filter de la API resuelve internamente el `Guid` a una URL SAS temporal de lectura para que frontend pueda renderizar la imagen sin acceso directo al contenedor.
 - si `RecordType = Employee`, `AssignedPositionSlotId` sigue siendo obligatorio; si `RecordType = Candidate`, no puede enviarse.
 - `personal-info` valida que `maritalStatusCode`, `professionCode`, `birthCountryCode`, `birthDepartmentCode` y `birthMunicipalityCode` existan y esten activos segun catalogo global de referencia.
 - `identifications` valida que `identificationTypeCode` exista y este activo, y revalida unicidad tenant-wide por `IdentificationTypeCode + IdentificationNumber` normalizado.
@@ -3708,6 +3708,101 @@ Autorizacion: `Bearer` con `client_type=platform` y politica `PlatformOperator`.
 - `400 Bad Request`: validacion de campos (ej. `code` vacio, `sortOrder` invalido).
 - `401 Unauthorized`: autenticacion requerida.
 - `403 Forbidden`: rol de plataforma requerido (solo Backoffice).
+
+### 5.12 File Management
+
+#### 5.12.1 Alcance
+
+Este bloque cubre el controlador `FilesController` que administra el ciclo de vida de archivos de forma provider-agnostica.
+
+Route family:
+
+- `POST /api/v1/files/upload-session`
+- `POST /api/v1/files/{filePublicId}/complete`
+- `GET /api/v1/files/{filePublicId}/read-url`
+- `DELETE /api/v1/files/{filePublicId}`
+
+#### 5.12.2 Proposito funcional en CLARIHR
+
+`Files` centraliza la gestion de archivos binarios del sistema con subida directa del navegador al storage via URLs firmadas. Este modelo elimina la necesidad de enviar binarios a traves del backend y permite escalar a cualquier proveedor de almacenamiento.
+
+El primer caso de uso implementado es la imagen de perfil del expediente de personal (`purpose = profile-photo`), pero la infraestructura soporta cualquier proposito futuro.
+
+#### 5.12.3 Modelo operativo y reglas transversales
+
+- Todas las rutas requieren autenticacion.
+- Todo el bloque es tenant-scoped; el archivo se asocia al tenant activo del token.
+- El archivo pasa por un ciclo de vida: `PendingUpload` → `Active` → `Deleted` / `Failed`.
+- La subida es directa del navegador al storage: el backend genera una URL firmada de escritura y el frontend sube el binario directamente.
+- Un background job limpia archivos `PendingUpload` que expiran sin completarse.
+- Cada proposito (`purpose`) tiene reglas configurables de content type permitido, tamano maximo y contenedor de destino.
+
+#### 5.12.4 Flujo de subida de archivos
+
+1. Frontend llama `POST /api/v1/files/upload-session` con metadata (`fileName`, `contentType`, `sizeBytes`, `purpose`, `entityId` opcional).
+2. Backend valida las reglas del proposito, crea el `StoredFile` en estado `PendingUpload`, genera la URL firmada de escritura y responde con `filePublicId`, `uploadUrl`, `expiresUtc` y `requiredHeaders`.
+3. Frontend sube el binario directamente a `uploadUrl` usando los headers indicados.
+4. Frontend llama `POST /api/v1/files/{filePublicId}/complete`.
+5. Backend verifica que el objeto existe en storage, obtiene metadata real (tamano, content type) y marca el archivo como `Active`.
+6. Frontend usa el `filePublicId` resultante para asociar el archivo a la entidad destino (ej. `photoFilePublicId` en `create` o `personal-info` de personnel files).
+
+#### 5.12.5 Endpoints
+
+##### `POST /api/v1/files/upload-session`
+
+- Proposito: iniciar una sesion de subida directa.
+- Request body:
+  - `fileName` (string, requerido): nombre original del archivo.
+  - `contentType` (string, requerido): MIME type del archivo.
+  - `sizeBytes` (long, requerido): tamano en bytes.
+  - `purpose` (string, requerido): proposito del archivo (ej. `profile-photo`).
+  - `entityId` (uuid, opcional): referencia opcional a la entidad destino.
+- Response `200 OK`:
+  - `filePublicId` (uuid): identificador publico del archivo creado.
+  - `uploadUrl` (string): URL firmada para subida directa.
+  - `expiresUtc` (datetime): expiracion de la URL de subida.
+  - `requiredHeaders` (object): headers que el frontend debe enviar con el upload.
+- Errores: `400`, `401`, `413` (archivo demasiado grande), `422` (content type no permitido para el proposito).
+
+##### `POST /api/v1/files/{filePublicId}/complete`
+
+- Proposito: confirmar que la subida directa se completo exitosamente.
+- Response `200 OK`:
+  - `filePublicId` (uuid): identificador publico del archivo.
+  - `status` (string): estado resultante (`Active`).
+- Errores: `401`, `403` (no es el owner del archivo), `404`, `422` (archivo no en estado `PendingUpload` o no encontrado en storage).
+
+##### `GET /api/v1/files/{filePublicId}/read-url`
+
+- Proposito: obtener una URL temporal de solo lectura para acceder al archivo.
+- Response `200 OK`:
+  - `readUrl` (string): URL firmada de lectura.
+  - `expiresUtc` (datetime): expiracion de la URL de lectura.
+- Errores: `401`, `404`, `422` (archivo no activo).
+
+##### `DELETE /api/v1/files/{filePublicId}`
+
+- Proposito: marcar un archivo como eliminado logicamente.
+- Response `200 OK`:
+  - `filePublicId` (uuid): identificador publico del archivo.
+  - `status` (string): estado resultante (`Deleted`).
+- Errores: `401`, `403` (no es el owner del archivo), `404`.
+
+#### 5.12.6 Errores observables relevantes
+
+- `FILE_NOT_FOUND`: `404`, el archivo solicitado no existe.
+- `FILE_OWNERSHIP_MISMATCH`: `403`, el usuario autenticado no es el creador del archivo.
+- `FILE_NOT_PENDING_UPLOAD`: `422`, se intento completar un archivo que ya no esta en `PendingUpload`.
+- `FILE_UPLOAD_NOT_FOUND_IN_STORAGE`: `422`, el objeto no se encontro en el storage despues de la sesion de subida.
+- `FILE_NOT_ACTIVE`: `422`, se intento obtener read-url de un archivo no activo.
+- `FILE_CONTENT_TYPE_NOT_ALLOWED`: `422`, el content type no esta permitido para el proposito.
+- `FILE_SIZE_EXCEEDS_LIMIT`: `413`, el archivo excede el tamano maximo del proposito.
+- `FILE_PURPOSE_UNKNOWN`: `422`, el proposito solicitado no esta configurado.
+
+#### 5.12.7 Relacion con otros modulos
+
+- `PersonnelFiles` usa `purpose = profile-photo` para la imagen de perfil del expediente; el campo `photoFilePublicId` en `create` y `personal-info` referencia un `StoredFile` activo.
+- Futuros modulos pueden registrar nuevos propositos para documentos, evidencias u otros binarios sin cambiar la infraestructura de file management.
 
 ## 6. Reglas observables transversales
 

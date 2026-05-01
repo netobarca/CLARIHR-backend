@@ -43,6 +43,11 @@ using CLARIHR.Infrastructure.Locations;
 using CLARIHR.Infrastructure.OrgUnits;
 using CLARIHR.Infrastructure.OrgStructureCatalogs;
 using CLARIHR.Infrastructure.EducationCatalogs;
+using CLARIHR.Infrastructure.Files.Azure;
+using CLARIHR.Infrastructure.Files.Configuration;
+using CLARIHR.Infrastructure.Files;
+using CLARIHR.Infrastructure.Files.BackgroundJobs;
+using CLARIHR.Application.Abstractions.Files;
 using CLARIHR.Infrastructure.PersonnelFiles;
 using CLARIHR.Infrastructure.Preferences;
 using CLARIHR.Infrastructure.PositionDescriptionCatalogs;
@@ -71,6 +76,7 @@ public static class DependencyInjection
         services.Configure<PasswordResetOptions>(configuration.GetSection(PasswordResetOptions.SectionName));
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
         services.Configure<BlobStorageOptions>(configuration.GetSection(BlobStorageOptions.SectionName));
+        services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
         services.Configure<ReportPerformanceOptions>(configuration.GetSection(ReportPerformanceOptions.SectionName));
         services.Configure<FieldPermissionCacheOptions>(configuration.GetSection(FieldPermissionCacheOptions.SectionName));
         services.Configure<CompanyOwnershipOptions>(configuration.GetSection(CompanyOwnershipOptions.SectionName));
@@ -78,6 +84,7 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
 
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+        services.AddSingleton<BlobServiceClientFactory>();
         services.AddSingleton<IPasswordHasher, BuiltInPasswordHasher>();
         services.AddMemoryCache();
         services.AddSingleton<RefreshTokenHasher>();
@@ -172,8 +179,14 @@ public static class DependencyInjection
         services.AddScoped<IFieldAccessProfileService, FieldAccessProfileService>();
         services.AddScoped<IFieldPermissionService, FieldPermissionService>();
         services.AddSingleton<IFieldSerializationService, FieldSerializationService>();
+        services.AddScoped<IFileRepository, FileRepository>();
+        services.AddScoped<IFileStorageProvider, AzureBlobStorageProvider>();
+        services.AddScoped<IFileStorageProviderResolver, CompositeFileStorageProviderResolver>();
+        services.AddSingleton<IFilePurposeRuleProvider, FilePurposeRuleProvider>();
+        services.AddSingleton<IFileObjectKeyBuilder, FileObjectKeyBuilder>();
         services.AddHostedService<CompanySubscriptionLifecycleBackgroundService>();
         services.AddHostedService<ReportExportJobBackgroundService>();
+        services.AddHostedService<PendingFileCleanupBackgroundService>();
 
         services.AddDbContext<ApplicationDbContext>((serviceProvider, optionsBuilder) =>
         {

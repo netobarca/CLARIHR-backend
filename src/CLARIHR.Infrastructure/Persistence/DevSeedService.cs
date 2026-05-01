@@ -616,7 +616,7 @@ internal sealed class DevSeedService(
             institutionalEmail: "maria.gonzalez@clarihr-dev.test",
             personalPhone: "+503 7000-1234", institutionalPhone: "+503 2200-0001",
             birthCountry: "SV", birthDepartment: "San Salvador", birthMunicipality: "Apopa",
-            photoUrl: null, orgUnitPublicId: orgUnits[1].PublicId, assignedPositionSlotPublicId: null);
+            photoFilePublicId: null, orgUnitPublicId: orgUnits[1].PublicId, assignedPositionSlotPublicId: null);
         maria.SetTenantId(tenantId);
         maria.ReplaceIdentifications([
             PersonnelFileIdentification.Create("DUI", "00000000-0", SeedDate, null, "CNR", isPrimary: true),
@@ -653,7 +653,7 @@ internal sealed class DevSeedService(
             institutionalEmail: "carlos.ramirez@clarihr-dev.test",
             personalPhone: "+503 7111-2222", institutionalPhone: "+503 2200-0002",
             birthCountry: "SV", birthDepartment: "San Salvador", birthMunicipality: "Mejicanos",
-            photoUrl: null, orgUnitPublicId: orgUnits[0].PublicId, assignedPositionSlotPublicId: null);
+            photoFilePublicId: null, orgUnitPublicId: orgUnits[0].PublicId, assignedPositionSlotPublicId: null);
         carlos.SetTenantId(tenantId);
         carlos.ReplaceIdentifications([
             PersonnelFileIdentification.Create("DUI", "11111111-1", SeedDate, null, "CNR", isPrimary: true),
@@ -715,7 +715,7 @@ internal sealed class DevSeedService(
             institutionalEmail: "andrea.lopez@clarihr-dev.test",
             personalPhone: "+503 7222-3333", institutionalPhone: "+503 2200-0003",
             birthCountry: "SV", birthDepartment: "San Salvador", birthMunicipality: "San Salvador",
-            photoUrl: null, orgUnitPublicId: orgUnits[2].PublicId, assignedPositionSlotPublicId: null);
+            photoFilePublicId: null, orgUnitPublicId: orgUnits[2].PublicId, assignedPositionSlotPublicId: null);
         andrea.SetTenantId(tenantId);
         andrea.ReplaceIdentifications([
             PersonnelFileIdentification.Create("DUI", "22222222-2", SeedDate, null, "CNR", isPrimary: true),
@@ -765,7 +765,7 @@ internal sealed class DevSeedService(
             institutionalEmail: "jose.martinez@clarihr-dev.test",
             personalPhone: "+503 7333-4444", institutionalPhone: "+503 2200-0004",
             birthCountry: "SV", birthDepartment: "San Salvador", birthMunicipality: "Apopa",
-            photoUrl: null, orgUnitPublicId: orgUnits[1].PublicId, assignedPositionSlotPublicId: null);
+            photoFilePublicId: null, orgUnitPublicId: orgUnits[1].PublicId, assignedPositionSlotPublicId: null);
         jose.SetTenantId(tenantId);
         jose.ReplaceIdentifications([
             PersonnelFileIdentification.Create("DUI", "33333333-3", SeedDate, null, "CNR", isPrimary: true),
@@ -819,7 +819,7 @@ internal sealed class DevSeedService(
             institutionalEmail: null,
             personalPhone: "+502 5000-1234", institutionalPhone: null,
             birthCountry: "GT", birthDepartment: "Guatemala", birthMunicipality: "Guatemala City",
-            photoUrl: null, orgUnitPublicId: null, assignedPositionSlotPublicId: null);
+            photoFilePublicId: null, orgUnitPublicId: null, assignedPositionSlotPublicId: null);
         lucia.SetTenantId(tenantId);
         lucia.ReplaceIdentifications([
             PersonnelFileIdentification.Create("DPI", "1234567890101", SeedDate, null, "RENAP", isPrimary: true),

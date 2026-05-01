@@ -50,7 +50,7 @@ public sealed class CompanyBankCatalogsIntegrationTests(IntegrationTestWebApplic
             birthCountryCode = "SV",
             birthDepartmentCode = "SAN_SALVADOR",
             birthMunicipalityCode = "SAN_SALVADOR_CENTRO",
-            photoUrl = (string?)null,
+            photoFilePublicId = (Guid?)null,
             orgUnitPublicId = (Guid?)null,
             customDataJson = (string?)null
         });

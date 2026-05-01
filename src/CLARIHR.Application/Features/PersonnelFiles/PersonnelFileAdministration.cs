@@ -560,7 +560,7 @@ public sealed record CreatePersonnelFileCommand(
     string? BirthCountryCode,
     string? BirthDepartmentCode,
     string? BirthMunicipalityCode,
-    string? PhotoUrl,
+    Guid? PhotoFilePublicId,
     Guid? OrgUnitId,
     Guid? AssignedPositionSlotId)
     : ICommand<PersonnelFileShellResponse>;
@@ -581,7 +581,7 @@ public sealed record UpdatePersonnelFilePersonalInfoCommand(
     string? BirthCountryCode,
     string? BirthDepartmentCode,
     string? BirthMunicipalityCode,
-    string? PhotoUrl,
+    Guid? PhotoFilePublicId,
     Guid? OrgUnitId,
     Guid? AssignedPositionSlotId,
     Guid ConcurrencyToken)
@@ -3560,7 +3560,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
         PersonnelFileRecordType RecordType,
         PersonnelFileLifecycleStatus LifecycleStatus,
         string FullName,
-        string? PhotoUrl,
+        Guid? PhotoFilePublicId,
         bool IsActive,
         Guid? OrgUnitId,
         Guid? AssignedPositionSlotId,
@@ -3610,7 +3610,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
             command.BirthCountryCode,
             command.BirthDepartmentCode,
             command.BirthMunicipalityCode,
-            photoUrl: null,
+            photoFilePublicId: null,
             command.OrgUnitId,
             command.AssignedPositionSlotId);
         personnelFile.SetTenantId(command.CompanyId);
@@ -3618,8 +3618,8 @@ internal sealed class CreatePersonnelFileCommandHandler(
         var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
             command.CompanyId,
             personnelFile.PublicId,
-            command.PhotoUrl,
-            currentPersistedPhotoUrl: null,
+            command.PhotoFilePublicId,
+            currentPersistedPhotoFilePublicId: null,
             cancellationToken);
         if (photoWritePlanResult.IsFailure)
         {
@@ -3642,7 +3642,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
             command.BirthCountryCode,
             command.BirthDepartmentCode,
             command.BirthMunicipalityCode,
-            photoWritePlan.PersistedPhotoUrl,
+            photoWritePlan.PersistedPhotoFilePublicId,
             command.OrgUnitId,
             command.AssignedPositionSlotId);
 
@@ -3686,7 +3686,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
             personnelFile.RecordType,
             personnelFile.LifecycleStatus,
             personnelFile.FullName,
-            personnelFile.PhotoUrl,
+            personnelFile.PhotoFilePublicId?.ToString(),
             personnelFile.IsActive,
             personnelFile.OrgUnitPublicId,
             personnelFile.AssignedPositionSlotPublicId,
@@ -3702,7 +3702,7 @@ internal sealed class CreatePersonnelFileCommandHandler(
             personnelFile.RecordType,
             personnelFile.LifecycleStatus,
             personnelFile.FullName,
-            personnelFile.PhotoUrl,
+            personnelFile.PhotoFilePublicId,
             personnelFile.IsActive,
             personnelFile.OrgUnitPublicId,
             personnelFile.AssignedPositionSlotPublicId,
@@ -3774,8 +3774,8 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
         var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
             personnelFile.TenantId,
             personnelFile.PublicId,
-            command.PhotoUrl,
-            personnelFile.PhotoUrl,
+            command.PhotoFilePublicId,
+            personnelFile.PhotoFilePublicId,
             cancellationToken);
         if (photoWritePlanResult.IsFailure)
         {
@@ -3807,7 +3807,7 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
                     command.BirthCountryCode,
                     command.BirthDepartmentCode,
                     command.BirthMunicipalityCode,
-                    photoWritePlan.PersistedPhotoUrl,
+                    photoWritePlan.PersistedPhotoFilePublicId,
                     command.OrgUnitId,
                     command.AssignedPositionSlotId);
             }
@@ -8249,7 +8249,7 @@ internal sealed class ActivatePersonnelFileCommandHandler(
         PersonnelFileRecordType RecordType,
         PersonnelFileLifecycleStatus LifecycleStatus,
         string FullName,
-        string? PhotoUrl,
+        Guid? PhotoFilePublicId,
         bool IsActive,
         Guid? OrgUnitId,
         Guid? AssignedPositionSlotId,
@@ -8328,7 +8328,7 @@ internal sealed class ActivatePersonnelFileCommandHandler(
             personnelFile.RecordType,
             personnelFile.LifecycleStatus,
             personnelFile.FullName,
-            personnelFile.PhotoUrl,
+            personnelFile.PhotoFilePublicId?.ToString(),
             personnelFile.IsActive,
             personnelFile.OrgUnitPublicId,
             personnelFile.AssignedPositionSlotPublicId,
@@ -8344,7 +8344,7 @@ internal sealed class ActivatePersonnelFileCommandHandler(
             personnelFile.RecordType,
             personnelFile.LifecycleStatus,
             personnelFile.FullName,
-            personnelFile.PhotoUrl,
+            personnelFile.PhotoFilePublicId,
             personnelFile.IsActive,
             personnelFile.OrgUnitPublicId,
             personnelFile.AssignedPositionSlotPublicId,
@@ -8368,7 +8368,7 @@ internal sealed class InactivatePersonnelFileCommandHandler(
         PersonnelFileRecordType RecordType,
         PersonnelFileLifecycleStatus LifecycleStatus,
         string FullName,
-        string? PhotoUrl,
+        Guid? PhotoFilePublicId,
         bool IsActive,
         Guid? OrgUnitId,
         Guid? AssignedPositionSlotId,
@@ -8447,7 +8447,7 @@ internal sealed class InactivatePersonnelFileCommandHandler(
             personnelFile.RecordType,
             personnelFile.LifecycleStatus,
             personnelFile.FullName,
-            personnelFile.PhotoUrl,
+            personnelFile.PhotoFilePublicId?.ToString(),
             personnelFile.IsActive,
             personnelFile.OrgUnitPublicId,
             personnelFile.AssignedPositionSlotPublicId,
@@ -8463,7 +8463,7 @@ internal sealed class InactivatePersonnelFileCommandHandler(
             personnelFile.RecordType,
             personnelFile.LifecycleStatus,
             personnelFile.FullName,
-            personnelFile.PhotoUrl,
+            personnelFile.PhotoFilePublicId,
             personnelFile.IsActive,
             personnelFile.OrgUnitPublicId,
             personnelFile.AssignedPositionSlotPublicId,
