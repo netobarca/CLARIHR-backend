@@ -954,6 +954,11 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             "CURRICULUMDURATIONUNIT" => await GetCountryScopedCatalogItemsAsync<DurationUnitCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumDurationUnit", cancellationToken),
             "CURRICULUMREFERENCETYPE" => await GetCountryScopedCatalogItemsAsync<ReferenceTypeCatalogItem>(companyCountry.CountryCatalogItemId, "CurriculumReferenceType", cancellationToken),
             "CURRENCY" => await GetCountryScopedCatalogItemsAsync<CurrencyCatalogItem>(companyCountry.CountryCatalogItemId, "Currency", cancellationToken),
+            "CURRICULUMEDUCATIONSTATUS" => await GetSystemScopedCatalogItemsAsync<EducationStatusCatalogItem>("CurriculumEducationStatus", cancellationToken),
+            "CURRICULUMSTUDYTYPE" => await GetSystemScopedCatalogItemsAsync<EducationStudyTypeCatalogItem>("CurriculumStudyType", cancellationToken),
+            "CURRICULUMSHIFT" => await GetSystemScopedCatalogItemsAsync<EducationShiftCatalogItem>("CurriculumShift", cancellationToken),
+            "CURRICULUMMODALITY" => await GetSystemScopedCatalogItemsAsync<EducationModalityCatalogItem>("CurriculumModality", cancellationToken),
+            "CURRICULUMCAREER" => await GetSystemScopedCatalogItemsAsync<EducationCareerCatalogItem>("CurriculumCareer", cancellationToken),
             _ => []
         };
     }
@@ -1946,6 +1951,26 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .Select(file => file.LinkedUserPublicId!.Value)
             .Distinct()
             .ToArrayAsync(cancellationToken);
+
+    private Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetSystemScopedCatalogItemsAsync<TCatalogItem>(
+        string category,
+        CancellationToken cancellationToken)
+        where TCatalogItem : SystemScopedCatalogItem =>
+        dbContext.Set<TCatalogItem>()
+            .AsNoTracking()
+            .Where(item => item.IsActive)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new PersonnelCatalogItemResponse(
+                item.PublicId,
+                category,
+                item.Code,
+                item.Name,
+                true,
+                item.IsActive,
+                item.SortOrder))
+            .ToArrayAsync(cancellationToken)
+            .ContinueWith(static task => (IReadOnlyCollection<PersonnelCatalogItemResponse>)task.Result, cancellationToken);
 
     private Task<IReadOnlyCollection<PersonnelCatalogItemResponse>> GetCountryScopedCatalogItemsAsync<TCatalogItem>(
         long countryCatalogItemId,
