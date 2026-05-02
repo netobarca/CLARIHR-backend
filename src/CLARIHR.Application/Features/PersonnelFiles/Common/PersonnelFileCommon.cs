@@ -169,10 +169,7 @@ public static class PersonnelFileErrors
         "Personnel file document storage is not configured.",
         ErrorType.ServiceUnavailable);
 
-    public static readonly Error DocumentLoanDatesInvalid = new(
-        "PERSONNEL_FILE_DOCUMENT_DATES_INVALID",
-        "Document loan and return dates are invalid.",
-        ErrorType.UnprocessableEntity);
+
 
     public static readonly Error ExportFormatInvalid = new(
         "PERSONNEL_FILE_EXPORT_FORMAT_INVALID",

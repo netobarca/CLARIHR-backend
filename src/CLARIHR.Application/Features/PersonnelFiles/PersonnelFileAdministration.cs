@@ -214,9 +214,6 @@ public sealed record PersonnelFileDocumentMetadataResponse(
     string? DocumentTypeName,
     string DocumentType,
     string? Observations,
-    DateTime? DeliveryDate,
-    DateTime? LoanDate,
-    DateTime? ReturnDate,
     Guid FilePublicId,
     string FileName,
     string ContentType,
@@ -845,9 +842,6 @@ public sealed record UpdatePersonnelFileDocumentCommand(
     Guid DocumentPublicId,
     Guid DocumentTypeCatalogItemPublicId,
     string? Observations,
-    DateTime? DeliveryDate,
-    DateTime? LoanDate,
-    DateTime? ReturnDate,
     // null = only update metadata; present = replace file reference
     Guid? FilePublicId,
     Guid ConcurrencyToken)
@@ -870,9 +864,6 @@ public sealed record AddPersonnelFileDocumentCommand(
     Guid FilePublicId,
     Guid DocumentTypeCatalogItemPublicId,
     string? Observations,
-    DateTime? DeliveryDate,
-    DateTime? LoanDate,
-    DateTime? ReturnDate,
     Guid ConcurrencyToken)
     : ICommand<PersonnelFileDocumentMetadataResponse>;
 
@@ -1856,9 +1847,6 @@ internal sealed class AddPersonnelFileDocumentCommandValidator : AbstractValidat
         RuleFor(command => command.FilePublicId).NotEmpty();
         RuleFor(command => command.DocumentTypeCatalogItemPublicId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
-        RuleFor(command => command)
-            .Must(static command => !command.LoanDate.HasValue || !command.ReturnDate.HasValue || command.ReturnDate.Value.Date >= command.LoanDate.Value.Date)
-            .WithMessage(PersonnelFileErrors.DocumentLoanDatesInvalid.Message);
     }
 }
 
@@ -1871,9 +1859,6 @@ internal sealed class UpdatePersonnelFileDocumentCommandValidator : AbstractVali
         RuleFor(command => command.DocumentTypeCatalogItemPublicId).NotEmpty();
         RuleFor(command => command.Observations).MaximumLength(1000);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
-        RuleFor(command => command)
-            .Must(static command => !command.LoanDate.HasValue || !command.ReturnDate.HasValue || command.ReturnDate.Value.Date >= command.LoanDate.Value.Date)
-            .WithMessage(PersonnelFileErrors.DocumentLoanDatesInvalid.Message);
     }
 }
 
@@ -8539,25 +8524,14 @@ internal sealed class AddPersonnelFileDocumentCommandHandler(
 
         var documentId = Guid.NewGuid();
 
-        PersonnelFileDocument document;
-        try
-        {
-            document = PersonnelFileDocument.Create(
-                documentId,
-                documentTypeLookup.InternalId,
-                storedFile.PublicId,
-                storedFile.FileName,
-                storedFile.ContentType,
-                (int)storedFile.SizeBytes,
-                command.Observations,
-                command.DeliveryDate,
-                command.LoanDate,
-                command.ReturnDate);
-        }
-        catch (InvalidOperationException)
-        {
-            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentLoanDatesInvalid);
-        }
+        var document = PersonnelFileDocument.Create(
+            documentId,
+            documentTypeLookup.InternalId,
+            storedFile.PublicId,
+            storedFile.FileName,
+            storedFile.ContentType,
+            (int)storedFile.SizeBytes,
+            command.Observations);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -8679,19 +8653,9 @@ internal sealed class UpdatePersonnelFileDocumentCommandHandler(
                 }));
         }
 
-        try
-        {
-            document.UpdateMetadata(
-                documentTypeLookup.InternalId,
-                command.Observations,
-                command.DeliveryDate,
-                command.LoanDate,
-                command.ReturnDate);
-        }
-        catch (InvalidOperationException)
-        {
-            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentLoanDatesInvalid);
-        }
+        document.UpdateMetadata(
+            documentTypeLookup.InternalId,
+            command.Observations);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try

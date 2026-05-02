@@ -5,6 +5,7 @@ using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.Banks;
+using CLARIHR.Domain.DocumentTypeCatalogs;
 using CLARIHR.Domain.EducationCatalogs;
 using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.PersonnelFiles;
@@ -463,9 +464,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                     item.DocumentTypeCatalogItem?.Name,
                     item.DocumentType,
                     item.Observations,
-                    item.DeliveryDate,
-                    item.LoanDate,
-                    item.ReturnDate,
                     item.FilePublicId,
                     item.FileName,
                     item.ContentType,
@@ -885,9 +883,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 item.DocumentTypeCatalogItem != null ? item.DocumentTypeCatalogItem.Name : null,
                 item.DocumentType,
                 item.Observations,
-                item.DeliveryDate,
-                item.LoanDate,
-                item.ReturnDate,
                 item.FilePublicId,
                 item.FileName,
                 item.ContentType,
@@ -911,9 +906,6 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 item.DocumentTypeCatalogItem != null ? item.DocumentTypeCatalogItem.Name : null,
                 item.DocumentType,
                 item.Observations,
-                item.DeliveryDate,
-                item.LoanDate,
-                item.ReturnDate,
                 item.FilePublicId,
                 item.FileName,
                 item.ContentType,
@@ -968,6 +960,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             "CURRICULUMSHIFT" => await GetSystemScopedCatalogItemsAsync<EducationShiftCatalogItem>("CurriculumShift", cancellationToken),
             "CURRICULUMMODALITY" => await GetSystemScopedCatalogItemsAsync<EducationModalityCatalogItem>("CurriculumModality", cancellationToken),
             "CURRICULUMCAREER" => await GetSystemScopedCatalogItemsAsync<EducationCareerCatalogItem>("CurriculumCareer", cancellationToken),
+            "FILEDOCUMENTTYPE" => await GetSystemScopedCatalogItemsAsync<DocumentTypeCatalogItem>("FileDocumentType", cancellationToken),
+            "BANK" => await GetCountryScopedCatalogItemsAsync<BankCatalogItem>(companyCountry.CountryCatalogItemId, "Bank", cancellationToken),
             _ => []
         };
     }

@@ -66,9 +66,6 @@ public sealed class PersonnelFileDocumentsController(
                 request.FilePublicId,
                 request.DocumentTypeCatalogItemPublicId,
                 request.Observations,
-                request.DeliveryDate,
-                request.LoanDate,
-                request.ReturnDate,
                 request.ConcurrencyToken),
             cancellationToken);
 
@@ -97,9 +94,6 @@ public sealed class PersonnelFileDocumentsController(
                 documentPublicId,
                 request.DocumentTypeCatalogItemPublicId,
                 request.Observations,
-                request.DeliveryDate,
-                request.LoanDate,
-                request.ReturnDate,
                 request.FilePublicId,
                 request.ConcurrencyToken),
             cancellationToken);
