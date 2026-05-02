@@ -5,6 +5,7 @@ using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Banks;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.EducationCatalogs;
+using CLARIHR.Application.Abstractions.DocumentTypeCatalogs;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Policies;
@@ -206,6 +207,9 @@ public sealed record PersonnelFileReferenceResponse(
 
 public sealed record PersonnelFileDocumentMetadataResponse(
     Guid Id,
+    Guid? DocumentTypeCatalogItemPublicId,
+    string? DocumentTypeCode,
+    string? DocumentTypeName,
     string DocumentType,
     string? Observations,
     DateTime? DeliveryDate,
@@ -837,7 +841,7 @@ public sealed record DeletePersonnelFileReferenceCommand(
 public sealed record UpdatePersonnelFileDocumentCommand(
     Guid PersonnelFileId,
     Guid DocumentPublicId,
-    string DocumentType,
+    Guid DocumentTypeCatalogItemPublicId,
     string? Observations,
     DateTime? DeliveryDate,
     DateTime? LoanDate,
@@ -863,7 +867,7 @@ public sealed record InactivatePersonnelFileCommand(Guid PersonnelFileId, Guid C
 
 public sealed record UploadPersonnelFileDocumentCommand(
     Guid PersonnelFileId,
-    string DocumentType,
+    Guid DocumentTypeCatalogItemPublicId,
     string? Observations,
     DateTime? DeliveryDate,
     DateTime? LoanDate,
@@ -1851,7 +1855,7 @@ internal sealed class UploadPersonnelFileDocumentCommandValidator : AbstractVali
     public UploadPersonnelFileDocumentCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.DocumentType).NotEmpty().MaximumLength(100);
+        RuleFor(command => command.DocumentTypeCatalogItemPublicId).NotEmpty();
         RuleFor(command => command.FileName).NotEmpty().MaximumLength(260);
         RuleFor(command => command.ContentType).NotEmpty().MaximumLength(200);
         RuleFor(command => command.FileData).NotNull().Must(static data => data.Length > 0).WithMessage("FileData is required.");
@@ -1868,7 +1872,7 @@ internal sealed class UpdatePersonnelFileDocumentCommandValidator : AbstractVali
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.DocumentPublicId).NotEmpty();
-        RuleFor(command => command.DocumentType).NotEmpty().MaximumLength(100);
+        RuleFor(command => command.DocumentTypeCatalogItemPublicId).NotEmpty();
         RuleFor(command => command.Observations).MaximumLength(1000);
         RuleFor(command => command.FileName).MaximumLength(260).When(command => command.FileName is not null);
         RuleFor(command => command.ContentType).MaximumLength(200).When(command => command.ContentType is not null);
@@ -8477,6 +8481,7 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
     IPersonnelFileDocumentStorageService documentStorageService,
+    IDocumentTypeCatalogRepository documentTypeCatalogRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -8527,6 +8532,17 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
+        var documentTypeLookup = await documentTypeCatalogRepository.GetActiveLookupByIdAsync(
+            command.DocumentTypeCatalogItemPublicId, cancellationToken);
+        if (documentTypeLookup is null)
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(
+                ErrorCatalog.Validation(new Dictionary<string, string[]>
+                {
+                    ["documentTypeCatalogItemPublicId"] = ["The specified document type does not exist or is inactive."]
+                }));
+        }
+
         var shaBytes = SHA256.HashData(command.FileData);
         var sha256 = Convert.ToHexString(shaBytes).ToLowerInvariant();
         var documentId = Guid.NewGuid();
@@ -8546,7 +8562,7 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
 
             document = PersonnelFileDocument.Create(
                 documentId,
-                command.DocumentType,
+                documentTypeLookup.InternalId,
                 command.Observations,
                 command.DeliveryDate,
                 command.LoanDate,
@@ -8603,6 +8619,7 @@ internal sealed class UpdatePersonnelFileDocumentCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
     IPersonnelFileDocumentStorageService documentStorageService,
+    IDocumentTypeCatalogRepository documentTypeCatalogRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -8666,13 +8683,24 @@ internal sealed class UpdatePersonnelFileDocumentCommandHandler(
                     : PersonnelFileErrors.DocumentNotFound);
         }
 
+        var documentTypeLookup = await documentTypeCatalogRepository.GetActiveLookupByIdAsync(
+            command.DocumentTypeCatalogItemPublicId, cancellationToken);
+        if (documentTypeLookup is null)
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(
+                ErrorCatalog.Validation(new Dictionary<string, string[]>
+                {
+                    ["documentTypeCatalogItemPublicId"] = ["The specified document type does not exist or is inactive."]
+                }));
+        }
+
         PersonnelFileStoredDocumentArtifact? storedArtifact = null;
         string? previousBlobName = replaceFile ? document.BlobName : null;
 
         try
         {
             document.UpdateMetadata(
-                command.DocumentType,
+                documentTypeLookup.InternalId,
                 command.Observations,
                 command.DeliveryDate,
                 command.LoanDate,

@@ -1342,4 +1342,64 @@
   <data name="validation.message.filedata_is_required_for_new_documents" xml:space="preserve">
     <value>El archivo es obligatorio al crear un nuevo documento.</value>
   </data>
+  <data name="files.not_found" xml:space="preserve">
+    <value>El archivo solicitado no fue encontrado.</value>
+  </data>
+  <data name="files.not_active" xml:space="preserve">
+    <value>El archivo no esta en un estado activo.</value>
+  </data>
+  <data name="files.not_pending_upload" xml:space="preserve">
+    <value>El archivo no esta pendiente de carga.</value>
+  </data>
+  <data name="files.ownership_mismatch" xml:space="preserve">
+    <value>No eres propietario de este archivo.</value>
+  </data>
+  <data name="files.tenant_mismatch" xml:space="preserve">
+    <value>El archivo no pertenece a tu organizacion.</value>
+  </data>
+  <data name="files.provider_not_configured" xml:space="preserve">
+    <value>El proveedor de almacenamiento no esta configurado.</value>
+  </data>
+  <data name="files.purpose_not_configured" xml:space="preserve">
+    <value>No hay reglas configuradas para el proposito de archivo especificado.</value>
+  </data>
+  <data name="files.too_large" xml:space="preserve">
+    <value>El archivo excede el tamano maximo permitido.</value>
+  </data>
+  <data name="files.content_type_not_allowed" xml:space="preserve">
+    <value>El tipo de contenido no esta permitido para este proposito.</value>
+  </data>
+  <data name="files.extension_not_allowed" xml:space="preserve">
+    <value>La extension del archivo no esta permitida para este proposito.</value>
+  </data>
+  <data name="files.upload_not_found" xml:space="preserve">
+    <value>El archivo cargado no fue encontrado en el almacenamiento. La carga pudo haber fallado o la sesion expiro.</value>
+  </data>
+  <data name="files.invalid_purpose" xml:space="preserve">
+    <value>El valor especificado no es un proposito de archivo valido.</value>
+  </data>
+  <data name="DOCUMENT_TYPE_CATALOG_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar el elemento del catalogo de tipos de documento solicitado.</value>
+  </data>
+  <data name="DOCUMENT_TYPE_CATALOG_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro elemento del catalogo de tipos de documento ya usa el codigo solicitado.</value>
+  </data>
+  <data name="DOCUMENT_TYPE_CATALOG_ITEM_IN_USE" xml:space="preserve">
+    <value>El elemento del catalogo de tipos de documento esta en uso y no puede ser inactivado.</value>
+  </data>
+  <data name="validation.message.filename_and_contenttype_are_required_when_replacing_the_file" xml:space="preserve">
+    <value>FileName y ContentType son requeridos al reemplazar el archivo.</value>
+  </data>
+  <data name="EDUCATION_CATALOG_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar el elemento del catalogo de educacion solicitado.</value>
+  </data>
+  <data name="EDUCATION_CATALOG_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro elemento del catalogo de educacion ya usa el codigo solicitado.</value>
+  </data>
+  <data name="EDUCATION_CATALOG_ITEM_IN_USE" xml:space="preserve">
+    <value>El elemento del catalogo de educacion esta en uso y no puede ser inactivado.</value>
+  </data>
+  <data name="PERSONNEL_FILE_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar el elemento solicitado en este expediente de personal.</value>
+  </data>
 </root>

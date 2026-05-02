@@ -2277,7 +2277,7 @@ public sealed class PersonnelFileDocument : TenantEntity
 
     private PersonnelFileDocument(
         Guid publicId,
-        string documentType,
+        long documentTypeCatalogItemId,
         string? observations,
         DateTime? deliveryDate,
         DateTime? loanDate,
@@ -2294,8 +2294,13 @@ public sealed class PersonnelFileDocument : TenantEntity
             throw new InvalidOperationException("ReturnDate cannot be earlier than LoanDate.");
         }
 
+        if (documentTypeCatalogItemId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
+        }
+
         PublicId = publicId;
-        DocumentType = PersonnelFileNormalization.Clean(documentType, nameof(documentType));
+        DocumentTypeCatalogItemId = documentTypeCatalogItemId;
         Observations = PersonnelFileNormalization.CleanOptional(observations);
         DeliveryDate = PersonnelFileNormalization.NormalizeDate(deliveryDate);
         LoanDate = PersonnelFileNormalization.NormalizeDate(loanDate);
@@ -2314,6 +2319,13 @@ public sealed class PersonnelFileDocument : TenantEntity
 
     public PersonnelFile PersonnelFile { get; private set; } = null!;
 
+    public long DocumentTypeCatalogItemId { get; private set; }
+
+    public DocumentTypeCatalogs.DocumentTypeCatalogItem? DocumentTypeCatalogItem { get; private set; }
+
+    /// <summary>
+    /// Legacy string field kept for data migration. Not set in new Create/Update flows.
+    /// </summary>
     public string DocumentType { get; private set; } = string.Empty;
 
     public string? Observations { get; private set; }
@@ -2342,7 +2354,7 @@ public sealed class PersonnelFileDocument : TenantEntity
 
     public static PersonnelFileDocument Create(
         Guid publicId,
-        string documentType,
+        long documentTypeCatalogItemId,
         string? observations,
         DateTime? deliveryDate,
         DateTime? loanDate,
@@ -2353,7 +2365,7 @@ public sealed class PersonnelFileDocument : TenantEntity
         string contentType,
         int sizeBytes,
         string sha256) =>
-        new(publicId, documentType, observations, deliveryDate, loanDate, returnDate, blobName, blobUrl, fileName, contentType, sizeBytes, sha256);
+        new(publicId, documentTypeCatalogItemId, observations, deliveryDate, loanDate, returnDate, blobName, blobUrl, fileName, contentType, sizeBytes, sha256);
 
     public void ReplaceFile(
         string blobName,
@@ -2373,7 +2385,7 @@ public sealed class PersonnelFileDocument : TenantEntity
     }
 
     public void UpdateMetadata(
-        string documentType,
+        long documentTypeCatalogItemId,
         string? observations,
         DateTime? deliveryDate,
         DateTime? loanDate,
@@ -2384,7 +2396,12 @@ public sealed class PersonnelFileDocument : TenantEntity
             throw new InvalidOperationException("ReturnDate cannot be earlier than LoanDate.");
         }
 
-        DocumentType = PersonnelFileNormalization.Clean(documentType, nameof(documentType));
+        if (documentTypeCatalogItemId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
+        }
+
+        DocumentTypeCatalogItemId = documentTypeCatalogItemId;
         Observations = PersonnelFileNormalization.CleanOptional(observations);
         DeliveryDate = PersonnelFileNormalization.NormalizeDate(deliveryDate);
         LoanDate = PersonnelFileNormalization.NormalizeDate(loanDate);

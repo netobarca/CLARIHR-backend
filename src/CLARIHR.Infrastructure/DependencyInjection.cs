@@ -14,6 +14,7 @@ using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.OrgUnits;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.EducationCatalogs;
+using CLARIHR.Application.Abstractions.DocumentTypeCatalogs;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Platform;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
@@ -151,6 +152,7 @@ public static class DependencyInjection
         services.AddScoped<LegalRepresentativeRepresentationTypeCatalogSeedService>();
         services.AddScoped<IPersonnelFileRepository, PersonnelFileRepository>();
         services.AddScoped<IEducationCatalogRepository, EducationCatalogRepository>();
+        services.AddScoped<IDocumentTypeCatalogRepository, DocumentTypeCatalogs.DocumentTypeCatalogRepository>();
         services.AddScoped<IPersonnelFileProfilePhotoService, PersonnelFileProfilePhotoService>();
         services.AddScoped<IPersonnelFileDocumentStorageService, PersonnelFileDocumentStorageService>();
         services.AddScoped<IPersonnelFileEmployeeRepository, PersonnelFileEmployeeRepository>();

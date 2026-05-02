@@ -77,7 +77,7 @@ public sealed class PersonnelFileDocumentsController(
         var result = await commandDispatcher.SendAsync(
             new UploadPersonnelFileDocumentCommand(
                 publicId,
-                request.DocumentType,
+                request.DocumentTypeCatalogItemPublicId,
                 request.Observations,
                 request.DeliveryDate,
                 request.LoanDate,
@@ -133,7 +133,7 @@ public sealed class PersonnelFileDocumentsController(
             new UpdatePersonnelFileDocumentCommand(
                 publicId,
                 documentPublicId,
-                request.DocumentType,
+                request.DocumentTypeCatalogItemPublicId,
                 request.Observations,
                 request.DeliveryDate,
                 request.LoanDate,

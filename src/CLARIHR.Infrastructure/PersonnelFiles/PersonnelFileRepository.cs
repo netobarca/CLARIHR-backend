@@ -458,6 +458,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 .OrderByDescending(item => item.CreatedUtc)
                 .Select(item => new PersonnelFileDocumentMetadataResponse(
                     item.PublicId,
+                    item.DocumentTypeCatalogItem?.PublicId,
+                    item.DocumentTypeCatalogItem?.Code,
+                    item.DocumentTypeCatalogItem?.Name,
                     item.DocumentType,
                     item.Observations,
                     item.DeliveryDate,
@@ -877,6 +880,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .OrderByDescending(item => item.CreatedUtc)
             .Select(item => new PersonnelFileDocumentMetadataResponse(
                 item.PublicId,
+                item.DocumentTypeCatalogItem != null ? item.DocumentTypeCatalogItem.PublicId : null,
+                item.DocumentTypeCatalogItem != null ? item.DocumentTypeCatalogItem.Code : null,
+                item.DocumentTypeCatalogItem != null ? item.DocumentTypeCatalogItem.Name : null,
                 item.DocumentType,
                 item.Observations,
                 item.DeliveryDate,
@@ -900,6 +906,9 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             .Where(item => item.PublicId == documentId)
             .Select(item => new PersonnelFileDocumentMetadataResponse(
                 item.PublicId,
+                item.DocumentTypeCatalogItem != null ? item.DocumentTypeCatalogItem.PublicId : null,
+                item.DocumentTypeCatalogItem != null ? item.DocumentTypeCatalogItem.Code : null,
+                item.DocumentTypeCatalogItem != null ? item.DocumentTypeCatalogItem.Name : null,
                 item.DocumentType,
                 item.Observations,
                 item.DeliveryDate,
