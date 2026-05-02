@@ -154,7 +154,6 @@ public static class DependencyInjection
         services.AddScoped<IEducationCatalogRepository, EducationCatalogRepository>();
         services.AddScoped<IDocumentTypeCatalogRepository, DocumentTypeCatalogs.DocumentTypeCatalogRepository>();
         services.AddScoped<IPersonnelFileProfilePhotoService, PersonnelFileProfilePhotoService>();
-        services.AddScoped<IPersonnelFileDocumentStorageService, PersonnelFileDocumentStorageService>();
         services.AddScoped<IPersonnelFileEmployeeRepository, PersonnelFileEmployeeRepository>();
         services.AddScoped<IPersonnelFileAuthorizationService, PersonnelFileAuthorizationService>();
         services.AddScoped<ISalaryTabulatorRepository, SalaryTabulatorRepository>();

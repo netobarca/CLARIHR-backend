@@ -2278,16 +2278,14 @@ public sealed class PersonnelFileDocument : TenantEntity
     private PersonnelFileDocument(
         Guid publicId,
         long documentTypeCatalogItemId,
-        string? observations,
-        DateTime? deliveryDate,
-        DateTime? loanDate,
-        DateTime? returnDate,
-        string blobName,
-        string blobUrl,
+        Guid filePublicId,
         string fileName,
         string contentType,
         int sizeBytes,
-        string sha256)
+        string? observations,
+        DateTime? deliveryDate,
+        DateTime? loanDate,
+        DateTime? returnDate)
     {
         if (loanDate.HasValue && returnDate.HasValue && returnDate.Value.Date < loanDate.Value.Date)
         {
@@ -2299,18 +2297,21 @@ public sealed class PersonnelFileDocument : TenantEntity
             throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
         }
 
+        if (filePublicId == Guid.Empty)
+        {
+            throw new ArgumentException("File public id must not be empty.", nameof(filePublicId));
+        }
+
         PublicId = publicId;
         DocumentTypeCatalogItemId = documentTypeCatalogItemId;
+        FilePublicId = filePublicId;
+        FileName = PersonnelFileNormalization.Clean(fileName, nameof(fileName));
+        ContentType = PersonnelFileNormalization.Clean(contentType, nameof(contentType));
+        SizeBytes = sizeBytes;
         Observations = PersonnelFileNormalization.CleanOptional(observations);
         DeliveryDate = PersonnelFileNormalization.NormalizeDate(deliveryDate);
         LoanDate = PersonnelFileNormalization.NormalizeDate(loanDate);
         ReturnDate = PersonnelFileNormalization.NormalizeDate(returnDate);
-        BlobName = PersonnelFileNormalization.Clean(blobName, nameof(blobName));
-        BlobUrl = PersonnelFileNormalization.Clean(blobUrl, nameof(blobUrl));
-        FileName = PersonnelFileNormalization.Clean(fileName, nameof(fileName));
-        ContentType = PersonnelFileNormalization.Clean(contentType, nameof(contentType));
-        SizeBytes = sizeBytes;
-        Sha256 = PersonnelFileNormalization.Clean(sha256, nameof(sha256));
         IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
@@ -2328,6 +2329,8 @@ public sealed class PersonnelFileDocument : TenantEntity
     /// </summary>
     public string DocumentType { get; private set; } = string.Empty;
 
+    public Guid FilePublicId { get; private set; }
+
     public string? Observations { get; private set; }
 
     public DateTime? DeliveryDate { get; private set; }
@@ -2336,17 +2339,11 @@ public sealed class PersonnelFileDocument : TenantEntity
 
     public DateTime? ReturnDate { get; private set; }
 
-    public string BlobName { get; private set; } = string.Empty;
-
-    public string BlobUrl { get; private set; } = string.Empty;
-
     public string FileName { get; private set; } = string.Empty;
 
     public string ContentType { get; private set; } = string.Empty;
 
     public int SizeBytes { get; private set; }
-
-    public string Sha256 { get; private set; } = string.Empty;
 
     public bool IsActive { get; private set; }
 
@@ -2355,32 +2352,32 @@ public sealed class PersonnelFileDocument : TenantEntity
     public static PersonnelFileDocument Create(
         Guid publicId,
         long documentTypeCatalogItemId,
+        Guid filePublicId,
+        string fileName,
+        string contentType,
+        int sizeBytes,
         string? observations,
         DateTime? deliveryDate,
         DateTime? loanDate,
-        DateTime? returnDate,
-        string blobName,
-        string blobUrl,
-        string fileName,
-        string contentType,
-        int sizeBytes,
-        string sha256) =>
-        new(publicId, documentTypeCatalogItemId, observations, deliveryDate, loanDate, returnDate, blobName, blobUrl, fileName, contentType, sizeBytes, sha256);
+        DateTime? returnDate) =>
+        new(publicId, documentTypeCatalogItemId, filePublicId, fileName, contentType, sizeBytes,
+            observations, deliveryDate, loanDate, returnDate);
 
-    public void ReplaceFile(
-        string blobName,
-        string blobUrl,
+    public void ReplaceFileReference(
+        Guid filePublicId,
         string fileName,
         string contentType,
-        int sizeBytes,
-        string sha256)
+        int sizeBytes)
     {
-        BlobName = PersonnelFileNormalization.Clean(blobName, nameof(blobName));
-        BlobUrl = PersonnelFileNormalization.Clean(blobUrl, nameof(blobUrl));
+        if (filePublicId == Guid.Empty)
+        {
+            throw new ArgumentException("File public id must not be empty.", nameof(filePublicId));
+        }
+
+        FilePublicId = filePublicId;
         FileName = PersonnelFileNormalization.Clean(fileName, nameof(fileName));
         ContentType = PersonnelFileNormalization.Clean(contentType, nameof(contentType));
         SizeBytes = sizeBytes;
-        Sha256 = PersonnelFileNormalization.Clean(sha256, nameof(sha256));
         ConcurrencyToken = Guid.NewGuid();
     }
 

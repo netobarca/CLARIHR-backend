@@ -762,16 +762,14 @@ internal sealed class PersonnelFileDocumentConfiguration : IEntityTypeConfigurat
         builder.Property(item => item.PublicId).HasColumnName("public_id");
         builder.Property(item => item.DocumentTypeCatalogItemId).HasColumnName("document_type_catalog_item_id");
         builder.Property(item => item.DocumentType).HasColumnName("document_type").HasMaxLength(100);
+        builder.Property(item => item.FilePublicId).HasColumnName("file_public_id");
         builder.Property(item => item.Observations).HasColumnName("observations").HasMaxLength(2000);
         builder.Property(item => item.DeliveryDate).HasColumnName("delivery_date");
         builder.Property(item => item.LoanDate).HasColumnName("loan_date");
         builder.Property(item => item.ReturnDate).HasColumnName("return_date");
-        builder.Property(item => item.BlobName).HasColumnName("blob_name").HasMaxLength(1000);
-        builder.Property(item => item.BlobUrl).HasColumnName("blob_url").HasMaxLength(1000);
         builder.Property(item => item.FileName).HasColumnName("file_name").HasMaxLength(260);
         builder.Property(item => item.ContentType).HasColumnName("content_type").HasMaxLength(200);
         builder.Property(item => item.SizeBytes).HasColumnName("size_bytes");
-        builder.Property(item => item.Sha256).HasColumnName("sha256").HasMaxLength(64);
         builder.Property(item => item.IsActive).HasColumnName("is_active");
         builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
@@ -792,6 +790,9 @@ internal sealed class PersonnelFileDocumentConfiguration : IEntityTypeConfigurat
 
         builder.HasIndex(item => item.DocumentTypeCatalogItemId)
             .HasDatabaseName("ix_personnel_file_documents__document_type_catalog_item_id");
+
+        builder.HasIndex(item => item.FilePublicId)
+            .HasDatabaseName("ix_personnel_file_documents__file_public_id");
     }
 }
 

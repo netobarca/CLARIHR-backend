@@ -1,5 +1,4 @@
 using CLARIHR.Application.Abstractions.Companies;
-using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -7,7 +6,6 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CLARIHR.Api.IntegrationTests;
 
@@ -15,7 +13,6 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
 {
     private readonly SemaphoreSlim _resetLock = new(1, 1);
     private readonly string _connectionString;
-    internal InMemoryPersonnelFileDocumentStorageService DocumentStorage { get; } = new();
 
     public IntegrationTestWebApplicationFactory()
     {
@@ -42,10 +39,6 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
 
         builder.ConfigureServices(services =>
         {
-            services.RemoveAll<IPersonnelFileDocumentStorageService>();
-            services.AddSingleton(DocumentStorage);
-            services.AddSingleton<IPersonnelFileDocumentStorageService>(DocumentStorage);
-
             services.AddAuthentication(static options =>
                 {
                     options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;
@@ -99,8 +92,6 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
             var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
             await planEntitlementService.EnsureSystemPlanDefaultsAsync(CancellationToken.None);
 
-            DocumentStorage.Clear();
-
             var scenario = await IntegrationTestSeeder.SeedAsync(dbContext);
             if (customSeed is not null)
             {
@@ -131,8 +122,6 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
             var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
             await planEntitlementService.EnsureSystemPlanDefaultsAsync(CancellationToken.None);
 
-            DocumentStorage.Clear();
-
             var scenario = await IntegrationTestSeeder.SeedAsync(dbContext);
             await customSeed(scope.ServiceProvider, dbContext);
             await dbContext.SaveChangesAsync();
@@ -144,105 +133,4 @@ public sealed class IntegrationTestWebApplicationFactory : WebApplicationFactory
             _resetLock.Release();
         }
     }
-}
-
-internal sealed class InMemoryPersonnelFileDocumentStorageService : IPersonnelFileDocumentStorageService
-{
-    private readonly Dictionary<string, StoredBlob> _blobs = new(StringComparer.Ordinal);
-    private int _uploadCount;
-    private int _deleteCount;
-
-    public bool IsConfigured => true;
-
-    public int BlobCount
-    {
-        get
-        {
-            lock (_blobs)
-            {
-                return _blobs.Count;
-            }
-        }
-    }
-
-    public int UploadCount
-    {
-        get
-        {
-            lock (_blobs)
-            {
-                return _uploadCount;
-            }
-        }
-    }
-
-    public int DeleteCount
-    {
-        get
-        {
-            lock (_blobs)
-            {
-                return _deleteCount;
-            }
-        }
-    }
-
-    public void Clear()
-    {
-        lock (_blobs)
-        {
-            _blobs.Clear();
-            _uploadCount = 0;
-            _deleteCount = 0;
-        }
-    }
-
-    public Task<PersonnelFileStoredDocumentArtifact> UploadAsync(
-        Guid tenantId,
-        Guid personnelFileId,
-        Guid documentId,
-        string fileName,
-        string contentType,
-        byte[] content,
-        CancellationToken cancellationToken)
-    {
-        var safeFileName = Path.GetFileName(fileName).Trim();
-        var blobName = $"companies/{tenantId:D}/personnel-files/{personnelFileId:D}/documents/{documentId:D}/{safeFileName}";
-
-        lock (_blobs)
-        {
-            _blobs[blobName] = new StoredBlob(content.ToArray(), contentType);
-            _uploadCount++;
-        }
-
-        return Task.FromResult(new PersonnelFileStoredDocumentArtifact(
-            blobName,
-            $"https://integration.local/clarihr-personnel-documents/{blobName}",
-            content.LongLength));
-    }
-
-    public Task<string?> ResolveForReadAsync(string? persistedBlobUrl, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(persistedBlobUrl))
-        {
-            return Task.FromResult<string?>(null);
-        }
-
-        return Task.FromResult<string?>($"{persistedBlobUrl.Trim()}?sig=fake");
-    }
-
-    public Task DeleteIfExistsAsync(string blobName, CancellationToken cancellationToken)
-    {
-        lock (_blobs)
-        {
-            if (_blobs.Remove(blobName))
-            {
-                _deleteCount++;
-            }
-        }
-
-        return Task.CompletedTask;
-    }
-
-    private sealed record StoredBlob(byte[] Content, string ContentType);
 }

@@ -54,37 +54,21 @@ public sealed class PersonnelFileDocumentsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileDocumentMetadataResponse>> UploadDocument(
+    public async Task<ActionResult<PersonnelFileDocumentMetadataResponse>> AddDocument(
         Guid publicId,
-        [FromForm] UploadPersonnelFileDocumentRequest request,
+        [FromBody] AddPersonnelFileDocumentRequest request,
         CancellationToken cancellationToken = default)
     {
-        var fileValidation = await PersonnelFileDocumentUploadGuard.ValidateAsync(request.File, cancellationToken);
-        if (fileValidation != Application.Common.Errors.Error.None)
-        {
-            return this.ToActionResult(Result<PersonnelFileDocumentMetadataResponse>.Failure(fileValidation));
-        }
-
-        var safeFileName = PersonnelFileDocumentUploadGuard.GetSafeFileName(request.File);
-        var normalizedContentType = request.File.ContentType.Trim();
-
-        await using var stream = request.File.OpenReadStream();
-        using var memory = new MemoryStream();
-        await stream.CopyToAsync(memory, cancellationToken);
-
         var result = await commandDispatcher.SendAsync(
-            new UploadPersonnelFileDocumentCommand(
+            new AddPersonnelFileDocumentCommand(
                 publicId,
+                request.FilePublicId,
                 request.DocumentTypeCatalogItemPublicId,
                 request.Observations,
                 request.DeliveryDate,
                 request.LoanDate,
                 request.ReturnDate,
-                safeFileName,
-                normalizedContentType,
-                memory.ToArray(),
                 request.ConcurrencyToken),
             cancellationToken);
 
@@ -100,35 +84,13 @@ public sealed class PersonnelFileDocumentsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<PersonnelFileDocumentMetadataResponse>> UpdateDocument(
         Guid publicId,
         Guid documentPublicId,
-        [FromForm] UpdatePersonnelFileDocumentRequest request,
+        [FromBody] UpdatePersonnelFileDocumentRequest request,
         CancellationToken cancellationToken = default)
     {
-        byte[]? fileData = null;
-        string? safeFileName = null;
-        string? contentType = null;
-
-        if (request.File is not null)
-        {
-            var fileValidation = await PersonnelFileDocumentUploadGuard.ValidateAsync(request.File, cancellationToken);
-            if (fileValidation != Application.Common.Errors.Error.None)
-            {
-                return this.ToActionResult(Result<PersonnelFileDocumentMetadataResponse>.Failure(fileValidation));
-            }
-
-            safeFileName = PersonnelFileDocumentUploadGuard.GetSafeFileName(request.File);
-            contentType = request.File.ContentType.Trim();
-
-            await using var stream = request.File.OpenReadStream();
-            using var memory = new MemoryStream();
-            await stream.CopyToAsync(memory, cancellationToken);
-            fileData = memory.ToArray();
-        }
-
         var result = await commandDispatcher.SendAsync(
             new UpdatePersonnelFileDocumentCommand(
                 publicId,
@@ -138,9 +100,7 @@ public sealed class PersonnelFileDocumentsController(
                 request.DeliveryDate,
                 request.LoanDate,
                 request.ReturnDate,
-                safeFileName,
-                contentType,
-                fileData,
+                request.FilePublicId,
                 request.ConcurrencyToken),
             cancellationToken);
 
