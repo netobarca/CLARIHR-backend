@@ -56,8 +56,7 @@ public sealed class PersonnelFileCompensationController(
                     request.CurrencyCode,
                     request.AccountNumber,
                     request.AccountTypeCode,
-                    request.IsPrimary),
-                request.ConcurrencyToken),
+                    request.IsPrimary)),
             cancellationToken);
 
         return result.IsFailure
@@ -156,8 +155,7 @@ public sealed class PersonnelFileCompensationController(
                     request.Amount,
                     request.StartDate,
                     request.EndDate,
-                    request.IsActive),
-                request.ConcurrencyToken),
+                    request.IsActive)),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -253,8 +251,7 @@ public sealed class PersonnelFileCompensationController(
                     request.StartDate,
                     request.EndDate,
                     request.IsActive,
-                    request.Notes),
-                request.ConcurrencyToken),
+                    request.Notes)),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -349,8 +346,7 @@ public sealed class PersonnelFileCompensationController(
                     request.IsActive,
                     request.EffectiveFromUtc,
                     request.EffectiveToUtc,
-                    request.Notes),
-                request.ConcurrencyToken),
+                    request.Notes)),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -524,8 +520,7 @@ public sealed class PersonnelFileCompensationController(
                     request.IsDebit,
                     request.SourceSystem,
                     request.SourceReference,
-                    request.SourceSyncedUtc),
-                request.ConcurrencyToken),
+                    request.SourceSyncedUtc)),
             cancellationToken);
 
         return result.IsFailure
@@ -600,8 +595,7 @@ public sealed class PersonnelFileCompensationController(
                         beneficiary.FullName,
                         beneficiary.DocumentNumber,
                         beneficiary.BirthDate,
-                        beneficiary.KinshipCode)).ToArray()),
-                request.ConcurrencyToken),
+                        beneficiary.KinshipCode)).ToArray())),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -712,8 +706,7 @@ public sealed class PersonnelFileCompensationController(
                     request.ClaimDateUtc,
                     request.SourceSystem,
                     request.SourceReference,
-                    request.SourceSyncedUtc),
-                request.ConcurrencyToken),
+                    request.SourceSyncedUtc)),
             cancellationToken);
 
         return this.ToActionResult(result);

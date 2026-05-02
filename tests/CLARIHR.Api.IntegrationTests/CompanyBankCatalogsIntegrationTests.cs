@@ -19,13 +19,13 @@ public sealed class CompanyBankCatalogsIntegrationTests(IntegrationTestWebApplic
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
-        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/bank-catalogs?q=agr&page=1&pageSize=20");
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/general-catalogs/banks");
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<CompanyBankCatalogItemEnvelope>>(JsonOptions);
+        var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelCatalogItemEnvelope>>(JsonOptions);
         Assert.NotNull(payload);
-        Assert.Contains(payload!.Items, item => item.Code == "BANCO_AGRICOLA");
-        Assert.All(payload.Items, item => Assert.False(string.IsNullOrWhiteSpace(item.Name)));
+        Assert.Contains(payload!, item => item.Code == "BANCO_AGRICOLA");
+        Assert.All(payload!, item => Assert.False(string.IsNullOrWhiteSpace(item.Name)));
     }
 
     [Fact]
@@ -61,33 +61,32 @@ public sealed class CompanyBankCatalogsIntegrationTests(IntegrationTestWebApplic
         var personnelFileId = created!.Id;
         var concurrencyToken = created.ConcurrencyToken;
 
-        var banksResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/bank-catalogs?q=agri&page=1&pageSize=20");
+        var banksResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/general-catalogs/banks");
         banksResponse.EnsureSuccessStatusCode();
 
-        var banks = await banksResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<CompanyBankCatalogItemEnvelope>>(JsonOptions);
-        var selectedBank = Assert.Single(banks!.Items, item => item.Code == "BANCO_AGRICOLA");
+        var banks = await banksResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelCatalogItemEnvelope>>(JsonOptions);
+        var selectedBank = Assert.Single(banks!, item => item.Code == "BANCO_AGRICOLA");
 
         var replaceResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{personnelFileId}/bank-accounts", new
         {
-            bankPublicId = selectedBank.PublicId,
+            bankPublicId = selectedBank.Id,
             currencyCode = "USD",
             accountNumber = "0001-1111-2222",
             accountTypeCode = "SAVINGS",
-            isPrimary = true,
-            concurrencyToken
+            isPrimary = true
         });
         replaceResponse.EnsureSuccessStatusCode();
 
         var stored = await replaceResponse.Content.ReadFromJsonAsync<PersonnelFileBankAccountEnvelope>(JsonOptions);
         Assert.NotNull(stored);
-        Assert.Equal(selectedBank.PublicId, stored!.BankPublicId);
+        Assert.Equal(selectedBank.Id, stored!.BankPublicId);
         Assert.Equal("BANCO_AGRICOLA", stored.BankCode);
         Assert.Equal("Banco Agricola", stored.BankName);
 
         using (var scope = factory.Services.CreateScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var bank = await dbContext.BankCatalogItems.SingleAsync(item => item.PublicId == selectedBank.PublicId);
+            var bank = await dbContext.BankCatalogItems.SingleAsync(item => item.PublicId == selectedBank.Id);
             bank.Inactivate();
             await dbContext.SaveChangesAsync();
         }
@@ -97,10 +96,16 @@ public sealed class CompanyBankCatalogsIntegrationTests(IntegrationTestWebApplic
 
         var getPayload = await getResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileBankAccountEnvelope>>(JsonOptions);
         var fetched = Assert.Single(getPayload!);
-        Assert.Equal(selectedBank.PublicId, fetched.BankPublicId);
+        Assert.Equal(selectedBank.Id, fetched.BankPublicId);
         Assert.Equal("Banco Agricola", fetched.BankName);
         Assert.Equal("Agricola", fetched.BankAlias);
     }
+
+    private sealed record PersonnelCatalogItemEnvelope(
+        Guid Id,
+        string Code,
+        string Name,
+        int SortOrder);
 
     private static TestUserContext CreatePersonnelFileAdminContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(

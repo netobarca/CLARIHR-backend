@@ -65,8 +65,7 @@ public sealed class PersonnelFileDocumentsController(
                 publicId,
                 request.FilePublicId,
                 request.DocumentTypeCatalogItemPublicId,
-                request.Observations,
-                request.ConcurrencyToken),
+                request.Observations),
             cancellationToken);
 
         return result.IsFailure
@@ -148,7 +147,7 @@ public sealed class PersonnelFileDocumentsController(
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new AddPersonnelFileObservationCommand(publicId, request.Note, request.ConcurrencyToken),
+            new AddPersonnelFileObservationCommand(publicId, request.Note),
             cancellationToken);
 
         return result.IsFailure

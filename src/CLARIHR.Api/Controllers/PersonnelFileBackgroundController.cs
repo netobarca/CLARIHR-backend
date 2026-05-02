@@ -60,8 +60,7 @@ public sealed class PersonnelFileBackgroundController(
                     request.ShiftPublicId,
                     request.ModalityPublicId,
                     request.TotalSubjects,
-                    request.ApprovedSubjects),
-                request.ConcurrencyToken),
+                    request.ApprovedSubjects)),
             cancellationToken);
 
         return result.IsFailure
@@ -166,8 +165,7 @@ public sealed class PersonnelFileBackgroundController(
                     request.LevelCode,
                     request.Speaks,
                     request.Writes,
-                    request.Reads),
-                request.ConcurrencyToken),
+                    request.Reads)),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -275,8 +273,7 @@ public sealed class PersonnelFileBackgroundController(
                     request.DurationValue,
                     request.DurationUnitCode,
                     request.CostAmount,
-                    request.CostCurrencyCode),
-                request.ConcurrencyToken),
+                    request.CostCurrencyCode)),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -391,8 +388,7 @@ public sealed class PersonnelFileBackgroundController(
                     request.FirstSalaryAmount,
                     request.LastSalaryAmount,
                     request.AverageCommissionAmount,
-                    request.CurrencyCode),
-                request.ConcurrencyToken),
+                    request.CurrencyCode)),
             cancellationToken);
 
         return result.IsSuccess
@@ -500,8 +496,7 @@ public sealed class PersonnelFileBackgroundController(
                     request.Occupation,
                     request.Workplace,
                     request.WorkPhone,
-                    request.KnownTimeYears),
-                request.ConcurrencyToken),
+                    request.KnownTimeYears)),
             cancellationToken);
 
         return result.IsSuccess

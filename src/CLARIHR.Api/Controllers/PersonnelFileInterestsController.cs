@@ -45,8 +45,7 @@ public sealed class PersonnelFileInterestsController(
         var result = await commandDispatcher.SendAsync(
             new AddPersonnelFileHobbyCommand(
                 publicId,
-                new HobbyInput(request.HobbyName),
-                request.ConcurrencyToken),
+                new HobbyInput(request.HobbyName)),
             cancellationToken);
 
         return result.IsFailure
@@ -135,8 +134,7 @@ public sealed class PersonnelFileInterestsController(
                     request.Role,
                     request.JoinedDate,
                     request.LeftDate,
-                    request.Payment),
-                request.ConcurrencyToken),
+                    request.Payment)),
             cancellationToken);
 
         return result.IsFailure
@@ -227,8 +225,7 @@ public sealed class PersonnelFileInterestsController(
         var result = await commandDispatcher.SendAsync(
             new AddPersonnelFileEmployeeRelationCommand(
                 publicId,
-                new EmployeeRelationInput(request.RelatedEmployeePublicId, request.Relationship),
-                request.ConcurrencyToken),
+                new EmployeeRelationInput(request.RelatedEmployeePublicId, request.Relationship)),
             cancellationToken);
 
         return result.IsFailure

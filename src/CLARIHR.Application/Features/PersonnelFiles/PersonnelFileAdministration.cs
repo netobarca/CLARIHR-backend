@@ -592,8 +592,7 @@ public sealed record UpdatePersonnelFilePersonalInfoCommand(
 
 public sealed record AddPersonnelFileIdentificationCommand(
     Guid PersonnelFileId,
-    IdentificationInput Identification,
-    Guid ConcurrencyToken)
+    IdentificationInput Identification)
     : ICommand<PersonnelFileIdentificationResponse>;
 
 public sealed record UpdatePersonnelFileIdentificationCommand(
@@ -611,8 +610,7 @@ public sealed record DeletePersonnelFileIdentificationCommand(
 
 public sealed record AddPersonnelFileAddressCommand(
     Guid PersonnelFileId,
-    AddressInput Address,
-    Guid ConcurrencyToken)
+    AddressInput Address)
     : ICommand<PersonnelFileAddressResponse>;
 
 public sealed record UpdatePersonnelFileAddressCommand(
@@ -630,8 +628,7 @@ public sealed record DeletePersonnelFileAddressCommand(
 
 public sealed record AddPersonnelFileEmergencyContactCommand(
     Guid PersonnelFileId,
-    EmergencyContactInput EmergencyContact,
-    Guid ConcurrencyToken)
+    EmergencyContactInput EmergencyContact)
     : ICommand<PersonnelFileEmergencyContactResponse>;
 
 public sealed record UpdatePersonnelFileEmergencyContactCommand(
@@ -649,8 +646,7 @@ public sealed record DeletePersonnelFileEmergencyContactCommand(
 
 public sealed record AddPersonnelFileFamilyMemberCommand(
     Guid PersonnelFileId,
-    FamilyMemberInput FamilyMember,
-    Guid ConcurrencyToken)
+    FamilyMemberInput FamilyMember)
     : ICommand<PersonnelFileFamilyMemberResponse>;
 
 public sealed record UpdatePersonnelFileFamilyMemberCommand(
@@ -668,8 +664,7 @@ public sealed record DeletePersonnelFileFamilyMemberCommand(
 
 public sealed record AddPersonnelFileHobbyCommand(
     Guid PersonnelFileId,
-    HobbyInput Hobby,
-    Guid ConcurrencyToken)
+    HobbyInput Hobby)
     : ICommand<PersonnelFileHobbyResponse>;
 
 public sealed record UpdatePersonnelFileHobbyCommand(
@@ -687,8 +682,7 @@ public sealed record DeletePersonnelFileHobbyCommand(
 
 public sealed record AddPersonnelFileEmployeeRelationCommand(
     Guid PersonnelFileId,
-    EmployeeRelationInput Relation,
-    Guid ConcurrencyToken)
+    EmployeeRelationInput Relation)
     : ICommand<PersonnelFileEmployeeRelationResponse>;
 
 public sealed record UpdatePersonnelFileEmployeeRelationCommand(
@@ -706,8 +700,7 @@ public sealed record DeletePersonnelFileEmployeeRelationCommand(
 
 public sealed record AddPersonnelFileBankAccountCommand(
     Guid PersonnelFileId,
-    BankAccountInput BankAccount,
-    Guid ConcurrencyToken)
+    BankAccountInput BankAccount)
     : ICommand<PersonnelFileBankAccountResponse>;
 
 public sealed record UpdatePersonnelFileBankAccountCommand(
@@ -725,8 +718,7 @@ public sealed record DeletePersonnelFileBankAccountCommand(
 
 public sealed record AddPersonnelFileAssociationCommand(
     Guid PersonnelFileId,
-    AssociationInput Association,
-    Guid ConcurrencyToken)
+    AssociationInput Association)
     : ICommand<PersonnelFileAssociationResponse>;
 
 public sealed record UpdatePersonnelFileAssociationCommand(
@@ -744,8 +736,7 @@ public sealed record DeletePersonnelFileAssociationCommand(
 
 public sealed record AddPersonnelFileEducationCommand(
     Guid PersonnelFileId,
-    EducationInput Education,
-    Guid ConcurrencyToken)
+    EducationInput Education)
     : ICommand<PersonnelFileEducationResponse>;
 
 public sealed record UpdatePersonnelFileEducationCommand(
@@ -763,8 +754,7 @@ public sealed record DeletePersonnelFileEducationCommand(
 
 public sealed record AddPersonnelFileLanguageCommand(
     Guid PersonnelFileId,
-    LanguageInput Language,
-    Guid ConcurrencyToken)
+    LanguageInput Language)
     : ICommand<PersonnelFileLanguageResponse>;
 
 public sealed record UpdatePersonnelFileLanguageCommand(
@@ -782,8 +772,7 @@ public sealed record DeletePersonnelFileLanguageCommand(
 
 public sealed record AddPersonnelFileTrainingCommand(
     Guid PersonnelFileId,
-    TrainingInput Training,
-    Guid ConcurrencyToken)
+    TrainingInput Training)
     : ICommand<PersonnelFileTrainingResponse>;
 
 public sealed record UpdatePersonnelFileTrainingCommand(
@@ -801,8 +790,7 @@ public sealed record DeletePersonnelFileTrainingCommand(
 
 public sealed record AddPersonnelFilePreviousEmploymentCommand(
     Guid PersonnelFileId,
-    PreviousEmploymentInput PreviousEmployment,
-    Guid ConcurrencyToken)
+    PreviousEmploymentInput PreviousEmployment)
     : ICommand<PersonnelFilePreviousEmploymentResponse>;
 
 public sealed record UpdatePersonnelFilePreviousEmploymentCommand(
@@ -820,8 +808,7 @@ public sealed record DeletePersonnelFilePreviousEmploymentCommand(
 
 public sealed record AddPersonnelFileReferenceCommand(
     Guid PersonnelFileId,
-    ReferenceInput Reference,
-    Guid ConcurrencyToken)
+    ReferenceInput Reference)
     : ICommand<PersonnelFileReferenceResponse>;
 
 public sealed record UpdatePersonnelFileReferenceCommand(
@@ -863,11 +850,10 @@ public sealed record AddPersonnelFileDocumentCommand(
     Guid PersonnelFileId,
     Guid FilePublicId,
     Guid DocumentTypeCatalogItemPublicId,
-    string? Observations,
-    Guid ConcurrencyToken)
+    string? Observations)
     : ICommand<PersonnelFileDocumentMetadataResponse>;
 
-public sealed record AddPersonnelFileObservationCommand(Guid PersonnelFileId, string Note, Guid ConcurrencyToken)
+public sealed record AddPersonnelFileObservationCommand(Guid PersonnelFileId, string Note)
     : ICommand<PersonnelFileObservationResponse>;
 
 
@@ -1423,7 +1409,6 @@ internal sealed class AddPersonnelFileIdentificationCommandValidator : AbstractV
     public AddPersonnelFileIdentificationCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Identification).SetValidator(new IdentificationInputValidator());
     }
 }
@@ -1454,7 +1439,6 @@ internal sealed class AddPersonnelFileAddressCommandValidator : AbstractValidato
     public AddPersonnelFileAddressCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Address).SetValidator(new AddressInputValidator());
     }
 }
@@ -1485,7 +1469,6 @@ internal sealed class AddPersonnelFileEmergencyContactCommandValidator : Abstrac
     public AddPersonnelFileEmergencyContactCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.EmergencyContact).SetValidator(new EmergencyContactInputValidator());
     }
 }
@@ -1516,7 +1499,6 @@ internal sealed class AddPersonnelFileFamilyMemberCommandValidator : AbstractVal
     public AddPersonnelFileFamilyMemberCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.FamilyMember).SetValidator(new FamilyMemberInputValidator());
     }
 }
@@ -1547,7 +1529,6 @@ internal sealed class AddPersonnelFileHobbyCommandValidator : AbstractValidator<
     public AddPersonnelFileHobbyCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Hobby).SetValidator(new HobbyInputValidator());
     }
 }
@@ -1578,7 +1559,6 @@ internal sealed class AddPersonnelFileEmployeeRelationCommandValidator : Abstrac
     public AddPersonnelFileEmployeeRelationCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Relation).SetValidator(new EmployeeRelationInputValidator());
     }
 }
@@ -1609,7 +1589,6 @@ internal sealed class AddPersonnelFileBankAccountCommandValidator : AbstractVali
     public AddPersonnelFileBankAccountCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.BankAccount).SetValidator(new BankAccountInputValidator());
     }
 }
@@ -1640,7 +1619,6 @@ internal sealed class AddPersonnelFileAssociationCommandValidator : AbstractVali
     public AddPersonnelFileAssociationCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Association).SetValidator(new AssociationInputValidator());
     }
 }
@@ -1671,7 +1649,6 @@ internal sealed class AddPersonnelFileEducationCommandValidator : AbstractValida
     public AddPersonnelFileEducationCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Education).SetValidator(new EducationInputValidator());
     }
 }
@@ -1702,7 +1679,6 @@ internal sealed class AddPersonnelFileLanguageCommandValidator : AbstractValidat
     public AddPersonnelFileLanguageCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Language).SetValidator(new LanguageInputValidator());
     }
 }
@@ -1733,7 +1709,6 @@ internal sealed class AddPersonnelFileTrainingCommandValidator : AbstractValidat
     public AddPersonnelFileTrainingCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Training).SetValidator(new TrainingInputValidator());
     }
 }
@@ -1764,7 +1739,6 @@ internal sealed class AddPersonnelFilePreviousEmploymentCommandValidator : Abstr
     public AddPersonnelFilePreviousEmploymentCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.PreviousEmployment).SetValidator(new PreviousEmploymentInputValidator());
     }
 }
@@ -1795,7 +1769,6 @@ internal sealed class AddPersonnelFileReferenceCommandValidator : AbstractValida
     public AddPersonnelFileReferenceCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Reference).SetValidator(new ReferenceInputValidator());
     }
 }
@@ -1846,7 +1819,6 @@ internal sealed class AddPersonnelFileDocumentCommandValidator : AbstractValidat
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.FilePublicId).NotEmpty();
         RuleFor(command => command.DocumentTypeCatalogItemPublicId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -1878,7 +1850,6 @@ internal sealed class AddPersonnelFileObservationCommandValidator : AbstractVali
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.Note).NotEmpty().MaximumLength(4000);
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -3975,10 +3946,6 @@ internal sealed class AddPersonnelFileIdentificationCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileIdentificationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var normalizedIdentificationTypeCode = command.Identification.IdentificationTypeCode.Trim().ToUpperInvariant();
         var identificationTypeValidation = await PersonnelReferenceCatalogValidation.ValidateIdentificationTypeCodeAsync(
@@ -4306,10 +4273,6 @@ internal sealed class AddPersonnelFileAddressCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileAddressResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var before = await repository.GetAddressesAsync(personnelFile.PublicId, cancellationToken);
         var address = PersonnelFileAddress.Create(
@@ -4590,10 +4553,6 @@ internal sealed class AddPersonnelFileEmergencyContactCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileEmergencyContactResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var before = await repository.GetEmergencyContactsAsync(personnelFile.PublicId, cancellationToken);
         var emergencyContact = PersonnelFileEmergencyContact.Create(
@@ -4872,10 +4831,6 @@ internal sealed class AddPersonnelFileFamilyMemberCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileFamilyMemberResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var kinshipCodeValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
             repository,
@@ -5223,10 +5178,6 @@ internal sealed class AddPersonnelFileHobbyCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileHobbyResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var before = await repository.GetHobbiesAsync(personnelFile.PublicId, cancellationToken);
         var hobby = PersonnelFileHobby.Create(command.Hobby.HobbyName);
@@ -5493,10 +5444,6 @@ internal sealed class AddPersonnelFileEmployeeRelationCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileEmployeeRelationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var relation = command.Relation;
         if (relation.RelatedEmployeePublicId == personnelFile.PublicId)
@@ -5835,10 +5782,6 @@ internal sealed class AddPersonnelFileBankAccountCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var companyCountryCode = await repository.GetCompanyCountryCodeAsync(personnelFile.TenantId, cancellationToken);
         if (string.IsNullOrWhiteSpace(companyCountryCode))
@@ -6168,10 +6111,6 @@ internal sealed class AddPersonnelFileAssociationCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileAssociationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         PersonnelFileAssociation association;
         try
@@ -6463,10 +6402,6 @@ internal sealed class AddPersonnelFileEducationCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var (catalogError, resolvedIds) = await ResolveEducationCatalogIdsAsync(
             command.Education, educationCatalogRepository, repository, cancellationToken);
@@ -6884,10 +6819,6 @@ internal sealed class AddPersonnelFileLanguageCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileLanguageResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var languageError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
             repository,
@@ -7221,10 +7152,6 @@ internal sealed class AddPersonnelFileTrainingCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileTrainingResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var typeError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
             repository,
@@ -7608,10 +7535,6 @@ internal sealed class AddPersonnelFilePreviousEmploymentCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var currencyError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
             repository,
@@ -7930,10 +7853,6 @@ internal sealed class AddPersonnelFileReferenceCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var typeError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
             repository,
@@ -8506,10 +8425,6 @@ internal sealed class AddPersonnelFileDocumentCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var documentTypeLookup = await documentTypeCatalogRepository.GetActiveLookupByIdAsync(
             command.DocumentTypeCatalogItemPublicId, cancellationToken);
@@ -8822,10 +8737,6 @@ internal sealed class AddPersonnelFileObservationCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileObservationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
 
         var observation = PersonnelFileObservation.Create(authorId, command.Note);
 

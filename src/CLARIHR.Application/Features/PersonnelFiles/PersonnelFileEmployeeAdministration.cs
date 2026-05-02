@@ -307,8 +307,7 @@ public sealed record EmploymentAssignmentInput(
 
 public sealed record AddPersonnelFileEmploymentAssignmentCommand(
     Guid PersonnelFileId,
-    EmploymentAssignmentInput Item,
-    Guid ConcurrencyToken)
+    EmploymentAssignmentInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>>;
 
 public sealed record UpdatePersonnelFileEmploymentAssignmentCommand(
@@ -337,8 +336,7 @@ public sealed record ContractHistoryInput(
 
 public sealed record AddPersonnelFileContractHistoryCommand(
     Guid PersonnelFileId,
-    ContractHistoryInput Item,
-    Guid ConcurrencyToken)
+    ContractHistoryInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>>;
 
 public sealed record UpdatePersonnelFileContractHistoryCommand(
@@ -372,8 +370,7 @@ public sealed record SalaryItemInput(
 
 public sealed record AddPersonnelFileSalaryItemCommand(
     Guid PersonnelFileId,
-    SalaryItemInput Item,
-    Guid ConcurrencyToken)
+    SalaryItemInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>;
 
 public sealed record UpdatePersonnelFileSalaryItemCommand(
@@ -401,8 +398,7 @@ public sealed record AdditionalBenefitInput(
 
 public sealed record AddPersonnelFileAdditionalBenefitCommand(
     Guid PersonnelFileId,
-    AdditionalBenefitInput Item,
-    Guid ConcurrencyToken)
+    AdditionalBenefitInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>;
 
 public sealed record UpdatePersonnelFileAdditionalBenefitCommand(
@@ -432,8 +428,7 @@ public sealed record PaymentMethodInput(
 
 public sealed record AddPersonnelFilePaymentMethodCommand(
     Guid PersonnelFileId,
-    PaymentMethodInput Item,
-    Guid ConcurrencyToken)
+    PaymentMethodInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>;
 
 public sealed record UpdatePersonnelFilePaymentMethodCommand(
@@ -463,8 +458,7 @@ public sealed record AuthorizationSubstitutionInput(
 
 public sealed record AddPersonnelFileAuthorizationSubstitutionCommand(
     Guid PersonnelFileId,
-    AuthorizationSubstitutionInput Item,
-    Guid ConcurrencyToken)
+    AuthorizationSubstitutionInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>>;
 
 public sealed record UpdatePersonnelFileAuthorizationSubstitutionCommand(
@@ -493,8 +487,7 @@ public sealed record AddPersonnelFilePersonnelActionCommand(
     string? Description,
     string? Reference,
     decimal? Amount,
-    string? CurrencyCode,
-    Guid ConcurrencyToken)
+    string? CurrencyCode)
     : ICommand<PersonnelFilePersonnelActionResponse>;
 
 public sealed record SearchPersonnelFilePersonnelActionsQuery(
@@ -536,8 +529,7 @@ public sealed record PayrollTransactionInput(
 
 public sealed record AddPersonnelFilePayrollTransactionCommand(
     Guid PersonnelFileId,
-    PayrollTransactionInput Item,
-    Guid ConcurrencyToken)
+    PayrollTransactionInput Item)
     : ICommand<PersonnelFilePayrollTransactionResponse>;
 
 public sealed record DeactivatePersonnelFilePayrollTransactionCommand(
@@ -584,8 +576,7 @@ public sealed record AssetAccessInput(
 
 public sealed record AddPersonnelFileAssetAccessCommand(
     Guid PersonnelFileId,
-    AssetAccessInput Item,
-    Guid ConcurrencyToken)
+    AssetAccessInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>>;
 
 public sealed record UpdatePersonnelFileAssetAccessCommand(
@@ -625,8 +616,7 @@ public sealed record InsuranceInput(
 
 public sealed record AddPersonnelFileInsuranceCommand(
     Guid PersonnelFileId,
-    InsuranceInput Item,
-    Guid ConcurrencyToken)
+    InsuranceInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>;
 
 public sealed record UpdatePersonnelFileInsuranceCommand(
@@ -662,8 +652,7 @@ public sealed record MedicalClaimInput(
 
 public sealed record AddPersonnelFileMedicalClaimCommand(
     Guid PersonnelFileId,
-    MedicalClaimInput Item,
-    Guid ConcurrencyToken)
+    MedicalClaimInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>;
 
 public sealed record UpdatePersonnelFileMedicalClaimCommand(
@@ -694,8 +683,7 @@ public sealed record PerformanceEvaluationInput(
 
 public sealed record AddPersonnelFilePerformanceEvaluationCommand(
     Guid PersonnelFileId,
-    PerformanceEvaluationInput Item,
-    Guid ConcurrencyToken)
+    PerformanceEvaluationInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>>>;
 
 public sealed record UpdatePersonnelFilePerformanceEvaluationCommand(
@@ -721,8 +709,7 @@ public sealed record PositionCompetencyResultInput(
 
 public sealed record AddPersonnelFilePositionCompetencyResultCommand(
     Guid PersonnelFileId,
-    PositionCompetencyResultInput Item,
-    Guid ConcurrencyToken)
+    PositionCompetencyResultInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>>>;
 
 public sealed record UpdatePersonnelFilePositionCompetencyResultCommand(
@@ -747,8 +734,7 @@ public sealed record SelectionContestInput(
 
 public sealed record AddPersonnelFileSelectionContestCommand(
     Guid PersonnelFileId,
-    SelectionContestInput Item,
-    Guid ConcurrencyToken)
+    SelectionContestInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSelectionContestResponse>>>;
 
 public sealed record UpdatePersonnelFileSelectionContestCommand(
@@ -774,8 +760,7 @@ public sealed record CurricularCompetencyInput(
 
 public sealed record AddPersonnelFileCurricularCompetencyCommand(
     Guid PersonnelFileId,
-    CurricularCompetencyInput Item,
-    Guid ConcurrencyToken)
+    CurricularCompetencyInput Item)
     : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>>>;
 
 public sealed record UpdatePersonnelFileCurricularCompetencyCommand(
@@ -886,7 +871,6 @@ internal sealed class PersonnelActionInputValidator : AbstractValidator<AddPerso
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.ActionTypeCode).NotEmpty().MaximumLength(80);
         RuleFor(command => command.ActionStatusCode).NotEmpty().MaximumLength(80);
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.ActionDateUtc).LessThanOrEqualTo(command => command.EffectiveToUtc!.Value).When(command => command.EffectiveToUtc.HasValue);
     }
 }
@@ -977,7 +961,6 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandValidator : Abs
     public AddPersonnelFileEmploymentAssignmentCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new EmploymentAssignmentInputValidator());
     }
 }
@@ -1016,7 +999,6 @@ internal sealed class AddPersonnelFileContractHistoryCommandValidator : Abstract
     public AddPersonnelFileContractHistoryCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new ContractHistoryInputValidator());
     }
 }
@@ -1055,7 +1037,6 @@ internal sealed class AddPersonnelFileSalaryItemCommandValidator : AbstractValid
     public AddPersonnelFileSalaryItemCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new SalaryItemInputValidator());
     }
 }
@@ -1094,7 +1075,6 @@ internal sealed class AddPersonnelFileAdditionalBenefitCommandValidator : Abstra
     public AddPersonnelFileAdditionalBenefitCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new AdditionalBenefitInputValidator());
     }
 }
@@ -1133,7 +1113,6 @@ internal sealed class AddPersonnelFilePaymentMethodCommandValidator : AbstractVa
     public AddPersonnelFilePaymentMethodCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new PaymentMethodInputValidator());
     }
 }
@@ -1172,7 +1151,6 @@ internal sealed class AddPersonnelFileAuthorizationSubstitutionCommandValidator 
     public AddPersonnelFileAuthorizationSubstitutionCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new AuthorizationSubstitutionInputValidator());
     }
 }
@@ -1211,7 +1189,6 @@ internal sealed class AddPersonnelFilePayrollTransactionCommandValidator : Abstr
     public AddPersonnelFilePayrollTransactionCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new PayrollTransactionInputValidator());
     }
 }
@@ -1231,7 +1208,6 @@ internal sealed class AddPersonnelFileAssetAccessCommandValidator : AbstractVali
     public AddPersonnelFileAssetAccessCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new AssetAccessInputValidator());
     }
 }
@@ -1270,7 +1246,6 @@ internal sealed class AddPersonnelFileInsuranceCommandValidator : AbstractValida
     public AddPersonnelFileInsuranceCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new InsuranceInputValidator());
     }
 }
@@ -1309,7 +1284,6 @@ internal sealed class AddPersonnelFileMedicalClaimCommandValidator : AbstractVal
     public AddPersonnelFileMedicalClaimCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new MedicalClaimInputValidator());
     }
 }
@@ -1348,7 +1322,6 @@ internal sealed class AddPersonnelFilePerformanceEvaluationCommandValidator : Ab
     public AddPersonnelFilePerformanceEvaluationCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new PerformanceEvaluationInputValidator());
     }
 }
@@ -1369,7 +1342,6 @@ internal sealed class AddPersonnelFilePositionCompetencyResultCommandValidator :
     public AddPersonnelFilePositionCompetencyResultCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new PositionCompetencyResultInputValidator());
     }
 }
@@ -1390,7 +1362,6 @@ internal sealed class AddPersonnelFileSelectionContestCommandValidator : Abstrac
     public AddPersonnelFileSelectionContestCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new SelectionContestInputValidator());
     }
 }
@@ -1411,7 +1382,6 @@ internal sealed class AddPersonnelFileCurricularCompetencyCommandValidator : Abs
     public AddPersonnelFileCurricularCompetencyCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new CurricularCompetencyInputValidator());
     }
 }
@@ -1722,7 +1692,7 @@ internal sealed class AddPersonnelFileEmploymentAssignmentCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>>>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -1925,7 +1895,7 @@ internal sealed class AddPersonnelFileContractHistoryCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileContractHistoryResponse>>>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -2153,7 +2123,7 @@ internal sealed class AddPersonnelFileSalaryItemCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -2372,7 +2342,7 @@ internal sealed class AddPersonnelFileAdditionalBenefitCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -2525,7 +2495,7 @@ internal sealed class AddPersonnelFilePaymentMethodCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -2709,7 +2679,7 @@ internal sealed class AddPersonnelFileAuthorizationSubstitutionCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>>>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -2924,7 +2894,7 @@ internal sealed class AddPersonnelFilePersonnelActionCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFilePersonnelActionResponse>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -3077,7 +3047,7 @@ internal sealed class AddPersonnelFilePayrollTransactionCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFilePayrollTransactionResponse>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -3259,7 +3229,7 @@ internal sealed class AddPersonnelFileAssetAccessCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAssetAccessResponse>>>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -3459,7 +3429,7 @@ internal sealed class AddPersonnelFileInsuranceCommandHandler(
         CancellationToken cancellationToken)
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>(
-            command.PersonnelFileId, command.ConcurrencyToken, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
+            command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null) { return failure; }
 
         if (!personnelFile!.IsCompletedEmployee)
@@ -3634,7 +3604,7 @@ internal sealed class AddPersonnelFileMedicalClaimCommandHandler(
         CancellationToken cancellationToken)
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>(
-            command.PersonnelFileId, command.ConcurrencyToken, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
+            command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
         if (failure is not null) { return failure; }
 
         if (!personnelFile!.IsCompletedEmployee)
@@ -3782,7 +3752,7 @@ internal sealed class AddPersonnelFilePerformanceEvaluationCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>>>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -3948,7 +3918,7 @@ internal sealed class AddPersonnelFilePositionCompetencyResultCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>>>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -4116,7 +4086,7 @@ internal sealed class AddPersonnelFileSelectionContestCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSelectionContestResponse>>>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -4282,7 +4252,7 @@ internal sealed class AddPersonnelFileCurricularCompetencyCommandHandler(
     {
         var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>>>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,

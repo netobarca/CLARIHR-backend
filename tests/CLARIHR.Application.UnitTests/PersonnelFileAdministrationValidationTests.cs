@@ -84,8 +84,7 @@ public sealed class PersonnelFileAdministrationValidationTests
         var validator = new AddPersonnelFileEmployeeRelationCommandValidator();
         var command = new AddPersonnelFileEmployeeRelationCommand(
             Guid.NewGuid(),
-            new EmployeeRelationInput(Guid.NewGuid(), string.Empty),
-            Guid.NewGuid());
+            new EmployeeRelationInput(Guid.NewGuid(), string.Empty));
 
         var result = validator.TestValidate(command);
 

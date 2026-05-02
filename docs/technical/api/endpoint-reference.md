@@ -63,7 +63,7 @@ La secuencia actual de onboarding es:
 
 1. `POST /api/auth/register`
 2. `POST /api/account/companies`
-3. `POST /api/account/companies/{companyPublicId}/switch`
+3. `PATCH /api/account/companies/{companyPublicId}/switch`
 
 Despues del `switch`, el `access token` devuelto incluye contexto tenant y habilita los modulos `api/v1`.
 
@@ -163,7 +163,7 @@ Comportamiento observable:
 - `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`
 - `GET /api/account/companies`
 - `POST /api/account/companies`
-- `POST /api/account/companies/{companyPublicId}/switch`
+- `PATCH /api/account/companies/{companyPublicId}/switch`
 
 Comportamiento observable:
 
@@ -182,13 +182,13 @@ Comportamiento observable:
 - `POST /api/platform/companies/{companyPublicId}/subscription/plan-changes/preview`
 - `POST /api/platform/companies/{companyPublicId}/subscription/plan-changes`
 - `GET /api/platform/companies/{companyPublicId}/subscription/plan-changes`
-- `POST /api/platform/companies/{companyPublicId}/subscription/plan-changes/{planChangePublicId}/cancel`
+- `PATCH /api/platform/companies/{companyPublicId}/subscription/plan-changes/{planChangePublicId}/cancel`
 - `GET /api/platform/companies/{companyPublicId}/subscription/addons`
 - `GET /api/platform/companies/{companyPublicId}/subscription/addons/eligible`
 - `POST /api/platform/companies/{companyPublicId}/subscription/addon-changes/preview`
 - `POST /api/platform/companies/{companyPublicId}/subscription/addon-changes`
 - `GET /api/platform/companies/{companyPublicId}/subscription/addon-changes`
-- `POST /api/platform/companies/{companyPublicId}/subscription/addon-changes/{addonChangePublicId}/cancel`
+- `PATCH /api/platform/companies/{companyPublicId}/subscription/addon-changes/{addonChangePublicId}/cancel`
 - `PATCH /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status`
 - `GET /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status-history`
 
@@ -332,7 +332,7 @@ Perfil financiero (`PersonnelFileProfileController`):
 Employment:
 
 - `GET /api/v1/personnel-files/{publicId}/finalize/preview`
-- `POST /api/v1/personnel-files/{publicId}/finalize`
+- `PATCH /api/v1/personnel-files/{publicId}/finalize`
 - `GET /api/v1/personnel-files/{publicId}/employee-profile`
 - `PUT /api/v1/personnel-files/{publicId}/employee-profile`
 - `GET /api/v1/personnel-files/{publicId}/employment-assignments`
@@ -1144,7 +1144,7 @@ Contratos principales:
 - Errores relevantes: `COMPANY_ALREADY_ACTIVE`, `COMPANY_REACTIVATION_LIMIT_REACHED`, `COMPANY_OWNERSHIP_FORBIDDEN`.
 - Observaciones: la reactivacion vuelve a estado `Active`, pero no cambia automaticamente el tenant activo del usuario.
 
-##### `POST /api/account/companies/{companyPublicId}/switch`
+##### `PATCH /api/account/companies/{companyPublicId}/switch`
 
 - Proposito: cambiar la compania activa del usuario autenticado.
 - Autenticacion: `Bearer` requerido.
@@ -1161,7 +1161,7 @@ Contratos principales:
 - `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types` resuelve el catalogo de tipos documentales desde la fuente unificada por pais de compania.
 - `GET /api/account/companies/legal-representative-position-titles` resuelve el catalogo de cargos requerido por el formulario.
 - `POST /api/account/companies` crea la primera o siguiente compania propiedad de esa cuenta.
-- `POST /api/account/companies/{companyPublicId}/switch` emite el token ya tenant-scoped para operar `api/v1`.
+- `PATCH /api/account/companies/{companyPublicId}/switch` emite el token ya tenant-scoped para operar `api/v1`.
 
 Esa secuencia explica por que `Account companies` no usa `/api/v1`: todavia esta resolviendo el paso previo al contexto tenant estable del resto del sistema.
 
@@ -1572,7 +1572,7 @@ Contratos principales:
 - Response: `PagedResponse<PlatformCompanySubscriptionPlanChangeResponse>`.
 - Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_ACCESS_FORBIDDEN`.
 
-##### `POST /api/platform/companies/{companyPublicId}/subscription/plan-changes/{planChangePublicId}/cancel`
+##### `PATCH /api/platform/companies/{companyPublicId}/subscription/plan-changes/{planChangePublicId}/cancel`
 
 - Proposito: cancelar un cambio de plan aun no aplicado.
 - Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
@@ -1625,7 +1625,7 @@ Contratos principales:
 - Response: `PagedResponse<PlatformCompanyAddonChangeResponse>`.
 - Errores relevantes: `PLATFORM_COMPANY_SUBSCRIPTION_COMPANY_NOT_FOUND`, `PLATFORM_ACCESS_FORBIDDEN`.
 
-##### `POST /api/platform/companies/{companyPublicId}/subscription/addon-changes/{addonChangePublicId}/cancel`
+##### `PATCH /api/platform/companies/{companyPublicId}/subscription/addon-changes/{addonChangePublicId}/cancel`
 
 - Proposito: cancelar un cambio de add-on aun no aplicado.
 - Autenticacion: `Bearer` requerido con token `platform` y `PlatformOperatorRole.Admin`.
@@ -3260,7 +3260,7 @@ Observaciones funcionales:
 - `POST` item-level responde `201` con el item creado. `PUT` item-level responde `200` con el item actualizado. Solo `personal-info` devuelve `PersonnelFileSectionResult<T>`.
 - `personal-info` actualiza los campos escalares del expediente, valida custom data contra definiciones activas y no permite transiciones de `RecordType`.
 - `personal-info` tambien actualiza `AssignedPositionSlotId` mientras el expediente sigue en `Draft`; al completar el expediente, `AssignedPositionSlotId` e `InstitutionalEmail` quedan bloqueados.
-- `create` y `personal-info` aceptan `photoFilePublicId` como `Guid?` que referencia un `StoredFile` previamente subido a traves de la API de file management (`POST /api/v1/files/upload-session` → upload directo → `POST /api/v1/files/{filePublicId}/complete`). El campo acepta `null` para borrar la foto o el `publicId` de un archivo activo con `purpose = profile-photo`.
+- `create` y `personal-info` aceptan `photoFilePublicId` como `Guid?` que referencia un `StoredFile` previamente subido a traves de la API de file management (`POST /api/v1/files/upload-session` → upload directo → `PATCH /api/v1/files/{filePublicId}/complete`). El campo acepta `null` para borrar la foto o el `publicId` de un archivo activo con `purpose = profile-photo`.
 - el backend valida que el `StoredFile` referenciado exista, pertenezca al tenant y este en estado `Active`; si la foto anterior era otro `StoredFile`, el sistema marca el anterior para limpieza.
 - las respuestas de expediente exponen `photoFilePublicId` como `string?`; el result filter de la API resuelve internamente el `Guid` a una URL SAS temporal de lectura para que frontend pueda renderizar la imagen sin acceso directo al contenedor.
 - si `RecordType = Employee`, `AssignedPositionSlotId` sigue siendo obligatorio; si `RecordType = Candidate`, no puede enviarse.
@@ -3718,7 +3718,7 @@ Este bloque cubre el controlador `FilesController` que administra el ciclo de vi
 Route family:
 
 - `POST /api/v1/files/upload-session`
-- `POST /api/v1/files/{filePublicId}/complete`
+- `PATCH /api/v1/files/{filePublicId}/complete`
 - `GET /api/v1/files/{filePublicId}/read-url`
 - `DELETE /api/v1/files/{filePublicId}`
 
@@ -3742,7 +3742,7 @@ El primer caso de uso implementado es la imagen de perfil del expediente de pers
 1. Frontend llama `POST /api/v1/files/upload-session` con metadata (`fileName`, `contentType`, `sizeBytes`, `purpose`, `entityId` opcional).
 2. Backend valida las reglas del proposito, crea el `StoredFile` en estado `PendingUpload`, genera la URL firmada de escritura y responde con `filePublicId`, `uploadUrl`, `expiresUtc` y `requiredHeaders`.
 3. Frontend sube el binario directamente a `uploadUrl` usando los headers indicados.
-4. Frontend llama `POST /api/v1/files/{filePublicId}/complete`.
+4. Frontend llama `PATCH /api/v1/files/{filePublicId}/complete`.
 5. Backend verifica que el objeto existe en storage, obtiene metadata real (tamano, content type) y marca el archivo como `Active`.
 6. Frontend usa el `filePublicId` resultante para asociar el archivo a la entidad destino (ej. `photoFilePublicId` en `create` o `personal-info` de personnel files).
 
@@ -3764,7 +3764,7 @@ El primer caso de uso implementado es la imagen de perfil del expediente de pers
   - `requiredHeaders` (object): headers que el frontend debe enviar con el upload.
 - Errores: `400`, `401`, `413` (archivo demasiado grande), `422` (content type no permitido para el proposito).
 
-##### `POST /api/v1/files/{filePublicId}/complete`
+##### `PATCH /api/v1/files/{filePublicId}/complete`
 
 - Proposito: confirmar que la subida directa se completo exitosamente.
 - Response `200 OK`:

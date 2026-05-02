@@ -88,8 +88,7 @@ public sealed record AddEmploymentAssignmentRequest(
     DateTime? EndDate,
     bool IsPrimary,
     bool IsActive,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
 
 public sealed record UpdateEmploymentAssignmentRequest(
     string AssignmentTypeCode,
@@ -110,8 +109,7 @@ public sealed record AddContractHistoryRequest(
     DateTime? ContractEndDate,
     Guid? PositionSlotPublicId,
     bool IsActive,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
 
 public sealed record UpdateContractHistoryRequest(
     string ContractTypeCode,
@@ -129,8 +127,7 @@ public sealed record AddAuthorizationSubstitutionRequest(
     DateTime StartDate,
     DateTime? EndDate,
     bool IsActive,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
 
 public sealed record UpdateAuthorizationSubstitutionRequest(
     string SubstitutionTypeCode,
@@ -151,8 +148,7 @@ public sealed record AddAssetAccessRequest(
     DateTime? DeliveryDateUtc,
     string? DeliveryStatusCode,
     bool IsActive,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
 
 public sealed record UpdateAssetAccessRequest(
     string AssetTypeCode,
@@ -175,8 +171,7 @@ public sealed record AddPersonnelActionRequest(
     string? Description,
     string? Reference,
     decimal? Amount,
-    string? CurrencyCode,
-    Guid ConcurrencyToken);
+    string? CurrencyCode);
 
 public sealed record InsuranceBeneficiaryItemRequest(
     string FullName,
@@ -194,8 +189,7 @@ public sealed record AddSalaryItemRequest(
     decimal Amount,
     DateTime StartDate,
     DateTime? EndDate,
-    bool IsActive,
-    Guid ConcurrencyToken);
+    bool IsActive);
 
 public sealed record UpdateSalaryItemRequest(
     string IncomeTypeCode,
@@ -213,8 +207,7 @@ public sealed record AddAdditionalBenefitRequest(
     DateTime? StartDate,
     DateTime? EndDate,
     bool IsActive,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
 
 public sealed record UpdateAdditionalBenefitRequest(
     string BenefitTypeCode,
@@ -231,8 +224,7 @@ public sealed record AddPaymentMethodRequest(
     bool IsActive,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
 
 public sealed record UpdatePaymentMethodRequest(
     string PaymentMethodCode,
@@ -254,8 +246,7 @@ public sealed record AddPayrollTransactionRequest(
     bool IsDebit,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc,
-    Guid ConcurrencyToken);
+    DateTime? SourceSyncedUtc);
 
 public sealed record AddInsuranceRequest(
     string InsuranceCode,
@@ -268,8 +259,7 @@ public sealed record AddInsuranceRequest(
     bool IsActive,
     DateTime? StartDateUtc,
     DateTime? EndDateUtc,
-    IReadOnlyCollection<InsuranceBeneficiaryItemRequest> Beneficiaries,
-    Guid ConcurrencyToken);
+    IReadOnlyCollection<InsuranceBeneficiaryItemRequest> Beneficiaries);
 
 public sealed record UpdateInsuranceRequest(
     string InsuranceCode,
@@ -298,8 +288,7 @@ public sealed record AddMedicalClaimRequest(
     DateTime ClaimDateUtc,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc,
-    Guid ConcurrencyToken);
+    DateTime? SourceSyncedUtc);
 
 public sealed record UpdateMedicalClaimRequest(
     Guid? InsurancePublicId,
@@ -325,8 +314,7 @@ public sealed record AddPerformanceEvaluationRequest(
     string? Comment,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc,
-    Guid ConcurrencyToken);
+    DateTime? SourceSyncedUtc);
 
 public sealed record UpdatePerformanceEvaluationRequest(
     string EvaluatorName,
@@ -348,8 +336,7 @@ public sealed record AddPositionCompetencyResultRequest(
     DateTime? EvaluationDateUtc,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc,
-    Guid ConcurrencyToken);
+    DateTime? SourceSyncedUtc);
 
 public sealed record UpdatePositionCompetencyResultRequest(
     string CompetencyCode,
@@ -371,8 +358,7 @@ public sealed record AddSelectionContestRequest(
     string? Notes,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc,
-    Guid ConcurrencyToken);
+    DateTime? SourceSyncedUtc);
 
 public sealed record UpdateSelectionContestRequest(
     string ContestCode,
@@ -394,8 +380,7 @@ public sealed record AddCurricularCompetencyRequest(
     string? Notes,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc,
-    Guid ConcurrencyToken);
+    DateTime? SourceSyncedUtc);
 
 public sealed record UpdateCurricularCompetencyRequest(
     string RequirementTypeCode,
@@ -415,8 +400,7 @@ public sealed record AddIdentificationRequest(
     DateTime? IssuedDate,
     DateTime? ExpiryDate,
     string? Issuer,
-    bool IsPrimary,
-    Guid ConcurrencyToken);
+    bool IsPrimary);
 
 public sealed record UpdateIdentificationRequest(
     string IdentificationTypeCode,
@@ -433,8 +417,7 @@ public sealed record AddAddressRequest(
     string? Department,
     string? Municipality,
     string? PostalCode,
-    bool IsCurrent,
-    Guid ConcurrencyToken);
+    bool IsCurrent);
 
 public sealed record UpdateAddressRequest(
     string AddressLine,
@@ -450,8 +433,7 @@ public sealed record AddEmergencyContactRequest(
     string Relationship,
     string Phone,
     string? Address,
-    string? Workplace,
-    Guid ConcurrencyToken);
+    string? Workplace);
 
 public sealed record UpdateEmergencyContactRequest(
     string Name,
@@ -483,8 +465,7 @@ public sealed record AddFamilyMemberRequest(
     string? WorkPhone,
     decimal? Salary,
     bool IsDeceased,
-    DateTime? DeceasedDate,
-    Guid ConcurrencyToken);
+    DateTime? DeceasedDate);
 
 public sealed record UpdateFamilyMemberRequest(
     string FirstName,
@@ -511,14 +492,13 @@ public sealed record UpdateFamilyMemberRequest(
     DateTime? DeceasedDate,
     Guid ConcurrencyToken);
 
-public sealed record AddHobbyRequest(string HobbyName, Guid ConcurrencyToken);
+public sealed record AddHobbyRequest(string HobbyName);
 
 public sealed record UpdateHobbyRequest(string HobbyName, Guid ConcurrencyToken);
 
 public sealed record AddEmployeeRelationRequest(
     Guid RelatedEmployeePublicId,
-    string Relationship,
-    Guid ConcurrencyToken);
+    string Relationship);
 
 public sealed record UpdateEmployeeRelationRequest(
     Guid RelatedEmployeePublicId,
@@ -530,8 +510,7 @@ public sealed record AddBankAccountRequest(
     string CurrencyCode,
     string AccountNumber,
     string AccountTypeCode,
-    bool IsPrimary,
-    Guid ConcurrencyToken);
+    bool IsPrimary);
 
 public sealed record UpdateBankAccountRequest(
     Guid BankPublicId,
@@ -546,8 +525,7 @@ public sealed record AddAssociationRequest(
     string? Role,
     DateTime? JoinedDate,
     DateTime? LeftDate,
-    decimal? Payment,
-    Guid ConcurrencyToken);
+    decimal? Payment);
 
 public sealed record UpdateAssociationRequest(
     string AssociationName,
@@ -587,8 +565,7 @@ public sealed record AddEducationRequest(
     Guid? ShiftPublicId,
     Guid? ModalityPublicId,
     int? TotalSubjects,
-    int? ApprovedSubjects,
-    Guid ConcurrencyToken);
+    int? ApprovedSubjects);
 
 public sealed record UpdateEducationRequest(
     Guid StatusPublicId,
@@ -612,8 +589,7 @@ public sealed record AddLanguageRequest(
     string LevelCode,
     bool Speaks,
     bool Writes,
-    bool Reads,
-    Guid ConcurrencyToken);
+    bool Reads);
 
 public sealed record UpdateLanguageRequest(
     string LanguageCode,
@@ -639,8 +615,7 @@ public sealed record AddTrainingRequest(
     decimal DurationValue,
     string DurationUnitCode,
     decimal? CostAmount,
-    string? CostCurrencyCode,
-    Guid ConcurrencyToken);
+    string? CostCurrencyCode);
 
 public sealed record UpdateTrainingRequest(
     string TrainingName,
@@ -673,8 +648,7 @@ public sealed record AddPreviousEmploymentRequest(
     decimal? FirstSalaryAmount,
     decimal? LastSalaryAmount,
     decimal? AverageCommissionAmount,
-    string CurrencyCode,
-    Guid ConcurrencyToken);
+    string CurrencyCode);
 
 public sealed record UpdatePreviousEmploymentRequest(
     string Institution,
@@ -699,8 +673,7 @@ public sealed record AddReferenceRequest(
     string? Occupation,
     string? Workplace,
     string? WorkPhone,
-    decimal KnownTimeYears,
-    Guid ConcurrencyToken);
+    decimal KnownTimeYears);
 
 public sealed record UpdateReferenceRequest(
     string PersonName,
@@ -736,8 +709,7 @@ public sealed record DynamicQueryPersonnelFilesRequest(
 public sealed record AddPersonnelFileDocumentRequest(
     Guid FilePublicId,
     Guid DocumentTypeCatalogItemPublicId,
-    string? Observations,
-    Guid ConcurrencyToken);
+    string? Observations);
 
 public sealed record UpdatePersonnelFileDocumentRequest(
     Guid DocumentTypeCatalogItemPublicId,
@@ -751,6 +723,6 @@ public sealed record UpdatePersonnelFileDocumentRequest(
 
 public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
 
-public sealed record AddObservationRequest(string Note, Guid ConcurrencyToken);
+public sealed record AddObservationRequest(string Note);
 
 

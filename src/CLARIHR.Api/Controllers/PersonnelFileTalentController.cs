@@ -54,8 +54,7 @@ public sealed class PersonnelFileTalentController(
                     request.Comment,
                     request.SourceSystem,
                     request.SourceReference,
-                    request.SourceSyncedUtc),
-                request.ConcurrencyToken),
+                    request.SourceSyncedUtc)),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -135,8 +134,7 @@ public sealed class PersonnelFileTalentController(
                     request.EvaluationDateUtc,
                     request.SourceSystem,
                     request.SourceReference,
-                    request.SourceSyncedUtc),
-                request.ConcurrencyToken),
+                    request.SourceSyncedUtc)),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -216,8 +214,7 @@ public sealed class PersonnelFileTalentController(
                     request.Notes,
                     request.SourceSystem,
                     request.SourceReference,
-                    request.SourceSyncedUtc),
-                request.ConcurrencyToken),
+                    request.SourceSyncedUtc)),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -297,8 +294,7 @@ public sealed class PersonnelFileTalentController(
                     request.Notes,
                     request.SourceSystem,
                     request.SourceReference,
-                    request.SourceSyncedUtc),
-                request.ConcurrencyToken),
+                    request.SourceSyncedUtc)),
             cancellationToken);
 
         return this.ToActionResult(result);
