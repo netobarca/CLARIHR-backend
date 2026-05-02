@@ -1342,4 +1342,64 @@
   <data name="validation.message.filedata_is_required_for_new_documents" xml:space="preserve">
     <value>File data is required when creating a new document.</value>
   </data>
+  <data name="files.not_found" xml:space="preserve">
+    <value>The requested file was not found.</value>
+  </data>
+  <data name="files.not_active" xml:space="preserve">
+    <value>The file is not in an active state.</value>
+  </data>
+  <data name="files.not_pending_upload" xml:space="preserve">
+    <value>The file is not pending upload.</value>
+  </data>
+  <data name="files.ownership_mismatch" xml:space="preserve">
+    <value>You do not own this file.</value>
+  </data>
+  <data name="files.tenant_mismatch" xml:space="preserve">
+    <value>The file does not belong to your organization.</value>
+  </data>
+  <data name="files.provider_not_configured" xml:space="preserve">
+    <value>The storage provider is not configured.</value>
+  </data>
+  <data name="files.purpose_not_configured" xml:space="preserve">
+    <value>No rules are configured for the specified file purpose.</value>
+  </data>
+  <data name="files.too_large" xml:space="preserve">
+    <value>The file exceeds the maximum allowed size.</value>
+  </data>
+  <data name="files.content_type_not_allowed" xml:space="preserve">
+    <value>The content type is not allowed for this purpose.</value>
+  </data>
+  <data name="files.extension_not_allowed" xml:space="preserve">
+    <value>The file extension is not allowed for this purpose.</value>
+  </data>
+  <data name="files.upload_not_found" xml:space="preserve">
+    <value>The uploaded file was not found in storage. The upload may have failed or the session expired.</value>
+  </data>
+  <data name="files.invalid_purpose" xml:space="preserve">
+    <value>The specified value is not a valid file purpose.</value>
+  </data>
+  <data name="DOCUMENT_TYPE_CATALOG_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>The requested document type catalog item could not be found.</value>
+  </data>
+  <data name="DOCUMENT_TYPE_CATALOG_CODE_CONFLICT" xml:space="preserve">
+    <value>Another document type catalog item already uses the requested code.</value>
+  </data>
+  <data name="DOCUMENT_TYPE_CATALOG_ITEM_IN_USE" xml:space="preserve">
+    <value>The document type catalog item is in use and cannot be inactivated.</value>
+  </data>
+  <data name="validation.message.filename_and_contenttype_are_required_when_replacing_the_file" xml:space="preserve">
+    <value>FileName and ContentType are required when replacing the file.</value>
+  </data>
+  <data name="EDUCATION_CATALOG_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>The requested education catalog item could not be found.</value>
+  </data>
+  <data name="EDUCATION_CATALOG_CODE_CONFLICT" xml:space="preserve">
+    <value>Another education catalog item already uses the requested code.</value>
+  </data>
+  <data name="EDUCATION_CATALOG_ITEM_IN_USE" xml:space="preserve">
+    <value>The education catalog item is in use and cannot be inactivated.</value>
+  </data>
+  <data name="PERSONNEL_FILE_ITEM_NOT_FOUND" xml:space="preserve">
+    <value>The requested item could not be found in this personnel file.</value>
+  </data>
 </root>

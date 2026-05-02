@@ -734,7 +734,7 @@ public sealed record DynamicQueryPersonnelFilesRequest(
     bool IncludeAllowedActions = false);
 
 public sealed record UploadPersonnelFileDocumentRequest(
-    string DocumentType,
+    Guid DocumentTypeCatalogItemPublicId,
     string? Observations,
     DateTime? DeliveryDate,
     DateTime? LoanDate,
@@ -745,7 +745,7 @@ public sealed record UploadPersonnelFileDocumentRequest(
 // UpdatePersonnelFileDocumentRequest — file is optional; null = update metadata only, present = update metadata + replace blob
 public sealed class UpdatePersonnelFileDocumentRequest
 {
-    public string DocumentType { get; init; } = string.Empty;
+    public Guid DocumentTypeCatalogItemPublicId { get; init; }
     public string? Observations { get; init; }
     public DateTime? DeliveryDate { get; init; }
     public DateTime? LoanDate { get; init; }

@@ -760,6 +760,7 @@ internal sealed class PersonnelFileDocumentConfiguration : IEntityTypeConfigurat
         builder.Property(item => item.TenantId).HasColumnName("tenant_id");
         builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
+        builder.Property(item => item.DocumentTypeCatalogItemId).HasColumnName("document_type_catalog_item_id");
         builder.Property(item => item.DocumentType).HasColumnName("document_type").HasMaxLength(100);
         builder.Property(item => item.Observations).HasColumnName("observations").HasMaxLength(2000);
         builder.Property(item => item.DeliveryDate).HasColumnName("delivery_date");
@@ -776,12 +777,21 @@ internal sealed class PersonnelFileDocumentConfiguration : IEntityTypeConfigurat
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
+        builder.HasOne(item => item.DocumentTypeCatalogItem)
+            .WithMany()
+            .HasForeignKey(item => item.DocumentTypeCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_personnel_file_documents__document_type_catalog_item");
+
         builder.HasIndex(item => item.PublicId)
             .IsUnique()
             .HasDatabaseName("uq_personnel_file_documents__public_id");
 
         builder.HasIndex(item => new { item.TenantId, item.PersonnelFileId, item.IsActive })
             .HasDatabaseName("ix_personnel_file_documents__tenant_file_active");
+
+        builder.HasIndex(item => item.DocumentTypeCatalogItemId)
+            .HasDatabaseName("ix_personnel_file_documents__document_type_catalog_item_id");
     }
 }
 

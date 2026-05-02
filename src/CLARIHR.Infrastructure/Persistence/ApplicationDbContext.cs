@@ -18,6 +18,7 @@ using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.OrgStructureCatalogs;
 using CLARIHR.Domain.OrgUnits;
 using CLARIHR.Domain.EducationCatalogs;
+using CLARIHR.Domain.DocumentTypeCatalogs;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Domain.Platform;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
@@ -283,6 +284,9 @@ public sealed class ApplicationDbContext(
     public DbSet<ReportExportJob> ReportExportJobs => Set<ReportExportJob>();
 
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
+
+    // Document type system-wide catalog DbSet (global, no country scope)
+    public DbSet<DocumentTypeCatalogItem> DocumentTypeCatalogItems => Set<DocumentTypeCatalogItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
