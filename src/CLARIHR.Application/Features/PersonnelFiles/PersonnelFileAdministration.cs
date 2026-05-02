@@ -1,15 +1,17 @@
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Banks;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.EducationCatalogs;
 using CLARIHR.Application.Abstractions.DocumentTypeCatalogs;
+using CLARIHR.Application.Abstractions.Files;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Features.Files.Common;
+using CLARIHR.Domain.Files;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
@@ -215,9 +217,9 @@ public sealed record PersonnelFileDocumentMetadataResponse(
     DateTime? DeliveryDate,
     DateTime? LoanDate,
     DateTime? ReturnDate,
+    Guid FilePublicId,
     string FileName,
     string ContentType,
-    string? FileUrl,
     int SizeBytes,
     bool IsActive,
     Guid ConcurrencyToken,
@@ -846,10 +848,8 @@ public sealed record UpdatePersonnelFileDocumentCommand(
     DateTime? DeliveryDate,
     DateTime? LoanDate,
     DateTime? ReturnDate,
-    // null = only update metadata; present = also replace blob
-    string? FileName,
-    string? ContentType,
-    byte[]? FileData,
+    // null = only update metadata; present = replace file reference
+    Guid? FilePublicId,
     Guid ConcurrencyToken)
     : ICommand<PersonnelFileDocumentMetadataResponse>;
 
@@ -865,16 +865,14 @@ public sealed record ActivatePersonnelFileCommand(Guid PersonnelFileId, Guid Con
 public sealed record InactivatePersonnelFileCommand(Guid PersonnelFileId, Guid ConcurrencyToken)
     : ICommand<PersonnelFileShellResponse>;
 
-public sealed record UploadPersonnelFileDocumentCommand(
+public sealed record AddPersonnelFileDocumentCommand(
     Guid PersonnelFileId,
+    Guid FilePublicId,
     Guid DocumentTypeCatalogItemPublicId,
     string? Observations,
     DateTime? DeliveryDate,
     DateTime? LoanDate,
     DateTime? ReturnDate,
-    string FileName,
-    string ContentType,
-    byte[] FileData,
     Guid ConcurrencyToken)
     : ICommand<PersonnelFileDocumentMetadataResponse>;
 
@@ -1850,15 +1848,13 @@ internal sealed class InactivatePersonnelFileCommandValidator : AbstractValidato
     }
 }
 
-internal sealed class UploadPersonnelFileDocumentCommandValidator : AbstractValidator<UploadPersonnelFileDocumentCommand>
+internal sealed class AddPersonnelFileDocumentCommandValidator : AbstractValidator<AddPersonnelFileDocumentCommand>
 {
-    public UploadPersonnelFileDocumentCommandValidator()
+    public AddPersonnelFileDocumentCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.FilePublicId).NotEmpty();
         RuleFor(command => command.DocumentTypeCatalogItemPublicId).NotEmpty();
-        RuleFor(command => command.FileName).NotEmpty().MaximumLength(260);
-        RuleFor(command => command.ContentType).NotEmpty().MaximumLength(200);
-        RuleFor(command => command.FileData).NotNull().Must(static data => data.Length > 0).WithMessage("FileData is required.");
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command)
             .Must(static command => !command.LoanDate.HasValue || !command.ReturnDate.HasValue || command.ReturnDate.Value.Date >= command.LoanDate.Value.Date)
@@ -1874,16 +1870,10 @@ internal sealed class UpdatePersonnelFileDocumentCommandValidator : AbstractVali
         RuleFor(command => command.DocumentPublicId).NotEmpty();
         RuleFor(command => command.DocumentTypeCatalogItemPublicId).NotEmpty();
         RuleFor(command => command.Observations).MaximumLength(1000);
-        RuleFor(command => command.FileName).MaximumLength(260).When(command => command.FileName is not null);
-        RuleFor(command => command.ContentType).MaximumLength(200).When(command => command.ContentType is not null);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command)
             .Must(static command => !command.LoanDate.HasValue || !command.ReturnDate.HasValue || command.ReturnDate.Value.Date >= command.LoanDate.Value.Date)
             .WithMessage(PersonnelFileErrors.DocumentLoanDatesInvalid.Message);
-        RuleFor(command => command)
-            .Must(static command => command.FileData is null ||
-                (command.FileName is not null && command.ContentType is not null))
-            .WithMessage("FileName and ContentType are required when replacing the file.");
     }
 }
 
@@ -3108,7 +3098,6 @@ internal sealed class GetPersonnelFileDocumentsQueryHandler(
 internal sealed class GetPersonnelFileDocumentByIdQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
-    IPersonnelFileDocumentStorageService documentStorageService,
     ITenantContext tenantContext)
     : GetPersonnelFileSectionQueryHandlerBase,
       IQueryHandler<GetPersonnelFileDocumentByIdQuery, PersonnelFileDocumentMetadataResponse>
@@ -3137,8 +3126,7 @@ internal sealed class GetPersonnelFileDocumentByIdQueryHandler(
                     : PersonnelFileErrors.DocumentNotFound);
         }
 
-        var resolvedUrl = await documentStorageService.ResolveForReadAsync(document.FileUrl, cancellationToken);
-        return Result<PersonnelFileDocumentMetadataResponse>.Success(document with { FileUrl = resolvedUrl });
+        return Result<PersonnelFileDocumentMetadataResponse>.Success(document);
     }
 }
 
@@ -8477,18 +8465,18 @@ internal sealed class InactivatePersonnelFileCommandHandler(
             personnelFile.ModifiedUtc);
 }
 
-internal sealed class UploadPersonnelFileDocumentCommandHandler(
+internal sealed class AddPersonnelFileDocumentCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
-    IPersonnelFileDocumentStorageService documentStorageService,
+    IFileRepository fileRepository,
     IDocumentTypeCatalogRepository documentTypeCatalogRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<UploadPersonnelFileDocumentCommand, PersonnelFileDocumentMetadataResponse>
+    : ICommandHandler<AddPersonnelFileDocumentCommand, PersonnelFileDocumentMetadataResponse>
 {
     public async Task<Result<PersonnelFileDocumentMetadataResponse>> Handle(
-        UploadPersonnelFileDocumentCommand command,
+        AddPersonnelFileDocumentCommand command,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
@@ -8502,20 +8490,26 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(authorizationResult.Error);
         }
 
-        if (!documentStorageService.IsConfigured)
+        // Validate the StoredFile reference
+        var storedFile = await fileRepository.GetByPublicIdAsync(command.FilePublicId, cancellationToken);
+        if (storedFile is null)
         {
-            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentStorageNotConfigured);
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(FileErrors.FileNotFound);
         }
 
-        if (command.FileData.Length > PersonnelFileValidationRules.MaxDocumentFileSizeBytes)
+        if (storedFile.Status != FileStatus.Active)
         {
-            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentFileTooLarge);
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(FileErrors.FileNotActive);
         }
 
-        if (!PersonnelFileValidationRules.IsAllowedDocumentExtension(command.FileName) ||
-            !PersonnelFileValidationRules.IsAllowedDocumentContentType(command.FileName, command.ContentType))
+        if (storedFile.TenantId != tenantContext.TenantId.Value)
         {
-            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentContentTypeUnsupported);
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(FileErrors.FileTenantMismatch);
+        }
+
+        if (storedFile.Purpose != FilePurpose.PersonnelDocument)
+        {
+            return Result<PersonnelFileDocumentMetadataResponse>.Failure(FileErrors.InvalidPurpose(storedFile.Purpose.ToString()));
         }
 
         var personnelFile = await repository.GetForAccessCheckAsync(command.PersonnelFileId, cancellationToken);
@@ -8543,36 +8537,22 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
                 }));
         }
 
-        var shaBytes = SHA256.HashData(command.FileData);
-        var sha256 = Convert.ToHexString(shaBytes).ToLowerInvariant();
         var documentId = Guid.NewGuid();
 
         PersonnelFileDocument document;
-        PersonnelFileStoredDocumentArtifact? storedArtifact = null;
         try
         {
-            storedArtifact = await documentStorageService.UploadAsync(
-                personnelFile.TenantId,
-                personnelFile.PublicId,
-                documentId,
-                command.FileName,
-                command.ContentType,
-                command.FileData,
-                cancellationToken);
-
             document = PersonnelFileDocument.Create(
                 documentId,
                 documentTypeLookup.InternalId,
+                storedFile.PublicId,
+                storedFile.FileName,
+                storedFile.ContentType,
+                (int)storedFile.SizeBytes,
                 command.Observations,
                 command.DeliveryDate,
                 command.LoanDate,
-                command.ReturnDate,
-                storedArtifact.BlobName,
-                storedArtifact.BlobUrl,
-                command.FileName,
-                command.ContentType,
-                command.FileData.Length,
-                sha256);
+                command.ReturnDate);
         }
         catch (InvalidOperationException)
         {
@@ -8606,10 +8586,6 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
-            if (storedArtifact is not null)
-            {
-                await documentStorageService.DeleteIfExistsAsync(storedArtifact.BlobName, cancellationToken);
-            }
             throw;
         }
     }
@@ -8618,7 +8594,7 @@ internal sealed class UploadPersonnelFileDocumentCommandHandler(
 internal sealed class UpdatePersonnelFileDocumentCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
-    IPersonnelFileDocumentStorageService documentStorageService,
+    IFileRepository fileRepository,
     IDocumentTypeCatalogRepository documentTypeCatalogRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
@@ -8640,23 +8616,32 @@ internal sealed class UpdatePersonnelFileDocumentCommandHandler(
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(authorizationResult.Error);
         }
 
-        var replaceFile = command.FileData is { Length: > 0 };
+        var replaceFile = command.FilePublicId.HasValue;
 
-        if (replaceFile && !documentStorageService.IsConfigured)
+        // Validate new file reference if replacing
+        StoredFile? newStoredFile = null;
+        if (replaceFile)
         {
-            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentStorageNotConfigured);
-        }
+            newStoredFile = await fileRepository.GetByPublicIdAsync(command.FilePublicId!.Value, cancellationToken);
+            if (newStoredFile is null)
+            {
+                return Result<PersonnelFileDocumentMetadataResponse>.Failure(FileErrors.FileNotFound);
+            }
 
-        if (replaceFile && command.FileData!.Length > PersonnelFileValidationRules.MaxDocumentFileSizeBytes)
-        {
-            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentFileTooLarge);
-        }
+            if (newStoredFile.Status != FileStatus.Active)
+            {
+                return Result<PersonnelFileDocumentMetadataResponse>.Failure(FileErrors.FileNotActive);
+            }
 
-        if (replaceFile &&
-            (!PersonnelFileValidationRules.IsAllowedDocumentExtension(command.FileName!) ||
-             !PersonnelFileValidationRules.IsAllowedDocumentContentType(command.FileName!, command.ContentType!)))
-        {
-            return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentContentTypeUnsupported);
+            if (newStoredFile.TenantId != tenantContext.TenantId.Value)
+            {
+                return Result<PersonnelFileDocumentMetadataResponse>.Failure(FileErrors.FileTenantMismatch);
+            }
+
+            if (newStoredFile.Purpose != FilePurpose.PersonnelDocument)
+            {
+                return Result<PersonnelFileDocumentMetadataResponse>.Failure(FileErrors.InvalidPurpose(newStoredFile.Purpose.ToString()));
+            }
         }
 
         var personnelFile = await repository.GetForProfileSectionUpdateAsync(
@@ -8694,9 +8679,6 @@ internal sealed class UpdatePersonnelFileDocumentCommandHandler(
                 }));
         }
 
-        PersonnelFileStoredDocumentArtifact? storedArtifact = null;
-        string? previousBlobName = replaceFile ? document.BlobName : null;
-
         try
         {
             document.UpdateMetadata(
@@ -8714,27 +8696,13 @@ internal sealed class UpdatePersonnelFileDocumentCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            if (replaceFile)
+            if (replaceFile && newStoredFile is not null)
             {
-                var shaBytes = SHA256.HashData(command.FileData!);
-                var sha256 = Convert.ToHexString(shaBytes).ToLowerInvariant();
-
-                storedArtifact = await documentStorageService.UploadAsync(
-                    document.TenantId,
-                    personnelFile.PublicId,
-                    document.PublicId,
-                    command.FileName!,
-                    command.ContentType!,
-                    command.FileData!,
-                    cancellationToken);
-
-                document.ReplaceFile(
-                    storedArtifact.BlobName,
-                    storedArtifact.BlobUrl,
-                    command.FileName!,
-                    command.ContentType!,
-                    command.FileData!.Length,
-                    sha256);
+                document.ReplaceFileReference(
+                    newStoredFile.PublicId,
+                    newStoredFile.FileName,
+                    newStoredFile.ContentType,
+                    (int)newStoredFile.SizeBytes);
             }
 
             personnelFile.MarkDocumentsUpdated();
@@ -8757,28 +8725,16 @@ internal sealed class UpdatePersonnelFileDocumentCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
-            // Delete previous blob only after successful commit and only when a new blob replaced it
-            if (replaceFile && storedArtifact is not null &&
-                !string.Equals(previousBlobName, storedArtifact.BlobName, StringComparison.Ordinal))
-            {
-                await documentStorageService.DeleteIfExistsAsync(previousBlobName!, cancellationToken);
-            }
-
             return Result<PersonnelFileDocumentMetadataResponse>.Success(updated);
         }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
-            // If we uploaded a new blob but the transaction failed, clean it up
-            if (storedArtifact is not null &&
-                !string.Equals(previousBlobName, storedArtifact.BlobName, StringComparison.Ordinal))
-            {
-                await documentStorageService.DeleteIfExistsAsync(storedArtifact.BlobName, cancellationToken);
-            }
             throw;
         }
     }
 }
+
 
 internal sealed class InactivatePersonnelFileDocumentCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,

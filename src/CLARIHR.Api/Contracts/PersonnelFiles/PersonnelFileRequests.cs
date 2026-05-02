@@ -733,26 +733,23 @@ public sealed record DynamicQueryPersonnelFilesRequest(
     int PageSize = PersonnelFileValidationRules.DefaultPageSize,
     bool IncludeAllowedActions = false);
 
-public sealed record UploadPersonnelFileDocumentRequest(
+public sealed record AddPersonnelFileDocumentRequest(
+    Guid FilePublicId,
     Guid DocumentTypeCatalogItemPublicId,
     string? Observations,
     DateTime? DeliveryDate,
     DateTime? LoanDate,
     DateTime? ReturnDate,
-    Guid ConcurrencyToken,
-    IFormFile File);
+    Guid ConcurrencyToken);
 
-// UpdatePersonnelFileDocumentRequest — file is optional; null = update metadata only, present = update metadata + replace blob
-public sealed class UpdatePersonnelFileDocumentRequest
-{
-    public Guid DocumentTypeCatalogItemPublicId { get; init; }
-    public string? Observations { get; init; }
-    public DateTime? DeliveryDate { get; init; }
-    public DateTime? LoanDate { get; init; }
-    public DateTime? ReturnDate { get; init; }
-    public Guid ConcurrencyToken { get; init; }
-    public IFormFile? File { get; init; }
-}
+public sealed record UpdatePersonnelFileDocumentRequest(
+    Guid DocumentTypeCatalogItemPublicId,
+    string? Observations,
+    DateTime? DeliveryDate,
+    DateTime? LoanDate,
+    DateTime? ReturnDate,
+    Guid? FilePublicId,
+    Guid ConcurrencyToken);
 
 // ReplacePersonnelFileDocumentsRequest, ReplacePersonnelFileDocumentsManifestRequest,
 // ReplacePersonnelFileDocumentItemRequest and ReplacePersonnelFileDocumentFileRequest removed
