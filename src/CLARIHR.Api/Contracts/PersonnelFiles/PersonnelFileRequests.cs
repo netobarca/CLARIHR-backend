@@ -737,17 +737,11 @@ public sealed record AddPersonnelFileDocumentRequest(
     Guid FilePublicId,
     Guid DocumentTypeCatalogItemPublicId,
     string? Observations,
-    DateTime? DeliveryDate,
-    DateTime? LoanDate,
-    DateTime? ReturnDate,
     Guid ConcurrencyToken);
 
 public sealed record UpdatePersonnelFileDocumentRequest(
     Guid DocumentTypeCatalogItemPublicId,
     string? Observations,
-    DateTime? DeliveryDate,
-    DateTime? LoanDate,
-    DateTime? ReturnDate,
     Guid? FilePublicId,
     Guid ConcurrencyToken);
 

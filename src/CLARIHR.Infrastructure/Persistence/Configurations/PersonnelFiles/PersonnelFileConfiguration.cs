@@ -748,10 +748,7 @@ internal sealed class PersonnelFileDocumentConfiguration : IEntityTypeConfigurat
 {
     public void Configure(EntityTypeBuilder<PersonnelFileDocument> builder)
     {
-        builder.ToTable("personnel_file_documents", table =>
-            table.HasCheckConstraint(
-                "ck_personnel_file_documents__loan_return",
-                "return_date is null or loan_date is null or return_date >= loan_date"));
+        builder.ToTable("personnel_file_documents");
 
         builder.HasKey(item => item.Id)
             .HasName("pk_personnel_file_documents");
@@ -764,9 +761,6 @@ internal sealed class PersonnelFileDocumentConfiguration : IEntityTypeConfigurat
         builder.Property(item => item.DocumentType).HasColumnName("document_type").HasMaxLength(100);
         builder.Property(item => item.FilePublicId).HasColumnName("file_public_id");
         builder.Property(item => item.Observations).HasColumnName("observations").HasMaxLength(2000);
-        builder.Property(item => item.DeliveryDate).HasColumnName("delivery_date");
-        builder.Property(item => item.LoanDate).HasColumnName("loan_date");
-        builder.Property(item => item.ReturnDate).HasColumnName("return_date");
         builder.Property(item => item.FileName).HasColumnName("file_name").HasMaxLength(260);
         builder.Property(item => item.ContentType).HasColumnName("content_type").HasMaxLength(200);
         builder.Property(item => item.SizeBytes).HasColumnName("size_bytes");

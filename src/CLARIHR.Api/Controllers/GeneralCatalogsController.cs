@@ -78,6 +78,8 @@ public sealed class GeneralCatalogsController(IQueryDispatcher queryDispatcher) 
             "education-shifts" => "CurriculumShift",
             "education-modalities" => "CurriculumModality",
             "education-careers" => "CurriculumCareer",
+            "file-document-types" => "FileDocumentType",
+            "banks" => "Bank",
             _ => string.Empty
         };
 
@@ -99,3 +101,4 @@ public sealed class GeneralCatalogsController(IQueryDispatcher queryDispatcher) 
         return !string.IsNullOrWhiteSpace(category);
     }
 }
+

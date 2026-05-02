@@ -2282,16 +2282,8 @@ public sealed class PersonnelFileDocument : TenantEntity
         string fileName,
         string contentType,
         int sizeBytes,
-        string? observations,
-        DateTime? deliveryDate,
-        DateTime? loanDate,
-        DateTime? returnDate)
+        string? observations)
     {
-        if (loanDate.HasValue && returnDate.HasValue && returnDate.Value.Date < loanDate.Value.Date)
-        {
-            throw new InvalidOperationException("ReturnDate cannot be earlier than LoanDate.");
-        }
-
         if (documentTypeCatalogItemId <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
@@ -2309,9 +2301,6 @@ public sealed class PersonnelFileDocument : TenantEntity
         ContentType = PersonnelFileNormalization.Clean(contentType, nameof(contentType));
         SizeBytes = sizeBytes;
         Observations = PersonnelFileNormalization.CleanOptional(observations);
-        DeliveryDate = PersonnelFileNormalization.NormalizeDate(deliveryDate);
-        LoanDate = PersonnelFileNormalization.NormalizeDate(loanDate);
-        ReturnDate = PersonnelFileNormalization.NormalizeDate(returnDate);
         IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
@@ -2333,12 +2322,6 @@ public sealed class PersonnelFileDocument : TenantEntity
 
     public string? Observations { get; private set; }
 
-    public DateTime? DeliveryDate { get; private set; }
-
-    public DateTime? LoanDate { get; private set; }
-
-    public DateTime? ReturnDate { get; private set; }
-
     public string FileName { get; private set; } = string.Empty;
 
     public string ContentType { get; private set; } = string.Empty;
@@ -2356,12 +2339,9 @@ public sealed class PersonnelFileDocument : TenantEntity
         string fileName,
         string contentType,
         int sizeBytes,
-        string? observations,
-        DateTime? deliveryDate,
-        DateTime? loanDate,
-        DateTime? returnDate) =>
+        string? observations) =>
         new(publicId, documentTypeCatalogItemId, filePublicId, fileName, contentType, sizeBytes,
-            observations, deliveryDate, loanDate, returnDate);
+            observations);
 
     public void ReplaceFileReference(
         Guid filePublicId,
@@ -2383,16 +2363,8 @@ public sealed class PersonnelFileDocument : TenantEntity
 
     public void UpdateMetadata(
         long documentTypeCatalogItemId,
-        string? observations,
-        DateTime? deliveryDate,
-        DateTime? loanDate,
-        DateTime? returnDate)
+        string? observations)
     {
-        if (loanDate.HasValue && returnDate.HasValue && returnDate.Value.Date < loanDate.Value.Date)
-        {
-            throw new InvalidOperationException("ReturnDate cannot be earlier than LoanDate.");
-        }
-
         if (documentTypeCatalogItemId <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(documentTypeCatalogItemId), "Document type catalog item id must be positive.");
@@ -2400,9 +2372,6 @@ public sealed class PersonnelFileDocument : TenantEntity
 
         DocumentTypeCatalogItemId = documentTypeCatalogItemId;
         Observations = PersonnelFileNormalization.CleanOptional(observations);
-        DeliveryDate = PersonnelFileNormalization.NormalizeDate(deliveryDate);
-        LoanDate = PersonnelFileNormalization.NormalizeDate(loanDate);
-        ReturnDate = PersonnelFileNormalization.NormalizeDate(returnDate);
         IsActive = true;
         ConcurrencyToken = Guid.NewGuid();
     }
