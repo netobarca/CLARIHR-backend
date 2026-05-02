@@ -105,8 +105,7 @@ public sealed class PersonnelFilePersonalInfoController(
                     request.IssuedDate,
                     request.ExpiryDate,
                     request.Issuer,
-                    request.IsPrimary),
-                request.ConcurrencyToken),
+                    request.IsPrimary)),
             cancellationToken);
 
         return result.IsFailure
@@ -203,8 +202,7 @@ public sealed class PersonnelFilePersonalInfoController(
                     request.Department,
                     request.Municipality,
                     request.PostalCode,
-                    request.IsCurrent),
-                request.ConcurrencyToken),
+                    request.IsCurrent)),
             cancellationToken);
 
         return result.IsFailure
@@ -301,8 +299,7 @@ public sealed class PersonnelFilePersonalInfoController(
                     request.Relationship,
                     request.Phone,
                     request.Address,
-                    request.Workplace),
-                request.ConcurrencyToken),
+                    request.Workplace)),
             cancellationToken);
 
         return result.IsFailure
@@ -415,8 +412,7 @@ public sealed class PersonnelFilePersonalInfoController(
                     request.WorkPhone,
                     request.Salary,
                     request.IsDeceased,
-                    request.DeceasedDate),
-                request.ConcurrencyToken),
+                    request.DeceasedDate)),
             cancellationToken);
 
         return result.IsFailure

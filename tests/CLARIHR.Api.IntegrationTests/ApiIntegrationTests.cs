@@ -8003,13 +8003,13 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string code)
     {
         var response = await client.GetAsync(
-            $"/api/v1/companies/{companyId}/{routeSegment}?q={Uri.EscapeDataString(code)}&page=1&pageSize=50");
+            $"/api/v1/companies/{companyId}/general-catalogs/{routeSegment}");
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<PagedResponseEnvelope<PersonnelEducationCatalogLookupItem>>(JsonOptions);
+        var payload = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelEducationCatalogLookupItem>>(JsonOptions);
         Assert.NotNull(payload);
 
-        var item = payload!.Items.SingleOrDefault(i => i.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        var item = payload!.SingleOrDefault(i => i.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(item);
         return item!.Id;
     }

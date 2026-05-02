@@ -10274,7 +10274,7 @@ paths:
         '409': {description: Stale concurrency token., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
         '422': {description: Business-rule violation., content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}}
   /api/v1/personnel-files/{id}/finalize:
-    post:
+    patch:
       tags:
         - personnel-files
       operationId: FinalizePersonnelFile

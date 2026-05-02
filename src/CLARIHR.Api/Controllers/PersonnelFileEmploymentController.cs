@@ -153,8 +153,7 @@ public sealed class PersonnelFileEmploymentController(
                     request.EndDate,
                     request.IsPrimary,
                     request.IsActive,
-                    request.Notes),
-                request.ConcurrencyToken),
+                    request.Notes)),
             cancellationToken);
 
         return result.IsFailure
@@ -254,8 +253,7 @@ public sealed class PersonnelFileEmploymentController(
                     request.ContractEndDate,
                     request.PositionSlotPublicId,
                     request.IsActive,
-                    request.Notes),
-                request.ConcurrencyToken),
+                    request.Notes)),
             cancellationToken);
 
         return result.IsFailure
@@ -352,8 +350,7 @@ public sealed class PersonnelFileEmploymentController(
                     request.StartDate,
                     request.EndDate,
                     request.IsActive,
-                    request.Notes),
-                request.ConcurrencyToken),
+                    request.Notes)),
             cancellationToken);
 
         return result.IsFailure
@@ -452,8 +449,7 @@ public sealed class PersonnelFileEmploymentController(
                 request.Description,
                 request.Reference,
                 request.Amount,
-                request.CurrencyCode,
-                request.ConcurrencyToken),
+                request.CurrencyCode),
             cancellationToken);
 
         return result.IsFailure
@@ -574,8 +570,7 @@ public sealed class PersonnelFileEmploymentController(
                     request.DeliveryDateUtc,
                     request.DeliveryStatusCode,
                     request.IsActive,
-                    request.Notes),
-                request.ConcurrencyToken),
+                    request.Notes)),
             cancellationToken);
 
         return result.IsFailure

@@ -28,8 +28,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
-                personnelFile.ConcurrencyToken),
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling")),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -49,8 +48,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                new EmployeeRelationInput(personnelFile.PublicId, "Sibling"),
-                personnelFile.ConcurrencyToken),
+                new EmployeeRelationInput(personnelFile.PublicId, "Sibling")),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -70,8 +68,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                new EmployeeRelationInput(candidateFile.PublicId, "Sibling"),
-                personnelFile.ConcurrencyToken),
+                new EmployeeRelationInput(candidateFile.PublicId, "Sibling")),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -86,33 +83,12 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
         var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
         var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
-        var handler = CreateAddHandler(repository);
-
-        var result = await handler.Handle(
-            new AddPersonnelFileEmployeeRelationCommand(
-                personnelFile.PublicId,
-                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
-                Guid.NewGuid()),
-            CancellationToken.None);
-
-        Assert.True(result.IsFailure);
-        Assert.Equal(ErrorType.Conflict, result.Error.Type);
-    }
-
-    [Fact]
-    public async Task Add_WhenDuplicateRelationExists_ShouldReturnValidationError()
-    {
-        var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
-        var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
-        var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
-        var handler = CreateAddHandler(repository);
 
         // Add first relation
         var firstResult = await handler.Handle(
             new AddPersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
-                personnelFile.ConcurrencyToken),
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling")),
             CancellationToken.None);
         Assert.True(firstResult.IsSuccess);
 
@@ -120,8 +96,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
-                personnelFile.ConcurrencyToken),
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling")),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -139,8 +114,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileEmployeeRelationCommand(
                 Guid.NewGuid(),
-                new EmployeeRelationInput(Guid.NewGuid(), "Sibling"),
-                Guid.NewGuid()),
+                new EmployeeRelationInput(Guid.NewGuid(), "Sibling")),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -163,8 +137,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var addResult = await addHandler.Handle(
             new AddPersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
-                personnelFile.ConcurrencyToken),
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling")),
             CancellationToken.None);
         Assert.True(addResult.IsSuccess);
 
@@ -218,8 +191,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var addResult = await addHandler.Handle(
             new AddPersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
-                personnelFile.ConcurrencyToken),
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling")),
             CancellationToken.None);
         Assert.True(addResult.IsSuccess);
 
@@ -272,8 +244,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var addResult = await addHandler.Handle(
             new AddPersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
-                personnelFile.ConcurrencyToken),
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling")),
             CancellationToken.None);
         Assert.True(addResult.IsSuccess);
 

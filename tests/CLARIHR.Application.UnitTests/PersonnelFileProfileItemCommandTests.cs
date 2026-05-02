@@ -27,8 +27,7 @@ public sealed class PersonnelFileProfileItemCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileAddressCommand(
                 personnelFile.PublicId,
-                new AddressInput("Colonia Escalon", "SV", "SAN_SALVADOR", "SAN_SALVADOR_CENTRO", "1101", true),
-                personnelFile.ConcurrencyToken),
+                new AddressInput("Colonia Escalon", "SV", "SAN_SALVADOR", "SAN_SALVADOR_CENTRO", "1101", true)),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -71,8 +70,7 @@ public sealed class PersonnelFileProfileItemCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileBankAccountCommand(
                 personnelFile.PublicId,
-                new BankAccountInput(bankPublicId, "USD", "0001-1234-5678", "SAVINGS", true),
-                personnelFile.ConcurrencyToken),
+                new BankAccountInput(bankPublicId, "USD", "0001-1234-5678", "SAVINGS", true)),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -114,8 +112,7 @@ public sealed class PersonnelFileProfileItemCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileBankAccountCommand(
                 personnelFile.PublicId,
-                new BankAccountInput(Guid.NewGuid(), "USD", "0001-1234-5678", "SAVINGS", true),
-                personnelFile.ConcurrencyToken),
+                new BankAccountInput(Guid.NewGuid(), "USD", "0001-1234-5678", "SAVINGS", true)),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -199,8 +196,7 @@ public sealed class PersonnelFileProfileItemCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileAssociationCommand(
                 personnelFile.PublicId,
-                new AssociationInput("Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m),
-                personnelFile.ConcurrencyToken),
+                new AssociationInput("Colegio de Abogados", "Miembro", new DateTime(2020, 1, 1), null, 50.00m)),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -243,8 +239,7 @@ public sealed class PersonnelFileProfileItemCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileLanguageCommand(
                 personnelFile.PublicId,
-                new LanguageInput("ENGLISH", "ADVANCED", true, true, true),
-                personnelFile.ConcurrencyToken),
+                new LanguageInput("ENGLISH", "ADVANCED", true, true, true)),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -286,8 +281,7 @@ public sealed class PersonnelFileProfileItemCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileReferenceCommand(
                 personnelFile.PublicId,
-                new ReferenceInput("Juan Perez", null, "+50370001234", "PROFESSIONAL", "Gerente", "Empresa SA", null, 3),
-                personnelFile.ConcurrencyToken),
+                new ReferenceInput("Juan Perez", null, "+50370001234", "PROFESSIONAL", "Gerente", "Empresa SA", null, 3)),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -307,8 +301,7 @@ public sealed class PersonnelFileProfileItemCommandTests
         var result = await handler.Handle(
             new AddPersonnelFileReferenceCommand(
                 personnelFile.PublicId,
-                new ReferenceInput("Juan Perez", null, "+50370001234", "INVALID_TYPE", null, null, null, 3),
-                personnelFile.ConcurrencyToken),
+                new ReferenceInput("Juan Perez", null, "+50370001234", "INVALID_TYPE", null, null, null, 3)),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
