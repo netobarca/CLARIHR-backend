@@ -48,4 +48,9 @@ public static class ReportPolicyErrors
         "REPORT_FORBIDDEN",
         "You do not have permission to access the requested report resource.",
         ErrorType.Forbidden);
+
+    public static readonly Error ConcurrencyConflict = new(
+        "REPORT_CONCURRENCY_CONFLICT",
+        "The requested resource was modified by another process. Please reload and try again.",
+        ErrorType.Conflict);
 }

@@ -458,6 +458,10 @@ internal sealed class CompanySubscriptionPlanChangeConfiguration : IEntityTypeCo
         builder.Property(planChange => planChange.ModifiedUtc)
             .HasColumnName("modified_utc");
 
+        builder.Property(planChange => planChange.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
+
         builder.HasIndex(planChange => planChange.PublicId)
             .IsUnique()
             .HasDatabaseName("uq_company_subscription_plan_changes__public_id");
@@ -759,6 +763,10 @@ internal sealed class CompanyCommercialAddonChangeConfiguration : IEntityTypeCon
 
         builder.Property(change => change.ModifiedUtc)
             .HasColumnName("modified_utc");
+
+        builder.Property(change => change.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
 
         builder.HasIndex(change => change.PublicId)
             .IsUnique()

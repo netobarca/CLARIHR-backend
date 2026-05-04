@@ -102,15 +102,16 @@ public sealed class ReportExportJobsController(
         return File(stream, result.Value.ContentType, result.Value.FileName);
     }
 
-    [HttpPost("api/v1/report-export-jobs/{jobId:guid}/cancel")]
+    [HttpPatch("api/v1/report-export-jobs/{jobId:guid}/cancel")]
     [ProducesResponseType<ReportExportJobResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ReportExportJobResponse>> Cancel(
         Guid jobId,
+        [FromBody] CancelReportExportJobRequest request,
         CancellationToken cancellationToken = default)
     {
-        var result = await commandDispatcher.SendAsync(new CancelReportExportJobCommand(jobId), cancellationToken);
+        var result = await commandDispatcher.SendAsync(new CancelReportExportJobCommand(jobId, request.ConcurrencyToken), cancellationToken);
         return this.ToActionResult(result);
     }
 }

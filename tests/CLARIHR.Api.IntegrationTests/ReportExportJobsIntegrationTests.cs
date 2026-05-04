@@ -66,7 +66,10 @@ public sealed class ReportExportJobsIntegrationTests(ReportExportIntegrationTest
         Assert.Equal(created.Id, detail.Id);
         Assert.Equal(ReportExportJobStatus.Queued, detail.Status);
 
-        var cancelResponse = await client.PostAsync($"/api/v1/report-export-jobs/{created.Id}/cancel", content: null);
+        var cancelResponse = await client.PatchAsJsonAsync(
+            $"/api/v1/report-export-jobs/{created.Id}/cancel",
+            new { concurrencyToken = detail.ConcurrencyToken },
+            JsonOptions);
         Assert.Equal(HttpStatusCode.OK, cancelResponse.StatusCode);
         var cancelled = await cancelResponse.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
         Assert.NotNull(cancelled);

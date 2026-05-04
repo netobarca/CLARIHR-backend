@@ -63,4 +63,9 @@ public static class FileErrors
         "files.invalid_purpose",
         $"'{purpose}' is not a valid file purpose.",
         ErrorType.Validation);
+
+    public static readonly Error ConcurrencyConflict = new(
+        "files.concurrency_conflict",
+        "The requested file was modified by another process. Please reload and try again.",
+        ErrorType.Conflict);
 }

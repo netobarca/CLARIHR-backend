@@ -12082,7 +12082,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
   /api/platform/companies/{companyPublicId}/subscription/plan-changes/{planChangePublicId}/cancel:
-    post:
+    patch:
       tags:
         - platform-subscriptions
       operationId: CancelPlatformCompanySubscriptionPlanChange
@@ -12476,7 +12476,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
   /api/platform/companies/{companyPublicId}/subscription/addon-changes/{addonChangePublicId}/cancel:
-    post:
+    patch:
       tags:
         - platform-subscriptions
       operationId: CancelPlatformCompanyAddonChange
@@ -13098,7 +13098,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
   /api/v1/report-export-jobs/{jobId}/cancel:
-    post:
+    patch:
       tags:
         - report-export-jobs
       operationId: CancelReportExportJob
@@ -13641,7 +13641,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
 
   /api/v1/files/{filePublicId}/complete:
-    post:
+    patch:
       tags:
         - files
       operationId: CompleteFileUpload

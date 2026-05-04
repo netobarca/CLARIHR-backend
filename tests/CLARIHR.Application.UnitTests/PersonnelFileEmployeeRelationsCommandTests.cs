@@ -83,6 +83,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
         var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
         var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
+        var handler = CreateAddHandler(repository);
 
         // Add first relation
         var firstResult = await handler.Handle(

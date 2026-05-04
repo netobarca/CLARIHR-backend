@@ -367,7 +367,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
                 row.PlanChange.CancelledByUserPublicId,
                 row.PlanChange.CancellationObservations,
                 row.PlanChange.RejectedAtUtc,
-                row.PlanChange.RejectionReason))
+                row.PlanChange.RejectionReason,
+                row.PlanChange.ConcurrencyToken))
             .ToListAsync(cancellationToken);
 
         return new PagedResponse<PlatformCompanySubscriptionPlanChangeResponse>(
@@ -563,7 +564,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
                 row.AddonChange.CancelledByUserPublicId,
                 row.AddonChange.CancellationObservations,
                 row.AddonChange.RejectedAtUtc,
-                row.AddonChange.RejectionReason))
+                row.AddonChange.RejectionReason,
+                row.AddonChange.ConcurrencyToken))
             .ToListAsync(cancellationToken);
 
         return new PagedResponse<PlatformCompanyAddonChangeResponse>(
@@ -871,7 +873,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
                     planChange.CancelledByUserPublicId,
                     planChange.CancellationObservations,
                     planChange.RejectedAtUtc,
-                    planChange.RejectionReason))
+                    planChange.RejectionReason,
+                    planChange.ConcurrencyToken))
                 .SingleOrDefaultAsync(cancellationToken);
 
         return row is null ? null : MapPlanChangeResponse(row);
@@ -922,7 +925,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
                     addonChange.CancelledByUserPublicId,
                     addonChange.CancellationObservations,
                     addonChange.RejectedAtUtc,
-                    addonChange.RejectionReason))
+                    addonChange.RejectionReason,
+                    addonChange.ConcurrencyToken))
                 .SingleOrDefaultAsync(cancellationToken);
 
         return row is null ? null : MapCompanyAddonChangeResponse(row);
@@ -1086,7 +1090,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
             row.CancelledByUserId,
             row.CancellationObservations,
             row.RejectedAtUtc,
-            row.RejectionReason);
+            row.RejectionReason,
+            row.ConcurrencyToken);
 
     private static PlatformCompanyAddonResponse MapCompanyAddonResponse(CompanyAddonProjection row) =>
         new(
@@ -1143,7 +1148,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
             row.CancelledByUserId,
             row.CancellationObservations,
             row.RejectedAtUtc,
-            row.RejectionReason);
+            row.RejectionReason,
+            row.ConcurrencyToken);
 
     private sealed record SubscriptionProjection(
         Guid SubscriptionId,
@@ -1216,7 +1222,8 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
         Guid? CancelledByUserId,
         string? CancellationObservations,
         DateTime? RejectedAtUtc,
-        string? RejectionReason);
+        string? RejectionReason,
+        Guid ConcurrencyToken);
 
     private sealed record CompanyAddonProjection(
         Guid CompanyAddonId,
@@ -1271,5 +1278,6 @@ internal sealed class CompanySubscriptionRepository(ApplicationDbContext dbConte
         Guid? CancelledByUserId,
         string? CancellationObservations,
         DateTime? RejectedAtUtc,
-        string? RejectionReason);
+        string? RejectionReason,
+        Guid ConcurrencyToken);
 }

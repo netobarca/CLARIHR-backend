@@ -137,6 +137,8 @@ public sealed class CompanyCommercialAddonChange : AuditableEntity
         {
             AppliedAtUtc = requestedAtUtc;
         }
+
+        RefreshConcurrencyToken();
     }
 
     public long CompanyId { get; private set; }
@@ -203,6 +205,8 @@ public sealed class CompanyCommercialAddonChange : AuditableEntity
 
     public string? RejectionReason { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; } = Guid.NewGuid();
+
     public static CompanyCommercialAddonChange Create(
         CompanySubscription companySubscription,
         CommercialAddon commercialAddon,
@@ -262,6 +266,7 @@ public sealed class CompanyCommercialAddonChange : AuditableEntity
             : CompanyAddonStatus.Inactive;
         RejectedAtUtc = null;
         RejectionReason = null;
+        RefreshConcurrencyToken();
     }
 
     public void Cancel(DateTime cancelledAtUtc, Guid? cancelledByUserPublicId, string observations)
@@ -280,6 +285,7 @@ public sealed class CompanyCommercialAddonChange : AuditableEntity
         CancelledAtUtc = cancelledAtUtc;
         CancelledByUserPublicId = cancelledByUserPublicId;
         CancellationObservations = CompanyNormalization.Clean(observations, nameof(observations));
+        RefreshConcurrencyToken();
     }
 
     public void Reject(DateTime rejectedAtUtc, string rejectionReason)
@@ -297,6 +303,7 @@ public sealed class CompanyCommercialAddonChange : AuditableEntity
         Status = SubscriptionAddonChangeStatus.Rejected;
         RejectedAtUtc = rejectedAtUtc;
         RejectionReason = CompanyNormalization.Clean(rejectionReason, nameof(rejectionReason));
+        RefreshConcurrencyToken();
     }
 
     private static decimal NormalizeAmount(decimal amount, string paramName)
@@ -336,4 +343,6 @@ public sealed class CompanyCommercialAddonChange : AuditableEntity
 
     private static decimal NormalizeSignedAmount(decimal amount, string paramName) =>
         decimal.Round(amount, 2, MidpointRounding.AwayFromZero);
+
+    private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
 }

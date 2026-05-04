@@ -22,6 +22,7 @@ public sealed class StoredFile : TenantEntity
     public DateTime? UploadConfirmedUtc { get; private set; }
     public DateTime? DeletedUtc { get; private set; }
     public string? FailureReason { get; private set; }
+    public Guid ConcurrencyToken { get; private set; } = Guid.NewGuid();
 
     public static StoredFile Create(
         string fileName,
@@ -75,6 +76,7 @@ public sealed class StoredFile : TenantEntity
         SizeBytes = actualSizeBytes;
         ContentType = actualContentType.Trim().ToLowerInvariant();
         UploadConfirmedUtc = DateTime.UtcNow;
+        RefreshConcurrencyToken();
     }
 
     public void MarkFailed(string reason)
@@ -83,6 +85,7 @@ public sealed class StoredFile : TenantEntity
 
         Status = FileStatus.Failed;
         FailureReason = reason;
+        RefreshConcurrencyToken();
     }
 
     public void MarkDeleted()
@@ -94,6 +97,7 @@ public sealed class StoredFile : TenantEntity
 
         Status = FileStatus.Deleted;
         DeletedUtc = DateTime.UtcNow;
+        RefreshConcurrencyToken();
     }
 
     public void MarkQuarantined(string reason)
@@ -102,6 +106,7 @@ public sealed class StoredFile : TenantEntity
 
         Status = FileStatus.Quarantined;
         FailureReason = reason;
+        RefreshConcurrencyToken();
     }
 
     public void SetEntityId(Guid entityId)
@@ -122,4 +127,6 @@ public sealed class StoredFile : TenantEntity
                 $"Cannot transition from '{Status}' — expected '{expected}'.");
         }
     }
+
+    private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
 }

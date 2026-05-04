@@ -58,10 +58,7 @@ internal static partial class AuthValidationRules
             yield return "Password must contain at least one special character.";
         }
 
-        if (password.Any(char.IsWhiteSpace))
-        {
-            yield return "Password cannot contain whitespace.";
-        }
+
 
         if (ContainsPersonalInfo(password, firstName, lastName, email))
         {

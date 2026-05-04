@@ -36,7 +36,7 @@ public sealed class FilesController(
         return this.ToActionResult(result);
     }
 
-    [HttpPost("api/v1/files/{filePublicId:guid}/complete")]
+    [HttpPatch("api/v1/files/{filePublicId:guid}/complete")]
     [ProducesResponseType<CompleteFileUploadResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
@@ -44,10 +44,11 @@ public sealed class FilesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<CompleteFileUploadResponse>> CompleteUpload(
         Guid filePublicId,
+        [FromBody] CompleteFileUploadRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new CompleteFileUploadCommand(filePublicId),
+            new CompleteFileUploadCommand(filePublicId, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);

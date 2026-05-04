@@ -33,6 +33,7 @@ internal sealed class StoredFileConfiguration : IEntityTypeConfiguration<StoredF
         builder.Property(f => f.FailureReason).HasColumnName("failure_reason").HasMaxLength(1000);
         builder.Property(f => f.CreatedUtc).HasColumnName("created_utc");
         builder.Property(f => f.ModifiedUtc).HasColumnName("modified_utc");
+        builder.Property(f => f.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
 
         // Unique index on provider + object_key (no duplicate blobs)
         builder.HasIndex(f => new { f.Provider, f.ObjectKey })

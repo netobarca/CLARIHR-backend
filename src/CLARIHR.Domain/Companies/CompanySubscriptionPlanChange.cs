@@ -114,6 +114,8 @@ public sealed class CompanySubscriptionPlanChange : AuditableEntity
         {
             AppliedAtUtc = requestedAtUtc;
         }
+        
+        RefreshConcurrencyToken();
     }
 
     public long CompanyId { get; private set; }
@@ -188,6 +190,8 @@ public sealed class CompanySubscriptionPlanChange : AuditableEntity
 
     public string? RejectionReason { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; } = Guid.NewGuid();
+
     public static CompanySubscriptionPlanChange Create(
         CompanySubscription currentSubscription,
         CommercialPlan? currentPlan,
@@ -251,6 +255,7 @@ public sealed class CompanySubscriptionPlanChange : AuditableEntity
         AppliedSubscriptionPublicId = appliedSubscriptionPublicId;
         RejectedAtUtc = null;
         RejectionReason = null;
+        RefreshConcurrencyToken();
     }
 
     public void Cancel(DateTime cancelledAtUtc, Guid? cancelledByUserPublicId, string observations)
@@ -269,6 +274,7 @@ public sealed class CompanySubscriptionPlanChange : AuditableEntity
         CancelledAtUtc = cancelledAtUtc;
         CancelledByUserPublicId = cancelledByUserPublicId;
         CancellationObservations = CompanyNormalization.Clean(observations, nameof(observations));
+        RefreshConcurrencyToken();
     }
 
     public void Reject(DateTime rejectedAtUtc, string rejectionReason)
@@ -286,6 +292,7 @@ public sealed class CompanySubscriptionPlanChange : AuditableEntity
         Status = SubscriptionPlanChangeStatus.Rejected;
         RejectedAtUtc = rejectedAtUtc;
         RejectionReason = CompanyNormalization.Clean(rejectionReason, nameof(rejectionReason));
+        RefreshConcurrencyToken();
     }
 
     private static decimal NormalizeAmount(decimal amount, string paramName)
@@ -297,4 +304,6 @@ public sealed class CompanySubscriptionPlanChange : AuditableEntity
 
         return decimal.Round(amount, 2, MidpointRounding.AwayFromZero);
     }
+
+    private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
 }

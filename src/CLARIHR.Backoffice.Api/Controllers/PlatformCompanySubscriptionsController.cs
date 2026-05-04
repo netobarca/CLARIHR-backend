@@ -241,7 +241,7 @@ public sealed class PlatformCompanySubscriptionsController(
         return this.ToActionResult(result);
     }
 
-    [HttpPost("subscription/plan-changes/{planChangePublicId:guid}/cancel")]
+    [HttpPatch("subscription/plan-changes/{planChangePublicId:guid}/cancel")]
     [ProducesResponseType<PlatformCompanySubscriptionPlanChangeResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -258,7 +258,8 @@ public sealed class PlatformCompanySubscriptionsController(
             new CancelPlatformCompanySubscriptionPlanChangeCommand(
                 companyPublicId,
                 planChangePublicId,
-                request.Observations),
+                request.Observations,
+                request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -375,7 +376,7 @@ public sealed class PlatformCompanySubscriptionsController(
         return this.ToActionResult(result);
     }
 
-    [HttpPost("subscription/addon-changes/{addonChangePublicId:guid}/cancel")]
+    [HttpPatch("subscription/addon-changes/{addonChangePublicId:guid}/cancel")]
     [ProducesResponseType<PlatformCompanyAddonChangeResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -392,7 +393,8 @@ public sealed class PlatformCompanySubscriptionsController(
             new CancelPlatformCompanyAddonChangeCommand(
                 companyPublicId,
                 addonChangePublicId,
-                request.Observations),
+                request.Observations,
+                request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -422,7 +424,7 @@ public sealed class PlatformCompanySubscriptionsController(
         SubscriptionPlanChangeReasonCode ReasonCode,
         string? Observations);
 
-    public sealed record CancelPlatformCompanySubscriptionPlanChangeRequest(string Observations);
+    public sealed record CancelPlatformCompanySubscriptionPlanChangeRequest(string Observations, Guid ConcurrencyToken);
 
     public sealed record PreviewPlatformCompanyAddonChangeRequest(
         Guid CommercialAddonId,
@@ -438,5 +440,5 @@ public sealed class PlatformCompanySubscriptionsController(
         SubscriptionAddonChangeReasonCode ReasonCode,
         string? Observations);
 
-    public sealed record CancelPlatformCompanyAddonChangeRequest(string Observations);
+    public sealed record CancelPlatformCompanyAddonChangeRequest(string Observations, Guid ConcurrencyToken);
 }

@@ -103,7 +103,8 @@ public sealed record PlatformCompanyAddonChangeResponse(
     Guid? CancelledByUserId,
     string? CancellationObservations,
     DateTime? RejectedAtUtc,
-    string? RejectionReason);
+    string? RejectionReason,
+    Guid ConcurrencyToken);
 
 public sealed record SearchPlatformCompanyAddonsQuery(
     Guid CompanyId,
@@ -148,7 +149,8 @@ public sealed record SearchPlatformCompanyAddonChangesQuery(
 public sealed record CancelPlatformCompanyAddonChangeCommand(
     Guid CompanyId,
     Guid AddonChangeId,
-    string Observations)
+    string Observations,
+    Guid ConcurrencyToken)
     : ICommand<PlatformCompanyAddonChangeResponse>;
 
 internal sealed class SearchPlatformCompanyAddonsQueryValidator : AbstractValidator<SearchPlatformCompanyAddonsQuery>
@@ -228,5 +230,6 @@ internal sealed class CancelPlatformCompanyAddonChangeCommandValidator : Abstrac
         RuleFor(command => command.Observations)
             .NotEmpty()
             .MaximumLength(2000);
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }

@@ -913,6 +913,11 @@ internal sealed class CancelPlatformCompanySubscriptionPlanChangeCommandHandler(
             return Result<PlatformCompanySubscriptionPlanChangeResponse>.Failure(PlatformSubscriptionErrors.PlanChangeNotFound);
         }
 
+        if (planChange.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PlatformCompanySubscriptionPlanChangeResponse>.Failure(PlatformSubscriptionErrors.ConcurrencyConflict);
+        }
+
         if (planChange.Status != SubscriptionPlanChangeStatus.Scheduled ||
             planChange.EffectiveDateUtc <= dateTimeProvider.UtcNow.Date)
         {

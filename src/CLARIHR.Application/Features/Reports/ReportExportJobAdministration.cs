@@ -35,7 +35,8 @@ public sealed record ReportExportJobResponse(
     string? FileName,
     long? SizeBytes,
     string? LastErrorCode,
-    string? LastErrorMessage);
+    string? LastErrorMessage,
+    Guid ConcurrencyToken);
 
 public sealed record ReportExportJobDownloadResponse(
     Guid Id,
@@ -63,7 +64,9 @@ public sealed record GetReportExportJobQuery(Guid JobId)
 public sealed record GetReportExportJobDownloadQuery(Guid JobId)
     : IQuery<ReportExportJobDownloadResponse>;
 
-public sealed record CancelReportExportJobCommand(Guid JobId)
+public sealed record CancelReportExportJobRequest(Guid ConcurrencyToken);
+
+public sealed record CancelReportExportJobCommand(Guid JobId, Guid ConcurrencyToken)
     : ICommand<ReportExportJobResponse>;
 
 internal sealed class CreateReportExportJobCommandValidator : AbstractValidator<CreateReportExportJobCommand>
@@ -137,6 +140,7 @@ internal sealed class CancelReportExportJobCommandValidator : AbstractValidator<
     public CancelReportExportJobCommandValidator()
     {
         RuleFor(command => command.JobId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -329,6 +333,11 @@ internal sealed class CancelReportExportJobCommandHandler(
             return Result<ReportExportJobResponse>.Failure(ReportPolicyErrors.ExportJobNotFound);
         }
 
+        if (job.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<ReportExportJobResponse>.Failure(ReportPolicyErrors.ConcurrencyConflict);
+        }
+
         job.Cancel(dateTimeProvider.UtcNow);
         _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -353,5 +362,6 @@ public static class ReportExportJobMapper
             job.ArtifactFileName,
             job.ArtifactSizeBytes,
             job.LastErrorCode,
-            job.LastErrorMessage);
+            job.LastErrorMessage,
+            job.ConcurrencyToken);
 }
