@@ -50,7 +50,8 @@ internal sealed class ReportExportJobRepository(ApplicationDbContext dbContext) 
                 job.ArtifactFileName,
                 job.ArtifactSizeBytes,
                 job.LastErrorCode,
-                job.LastErrorMessage))
+                job.LastErrorMessage,
+                job.ConcurrencyToken))
             .ToArrayAsync(cancellationToken);
 
         return new PagedResponse<ReportExportJobResponse>(items, pageNumber, pageSize, totalCount);

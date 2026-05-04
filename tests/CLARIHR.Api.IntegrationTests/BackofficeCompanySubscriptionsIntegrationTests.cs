@@ -745,19 +745,22 @@ public sealed class BackofficeCompanySubscriptionsIntegrationTests(BackofficeInt
         await EnsureSuccessAsync(createResponse);
 
         Guid planChangeId;
+        Guid concurrencyToken;
         await using (var createStream = await createResponse.Content.ReadAsStreamAsync())
         using (var createDocument = await JsonDocument.ParseAsync(createStream))
         {
             planChangeId = createDocument.RootElement.GetProperty("planChangePublicId").GetGuid();
+            concurrencyToken = createDocument.RootElement.GetProperty("concurrencyToken").GetGuid();
             Assert.Equal("Scheduled", createDocument.RootElement.GetProperty("status").GetString());
             Assert.Equal(effectiveDate, createDocument.RootElement.GetProperty("effectiveDateUtc").GetDateTime());
         }
 
-        var cancelResponse = await client.PostJsonAsync(
+        var cancelResponse = await client.PatchJsonAsync(
             $"/api/platform/companies/{scenario.TenantId}/subscription/plan-changes/{planChangeId}/cancel",
             new
             {
-                observations = "Cambio de decision comercial"
+                observations = "Cambio de decision comercial",
+                concurrencyToken = concurrencyToken
             });
         await EnsureSuccessAsync(cancelResponse);
 

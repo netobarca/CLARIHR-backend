@@ -6,19 +6,33 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.Files.Common;
 using CLARIHR.Domain.Files;
+using FluentValidation;
 
 namespace CLARIHR.Application.Features.Files;
 
 // --- Command ---
 
+public sealed record CompleteFileUploadRequest(Guid ConcurrencyToken);
+
 public sealed record CompleteFileUploadCommand(
-    Guid FilePublicId) : ICommand<CompleteFileUploadResponse>;
+    Guid FilePublicId, Guid ConcurrencyToken) : ICommand<CompleteFileUploadResponse>;
 
 // --- Response ---
 
 public sealed record CompleteFileUploadResponse(
     Guid FilePublicId,
     string Status);
+
+// --- Validator ---
+
+internal sealed class CompleteFileUploadCommandValidator : AbstractValidator<CompleteFileUploadCommand>
+{
+    public CompleteFileUploadCommandValidator()
+    {
+        RuleFor(command => command.FilePublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
 
 // --- Handler ---
 
@@ -42,6 +56,11 @@ internal sealed class CompleteFileUploadCommandHandler(
         if (!string.Equals(file.CreatedByUserId, userId, StringComparison.Ordinal))
         {
             return Result<CompleteFileUploadResponse>.Failure(FileErrors.FileOwnershipMismatch);
+        }
+
+        if (file.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<CompleteFileUploadResponse>.Failure(FileErrors.ConcurrencyConflict);
         }
 
         if (file.Status != FileStatus.PendingUpload)

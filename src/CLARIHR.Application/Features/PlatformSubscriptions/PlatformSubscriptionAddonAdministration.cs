@@ -386,6 +386,11 @@ internal sealed class CancelPlatformCompanyAddonChangeCommandHandler(
             return Result<PlatformCompanyAddonChangeResponse>.Failure(PlatformSubscriptionErrors.AddonChangeNotFound);
         }
 
+        if (addonChange.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PlatformCompanyAddonChangeResponse>.Failure(PlatformSubscriptionErrors.ConcurrencyConflict);
+        }
+
         if (addonChange.Status != SubscriptionAddonChangeStatus.Scheduled ||
             addonChange.EffectiveDateUtc <= dateTimeProvider.UtcNow.Date)
         {

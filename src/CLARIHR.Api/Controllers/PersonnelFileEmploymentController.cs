@@ -35,7 +35,7 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResult(result);
     }
 
-    [HttpPost("api/v1/personnel-files/{publicId:guid}/finalize")]
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/finalize")]
     [ProducesResponseType<FinalizePersonnelFileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]

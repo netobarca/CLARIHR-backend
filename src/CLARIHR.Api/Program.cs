@@ -120,6 +120,48 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             });
     });
+    options.AddPolicy("auth-register", httpContext =>
+    {
+        var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            remoteIp,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+    options.AddPolicy("auth-login", httpContext =>
+    {
+        var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            remoteIp,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+    options.AddPolicy("auth-invite-accept", httpContext =>
+    {
+        var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            remoteIp,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
     options.AddPolicy("personnel-files-create", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Create:PermitLimit", 20));
     options.AddPolicy("personnel-files-search", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Search:PermitLimit", 120));
     options.AddPolicy("personnel-files-lifecycle", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Lifecycle:PermitLimit", 30));

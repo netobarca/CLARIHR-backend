@@ -229,4 +229,9 @@ public static class PlatformSubscriptionErrors
         "PLATFORM_COMPANY_SUBSCRIPTION_ADDON_CHANGE_CANCELLATION_NOT_ALLOWED",
         "Only scheduled add-on changes that are still pending can be cancelled.",
         ErrorType.Conflict);
+
+    public static readonly Error ConcurrencyConflict = new(
+        "PLATFORM_COMPANY_SUBSCRIPTION_CONCURRENCY_CONFLICT",
+        "The requested resource was modified by another process. Please reload and try again.",
+        ErrorType.Conflict);
 }

@@ -192,7 +192,8 @@ public sealed record PlatformCompanySubscriptionPlanChangeResponse(
     Guid? CancelledByUserId,
     string? CancellationObservations,
     DateTime? RejectedAtUtc,
-    string? RejectionReason);
+    string? RejectionReason,
+    Guid ConcurrencyToken);
 
 public sealed record GetPlatformCompanySubscriptionQuery(Guid CompanyId)
     : IQuery<PlatformCompanySubscriptionOverviewResponse>;
@@ -276,7 +277,8 @@ public sealed record SearchPlatformCompanySubscriptionPlanChangesQuery(
 public sealed record CancelPlatformCompanySubscriptionPlanChangeCommand(
     Guid CompanyId,
     Guid PlanChangeId,
-    string Observations)
+    string Observations,
+    Guid ConcurrencyToken)
     : ICommand<PlatformCompanySubscriptionPlanChangeResponse>;
 
 internal sealed class GetPlatformCompanySubscriptionQueryValidator : AbstractValidator<GetPlatformCompanySubscriptionQuery>
@@ -429,5 +431,6 @@ internal sealed class CancelPlatformCompanySubscriptionPlanChangeCommandValidato
         RuleFor(command => command.Observations)
             .NotEmpty()
             .MaximumLength(2000);
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }

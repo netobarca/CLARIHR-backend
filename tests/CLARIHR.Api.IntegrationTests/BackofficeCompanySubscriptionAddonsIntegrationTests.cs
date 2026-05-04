@@ -253,17 +253,19 @@ public sealed class BackofficeCompanySubscriptionAddonsIntegrationTests(Backoffi
         await EnsureSuccessAsync(createResponse);
 
         Guid addonChangePublicId;
+        Guid concurrencyToken;
         await using (var createStream = await createResponse.Content.ReadAsStreamAsync())
         using (var createDocument = await JsonDocument.ParseAsync(createStream))
         {
             addonChangePublicId = createDocument.RootElement.GetProperty("addonChangePublicId").GetGuid();
+            concurrencyToken = createDocument.RootElement.GetProperty("concurrencyToken").GetGuid();
             Assert.Equal("Scheduled", createDocument.RootElement.GetProperty("status").GetString());
             Assert.Equal("PendingActivation", createDocument.RootElement.GetProperty("resultingStatus").GetString());
         }
 
-        var cancelResponse = await client.PostJsonAsync(
+        var cancelResponse = await client.PatchJsonAsync(
             $"/api/platform/companies/{scenario.TenantId}/subscription/addon-changes/{addonChangePublicId}/cancel",
-            new { observations = "Cambio de decision" });
+            new { observations = "Cambio de decision", concurrencyToken = concurrencyToken });
         await EnsureSuccessAsync(cancelResponse);
 
         await using (var cancelStream = await cancelResponse.Content.ReadAsStreamAsync())
