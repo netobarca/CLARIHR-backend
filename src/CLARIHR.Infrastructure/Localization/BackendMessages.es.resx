@@ -1402,4 +1402,13 @@
   <data name="PERSONNEL_FILE_ITEM_NOT_FOUND" xml:space="preserve">
     <value>No se pudo encontrar el elemento solicitado en este expediente de personal.</value>
   </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_CONCURRENCY_CONFLICT" xml:space="preserve">
+    <value>La suscripcion fue modificada por otro proceso. Por favor recargue e intente nuevamente.</value>
+  </data>
+  <data name="REPORT_CONCURRENCY_CONFLICT" xml:space="preserve">
+    <value>El reporte fue modificado por otro proceso. Por favor recargue e intente nuevamente.</value>
+  </data>
+  <data name="files.concurrency_conflict" xml:space="preserve">
+    <value>El archivo fue modificado por otro proceso. Por favor recargue e intente nuevamente.</value>
+  </data>
 </root>
