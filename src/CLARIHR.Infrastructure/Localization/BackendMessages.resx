@@ -1402,4 +1402,13 @@
   <data name="PERSONNEL_FILE_ITEM_NOT_FOUND" xml:space="preserve">
     <value>The requested item could not be found in this personnel file.</value>
   </data>
+  <data name="PLATFORM_COMPANY_SUBSCRIPTION_CONCURRENCY_CONFLICT" xml:space="preserve">
+    <value>The subscription was modified by another process. Please reload and try again.</value>
+  </data>
+  <data name="REPORT_CONCURRENCY_CONFLICT" xml:space="preserve">
+    <value>The report was modified by another process. Please reload and try again.</value>
+  </data>
+  <data name="files.concurrency_conflict" xml:space="preserve">
+    <value>The file was modified by another process. Please reload and try again.</value>
+  </data>
 </root>

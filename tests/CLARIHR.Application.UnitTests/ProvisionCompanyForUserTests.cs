@@ -4,6 +4,7 @@ using CLARIHR.Application.Abstractions.Companies;
 using CLARIHR.Application.Abstractions.IdentityAccess;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.Locations;
+using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Pagination;
@@ -436,6 +437,7 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             new TestCountryCatalogRepository(),
             new TestCompanyPreferenceRepository(),
             new TestLocationSeedService(),
+            new TestOrgStructureCatalogSeedService(),
             planEntitlementService,
             unitOfWork,
             new FixedDateTimeProvider(new DateTime(2026, 3, 1, 12, 0, 0, DateTimeKind.Utc)));
@@ -498,6 +500,13 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
             Guid tenantId,
             string countryCode,
             string countryName,
+            CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class TestOrgStructureCatalogSeedService : IOrgStructureCatalogSeedService
+    {
+        public Task InitializeDefaultsAsync(
+            Guid tenantId,
             CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
