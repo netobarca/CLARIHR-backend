@@ -13,7 +13,6 @@ public enum JobCatalogCategory
     KnowledgeArea = 2,
     Competency = 3,
     Training = 4,
-    SalaryClass = 5,
     BenefitType = 6,
     WorkingCondition = 7,
     RelationType = 8,
