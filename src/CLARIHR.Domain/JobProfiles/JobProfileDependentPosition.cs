@@ -23,6 +23,7 @@ public sealed class JobProfileDependentPosition : TenantEntity
         DependentJobProfileId = dependentJobProfileId;
         Quantity = quantity;
         Notes = JobProfileNormalization.CleanOptional(notes);
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long JobProfileId { get; private set; }
@@ -37,6 +38,26 @@ public sealed class JobProfileDependentPosition : TenantEntity
 
     public string? Notes { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public static JobProfileDependentPosition Create(long dependentJobProfileId, int quantity, string? notes) =>
         new(dependentJobProfileId, quantity, notes);
+
+    public void Update(long dependentJobProfileId, int quantity, string? notes)
+    {
+        if (dependentJobProfileId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(dependentJobProfileId), "Dependent profile id must be greater than zero.");
+        }
+
+        if (quantity < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be greater than or equal to zero.");
+        }
+
+        DependentJobProfileId = dependentJobProfileId;
+        Quantity = quantity;
+        Notes = JobProfileNormalization.CleanOptional(notes);
+        ConcurrencyToken = Guid.NewGuid();
+    }
 }

@@ -23,6 +23,7 @@ public sealed class JobProfileFunction : TenantEntity
         FrequencyCatalogItemId = frequencyCatalogItemId;
         Description = JobProfileNormalization.Clean(description, nameof(description));
         SortOrder = sortOrder;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long JobProfileId { get; private set; }
@@ -37,10 +38,30 @@ public sealed class JobProfileFunction : TenantEntity
 
     public int SortOrder { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public static JobProfileFunction Create(
         JobFunctionType functionType,
         long? frequencyCatalogItemId,
         string description,
         int sortOrder) =>
         new(functionType, frequencyCatalogItemId, description, sortOrder);
+
+    public void Update(
+        JobFunctionType functionType,
+        long? frequencyCatalogItemId,
+        string description,
+        int sortOrder)
+    {
+        if (sortOrder < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sortOrder), "Sort order must be greater than or equal to zero.");
+        }
+
+        FunctionType = functionType;
+        FrequencyCatalogItemId = frequencyCatalogItemId;
+        Description = JobProfileNormalization.Clean(description, nameof(description));
+        SortOrder = sortOrder;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 }

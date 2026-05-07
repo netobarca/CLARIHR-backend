@@ -27,6 +27,7 @@ public sealed class JobProfileRequirement : TenantEntity
         CatalogItemId = catalogItem?.Id ?? catalogItemId;
         Description = JobProfileNormalization.Clean(description, nameof(description));
         SortOrder = sortOrder;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long JobProfileId { get; private set; }
@@ -45,6 +46,8 @@ public sealed class JobProfileRequirement : TenantEntity
 
     public int SortOrder { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public static JobProfileRequirement Create(
         JobRequirementType requirementType,
         long? requirementTypeCatalogItemId,
@@ -53,4 +56,26 @@ public sealed class JobProfileRequirement : TenantEntity
         string description,
         int sortOrder) =>
         new(requirementType, requirementTypeCatalogItemId, catalogItemId, catalogItem, description, sortOrder);
+
+    public void Update(
+        JobRequirementType requirementType,
+        long? requirementTypeCatalogItemId,
+        long? catalogItemId,
+        JobCatalogItem? catalogItem,
+        string description,
+        int sortOrder)
+    {
+        if (sortOrder < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sortOrder), "Sort order must be greater than or equal to zero.");
+        }
+
+        RequirementType = requirementType;
+        RequirementTypeCatalogItemId = requirementTypeCatalogItemId;
+        CatalogItem = catalogItem;
+        CatalogItemId = catalogItem?.Id ?? catalogItemId;
+        Description = JobProfileNormalization.Clean(description, nameof(description));
+        SortOrder = sortOrder;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 }

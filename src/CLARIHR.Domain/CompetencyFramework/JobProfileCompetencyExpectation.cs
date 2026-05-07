@@ -104,5 +104,32 @@ public sealed class JobProfileCompetencyExpectation : TenantEntity
         RefreshConcurrencyToken();
     }
 
+    public void Update(
+        long occupationalPyramidLevelId,
+        long competencyCatalogItemId,
+        long competencyTypeCatalogItemId,
+        long behaviorLevelCatalogItemId,
+        string? expectedEvidence,
+        int sortOrder)
+    {
+        if (occupationalPyramidLevelId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(occupationalPyramidLevelId), "Occupational pyramid level id must be greater than zero.");
+        }
+
+        if (sortOrder < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sortOrder), "Sort order must be greater than or equal to zero.");
+        }
+
+        OccupationalPyramidLevelId = occupationalPyramidLevelId;
+        CompetencyCatalogItemId = competencyCatalogItemId;
+        CompetencyTypeCatalogItemId = competencyTypeCatalogItemId;
+        BehaviorLevelCatalogItemId = behaviorLevelCatalogItemId;
+        ExpectedEvidence = CompetencyFrameworkNormalization.CleanOptional(expectedEvidence);
+        SortOrder = sortOrder;
+        RefreshConcurrencyToken();
+    }
+
     private void RefreshConcurrencyToken() => ConcurrencyToken = Guid.NewGuid();
 }
