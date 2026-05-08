@@ -211,26 +211,20 @@ public sealed class JobProfilesController(
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 request.AllowInlineCatalogCreate,
-                MapRequirements(request.Requirements),
-                MapFunctions(request.Functions),
-                MapRelations(request.Relations),
                 [],
-                MapTrainings(request.Trainings),
+                [],
+                [],
+                [],
+                [],
                 MapCompensation(request.ResolveCompensation()),
-                MapBenefits(request.Benefits),
-                MapWorkingConditions(request.WorkingConditions),
-                MapDependentPositions(request.DependentPositions)),
+                [],
+                [],
+                []),
             cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return this.ToActionResult(Result<JobProfileResponse>.Failure(result.Error));
-        }
-
-        var profile = await ApplyCompetencyMatrixAsync(result.Value, request.Competencies, cancellationToken);
-        return profile.IsFailure
-            ? this.ToActionResult(profile)
-            : StatusCode(StatusCodes.Status201Created, profile.Value);
+        return result.IsFailure
+            ? this.ToActionResult(Result<JobProfileResponse>.Failure(result.Error))
+            : StatusCode(StatusCodes.Status201Created, result.Value);
     }
 
     [HttpPut("api/v1/job-profiles/{id:guid}")]
@@ -268,25 +262,19 @@ public sealed class JobProfilesController(
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 request.AllowInlineCatalogCreate,
-                MapRequirements(request.Requirements),
-                MapFunctions(request.Functions),
-                MapRelations(request.Relations),
                 [],
-                MapTrainings(request.Trainings),
+                [],
+                [],
+                [],
+                [],
                 MapCompensation(request.ResolveCompensation()),
-                MapBenefits(request.Benefits),
-                MapWorkingConditions(request.WorkingConditions),
-                MapDependentPositions(request.DependentPositions),
+                [],
+                [],
+                [],
                 request.ConcurrencyToken),
             cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return this.ToActionResult(result);
-        }
-
-        var profile = await ApplyCompetencyMatrixAsync(result.Value, request.Competencies, cancellationToken);
-        return this.ToActionResult(profile);
+        return this.ToActionResult(result);
     }
 
     [HttpPatch("api/v1/job-profiles/{id:guid}/publish")]
@@ -328,78 +316,6 @@ public sealed class JobProfilesController(
         return this.ToActionResult(result);
     }
 
-    private static IReadOnlyCollection<JobProfileRequirementInput> MapRequirements(IReadOnlyCollection<JobProfileRequirementRequest>? values) =>
-        values?.Select(value => new JobProfileRequirementInput(
-                value.RequirementType,
-                value.ResolvedRequirementTypeCatalogItemPublicId,
-                value.ResolvedCatalogItemPublicId,
-                value.CatalogCode,
-                value.CatalogName,
-                value.Description,
-                value.SortOrder))
-            .ToArray() ?? [];
-
-    private static IReadOnlyCollection<JobProfileFunctionInput> MapFunctions(IReadOnlyCollection<JobProfileFunctionRequest>? values) =>
-        values?.Select(value => new JobProfileFunctionInput(
-                value.FunctionType,
-                value.ResolvedFrequencyCatalogItemPublicId,
-                value.Description,
-                value.SortOrder))
-            .ToArray() ?? [];
-
-    private static IReadOnlyCollection<JobProfileRelationInput> MapRelations(IReadOnlyCollection<JobProfileRelationRequest>? values) =>
-        values?.Select(value => new JobProfileRelationInput(
-                value.RelationType,
-                value.ResolvedCatalogItemPublicId,
-                value.CatalogCode,
-                value.CatalogName,
-                value.Counterpart,
-                value.Notes,
-                value.SortOrder))
-            .ToArray() ?? [];
-
-    private async Task<Result<JobProfileResponse>> ApplyCompetencyMatrixAsync(
-        JobProfileResponse profile,
-        IReadOnlyCollection<JobProfileCompetencyRequest>? competencies,
-        CancellationToken cancellationToken)
-    {
-        if (competencies is null)
-        {
-            return Result<JobProfileResponse>.Success(profile);
-        }
-
-        var matrixResult = await commandDispatcher.SendAsync(
-            new UpdateJobProfileCompetencyMatrixCommand(
-                profile.Id,
-                competencies.Select(item => new JobProfileCompetencyMatrixItemInput(
-                        item.OccupationalPyramidLevelPublicId,
-                        item.CompetencyPublicId,
-                        item.CompetencyTypePublicId,
-                        item.BehaviorLevelPublicId,
-                        item.ConductPublicIds ?? [],
-                        item.ExpectedEvidence,
-                        item.SortOrder))
-                    .ToArray(),
-                profile.ConcurrencyToken),
-            cancellationToken);
-        if (matrixResult.IsFailure)
-        {
-            return Result<JobProfileResponse>.Failure(matrixResult.Error);
-        }
-
-        return await queryDispatcher.SendAsync(new GetJobProfileByIdQuery(profile.Id), cancellationToken);
-    }
-
-    private static IReadOnlyCollection<JobProfileTrainingInput> MapTrainings(IReadOnlyCollection<JobProfileTrainingRequest>? values) =>
-        values?.Select(value => new JobProfileTrainingInput(
-                value.ResolvedCatalogItemPublicId,
-                value.CatalogCode,
-                value.CatalogName,
-                value.Name,
-                value.Notes,
-                value.SortOrder))
-            .ToArray() ?? [];
-
     private static JobProfileCompensationInput? MapCompensation(JobProfileCompensationRequest? value) =>
         value is null
             ? null
@@ -410,30 +326,6 @@ public sealed class JobProfilesController(
                 value.CurrencyCode,
                 value.MinSalary,
                 value.MaxSalary);
-
-    private static IReadOnlyCollection<JobProfileBenefitInput> MapBenefits(IReadOnlyCollection<JobProfileBenefitRequest>? values) =>
-        values?.Select(value => new JobProfileBenefitInput(
-                value.ResolvedCatalogItemPublicId,
-                value.CatalogCode,
-                value.CatalogName,
-                value.Name,
-                value.Notes,
-                value.SortOrder))
-            .ToArray() ?? [];
-
-    private static IReadOnlyCollection<JobProfileWorkingConditionInput> MapWorkingConditions(IReadOnlyCollection<JobProfileWorkingConditionRequest>? values) =>
-        values?.Select(value => new JobProfileWorkingConditionInput(
-                value.ResolvedWorkConditionTypeCatalogItemPublicId,
-                value.ResolvedCatalogItemPublicId,
-                value.CatalogCode,
-                value.CatalogName,
-                value.Name,
-                value.Notes,
-                value.SortOrder))
-            .ToArray() ?? [];
-
-    private static IReadOnlyCollection<JobProfileDependentPositionInput> MapDependentPositions(IReadOnlyCollection<JobProfileDependentPositionRequest>? values) =>
-        values?.Select(value => new JobProfileDependentPositionInput(value.ResolvedDependentJobProfilePublicId, value.Quantity, value.Notes)).ToArray() ?? [];
 
     private static string ExportCsv(JobProfilePrintResponse payload)
     {
@@ -500,16 +392,8 @@ public sealed class JobProfilesController(
         public DateTime? EffectiveFromUtc { get; init; }
         public DateTime? EffectiveToUtc { get; init; }
         public bool AllowInlineCatalogCreate { get; init; }
-        public IReadOnlyCollection<JobProfileRequirementRequest>? Requirements { get; init; }
-        public IReadOnlyCollection<JobProfileFunctionRequest>? Functions { get; init; }
-        public IReadOnlyCollection<JobProfileRelationRequest>? Relations { get; init; }
-        public IReadOnlyCollection<JobProfileCompetencyRequest>? Competencies { get; init; }
-        public IReadOnlyCollection<JobProfileTrainingRequest>? Trainings { get; init; }
         public JobProfileCompensationRequest? Compensation { get; init; }
         public IReadOnlyCollection<JobProfileCompensationRequest>? Compensations { get; init; }
-        public IReadOnlyCollection<JobProfileBenefitRequest>? Benefits { get; init; }
-        public IReadOnlyCollection<JobProfileWorkingConditionRequest>? WorkingConditions { get; init; }
-        public IReadOnlyCollection<JobProfileDependentPositionRequest>? DependentPositions { get; init; }
 
         [JsonIgnore]
         public Guid ResolvedOrgUnitPublicId => OrgUnitPublicId != Guid.Empty ? OrgUnitPublicId : OrgUnitId ?? Guid.Empty;
@@ -545,77 +429,6 @@ public sealed class JobProfilesController(
         }
     }
 
-    public sealed class JobProfileRequirementRequest
-    {
-        public JobRequirementType RequirementType { get; init; }
-        public Guid? RequirementTypeCatalogItemPublicId { get; init; }
-        public Guid? RequirementTypeCatalogItemId { get; init; }
-        public Guid? CatalogItemPublicId { get; init; }
-        public Guid? CatalogItemId { get; init; }
-        public string? CatalogCode { get; init; }
-        public string? CatalogName { get; init; }
-        public string Description { get; init; } = string.Empty;
-        public int SortOrder { get; init; }
-
-        [JsonIgnore]
-        public Guid? ResolvedRequirementTypeCatalogItemPublicId => RequirementTypeCatalogItemPublicId ?? RequirementTypeCatalogItemId;
-
-        [JsonIgnore]
-        public Guid? ResolvedCatalogItemPublicId => CatalogItemPublicId ?? CatalogItemId;
-    }
-
-    public sealed class JobProfileFunctionRequest
-    {
-        public JobFunctionType FunctionType { get; init; }
-        public Guid? FrequencyCatalogItemPublicId { get; init; }
-        public Guid? FrequencyCatalogItemId { get; init; }
-        public string Description { get; init; } = string.Empty;
-        public int SortOrder { get; init; }
-
-        [JsonIgnore]
-        public Guid? ResolvedFrequencyCatalogItemPublicId => FrequencyCatalogItemPublicId ?? FrequencyCatalogItemId;
-    }
-
-    public sealed class JobProfileRelationRequest
-    {
-        public JobRelationType RelationType { get; init; }
-        public Guid? CatalogItemPublicId { get; init; }
-        public Guid? CatalogItemId { get; init; }
-        public string? CatalogCode { get; init; }
-        public string? CatalogName { get; init; }
-        public string Counterpart { get; init; } = string.Empty;
-        public string? Notes { get; init; }
-        public int SortOrder { get; init; }
-
-        [JsonIgnore]
-        public Guid? ResolvedCatalogItemPublicId => CatalogItemPublicId ?? CatalogItemId;
-    }
-
-    public sealed class JobProfileCompetencyRequest
-    {
-        public Guid OccupationalPyramidLevelPublicId { get; init; }
-        public Guid CompetencyPublicId { get; init; }
-        public Guid CompetencyTypePublicId { get; init; }
-        public Guid BehaviorLevelPublicId { get; init; }
-        public string? ExpectedEvidence { get; init; }
-        public int SortOrder { get; init; }
-        public IReadOnlyCollection<Guid>? ConductPublicIds { get; init; }
-    }
-
-    public sealed class JobProfileTrainingRequest
-    {
-        public Guid? CatalogItemPublicId { get; init; }
-        public Guid? CatalogItemId { get; init; }
-        public string? CatalogCode { get; init; }
-        public string? CatalogName { get; init; }
-        public string Name { get; init; } = string.Empty;
-        public string? Notes { get; init; }
-        public int SortOrder { get; init; }
-
-        [JsonIgnore]
-        public Guid? ResolvedCatalogItemPublicId => CatalogItemPublicId ?? CatalogItemId;
-    }
-
     public sealed class JobProfileCompensationRequest
     {
         public Guid? SalaryTabulatorLineId { get; init; }
@@ -630,52 +443,6 @@ public sealed class JobProfilesController(
 
         [JsonIgnore]
         public Guid? ResolvedSalaryClassId => SalaryClassPublicId ?? SalaryClassId;
-    }
-
-    public sealed class JobProfileBenefitRequest
-    {
-        public Guid? CatalogItemPublicId { get; init; }
-        public Guid? CatalogItemId { get; init; }
-        public string? CatalogCode { get; init; }
-        public string? CatalogName { get; init; }
-        public string Name { get; init; } = string.Empty;
-        public string? Notes { get; init; }
-        public int SortOrder { get; init; }
-
-        [JsonIgnore]
-        public Guid? ResolvedCatalogItemPublicId => CatalogItemPublicId ?? CatalogItemId;
-    }
-
-    public sealed class JobProfileWorkingConditionRequest
-    {
-        public Guid? WorkConditionTypeCatalogItemPublicId { get; init; }
-        public Guid? WorkConditionTypeCatalogItemId { get; init; }
-        public Guid? CatalogItemPublicId { get; init; }
-        public Guid? CatalogItemId { get; init; }
-        public string? CatalogCode { get; init; }
-        public string? CatalogName { get; init; }
-        public string Name { get; init; } = string.Empty;
-        public string? Notes { get; init; }
-        public int SortOrder { get; init; }
-
-        [JsonIgnore]
-        public Guid? ResolvedWorkConditionTypeCatalogItemPublicId => WorkConditionTypeCatalogItemPublicId ?? WorkConditionTypeCatalogItemId;
-
-        [JsonIgnore]
-        public Guid? ResolvedCatalogItemPublicId => CatalogItemPublicId ?? CatalogItemId;
-    }
-
-    public sealed class JobProfileDependentPositionRequest
-    {
-        public Guid DependentJobProfilePublicId { get; init; }
-        public Guid? DependentJobProfileId { get; init; }
-        public int Quantity { get; init; }
-        public string? Notes { get; init; }
-
-        [JsonIgnore]
-        public Guid ResolvedDependentJobProfilePublicId => DependentJobProfilePublicId != Guid.Empty
-            ? DependentJobProfilePublicId
-            : DependentJobProfileId ?? Guid.Empty;
     }
 
     public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
