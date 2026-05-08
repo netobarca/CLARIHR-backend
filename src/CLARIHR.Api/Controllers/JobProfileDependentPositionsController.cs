@@ -9,7 +9,7 @@ namespace CLARIHR.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/v1/job-profiles/{jobProfileId:guid}/dependent-positions")]
+[Route("api/v1/job-profiles/{publicId:guid}/dependent-positions")]
 public sealed class JobProfileDependentPositionsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
@@ -21,13 +21,13 @@ public sealed class JobProfileDependentPositionsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Add(
-        Guid jobProfileId,
+        Guid publicId,
         [FromBody] AddDependentPositionRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new AddJobProfileDependentPositionCommand(
-                jobProfileId,
+                publicId,
                 request.DependentJobProfileId,
                 request.Quantity,
                 request.Notes,
@@ -37,7 +37,7 @@ public sealed class JobProfileDependentPositionsController(
         return this.ToActionResult(result);
     }
 
-    [HttpPut("{dependentPositionId:guid}")]
+    [HttpPut("{dependentPositionPublicId:guid}")]
     [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -45,15 +45,15 @@ public sealed class JobProfileDependentPositionsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Update(
-        Guid jobProfileId,
-        Guid dependentPositionId,
+        Guid publicId,
+        Guid dependentPositionPublicId,
         [FromBody] UpdateDependentPositionRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileDependentPositionCommand(
-                jobProfileId,
-                dependentPositionId,
+                publicId,
+                dependentPositionPublicId,
                 request.DependentJobProfileId,
                 request.Quantity,
                 request.Notes,
@@ -63,20 +63,20 @@ public sealed class JobProfileDependentPositionsController(
         return this.ToActionResult(result);
     }
 
-    [HttpDelete("{dependentPositionId:guid}")]
+    [HttpDelete("{dependentPositionPublicId:guid}")]
     [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Remove(
-        Guid jobProfileId,
-        Guid dependentPositionId,
+        Guid publicId,
+        Guid dependentPositionPublicId,
         [FromBody] ConcurrencyTokenRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new RemoveJobProfileDependentPositionCommand(jobProfileId, dependentPositionId, request.ConcurrencyToken),
+            new RemoveJobProfileDependentPositionCommand(publicId, dependentPositionPublicId, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);

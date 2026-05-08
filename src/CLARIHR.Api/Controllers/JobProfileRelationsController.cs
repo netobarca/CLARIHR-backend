@@ -10,7 +10,7 @@ namespace CLARIHR.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/v1/job-profiles/{jobProfileId:guid}/relations")]
+[Route("api/v1/job-profiles/{publicId:guid}/relations")]
 public sealed class JobProfileRelationsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
@@ -22,13 +22,13 @@ public sealed class JobProfileRelationsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Add(
-        Guid jobProfileId,
+        Guid publicId,
         [FromBody] AddRelationRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new AddJobProfileRelationCommand(
-                jobProfileId,
+                publicId,
                 request.RelationType,
                 request.CatalogItemId,
                 request.Counterpart,
@@ -40,7 +40,7 @@ public sealed class JobProfileRelationsController(
         return this.ToActionResult(result);
     }
 
-    [HttpPut("{relationId:guid}")]
+    [HttpPut("{relationPublicId:guid}")]
     [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -48,15 +48,15 @@ public sealed class JobProfileRelationsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Update(
-        Guid jobProfileId,
-        Guid relationId,
+        Guid publicId,
+        Guid relationPublicId,
         [FromBody] UpdateRelationRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileRelationCommand(
-                jobProfileId,
-                relationId,
+                publicId,
+                relationPublicId,
                 request.RelationType,
                 request.CatalogItemId,
                 request.Counterpart,
@@ -68,20 +68,20 @@ public sealed class JobProfileRelationsController(
         return this.ToActionResult(result);
     }
 
-    [HttpDelete("{relationId:guid}")]
+    [HttpDelete("{relationPublicId:guid}")]
     [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Remove(
-        Guid jobProfileId,
-        Guid relationId,
+        Guid publicId,
+        Guid relationPublicId,
         [FromBody] ConcurrencyTokenRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new RemoveJobProfileRelationCommand(jobProfileId, relationId, request.ConcurrencyToken),
+            new RemoveJobProfileRelationCommand(publicId, relationPublicId, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
