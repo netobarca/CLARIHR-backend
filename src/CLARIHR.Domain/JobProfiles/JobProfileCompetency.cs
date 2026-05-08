@@ -53,4 +53,25 @@ public sealed class JobProfileCompetency : TenantEntity
         string? notes,
         int sortOrder) =>
         new(catalogItemId, catalogItem, name, expectedLevel, notes, sortOrder);
+
+    public void Update(
+        long? catalogItemId,
+        JobCatalogItem? catalogItem,
+        string name,
+        string? expectedLevel,
+        string? notes,
+        int sortOrder)
+    {
+        if (sortOrder < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sortOrder), "Sort order must be greater than or equal to zero.");
+        }
+
+        CatalogItem = catalogItem;
+        CatalogItemId = catalogItem?.Id ?? catalogItemId;
+        Name = JobProfileNormalization.Clean(name, nameof(name));
+        ExpectedLevel = JobProfileNormalization.CleanOptional(expectedLevel);
+        Notes = JobProfileNormalization.CleanOptional(notes);
+        SortOrder = sortOrder;
+    }
 }

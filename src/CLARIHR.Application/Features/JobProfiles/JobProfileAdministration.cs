@@ -30,6 +30,7 @@ using FluentValidation;
 namespace CLARIHR.Application.Features.JobProfiles;
 
 public sealed record JobProfileRequirementResponse(
+    Guid Id,
     Guid? CatalogItemId,
     Guid? RequirementTypeCatalogItemId,
     JobRequirementType RequirementType,
@@ -37,12 +38,14 @@ public sealed record JobProfileRequirementResponse(
     int SortOrder);
 
 public sealed record JobProfileFunctionResponse(
+    Guid Id,
     JobFunctionType FunctionType,
     Guid? FrequencyCatalogItemId,
     string Description,
     int SortOrder);
 
 public sealed record JobProfileRelationResponse(
+    Guid Id,
     Guid? CatalogItemId,
     JobRelationType RelationType,
     string Counterpart,
@@ -50,6 +53,7 @@ public sealed record JobProfileRelationResponse(
     int SortOrder);
 
 public sealed record JobProfileCompetencyResponse(
+    Guid Id,
     Guid OccupationalPyramidLevelId,
     string OccupationalPyramidLevelCode,
     string OccupationalPyramidLevelName,
@@ -73,6 +77,7 @@ public sealed record JobProfileCompetencyConductResponse(
     int SortOrder);
 
 public sealed record JobProfileTrainingResponse(
+    Guid Id,
     Guid? CatalogItemId,
     string Name,
     string? Notes,
@@ -91,12 +96,14 @@ public sealed record JobProfileCompensationResponse(
     DateTime? ResolvedEffectiveToUtc);
 
 public sealed record JobProfileBenefitResponse(
+    Guid Id,
     Guid? CatalogItemId,
     string Name,
     string? Notes,
     int SortOrder);
 
 public sealed record JobProfileWorkingConditionResponse(
+    Guid Id,
     Guid? CatalogItemId,
     Guid? WorkConditionTypeCatalogItemId,
     string Name,
@@ -104,6 +111,7 @@ public sealed record JobProfileWorkingConditionResponse(
     int SortOrder);
 
 public sealed record JobProfileDependentPositionResponse(
+    Guid Id,
     Guid DependentJobProfileId,
     string DependentJobProfileCode,
     string DependentJobProfileTitle,
