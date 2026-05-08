@@ -9,7 +9,7 @@ namespace CLARIHR.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/v1/job-profiles/{jobProfileId:guid}/competencies")]
+[Route("api/v1/job-profiles/{publicId:guid}/competencies")]
 public sealed class JobProfileCompetenciesController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
@@ -21,13 +21,13 @@ public sealed class JobProfileCompetenciesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Add(
-        Guid jobProfileId,
+        Guid publicId,
         [FromBody] AddCompetencyRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new AddJobProfileCompetencyCommand(
-                jobProfileId,
+                publicId,
                 request.CatalogItemId,
                 request.Name,
                 request.ExpectedLevel,
@@ -39,7 +39,7 @@ public sealed class JobProfileCompetenciesController(
         return this.ToActionResult(result);
     }
 
-    [HttpPut("{competencyId:guid}")]
+    [HttpPut("{competencyPublicId:guid}")]
     [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -47,15 +47,15 @@ public sealed class JobProfileCompetenciesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Update(
-        Guid jobProfileId,
-        Guid competencyId,
+        Guid publicId,
+        Guid competencyPublicId,
         [FromBody] UpdateCompetencyRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileCompetencyCommand(
-                jobProfileId,
-                competencyId,
+                publicId,
+                competencyPublicId,
                 request.CatalogItemId,
                 request.Name,
                 request.ExpectedLevel,
@@ -67,20 +67,20 @@ public sealed class JobProfileCompetenciesController(
         return this.ToActionResult(result);
     }
 
-    [HttpDelete("{competencyId:guid}")]
+    [HttpDelete("{competencyPublicId:guid}")]
     [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Remove(
-        Guid jobProfileId,
-        Guid competencyId,
+        Guid publicId,
+        Guid competencyPublicId,
         [FromBody] ConcurrencyTokenRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new RemoveJobProfileCompetencyCommand(jobProfileId, competencyId, request.ConcurrencyToken),
+            new RemoveJobProfileCompetencyCommand(publicId, competencyPublicId, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);

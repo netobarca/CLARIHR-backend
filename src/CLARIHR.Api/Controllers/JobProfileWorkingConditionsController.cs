@@ -9,7 +9,7 @@ namespace CLARIHR.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/v1/job-profiles/{jobProfileId:guid}/working-conditions")]
+[Route("api/v1/job-profiles/{publicId:guid}/working-conditions")]
 public sealed class JobProfileWorkingConditionsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
@@ -21,13 +21,13 @@ public sealed class JobProfileWorkingConditionsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Add(
-        Guid jobProfileId,
+        Guid publicId,
         [FromBody] AddWorkingConditionRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new AddJobProfileWorkingConditionCommand(
-                jobProfileId,
+                publicId,
                 request.WorkConditionTypeCatalogItemId,
                 request.CatalogItemId,
                 request.Name,
@@ -39,7 +39,7 @@ public sealed class JobProfileWorkingConditionsController(
         return this.ToActionResult(result);
     }
 
-    [HttpPut("{workingConditionId:guid}")]
+    [HttpPut("{workingConditionPublicId:guid}")]
     [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -47,15 +47,15 @@ public sealed class JobProfileWorkingConditionsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Update(
-        Guid jobProfileId,
-        Guid workingConditionId,
+        Guid publicId,
+        Guid workingConditionPublicId,
         [FromBody] UpdateWorkingConditionRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileWorkingConditionCommand(
-                jobProfileId,
-                workingConditionId,
+                publicId,
+                workingConditionPublicId,
                 request.WorkConditionTypeCatalogItemId,
                 request.CatalogItemId,
                 request.Name,
@@ -67,20 +67,20 @@ public sealed class JobProfileWorkingConditionsController(
         return this.ToActionResult(result);
     }
 
-    [HttpDelete("{workingConditionId:guid}")]
+    [HttpDelete("{workingConditionPublicId:guid}")]
     [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Remove(
-        Guid jobProfileId,
-        Guid workingConditionId,
+        Guid publicId,
+        Guid workingConditionPublicId,
         [FromBody] ConcurrencyTokenRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new RemoveJobProfileWorkingConditionCommand(jobProfileId, workingConditionId, request.ConcurrencyToken),
+            new RemoveJobProfileWorkingConditionCommand(publicId, workingConditionPublicId, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
