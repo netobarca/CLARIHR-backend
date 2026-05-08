@@ -282,6 +282,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Description)
             .Select(item => new JobProfileRequirementResponse(
+                item.PublicId,
                 item.CatalogItem?.PublicId,
                 ResolveCatalogPublicId(item.RequirementTypeCatalogItemId, positionDescriptionCatalogLookup),
                 item.RequirementType,
@@ -293,6 +294,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Description)
             .Select(item => new JobProfileFunctionResponse(
+                item.PublicId,
                 item.FunctionType,
                 ResolveCatalogPublicId(item.FrequencyCatalogItemId, positionDescriptionCatalogLookup),
                 item.Description,
@@ -303,6 +305,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Counterpart)
             .Select(item => new JobProfileRelationResponse(
+                item.PublicId,
                 item.CatalogItem?.PublicId,
                 item.RelationType,
                 item.Counterpart,
@@ -316,6 +319,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Name)
             .Select(item => new JobProfileTrainingResponse(
+                item.PublicId,
                 item.CatalogItem?.PublicId,
                 item.Name,
                 item.Notes,
@@ -390,6 +394,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Name)
             .Select(item => new JobProfileBenefitResponse(
+                item.PublicId,
                 item.CatalogItem?.PublicId,
                 item.Name,
                 item.Notes,
@@ -400,6 +405,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .OrderBy(item => item.SortOrder)
             .ThenBy(item => item.Name)
             .Select(item => new JobProfileWorkingConditionResponse(
+                item.PublicId,
                 item.CatalogItem?.PublicId,
                 ResolveCatalogPublicId(item.WorkConditionTypeCatalogItemId, positionDescriptionCatalogLookup),
                 item.Name,
@@ -411,6 +417,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .OrderBy(item => item.DependentJobProfile.Title)
             .ThenBy(item => item.DependentJobProfile.Code)
             .Select(item => new JobProfileDependentPositionResponse(
+                item.PublicId,
                 item.DependentJobProfile.PublicId,
                 item.DependentJobProfile.Code,
                 item.DependentJobProfile.Title,
@@ -491,6 +498,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
              select new
              {
                  ExpectationId = expectation.Id,
+                 ExpectationPublicId = expectation.PublicId,
                  expectation.SortOrder,
                  expectation.ExpectedEvidence,
                  LevelId = level.PublicId,
@@ -527,6 +535,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                     .ToArray();
 
                 return new JobProfileCompetencyResponse(
+                    head.ExpectationPublicId,
                     head.LevelId,
                     head.LevelCode,
                     head.LevelName,

@@ -219,6 +219,157 @@ public sealed class JobProfile : TenantEntity
         _dependentPositions.AddRange(items);
     }
 
+    public void AddRequirement(JobProfileRequirement item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _requirements.Add(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public JobProfileRequirement GetRequirement(Guid publicId) =>
+        _requirements.FirstOrDefault(x => x.PublicId == publicId)
+        ?? throw new InvalidOperationException($"Requirement with PublicId {publicId} was not found.");
+
+    public void RemoveRequirement(JobProfileRequirement item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _requirements.Remove(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public void AddFunction(JobProfileFunction item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _functions.Add(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public JobProfileFunction GetFunction(Guid publicId) =>
+        _functions.FirstOrDefault(x => x.PublicId == publicId)
+        ?? throw new InvalidOperationException($"Function with PublicId {publicId} was not found.");
+
+    public void RemoveFunction(JobProfileFunction item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _functions.Remove(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public void AddRelation(JobProfileRelation item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _relations.Add(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public JobProfileRelation GetRelation(Guid publicId) =>
+        _relations.FirstOrDefault(x => x.PublicId == publicId)
+        ?? throw new InvalidOperationException($"Relation with PublicId {publicId} was not found.");
+
+    public void RemoveRelation(JobProfileRelation item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _relations.Remove(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public void AddCompetency(JobProfileCompetency item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _competencies.Add(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public JobProfileCompetency GetCompetency(Guid publicId) =>
+        _competencies.FirstOrDefault(x => x.PublicId == publicId)
+        ?? throw new InvalidOperationException($"Competency with PublicId {publicId} was not found.");
+
+    public void RemoveCompetency(JobProfileCompetency item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _competencies.Remove(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public void AddTraining(JobProfileTraining item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _trainings.Add(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public JobProfileTraining GetTraining(Guid publicId) =>
+        _trainings.FirstOrDefault(x => x.PublicId == publicId)
+        ?? throw new InvalidOperationException($"Training with PublicId {publicId} was not found.");
+
+    public void RemoveTraining(JobProfileTraining item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _trainings.Remove(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public void AddBenefit(JobProfileBenefit item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _benefits.Add(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public JobProfileBenefit GetBenefit(Guid publicId) =>
+        _benefits.FirstOrDefault(x => x.PublicId == publicId)
+        ?? throw new InvalidOperationException($"Benefit with PublicId {publicId} was not found.");
+
+    public void RemoveBenefit(JobProfileBenefit item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _benefits.Remove(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public void AddWorkingCondition(JobProfileWorkingCondition item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _workingConditions.Add(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public JobProfileWorkingCondition GetWorkingCondition(Guid publicId) =>
+        _workingConditions.FirstOrDefault(x => x.PublicId == publicId)
+        ?? throw new InvalidOperationException($"Working condition with PublicId {publicId} was not found.");
+
+    public void RemoveWorkingCondition(JobProfileWorkingCondition item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _workingConditions.Remove(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public void AddDependentPosition(JobProfileDependentPosition item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _dependentPositions.Add(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public JobProfileDependentPosition GetDependentPosition(Guid publicId) =>
+        _dependentPositions.FirstOrDefault(x => x.PublicId == publicId)
+        ?? throw new InvalidOperationException($"Dependent position with PublicId {publicId} was not found.");
+
+    public void RemoveDependentPosition(JobProfileDependentPosition item, bool bumpVersion = true)
+    {
+        EnsureEditable();
+        _dependentPositions.Remove(item);
+        if (bumpVersion) BumpVersion();
+    }
+
+    public void BumpVersion()
+    {
+        EnsureEditable();
+        Version++;
+        RefreshConcurrencyToken();
+    }
+
     public void Publish()
     {
         EnsureEditable();
