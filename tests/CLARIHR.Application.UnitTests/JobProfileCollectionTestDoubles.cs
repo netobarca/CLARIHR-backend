@@ -25,6 +25,15 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
     public Task<JobProfile?> GetByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(Profiles.GetValueOrDefault(profileId));
 
+    public Task<JobProfile?> GetCoreByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Profiles.GetValueOrDefault(profileId));
+
+    public Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Profiles.GetValueOrDefault(profileId));
+
+    public Task<JobProfileCoreResponse?> GetCoreResponseByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
     public Task<bool> ExistsOutsideTenantAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(false);
 

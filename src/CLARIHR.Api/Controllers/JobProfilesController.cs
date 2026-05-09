@@ -1,5 +1,4 @@
-using System.Globalization;
-using System.Text;
+
 using System.Text.Json.Serialization;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Persistence;
@@ -107,76 +106,6 @@ public sealed class JobProfilesController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/job-profiles/{id:guid}/export")]
-    [ProducesResponseType<JobProfilePrintResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Export(
-        Guid id,
-        [FromQuery] string format = "json",
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetJobProfilePrintQuery(id), cancellationToken);
-        if (result.IsFailure)
-        {
-            return this.ToActionResult(Result<JobProfilePrintResponse>.Failure(result.Error)).Result!;
-        }
-
-        if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
-        {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.JobProfile,
-                    id,
-                    JobProfilePermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported job profile report.",
-                    After: new
-                    {
-                        resourceKey = JobProfilePermissionCodes.ResourceKey,
-                        format = "json",
-                        filters = new { id },
-                        rowCount = 1
-                    }),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            return Ok(result.Value);
-        }
-
-        if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
-        {
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.ReportExported,
-                    AuditEntityTypes.JobProfile,
-                    id,
-                    JobProfilePermissionCodes.ResourceKey,
-                    AuditActions.Export,
-                    "Exported job profile report.",
-                    After: new
-                    {
-                        resourceKey = JobProfilePermissionCodes.ResourceKey,
-                        format = "csv",
-                        filters = new { id },
-                        rowCount = 1
-                    }),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var csv = ExportCsv(result.Value);
-            var bytes = Encoding.UTF8.GetBytes(csv);
-            var fileName = $"job-profile-{result.Value.Profile.Code}.csv";
-            return File(bytes, "text/csv", fileName);
-        }
-
-        return this.ToActionResult(Result<JobProfilePrintResponse>.Failure(JobProfileErrors.ExportFormatInvalid)).Result!;
-    }
-
     [HttpPost("api/v1/companies/{companyId:guid}/job-profiles")]
     [ProducesResponseType<JobProfileCoreResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -263,7 +192,7 @@ public sealed class JobProfilesController(
     }
 
     [HttpPatch("api/v1/job-profiles/{id:guid}")]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileCoreResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
@@ -405,36 +334,7 @@ public sealed class JobProfilesController(
                 value.MinSalary,
                 value.MaxSalary);
 
-    private static string ExportCsv(JobProfilePrintResponse payload)
-    {
-        var profile = payload.Profile;
-        var lines = new List<string>
-        {
-            "Field,Value",
-            $"PublicId,{Escape(profile.Id.ToString())}",
-            $"Code,{Escape(profile.Code)}",
-            $"Title,{Escape(profile.Title)}",
-            $"Status,{Escape(profile.Status.ToString())}",
-            $"Version,{profile.Version}",
-            $"Objective,{Escape(profile.Objective)}",
-            $"Responsibilities,{Escape(profile.Responsibilities)}",
-            $"GeneratedAtUtc,{Escape(payload.GeneratedAtUtc.ToString("O", CultureInfo.InvariantCulture))}"
-        };
 
-        return string.Join("\n", lines);
-    }
-
-    private static string Escape(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        var needsQuotes = value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r');
-        var escaped = value.Replace("\"", "\"\"");
-        return needsQuotes ? $"\"{escaped}\"" : escaped;
-    }
 
     public sealed class CreateJobProfileRequest : JobProfileMutationRequest;
 
@@ -471,7 +371,6 @@ public sealed class JobProfilesController(
         public DateTime? EffectiveToUtc { get; set; }
         public bool AllowInlineCatalogCreate { get; set; }
         public JobProfileCompensationRequest? Compensation { get; set; }
-        public IReadOnlyCollection<JobProfileCompensationRequest>? Compensations { get; set; }
 
         [JsonIgnore]
         public Guid ResolvedOrgUnitPublicId => OrgUnitPublicId != Guid.Empty ? OrgUnitPublicId : OrgUnitId ?? Guid.Empty;
@@ -491,20 +390,7 @@ public sealed class JobProfilesController(
         [JsonIgnore]
         public Guid? ResolvedResponsibilityCatalogItemPublicId => ResponsibilityCatalogItemPublicId ?? ResponsibilityCatalogItemId;
 
-        public JobProfileCompensationRequest? ResolveCompensation()
-        {
-            if (Compensation is not null)
-            {
-                return Compensation;
-            }
-
-            if (Compensations is null || Compensations.Count == 0)
-            {
-                return null;
-            }
-
-            return Compensations.FirstOrDefault(item => item.IsPrimary == true) ?? Compensations.First();
-        }
+        public JobProfileCompensationRequest? ResolveCompensation() => Compensation;
     }
 
     public sealed class JobProfileCompensationRequest

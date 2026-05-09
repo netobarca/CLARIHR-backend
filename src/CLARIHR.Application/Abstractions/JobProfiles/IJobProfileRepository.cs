@@ -10,6 +10,7 @@ public interface IJobProfileRepository
 
     Task<JobProfile?> GetByIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfile?> GetCoreByIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken);
 
     Task<bool> ExistsOutsideTenantAsync(Guid profileId, CancellationToken cancellationToken);
 

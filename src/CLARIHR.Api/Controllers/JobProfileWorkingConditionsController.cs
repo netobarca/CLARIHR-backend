@@ -14,13 +14,13 @@ public sealed class JobProfileWorkingConditionsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
     [HttpPost]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileWorkingConditionResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileResponse>> Add(
+    public async Task<ActionResult<JobProfileWorkingConditionResponse>> Add(
         Guid publicId,
         [FromBody] AddWorkingConditionRequest request,
         CancellationToken cancellationToken = default)
@@ -32,21 +32,20 @@ public sealed class JobProfileWorkingConditionsController(
                 request.CatalogItemId,
                 request.Name,
                 request.Notes,
-                request.SortOrder,
-                request.ConcurrencyToken),
+                request.SortOrder),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
     [HttpPut("{workingConditionPublicId:guid}")]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileWorkingConditionResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileResponse>> Update(
+    public async Task<ActionResult<JobProfileWorkingConditionResponse>> Update(
         Guid publicId,
         Guid workingConditionPublicId,
         [FromBody] UpdateWorkingConditionRequest request,
@@ -68,12 +67,12 @@ public sealed class JobProfileWorkingConditionsController(
     }
 
     [HttpDelete("{workingConditionPublicId:guid}")]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileResponse>> Remove(
+    public async Task<IActionResult> Remove(
         Guid publicId,
         Guid workingConditionPublicId,
         [FromBody] ConcurrencyTokenRequest request,
@@ -83,7 +82,9 @@ public sealed class JobProfileWorkingConditionsController(
             new RemoveJobProfileWorkingConditionCommand(publicId, workingConditionPublicId, request.ConcurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return result.IsFailure
+            ? this.ToActionResult(result).Result!
+            : NoContent();
     }
 
     public sealed class AddWorkingConditionRequest
@@ -93,7 +94,6 @@ public sealed class JobProfileWorkingConditionsController(
         public string? Name { get; init; }
         public string? Notes { get; init; }
         public int SortOrder { get; init; }
-        public Guid ConcurrencyToken { get; init; }
     }
 
     public sealed class UpdateWorkingConditionRequest
