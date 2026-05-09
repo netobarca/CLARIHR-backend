@@ -38,6 +38,11 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .Include(profile => profile.SalaryClassCatalogItem)
             .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
 
+    public Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .Include(profile => profile.WorkingConditions)
+            .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
+
     public Task<bool> ExistsOutsideTenantAsync(Guid profileId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles
             // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.
@@ -559,7 +564,8 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 ResolveCatalogPublicId(item.WorkConditionTypeCatalogItemId, positionDescriptionCatalogLookup),
                 item.Name,
                 item.Notes,
-                item.SortOrder))
+                item.SortOrder,
+                item.ConcurrencyToken))
             .ToArray();
 
         var dependentPositionItems = profile.DependentPositions
@@ -707,24 +713,84 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
 
     public async Task<JobProfileVacancyTemplateResponse?> GetVacancyTemplateByIdAsync(Guid profileId, CancellationToken cancellationToken)
     {
-        var profile = await GetResponseByIdAsync(profileId, cancellationToken);
+        var profile = await dbContext.JobProfiles
+            .AsNoTracking()
+            .Include(x => x.Requirements).ThenInclude(x => x.CatalogItem)
+            .Include(x => x.Functions)
+            .Include(x => x.Trainings).ThenInclude(x => x.CatalogItem)
+            .FirstOrDefaultAsync(x => x.PublicId == profileId, cancellationToken);
+
         if (profile is null)
         {
             return null;
         }
 
+        var positionDescriptionCatalogItemIds = new HashSet<long>();
+        foreach (var requirement in profile.Requirements)
+        {
+            AddIfPresent(positionDescriptionCatalogItemIds, requirement.RequirementTypeCatalogItemId);
+        }
+
+        foreach (var function in profile.Functions)
+        {
+            AddIfPresent(positionDescriptionCatalogItemIds, function.FrequencyCatalogItemId);
+        }
+
+        var positionDescriptionCatalogLookup = positionDescriptionCatalogItemIds.Count == 0
+            ? new Dictionary<long, Guid>()
+            : await dbContext.PositionDescriptionCatalogItems
+                .AsNoTracking()
+                .Where(item => positionDescriptionCatalogItemIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, item => item.PublicId, cancellationToken);
+
+        var requirementItems = profile.Requirements
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Description)
+            .Select(item => new JobProfileRequirementResponse(
+                item.PublicId,
+                item.CatalogItem?.PublicId,
+                ResolveCatalogPublicId(item.RequirementTypeCatalogItemId, positionDescriptionCatalogLookup),
+                item.RequirementType,
+                item.Description,
+                item.SortOrder))
+            .ToArray();
+
+        var functionItems = profile.Functions
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Description)
+            .Select(item => new JobProfileFunctionResponse(
+                item.PublicId,
+                item.FunctionType,
+                ResolveCatalogPublicId(item.FrequencyCatalogItemId, positionDescriptionCatalogLookup),
+                item.Description,
+                item.SortOrder))
+            .ToArray();
+
+        var competencyItems = await GetCompetencyMatrixItemsAsync(profile.Id, cancellationToken);
+
+        var trainingItems = profile.Trainings
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Name)
+            .Select(item => new JobProfileTrainingResponse(
+                item.PublicId,
+                item.CatalogItem?.PublicId,
+                item.Name,
+                item.Notes,
+                item.SortOrder))
+            .ToArray();
+
         return new JobProfileVacancyTemplateResponse(
-            profile.Id,
+            profile.PublicId,
             profile.Code,
             profile.Title,
             profile.Objective,
             profile.Responsibilities,
             profile.WorkingConditionSummary,
             profile.BenefitsSummary,
-            profile.Requirements,
-            profile.Functions,
-            profile.Competencies,
-            profile.Trainings);
+            requirementItems,
+            functionItems,
+            competencyItems,
+            trainingItems);
     }
 
     public async Task<JobProfilePrintResponse?> GetPrintByIdAsync(Guid profileId, CancellationToken cancellationToken)

@@ -250,8 +250,26 @@
   <data name="JOB_PROFILE_REPORTS_TO_NOT_FOUND" xml:space="preserve">
     <value>The selected reporting profile could not be found.</value>
   </data>
+  <data name="JobProfileBenefit.NameRequired" xml:space="preserve">
+    <value>A name is required for the benefit.</value>
+  </data>
+  <data name="JobProfileCompetency.NameRequired" xml:space="preserve">
+    <value>A name is required for the competency.</value>
+  </data>
+  <data name="JobProfileDependentPosition.NotFound" xml:space="preserve">
+    <value>The dependent position could not be found.</value>
+  </data>
+  <data name="JobProfileTraining.NameRequired" xml:space="preserve">
+    <value>A name is required for the training.</value>
+  </data>
   <data name="JOB_PROFILE_STATE_CONFLICT" xml:space="preserve">
     <value>The requested action is not allowed for the current profile state.</value>
+  </data>
+  <data name="JobProfileWorkingCondition.NameRequired" xml:space="preserve">
+    <value>A name is required for the working condition.</value>
+  </data>
+  <data name="JobProfileWorkingCondition.NotFound" xml:space="preserve">
+    <value>The working condition could not be found.</value>
   </data>
   <data name="LAST_ACTIVE_LEVEL_REQUIRED" xml:space="preserve">
     <value>At least one active location level must remain available.</value>

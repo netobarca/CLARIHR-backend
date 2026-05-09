@@ -108,7 +108,8 @@ public sealed record JobProfileWorkingConditionResponse(
     Guid? WorkConditionTypeCatalogItemId,
     string Name,
     string? Notes,
-    int SortOrder);
+    int SortOrder,
+    Guid ConcurrencyToken);
 
 public sealed record JobProfileDependentPositionResponse(
     Guid Id,
