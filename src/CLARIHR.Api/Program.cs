@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,6 +39,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services
     .AddControllers(options =>
     {
+        options.InputFormatters.Insert(0, GetJsonPatchInputFormatter());
         options.ModelMetadataDetailsProviders.Add(new PublicContractBindingMetadataProvider());
         options.Conventions.Add(new PublicContractRouteConvention());
         options.Filters.AddService<PersonnelFilePhotoUrlResultFilter>();
@@ -332,5 +334,23 @@ static RateLimitPartition<string> CreateUserTenantPartitionedLimiter(HttpContext
             AutoReplenishment = true
         });
 }
+
+#pragma warning disable ASP0000
+static Microsoft.AspNetCore.Mvc.Formatters.NewtonsoftJsonPatchInputFormatter GetJsonPatchInputFormatter()
+{
+    var builder = new Microsoft.Extensions.DependencyInjection.ServiceCollection()
+        .AddLogging()
+        .AddMvc()
+        .AddNewtonsoftJson()
+        .Services.BuildServiceProvider();
+
+    return builder
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Mvc.MvcOptions>>()
+        .Value
+        .InputFormatters
+        .OfType<Microsoft.AspNetCore.Mvc.Formatters.NewtonsoftJsonPatchInputFormatter>()
+        .First();
+}
+#pragma warning restore ASP0000
 
 public partial class Program;

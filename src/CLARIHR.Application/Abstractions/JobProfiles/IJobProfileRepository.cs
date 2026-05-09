@@ -9,6 +9,7 @@ public interface IJobProfileRepository
     void Add(JobProfile profile);
 
     Task<JobProfile?> GetByIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfile?> GetCoreByIdAsync(Guid profileId, CancellationToken cancellationToken);
 
     Task<bool> ExistsOutsideTenantAsync(Guid profileId, CancellationToken cancellationToken);
 
@@ -35,6 +36,7 @@ public interface IJobProfileRepository
         CancellationToken cancellationToken);
 
     Task<JobProfileResponse?> GetResponseByIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfileCoreResponse?> GetCoreResponseByIdAsync(Guid profileId, CancellationToken cancellationToken);
 
     Task<JobProfileVacancyTemplateResponse?> GetVacancyTemplateByIdAsync(Guid profileId, CancellationToken cancellationToken);
 
