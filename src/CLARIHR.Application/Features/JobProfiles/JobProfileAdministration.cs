@@ -173,6 +173,39 @@ public sealed record JobProfileResponse(
     DateTime? ModifiedAtUtc,
     AllowedActionsResponse? AllowedActions = null);
 
+public sealed record JobProfileCoreResponse(
+    Guid Id,
+    Guid CompanyId,
+    string Code,
+    string Title,
+    JobProfileStatus Status,
+    int Version,
+    string? Objective,
+    Guid? OrgUnitId,
+    string? OrgUnitName,
+    Guid? ReportsToJobProfileId,
+    string? ReportsToJobProfileCode,
+    string? ReportsToJobProfileTitle,
+    Guid? PositionCategoryId,
+    Guid? StrategicObjectiveCatalogItemId,
+    Guid? AssignedWorkEquipmentCatalogItemId,
+    Guid? ResponsibilityCatalogItemId,
+    string? DecisionScope,
+    string? AssignedResources,
+    string? Responsibilities,
+    string? BenefitsSummary,
+    string? WorkingConditionSummary,
+    string? MarketSalaryReference,
+    string? ValuationNotes,
+    DateTime? EffectiveFromUtc,
+    DateTime? EffectiveToUtc,
+    bool IsActive,
+    JobProfileCompensationResponse? Compensation,
+    Guid ConcurrencyToken,
+    DateTime CreatedAtUtc,
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
+
 public sealed record JobProfileVacancyTemplateResponse(
     Guid Id,
     string Code,
@@ -279,6 +312,8 @@ public sealed record SearchJobProfilesQuery(
 
 public sealed record GetJobProfileByIdQuery(Guid JobProfileId) : IQuery<JobProfileResponse>;
 
+public sealed record GetJobProfileCoreByIdQuery(Guid JobProfileId) : IQuery<JobProfileCoreResponse>;
+
 public sealed record GetJobProfileVacancyTemplateQuery(Guid JobProfileId) : IQuery<JobProfileVacancyTemplateResponse>;
 
 public sealed record GetJobProfilePrintQuery(Guid JobProfileId) : IQuery<JobProfilePrintResponse>;
@@ -304,15 +339,7 @@ public sealed record CreateJobProfileCommand(
     DateTime? EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     bool AllowInlineCatalogCreate,
-    IReadOnlyCollection<JobProfileRequirementInput> Requirements,
-    IReadOnlyCollection<JobProfileFunctionInput> Functions,
-    IReadOnlyCollection<JobProfileRelationInput> Relations,
-    IReadOnlyCollection<JobProfileCompetencyInput> Competencies,
-    IReadOnlyCollection<JobProfileTrainingInput> Trainings,
-    JobProfileCompensationInput? Compensation,
-    IReadOnlyCollection<JobProfileBenefitInput> Benefits,
-    IReadOnlyCollection<JobProfileWorkingConditionInput> WorkingConditions,
-    IReadOnlyCollection<JobProfileDependentPositionInput> DependentPositions) : ICommand<JobProfileResponse>;
+    JobProfileCompensationInput? Compensation) : ICommand<JobProfileCoreResponse>;
 
 public sealed record UpdateJobProfileCommand(
     Guid JobProfileId,
@@ -335,16 +362,8 @@ public sealed record UpdateJobProfileCommand(
     DateTime? EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     bool AllowInlineCatalogCreate,
-    IReadOnlyCollection<JobProfileRequirementInput> Requirements,
-    IReadOnlyCollection<JobProfileFunctionInput> Functions,
-    IReadOnlyCollection<JobProfileRelationInput> Relations,
-    IReadOnlyCollection<JobProfileCompetencyInput> Competencies,
-    IReadOnlyCollection<JobProfileTrainingInput> Trainings,
     JobProfileCompensationInput? Compensation,
-    IReadOnlyCollection<JobProfileBenefitInput> Benefits,
-    IReadOnlyCollection<JobProfileWorkingConditionInput> WorkingConditions,
-    IReadOnlyCollection<JobProfileDependentPositionInput> DependentPositions,
-    Guid ConcurrencyToken) : ICommand<JobProfileResponse>;
+    Guid ConcurrencyToken) : ICommand<JobProfileCoreResponse>;
 
 public sealed record PublishJobProfileCommand(Guid JobProfileId, Guid ConcurrencyToken) : ICommand<JobProfileResponse>;
 
@@ -366,6 +385,14 @@ internal sealed class SearchJobProfilesQueryValidator : AbstractValidator<Search
 internal sealed class GetJobProfileByIdQueryValidator : AbstractValidator<GetJobProfileByIdQuery>
 {
     public GetJobProfileByIdQueryValidator()
+    {
+        RuleFor(query => query.JobProfileId).NotEmpty();
+    }
+}
+
+internal sealed class GetJobProfileCoreByIdQueryValidator : AbstractValidator<GetJobProfileCoreByIdQuery>
+{
+    public GetJobProfileCoreByIdQueryValidator()
     {
         RuleFor(query => query.JobProfileId).NotEmpty();
     }
@@ -433,16 +460,8 @@ internal sealed class CreateJobProfileCommandValidator : AbstractValidator<Creat
 
     private void ApplyCollectionRules()
     {
-        RuleForEach(command => command.Requirements).SetValidator(new JobProfileRequirementInputValidator());
-        RuleForEach(command => command.Functions).SetValidator(new JobProfileFunctionInputValidator());
-        RuleForEach(command => command.Relations).SetValidator(new JobProfileRelationInputValidator());
-        RuleForEach(command => command.Competencies).SetValidator(new JobProfileCompetencyInputValidator());
-        RuleForEach(command => command.Trainings).SetValidator(new JobProfileTrainingInputValidator());
         RuleFor(command => command.Compensation)
             .SetValidator(new JobProfileCompensationInputValidator()!);
-        RuleForEach(command => command.Benefits).SetValidator(new JobProfileBenefitInputValidator());
-        RuleForEach(command => command.WorkingConditions).SetValidator(new JobProfileWorkingConditionInputValidator());
-        RuleForEach(command => command.DependentPositions).SetValidator(new JobProfileDependentPositionInputValidator());
     }
 }
 
@@ -493,16 +512,8 @@ internal sealed class UpdateJobProfileCommandValidator : AbstractValidator<Updat
 
     private void ApplyCollectionRules()
     {
-        RuleForEach(command => command.Requirements).SetValidator(new JobProfileRequirementInputValidator());
-        RuleForEach(command => command.Functions).SetValidator(new JobProfileFunctionInputValidator());
-        RuleForEach(command => command.Relations).SetValidator(new JobProfileRelationInputValidator());
-        RuleForEach(command => command.Competencies).SetValidator(new JobProfileCompetencyInputValidator());
-        RuleForEach(command => command.Trainings).SetValidator(new JobProfileTrainingInputValidator());
         RuleFor(command => command.Compensation)
             .SetValidator(new JobProfileCompensationInputValidator()!);
-        RuleForEach(command => command.Benefits).SetValidator(new JobProfileBenefitInputValidator());
-        RuleForEach(command => command.WorkingConditions).SetValidator(new JobProfileWorkingConditionInputValidator());
-        RuleForEach(command => command.DependentPositions).SetValidator(new JobProfileDependentPositionInputValidator());
     }
 }
 
@@ -755,6 +766,41 @@ internal sealed class GetJobProfileByIdQueryHandler(
     }
 }
 
+internal sealed class GetJobProfileCoreByIdQueryHandler(
+    IJobProfileAuthorizationService authorizationService,
+    IJobProfileRepository repository,
+    ITenantContext tenantContext,
+    IResourceActionPolicyService resourceActionPolicyService)
+    : IQueryHandler<GetJobProfileCoreByIdQuery, JobProfileCoreResponse>
+{
+    public async Task<Result<JobProfileCoreResponse>> Handle(GetJobProfileCoreByIdQuery query, CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<JobProfileCoreResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<JobProfileCoreResponse>.Failure(authorizationResult.Error);
+        }
+
+        var response = await repository.GetCoreResponseByIdAsync(query.JobProfileId, cancellationToken);
+        if (response is not null)
+        {
+            var canManageProfiles = (await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
+            response = JobProfilePolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManageProfiles);
+            return Result<JobProfileCoreResponse>.Success(response);
+        }
+
+        return Result<JobProfileCoreResponse>.Failure(
+            await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
+                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                : JobProfileErrors.JobProfileNotFound);
+    }
+}
+
 internal sealed class GetJobProfileVacancyTemplateQueryHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
@@ -840,19 +886,19 @@ internal sealed class CreateJobProfileCommandHandler(
     ICurrentUserService currentUserService,
     IDateTimeProvider dateTimeProvider,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<CreateJobProfileCommand, JobProfileResponse>
+    : ICommandHandler<CreateJobProfileCommand, JobProfileCoreResponse>
 {
-    public async Task<Result<JobProfileResponse>> Handle(CreateJobProfileCommand command, CancellationToken cancellationToken)
+    public async Task<Result<JobProfileCoreResponse>> Handle(CreateJobProfileCommand command, CancellationToken cancellationToken)
     {
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(command.CompanyId, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(authorizationResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(authorizationResult.Error);
         }
 
         if (await repository.CodeExistsAsync(command.CompanyId, command.Code.Trim().ToUpperInvariant(), excludingProfileId: null, cancellationToken))
         {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.CodeConflict);
+            return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.CodeConflict);
         }
 
         var orgUnitInternalIdResult = await JobProfileCommandSupport.ResolveOrgUnitInternalIdAsync(
@@ -864,7 +910,7 @@ internal sealed class CreateJobProfileCommandHandler(
             cancellationToken);
         if (orgUnitInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(orgUnitInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(orgUnitInternalIdResult.Error);
         }
 
         var reportsToInternalIdResult = await JobProfileCommandSupport.ResolveReportsToInternalIdAsync(
@@ -878,7 +924,7 @@ internal sealed class CreateJobProfileCommandHandler(
             cancellationToken);
         if (reportsToInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(reportsToInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(reportsToInternalIdResult.Error);
         }
 
         var positionCategoryInternalIdResult = await JobProfileCommandSupport.ResolvePositionCategoryInternalIdAsync(
@@ -889,7 +935,7 @@ internal sealed class CreateJobProfileCommandHandler(
             cancellationToken);
         if (positionCategoryInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(positionCategoryInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(positionCategoryInternalIdResult.Error);
         }
 
         var strategicObjectiveInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
@@ -902,7 +948,7 @@ internal sealed class CreateJobProfileCommandHandler(
             cancellationToken);
         if (strategicObjectiveInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(strategicObjectiveInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(strategicObjectiveInternalIdResult.Error);
         }
 
         var workEquipmentInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
@@ -915,7 +961,7 @@ internal sealed class CreateJobProfileCommandHandler(
             cancellationToken);
         if (workEquipmentInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(workEquipmentInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(workEquipmentInternalIdResult.Error);
         }
 
         var responsibilityInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
@@ -928,7 +974,7 @@ internal sealed class CreateJobProfileCommandHandler(
             cancellationToken);
         if (responsibilityInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(responsibilityInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(responsibilityInternalIdResult.Error);
         }
 
         var inlineDecision = await JobProfileCommandSupport.ResolveInlineCatalogPermissionAsync(
@@ -939,7 +985,7 @@ internal sealed class CreateJobProfileCommandHandler(
             cancellationToken);
         if (inlineDecision.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(inlineDecision.Error);
+            return Result<JobProfileCoreResponse>.Failure(inlineDecision.Error);
         }
 
         var actorResult = await InternalCatalogActorResolver.ResolveCurrentUserAsync(
@@ -948,7 +994,7 @@ internal sealed class CreateJobProfileCommandHandler(
             cancellationToken);
         if (actorResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(actorResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(actorResult.Error);
         }
 
         var createdCatalogItems = new List<JobCatalogItem>();
@@ -975,14 +1021,14 @@ internal sealed class CreateJobProfileCommandHandler(
             cancellationToken);
         if (mutation.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(mutation.Error);
+            return Result<JobProfileCoreResponse>.Failure(mutation.Error);
         }
 
         if (JobProfileCommandSupport.HasReportsToAlsoAsDependentPosition(
                 reportsToInternalIdResult.Value,
                 mutation.Value.DependentPositions))
         {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.DependencyCycle);
+            return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.DependencyCycle);
         }
 
         var profile = JobProfile.Create(command.Code, command.Title);
@@ -1008,11 +1054,6 @@ internal sealed class CreateJobProfileCommandHandler(
             command.EffectiveToUtc,
             bumpVersion: false);
 
-        profile.ReplaceRequirements(mutation.Value.Requirements);
-        profile.ReplaceFunctions(mutation.Value.Functions);
-        profile.ReplaceRelations(mutation.Value.Relations);
-        profile.ReplaceCompetencies(mutation.Value.Competencies);
-        profile.ReplaceTrainings(mutation.Value.Trainings);
         if (mutation.Value.CompensationSalaryClassCatalogItemId.HasValue &&
             !string.IsNullOrWhiteSpace(mutation.Value.CompensationSalaryScaleCode))
         {
@@ -1026,9 +1067,6 @@ internal sealed class CreateJobProfileCommandHandler(
         {
             profile.ClearCompensationReference(bumpVersion: false);
         }
-        profile.ReplaceBenefits(mutation.Value.Benefits);
-        profile.ReplaceWorkingConditions(mutation.Value.WorkingConditions);
-        profile.ReplaceDependentPositions(mutation.Value.DependentPositions);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -1051,7 +1089,7 @@ internal sealed class CreateJobProfileCommandHandler(
                 unitOfWork,
                 cancellationToken);
 
-            var response = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
+            var response = await repository.GetCoreResponseByIdAsync(profile.PublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Job profile response could not be resolved after creation.");
 
             await auditService.LogAsync(
@@ -1067,7 +1105,7 @@ internal sealed class CreateJobProfileCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileResponse>.Success(response);
+            return Result<JobProfileCoreResponse>.Success(response);
         }
         catch
         {
@@ -1091,25 +1129,25 @@ internal sealed class UpdateJobProfileCommandHandler(
     IDateTimeProvider dateTimeProvider,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdateJobProfileCommand, JobProfileResponse>
+    : ICommandHandler<UpdateJobProfileCommand, JobProfileCoreResponse>
 {
-    public async Task<Result<JobProfileResponse>> Handle(UpdateJobProfileCommand command, CancellationToken cancellationToken)
+    public async Task<Result<JobProfileCoreResponse>> Handle(UpdateJobProfileCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<JobProfileCoreResponse>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(authorizationResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(authorizationResult.Error);
         }
 
-        var profile = await repository.GetByIdAsync(command.JobProfileId, cancellationToken);
+        var profile = await repository.GetCoreByIdAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
-            return Result<JobProfileResponse>.Failure(
+            return Result<JobProfileCoreResponse>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
@@ -1117,12 +1155,12 @@ internal sealed class UpdateJobProfileCommandHandler(
 
         if (profile.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         if (await repository.CodeExistsAsync(profile.TenantId, command.Code.Trim().ToUpperInvariant(), profile.Id, cancellationToken))
         {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.CodeConflict);
+            return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.CodeConflict);
         }
 
         var orgUnitInternalIdResult = await JobProfileCommandSupport.ResolveOrgUnitInternalIdAsync(
@@ -1134,7 +1172,7 @@ internal sealed class UpdateJobProfileCommandHandler(
             cancellationToken);
         if (orgUnitInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(orgUnitInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(orgUnitInternalIdResult.Error);
         }
 
         var reportsToInternalIdResult = await JobProfileCommandSupport.ResolveReportsToInternalIdAsync(
@@ -1148,7 +1186,7 @@ internal sealed class UpdateJobProfileCommandHandler(
             cancellationToken);
         if (reportsToInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(reportsToInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(reportsToInternalIdResult.Error);
         }
 
         var positionCategoryInternalIdResult = await JobProfileCommandSupport.ResolvePositionCategoryInternalIdAsync(
@@ -1159,7 +1197,7 @@ internal sealed class UpdateJobProfileCommandHandler(
             cancellationToken);
         if (positionCategoryInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(positionCategoryInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(positionCategoryInternalIdResult.Error);
         }
 
         var strategicObjectiveInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
@@ -1172,7 +1210,7 @@ internal sealed class UpdateJobProfileCommandHandler(
             cancellationToken);
         if (strategicObjectiveInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(strategicObjectiveInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(strategicObjectiveInternalIdResult.Error);
         }
 
         var workEquipmentInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
@@ -1185,7 +1223,7 @@ internal sealed class UpdateJobProfileCommandHandler(
             cancellationToken);
         if (workEquipmentInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(workEquipmentInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(workEquipmentInternalIdResult.Error);
         }
 
         var responsibilityInternalIdResult = await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
@@ -1198,7 +1236,7 @@ internal sealed class UpdateJobProfileCommandHandler(
             cancellationToken);
         if (responsibilityInternalIdResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(responsibilityInternalIdResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(responsibilityInternalIdResult.Error);
         }
 
         var inlineDecision = await JobProfileCommandSupport.ResolveInlineCatalogPermissionAsync(
@@ -1209,7 +1247,7 @@ internal sealed class UpdateJobProfileCommandHandler(
             cancellationToken);
         if (inlineDecision.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(inlineDecision.Error);
+            return Result<JobProfileCoreResponse>.Failure(inlineDecision.Error);
         }
 
         var actorResult = await InternalCatalogActorResolver.ResolveCurrentUserAsync(
@@ -1218,7 +1256,7 @@ internal sealed class UpdateJobProfileCommandHandler(
             cancellationToken);
         if (actorResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(actorResult.Error);
+            return Result<JobProfileCoreResponse>.Failure(actorResult.Error);
         }
 
         var createdCatalogItems = new List<JobCatalogItem>();
@@ -1245,14 +1283,14 @@ internal sealed class UpdateJobProfileCommandHandler(
             cancellationToken);
         if (mutation.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(mutation.Error);
+            return Result<JobProfileCoreResponse>.Failure(mutation.Error);
         }
 
         if (JobProfileCommandSupport.HasReportsToAlsoAsDependentPosition(
                 reportsToInternalIdResult.Value,
                 mutation.Value.DependentPositions))
         {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.DependencyCycle);
+            return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.DependencyCycle);
         }
 
         if (profile.Status == JobProfileStatus.Published &&
@@ -1262,10 +1300,10 @@ internal sealed class UpdateJobProfileCommandHandler(
                 mutation.Value.Requirements,
                 mutation.Value.Functions))
         {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.PublishRequirementsMissing);
+            return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.PublishRequirementsMissing);
         }
 
-        var before = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
+        var before = await repository.GetCoreResponseByIdAsync(profile.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Job profile response could not be resolved before update.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -1295,14 +1333,9 @@ internal sealed class UpdateJobProfileCommandHandler(
             }
             catch (InvalidOperationException)
             {
-                return Result<JobProfileResponse>.Failure(JobProfileErrors.StateConflict);
+                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.StateConflict);
             }
 
-            profile.ReplaceRequirements(mutation.Value.Requirements);
-            profile.ReplaceFunctions(mutation.Value.Functions);
-            profile.ReplaceRelations(mutation.Value.Relations);
-            profile.ReplaceCompetencies(mutation.Value.Competencies);
-            profile.ReplaceTrainings(mutation.Value.Trainings);
             if (mutation.Value.CompensationSalaryClassCatalogItemId.HasValue &&
                 !string.IsNullOrWhiteSpace(mutation.Value.CompensationSalaryScaleCode))
             {
@@ -1316,9 +1349,6 @@ internal sealed class UpdateJobProfileCommandHandler(
             {
                 profile.ClearCompensationReference(bumpVersion: false);
             }
-            profile.ReplaceBenefits(mutation.Value.Benefits);
-            profile.ReplaceWorkingConditions(mutation.Value.WorkingConditions);
-            profile.ReplaceDependentPositions(mutation.Value.DependentPositions);
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -1337,7 +1367,7 @@ internal sealed class UpdateJobProfileCommandHandler(
                 unitOfWork,
                 cancellationToken);
 
-            var after = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
+            var after = await repository.GetCoreResponseByIdAsync(profile.PublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Job profile response could not be resolved after update.");
 
             await auditService.LogAsync(
@@ -1354,7 +1384,7 @@ internal sealed class UpdateJobProfileCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileResponse>.Success(after);
+            return Result<JobProfileCoreResponse>.Success(after);
         }
         catch
         {
@@ -1540,23 +1570,9 @@ internal sealed record JobProfileMutation(
 
 internal static class JobProfileMutationMapper
 {
-    public static bool HasInlineCatalogReferences(CreateJobProfileCommand command) =>
-        HasInlineCatalogReferences(
-            command.Requirements,
-            command.Relations,
-            command.Competencies,
-            command.Trainings,
-            command.Benefits,
-            command.WorkingConditions);
+    public static bool HasInlineCatalogReferences(CreateJobProfileCommand command) => false;
 
-    public static bool HasInlineCatalogReferences(UpdateJobProfileCommand command) =>
-        HasInlineCatalogReferences(
-            command.Requirements,
-            command.Relations,
-            command.Competencies,
-            command.Trainings,
-            command.Benefits,
-            command.WorkingConditions);
+    public static bool HasInlineCatalogReferences(UpdateJobProfileCommand command) => false;
 
     public static async Task<Result<JobProfileMutation>> BuildAsync(
         Guid tenantId,
@@ -1578,15 +1594,15 @@ internal static class JobProfileMutationMapper
         CancellationToken cancellationToken) =>
         await BuildAsync(
             tenantId,
-            command.Requirements,
-            command.Functions,
-            command.Relations,
-            command.Competencies,
-            command.Trainings,
+            [],
+            [],
+            [],
+            [],
+            [],
             command.Compensation,
-            command.Benefits,
-            command.WorkingConditions,
-            command.DependentPositions,
+            [],
+            [],
+            [],
             command.EffectiveFromUtc,
             command.EffectiveToUtc,
             profilePublicId,
@@ -1625,15 +1641,15 @@ internal static class JobProfileMutationMapper
         CancellationToken cancellationToken) =>
         await BuildAsync(
             tenantId,
-            command.Requirements,
-            command.Functions,
-            command.Relations,
-            command.Competencies,
-            command.Trainings,
+            [],
+            [],
+            [],
+            [],
+            [],
             command.Compensation,
-            command.Benefits,
-            command.WorkingConditions,
-            command.DependentPositions,
+            [],
+            [],
+            [],
             command.EffectiveFromUtc,
             command.EffectiveToUtc,
             profilePublicId,
@@ -2342,6 +2358,27 @@ internal static class JobProfilePolicyAdapter
                 response.Status.ToString(),
                 response.IsActive,
                 HasDependencies: response.DependentPositions.Count > 0,
+                SupportsEdit: true,
+                EditAllowed: canManageProfiles,
+                SupportsDelete: false,
+                SupportsArchive: true,
+                ArchiveAllowed: canManageProfiles,
+                SupportsActivate: false,
+                SupportsInactivate: false,
+                NonEditableStates: [JobProfileStatus.Archived.ToString()]));
+
+        return response with { AllowedActions = allowedActions };
+    }
+    public static JobProfileCoreResponse ApplyAllowedActions(
+        JobProfileCoreResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManageProfiles)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                JobProfilePermissionCodes.ResourceKey,
+                response.Status.ToString(),
+                response.IsActive,
                 SupportsEdit: true,
                 EditAllowed: canManageProfiles,
                 SupportsDelete: false,
