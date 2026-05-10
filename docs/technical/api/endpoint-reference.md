@@ -2511,19 +2511,19 @@ Familias de rutas:
 - `/api/v1/job-catalogs/{id}/activate`
 - `/api/v1/job-catalogs/{id}/inactivate`
 - `/api/v1/companies/{companyId}/job-profiles`
-- `/api/v1/job-profiles/{id}`
-- `/api/v1/job-profiles/{id}/vacancy-template`
-- `/api/v1/job-profiles/{id}/print`
-- `/api/v1/job-profiles/{id}/export`
-- `/api/v1/job-profiles/{id}/publish`
-- `/api/v1/job-profiles/{id}/archive`
+- `/api/v1/job-profiles/{publicId}`
+- `/api/v1/job-profiles/{publicId}/vacancy-template`
+- `/api/v1/job-profiles/{publicId}/print`
+- `/api/v1/job-profiles/{publicId}/export`
+- `/api/v1/job-profiles/{publicId}/publish`
+- `/api/v1/job-profiles/{publicId}/archive`
 - `/api/v1/companies/{companyId}/occupational-pyramid-levels`
 - `/api/v1/occupational-pyramid-levels/{id}`
 - `/api/v1/companies/{companyId}/competency-conducts`
 - `/api/v1/competency-conducts/{id}`
 - `/api/v1/competency-conducts/{id}/behaviors`
-- `/api/v1/job-profiles/{id}/competency-matrix`
-- `/api/v1/job-profiles/{id}/competency-matrix/export`
+- `/api/v1/job-profiles/{publicId}/competency-matrix`
+- `/api/v1/job-profiles/{publicId}/competency-matrix/export`
 - `/api/v1/companies/{companyId}/position-function-types`
 - `/api/v1/companies/{companyId}/position-contract-types`
 - `/api/v1/companies/{companyId}/strategic-objectives`
@@ -2578,15 +2578,15 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - `print` y `export` de `JobProfiles`, `export` de matriz de competencias y `export/diagram-export` de `PositionSlots` tambien generan auditoria.
 - No existen endpoints de borrado fisico en este bloque.
 - Las escrituras complejas por `PUT` son de reemplazo, no incrementales:
-- `PUT /job-profiles/{id}` reemplaza todas las colecciones anidadas del perfil; si una coleccion llega `null`, el controller la convierte en `[]` y el handler limpia la seccion existente.
-- `PATCH /job-profiles/{id}` aplica JSON Patch desde Application sobre el agregado cargado en transaccion; si el patch no toca `/compensation`, preserva la referencia de compensacion existente y evita reconstruirla desde una proyeccion parcial.
+- `PUT /job-profiles/{publicId}` reemplaza todas las colecciones anidadas del perfil; si una coleccion llega `null`, el controller la convierte en `[]` y el handler limpia la seccion existente.
+- `PATCH /job-profiles/{publicId}` aplica JSON Patch desde Application sobre el agregado cargado en transaccion; si el patch no toca `/compensation`, preserva la referencia de compensacion existente y evita reconstruirla desde una proyeccion parcial.
 - `POST/PUT /job-profiles` usan `compensation` (singular, opcional) como referencia canonica a `salaryTabulatorLineId`; si llega `null`, se limpia la referencia de compensacion del perfil.
 - Breaking change coordinado con frontend en los sub-recursos atomicos de `JobProfiles`: `requirements`, `functions`, `relations`, `competencies` legacy, `trainings`, `benefits`, `dependent-positions` y `working-conditions` ya no devuelven `JobProfileResponse` completo.
 - `POST/PUT` de esos sub-recursos ahora responden `200 OK` con wrapper `{ item, parentConcurrencyToken }`. `item` representa solo el sub-recurso mutado; `parentConcurrencyToken` es el token nuevo del `JobProfile` padre para encadenar la siguiente mutacion.
-- `DELETE` de esos sub-recursos ahora responde `204 No Content` y expone `Parent-Concurrency-Token` solo cuando la eliminacion fue exitosa.
-- `PUT /job-profiles/{id}/competency-matrix`, `PATCH /job-profiles/{id}/publish`, `PATCH /job-profiles/{id}/archive`, `GET /job-profiles/{id}` y las escrituras del agregado completo no cambian contrato por este ajuste.
+- `DELETE` de esos sub-recursos requiere el header `If-Match: <ConcurrencyToken-del-padre>` (RFC 7232; el valor admite formato con o sin comillas) en lugar de body. Responde `204 No Content` y expone `Parent-Concurrency-Token` solo cuando la eliminacion fue exitosa; si el header falta o no es un Guid valido, responde `400 Bad Request`.
+- `PUT /job-profiles/{publicId}/competency-matrix`, `PATCH /job-profiles/{publicId}/publish`, `PATCH /job-profiles/{publicId}/archive`, `GET /job-profiles/{publicId}` y las escrituras del agregado completo no cambian contrato por este ajuste.
 - `PUT /competency-conducts/{id}/behaviors` reemplaza el conjunto completo de behaviors del conducto.
-- `PUT /job-profiles/{id}/competency-matrix` reemplaza la matriz completa del perfil; una lista vacia limpia la matriz.
+- `PUT /job-profiles/{publicId}/competency-matrix` reemplaza la matriz completa del perfil; una lista vacia limpia la matriz.
 - `PATCH /position-slots/{id}/dependencies` sobrescribe tanto la dependencia directa como la funcional; `null` limpia la relacion.
 - `JobProfileStatus` hoy expone `Draft`, `Published` y `Archived`.
 - `PositionSlotStatus` hoy expone `Vacant`, `Occupied` y `Suspended`.
@@ -2739,15 +2739,15 @@ Observaciones funcionales:
 Route family:
 
 - `GET /api/v1/companies/{companyId}/job-profiles`
-- `GET /api/v1/job-profiles/{id}`
-- `GET /api/v1/job-profiles/{id}/vacancy-template`
-- `GET /api/v1/job-profiles/{id}/print`
-- `GET /api/v1/job-profiles/{id}/export`
+- `GET /api/v1/job-profiles/{publicId}`
+- `GET /api/v1/job-profiles/{publicId}/vacancy-template`
+- `GET /api/v1/job-profiles/{publicId}/print`
+- `GET /api/v1/job-profiles/{publicId}/export`
 - `POST /api/v1/companies/{companyId}/job-profiles`
-- `PUT /api/v1/job-profiles/{id}`
-- `PATCH /api/v1/job-profiles/{id}`
-- `PATCH /api/v1/job-profiles/{id}/publish`
-- `PATCH /api/v1/job-profiles/{id}/archive`
+- `PUT /api/v1/job-profiles/{publicId}`
+- `PATCH /api/v1/job-profiles/{publicId}`
+- `PATCH /api/v1/job-profiles/{publicId}/publish`
+- `PATCH /api/v1/job-profiles/{publicId}/archive`
 
 Uso principal:
 
@@ -2776,7 +2776,7 @@ Observaciones funcionales:
 - las referencias a `StrategicObjective`, `AssignedWorkEquipment`, `Responsibility`, `RequirementType`, `Frequency` y `WorkConditionType` deben existir y estar activas.
 - el sistema detecta ciclos tanto en `reportsTo` como en `dependentPositions`.
 - `Published` no es un estado inmutable: un job profile publicado todavia puede editarse y volver a publicarse mientras no este archivado.
-- `PUT /api/v1/job-profiles/{id}` permite guardar borradores incompletos, pero si el perfil ya esta `Published` no puede remover `objective`, `responsibilities`, `requirements` o `functions`; en ese caso responde `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING` (`422`). Esa flexibilidad ya no aplica a `OrgUnit`: siempre debe existir.
+- `PUT /api/v1/job-profiles/{publicId}` permite guardar borradores incompletos, pero si el perfil ya esta `Published` no puede remover `objective`, `responsibilities`, `requirements` o `functions`; en ese caso responde `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING` (`422`). Esa flexibilidad ya no aplica a `OrgUnit`: siempre debe existir.
 - `Archived` si es terminal para edicion: cualquier `update` o `publish` sobre un perfil archivado falla con `JOB_PROFILE_STATE_CONFLICT`.
 - `publish` exige al menos estas precondiciones: `Objective`, minimo un `Requirement`, minimo una `Function` y `Responsibilities`.
 - `publish` no exige competencias, trainings, beneficios, compensacion ni categoria de puesto.
@@ -2806,8 +2806,8 @@ Route family:
 - `PATCH /api/v1/competency-conducts/{id}/activate`
 - `PATCH /api/v1/competency-conducts/{id}/inactivate`
 - `PUT /api/v1/competency-conducts/{id}/behaviors`
-- `PUT /api/v1/job-profiles/{id}/competency-matrix`
-- `GET /api/v1/job-profiles/{id}/competency-matrix/export`
+- `PUT /api/v1/job-profiles/{publicId}/competency-matrix`
+- `GET /api/v1/job-profiles/{publicId}/competency-matrix/export`
 
 Uso principal:
 
@@ -2831,9 +2831,9 @@ Observaciones funcionales:
 - en ese endpoint no se permiten `BehaviorId` duplicados dentro de la misma solicitud.
 - cada `BehaviorId` debe existir como item activo de `JobCatalogCategory.Behavior`.
 - `inactivate` de conducto falla si el conducto sigue vinculado a expectativas activas de perfiles.
-- `GET /job-profiles/{id}` devuelve la matriz de competencias en la propiedad `competencies`.
-- `PUT /job-profiles/{id}/competency-matrix` es de reemplazo total; una lista vacia limpia la matriz del perfil.
-- `PUT /job-profiles/{id}` tambien acepta `competencies` como matriz de competencias; cada item usa IDs publicos y no requiere `name`.
+- `GET /job-profiles/{publicId}` devuelve la matriz de competencias en la propiedad `competencies`.
+- `PUT /job-profiles/{publicId}/competency-matrix` es de reemplazo total; una lista vacia limpia la matriz del perfil.
+- `PUT /job-profiles/{publicId}` tambien acepta `competencies` como matriz de competencias; cada item usa IDs publicos y no requiere `name`.
 - cada item de matriz debe ser unico por combinacion `OccupationalPyramidLevelId + CompetencyId + CompetencyTypeId + BehaviorLevelId`.
 - dentro de un item, `ConductIds` tambien deben ser unicos.
 - cada conducto referenciado debe pertenecer exactamente al mismo eje `competency + competencyType + behaviorLevel` declarado en el item.

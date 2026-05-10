@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = JobProfilePolicies.Manage)]
 [Route("api/v1/job-profiles/{publicId:guid}/requirements")]
 public sealed class JobProfileRequirementsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
@@ -76,6 +76,7 @@ public sealed class JobProfileRequirementsController(
 
     [HttpDelete("{requirementPublicId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -83,11 +84,16 @@ public sealed class JobProfileRequirementsController(
     public async Task<IActionResult> Remove(
         Guid publicId,
         Guid requirementPublicId,
-        [FromBody] ConcurrencyTokenRequest request,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         CancellationToken cancellationToken = default)
     {
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
+        {
+            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(HttpContext, statusCode: StatusCodes.Status400BadRequest, detail: IfMatchHeader.MissingDetail));
+        }
+
         var result = await commandDispatcher.SendAsync(
-            new RemoveJobProfileRequirementCommand(publicId, requirementPublicId, request.ConcurrencyToken),
+            new RemoveJobProfileRequirementCommand(publicId, requirementPublicId, concurrencyToken),
             cancellationToken);
 
         if (result.IsFailure)
@@ -123,8 +129,4 @@ public sealed class JobProfileRequirementsController(
         public Guid ConcurrencyToken { get; init; }
     }
 
-    public sealed class ConcurrencyTokenRequest
-    {
-        public Guid ConcurrencyToken { get; init; }
-    }
 }

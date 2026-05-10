@@ -288,7 +288,7 @@ public sealed class CompetencyFrameworkController(
         return this.ToActionResult(result);
     }
 
-    [HttpPut("api/v1/job-profiles/{id:guid}/competency-matrix")]
+    [HttpPut("api/v1/job-profiles/{publicId:guid}/competency-matrix")]
     [ProducesResponseType<JobProfileCompetencyMatrixResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -297,13 +297,13 @@ public sealed class CompetencyFrameworkController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<JobProfileCompetencyMatrixResponse>> UpdateJobProfileCompetencyMatrix(
-        Guid id,
+        Guid publicId,
         [FromBody] UpdateJobProfileCompetencyMatrixRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileCompetencyMatrixCommand(
-                id,
+                publicId,
                 request.Items?.Select(item => new JobProfileCompetencyMatrixItemInput(
                         item.OccupationalPyramidLevelPublicId,
                         item.CompetencyPublicId,
@@ -319,7 +319,7 @@ public sealed class CompetencyFrameworkController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/job-profiles/{id:guid}/competency-matrix/export")]
+    [HttpGet("api/v1/job-profiles/{publicId:guid}/competency-matrix/export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -327,12 +327,12 @@ public sealed class CompetencyFrameworkController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     public async Task<IActionResult> ExportJobProfileCompetencyMatrix(
-        Guid id,
+        Guid publicId,
         [FromQuery] string format = "xlsx",
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new ExportJobProfileCompetencyMatrixQuery(id, reportExportDeliveryService.SynchronousReadLimit),
+            new ExportJobProfileCompetencyMatrixQuery(publicId, reportExportDeliveryService.SynchronousReadLimit),
             cancellationToken);
         if (result.IsFailure)
         {
@@ -348,7 +348,7 @@ public sealed class CompetencyFrameworkController(
             AuditEntityTypes.JobProfileCompetencyMatrix,
             ReportExportResources.JobProfileCompetencyMatrix,
             "Exported job profile competency matrix report.",
-            new { jobProfileId = id },
+            new { jobProfileId = publicId },
             CompetencyFrameworkErrors.ExportFormatInvalid,
             cancellationToken);
     }

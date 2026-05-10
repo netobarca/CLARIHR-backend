@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = JobProfilePolicies.Manage)]
 [Route("api/v1/job-profiles/{publicId:guid}/dependent-positions")]
 public sealed class JobProfileDependentPositionsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
@@ -67,6 +67,7 @@ public sealed class JobProfileDependentPositionsController(
 
     [HttpDelete("{dependentPositionPublicId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -74,11 +75,16 @@ public sealed class JobProfileDependentPositionsController(
     public async Task<IActionResult> Remove(
         Guid publicId,
         Guid dependentPositionPublicId,
-        [FromBody] ConcurrencyTokenRequest request,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         CancellationToken cancellationToken = default)
     {
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
+        {
+            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(HttpContext, statusCode: StatusCodes.Status400BadRequest, detail: IfMatchHeader.MissingDetail));
+        }
+
         var result = await commandDispatcher.SendAsync(
-            new RemoveJobProfileDependentPositionCommand(publicId, dependentPositionPublicId, request.ConcurrencyToken),
+            new RemoveJobProfileDependentPositionCommand(publicId, dependentPositionPublicId, concurrencyToken),
             cancellationToken);
 
         if (result.IsFailure)
@@ -106,8 +112,4 @@ public sealed class JobProfileDependentPositionsController(
         public Guid ConcurrencyToken { get; init; }
     }
 
-    public sealed class ConcurrencyTokenRequest
-    {
-        public Guid ConcurrencyToken { get; init; }
-    }
 }

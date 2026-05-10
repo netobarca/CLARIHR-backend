@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = JobProfilePolicies.Manage)]
 [Route("api/v1/job-profiles/{publicId:guid}/relations")]
 public sealed class JobProfileRelationsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
@@ -72,6 +72,7 @@ public sealed class JobProfileRelationsController(
 
     [HttpDelete("{relationPublicId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -79,11 +80,16 @@ public sealed class JobProfileRelationsController(
     public async Task<IActionResult> Remove(
         Guid publicId,
         Guid relationPublicId,
-        [FromBody] ConcurrencyTokenRequest request,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         CancellationToken cancellationToken = default)
     {
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
+        {
+            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(HttpContext, statusCode: StatusCodes.Status400BadRequest, detail: IfMatchHeader.MissingDetail));
+        }
+
         var result = await commandDispatcher.SendAsync(
-            new RemoveJobProfileRelationCommand(publicId, relationPublicId, request.ConcurrencyToken),
+            new RemoveJobProfileRelationCommand(publicId, relationPublicId, concurrencyToken),
             cancellationToken);
 
         if (result.IsFailure)
@@ -115,8 +121,4 @@ public sealed class JobProfileRelationsController(
         public Guid ConcurrencyToken { get; init; }
     }
 
-    public sealed class ConcurrencyTokenRequest
-    {
-        public Guid ConcurrencyToken { get; init; }
-    }
 }
