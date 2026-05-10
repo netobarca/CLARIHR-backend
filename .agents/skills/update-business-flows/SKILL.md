@@ -69,14 +69,16 @@ Antes de editar flujos de negocio, revisar en este orden:
 3. `docs/AGENTS.md`
 4. la HU o requerimiento fuente
 5. el comportamiento funcional real implementado o acordado
-6. `docs/business/current-system-business-flows.md`
-7. `docs/analysis/changes/HU-XXXX.md` si ya existe
+6. `business/current-system-business-flows.md` (externo)
+7. `analysis/changes/HU-XXXX.md` (externo, si ya existe)
+
+NOTA: La documentación de flujos de negocio se maneja por fuera del proyecto. Pide la ruta externa al usuario antes de modificar o crear.
 
 ---
 
 ## 5. Regla madre
 
-`docs/business/current-system-business-flows.md` representa el **estado funcional actual** del sistema.
+`business/current-system-business-flows.md` (externo) representa el **estado funcional actual** del sistema.
 
 ### Regla de decisión
 - Si la HU cambia el comportamiento funcional vigente, actualizar el documento vivo.
@@ -132,7 +134,7 @@ Determinar si el cambio afecta:
 ## Paso 3. Actualizar el documento vivo
 Editar:
 
-- `docs/business/current-system-business-flows.md`
+- `business/current-system-business-flows.md` (externo)
 
 La actualización debe reflejar el nuevo comportamiento vigente del sistema.
 
@@ -155,7 +157,7 @@ Antes de cerrar, revisar:
 
 ## 8. Cuándo actualizar `current-system-business-flows.md`
 
-Actualizar `docs/business/current-system-business-flows.md` cuando la HU cambie algo como:
+Actualizar `business/current-system-business-flows.md` (externo) cuando la HU cambie algo como:
 
 - inicio del flujo,
 - secuencia principal,
@@ -259,24 +261,24 @@ Además del flujo vivo, evaluar si el cambio funcional también impacta:
 
 ### API
 Si cambia endpoints o contratos visibles:
-- `docs/technical/api/endpoint-reference.md`
-- `docs/technical/api/openapi.yaml`
+- `docs/technical/api/endpoint-reference.md` (local)
+- `docs/technical/api/openapi.yaml` (local)
 
 ### Seguridad
 Si cambia autenticación, autorización, permisos o tenant:
-- `docs/analysis/current-state/security-analysis.md`
+- `analysis/current-state/security-analysis.md` (externo)
 
 ### Performance
 Si cambia listados, filtros, consultas críticas o alto volumen:
-- `docs/analysis/current-state/performance-analysis.md`
+- `analysis/current-state/performance-analysis.md` (externo)
 
 ### Testing
 Si cambia la estrategia o los criterios de testing:
-- `docs/analysis/current-state/testing-analysis.md`
+- `analysis/current-state/testing-analysis.md` (externo)
 
 ### Architecture
 Si el cambio funcional forzó un ajuste estructural relevante:
-- `docs/analysis/current-state/architecture-analysis.md`
+- `analysis/current-state/architecture-analysis.md` (externo)
 
 ---
 
@@ -284,7 +286,7 @@ Si el cambio funcional forzó un ajuste estructural relevante:
 
 Cuando termines, debes dejar:
 
-1. `docs/business/current-system-business-flows.md` actualizado si aplicaba,
+1. `business/current-system-business-flows.md` (externo) actualizado si aplicaba,
 2. referencia del cambio en `HU-XXXX.md` si existe,
 3. consistencia entre comportamiento funcional real y flujo documentado,
 4. ausencia de duplicación o versiones paralelas del flujo.

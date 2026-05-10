@@ -2,12 +2,15 @@ using System.Globalization;
 using System.Text.Json;
 using CLARIHR.Application.Abstractions.CompetencyFramework;
 using CLARIHR.Application.Abstractions.CostCenters;
+using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.OrgUnits;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.PositionSlots;
+using CLARIHR.Application.Abstractions.Reports.Documents;
 using CLARIHR.Application.Abstractions.SalaryTabulator;
+using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.PersonnelFiles;
 using CLARIHR.Application.Features.Reports;
 using CLARIHR.Application.Features.Reports.Common;
@@ -42,6 +45,8 @@ internal sealed class ReportExportJobGenerator(
     ILegalRepresentativeRepository legalRepresentativeRepository,
     ICompetencyFrameworkRepository competencyFrameworkRepository,
     IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    IJobProfileRepository jobProfileRepository,
+    IDocumentPdfRenderer<JobProfilePrintResponse> jobProfilePdfRenderer,
     IOptions<ReportPerformanceOptions> options) : IReportExportJobGenerator
 {
     private readonly ReportPerformanceOptions _options = options.Value;
@@ -192,8 +197,44 @@ internal sealed class ReportExportJobGenerator(
                 "CompetencyMatrix",
                 cancellationToken),
 
+            ReportExportResources.JobProfilePdf => await GenerateJobProfilePdfAsync(
+                job,
+                destination,
+                parameters,
+                cancellationToken),
+
             _ => throw new NotSupportedException($"Report resource '{job.ResourceKey}' is not supported.")
         };
+    }
+
+    private async Task<ReportExportGeneratedFile> GenerateJobProfilePdfAsync(
+        ReportExportJob job,
+        Stream destination,
+        JsonElement parameters,
+        CancellationToken cancellationToken)
+    {
+        var jobProfileId = RequireGuid(parameters, "jobProfileId");
+
+        var payload = await jobProfileRepository.GetPrintByIdAsync(jobProfileId, cancellationToken);
+        if (payload is null)
+        {
+            throw new ReportExportInvalidParametersException(
+                $"Job profile '{jobProfileId}' was not found for the current tenant.");
+        }
+
+        if (payload.Profile.CompanyId != job.TenantId)
+        {
+            throw new ReportExportInvalidParametersException(
+                $"Job profile '{jobProfileId}' does not belong to the requesting tenant.");
+        }
+
+        await jobProfilePdfRenderer.RenderAsync(payload, destination, cancellationToken);
+
+        var fileName = $"job-profile-{job.PublicId:N}.pdf";
+        return new ReportExportGeneratedFile(
+            RowCount: 1,
+            FileName: fileName,
+            ContentType: ReportExportFormats.GetContentType(ReportExportFormats.Pdf));
     }
 
     private async Task<ReportExportGeneratedFile> GenerateSalaryTabulatorAsync(

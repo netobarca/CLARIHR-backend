@@ -1,0 +1,133 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.Reports;
+using CLARIHR.Domain.Reports;
+using CLARIHR.Infrastructure.Reports;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace CLARIHR.Api.IntegrationTests;
+
+public sealed class JobProfilePdfExportIntegrationTests(ReportExportIntegrationTestWebApplicationFactory factory)
+    : IClassFixture<ReportExportIntegrationTestWebApplicationFactory>
+{
+    private static readonly JsonSerializerOptions JsonOptions = IntegrationTestJson.CreateOptions();
+
+    [Fact]
+    public async Task PostJob_WhenJobProfilePdfWithCsvFormat_ShouldReturnBadRequest()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                JobProfilePermissionCodes.Read));
+
+        var response = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs",
+            new
+            {
+                resourceKey = "JOB_PROFILE_PDF",
+                format = "csv",
+                parameters = new { jobProfileId = Guid.NewGuid() }
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostJob_WhenTabularResourceWithPdfFormat_ShouldReturnBadRequest()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                JobProfilePermissionCodes.Read));
+
+        var response = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs",
+            new
+            {
+                resourceKey = "PERSONNEL_FILES",
+                format = "pdf",
+                parameters = new { isActive = true }
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostJob_WhenJobProfilePdfWithPdfFormat_ShouldQueueJob()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                JobProfilePermissionCodes.Read));
+
+        var response = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs",
+            new
+            {
+                resourceKey = "JOB_PROFILE_PDF",
+                format = "pdf",
+                parameters = new { jobProfileId = Guid.NewGuid() }
+            });
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var queued = await response.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
+        Assert.NotNull(queued);
+        Assert.Equal(ReportExportJobStatus.Queued, queued.Status);
+        Assert.Equal("JOB_PROFILE_PDF", queued.ResourceKey);
+        Assert.Equal("pdf", queued.Format);
+    }
+
+    [Fact]
+    public async Task ProcessJob_WhenJobProfileDoesNotExist_ShouldFailWithoutCrashingPipeline()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                JobProfilePermissionCodes.Read));
+
+        var createResponse = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs",
+            new
+            {
+                resourceKey = "JOB_PROFILE_PDF",
+                format = "pdf",
+                parameters = new { jobProfileId = Guid.NewGuid() }
+            });
+        createResponse.EnsureSuccessStatusCode();
+        var queued = await createResponse.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
+        Assert.NotNull(queued);
+
+        await ProcessAllPendingJobsAsync();
+
+        var detailResponse = await client.GetAsync($"/api/v1/report-export-jobs/{queued.Id}");
+        detailResponse.EnsureSuccessStatusCode();
+        var detail = await detailResponse.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
+        Assert.NotNull(detail);
+        Assert.Equal(ReportExportJobStatus.Failed, detail.Status);
+        Assert.False(string.IsNullOrWhiteSpace(detail.LastErrorMessage));
+    }
+
+    private async Task ProcessAllPendingJobsAsync()
+    {
+        for (var iteration = 0; iteration < 10; iteration++)
+        {
+            using var scope = factory.Services.CreateScope();
+            var processor = scope.ServiceProvider.GetRequiredService<IReportExportJobProcessor>();
+            var result = await processor.ProcessDueJobsAsync(CancellationToken.None);
+            if (result.ClaimedCount == 0)
+            {
+                return;
+            }
+        }
+    }
+}

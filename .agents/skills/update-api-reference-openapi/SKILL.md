@@ -70,9 +70,11 @@ Antes de actualizar la documentación de API, revisar en este orden:
 3. `docs/AGENTS.md`
 4. la HU o requerimiento fuente
 5. el código real implementado
-6. `docs/technical/api/endpoint-reference.md`
-7. `docs/technical/api/openapi.yaml` (si existe y aplica)
-8. `docs/analysis/changes/HU-XXXX.md` si ya existe
+6. `docs/technical/api/endpoint-reference.md` (local)
+7. `docs/technical/api/openapi.yaml` (local, si existe y aplica)
+8. `analysis/changes/HU-XXXX.md` (externo, si ya existe)
+
+NOTA: La documentación tiene un manejo híbrido. La carpeta `docs/technical` se maneja dentro del proyecto. No crees documentos de explicación para el frontend a menos que el usuario lo indique explícitamente.
 
 ---
 
@@ -153,7 +155,7 @@ Actualizar `endpoint-reference.md` para reflejar de forma clara y resumida:
 ## Paso 5. Reflejar el cambio en la HU
 Si existe archivo de cierre de la HU, dejar referencia a que la API fue actualizada:
 
-- `docs/analysis/changes/HU-XXXX.md`
+- `analysis/changes/HU-XXXX.md` (externo)
 
 ## Paso 6. Validar consistencia
 Antes de cerrar, revisar que:
@@ -172,7 +174,7 @@ Antes de cerrar, revisar que:
 Actualizar:
 - `docs/technical/api/endpoint-reference.md`
 - `docs/technical/api/openapi.yaml` si existe
-- `docs/analysis/changes/HU-XXXX.md` si aplica
+- `analysis/changes/HU-XXXX.md` (externo, si aplica)
 
 ## 8.2 Cambio de request/response
 Actualizar:
@@ -190,14 +192,14 @@ Actualizar:
 Actualizar:
 - `endpoint-reference.md`
 - `openapi.yaml`
-- posiblemente `docs/analysis/current-state/security-analysis.md` si el impacto es real y estructural
+- posiblemente `analysis/current-state/security-analysis.md` (externo) si el impacto es real y estructural
 - archivo HU
 
 ## 8.5 Cambio de filtros/paginación/sorting
 Actualizar:
 - `endpoint-reference.md`
 - `openapi.yaml`
-- posiblemente `docs/analysis/current-state/performance-analysis.md` si el impacto es relevante
+- posiblemente `analysis/current-state/performance-analysis.md` (externo) si el impacto es relevante
 - archivo HU
 
 ---

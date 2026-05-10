@@ -170,7 +170,7 @@ Definir si el requerimiento toca:
 - API
 - Tests
 - SQL / Data
-- Documentation
+- Documentation (externa)
 
 ## Paso 4. Diseñar el cambio mínimo correcto
 Implementar solo lo necesario para cumplir el requerimiento bien.

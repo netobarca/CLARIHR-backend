@@ -2,6 +2,7 @@ using System.Text.Json;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.CompetencyFramework;
 using CLARIHR.Application.Abstractions.CostCenters;
+using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.OrgUnits;
 using CLARIHR.Application.Abstractions.Persistence;
@@ -84,10 +85,34 @@ internal sealed class CreateReportExportJobCommandValidator : AbstractValidator<
             .MaximumLength(20)
             .Must(static format => ReportExportFormats.TryNormalize(format, out _))
             .WithMessage("Format is not supported.");
+        RuleFor(command => command)
+            .Must(BeCompatibleResourceFormat)
+            .WithName("Format")
+            .WithMessage("The requested format is not compatible with the selected resource.");
         RuleFor(command => command.ParametersJson)
             .MaximumLength(20_000)
             .Must(BeValidJsonObject)
             .WithMessage("Parameters must be a valid JSON object.");
+    }
+
+    private static bool BeCompatibleResourceFormat(CreateReportExportJobCommand command)
+    {
+        if (string.IsNullOrWhiteSpace(command.ResourceKey) ||
+            !ReportExportResources.IsSupported(command.ResourceKey))
+        {
+            return true;
+        }
+
+        if (!ReportExportFormats.TryNormalize(command.Format, out var normalizedFormat))
+        {
+            return true;
+        }
+
+        var normalizedResourceKey = ReportExportResources.Normalize(command.ResourceKey);
+        var isDocumentResource = ReportExportResources.IsDocumentResource(normalizedResourceKey);
+        var isPdfFormat = normalizedFormat == ReportExportFormats.Pdf;
+
+        return isDocumentResource == isPdfFormat;
     }
 
     private static bool BeValidJsonObject(string? parametersJson)
@@ -157,7 +182,8 @@ internal sealed class CreateReportExportJobCommandHandler(
     ISalaryTabulatorAuthorizationService salaryTabulatorAuthorizationService,
     ICostCenterAuthorizationService costCenterAuthorizationService,
     ILegalRepresentativeAuthorizationService legalRepresentativeAuthorizationService,
-    ICompetencyFrameworkAuthorizationService competencyFrameworkAuthorizationService)
+    ICompetencyFrameworkAuthorizationService competencyFrameworkAuthorizationService,
+    IJobProfileAuthorizationService jobProfileAuthorizationService)
     : ICommandHandler<CreateReportExportJobCommand, ReportExportJobResponse>
 {
     public async Task<Result<ReportExportJobResponse>> Handle(
@@ -223,6 +249,7 @@ internal sealed class CreateReportExportJobCommandHandler(
             ReportExportResources.CostCenters => costCenterAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
             ReportExportResources.LegalRepresentatives => legalRepresentativeAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
             ReportExportResources.JobProfileCompetencyMatrix => competencyFrameworkAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
+            ReportExportResources.JobProfilePdf => jobProfileAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
             _ => Task.FromResult(Result.Failure(ReportPolicyErrors.ResourceNotSupported))
         };
 }
