@@ -21,6 +21,8 @@ public interface IJobProfileRepository
     Task<bool> OrgUnitExistsOutsideTenantAsync(Guid orgUnitId, CancellationToken cancellationToken);
 
     Task<long?> ResolveProfileIdAsync(Guid tenantId, Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfileReferenceResponse?> GetReferenceByIdAsync(Guid tenantId, Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfileReferenceResponse?> GetReferenceByInternalIdAsync(Guid tenantId, long profileId, CancellationToken cancellationToken);
 
     Task<bool> ProfileExistsInTenantAsync(Guid tenantId, long profileId, CancellationToken cancellationToken);
 
@@ -36,6 +38,7 @@ public interface IJobProfileRepository
         int pageSize,
         CancellationToken cancellationToken);
 
+    Task<JobProfileEntityResponse?> GetEntityResponseByIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfileResponse?> GetResponseByIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfileCoreResponse?> GetCoreResponseByIdAsync(Guid profileId, CancellationToken cancellationToken);
 

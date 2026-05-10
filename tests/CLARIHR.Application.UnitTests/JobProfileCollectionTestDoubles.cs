@@ -1,24 +1,34 @@
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.InternalCatalogs;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
+using CLARIHR.Application.Abstractions.SalaryTabulator;
 using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using CLARIHR.Application.Features.InternalCatalogs;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
+using CLARIHR.Application.Features.SalaryTabulator;
+using CLARIHR.Domain.InternalCatalogs;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
+using CLARIHR.Domain.SalaryTabulator;
 
 namespace CLARIHR.Application.UnitTests;
 
 internal sealed class TestJobProfileRepository : IJobProfileRepository
 {
     public Dictionary<Guid, JobProfile> Profiles { get; } = new();
+    public Dictionary<Guid, JobProfileEntityResponse> EntityResponses { get; } = new();
     public Dictionary<Guid, JobProfileResponse> Responses { get; } = new();
+    public Dictionary<Guid, JobProfileCompensationResponse?> CoreCompensations { get; } = new();
+    public Dictionary<long, Guid> OrgUnitPublicIds { get; } = new();
 
     public void Add(JobProfile profile) => Profiles[profile.PublicId] = profile;
 
@@ -31,8 +41,50 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
     public Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(Profiles.GetValueOrDefault(profileId));
 
-    public Task<JobProfileCoreResponse?> GetCoreResponseByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
+    public Task<JobProfileCoreResponse?> GetCoreResponseByIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<JobProfileCoreResponse?>(null);
+        }
+
+        var orgUnitPublicId = profile.OrgUnitId > 0
+            ? ResolvePublicId(OrgUnitPublicIds, profile.OrgUnitId)
+            : (Guid?)null;
+
+        return Task.FromResult<JobProfileCoreResponse?>(
+            new JobProfileCoreResponse(
+                profile.PublicId,
+                profile.TenantId,
+                profile.Code,
+                profile.Title,
+                profile.Status,
+                profile.Version,
+                profile.Objective,
+                orgUnitPublicId,
+                OrgUnitName: null,
+                ReportsToJobProfileId: null,
+                ReportsToJobProfileCode: null,
+                ReportsToJobProfileTitle: null,
+                PositionCategoryId: null,
+                StrategicObjectiveCatalogItemId: null,
+                AssignedWorkEquipmentCatalogItemId: null,
+                ResponsibilityCatalogItemId: null,
+                profile.DecisionScope,
+                profile.AssignedResources,
+                profile.Responsibilities,
+                profile.BenefitsSummary,
+                profile.WorkingConditionSummary,
+                profile.MarketSalaryReference,
+                profile.ValuationNotes,
+                profile.EffectiveFromUtc,
+                profile.EffectiveToUtc,
+                profile.IsActive,
+                CoreCompensations.GetValueOrDefault(profile.PublicId),
+                profile.ConcurrencyToken,
+                profile.CreatedUtc,
+                profile.ModifiedUtc));
+    }
 
     public Task<bool> ExistsOutsideTenantAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(false);
@@ -49,6 +101,12 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
     public Task<long?> ResolveProfileIdAsync(Guid tenantId, Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult((long?)1);
 
+    public Task<JobProfileReferenceResponse?> GetReferenceByIdAsync(Guid tenantId, Guid profileId, CancellationToken cancellationToken) =>
+        Task.FromResult<JobProfileReferenceResponse?>(new JobProfileReferenceResponse(profileId, "JP-REF", "Referenced profile"));
+
+    public Task<JobProfileReferenceResponse?> GetReferenceByInternalIdAsync(Guid tenantId, long profileId, CancellationToken cancellationToken) =>
+        Task.FromResult<JobProfileReferenceResponse?>(new JobProfileReferenceResponse(Guid.NewGuid(), "JP-REF", "Referenced profile"));
+
     public Task<bool> ProfileExistsInTenantAsync(Guid tenantId, long profileId, CancellationToken cancellationToken) =>
         Task.FromResult(true);
 
@@ -58,6 +116,9 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
     public Task<PagedResponse<JobProfileListItemResponse>> SearchAsync(Guid tenantId, JobProfileStatus? status, Guid? orgUnitId, Guid? salaryClassId, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 
+    public Task<JobProfileEntityResponse?> GetEntityResponseByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
+        Task.FromResult(EntityResponses.GetValueOrDefault(profileId));
+
     public Task<JobProfileResponse?> GetResponseByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(Responses.GetValueOrDefault(profileId));
 
@@ -66,6 +127,17 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
 
     public Task<JobProfilePrintResponse?> GetPrintByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
+
+    private static Guid ResolvePublicId(IDictionary<long, Guid> values, long internalId)
+    {
+        if (!values.TryGetValue(internalId, out var publicId))
+        {
+            publicId = Guid.NewGuid();
+            values[internalId] = publicId;
+        }
+
+        return publicId;
+    }
 }
 
 internal sealed class TestJobCatalogRepository : IJobCatalogRepository
@@ -134,11 +206,165 @@ internal sealed class TestJobProfileAuthorizationService : IJobProfileAuthorizat
 
 internal sealed class TestAuditService : IAuditService
 {
-    public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task LogForTenantAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
+    public List<AuditLogEntry> Entries { get; } = [];
+    public List<(Guid TenantId, AuditLogEntry Entry)> TenantEntries { get; } = [];
+
+    public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken)
+    {
+        Entries.Add(entry);
+        return Task.CompletedTask;
+    }
+
+    public Task LogForTenantAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken)
+    {
+        TenantEntries.Add((tenantId, entry));
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class FixedTenantContext(Guid? tenantId) : ITenantContext
 {
     public Guid? TenantId { get; } = tenantId;
+}
+
+internal sealed class TestInternalCatalogRepository : IInternalCatalogRepository
+{
+    public void Add(InternalCatalogValue value) { }
+
+    public Task<InternalCatalogValue?> GetByIdAsync(Guid valueId, CancellationToken cancellationToken) =>
+        Task.FromResult<InternalCatalogValue?>(null);
+
+    public Task<InternalCatalogValue?> FindActiveByExactValueAsync(string catalogKey, string normalizedValue, CancellationToken cancellationToken) =>
+        Task.FromResult<InternalCatalogValue?>(null);
+
+    public Task<IReadOnlyCollection<InternalCatalogSearchResult>> SearchAsync(
+        string catalogKey,
+        string normalizedSearch,
+        int limit,
+        double minScore,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<InternalCatalogSearchResult>>([]);
+
+    public Task<IReadOnlyCollection<InternalCatalogSearchResult>> FindSimilarAsync(
+        string catalogKey,
+        string normalizedValue,
+        int limit,
+        double minScore,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<InternalCatalogSearchResult>>([]);
+}
+
+internal sealed class TestSalaryTabulatorRepository : ISalaryTabulatorRepository
+{
+    public Dictionary<Guid, SalaryTabulatorLine> Lines { get; } = new();
+    public int GetLineByIdCalls { get; private set; }
+
+    public void AddLine(SalaryTabulatorLine line) => Lines[line.PublicId] = line;
+
+    public void AddChangeRequest(SalaryTabulatorChangeRequest request) { }
+
+    public Task<SalaryTabulatorLine?> GetLineByIdAsync(Guid lineId, CancellationToken cancellationToken)
+    {
+        GetLineByIdCalls++;
+        return Task.FromResult(Lines.GetValueOrDefault(lineId));
+    }
+
+    public Task<bool> LineExistsOutsideTenantAsync(Guid lineId, CancellationToken cancellationToken) =>
+        Task.FromResult(false);
+
+    public Task<SalaryTabulatorLineResponse?> GetLineResponseByIdAsync(Guid lineId, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<PagedResponse<SalaryTabulatorLineListItemResponse>> SearchLinesAsync(
+        Guid tenantId,
+        string? salaryClassCode,
+        string? salaryScaleCode,
+        bool? isActive,
+        string? search,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<IReadOnlyCollection<SalaryTabulatorLineExportRow>> GetLineExportRowsAsync(
+        Guid tenantId,
+        string? salaryClassCode,
+        string? salaryScaleCode,
+        bool? isActive,
+        string? search,
+        int? maxRows,
+        CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<SalaryTabulatorLineSnapshot?> GetActiveLineSnapshotAsync(
+        Guid tenantId,
+        string normalizedSalaryClassCode,
+        string normalizedSalaryScaleCode,
+        DateTime effectiveAtUtc,
+        CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<SalaryTabulatorLine?> GetActiveLineEntityAsync(
+        Guid tenantId,
+        string normalizedSalaryClassCode,
+        string normalizedSalaryScaleCode,
+        DateTime effectiveAtUtc,
+        CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<SalaryTabulatorLine?> FindActiveLineForLegacyCompensationAsync(
+        Guid tenantId,
+        string normalizedSalaryClassCode,
+        string? currencyCode,
+        decimal? minAmount,
+        decimal? maxAmount,
+        DateTime effectiveFromUtc,
+        DateTime? effectiveToUtc,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<SalaryTabulatorLine?>(null);
+
+    public Task<bool> HasLineWithEffectiveFromOnOrAfterAsync(
+        Guid tenantId,
+        string normalizedSalaryClassCode,
+        string normalizedSalaryScaleCode,
+        DateTime effectiveFromUtc,
+        long? excludingLineId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(false);
+
+    public Task<bool> HasUncoveredJobProfileCompensationReferenceAsync(
+        Guid tenantId,
+        string normalizedSalaryClassCode,
+        string normalizedSalaryScaleCode,
+        DateTime fallbackEffectiveAtUtc,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(false);
+
+    public Task<SalaryTabulatorChangeRequest?> GetChangeRequestByIdAsync(Guid requestId, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<bool> ChangeRequestExistsOutsideTenantAsync(Guid requestId, CancellationToken cancellationToken) =>
+        Task.FromResult(false);
+
+    public Task<SalaryTabulatorChangeRequestResponse?> GetChangeRequestResponseByIdAsync(Guid requestId, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<SalaryTabulatorChangeRequestImpactResponse?> GetChangeRequestImpactByIdAsync(Guid requestId, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    public Task<PagedResponse<SalaryTabulatorChangeRequestListItemResponse>> SearchChangeRequestsAsync(
+        Guid tenantId,
+        SalaryTabulatorChangeRequestStatus? status,
+        Guid? requestedByUserId,
+        DateTime? effectiveFromUtc,
+        DateTime? effectiveToUtc,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+}
+
+internal sealed class TestJobProfileDateTimeProvider(DateTime utcNow) : IDateTimeProvider
+{
+    public DateTime UtcNow { get; } = utcNow;
 }

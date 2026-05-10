@@ -13,14 +13,16 @@ namespace CLARIHR.Api.Controllers;
 public sealed class JobProfileDependentPositionsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
+    private const string ParentConcurrencyTokenHeaderName = "Parent-Concurrency-Token";
+
     [HttpPost]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileResponse>> Add(
+    public async Task<ActionResult<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>> Add(
         Guid publicId,
         [FromBody] AddDependentPositionRequest request,
         CancellationToken cancellationToken = default)
@@ -38,13 +40,13 @@ public sealed class JobProfileDependentPositionsController(
     }
 
     [HttpPut("{dependentPositionPublicId:guid}")]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileResponse>> Update(
+    public async Task<ActionResult<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>> Update(
         Guid publicId,
         Guid dependentPositionPublicId,
         [FromBody] UpdateDependentPositionRequest request,
@@ -64,12 +66,12 @@ public sealed class JobProfileDependentPositionsController(
     }
 
     [HttpDelete("{dependentPositionPublicId:guid}")]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileResponse>> Remove(
+    public async Task<IActionResult> Remove(
         Guid publicId,
         Guid dependentPositionPublicId,
         [FromBody] ConcurrencyTokenRequest request,
@@ -79,7 +81,13 @@ public sealed class JobProfileDependentPositionsController(
             new RemoveJobProfileDependentPositionCommand(publicId, dependentPositionPublicId, request.ConcurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result).Result!;
+        }
+
+        Response.Headers[ParentConcurrencyTokenHeaderName] = result.Value.ParentConcurrencyToken.ToString();
+        return NoContent();
     }
 
     public sealed class AddDependentPositionRequest

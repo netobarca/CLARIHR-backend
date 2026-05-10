@@ -3677,10 +3677,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var detailResponse = await jobProfileClient.GetAsync($"/api/v1/job-profiles/{createdProfile.Id}");
         detailResponse.EnsureSuccessStatusCode();
-        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
+        var detailJson = JsonDocument.Parse(await detailResponse.Content.ReadAsStringAsync());
         Assert.NotNull(detail);
-        Assert.NotNull(detail!.Compensation);
-        Assert.Equal(salaryClass.Id, detail.Compensation!.SalaryClassId);
+        Assert.Equal(createdProfile.Id, detail!.Id);
+        Assert.DoesNotContain(detailJson.RootElement.EnumerateObject(), static property => string.Equals(property.Name, "compensation", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -3991,13 +3992,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var detailResponse = await jobProfileClient.GetAsync($"/api/v1/job-profiles/{createdProfile.Id}");
         detailResponse.EnsureSuccessStatusCode();
-        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
+        var detailJson = JsonDocument.Parse(await detailResponse.Content.ReadAsStringAsync());
 
         Assert.NotNull(detail);
-        Assert.NotNull(detail!.Compensation);
-        Assert.Equal(salaryClass.Id, detail.Compensation!.SalaryClassId);
-        Assert.Equal("A", detail.Compensation.SalaryScaleCode);
-        Assert.Equal(3500m, detail.Compensation.BaseAmount);
+        Assert.Equal(createdProfile.Id, detail!.Id);
+        Assert.DoesNotContain(detailJson.RootElement.EnumerateObject(), static property => string.Equals(property.Name, "compensation", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -4121,7 +4121,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task JobProfiles_GetById_ShouldReturnProfile_WhenDependentPositionReferencesProfileOutsideTenantScope()
+    public async Task JobProfiles_GetById_ShouldReturnEntityOnly_WhenDependentPositionReferencesProfileOutsideTenantScope()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var adminClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
@@ -4171,10 +4171,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         response.EnsureSuccessStatusCode();
 
-        var payload = await response.Content.ReadFromJsonAsync<JobProfileDetailItem>(JsonOptions);
+        var payload = await response.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
+        var payloadJson = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.NotNull(payload);
         Assert.Equal(profile.Id, payload!.Id);
-        Assert.Empty(payload.DependentPositions);
+        Assert.DoesNotContain(payloadJson.RootElement.EnumerateObject(), static property => string.Equals(property.Name, "dependentPositions", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -5096,6 +5097,53 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task JobProfileFunctions_SubresourceMutations_ShouldReturnLightweightContracts()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-FN-001", "Perfil Funciones");
+
+        var addResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/functions", new
+        {
+            functionType = "General",
+            frequencyCatalogItemId = (Guid?)null,
+            description = "Planificar entregables",
+            sortOrder = 1,
+            concurrencyToken = profile.ConcurrencyToken
+        });
+        addResponse.EnsureSuccessStatusCode();
+
+        var addBody = await addResponse.Content.ReadAsStringAsync();
+        var addJson = JsonDocument.Parse(addBody);
+        var addPayload = JsonSerializer.Deserialize<JobProfileSubResourceResult<JobProfileFunctionResponse>>(addBody, JsonOptions);
+        Assert.NotNull(addPayload);
+        Assert.True(addJson.RootElement.TryGetProperty("item", out var itemElement));
+        Assert.True(addJson.RootElement.TryGetProperty("parentConcurrencyToken", out var parentTokenElement));
+        Assert.False(addJson.RootElement.TryGetProperty("code", out _));
+        Assert.Equal("Planificar entregables", addPayload!.Item.Description);
+        Assert.Equal(JobFunctionType.General, addPayload.Item.FunctionType);
+
+        var functionId = addPayload.Item.Id;
+        var parentConcurrencyToken = addPayload.ParentConcurrencyToken;
+
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/job-profiles/{profile.Id}/functions/{functionId}")
+        {
+            Content = JsonContent.Create(new
+            {
+                concurrencyToken = parentConcurrencyToken
+            })
+        };
+        var deleteResponse = await client.SendAsync(deleteRequest);
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        Assert.True(deleteResponse.Headers.TryGetValues("Parent-Concurrency-Token", out var headerValues));
+        var headerToken = Assert.Single(headerValues);
+        Assert.True(Guid.TryParse(headerToken, out _));
+        Assert.Empty(await deleteResponse.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
     public async Task CompetencyFramework_FullFlow_ShouldManagePyramidConductMatrixAndExports()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -5150,9 +5198,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var profileBeforeResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}");
         profileBeforeResponse.EnsureSuccessStatusCode();
-        var profileBefore = await profileBeforeResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+        var profileBefore = await profileBeforeResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
         Assert.NotNull(profileBefore);
-        Assert.Empty(profileBefore!.Competencies);
 
         var matrixUpdateResponse = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix", new
         {
@@ -5182,12 +5229,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var profileAfterResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}");
         profileAfterResponse.EnsureSuccessStatusCode();
-        var profileAfter = await profileAfterResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+        var profileAfter = await profileAfterResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
         Assert.NotNull(profileAfter);
-        var competencyItem = Assert.Single(profileAfter!.Competencies);
-        Assert.Equal(level.Id, competencyItem.OccupationalPyramidLevelId);
-        Assert.Equal(competency.Id, competencyItem.CompetencyId);
-        Assert.Single(competencyItem.Conducts);
+        Assert.True(profileAfter!.Version > profileBefore!.Version);
+        Assert.NotEqual(profileBefore.ConcurrencyToken, profileAfter.ConcurrencyToken);
 
         var csvResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/export?format=csv");
         csvResponse.EnsureSuccessStatusCode();
@@ -5244,7 +5289,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-PUT", "Perfil Competencias PUT");
         var detailResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}");
         detailResponse.EnsureSuccessStatusCode();
-        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileResponse>(JsonOptions);
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
         Assert.NotNull(detail);
 
         var competency = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-PUT-001", "Comunicacion efectiva");
@@ -8610,19 +8655,29 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string? OrgUnitName,
         Guid ConcurrencyToken);
 
-    private sealed record JobProfileDependentPositionItem(
-        Guid DependentJobProfileId,
-        string DependentJobProfileCode,
-        string DependentJobProfileTitle,
-        int Quantity,
-        string? Notes);
-
-    private sealed record JobProfileDetailItem(
+    private sealed record JobProfileEntityItem(
         Guid Id,
         string Code,
         string Title,
         JobProfileStatus Status,
-        IReadOnlyCollection<JobProfileDependentPositionItem> DependentPositions,
+        int Version,
+        string? Objective,
+        Guid OrgUnitId,
+        Guid? ReportsToJobProfileId,
+        Guid? PositionCategoryId,
+        Guid? StrategicObjectiveCatalogItemId,
+        Guid? AssignedWorkEquipmentCatalogItemId,
+        Guid? ResponsibilityCatalogItemId,
+        string? DecisionScope,
+        string? AssignedResources,
+        string? Responsibilities,
+        string? BenefitsSummary,
+        string? WorkingConditionSummary,
+        string? MarketSalaryReference,
+        string? ValuationNotes,
+        DateTime? EffectiveFromUtc,
+        DateTime? EffectiveToUtc,
+        bool IsActive,
         Guid ConcurrencyToken);
 
     private sealed record JobProfilePrintItem(

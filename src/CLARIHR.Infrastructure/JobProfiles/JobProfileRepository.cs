@@ -76,6 +76,26 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .Select(profile => (long?)profile.Id)
             .SingleOrDefaultAsync(cancellationToken);
 
+    public Task<JobProfileReferenceResponse?> GetReferenceByIdAsync(Guid tenantId, Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.TenantId == tenantId && profile.PublicId == profileId)
+            .Select(profile => new JobProfileReferenceResponse(
+                profile.PublicId,
+                profile.Code,
+                profile.Title))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public Task<JobProfileReferenceResponse?> GetReferenceByInternalIdAsync(Guid tenantId, long profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.TenantId == tenantId && profile.Id == profileId)
+            .Select(profile => new JobProfileReferenceResponse(
+                profile.PublicId,
+                profile.Code,
+                profile.Title))
+            .SingleOrDefaultAsync(cancellationToken);
+
     public Task<bool> ProfileExistsInTenantAsync(Guid tenantId, long profileId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles
             .AsNoTracking()
@@ -349,6 +369,80 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             profile.EffectiveToUtc,
             profile.IsActive,
             compensationItem,
+            profile.ConcurrencyToken,
+            profile.CreatedUtc,
+            profile.ModifiedUtc);
+    }
+
+    public async Task<JobProfileEntityResponse?> GetEntityResponseByIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        var profile = await dbContext.JobProfiles
+            .AsNoTracking()
+            .SingleOrDefaultAsync(item => item.PublicId == profileId, cancellationToken);
+
+        if (profile is null)
+        {
+            return null;
+        }
+
+        var orgUnitPublicId = await dbContext.OrgUnits
+            .AsNoTracking()
+            .Where(unit => unit.Id == profile.OrgUnitId)
+            .Select(unit => (Guid?)unit.PublicId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var reportsToPublicId = profile.ReportsToJobProfileId.HasValue
+            ? await dbContext.JobProfiles
+                .AsNoTracking()
+                .Where(item => item.Id == profile.ReportsToJobProfileId.Value)
+                .Select(item => (Guid?)item.PublicId)
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
+
+        var positionCategoryPublicId = profile.PositionCategoryId.HasValue
+            ? await dbContext.PositionCategories
+                .AsNoTracking()
+                .Where(item => item.Id == profile.PositionCategoryId.Value)
+                .Select(item => (Guid?)item.PublicId)
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
+
+        var positionDescriptionCatalogItemIds = new HashSet<long>();
+        AddIfPresent(positionDescriptionCatalogItemIds, profile.StrategicObjectiveCatalogItemId);
+        AddIfPresent(positionDescriptionCatalogItemIds, profile.AssignedWorkEquipmentCatalogItemId);
+        AddIfPresent(positionDescriptionCatalogItemIds, profile.ResponsibilityCatalogItemId);
+
+        var positionDescriptionCatalogLookup = positionDescriptionCatalogItemIds.Count == 0
+            ? new Dictionary<long, Guid>()
+            : await dbContext.PositionDescriptionCatalogItems
+                .AsNoTracking()
+                .Where(item => positionDescriptionCatalogItemIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, item => item.PublicId, cancellationToken);
+
+        return new JobProfileEntityResponse(
+            profile.PublicId,
+            profile.TenantId,
+            profile.Code,
+            profile.Title,
+            profile.Status,
+            profile.Version,
+            profile.Objective,
+            orgUnitPublicId ?? Guid.Empty,
+            reportsToPublicId,
+            positionCategoryPublicId,
+            ResolveCatalogPublicId(profile.StrategicObjectiveCatalogItemId, positionDescriptionCatalogLookup),
+            ResolveCatalogPublicId(profile.AssignedWorkEquipmentCatalogItemId, positionDescriptionCatalogLookup),
+            ResolveCatalogPublicId(profile.ResponsibilityCatalogItemId, positionDescriptionCatalogLookup),
+            profile.DecisionScope,
+            profile.AssignedResources,
+            profile.Responsibilities,
+            profile.BenefitsSummary,
+            profile.WorkingConditionSummary,
+            profile.MarketSalaryReference,
+            profile.ValuationNotes,
+            profile.EffectiveFromUtc,
+            profile.EffectiveToUtc,
+            profile.IsActive,
             profile.ConcurrencyToken,
             profile.CreatedUtc,
             profile.ModifiedUtc);

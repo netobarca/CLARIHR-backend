@@ -1377,6 +1377,8 @@ components:
           type: string
           format: date-time
           nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
     ActiveLegalRepresentativeSummaryResponse:
       type: object
       required:
@@ -6290,6 +6292,307 @@ components:
         notes:
           type: string
           nullable: true
+    ConcurrencyTokenRequest:
+      type: object
+      required:
+        - concurrencyToken
+      properties:
+        concurrencyToken:
+          type: string
+          format: uuid
+    JobProfileRequirementResponse:
+      type: object
+      required:
+        - id
+        - requirementType
+        - description
+        - sortOrder
+      properties:
+        id:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        requirementTypeCatalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        requirementType:
+          type: string
+        description:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileFunctionResponse:
+      type: object
+      required:
+        - id
+        - functionType
+        - description
+        - sortOrder
+      properties:
+        id:
+          type: string
+          format: uuid
+        functionType:
+          type: string
+        frequencyCatalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileRelationResponse:
+      type: object
+      required:
+        - id
+        - relationType
+        - counterpart
+        - sortOrder
+      properties:
+        id:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        relationType:
+          type: string
+        counterpart:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileLegacyCompetencyResponse:
+      type: object
+      required:
+        - id
+        - name
+        - sortOrder
+      properties:
+        id:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        expectedLevel:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileTrainingResponse:
+      type: object
+      required:
+        - id
+        - name
+        - sortOrder
+      properties:
+        id:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileBenefitResponse:
+      type: object
+      required:
+        - id
+        - name
+        - sortOrder
+      properties:
+        id:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileWorkingConditionResponse:
+      type: object
+      required:
+        - id
+        - name
+        - sortOrder
+        - concurrencyToken
+      properties:
+        id:
+          type: string
+          format: uuid
+        catalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        workConditionTypeCatalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+        concurrencyToken:
+          type: string
+          format: uuid
+    JobProfileDependentPositionResponse:
+      type: object
+      required:
+        - id
+        - dependentJobProfileId
+        - dependentJobProfileCode
+        - dependentJobProfileTitle
+        - quantity
+      properties:
+        id:
+          type: string
+          format: uuid
+        dependentJobProfileId:
+          type: string
+          format: uuid
+        dependentJobProfileCode:
+          type: string
+        dependentJobProfileTitle:
+          type: string
+        quantity:
+          type: integer
+          format: int32
+        notes:
+          type: string
+          nullable: true
+    JobProfileSubResourceResultOfJobProfileRequirementResponse:
+      type: object
+      required:
+        - item
+        - parentConcurrencyToken
+      properties:
+        item:
+          $ref: '#/components/schemas/JobProfileRequirementResponse'
+        parentConcurrencyToken:
+          type: string
+          format: uuid
+    JobProfileSubResourceResultOfJobProfileFunctionResponse:
+      type: object
+      required:
+        - item
+        - parentConcurrencyToken
+      properties:
+        item:
+          $ref: '#/components/schemas/JobProfileFunctionResponse'
+        parentConcurrencyToken:
+          type: string
+          format: uuid
+    JobProfileSubResourceResultOfJobProfileRelationResponse:
+      type: object
+      required:
+        - item
+        - parentConcurrencyToken
+      properties:
+        item:
+          $ref: '#/components/schemas/JobProfileRelationResponse'
+        parentConcurrencyToken:
+          type: string
+          format: uuid
+    JobProfileSubResourceResultOfJobProfileLegacyCompetencyResponse:
+      type: object
+      required:
+        - item
+        - parentConcurrencyToken
+      properties:
+        item:
+          $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
+        parentConcurrencyToken:
+          type: string
+          format: uuid
+    JobProfileSubResourceResultOfJobProfileTrainingResponse:
+      type: object
+      required:
+        - item
+        - parentConcurrencyToken
+      properties:
+        item:
+          $ref: '#/components/schemas/JobProfileTrainingResponse'
+        parentConcurrencyToken:
+          type: string
+          format: uuid
+    JobProfileSubResourceResultOfJobProfileBenefitResponse:
+      type: object
+      required:
+        - item
+        - parentConcurrencyToken
+      properties:
+        item:
+          $ref: '#/components/schemas/JobProfileBenefitResponse'
+        parentConcurrencyToken:
+          type: string
+          format: uuid
+    JobProfileSubResourceResultOfJobProfileWorkingConditionResponse:
+      type: object
+      required:
+        - item
+        - parentConcurrencyToken
+      properties:
+        item:
+          $ref: '#/components/schemas/JobProfileWorkingConditionResponse'
+        parentConcurrencyToken:
+          type: string
+          format: uuid
+    JobProfileSubResourceResultOfJobProfileDependentPositionResponse:
+      type: object
+      required:
+        - item
+        - parentConcurrencyToken
+      properties:
+        item:
+          $ref: '#/components/schemas/JobProfileDependentPositionResponse'
+        parentConcurrencyToken:
+          type: string
+          format: uuid
+    JobProfileParentConcurrencyResult:
+      type: object
+      required:
+        - parentConcurrencyToken
+      properties:
+        parentConcurrencyToken:
+          type: string
+          format: uuid
     JobProfileUpsertRequest:
       type: object
       required:
@@ -6427,6 +6730,28 @@ components:
             concurrencyToken:
               type: string
               format: uuid
+    JsonPatchOperation:
+      type: object
+      description: JSON Patch operation accepted by partial update endpoints.
+      required:
+        - op
+        - path
+      properties:
+        op:
+          type: string
+          enum:
+            - add
+            - replace
+            - remove
+        path:
+          type: string
+          description: JSON Pointer path using the public request contract, for example `/title` or `/compensation/salaryTabulatorLineId`.
+        from:
+          type: string
+          nullable: true
+        value:
+          nullable: true
+          description: Value required by `add` and `replace`; omitted or null for `remove`.
     JobProfileContractResponse:
       type: object
       description: Partial checked-in contract for the job profile aggregate. Runtime Swagger still exposes the exhaustive nested response shape.
@@ -6463,6 +6788,103 @@ components:
           format: uuid
         orgUnitName:
           type: string
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    JobProfileEntityResponse:
+      type: object
+      description: Base entity-only detail for a job profile without enriched aggregate sections.
+      required:
+        - id
+        - companyId
+        - code
+        - title
+        - status
+        - version
+        - orgUnitId
+        - isActive
+        - concurrencyToken
+        - createdAtUtc
+      properties:
+        id:
+          type: string
+          format: uuid
+        companyId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/JobProfileStatus'
+        version:
+          type: integer
+          format: int32
+        objective:
+          type: string
+          nullable: true
+        orgUnitId:
+          type: string
+          format: uuid
+        reportsToJobProfileId:
+          type: string
+          format: uuid
+          nullable: true
+        positionCategoryId:
+          type: string
+          format: uuid
+          nullable: true
+        strategicObjectiveCatalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        assignedWorkEquipmentCatalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        responsibilityCatalogItemId:
+          type: string
+          format: uuid
+          nullable: true
+        decisionScope:
+          type: string
+          nullable: true
+        assignedResources:
+          type: string
+          nullable: true
+        responsibilities:
+          type: string
+          nullable: true
+        benefitsSummary:
+          type: string
+          nullable: true
+        workingConditionSummary:
+          type: string
+          nullable: true
+        marketSalaryReference:
+          type: string
+          nullable: true
+        valuationNotes:
+          type: string
+          nullable: true
+        effectiveFromUtc:
+          type: string
+          format: date-time
+          nullable: true
+        effectiveToUtc:
+          type: string
+          format: date-time
+          nullable: true
         isActive:
           type: boolean
         concurrencyToken:
@@ -12692,6 +13114,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
   /api/v1/job-profiles/{id}:
+    get:
+      tags:
+        - job-and-competency-design
+      operationId: GetJobProfileById
+      summary: Get a job profile base entity
+      description: Returns the base job profile entity only. The endpoint does not expose the enriched aggregate sections or legacy-resolved compensation.
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job profile entity retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileEntityResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job profile was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     put:
       tags:
         - job-and-competency-design
@@ -12752,6 +13214,72 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Business-rule violation such as publish requirements or invalid effective dates.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+        - job-and-competency-design
+      operationId: PatchJobProfile
+      summary: Partially update a job profile
+      description: Applies JSON Patch inside the Job Profiles application command over the tracked aggregate. Existing compensation is preserved when the patch does not touch `/compensation`; `remove /compensation` clears the compensation reference.
+      security:
+        - Bearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/JsonPatchOperation'
+      responses:
+        '200':
+          description: Job profile patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileContractResponse'
+        '400':
+          description: Invalid JSON Patch document or unsupported patch path/operation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile or one of its patched referenced resources was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as stale patched concurrency token, duplicate code, dependency cycle or editing an archived profile.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation such as publish requirements or invalid compensation tabulator line coverage.
           content:
             application/problem+json:
               schema:

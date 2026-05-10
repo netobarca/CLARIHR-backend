@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Authentication;
@@ -119,6 +120,25 @@ public sealed record JobProfileDependentPositionResponse(
     int Quantity,
     string? Notes);
 
+public sealed record JobProfileSubResourceResult<TItem>(
+    TItem Item,
+    Guid ParentConcurrencyToken);
+
+public sealed record JobProfileParentConcurrencyResult(Guid ParentConcurrencyToken);
+
+public sealed record JobProfileReferenceResponse(
+    Guid Id,
+    string Code,
+    string Title);
+
+public sealed record JobProfileLegacyCompetencyResponse(
+    Guid Id,
+    Guid? CatalogItemId,
+    string Name,
+    string? ExpectedLevel,
+    string? Notes,
+    int SortOrder);
+
 public sealed record JobProfileListItemResponse(
     Guid Id,
     string Code,
@@ -127,6 +147,35 @@ public sealed record JobProfileListItemResponse(
     int Version,
     Guid? OrgUnitId,
     string? OrgUnitName,
+    bool IsActive,
+    Guid ConcurrencyToken,
+    DateTime CreatedAtUtc,
+    DateTime? ModifiedAtUtc,
+    AllowedActionsResponse? AllowedActions = null);
+
+public sealed record JobProfileEntityResponse(
+    Guid Id,
+    Guid CompanyId,
+    string Code,
+    string Title,
+    JobProfileStatus Status,
+    int Version,
+    string? Objective,
+    Guid OrgUnitId,
+    Guid? ReportsToJobProfileId,
+    Guid? PositionCategoryId,
+    Guid? StrategicObjectiveCatalogItemId,
+    Guid? AssignedWorkEquipmentCatalogItemId,
+    Guid? ResponsibilityCatalogItemId,
+    string? DecisionScope,
+    string? AssignedResources,
+    string? Responsibilities,
+    string? BenefitsSummary,
+    string? WorkingConditionSummary,
+    string? MarketSalaryReference,
+    string? ValuationNotes,
+    DateTime? EffectiveFromUtc,
+    DateTime? EffectiveToUtc,
     bool IsActive,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
@@ -311,13 +360,15 @@ public sealed record SearchJobProfilesQuery(
     int PageSize = JobProfileValidationRules.DefaultPageSize,
     bool IncludeAllowedActions = false) : IQuery<PagedResponse<JobProfileListItemResponse>>;
 
-public sealed record GetJobProfileByIdQuery(Guid JobProfileId) : IQuery<JobProfileResponse>;
+public sealed record GetJobProfileByIdQuery(Guid JobProfileId) : IQuery<JobProfileEntityResponse>;
 
 public sealed record GetJobProfileCoreByIdQuery(Guid JobProfileId) : IQuery<JobProfileCoreResponse>;
 
 public sealed record GetJobProfileVacancyTemplateQuery(Guid JobProfileId) : IQuery<JobProfileVacancyTemplateResponse>;
 
 public sealed record GetJobProfilePrintQuery(Guid JobProfileId) : IQuery<JobProfilePrintResponse>;
+
+public sealed record MarkJobProfilePrintedCommand(Guid JobProfileId) : ICommand<bool>;
 
 public sealed record CreateJobProfileCommand(
     Guid CompanyId,
@@ -366,6 +417,16 @@ public sealed record UpdateJobProfileCommand(
     JobProfileCompensationInput? Compensation,
     Guid ConcurrencyToken) : ICommand<JobProfileCoreResponse>;
 
+public sealed record JobProfilePatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchJobProfileCommand(
+    Guid JobProfileId,
+    IReadOnlyCollection<JobProfilePatchOperation> Operations) : ICommand<JobProfileCoreResponse>;
+
 public sealed record PublishJobProfileCommand(Guid JobProfileId, Guid ConcurrencyToken) : ICommand<JobProfileResponse>;
 
 public sealed record ArchiveJobProfileCommand(Guid JobProfileId, Guid ConcurrencyToken) : ICommand<JobProfileResponse>;
@@ -412,6 +473,14 @@ internal sealed class GetJobProfilePrintQueryValidator : AbstractValidator<GetJo
     public GetJobProfilePrintQueryValidator()
     {
         RuleFor(query => query.JobProfileId).NotEmpty();
+    }
+}
+
+internal sealed class MarkJobProfilePrintedCommandValidator : AbstractValidator<MarkJobProfilePrintedCommand>
+{
+    public MarkJobProfilePrintedCommandValidator()
+    {
+        RuleFor(command => command.JobProfileId).NotEmpty();
     }
 }
 
@@ -515,6 +584,21 @@ internal sealed class UpdateJobProfileCommandValidator : AbstractValidator<Updat
     {
         RuleFor(command => command.Compensation)
             .SetValidator(new JobProfileCompensationInputValidator()!);
+    }
+}
+
+internal sealed class PatchJobProfileCommandValidator : AbstractValidator<PatchJobProfileCommand>
+{
+    public PatchJobProfileCommandValidator()
+    {
+        RuleFor(command => command.JobProfileId).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleForEach(command => command.Operations)
+            .ChildRules(operation =>
+            {
+                operation.RuleFor(item => item.Op).NotEmpty();
+                operation.RuleFor(item => item.Path).NotEmpty();
+            });
     }
 }
 
@@ -737,30 +821,30 @@ internal sealed class GetJobProfileByIdQueryHandler(
     IJobProfileRepository repository,
     ITenantContext tenantContext,
     IResourceActionPolicyService resourceActionPolicyService)
-    : IQueryHandler<GetJobProfileByIdQuery, JobProfileResponse>
+    : IQueryHandler<GetJobProfileByIdQuery, JobProfileEntityResponse>
 {
-    public async Task<Result<JobProfileResponse>> Handle(GetJobProfileByIdQuery query, CancellationToken cancellationToken)
+    public async Task<Result<JobProfileEntityResponse>> Handle(GetJobProfileByIdQuery query, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<JobProfileEntityResponse>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(authorizationResult.Error);
+            return Result<JobProfileEntityResponse>.Failure(authorizationResult.Error);
         }
 
-        var response = await repository.GetResponseByIdAsync(query.JobProfileId, cancellationToken);
+        var response = await repository.GetEntityResponseByIdAsync(query.JobProfileId, cancellationToken);
         if (response is not null)
         {
             var canManageProfiles = (await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
             response = JobProfilePolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManageProfiles);
-            return Result<JobProfileResponse>.Success(response);
+            return Result<JobProfileEntityResponse>.Success(response);
         }
 
-        return Result<JobProfileResponse>.Failure(
+        return Result<JobProfileEntityResponse>.Failure(
             await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
                 ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                 : JobProfileErrors.JobProfileNotFound);
@@ -871,6 +955,58 @@ internal sealed class GetJobProfilePrintQueryHandler(
             await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
                 ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                 : JobProfileErrors.JobProfileNotFound);
+    }
+}
+
+internal sealed class MarkJobProfilePrintedCommandHandler(
+    IJobProfileAuthorizationService authorizationService,
+    IJobProfileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<MarkJobProfilePrintedCommand, bool>
+{
+    public async Task<Result<bool>> Handle(MarkJobProfilePrintedCommand command, CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<bool>.Failure(authorizationResult.Error);
+        }
+
+        var response = await repository.GetEntityResponseByIdAsync(command.JobProfileId, cancellationToken);
+        if (response is null)
+        {
+            return Result<bool>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                    : JobProfileErrors.JobProfileNotFound);
+        }
+
+        await auditService.LogAsync(
+            new AuditLogEntry(
+                AuditEventTypes.ReportPrinted,
+                AuditEntityTypes.JobProfile,
+                command.JobProfileId,
+                JobProfilePermissionCodes.ResourceKey,
+                AuditActions.Print,
+                "Printed job profile report.",
+                After: new
+                {
+                    resourceKey = JobProfilePermissionCodes.ResourceKey,
+                    format = "print",
+                    filters = new { id = command.JobProfileId },
+                    rowCount = 1
+                }),
+            cancellationToken);
+        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result<bool>.Success(true);
     }
 }
 
@@ -1395,6 +1531,890 @@ internal sealed class UpdateJobProfileCommandHandler(
     }
 }
 
+internal sealed class PatchJobProfileCommandHandler(
+    IJobProfileAuthorizationService authorizationService,
+    IJobProfileRepository repository,
+    IJobCatalogRepository catalogRepository,
+    IInternalCatalogRepository internalCatalogRepository,
+    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    ISalaryTabulatorRepository salaryTabulatorRepository,
+    IAuditService auditService,
+    IDateTimeProvider dateTimeProvider,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchJobProfileCommand, JobProfileCoreResponse>
+{
+    public async Task<Result<JobProfileCoreResponse>> Handle(PatchJobProfileCommand command, CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<JobProfileCoreResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<JobProfileCoreResponse>.Failure(authorizationResult.Error);
+        }
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var profile = await repository.GetByIdAsync(command.JobProfileId, cancellationToken);
+            if (profile is null)
+            {
+                var error = await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : JobProfileErrors.JobProfileNotFound;
+
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(error);
+            }
+
+            var before = await repository.GetCoreResponseByIdAsync(profile.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Job profile response could not be resolved before patch.");
+
+            var patchState = JobProfilePatchState.From(profile, before);
+            var patchApplication = JobProfilePatchApplier.Apply(command.Operations, patchState);
+            if (patchApplication.IsFailure)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(patchApplication.Error);
+            }
+
+            var validation = JobProfilePatchApplier.Validate(patchState);
+            if (validation.IsFailure)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(validation.Error);
+            }
+
+            if (patchState.ConcurrencyToken != profile.ConcurrencyToken)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+            }
+
+            if (await repository.CodeExistsAsync(profile.TenantId, patchState.Code.Trim().ToUpperInvariant(), profile.Id, cancellationToken))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.CodeConflict);
+            }
+
+            var orgUnitInternalIdResult = patchState.OrgUnitTouched
+                ? await JobProfileCommandSupport.ResolveOrgUnitInternalIdAsync(
+                    profile.TenantId,
+                    patchState.OrgUnitPublicId,
+                    authorizationService,
+                    repository,
+                    RbacPermissionAction.Update,
+                    cancellationToken)
+                : Result<long>.Success(profile.OrgUnitId);
+            if (orgUnitInternalIdResult.IsFailure)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(orgUnitInternalIdResult.Error);
+            }
+
+            var reportsToInternalIdResult = patchState.ReportsToJobProfileTouched
+                ? await JobProfileCommandSupport.ResolveReportsToInternalIdAsync(
+                    profile.TenantId,
+                    patchState.ReportsToJobProfilePublicId,
+                    sourceProfilePublicId: profile.PublicId,
+                    sourceInternalId: profile.Id,
+                    authorizationService,
+                    repository,
+                    RbacPermissionAction.Update,
+                    cancellationToken)
+                : Result<long?>.Success(profile.ReportsToJobProfileId);
+            if (reportsToInternalIdResult.IsFailure)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(reportsToInternalIdResult.Error);
+            }
+
+            var positionCategoryInternalIdResult = patchState.PositionCategoryTouched
+                ? await JobProfileCommandSupport.ResolvePositionCategoryInternalIdAsync(
+                    profile.TenantId,
+                    patchState.PositionCategoryPublicId,
+                    positionDescriptionCatalogRepository,
+                    RbacPermissionAction.Update,
+                    cancellationToken)
+                : Result<long?>.Success(profile.PositionCategoryId);
+            if (positionCategoryInternalIdResult.IsFailure)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(positionCategoryInternalIdResult.Error);
+            }
+
+            var strategicObjectiveInternalIdResult = patchState.StrategicObjectiveTouched
+                ? await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
+                    profile.TenantId,
+                    patchState.StrategicObjectiveCatalogItemPublicId,
+                    PositionDescriptionCatalogType.StrategicObjective,
+                    PositionDescriptionCatalogErrors.RelatedCatalogItemNotFound,
+                    positionDescriptionCatalogRepository,
+                    RbacPermissionAction.Update,
+                    cancellationToken)
+                : Result<long?>.Success(profile.StrategicObjectiveCatalogItemId);
+            if (strategicObjectiveInternalIdResult.IsFailure)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(strategicObjectiveInternalIdResult.Error);
+            }
+
+            var workEquipmentInternalIdResult = patchState.AssignedWorkEquipmentTouched
+                ? await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
+                    profile.TenantId,
+                    patchState.AssignedWorkEquipmentCatalogItemPublicId,
+                    PositionDescriptionCatalogType.WorkEquipment,
+                    PositionDescriptionCatalogErrors.RelatedCatalogItemNotFound,
+                    positionDescriptionCatalogRepository,
+                    RbacPermissionAction.Update,
+                    cancellationToken)
+                : Result<long?>.Success(profile.AssignedWorkEquipmentCatalogItemId);
+            if (workEquipmentInternalIdResult.IsFailure)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(workEquipmentInternalIdResult.Error);
+            }
+
+            var responsibilityInternalIdResult = patchState.ResponsibilityTouched
+                ? await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
+                    profile.TenantId,
+                    patchState.ResponsibilityCatalogItemPublicId,
+                    PositionDescriptionCatalogType.Responsibility,
+                    PositionDescriptionCatalogErrors.RelatedCatalogItemNotFound,
+                    positionDescriptionCatalogRepository,
+                    RbacPermissionAction.Update,
+                    cancellationToken)
+                : Result<long?>.Success(profile.ResponsibilityCatalogItemId);
+            if (responsibilityInternalIdResult.IsFailure)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(responsibilityInternalIdResult.Error);
+            }
+
+            if (JobProfileCommandSupport.HasReportsToAlsoAsDependentPosition(
+                    reportsToInternalIdResult.Value,
+                    profile.DependentPositions))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.DependencyCycle);
+            }
+
+            if (profile.Status == JobProfileStatus.Published &&
+                !JobProfileCommandSupport.MeetsPublishedMinimumRequirements(
+                    patchState.Objective,
+                    patchState.Responsibilities,
+                    profile.Requirements,
+                    profile.Functions))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.PublishRequirementsMissing);
+            }
+
+            var shouldResolveCompensation = patchState.CompensationTouched ||
+                                            (patchState.EffectiveRangeTouched && patchState.Compensation is not null);
+            JobProfileMutation? mutation = null;
+            if (shouldResolveCompensation && patchState.Compensation is not null)
+            {
+                var createdCatalogItems = new List<JobCatalogItem>();
+                var createdInternalCatalogValues = new List<InternalCatalogValue>();
+                var categoryInvalidation = new HashSet<JobCatalogCategory>();
+
+                var mutationResult = await JobProfileMutationMapper.BuildAsync(
+                    profile.TenantId,
+                    [],
+                    [],
+                    [],
+                    [],
+                    [],
+                    patchState.Compensation.ToInput(),
+                    [],
+                    [],
+                    [],
+                    patchState.EffectiveFromUtc,
+                    patchState.EffectiveToUtc,
+                    profile.PublicId,
+                    profile.Id,
+                    allowInlineCatalogCreate: false,
+                    authorizationService,
+                    repository,
+                    catalogRepository,
+                    internalCatalogRepository,
+                    positionDescriptionCatalogRepository,
+                    salaryTabulatorRepository,
+                    actorUserPublicId: Guid.Empty,
+                    dateTimeProvider,
+                    createdCatalogItems,
+                    createdInternalCatalogValues,
+                    categoryInvalidation,
+                    cancellationToken);
+                if (mutationResult.IsFailure)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return Result<JobProfileCoreResponse>.Failure(mutationResult.Error);
+                }
+
+                mutation = mutationResult.Value;
+            }
+
+            try
+            {
+                profile.UpdateCore(
+                    patchState.Code,
+                    patchState.Title,
+                    patchState.Objective,
+                    orgUnitInternalIdResult.Value,
+                    reportsToInternalIdResult.Value,
+                    positionCategoryInternalIdResult.Value,
+                    strategicObjectiveInternalIdResult.Value,
+                    workEquipmentInternalIdResult.Value,
+                    responsibilityInternalIdResult.Value,
+                    patchState.DecisionScope,
+                    patchState.AssignedResources,
+                    patchState.Responsibilities,
+                    patchState.BenefitsSummary,
+                    patchState.WorkingConditionSummary,
+                    patchState.MarketSalaryReference,
+                    patchState.ValuationNotes,
+                    patchState.EffectiveFromUtc,
+                    patchState.EffectiveToUtc);
+            }
+            catch (InvalidOperationException)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.StateConflict);
+            }
+
+            if (shouldResolveCompensation)
+            {
+                if (mutation is not null &&
+                    mutation.CompensationSalaryClassCatalogItemId.HasValue &&
+                    !string.IsNullOrWhiteSpace(mutation.CompensationSalaryScaleCode))
+                {
+                    profile.SetCompensationReference(
+                        mutation.CompensationSalaryClassCatalogItemId.Value,
+                        salaryClassCatalogItem: null,
+                        mutation.CompensationSalaryScaleCode!,
+                        bumpVersion: false);
+                }
+                else
+                {
+                    profile.ClearCompensationReference(bumpVersion: false);
+                }
+            }
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetCoreResponseByIdAsync(profile.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Job profile response could not be resolved after patch.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.JobProfileUpdated,
+                    AuditEntityTypes.JobProfile,
+                    profile.PublicId,
+                    profile.Code,
+                    AuditActions.Update,
+                    $"Patched job profile {profile.Code}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<JobProfileCoreResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class JobProfilePatchState
+{
+    private JobProfilePatchState(JobProfile profile, JobProfileCoreResponse before)
+    {
+        Code = profile.Code;
+        Title = profile.Title;
+        Objective = profile.Objective;
+        OrgUnitPublicId = before.OrgUnitId ?? Guid.Empty;
+        ReportsToJobProfilePublicId = before.ReportsToJobProfileId;
+        PositionCategoryPublicId = before.PositionCategoryId;
+        StrategicObjectiveCatalogItemPublicId = before.StrategicObjectiveCatalogItemId;
+        AssignedWorkEquipmentCatalogItemPublicId = before.AssignedWorkEquipmentCatalogItemId;
+        ResponsibilityCatalogItemPublicId = before.ResponsibilityCatalogItemId;
+        DecisionScope = profile.DecisionScope;
+        AssignedResources = profile.AssignedResources;
+        Responsibilities = profile.Responsibilities;
+        BenefitsSummary = profile.BenefitsSummary;
+        WorkingConditionSummary = profile.WorkingConditionSummary;
+        MarketSalaryReference = profile.MarketSalaryReference;
+        ValuationNotes = profile.ValuationNotes;
+        EffectiveFromUtc = profile.EffectiveFromUtc;
+        EffectiveToUtc = profile.EffectiveToUtc;
+        AllowInlineCatalogCreate = false;
+        ConcurrencyToken = profile.ConcurrencyToken;
+        Compensation = JobProfilePatchCompensationState.From(before.Compensation);
+    }
+
+    public string Code { get; set; }
+    public string Title { get; set; }
+    public string? Objective { get; set; }
+    public Guid OrgUnitPublicId { get; set; }
+    public bool OrgUnitTouched { get; set; }
+    public Guid? ReportsToJobProfilePublicId { get; set; }
+    public bool ReportsToJobProfileTouched { get; set; }
+    public Guid? PositionCategoryPublicId { get; set; }
+    public bool PositionCategoryTouched { get; set; }
+    public Guid? StrategicObjectiveCatalogItemPublicId { get; set; }
+    public bool StrategicObjectiveTouched { get; set; }
+    public Guid? AssignedWorkEquipmentCatalogItemPublicId { get; set; }
+    public bool AssignedWorkEquipmentTouched { get; set; }
+    public Guid? ResponsibilityCatalogItemPublicId { get; set; }
+    public bool ResponsibilityTouched { get; set; }
+    public string? DecisionScope { get; set; }
+    public string? AssignedResources { get; set; }
+    public string? Responsibilities { get; set; }
+    public string? BenefitsSummary { get; set; }
+    public string? WorkingConditionSummary { get; set; }
+    public string? MarketSalaryReference { get; set; }
+    public string? ValuationNotes { get; set; }
+    public DateTime? EffectiveFromUtc { get; set; }
+    public DateTime? EffectiveToUtc { get; set; }
+    public bool EffectiveRangeTouched { get; set; }
+    public bool AllowInlineCatalogCreate { get; set; }
+    public Guid ConcurrencyToken { get; set; }
+    public JobProfilePatchCompensationState? Compensation { get; set; }
+    public bool CompensationTouched { get; set; }
+
+    public static JobProfilePatchState From(JobProfile profile, JobProfileCoreResponse before) => new(profile, before);
+}
+
+internal sealed class JobProfilePatchCompensationState
+{
+    public Guid? SalaryTabulatorLineId { get; set; }
+    public Guid? SalaryClassId { get; set; }
+    public string? SalaryClassCode { get; set; }
+    public string? CurrencyCode { get; set; }
+    public decimal? MinAmount { get; set; }
+    public decimal? MaxAmount { get; set; }
+
+    public static JobProfilePatchCompensationState? From(JobProfileCompensationResponse? compensation) =>
+        compensation is null
+            ? null
+            : new JobProfilePatchCompensationState
+            {
+                SalaryTabulatorLineId = compensation.SalaryTabulatorLineId,
+                SalaryClassId = compensation.SalaryClassId,
+                SalaryClassCode = compensation.SalaryScaleCode,
+                CurrencyCode = compensation.CurrencyCode,
+                MinAmount = compensation.MinAmount,
+                MaxAmount = compensation.MaxAmount
+            };
+
+    public JobProfileCompensationInput ToInput() =>
+        new(SalaryTabulatorLineId, SalaryClassId, SalaryClassCode, CurrencyCode, MinAmount, MaxAmount);
+}
+
+internal static class JobProfilePatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<JobProfilePatchOperation> operations, JobProfilePatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length == 0)
+            {
+                return ValidationFailure(operation.Path, "Patch path is required.");
+            }
+
+            try
+            {
+                if (IsSegment(segments[0], "compensation"))
+                {
+                    var compensationResult = ApplyCompensationOperation(op, segments, operation.Value, state, operation.Path);
+                    if (compensationResult.IsFailure)
+                    {
+                        return compensationResult;
+                    }
+
+                    continue;
+                }
+
+                if (segments.Length != 1)
+                {
+                    return ValidationFailure(operation.Path, "Nested patch paths are only supported for compensation.");
+                }
+
+                var coreResult = ApplyCoreOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (coreResult.IsFailure)
+                {
+                    return coreResult;
+                }
+            }
+            catch (JobProfilePatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(JobProfilePatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        AddRequired(errors, "code", state.Code);
+        AddMaxLength(errors, "code", state.Code, 50);
+        if (!string.IsNullOrWhiteSpace(state.Code) && !JobProfileValidationRules.IsValidCode(state.Code))
+        {
+            errors["code"] = ["Code format is invalid."];
+        }
+
+        AddRequired(errors, "title", state.Title);
+        AddMaxLength(errors, "title", state.Title, 180);
+        AddMaxLength(errors, "objective", state.Objective, 4000);
+        AddMaxLength(errors, "decisionScope", state.DecisionScope, 4000);
+        AddMaxLength(errors, "assignedResources", state.AssignedResources, 4000);
+        AddMaxLength(errors, "responsibilities", state.Responsibilities, 4000);
+        AddMaxLength(errors, "benefitsSummary", state.BenefitsSummary, 4000);
+        AddMaxLength(errors, "workingConditionSummary", state.WorkingConditionSummary, 4000);
+        AddMaxLength(errors, "marketSalaryReference", state.MarketSalaryReference, 4000);
+        AddMaxLength(errors, "valuationNotes", state.ValuationNotes, 4000);
+
+        if (state.OrgUnitTouched && state.OrgUnitPublicId == Guid.Empty)
+        {
+            errors["orgUnitPublicId"] = ["OrgUnitPublicId is required."];
+        }
+
+        if (state.EffectiveFromUtc.HasValue &&
+            state.EffectiveToUtc.HasValue &&
+            state.EffectiveFromUtc.Value > state.EffectiveToUtc.Value)
+        {
+            errors["effectiveFromUtc"] = ["EffectiveFromUtc must be less than or equal to EffectiveToUtc."];
+        }
+
+        if (state.CompensationTouched && state.Compensation is not null &&
+            !state.Compensation.SalaryTabulatorLineId.HasValue &&
+            !state.Compensation.SalaryClassId.HasValue &&
+            string.IsNullOrWhiteSpace(state.Compensation.SalaryClassCode))
+        {
+            errors["compensation"] = ["A salary tabulator line or salary class reference is required for compensation."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyCoreOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        JobProfilePatchState state,
+        string path)
+    {
+        var isRemove = IsRemove(op);
+        if (IsSegment(property, "code"))
+        {
+            state.Code = isRemove ? string.Empty : ReadRequiredString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "title"))
+        {
+            state.Title = isRemove ? string.Empty : ReadRequiredString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "objective"))
+        {
+            state.Objective = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "orgUnitPublicId", "orgUnitId"))
+        {
+            state.OrgUnitPublicId = isRemove ? Guid.Empty : ReadRequiredGuid(value, path);
+            state.OrgUnitTouched = true;
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "reportsToJobProfilePublicId", "reportsToJobProfileId"))
+        {
+            state.ReportsToJobProfilePublicId = isRemove ? null : ReadNullableGuid(value, path);
+            state.ReportsToJobProfileTouched = true;
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "positionCategoryPublicId", "positionCategoryId"))
+        {
+            state.PositionCategoryPublicId = isRemove ? null : ReadNullableGuid(value, path);
+            state.PositionCategoryTouched = true;
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "strategicObjectiveCatalogItemPublicId", "strategicObjectiveCatalogItemId"))
+        {
+            state.StrategicObjectiveCatalogItemPublicId = isRemove ? null : ReadNullableGuid(value, path);
+            state.StrategicObjectiveTouched = true;
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "assignedWorkEquipmentCatalogItemPublicId", "assignedWorkEquipmentCatalogItemId"))
+        {
+            state.AssignedWorkEquipmentCatalogItemPublicId = isRemove ? null : ReadNullableGuid(value, path);
+            state.AssignedWorkEquipmentTouched = true;
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "responsibilityCatalogItemPublicId", "responsibilityCatalogItemId"))
+        {
+            state.ResponsibilityCatalogItemPublicId = isRemove ? null : ReadNullableGuid(value, path);
+            state.ResponsibilityTouched = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "decisionScope"))
+        {
+            state.DecisionScope = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "assignedResources"))
+        {
+            state.AssignedResources = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "responsibilities"))
+        {
+            state.Responsibilities = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "benefitsSummary"))
+        {
+            state.BenefitsSummary = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "workingConditionSummary"))
+        {
+            state.WorkingConditionSummary = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "marketSalaryReference"))
+        {
+            state.MarketSalaryReference = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "valuationNotes"))
+        {
+            state.ValuationNotes = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "effectiveFromUtc"))
+        {
+            state.EffectiveFromUtc = isRemove ? null : ReadNullableDateTime(value, path);
+            state.EffectiveRangeTouched = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "effectiveToUtc"))
+        {
+            state.EffectiveToUtc = isRemove ? null : ReadNullableDateTime(value, path);
+            state.EffectiveRangeTouched = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "allowInlineCatalogCreate"))
+        {
+            state.AllowInlineCatalogCreate = !isRemove && ReadBool(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "concurrencyToken"))
+        {
+            state.ConcurrencyToken = isRemove ? Guid.Empty : ReadRequiredGuid(value, path);
+            return Result.Success();
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result ApplyCompensationOperation(
+        string op,
+        string[] segments,
+        JsonElement? value,
+        JobProfilePatchState state,
+        string path)
+    {
+        state.CompensationTouched = true;
+        var isRemove = IsRemove(op);
+        if (segments.Length == 1)
+        {
+            state.Compensation = isRemove || IsNull(value)
+                ? null
+                : ReadCompensation(value, path);
+            return Result.Success();
+        }
+
+        if (segments.Length != 2)
+        {
+            return ValidationFailure(path, "Only one nested compensation property can be patched at a time.");
+        }
+
+        if (state.Compensation is null)
+        {
+            return ValidationFailure(path, "Compensation must exist before patching nested compensation fields.");
+        }
+
+        var property = segments[1];
+        if (IsSegment(property, "salaryTabulatorLineId"))
+        {
+            state.Compensation.SalaryTabulatorLineId = isRemove ? null : ReadNullableGuid(value, path);
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "salaryClassPublicId", "salaryClassId"))
+        {
+            state.Compensation.SalaryClassId = isRemove ? null : ReadNullableGuid(value, path);
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "salaryClassCode", "salaryScaleCode"))
+        {
+            state.Compensation.SalaryClassCode = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "minSalary", "minAmount"))
+        {
+            state.Compensation.MinAmount = isRemove ? null : ReadNullableDecimal(value, path);
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "maxSalary", "maxAmount"))
+        {
+            state.Compensation.MaxAmount = isRemove ? null : ReadNullableDecimal(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "currencyCode"))
+        {
+            state.Compensation.CurrencyCode = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        return ValidationFailure(path, $"Unsupported compensation patch path '{path}'.");
+    }
+
+    private static JobProfilePatchCompensationState ReadCompensation(JsonElement? value, string path)
+    {
+        if (!value.HasValue || value.Value.ValueKind != JsonValueKind.Object)
+        {
+            throw new JobProfilePatchValueException(path, "Compensation value must be an object or null.");
+        }
+
+        var element = value.Value;
+        return new JobProfilePatchCompensationState
+        {
+            SalaryTabulatorLineId = ReadOptionalPropertyGuid(element, "salaryTabulatorLineId", path),
+            SalaryClassId = ReadOptionalPropertyGuid(element, "salaryClassPublicId", path) ??
+                            ReadOptionalPropertyGuid(element, "salaryClassId", path),
+            SalaryClassCode = ReadOptionalPropertyString(element, "salaryClassCode", path) ??
+                              ReadOptionalPropertyString(element, "salaryScaleCode", path),
+            CurrencyCode = ReadOptionalPropertyString(element, "currencyCode", path),
+            MinAmount = ReadOptionalPropertyDecimal(element, "minSalary", path) ??
+                        ReadOptionalPropertyDecimal(element, "minAmount", path),
+            MaxAmount = ReadOptionalPropertyDecimal(element, "maxSalary", path) ??
+                        ReadOptionalPropertyDecimal(element, "maxAmount", path)
+        };
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsRemove(string op) => string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAnySegment(string actual, params string[] expected) =>
+        expected.Any(item => IsSegment(actual, item));
+
+    private static string ReadRequiredString(JsonElement? value, string path) =>
+        ReadNullableString(value, path) ?? string.Empty;
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new JobProfilePatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static Guid ReadRequiredGuid(JsonElement? value, string path) =>
+        ReadNullableGuid(value, path) ?? Guid.Empty;
+
+    private static Guid? ReadNullableGuid(JsonElement? value, string path)
+    {
+        var raw = ReadNullableString(value, path);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        return Guid.TryParse(raw, out var parsed)
+            ? parsed
+            : throw new JobProfilePatchValueException(path, "Value must be a valid UUID.");
+    }
+
+    private static DateTime? ReadNullableDateTime(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        if (value!.Value.ValueKind == JsonValueKind.String && value.Value.TryGetDateTime(out var parsed))
+        {
+            return parsed;
+        }
+
+        throw new JobProfilePatchValueException(path, "Value must be a valid date-time string or null.");
+    }
+
+    private static decimal? ReadNullableDecimal(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        if (value!.Value.ValueKind == JsonValueKind.Number && value.Value.TryGetDecimal(out var parsed))
+        {
+            return parsed;
+        }
+
+        var raw = value.Value.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
+        if (!string.IsNullOrWhiteSpace(raw) &&
+            decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out parsed))
+        {
+            return parsed;
+        }
+
+        throw new JobProfilePatchValueException(path, "Value must be a decimal number or null.");
+    }
+
+    private static bool ReadBool(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return false;
+        }
+
+        return value!.Value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new JobProfilePatchValueException(path, "Value must be a boolean.")
+        };
+    }
+
+    private static Guid? ReadOptionalPropertyGuid(JsonElement element, string propertyName, string path) =>
+        TryGetPropertyIgnoreCase(element, propertyName, out var property)
+            ? ReadNullableGuid(property, $"{path}/{propertyName}")
+            : null;
+
+    private static string? ReadOptionalPropertyString(JsonElement element, string propertyName, string path) =>
+        TryGetPropertyIgnoreCase(element, propertyName, out var property)
+            ? ReadNullableString(property, $"{path}/{propertyName}")
+            : null;
+
+    private static decimal? ReadOptionalPropertyDecimal(JsonElement element, string propertyName, string path) =>
+        TryGetPropertyIgnoreCase(element, propertyName, out var property)
+            ? ReadNullableDecimal(property, $"{path}/{propertyName}")
+            : null;
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement property)
+    {
+        foreach (var candidate in element.EnumerateObject())
+        {
+            if (string.Equals(candidate.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                property = candidate.Value;
+                return true;
+            }
+        }
+
+        property = default;
+        return false;
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
+
+    private static void AddRequired(Dictionary<string, string[]> errors, string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            errors[key] = [$"{key} is required."];
+        }
+    }
+
+    private static void AddMaxLength(Dictionary<string, string[]> errors, string key, string? value, int maxLength)
+    {
+        if (value is not null && value.Length > maxLength)
+        {
+            errors[key] = [$"{key} must be {maxLength} characters or fewer."];
+        }
+    }
+}
+
+internal sealed class JobProfilePatchValueException(string path, string message) : Exception(message)
+{
+    public string Path { get; } = path;
+}
+
 internal sealed class PublishJobProfileCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
@@ -1669,7 +2689,7 @@ internal static class JobProfileMutationMapper
             categoryInvalidation,
             cancellationToken);
 
-    private static async Task<Result<JobProfileMutation>> BuildAsync(
+    public static async Task<Result<JobProfileMutation>> BuildAsync(
         Guid tenantId,
         IReadOnlyCollection<JobProfileRequirementInput> requirements,
         IReadOnlyCollection<JobProfileFunctionInput> functions,
@@ -2372,6 +3392,28 @@ internal static class JobProfilePolicyAdapter
     }
     public static JobProfileCoreResponse ApplyAllowedActions(
         JobProfileCoreResponse response,
+        IResourceActionPolicyService resourceActionPolicyService,
+        bool canManageProfiles)
+    {
+        var allowedActions = resourceActionPolicyService.Evaluate(
+            new ResourceActionContext(
+                JobProfilePermissionCodes.ResourceKey,
+                response.Status.ToString(),
+                response.IsActive,
+                SupportsEdit: true,
+                EditAllowed: canManageProfiles,
+                SupportsDelete: false,
+                SupportsArchive: true,
+                ArchiveAllowed: canManageProfiles,
+                SupportsActivate: false,
+                SupportsInactivate: false,
+                NonEditableStates: [JobProfileStatus.Archived.ToString()]));
+
+        return response with { AllowedActions = allowedActions };
+    }
+
+    public static JobProfileEntityResponse ApplyAllowedActions(
+        JobProfileEntityResponse response,
         IResourceActionPolicyService resourceActionPolicyService,
         bool canManageProfiles)
     {
