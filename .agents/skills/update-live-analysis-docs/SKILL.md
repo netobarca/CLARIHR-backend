@@ -75,16 +75,18 @@ Antes de editar cualquier análisis vivo, revisar en este orden:
 3. `docs/AGENTS.md`
 4. la HU o requerimiento fuente
 5. el código real implementado
-6. `docs/analysis/current-state/security-analysis.md`
-7. `docs/analysis/current-state/performance-analysis.md`
-8. `docs/analysis/current-state/testing-analysis.md`
-9. `docs/analysis/changes/HU-XXXX.md` si ya existe
+6. `analysis/current-state/security-analysis.md` (externo)
+7. `analysis/current-state/performance-analysis.md` (externo)
+8. `analysis/current-state/testing-analysis.md` (externo)
+9. `analysis/changes/HU-XXXX.md` (externo, si ya existe)
+
+NOTA: La documentación de análisis se maneja por fuera del proyecto. Pide la ruta externa al usuario antes de modificar o crear.
 
 ---
 
 ## 5. Regla madre
 
-Los documentos en `docs/analysis/current-state/` representan el **estado actual** del sistema.
+Los documentos en la carpeta externa `analysis/current-state/` representan el **estado actual** del sistema.
 
 ### Regla de decisión
 - Si la HU cambió una regla o situación vigente del sistema, actualizar el documento vivo correspondiente.
@@ -160,7 +162,7 @@ Antes de cerrar, revisar:
 
 ## 8. Cuándo actualizar `security-analysis.md`
 
-Actualizar `docs/analysis/current-state/security-analysis.md` cuando la HU cambie algo como:
+Actualizar `analysis/current-state/security-analysis.md` (externo) cuando la HU cambie algo como:
 
 - autenticación,
 - autorización,
@@ -189,7 +191,7 @@ Actualizar `docs/analysis/current-state/security-analysis.md` cuando la HU cambi
 
 ## 9. Cuándo actualizar `performance-analysis.md`
 
-Actualizar `docs/analysis/current-state/performance-analysis.md` cuando la HU cambie algo como:
+Actualizar `analysis/current-state/performance-analysis.md` (externo) cuando la HU cambie algo como:
 
 - paginación,
 - filtros,
@@ -219,7 +221,7 @@ Actualizar `docs/analysis/current-state/performance-analysis.md` cuando la HU ca
 
 ## 10. Cuándo actualizar `testing-analysis.md`
 
-Actualizar `docs/analysis/current-state/testing-analysis.md` cuando la HU cambie algo como:
+Actualizar `analysis/current-state/testing-analysis.md` (externo) cuando la HU cambie algo como:
 
 - estrategia de unit testing,
 - cobertura mínima esperada,

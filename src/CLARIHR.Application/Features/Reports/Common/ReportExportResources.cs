@@ -11,6 +11,7 @@ public static class ReportExportResources
     public const string CostCenters = "COST_CENTERS";
     public const string LegalRepresentatives = "LEGAL_REPRESENTATIVES";
     public const string JobProfileCompetencyMatrix = "JOB_PROFILE_COMPETENCY_MATRIX";
+    public const string JobProfilePdf = "JOB_PROFILE_PDF";
 
     public static bool IsSupported(string resourceKey) =>
         Normalize(resourceKey) is
@@ -22,7 +23,11 @@ public static class ReportExportResources
             SalaryTabulator or
             CostCenters or
             LegalRepresentatives or
-            JobProfileCompetencyMatrix;
+            JobProfileCompetencyMatrix or
+            JobProfilePdf;
+
+    public static bool IsDocumentResource(string normalizedResourceKey) =>
+        normalizedResourceKey is JobProfilePdf;
 
     public static string Normalize(string resourceKey) =>
         resourceKey.Trim().ToUpperInvariant();

@@ -420,28 +420,14 @@ Si existe una estructura antigua y una estructura nueva en paralelo, priorizar l
 
 ---
 
-## 15. Ubicaciones objetivo de documentación
+## 15. Ubicaciones objetivo de documentación (Híbrido)
 
-Tomar como referencia objetivo:
+Tomar como referencia la siguiente estructura. Las carpetas `technical` y `templates` se manejan dentro del repositorio, mientras que el resto se manejan externamente.
+Para los documentos de explicación destinados al frontend, **NO** se crearán dentro del proyecto de forma automática; el usuario indicará cuándo y dónde crearlos manualmente.
 
 ```text
 docs/
-  business/
-    current-system-business-flows.md
-
-  analysis/
-    current-state/
-      architecture-analysis.md
-      security-analysis.md
-      performance-analysis.md
-      testing-analysis.md
-      remediation-plan.md
-      validation-checklist.md
-    changes/
-      hu-index.md
-      HU-XXXX.md
-
-  technical/
+  technical/                  <-- (Manejado dentro del repositorio)
     overview/
       project-foundation.md
     api/
@@ -452,9 +438,23 @@ docs/
     operations/
     data/
 
-  decisions/
-    ADR-XXXX.md
-
-  templates/
+  templates/                  <-- (Manejado dentro del repositorio)
     hu-closeout-template.md
     adr-template.md
+
+  business/                   <-- (Manejado externamente)
+    current-system-business-flows.md
+
+  analysis/                   <-- (Manejado externamente)
+    current-state/
+      architecture-analysis.md
+      security-analysis.md
+      performance-analysis.md
+      testing-analysis.md
+    changes/
+      hu-index.md
+      HU-XXXX.md
+
+  decisions/                  <-- (Manejado externamente)
+    ADR-XXXX.md
+```

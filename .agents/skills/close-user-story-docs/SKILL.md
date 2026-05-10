@@ -58,10 +58,11 @@ Antes de modificar documentación, revisar siempre estas fuentes en este orden:
 2. `/AGENTS.md`
 3. `docs/AGENTS.md`
 4. `docs/templates/hu-closeout-template.md`
-5. `docs/analysis/changes/hu-index.md`
+5. `hu-index.md` (externo)
 6. `docs/templates/adr-template.md` (solo si surge una decisión técnica formal)
 
-Si encuentras contradicciones entre documentos históricos y el foundation document, no replique la contradicción.  
+NOTA: La documentación tiene un manejo híbrido. Las carpetas `docs/technical` y `docs/templates` están dentro del proyecto. Todo lo demás (business, analysis, decisions, y explicaciones para frontend) se maneja por fuera. Para documentos de explicación al frontend, el usuario indicará manualmente cuándo y dónde crearlos.
+
 Usa como base el foundation document y deja trazabilidad ordenada.
 
 ---
@@ -127,15 +128,15 @@ Leer el requerimiento o HU y entender:
 ## Paso 2. Determinar el impacto documental
 Responder internamente:
 
-- ¿Debe actualizarse `business/current-system-business-flows.md`?
-- ¿Debe actualizarse `analysis/current-state/architecture-analysis.md`?
-- ¿Debe actualizarse `analysis/current-state/security-analysis.md`?
-- ¿Debe actualizarse `analysis/current-state/performance-analysis.md`?
-- ¿Debe actualizarse `analysis/current-state/testing-analysis.md`?
-- ¿Debe actualizarse `technical/api/endpoint-reference.md`?
-- ¿Debe actualizarse `technical/api/openapi.yaml`?
-- ¿Debe documentarse SQL o data?
-- ¿Debe existir ADR?
+- ¿Debe actualizarse business/current-system-business-flows.md externamente?
+- ¿Debe actualizarse analysis/current-state/architecture-analysis.md externamente?
+- ¿Debe actualizarse analysis/current-state/security-analysis.md externamente?
+- ¿Debe actualizarse analysis/current-state/performance-analysis.md externamente?
+- ¿Debe actualizarse analysis/current-state/testing-analysis.md externamente?
+- ¿Debe actualizarse docs/technical/api/endpoint-reference.md (localmente)?
+- ¿Debe actualizarse docs/technical/api/openapi.yaml (localmente)?
+- ¿Debe documentarse SQL o data externamente?
+- ¿Debe existir ADR externamente?
 
 ## Paso 3. Actualizar documentos vivos
 Actualizar solamente los documentos vivos realmente impactados.
@@ -146,11 +147,11 @@ Si una HU no cambia arquitectura, no fuerces un update en `architecture-analysis
 ## Paso 4. Crear o actualizar el archivo de cierre de la HU
 Usar como base:
 
-- `docs/templates/hu-closeout-template.md`
+- `docs/templates/hu-closeout-template.md` (localmente)
 
 Ubicación esperada:
 
-- `docs/analysis/changes/HU-XXXX.md`
+- `analysis/changes/HU-XXXX.md` (en la carpeta de documentación externa)
 
 Si el archivo ya existe, actualizarlo.
 Si no existe, crearlo siguiendo la plantilla.
@@ -158,7 +159,7 @@ Si no existe, crearlo siguiendo la plantilla.
 ## Paso 5. Actualizar el índice maestro
 Actualizar:
 
-- `docs/analysis/changes/hu-index.md`
+- `analysis/changes/hu-index.md` (en la carpeta de documentación externa)
 
 Debes mantener al menos:
 - código HU,
@@ -173,7 +174,7 @@ Debes mantener al menos:
 ## Paso 6. Evaluar necesidad de ADR
 Solo si la HU introduce una decisión técnica estructural o duradera, considerar:
 
-- `docs/decisions/ADR-XXXX.md`
+- `decisions/ADR-XXXX.md` (en la carpeta de documentación externa)
 
 Si no existe decisión arquitectónica duradera, no crear ADR.
 
@@ -192,37 +193,6 @@ Antes de cerrar, revisar:
 
 Trabaja alineado con esta estructura objetivo:
 
-```text
-docs/
-  business/
-    current-system-business-flows.md
-
-  analysis/
-    current-state/
-      architecture-analysis.md
-      security-analysis.md
-      performance-analysis.md
-      testing-analysis.md
-      remediation-plan.md
-      validation-checklist.md
-    changes/
-      hu-index.md
-      HU-XXXX.md
-
-  technical/
-    overview/
-      project-foundation.md
-    api/
-      endpoint-reference.md
-      openapi.yaml
-    security/
-    performance/
-    operations/
-    data/
-
-  decisions/
-    ADR-XXXX.md
-
-  templates/
-    hu-closeout-template.md
-    adr-template.md
+La documentación tiene una estructura híbrida. 
+Lo local (docs/technical y docs/templates) lo puedes editar directamente. 
+Lo externo (business, analysis, decisions y explicaciones para frontend) lo debes manejar pidiendo la ruta al usuario o esperando sus instrucciones.

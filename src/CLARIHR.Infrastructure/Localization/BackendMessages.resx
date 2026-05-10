@@ -1258,6 +1258,9 @@
   <data name="validation.message.the_from_date_must_be_less_than_or_equal_to_to" xml:space="preserve">
     <value>The 'from' date must be less than or equal to 'to'.</value>
   </data>
+  <data name="validation.message.the_requested_format_is_not_compatible_with_the_selected_resource" xml:space="preserve">
+    <value>The requested format is not compatible with the selected resource.</value>
+  </data>
   <data name="validation.message.unit_price_cannot_exceed_2_decimal_places" xml:space="preserve">
     <value>Unit price cannot exceed 2 decimal places.</value>
   </data>

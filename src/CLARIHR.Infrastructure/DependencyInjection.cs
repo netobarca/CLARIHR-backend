@@ -23,7 +23,9 @@ using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Preferences;
 using CLARIHR.Application.Abstractions.Reports;
+using CLARIHR.Application.Abstractions.Reports.Documents;
 using CLARIHR.Application.Abstractions.SalaryTabulator;
+using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Abstractions.SystemCatalogs;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
@@ -57,6 +59,7 @@ using CLARIHR.Infrastructure.Policies;
 using CLARIHR.Infrastructure.Persistence;
 using CLARIHR.Infrastructure.Platform;
 using CLARIHR.Infrastructure.Reports;
+using CLARIHR.Infrastructure.Reports.Documents;
 using CLARIHR.Infrastructure.SalaryTabulator;
 using CLARIHR.Infrastructure.SystemCatalogs;
 using CLARIHR.Infrastructure.Tenancy;
@@ -72,6 +75,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<JwtTokenOptions>(configuration.GetSection(JwtTokenOptions.SectionName));
         services.Configure<PasswordResetOptions>(configuration.GetSection(PasswordResetOptions.SectionName));
@@ -164,6 +169,7 @@ public static class DependencyInjection
         services.AddScoped<IReportExportStorage, ReportExportBlobStorage>();
         services.AddScoped<IReportExportJobGenerator, ReportExportJobGenerator>();
         services.AddScoped<IReportExportJobProcessor, ReportExportJobProcessor>();
+        services.AddScoped<IDocumentPdfRenderer<JobProfilePrintResponse>, JobProfilePdfRenderer>();
         services.AddScoped<IResourceActionPolicyService, ResourceActionPolicyService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IExternalAuthProviderService, GoogleExternalAuthProviderService>();

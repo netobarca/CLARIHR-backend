@@ -12,6 +12,7 @@ public static class ReportExportFormats
     public const string Csv = "csv";
     public const string Xlsx = "xlsx";
     public const string Json = "json";
+    public const string Pdf = "pdf";
 
     public static bool TryNormalize(string format, out string normalizedFormat)
     {
@@ -19,7 +20,7 @@ public static class ReportExportFormats
             ? Xlsx
             : format.Trim().ToLowerInvariant();
 
-        return normalizedFormat is Csv or Xlsx or Json;
+        return normalizedFormat is Csv or Xlsx or Json or Pdf;
     }
 
     public static string GetContentType(string normalizedFormat) =>
@@ -28,6 +29,7 @@ public static class ReportExportFormats
             Csv => "text/csv",
             Xlsx => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             Json => "application/json",
+            Pdf => "application/pdf",
             _ => "application/octet-stream"
         };
 }
