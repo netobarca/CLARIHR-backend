@@ -18,11 +18,13 @@ namespace CLARIHR.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[Route("api/v1")]
 public sealed class JobProfilesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
-    [HttpGet("api/v1/companies/{companyId:guid}/job-profiles")]
+    [HttpGet("companies/{companyId:guid}/job-profiles")]
+    [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<PagedResponse<JobProfileListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -45,44 +47,47 @@ public sealed class JobProfilesController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/job-profiles/{id:guid}")]
+    [HttpGet("job-profiles/{publicId:guid}")]
+    [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<JobProfileEntityResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<JobProfileEntityResponse>> GetById(Guid id, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<JobProfileEntityResponse>> GetById(Guid publicId, CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetJobProfileByIdQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetJobProfileByIdQuery(publicId), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/job-profiles/{id:guid}/vacancy-template")]
+    [HttpGet("job-profiles/{publicId:guid}/vacancy-template")]
+    [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<JobProfileVacancyTemplateResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<JobProfileVacancyTemplateResponse>> VacancyTemplate(
-        Guid id,
+        Guid publicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetJobProfileVacancyTemplateQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetJobProfileVacancyTemplateQuery(publicId), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/job-profiles/{id:guid}/print")]
+    [HttpGet("job-profiles/{publicId:guid}/print")]
+    [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<JobProfilePrintResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<JobProfilePrintResponse>> Print(Guid id, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<JobProfilePrintResponse>> Print(Guid publicId, CancellationToken cancellationToken = default)
     {
-        var result = await queryDispatcher.SendAsync(new GetJobProfilePrintQuery(id), cancellationToken);
+        var result = await queryDispatcher.SendAsync(new GetJobProfilePrintQuery(publicId), cancellationToken);
         if (result.IsFailure)
         {
             return this.ToActionResult(result);
         }
 
-        var auditResult = await commandDispatcher.SendAsync(new MarkJobProfilePrintedCommand(id), cancellationToken);
+        var auditResult = await commandDispatcher.SendAsync(new MarkJobProfilePrintedCommand(publicId), cancellationToken);
         if (auditResult.IsFailure)
         {
             return this.ToActionResult(Result<JobProfilePrintResponse>.Failure(auditResult.Error));
@@ -91,7 +96,8 @@ public sealed class JobProfilesController(
         return this.ToActionResult(result);
     }
 
-    [HttpPost("api/v1/companies/{companyId:guid}/job-profiles")]
+    [HttpPost("companies/{companyId:guid}/job-profiles")]
+    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileCoreResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -131,10 +137,11 @@ public sealed class JobProfilesController(
 
         return result.IsFailure
             ? this.ToActionResult(Result<JobProfileCoreResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+            : CreatedAtAction(nameof(GetById), new { publicId = result.Value.Id }, result.Value);
     }
 
-    [HttpPut("api/v1/job-profiles/{id:guid}")]
+    [HttpPut("job-profiles/{publicId:guid}")]
+    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileCoreResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -143,13 +150,13 @@ public sealed class JobProfilesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<JobProfileCoreResponse>> Update(
-        Guid id,
+        Guid publicId,
         [FromBody] UpdateJobProfileRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileCommand(
-                id,
+                publicId,
                 request.Code,
                 request.Title,
                 request.Objective,
@@ -176,7 +183,8 @@ public sealed class JobProfilesController(
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("api/v1/job-profiles/{id:guid}")]
+    [HttpPatch("job-profiles/{publicId:guid}")]
+    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileCoreResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -185,7 +193,7 @@ public sealed class JobProfilesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<JobProfileCoreResponse>> Patch(
-        Guid id,
+        Guid publicId,
         [FromBody] JsonPatchDocument<UpdateJobProfileRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
@@ -195,13 +203,14 @@ public sealed class JobProfilesController(
         }
 
         var updateResult = await commandDispatcher.SendAsync(
-            new PatchJobProfileCommand(id, MapPatchOperations(patchDoc)),
+            new PatchJobProfileCommand(publicId, MapPatchOperations(patchDoc)),
             cancellationToken);
 
         return this.ToActionResult(updateResult);
     }
 
-    [HttpPatch("api/v1/job-profiles/{id:guid}/publish")]
+    [HttpPatch("job-profiles/{publicId:guid}/publish")]
+    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -210,18 +219,19 @@ public sealed class JobProfilesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public async Task<ActionResult<JobProfileResponse>> Publish(
-        Guid id,
+        Guid publicId,
         [FromBody] ConcurrencyRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new PublishJobProfileCommand(id, request.ConcurrencyToken),
+            new PublishJobProfileCommand(publicId, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("api/v1/job-profiles/{id:guid}/archive")]
+    [HttpPatch("job-profiles/{publicId:guid}/archive")]
+    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
@@ -229,12 +239,12 @@ public sealed class JobProfilesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileResponse>> Archive(
-        Guid id,
+        Guid publicId,
         [FromBody] ConcurrencyRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ArchiveJobProfileCommand(id, request.ConcurrencyToken),
+            new ArchiveJobProfileCommand(publicId, request.ConcurrencyToken),
             cancellationToken);
 
         return this.ToActionResult(result);

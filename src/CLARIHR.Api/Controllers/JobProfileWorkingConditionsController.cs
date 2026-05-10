@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = JobProfilePolicies.Manage)]
 [Route("api/v1/job-profiles/{publicId:guid}/working-conditions")]
 public sealed class JobProfileWorkingConditionsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
@@ -70,6 +70,7 @@ public sealed class JobProfileWorkingConditionsController(
 
     [HttpDelete("{workingConditionPublicId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -77,11 +78,16 @@ public sealed class JobProfileWorkingConditionsController(
     public async Task<IActionResult> Remove(
         Guid publicId,
         Guid workingConditionPublicId,
-        [FromBody] ConcurrencyTokenRequest request,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         CancellationToken cancellationToken = default)
     {
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
+        {
+            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(HttpContext, statusCode: StatusCodes.Status400BadRequest, detail: IfMatchHeader.MissingDetail));
+        }
+
         var result = await commandDispatcher.SendAsync(
-            new RemoveJobProfileWorkingConditionCommand(publicId, workingConditionPublicId, request.ConcurrencyToken),
+            new RemoveJobProfileWorkingConditionCommand(publicId, workingConditionPublicId, concurrencyToken),
             cancellationToken);
 
         if (result.IsFailure)
@@ -112,8 +118,4 @@ public sealed class JobProfileWorkingConditionsController(
         public Guid ConcurrencyToken { get; init; }
     }
 
-    public sealed class ConcurrencyTokenRequest
-    {
-        public Guid ConcurrencyToken { get; init; }
-    }
 }

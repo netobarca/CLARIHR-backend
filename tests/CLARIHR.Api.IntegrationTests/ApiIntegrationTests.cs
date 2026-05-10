@@ -3451,6 +3451,34 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task JobProfiles_Create_ShouldReturnLocationHeaderPointingToGetById()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var response = await PostJobProfileAsync(
+            client,
+            scenario.TenantId,
+            code: "JP-LOC",
+            title: "Perfil con Location header");
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await response.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.NotNull(response.Headers.Location);
+
+        var expectedPath = $"/api/v1/job-profiles/{payload!.Id}";
+        var actualPath = response.Headers.Location!.IsAbsoluteUri
+            ? response.Headers.Location.AbsolutePath
+            : response.Headers.Location.OriginalString;
+        Assert.Equal(expectedPath, actualPath, ignoreCase: true);
+
+        var followUp = await client.GetAsync(response.Headers.Location);
+        Assert.Equal(HttpStatusCode.OK, followUp.StatusCode);
+    }
+
+    [Fact]
     public async Task JobProfiles_Create_WithCompensationWithoutActiveTabulatorLine_ShouldReturn422()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -4176,6 +4204,74 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(payload);
         Assert.Equal(profile.Id, payload!.Id);
         Assert.DoesNotContain(payloadJson.RootElement.EnumerateObject(), static property => string.Equals(property.Name, "dependentPositions", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task JobProfiles_Search_WithoutPermissionClaim_ShouldReturn403FromPolicy()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles?page=1&pageSize=20");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task JobProfiles_Create_WithReadOnlyPermissionClaim_ShouldReturn403FromPolicy()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileReadContext(scenario));
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles", new
+        {
+            code = "JP-POLICY",
+            title = "Should not be created",
+            objective = "n/a",
+            orgUnitPublicId = Guid.NewGuid(),
+            decisionScope = "n/a",
+            assignedResources = "n/a",
+            responsibilities = "n/a",
+            benefitsSummary = "n/a",
+            workingConditionSummary = "n/a",
+            marketSalaryReference = "n/a",
+            valuationNotes = "n/a",
+            allowInlineCatalogCreate = false
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task JobProfileFunctions_Add_WithoutPermissionClaim_ShouldReturn403FromPolicy()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PostJsonAsync($"/api/v1/job-profiles/{Guid.NewGuid()}/functions", new
+        {
+            functionType = "General",
+            description = "Should not be added",
+            sortOrder = 1,
+            concurrencyToken = Guid.NewGuid()
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task JobProfiles_GetById_WithReadPermission_ShouldPassPolicy()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var adminClient = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var profile = await CreateJobProfileAsync(adminClient, scenario.TenantId, "JP-POL-OK", "Perfil Policy OK");
+
+        using var readerClient = factory.CreateClientFor(CreateJobProfileReadContext(scenario));
+        var response = await readerClient.GetAsync($"/api/v1/job-profiles/{profile.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -5127,13 +5223,8 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var functionId = addPayload.Item.Id;
         var parentConcurrencyToken = addPayload.ParentConcurrencyToken;
 
-        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/job-profiles/{profile.Id}/functions/{functionId}")
-        {
-            Content = JsonContent.Create(new
-            {
-                concurrencyToken = parentConcurrencyToken
-            })
-        };
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/job-profiles/{profile.Id}/functions/{functionId}");
+        deleteRequest.Headers.TryAddWithoutValidation("If-Match", parentConcurrencyToken.ToString());
         var deleteResponse = await client.SendAsync(deleteRequest);
 
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
@@ -5141,6 +5232,58 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var headerToken = Assert.Single(headerValues);
         Assert.True(Guid.TryParse(headerToken, out _));
         Assert.Empty(await deleteResponse.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task JobProfileFunctions_Delete_WithoutIfMatchHeader_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-FN-IM", "Perfil If-Match");
+
+        var addResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/functions", new
+        {
+            functionType = "General",
+            frequencyCatalogItemId = (Guid?)null,
+            description = "Tarea efímera",
+            sortOrder = 1,
+            concurrencyToken = profile.ConcurrencyToken
+        });
+        addResponse.EnsureSuccessStatusCode();
+        var addPayload = await addResponse.Content.ReadFromJsonAsync<JobProfileSubResourceResult<JobProfileFunctionResponse>>(JsonOptions);
+        Assert.NotNull(addPayload);
+
+        var deleteResponse = await client.DeleteAsync($"/api/v1/job-profiles/{profile.Id}/functions/{addPayload!.Item.Id}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, deleteResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task JobProfileFunctions_Delete_WithQuotedIfMatchHeader_ShouldSucceed()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-FN-Q", "Perfil If-Match Quoted");
+
+        var addResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/functions", new
+        {
+            functionType = "General",
+            frequencyCatalogItemId = (Guid?)null,
+            description = "Tarea con ETag con comillas",
+            sortOrder = 1,
+            concurrencyToken = profile.ConcurrencyToken
+        });
+        addResponse.EnsureSuccessStatusCode();
+        var addPayload = await addResponse.Content.ReadFromJsonAsync<JobProfileSubResourceResult<JobProfileFunctionResponse>>(JsonOptions);
+        Assert.NotNull(addPayload);
+
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/job-profiles/{profile.Id}/functions/{addPayload!.Item.Id}");
+        deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{addPayload.ParentConcurrencyToken}\"");
+        var deleteResponse = await client.SendAsync(deleteRequest);
+
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
     }
 
     [Fact]

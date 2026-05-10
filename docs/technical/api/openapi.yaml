@@ -13113,7 +13113,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/job-profiles/{id}:
+  /api/v1/job-profiles/{publicId}:
     get:
       tags:
         - job-and-competency-design
@@ -13123,7 +13123,7 @@ paths:
       security:
         - Bearer: []
       parameters:
-        - name: id
+        - name: publicId
           in: path
           required: true
           schema:
@@ -13163,7 +13163,7 @@ paths:
       security:
         - Bearer: []
       parameters:
-        - name: id
+        - name: publicId
           in: path
           required: true
           schema:
@@ -13227,7 +13227,7 @@ paths:
       security:
         - Bearer: []
       parameters:
-        - name: id
+        - name: publicId
           in: path
           required: true
           schema:

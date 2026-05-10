@@ -1,10 +1,12 @@
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Authorization;
 using CLARIHR.Api.Configuration;
 using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Infrastructure;
 using CLARIHR.Infrastructure.Configuration;
@@ -177,6 +179,22 @@ builder.Services.AddAuthorization(options =>
 
     options.DefaultPolicy = policy;
     options.FallbackPolicy = policy;
+
+    options.AddPolicy(JobProfilePolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            JobProfilePermissionCodes.Read,
+            JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.CatalogAdmin,
+            JobProfilePermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(JobProfilePolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            JobProfilePermissionCodes.Admin,
+            JobProfilePermissionCodes.ManageAdministration)));
 });
 
 ConfigureAuthentication(builder.Services);
