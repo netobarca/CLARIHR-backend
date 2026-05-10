@@ -14,14 +14,16 @@ namespace CLARIHR.Api.Controllers;
 public sealed class JobProfileRequirementsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
+    private const string ParentConcurrencyTokenHeaderName = "Parent-Concurrency-Token";
+
     [HttpPost]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileSubResourceResult<JobProfileRequirementResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileResponse>> Add(
+    public async Task<ActionResult<JobProfileSubResourceResult<JobProfileRequirementResponse>>> Add(
         Guid publicId,
         [FromBody] AddRequirementRequest request,
         CancellationToken cancellationToken = default)
@@ -43,13 +45,13 @@ public sealed class JobProfileRequirementsController(
     }
 
     [HttpPut("{requirementPublicId:guid}")]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileSubResourceResult<JobProfileRequirementResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileResponse>> Update(
+    public async Task<ActionResult<JobProfileSubResourceResult<JobProfileRequirementResponse>>> Update(
         Guid publicId,
         Guid requirementPublicId,
         [FromBody] UpdateRequirementRequest request,
@@ -73,12 +75,12 @@ public sealed class JobProfileRequirementsController(
     }
 
     [HttpDelete("{requirementPublicId:guid}")]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileResponse>> Remove(
+    public async Task<IActionResult> Remove(
         Guid publicId,
         Guid requirementPublicId,
         [FromBody] ConcurrencyTokenRequest request,
@@ -88,7 +90,13 @@ public sealed class JobProfileRequirementsController(
             new RemoveJobProfileRequirementCommand(publicId, requirementPublicId, request.ConcurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result).Result!;
+        }
+
+        Response.Headers[ParentConcurrencyTokenHeaderName] = result.Value.ParentConcurrencyToken.ToString();
+        return NoContent();
     }
 
     public sealed class AddRequirementRequest

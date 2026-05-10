@@ -2577,9 +2577,14 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - Todas las escrituras generan auditoria.
 - `print` y `export` de `JobProfiles`, `export` de matriz de competencias y `export/diagram-export` de `PositionSlots` tambien generan auditoria.
 - No existen endpoints de borrado fisico en este bloque.
-- Las escrituras complejas son de reemplazo, no incrementales:
+- Las escrituras complejas por `PUT` son de reemplazo, no incrementales:
 - `PUT /job-profiles/{id}` reemplaza todas las colecciones anidadas del perfil; si una coleccion llega `null`, el controller la convierte en `[]` y el handler limpia la seccion existente.
+- `PATCH /job-profiles/{id}` aplica JSON Patch desde Application sobre el agregado cargado en transaccion; si el patch no toca `/compensation`, preserva la referencia de compensacion existente y evita reconstruirla desde una proyeccion parcial.
 - `POST/PUT /job-profiles` usan `compensation` (singular, opcional) como referencia canonica a `salaryTabulatorLineId`; si llega `null`, se limpia la referencia de compensacion del perfil.
+- Breaking change coordinado con frontend en los sub-recursos atomicos de `JobProfiles`: `requirements`, `functions`, `relations`, `competencies` legacy, `trainings`, `benefits`, `dependent-positions` y `working-conditions` ya no devuelven `JobProfileResponse` completo.
+- `POST/PUT` de esos sub-recursos ahora responden `200 OK` con wrapper `{ item, parentConcurrencyToken }`. `item` representa solo el sub-recurso mutado; `parentConcurrencyToken` es el token nuevo del `JobProfile` padre para encadenar la siguiente mutacion.
+- `DELETE` de esos sub-recursos ahora responde `204 No Content` y expone `Parent-Concurrency-Token` solo cuando la eliminacion fue exitosa.
+- `PUT /job-profiles/{id}/competency-matrix`, `PATCH /job-profiles/{id}/publish`, `PATCH /job-profiles/{id}/archive`, `GET /job-profiles/{id}` y las escrituras del agregado completo no cambian contrato por este ajuste.
 - `PUT /competency-conducts/{id}/behaviors` reemplaza el conjunto completo de behaviors del conducto.
 - `PUT /job-profiles/{id}/competency-matrix` reemplaza la matriz completa del perfil; una lista vacia limpia la matriz.
 - `PATCH /position-slots/{id}/dependencies` sobrescribe tanto la dependencia directa como la funcional; `null` limpia la relacion.
@@ -2740,6 +2745,7 @@ Route family:
 - `GET /api/v1/job-profiles/{id}/export`
 - `POST /api/v1/companies/{companyId}/job-profiles`
 - `PUT /api/v1/job-profiles/{id}`
+- `PATCH /api/v1/job-profiles/{id}`
 - `PATCH /api/v1/job-profiles/{id}/publish`
 - `PATCH /api/v1/job-profiles/{id}/archive`
 
@@ -2755,12 +2761,14 @@ Observaciones funcionales:
 - `q` busca por `code` y `title`.
 - el orden observable del listado es `title`, luego `code`.
 - `search` devuelve `PagedResponse<JobProfileListItemResponse>`.
-- `get by id` devuelve el agregado completo: datos base, dependencias, requisitos, funciones, relaciones, competencias, trainings, compensacion canonica resuelta desde Salary Tabulator, beneficios, condiciones y puestos dependientes.
+- `get by id` devuelve solo la entidad base del `JobProfile`: campos escalares propios, referencias publicas directas, estado, version, `ConcurrencyToken` y `allowedActions`.
+- `get by id` ya no expone el agregado enriquecido ni reconstruye compensacion legacy desde `Salary Tabulator`; para vistas enriquecidas se usan endpoints especializados como `print`, `vacancy-template` y `competency-matrix`.
 - `vacancy-template` devuelve una vista resumida para reclutamiento: objetivo, responsabilidades, resumen de condiciones/beneficios y las colecciones mas relevantes del perfil.
 - `print` devuelve `JobProfilePrintResponse` con `Profile + GeneratedAtUtc` y registra auditoria `ReportPrinted`.
 - `export` soporta solo `json|csv`.
 - el payload de `create/update` mezcla campos escalares y colecciones anidadas.
 - `update` es de reemplazo total sobre las colecciones; no es un merge parcial.
+- `patch` es parcial sobre campos escalares y `compensation`; soporta operaciones `add`, `replace` y `remove`. `remove /compensation` limpia la referencia, pero cualquier patch que no toque `/compensation` conserva la compensacion actual.
 - `compensation` no es coleccion: es una sola referencia opcional (`salaryTabulatorLineId`) y el backend valida que la linea exista y este activa en `Salary Tabulator` para la fecha efectiva.
 - `create/update` resuelven referencias a `OrgUnit`, `ReportsToJobProfile`, `PositionCategory`, `StrategicObjective`, `AssignedWorkEquipment` y `Responsibility`.
 - `OrgUnitPublicId` es obligatoria en `create/update`; incluso un borrador debe quedar asociado a una unidad organizativa valida.

@@ -1,12 +1,10 @@
 
+using System.Text.Json;
 using System.Text.Json.Serialization;
-using CLARIHR.Application.Abstractions.Auditing;
-using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
-using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CompetencyFramework;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -14,6 +12,7 @@ using CLARIHR.Domain.JobProfiles;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json.Linq;
 
 namespace CLARIHR.Api.Controllers;
 
@@ -21,9 +20,7 @@ namespace CLARIHR.Api.Controllers;
 [Authorize]
 public sealed class JobProfilesController(
     ICommandDispatcher commandDispatcher,
-    IQueryDispatcher queryDispatcher,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork) : ControllerBase
+    IQueryDispatcher queryDispatcher) : ControllerBase
 {
     [HttpGet("api/v1/companies/{companyId:guid}/job-profiles")]
     [ProducesResponseType<PagedResponse<JobProfileListItemResponse>>(StatusCodes.Status200OK)]
@@ -49,11 +46,11 @@ public sealed class JobProfilesController(
     }
 
     [HttpGet("api/v1/job-profiles/{id:guid}")]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileEntityResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<JobProfileResponse>> GetById(Guid id, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<JobProfileEntityResponse>> GetById(Guid id, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetJobProfileByIdQuery(id), cancellationToken);
         return this.ToActionResult(result);
@@ -85,23 +82,11 @@ public sealed class JobProfilesController(
             return this.ToActionResult(result);
         }
 
-        await auditService.LogAsync(
-            new AuditLogEntry(
-                AuditEventTypes.ReportPrinted,
-                AuditEntityTypes.JobProfile,
-                id,
-                JobProfilePermissionCodes.ResourceKey,
-                AuditActions.Print,
-                "Printed job profile report.",
-                After: new
-                {
-                    resourceKey = JobProfilePermissionCodes.ResourceKey,
-                    format = "print",
-                    filters = new { id },
-                    rowCount = 1
-                }),
-            cancellationToken);
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+        var auditResult = await commandDispatcher.SendAsync(new MarkJobProfilePrintedCommand(id), cancellationToken);
+        if (auditResult.IsFailure)
+        {
+            return this.ToActionResult(Result<JobProfilePrintResponse>.Failure(auditResult.Error));
+        }
 
         return this.ToActionResult(result);
     }
@@ -141,7 +126,7 @@ public sealed class JobProfilesController(
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 request.AllowInlineCatalogCreate,
-                MapCompensation(request.ResolveCompensation())),
+                JobProfilesMappers.MapCompensation(request.ResolveCompensation())),
             cancellationToken);
 
         return result.IsFailure
@@ -184,7 +169,7 @@ public sealed class JobProfilesController(
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 request.AllowInlineCatalogCreate,
-                MapCompensation(request.ResolveCompensation()),
+                JobProfilesMappers.MapCompensation(request.ResolveCompensation()),
                 request.ConcurrencyToken),
             cancellationToken);
 
@@ -209,44 +194,8 @@ public sealed class JobProfilesController(
             return BadRequest(ProblemDetailsFactory.CreateProblemDetails(HttpContext, statusCode: StatusCodes.Status400BadRequest, detail: "Invalid patch document."));
         }
 
-        var currentProfileResult = await queryDispatcher.SendAsync(new GetJobProfileCoreByIdQuery(id), cancellationToken);
-        if (currentProfileResult.IsFailure)
-        {
-            return this.ToActionResult(Result<JobProfileCoreResponse>.Failure(currentProfileResult.Error));
-        }
-
-        var updateRequest = MapToUpdateRequest(currentProfileResult.Value);
-        patchDoc.ApplyTo(updateRequest, ModelState);
-
-        if (!ModelState.IsValid)
-        {
-            return ValidationProblem(ModelState);
-        }
-
         var updateResult = await commandDispatcher.SendAsync(
-            new UpdateJobProfileCommand(
-                id,
-                updateRequest.Code,
-                updateRequest.Title,
-                updateRequest.Objective,
-                updateRequest.ResolvedOrgUnitPublicId,
-                updateRequest.ResolvedReportsToJobProfilePublicId,
-                updateRequest.ResolvedPositionCategoryPublicId,
-                updateRequest.ResolvedStrategicObjectiveCatalogItemPublicId,
-                updateRequest.ResolvedAssignedWorkEquipmentCatalogItemPublicId,
-                updateRequest.ResolvedResponsibilityCatalogItemPublicId,
-                updateRequest.DecisionScope,
-                updateRequest.AssignedResources,
-                updateRequest.Responsibilities,
-                updateRequest.BenefitsSummary,
-                updateRequest.WorkingConditionSummary,
-                updateRequest.MarketSalaryReference,
-                updateRequest.ValuationNotes,
-                updateRequest.EffectiveFromUtc,
-                updateRequest.EffectiveToUtc,
-                updateRequest.AllowInlineCatalogCreate,
-                MapCompensation(updateRequest.ResolveCompensation()),
-                updateRequest.ConcurrencyToken),
+            new PatchJobProfileCommand(id, MapPatchOperations(patchDoc)),
             cancellationToken);
 
         return this.ToActionResult(updateResult);
@@ -291,50 +240,30 @@ public sealed class JobProfilesController(
         return this.ToActionResult(result);
     }
 
-    private static UpdateJobProfileRequest MapToUpdateRequest(JobProfileCoreResponse response) =>
-        new()
+    private static IReadOnlyCollection<JobProfilePatchOperation> MapPatchOperations(JsonPatchDocument<UpdateJobProfileRequest> patchDoc) =>
+        patchDoc.Operations
+            .Select(operation => new JobProfilePatchOperation(
+                operation.op,
+                operation.path,
+                operation.from,
+                MapPatchValue(operation.value)))
+            .ToArray();
+
+    private static JsonElement? MapPatchValue(object? value)
+    {
+        if (value is null)
         {
-            Code = response.Code,
-            Title = response.Title,
-            Objective = response.Objective,
-            OrgUnitPublicId = response.OrgUnitId ?? Guid.Empty,
-            ReportsToJobProfilePublicId = response.ReportsToJobProfileId,
-            PositionCategoryPublicId = response.PositionCategoryId,
-            StrategicObjectiveCatalogItemPublicId = response.StrategicObjectiveCatalogItemId,
-            AssignedWorkEquipmentCatalogItemPublicId = response.AssignedWorkEquipmentCatalogItemId,
-            ResponsibilityCatalogItemPublicId = response.ResponsibilityCatalogItemId,
-            DecisionScope = response.DecisionScope,
-            AssignedResources = response.AssignedResources,
-            Responsibilities = response.Responsibilities,
-            BenefitsSummary = response.BenefitsSummary,
-            WorkingConditionSummary = response.WorkingConditionSummary,
-            MarketSalaryReference = response.MarketSalaryReference,
-            ValuationNotes = response.ValuationNotes,
-            EffectiveFromUtc = response.EffectiveFromUtc,
-            EffectiveToUtc = response.EffectiveToUtc,
-            AllowInlineCatalogCreate = false,
-            Compensation = response.Compensation is not null
-                ? new JobProfileCompensationRequest
-                {
-                    SalaryClassPublicId = response.Compensation.SalaryClassId,
-                    SalaryClassCode = response.Compensation.SalaryScaleCode
-                }
-                : null,
-            ConcurrencyToken = response.ConcurrencyToken
-        };
+            return JsonSerializer.SerializeToElement<object?>(null);
+        }
 
-    private static JobProfileCompensationInput? MapCompensation(JobProfileCompensationRequest? value) =>
-        value is null
-            ? null
-            : new JobProfileCompensationInput(
-                value.SalaryTabulatorLineId,
-                value.ResolvedSalaryClassId,
-                value.SalaryClassCode,
-                value.CurrencyCode,
-                value.MinSalary,
-                value.MaxSalary);
+        if (value is JToken token)
+        {
+            using var document = JsonDocument.Parse(token.ToString(Newtonsoft.Json.Formatting.None));
+            return document.RootElement.Clone();
+        }
 
-
+        return JsonSerializer.SerializeToElement(value, value.GetType());
+    }
 
     public sealed class CreateJobProfileRequest : JobProfileMutationRequest;
 
@@ -391,22 +320,6 @@ public sealed class JobProfilesController(
         public Guid? ResolvedResponsibilityCatalogItemPublicId => ResponsibilityCatalogItemPublicId ?? ResponsibilityCatalogItemId;
 
         public JobProfileCompensationRequest? ResolveCompensation() => Compensation;
-    }
-
-    public sealed class JobProfileCompensationRequest
-    {
-        public Guid? SalaryTabulatorLineId { get; set; }
-        public Guid? SalaryClassPublicId { get; set; }
-        public Guid? SalaryClassId { get; set; }
-        public string? SalaryClassCode { get; set; }
-        public decimal? MinSalary { get; set; }
-        public decimal? MaxSalary { get; set; }
-        public string? CurrencyCode { get; set; }
-        public string? WorkSchedule { get; set; }
-        public bool? IsPrimary { get; set; }
-
-        [JsonIgnore]
-        public Guid? ResolvedSalaryClassId => SalaryClassPublicId ?? SalaryClassId;
     }
 
     public sealed record ConcurrencyRequest(Guid ConcurrencyToken);

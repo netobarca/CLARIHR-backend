@@ -13,14 +13,16 @@ namespace CLARIHR.Api.Controllers;
 public sealed class JobProfileWorkingConditionsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
+    private const string ParentConcurrencyTokenHeaderName = "Parent-Concurrency-Token";
+
     [HttpPost]
-    [ProducesResponseType<JobProfileWorkingConditionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileSubResourceResult<JobProfileWorkingConditionResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileWorkingConditionResponse>> Add(
+    public async Task<ActionResult<JobProfileSubResourceResult<JobProfileWorkingConditionResponse>>> Add(
         Guid publicId,
         [FromBody] AddWorkingConditionRequest request,
         CancellationToken cancellationToken = default)
@@ -39,13 +41,13 @@ public sealed class JobProfileWorkingConditionsController(
     }
 
     [HttpPut("{workingConditionPublicId:guid}")]
-    [ProducesResponseType<JobProfileWorkingConditionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileSubResourceResult<JobProfileWorkingConditionResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileWorkingConditionResponse>> Update(
+    public async Task<ActionResult<JobProfileSubResourceResult<JobProfileWorkingConditionResponse>>> Update(
         Guid publicId,
         Guid workingConditionPublicId,
         [FromBody] UpdateWorkingConditionRequest request,
@@ -82,9 +84,13 @@ public sealed class JobProfileWorkingConditionsController(
             new RemoveJobProfileWorkingConditionCommand(publicId, workingConditionPublicId, request.ConcurrencyToken),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(result).Result!
-            : NoContent();
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result).Result!;
+        }
+
+        Response.Headers[ParentConcurrencyTokenHeaderName] = result.Value.ParentConcurrencyToken.ToString();
+        return NoContent();
     }
 
     public sealed class AddWorkingConditionRequest

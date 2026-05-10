@@ -20,7 +20,7 @@ public sealed record AddJobProfileBenefitCommand(
     string? Name,
     string? Notes,
     int SortOrder,
-    Guid ConcurrencyToken) : ICommand<JobProfileResponse>;
+    Guid ConcurrencyToken) : ICommand<JobProfileSubResourceResult<JobProfileBenefitResponse>>;
 
 public sealed record UpdateJobProfileBenefitCommand(
     Guid JobProfileId,
@@ -29,12 +29,12 @@ public sealed record UpdateJobProfileBenefitCommand(
     string? Name,
     string? Notes,
     int SortOrder,
-    Guid ConcurrencyToken) : ICommand<JobProfileResponse>;
+    Guid ConcurrencyToken) : ICommand<JobProfileSubResourceResult<JobProfileBenefitResponse>>;
 
 public sealed record RemoveJobProfileBenefitCommand(
     Guid JobProfileId,
     Guid BenefitId,
-    Guid ConcurrencyToken) : ICommand<JobProfileResponse>;
+    Guid ConcurrencyToken) : ICommand<JobProfileParentConcurrencyResult>;
 
 internal sealed class AddJobProfileBenefitCommandValidator : AbstractValidator<AddJobProfileBenefitCommand>
 {
@@ -84,25 +84,25 @@ internal sealed class AddJobProfileBenefitCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
     IJobCatalogRepository catalogRepository)
-    : ICommandHandler<AddJobProfileBenefitCommand, JobProfileResponse>
+    : ICommandHandler<AddJobProfileBenefitCommand, JobProfileSubResourceResult<JobProfileBenefitResponse>>
 {
-    public async Task<Result<JobProfileResponse>> Handle(AddJobProfileBenefitCommand command, CancellationToken cancellationToken)
+    public async Task<Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>> Handle(AddJobProfileBenefitCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(authorizationResult.Error);
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(authorizationResult.Error);
         }
 
         var profile = await repository.GetByIdAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
-            return Result<JobProfileResponse>.Failure(
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
@@ -110,7 +110,7 @@ internal sealed class AddJobProfileBenefitCommandHandler(
 
         if (profile.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         var catalogItem = command.CatalogItemId.HasValue
@@ -120,7 +120,7 @@ internal sealed class AddJobProfileBenefitCommandHandler(
 
         if (command.CatalogItemId.HasValue && catalogItem is null)
         {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.CatalogItemNotFound);
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(JobProfileErrors.CatalogItemNotFound);
         }
 
         var name = string.IsNullOrWhiteSpace(command.Name)
@@ -129,11 +129,8 @@ internal sealed class AddJobProfileBenefitCommandHandler(
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            return Result<JobProfileResponse>.Failure(new Error("JobProfileBenefit.NameRequired", "A name is required for the benefit.", ErrorType.Validation));
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(new Error("JobProfileBenefit.NameRequired", "A name is required for the benefit.", ErrorType.Validation));
         }
-
-        var before = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Job profile response could not be resolved.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -149,8 +146,7 @@ internal sealed class AddJobProfileBenefitCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var after = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Job profile response could not be resolved after update.");
+            var response = benefit.ToResponse(command.CatalogItemId);
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -160,18 +156,18 @@ internal sealed class AddJobProfileBenefitCommandHandler(
                     profile.Code,
                     AuditActions.Update,
                     $"Added benefit to job profile {profile.Code}.",
-                    Before: before,
-                    After: after),
+                    After: response),
                 cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileResponse>.Success(after);
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Success(
+                new JobProfileSubResourceResult<JobProfileBenefitResponse>(response, profile.ConcurrencyToken));
         }
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
         }
         catch
         {
@@ -188,25 +184,25 @@ internal sealed class UpdateJobProfileBenefitCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
     IJobCatalogRepository catalogRepository)
-    : ICommandHandler<UpdateJobProfileBenefitCommand, JobProfileResponse>
+    : ICommandHandler<UpdateJobProfileBenefitCommand, JobProfileSubResourceResult<JobProfileBenefitResponse>>
 {
-    public async Task<Result<JobProfileResponse>> Handle(UpdateJobProfileBenefitCommand command, CancellationToken cancellationToken)
+    public async Task<Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>> Handle(UpdateJobProfileBenefitCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(authorizationResult.Error);
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(authorizationResult.Error);
         }
 
         var profile = await repository.GetByIdAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
-            return Result<JobProfileResponse>.Failure(
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
@@ -214,7 +210,7 @@ internal sealed class UpdateJobProfileBenefitCommandHandler(
 
         if (profile.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         var catalogItem = command.CatalogItemId.HasValue
@@ -224,7 +220,7 @@ internal sealed class UpdateJobProfileBenefitCommandHandler(
 
         if (command.CatalogItemId.HasValue && catalogItem is null)
         {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.CatalogItemNotFound);
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(JobProfileErrors.CatalogItemNotFound);
         }
 
         var name = string.IsNullOrWhiteSpace(command.Name)
@@ -233,17 +229,15 @@ internal sealed class UpdateJobProfileBenefitCommandHandler(
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            return Result<JobProfileResponse>.Failure(new Error("JobProfileBenefit.NameRequired", "A name is required for the benefit.", ErrorType.Validation));
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(new Error("JobProfileBenefit.NameRequired", "A name is required for the benefit.", ErrorType.Validation));
         }
 
-        var before = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Job profile response could not be resolved.");
+        var benefit = profile.GetBenefit(command.BenefitId);
+        var before = benefit.ToResponse(command.CatalogItemId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            var benefit = profile.GetBenefit(command.BenefitId);
-            
             benefit.Update(
                 catalogItemInternalId,
                 null,
@@ -255,8 +249,7 @@ internal sealed class UpdateJobProfileBenefitCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var after = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Job profile response could not be resolved after update.");
+            var after = benefit.ToResponse(command.CatalogItemId);
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -272,12 +265,13 @@ internal sealed class UpdateJobProfileBenefitCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileResponse>.Success(after);
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Success(
+                new JobProfileSubResourceResult<JobProfileBenefitResponse>(after, profile.ConcurrencyToken));
         }
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileSubResourceResult<JobProfileBenefitResponse>>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
         }
         catch
         {
@@ -293,25 +287,25 @@ internal sealed class RemoveJobProfileBenefitCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<RemoveJobProfileBenefitCommand, JobProfileResponse>
+    : ICommandHandler<RemoveJobProfileBenefitCommand, JobProfileParentConcurrencyResult>
 {
-    public async Task<Result<JobProfileResponse>> Handle(RemoveJobProfileBenefitCommand command, CancellationToken cancellationToken)
+    public async Task<Result<JobProfileParentConcurrencyResult>> Handle(RemoveJobProfileBenefitCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<JobProfileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileResponse>.Failure(authorizationResult.Error);
+            return Result<JobProfileParentConcurrencyResult>.Failure(authorizationResult.Error);
         }
 
         var profile = await repository.GetByIdAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
-            return Result<JobProfileResponse>.Failure(
+            return Result<JobProfileParentConcurrencyResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
@@ -319,22 +313,18 @@ internal sealed class RemoveJobProfileBenefitCommandHandler(
 
         if (profile.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
-        var before = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Job profile response could not be resolved.");
+        var benefit = profile.GetBenefit(command.BenefitId);
+        var before = benefit.ToResponse();
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            var benefit = profile.GetBenefit(command.BenefitId);
             profile.RemoveBenefit(benefit);
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var after = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Job profile response could not be resolved after update.");
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -344,18 +334,17 @@ internal sealed class RemoveJobProfileBenefitCommandHandler(
                     profile.Code,
                     AuditActions.Update,
                     $"Removed benefit from job profile {profile.Code}.",
-                    Before: before,
-                    After: after),
+                    Before: before),
                 cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileResponse>.Success(after);
+            return Result<JobProfileParentConcurrencyResult>.Success(new JobProfileParentConcurrencyResult(profile.ConcurrencyToken));
         }
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileParentConcurrencyResult>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
         }
         catch
         {
