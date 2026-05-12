@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Authorization;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Api.Configuration;
 using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
@@ -44,6 +45,7 @@ builder.Services
         options.InputFormatters.Insert(0, GetJsonPatchInputFormatter());
         options.ModelMetadataDetailsProviders.Add(new PublicContractBindingMetadataProvider());
         options.Conventions.Add(new PublicContractRouteConvention());
+        options.Conventions.Add(new ProducesStandardErrorsConvention());
         options.Filters.AddService<PersonnelFilePhotoUrlResultFilter>();
     })
     .AddJsonOptions(options =>

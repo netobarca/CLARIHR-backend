@@ -1,4 +1,5 @@
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -11,6 +12,9 @@ namespace CLARIHR.Api.Controllers;
 [ApiController]
 [Authorize(Policy = JobProfilePolicies.Manage)]
 [Route("api/v1/job-profiles/{publicId:guid}/requirements")]
+[Consumes("application/json")]
+[Produces("application/json")]
+[ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
 public sealed class JobProfileRequirementsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
@@ -18,11 +22,6 @@ public sealed class JobProfileRequirementsController(
 
     [HttpPost]
     [ProducesResponseType<JobProfileSubResourceResult<JobProfileRequirementResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileSubResourceResult<JobProfileRequirementResponse>>> Add(
         Guid publicId,
         [FromBody] AddRequirementRequest request,
@@ -46,11 +45,6 @@ public sealed class JobProfileRequirementsController(
 
     [HttpPut("{requirementPublicId:guid}")]
     [ProducesResponseType<JobProfileSubResourceResult<JobProfileRequirementResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileSubResourceResult<JobProfileRequirementResponse>>> Update(
         Guid publicId,
         Guid requirementPublicId,
@@ -76,11 +70,6 @@ public sealed class JobProfileRequirementsController(
 
     [HttpDelete("{requirementPublicId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Remove(
         Guid publicId,
         Guid requirementPublicId,

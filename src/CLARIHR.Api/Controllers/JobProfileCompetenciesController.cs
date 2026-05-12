@@ -1,4 +1,5 @@
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -10,6 +11,9 @@ namespace CLARIHR.Api.Controllers;
 [ApiController]
 [Authorize(Policy = JobProfilePolicies.Manage)]
 [Route("api/v1/job-profiles/{publicId:guid}/competencies")]
+[Consumes("application/json")]
+[Produces("application/json")]
+[ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
 public sealed class JobProfileCompetenciesController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
@@ -17,11 +21,6 @@ public sealed class JobProfileCompetenciesController(
 
     [HttpPost]
     [ProducesResponseType<JobProfileSubResourceResult<JobProfileLegacyCompetencyResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileSubResourceResult<JobProfileLegacyCompetencyResponse>>> Add(
         Guid publicId,
         [FromBody] AddCompetencyRequest request,
@@ -43,11 +42,6 @@ public sealed class JobProfileCompetenciesController(
 
     [HttpPut("{competencyPublicId:guid}")]
     [ProducesResponseType<JobProfileSubResourceResult<JobProfileLegacyCompetencyResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileSubResourceResult<JobProfileLegacyCompetencyResponse>>> Update(
         Guid publicId,
         Guid competencyPublicId,
@@ -71,11 +65,6 @@ public sealed class JobProfileCompetenciesController(
 
     [HttpDelete("{competencyPublicId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Remove(
         Guid publicId,
         Guid competencyPublicId,

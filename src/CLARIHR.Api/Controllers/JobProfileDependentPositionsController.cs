@@ -1,4 +1,5 @@
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -10,6 +11,9 @@ namespace CLARIHR.Api.Controllers;
 [ApiController]
 [Authorize(Policy = JobProfilePolicies.Manage)]
 [Route("api/v1/job-profiles/{publicId:guid}/dependent-positions")]
+[Consumes("application/json")]
+[Produces("application/json")]
+[ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
 public sealed class JobProfileDependentPositionsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
@@ -17,11 +21,6 @@ public sealed class JobProfileDependentPositionsController(
 
     [HttpPost]
     [ProducesResponseType<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>> Add(
         Guid publicId,
         [FromBody] AddDependentPositionRequest request,
@@ -41,11 +40,6 @@ public sealed class JobProfileDependentPositionsController(
 
     [HttpPut("{dependentPositionPublicId:guid}")]
     [ProducesResponseType<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>> Update(
         Guid publicId,
         Guid dependentPositionPublicId,
@@ -67,11 +61,6 @@ public sealed class JobProfileDependentPositionsController(
 
     [HttpDelete("{dependentPositionPublicId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Remove(
         Guid publicId,
         Guid dependentPositionPublicId,

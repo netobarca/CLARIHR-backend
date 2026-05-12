@@ -1,7 +1,7 @@
 
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
@@ -19,6 +19,8 @@ namespace CLARIHR.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/v1")]
+[Consumes("application/json")]
+[Produces("application/json")]
 public sealed class JobProfilesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
@@ -26,9 +28,7 @@ public sealed class JobProfilesController(
     [HttpGet("companies/{companyId:guid}/job-profiles")]
     [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<PagedResponse<JobProfileListItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
     public async Task<ActionResult<PagedResponse<JobProfileListItemResponse>>> Search(
         Guid companyId,
         [FromQuery] JobProfileStatus? status,
@@ -50,9 +50,7 @@ public sealed class JobProfilesController(
     [HttpGet("job-profiles/{publicId:guid}")]
     [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<JobProfileEntityResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
     public async Task<ActionResult<JobProfileEntityResponse>> GetById(Guid publicId, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetJobProfileByIdQuery(publicId), cancellationToken);
@@ -62,9 +60,7 @@ public sealed class JobProfilesController(
     [HttpGet("job-profiles/{publicId:guid}/vacancy-template")]
     [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<JobProfileVacancyTemplateResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
     public async Task<ActionResult<JobProfileVacancyTemplateResponse>> VacancyTemplate(
         Guid publicId,
         CancellationToken cancellationToken = default)
@@ -76,9 +72,7 @@ public sealed class JobProfilesController(
     [HttpGet("job-profiles/{publicId:guid}/print")]
     [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<JobProfilePrintResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
     public async Task<ActionResult<JobProfilePrintResponse>> Print(Guid publicId, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetJobProfilePrintQuery(publicId), cancellationToken);
@@ -99,12 +93,7 @@ public sealed class JobProfilesController(
     [HttpPost("companies/{companyId:guid}/job-profiles")]
     [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileCoreResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
     public async Task<ActionResult<JobProfileCoreResponse>> Create(
         Guid companyId,
         [FromBody] CreateJobProfileRequest request,
@@ -116,12 +105,12 @@ public sealed class JobProfilesController(
                 request.Code,
                 request.Title,
                 request.Objective,
-                request.ResolvedOrgUnitPublicId,
-                request.ResolvedReportsToJobProfilePublicId,
-                request.ResolvedPositionCategoryPublicId,
-                request.ResolvedStrategicObjectiveCatalogItemPublicId,
-                request.ResolvedAssignedWorkEquipmentCatalogItemPublicId,
-                request.ResolvedResponsibilityCatalogItemPublicId,
+                request.OrgUnitPublicId,
+                request.ReportsToJobProfilePublicId,
+                request.PositionCategoryPublicId,
+                request.StrategicObjectiveCatalogItemPublicId,
+                request.AssignedWorkEquipmentCatalogItemPublicId,
+                request.ResponsibilityCatalogItemPublicId,
                 request.DecisionScope,
                 request.AssignedResources,
                 request.Responsibilities,
@@ -132,7 +121,7 @@ public sealed class JobProfilesController(
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 request.AllowInlineCatalogCreate,
-                JobProfilesMappers.MapCompensation(request.ResolveCompensation())),
+                JobProfilesMappers.MapCompensation(request.Compensation)),
             cancellationToken);
 
         return result.IsFailure
@@ -143,12 +132,7 @@ public sealed class JobProfilesController(
     [HttpPut("job-profiles/{publicId:guid}")]
     [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileCoreResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
     public async Task<ActionResult<JobProfileCoreResponse>> Update(
         Guid publicId,
         [FromBody] UpdateJobProfileRequest request,
@@ -160,12 +144,12 @@ public sealed class JobProfilesController(
                 request.Code,
                 request.Title,
                 request.Objective,
-                request.ResolvedOrgUnitPublicId,
-                request.ResolvedReportsToJobProfilePublicId,
-                request.ResolvedPositionCategoryPublicId,
-                request.ResolvedStrategicObjectiveCatalogItemPublicId,
-                request.ResolvedAssignedWorkEquipmentCatalogItemPublicId,
-                request.ResolvedResponsibilityCatalogItemPublicId,
+                request.OrgUnitPublicId,
+                request.ReportsToJobProfilePublicId,
+                request.PositionCategoryPublicId,
+                request.StrategicObjectiveCatalogItemPublicId,
+                request.AssignedWorkEquipmentCatalogItemPublicId,
+                request.ResponsibilityCatalogItemPublicId,
                 request.DecisionScope,
                 request.AssignedResources,
                 request.Responsibilities,
@@ -176,7 +160,7 @@ public sealed class JobProfilesController(
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 request.AllowInlineCatalogCreate,
-                JobProfilesMappers.MapCompensation(request.ResolveCompensation()),
+                JobProfilesMappers.MapCompensation(request.Compensation),
                 request.ConcurrencyToken),
             cancellationToken);
 
@@ -186,12 +170,7 @@ public sealed class JobProfilesController(
     [HttpPatch("job-profiles/{publicId:guid}")]
     [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileCoreResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
     public async Task<ActionResult<JobProfileCoreResponse>> Patch(
         Guid publicId,
         [FromBody] JsonPatchDocument<UpdateJobProfileRequest> patchDoc,
@@ -207,47 +186,6 @@ public sealed class JobProfilesController(
             cancellationToken);
 
         return this.ToActionResult(updateResult);
-    }
-
-    [HttpPatch("job-profiles/{publicId:guid}/publish")]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<JobProfileResponse>> Publish(
-        Guid publicId,
-        [FromBody] ConcurrencyRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await commandDispatcher.SendAsync(
-            new PublishJobProfileCommand(publicId, request.ConcurrencyToken),
-            cancellationToken);
-
-        return this.ToActionResult(result);
-    }
-
-    [HttpPatch("job-profiles/{publicId:guid}/archive")]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
-    [ProducesResponseType<JobProfileResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<JobProfileResponse>> Archive(
-        Guid publicId,
-        [FromBody] ConcurrencyRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await commandDispatcher.SendAsync(
-            new ArchiveJobProfileCommand(publicId, request.ConcurrencyToken),
-            cancellationToken);
-
-        return this.ToActionResult(result);
     }
 
     private static IReadOnlyCollection<JobProfilePatchOperation> MapPatchOperations(JsonPatchDocument<UpdateJobProfileRequest> patchDoc) =>
@@ -280,6 +218,7 @@ public sealed class JobProfilesController(
     public sealed class UpdateJobProfileRequest : JobProfileMutationRequest
     {
         public Guid ConcurrencyToken { get; set; }
+        public JobProfileStatus? Status { get; set; }
     }
 
     public abstract class JobProfileMutationRequest
@@ -288,17 +227,11 @@ public sealed class JobProfilesController(
         public string Title { get; set; } = string.Empty;
         public string? Objective { get; set; }
         public Guid OrgUnitPublicId { get; set; }
-        public Guid? OrgUnitId { get; set; }
         public Guid? ReportsToJobProfilePublicId { get; set; }
-        public Guid? ReportsToJobProfileId { get; set; }
         public Guid? PositionCategoryPublicId { get; set; }
-        public Guid? PositionCategoryId { get; set; }
         public Guid? StrategicObjectiveCatalogItemPublicId { get; set; }
-        public Guid? StrategicObjectiveCatalogItemId { get; set; }
         public Guid? AssignedWorkEquipmentCatalogItemPublicId { get; set; }
-        public Guid? AssignedWorkEquipmentCatalogItemId { get; set; }
         public Guid? ResponsibilityCatalogItemPublicId { get; set; }
-        public Guid? ResponsibilityCatalogItemId { get; set; }
         public string? DecisionScope { get; set; }
         public string? AssignedResources { get; set; }
         public string? Responsibilities { get; set; }
@@ -310,27 +243,5 @@ public sealed class JobProfilesController(
         public DateTime? EffectiveToUtc { get; set; }
         public bool AllowInlineCatalogCreate { get; set; }
         public JobProfileCompensationRequest? Compensation { get; set; }
-
-        [JsonIgnore]
-        public Guid ResolvedOrgUnitPublicId => OrgUnitPublicId != Guid.Empty ? OrgUnitPublicId : OrgUnitId ?? Guid.Empty;
-
-        [JsonIgnore]
-        public Guid? ResolvedReportsToJobProfilePublicId => ReportsToJobProfilePublicId ?? ReportsToJobProfileId;
-
-        [JsonIgnore]
-        public Guid? ResolvedPositionCategoryPublicId => PositionCategoryPublicId ?? PositionCategoryId;
-
-        [JsonIgnore]
-        public Guid? ResolvedStrategicObjectiveCatalogItemPublicId => StrategicObjectiveCatalogItemPublicId ?? StrategicObjectiveCatalogItemId;
-
-        [JsonIgnore]
-        public Guid? ResolvedAssignedWorkEquipmentCatalogItemPublicId => AssignedWorkEquipmentCatalogItemPublicId ?? AssignedWorkEquipmentCatalogItemId;
-
-        [JsonIgnore]
-        public Guid? ResolvedResponsibilityCatalogItemPublicId => ResponsibilityCatalogItemPublicId ?? ResponsibilityCatalogItemId;
-
-        public JobProfileCompensationRequest? ResolveCompensation() => Compensation;
     }
-
-    public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
 }
