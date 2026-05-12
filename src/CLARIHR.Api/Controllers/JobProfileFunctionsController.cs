@@ -1,4 +1,5 @@
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -11,6 +12,9 @@ namespace CLARIHR.Api.Controllers;
 [ApiController]
 [Authorize(Policy = JobProfilePolicies.Manage)]
 [Route("api/v1/job-profiles/{publicId:guid}/functions")]
+[Consumes("application/json")]
+[Produces("application/json")]
+[ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
 public sealed class JobProfileFunctionsController(
     ICommandDispatcher commandDispatcher) : ControllerBase
 {
@@ -18,11 +22,6 @@ public sealed class JobProfileFunctionsController(
 
     [HttpPost]
     [ProducesResponseType<JobProfileSubResourceResult<JobProfileFunctionResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileSubResourceResult<JobProfileFunctionResponse>>> Add(
         Guid publicId,
         [FromBody] AddFunctionRequest request,
@@ -43,11 +42,6 @@ public sealed class JobProfileFunctionsController(
 
     [HttpPut("{functionPublicId:guid}")]
     [ProducesResponseType<JobProfileSubResourceResult<JobProfileFunctionResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<JobProfileSubResourceResult<JobProfileFunctionResponse>>> Update(
         Guid publicId,
         Guid functionPublicId,
@@ -70,11 +64,6 @@ public sealed class JobProfileFunctionsController(
 
     [HttpDelete("{functionPublicId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Remove(
         Guid publicId,
         Guid functionPublicId,

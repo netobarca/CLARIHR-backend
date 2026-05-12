@@ -445,7 +445,12 @@ public sealed class JobProfileCollectionAdministrationTests
                     "replace",
                     "/title",
                     From: null,
-                    JsonSerializer.SerializeToElement("Patched title"))
+                    JsonSerializer.SerializeToElement("Patched title")),
+                new JobProfilePatchOperation(
+                    "replace",
+                    "/concurrencyToken",
+                    From: null,
+                    JsonSerializer.SerializeToElement(profile.ConcurrencyToken.ToString()))
             ]);
 
         // Act

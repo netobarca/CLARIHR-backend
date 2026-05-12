@@ -3425,10 +3425,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(updated);
         Assert.Equal("Analista de Nomina Senior", updated!.Title);
 
-        var publishResponse = await client.PatchAsJsonAsync($"/api/v1/job-profiles/{updated.Id}/publish", new
-        {
-            concurrencyToken = updated.ConcurrencyToken
-        });
+        var publishResponse = await client.PatchAsync(
+            $"/api/v1/job-profiles/{updated.Id}",
+            new StringContent(
+                "[{\"op\":\"replace\",\"path\":\"/status\",\"value\":\"Published\"}]",
+                Encoding.UTF8,
+                "application/json-patch+json"));
         publishResponse.EnsureSuccessStatusCode();
 
         var published = await publishResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
@@ -4125,10 +4127,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-REP", "Perfil Reporte");
 
-        var publishResponse = await client.PatchAsJsonAsync($"/api/v1/job-profiles/{profile.Id}/publish", new
-        {
-            concurrencyToken = profile.ConcurrencyToken
-        });
+        var publishResponse = await client.PatchAsync(
+            $"/api/v1/job-profiles/{profile.Id}",
+            new StringContent(
+                "[{\"op\":\"replace\",\"path\":\"/status\",\"value\":\"Published\"}]",
+                Encoding.UTF8,
+                "application/json-patch+json"));
         publishResponse.EnsureSuccessStatusCode();
         var published = await publishResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
         Assert.NotNull(published);
@@ -4389,10 +4393,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-PUB-UPD", "Perfil Publicado");
 
-        var publishResponse = await client.PatchAsJsonAsync($"/api/v1/job-profiles/{profile.Id}/publish", new
-        {
-            concurrencyToken = profile.ConcurrencyToken
-        });
+        var publishResponse = await client.PatchAsync(
+            $"/api/v1/job-profiles/{profile.Id}",
+            new StringContent(
+                "[{\"op\":\"replace\",\"path\":\"/status\",\"value\":\"Published\"}]",
+                Encoding.UTF8,
+                "application/json-patch+json"));
         publishResponse.EnsureSuccessStatusCode();
 
         var published = await publishResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
@@ -4500,10 +4506,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var created = await createResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
         Assert.NotNull(created);
 
-        var publishResponse = await client.PatchAsJsonAsync($"/api/v1/job-profiles/{created!.Id}/publish", new
-        {
-            concurrencyToken = created.ConcurrencyToken
-        });
+        var publishResponse = await client.PatchAsync(
+            $"/api/v1/job-profiles/{created!.Id}",
+            new StringContent(
+                "[{\"op\":\"replace\",\"path\":\"/status\",\"value\":\"Published\"}]",
+                Encoding.UTF8,
+                "application/json-patch+json"));
         publishResponse.EnsureSuccessStatusCode();
 
         var published = await publishResponse.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);

@@ -427,10 +427,6 @@ public sealed record PatchJobProfileCommand(
     Guid JobProfileId,
     IReadOnlyCollection<JobProfilePatchOperation> Operations) : ICommand<JobProfileCoreResponse>;
 
-public sealed record PublishJobProfileCommand(Guid JobProfileId, Guid ConcurrencyToken) : ICommand<JobProfileResponse>;
-
-public sealed record ArchiveJobProfileCommand(Guid JobProfileId, Guid ConcurrencyToken) : ICommand<JobProfileResponse>;
-
 internal sealed class SearchJobProfilesQueryValidator : AbstractValidator<SearchJobProfilesQuery>
 {
     public SearchJobProfilesQueryValidator()
@@ -589,6 +585,12 @@ internal sealed class UpdateJobProfileCommandValidator : AbstractValidator<Updat
 
 internal sealed class PatchJobProfileCommandValidator : AbstractValidator<PatchJobProfileCommand>
 {
+    private static readonly HashSet<string> ConcurrencyTokenPathTokens = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "/concurrencyToken",
+        "concurrencyToken"
+    };
+
     public PatchJobProfileCommandValidator()
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
@@ -599,24 +601,65 @@ internal sealed class PatchJobProfileCommandValidator : AbstractValidator<PatchJ
                 operation.RuleFor(item => item.Op).NotEmpty();
                 operation.RuleFor(item => item.Path).NotEmpty();
             });
+        RuleFor(command => command.Operations)
+            .Must(ContainsValidConcurrencyTokenOperation)
+            .WithName("concurrencyToken")
+            .WithMessage("A 'replace /concurrencyToken' operation with a non-empty Guid value is required.");
     }
-}
 
-internal sealed class PublishJobProfileCommandValidator : AbstractValidator<PublishJobProfileCommand>
-{
-    public PublishJobProfileCommandValidator()
+    private static bool ContainsValidConcurrencyTokenOperation(IReadOnlyCollection<JobProfilePatchOperation> operations)
     {
-        RuleFor(command => command.JobProfileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        if (operations is null)
+        {
+            return false;
+        }
+
+        foreach (var operation in operations)
+        {
+            if (operation is null || string.IsNullOrWhiteSpace(operation.Path) || string.IsNullOrWhiteSpace(operation.Op))
+            {
+                continue;
+            }
+
+            if (!ConcurrencyTokenPathTokens.Contains(operation.Path.Trim()))
+            {
+                continue;
+            }
+
+            var op = operation.Op.Trim();
+            if (!string.Equals(op, "replace", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(op, "add", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (TryReadNonEmptyGuid(operation.Value, out _))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
-}
 
-internal sealed class ArchiveJobProfileCommandValidator : AbstractValidator<ArchiveJobProfileCommand>
-{
-    public ArchiveJobProfileCommandValidator()
+    private static bool TryReadNonEmptyGuid(JsonElement? value, out Guid parsed)
     {
-        RuleFor(command => command.JobProfileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        parsed = Guid.Empty;
+        if (!value.HasValue)
+        {
+            return false;
+        }
+
+        var element = value.Value;
+        if (element.ValueKind == JsonValueKind.String &&
+            Guid.TryParse(element.GetString(), out var fromString) &&
+            fromString != Guid.Empty)
+        {
+            parsed = fromString;
+            return true;
+        }
+
+        return false;
     }
 }
 
@@ -1595,6 +1638,22 @@ internal sealed class PatchJobProfileCommandHandler(
                 return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
             }
 
+            if (patchState.StatusTouched &&
+                patchState.Status == JobProfileStatus.Archived &&
+                profile.Status == JobProfileStatus.Archived)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Success(before);
+            }
+
+            if (patchState.StatusTouched &&
+                patchState.Status == JobProfileStatus.Draft &&
+                profile.Status != JobProfileStatus.Draft)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.StateConflict);
+            }
+
             if (await repository.CodeExistsAsync(profile.TenantId, patchState.Code.Trim().ToUpperInvariant(), profile.Id, cancellationToken))
             {
                 await transaction.RollbackAsync(cancellationToken);
@@ -1806,19 +1865,50 @@ internal sealed class PatchJobProfileCommandHandler(
                 }
             }
 
+            var statusTransition = JobProfileStatusTransition.None;
+            if (patchState.StatusTouched && patchState.Status != profile.Status)
+            {
+                switch (patchState.Status)
+                {
+                    case JobProfileStatus.Published:
+                        try
+                        {
+                            profile.Publish();
+                        }
+                        catch (InvalidOperationException)
+                        {
+                            await transaction.RollbackAsync(cancellationToken);
+                            return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.PublishRequirementsMissing);
+                        }
+                        statusTransition = JobProfileStatusTransition.Published;
+                        break;
+                    case JobProfileStatus.Archived:
+                        profile.Archive();
+                        statusTransition = JobProfileStatusTransition.Archived;
+                        break;
+                }
+            }
+
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetCoreResponseByIdAsync(profile.PublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Job profile response could not be resolved after patch.");
 
+            var (eventType, action, description) = statusTransition switch
+            {
+                JobProfileStatusTransition.Published => (AuditEventTypes.JobProfilePublished, AuditActions.Update, $"Published job profile {profile.Code}."),
+                JobProfileStatusTransition.Archived => (AuditEventTypes.JobProfileArchived, AuditActions.Archive, $"Archived job profile {profile.Code}."),
+                _ => (AuditEventTypes.JobProfileUpdated, AuditActions.Update, $"Patched job profile {profile.Code}."),
+            };
+
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    AuditEventTypes.JobProfileUpdated,
+                    eventType,
                     AuditEntityTypes.JobProfile,
                     profile.PublicId,
                     profile.Code,
-                    AuditActions.Update,
-                    $"Patched job profile {profile.Code}.",
+                    action,
+                    description,
                     Before: before,
                     After: after),
                 cancellationToken);
@@ -1833,6 +1923,13 @@ internal sealed class PatchJobProfileCommandHandler(
             throw;
         }
     }
+}
+
+internal enum JobProfileStatusTransition
+{
+    None = 0,
+    Published = 1,
+    Archived = 2
 }
 
 internal sealed class JobProfilePatchState
@@ -1858,7 +1955,8 @@ internal sealed class JobProfilePatchState
         EffectiveFromUtc = profile.EffectiveFromUtc;
         EffectiveToUtc = profile.EffectiveToUtc;
         AllowInlineCatalogCreate = false;
-        ConcurrencyToken = profile.ConcurrencyToken;
+        ConcurrencyToken = Guid.Empty;
+        Status = profile.Status;
         Compensation = JobProfilePatchCompensationState.From(before.Compensation);
     }
 
@@ -1889,6 +1987,8 @@ internal sealed class JobProfilePatchState
     public bool EffectiveRangeTouched { get; set; }
     public bool AllowInlineCatalogCreate { get; set; }
     public Guid ConcurrencyToken { get; set; }
+    public JobProfileStatus Status { get; set; }
+    public bool StatusTouched { get; set; }
     public JobProfilePatchCompensationState? Compensation { get; set; }
     public bool CompensationTouched { get; set; }
 
@@ -2161,7 +2261,32 @@ internal static class JobProfilePatchApplier
             return Result.Success();
         }
 
+        if (IsSegment(property, "status"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Status cannot be removed.");
+            }
+
+            state.Status = ReadStatus(value, path);
+            state.StatusTouched = true;
+            return Result.Success();
+        }
+
         return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static JobProfileStatus ReadStatus(JsonElement? value, string path)
+    {
+        var raw = ReadNullableString(value, path);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            throw new JobProfilePatchValueException(path, "Status is required.");
+        }
+
+        return Enum.TryParse<JobProfileStatus>(raw, ignoreCase: true, out var parsed) && Enum.IsDefined(typeof(JobProfileStatus), parsed)
+            ? parsed
+            : throw new JobProfilePatchValueException(path, $"Status '{raw}' is not a valid value.");
     }
 
     private static Result ApplyCompensationOperation(
@@ -2413,166 +2538,6 @@ internal static class JobProfilePatchApplier
 internal sealed class JobProfilePatchValueException(string path, string message) : Exception(message)
 {
     public string Path { get; } = path;
-}
-
-internal sealed class PublishJobProfileCommandHandler(
-    IJobProfileAuthorizationService authorizationService,
-    IJobProfileRepository repository,
-    IAuditService auditService,
-    ITenantContext tenantContext,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<PublishJobProfileCommand, JobProfileResponse>
-{
-    public async Task<Result<JobProfileResponse>> Handle(PublishJobProfileCommand command, CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<JobProfileResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<JobProfileResponse>.Failure(authorizationResult.Error);
-        }
-
-        var profile = await repository.GetByIdAsync(command.JobProfileId, cancellationToken);
-        if (profile is null)
-        {
-            return Result<JobProfileResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : JobProfileErrors.JobProfileNotFound);
-        }
-
-        if (profile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
-        }
-
-        if (profile.Status == JobProfileStatus.Archived)
-        {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.StateConflict);
-        }
-
-        var before = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Job profile response could not be resolved before publish.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            try
-            {
-                profile.Publish();
-            }
-            catch (InvalidOperationException)
-            {
-                return Result<JobProfileResponse>.Failure(JobProfileErrors.PublishRequirementsMissing);
-            }
-
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var after = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Job profile response could not be resolved after publish.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.JobProfilePublished,
-                    AuditEntityTypes.JobProfile,
-                    profile.PublicId,
-                    profile.Code,
-                    AuditActions.Update,
-                    $"Published job profile {profile.Code}.",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileResponse>.Success(after);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
-internal sealed class ArchiveJobProfileCommandHandler(
-    IJobProfileAuthorizationService authorizationService,
-    IJobProfileRepository repository,
-    IAuditService auditService,
-    ITenantContext tenantContext,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<ArchiveJobProfileCommand, JobProfileResponse>
-{
-    public async Task<Result<JobProfileResponse>> Handle(ArchiveJobProfileCommand command, CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<JobProfileResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<JobProfileResponse>.Failure(authorizationResult.Error);
-        }
-
-        var profile = await repository.GetByIdAsync(command.JobProfileId, cancellationToken);
-        if (profile is null)
-        {
-            return Result<JobProfileResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : JobProfileErrors.JobProfileNotFound);
-        }
-
-        if (profile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<JobProfileResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
-        }
-
-        var before = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Job profile response could not be resolved before archive.");
-
-        if (profile.Status == JobProfileStatus.Archived)
-        {
-            return Result<JobProfileResponse>.Success(before);
-        }
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            profile.Archive();
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var after = await repository.GetResponseByIdAsync(profile.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Job profile response could not be resolved after archive.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.JobProfileArchived,
-                    AuditEntityTypes.JobProfile,
-                    profile.PublicId,
-                    profile.Code,
-                    AuditActions.Archive,
-                    $"Archived job profile {profile.Code}.",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileResponse>.Success(after);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
 }
 
 internal sealed record JobProfileMutation(
