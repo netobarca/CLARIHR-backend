@@ -123,4 +123,44 @@ internal sealed class AzureBlobStorageProvider(
         var blobClient = containerClient.GetBlobClient(objectKey);
         await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
     }
+
+    public async Task<FileObjectInfo> UploadStreamAsync(string containerName, string objectKey, string contentType, Stream content, CancellationToken cancellationToken)
+    {
+        var containerClient = clientFactory.Client.GetBlobContainerClient(containerName);
+        await containerClient.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken);
+
+        var blobClient = containerClient.GetBlobClient(objectKey);
+        await blobClient.UploadAsync(
+            content,
+            new BlobUploadOptions
+            {
+                HttpHeaders = new BlobHttpHeaders
+                {
+                    ContentType = contentType,
+                    CacheControl = "no-store"
+                }
+            },
+            cancellationToken);
+
+        var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+        return new FileObjectInfo(
+            properties.Value.ContentLength,
+            properties.Value.ContentType,
+            properties.Value.LastModified.UtcDateTime);
+    }
+
+    public async Task<Stream?> OpenReadStreamAsync(string containerName, string objectKey, CancellationToken cancellationToken)
+    {
+        var containerClient = clientFactory.Client.GetBlobContainerClient(containerName);
+        var blobClient = containerClient.GetBlobClient(objectKey);
+
+        try
+        {
+            return await blobClient.OpenReadAsync(cancellationToken: cancellationToken);
+        }
+        catch (global::Azure.RequestFailedException ex) when (ex.Status == 404)
+        {
+            return null;
+        }
+    }
 }

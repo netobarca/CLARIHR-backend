@@ -81,7 +81,6 @@ public static class DependencyInjection
         services.Configure<JwtTokenOptions>(configuration.GetSection(JwtTokenOptions.SectionName));
         services.Configure<PasswordResetOptions>(configuration.GetSection(PasswordResetOptions.SectionName));
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
-        services.Configure<BlobStorageOptions>(configuration.GetSection(BlobStorageOptions.SectionName));
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
         services.Configure<ReportPerformanceOptions>(configuration.GetSection(ReportPerformanceOptions.SectionName));
         services.Configure<FieldPermissionCacheOptions>(configuration.GetSection(FieldPermissionCacheOptions.SectionName));
@@ -166,7 +165,6 @@ public static class DependencyInjection
         services.AddScoped<ISalaryTabulatorAuthorizationService, SalaryTabulatorAuthorizationService>();
         services.AddSingleton<IReportCapabilityRegistry, ReportCapabilityRegistry>();
         services.AddScoped<IReportExportJobRepository, ReportExportJobRepository>();
-        services.AddScoped<IReportExportStorage, ReportExportBlobStorage>();
         services.AddScoped<IReportExportJobGenerator, ReportExportJobGenerator>();
         services.AddScoped<IReportExportJobProcessor, ReportExportJobProcessor>();
         services.AddScoped<IDocumentPdfRenderer<JobProfilePrintResponse>, JobProfilePdfRenderer>();

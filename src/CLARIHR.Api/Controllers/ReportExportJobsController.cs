@@ -1,11 +1,13 @@
 using System.Text.Json;
 using CLARIHR.Api.Common;
+using CLARIHR.Application.Abstractions.Files;
 using CLARIHR.Application.Abstractions.Reports;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Reports;
 using CLARIHR.Application.Features.Reports.Common;
+using CLARIHR.Domain.Files;
 using CLARIHR.Domain.Reports;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +19,8 @@ namespace CLARIHR.Api.Controllers;
 public sealed class ReportExportJobsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
-    IReportExportStorage storage) : ControllerBase
+    IFileStorageProviderResolver providerResolver,
+    IFilePurposeRuleProvider ruleProvider) : ControllerBase
 {
     [HttpPost("api/v1/companies/{companyId:guid}/report-export-jobs")]
     [ProducesResponseType<ReportExportJobResponse>(StatusCodes.Status202Accepted)]
@@ -93,7 +96,15 @@ public sealed class ReportExportJobsController(
             return this.ToActionResult(Result<ReportExportJobDownloadResponse>.Failure(result.Error)).Result!;
         }
 
-        var stream = await storage.OpenReadAsync(result.Value.BlobName, cancellationToken);
+        var rule = ruleProvider.GetRule(FilePurpose.ReportExport);
+        if (rule is null)
+        {
+            return CLARIHR.Api.Common.ProblemDetailsFactory.Create(HttpContext, ReportPolicyErrors.ExportStorageNotConfigured);
+        }
+
+        var provider = providerResolver.Resolve(rule.DefaultProvider);
+        var containerName = rule.ContainerOverride ?? "clarihr-files";
+        var stream = await provider.OpenReadStreamAsync(containerName, result.Value.BlobName, cancellationToken);
         if (stream is null)
         {
             return CLARIHR.Api.Common.ProblemDetailsFactory.Create(HttpContext, ReportPolicyErrors.ExportJobExpired);
