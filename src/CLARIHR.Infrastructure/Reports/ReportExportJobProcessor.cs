@@ -1,3 +1,5 @@
+using CLARIHR.Application.Abstractions.Files;
+using CLARIHR.Domain.Files;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Reports;
 using CLARIHR.Application.Abstractions.Time;
@@ -14,7 +16,8 @@ namespace CLARIHR.Infrastructure.Reports;
 
 internal sealed class ReportExportJobProcessor(
     IReportExportJobRepository repository,
-    IReportExportStorage storage,
+    IFilePurposeRuleProvider ruleProvider,
+    IFileStorageProviderResolver providerResolver,
     IReportExportJobGenerator generator,
     IUnitOfWork unitOfWork,
     IDateTimeProvider dateTimeProvider,
@@ -156,10 +159,18 @@ internal sealed class ReportExportJobProcessor(
                 tempStream.Position = 0;
             }
 
-            var artifact = await storage.UploadAsync(
-                job.TenantId,
-                job.PublicId,
-                generated.FileName,
+            var rule = ruleProvider.GetRule(FilePurpose.ReportExport);
+            if (rule is null)
+            {
+                throw new InvalidOperationException("Report export storage purpose is not configured.");
+            }
+
+            var provider = providerResolver.Resolve(rule.DefaultProvider);
+            var objectKey = $"tenants/{job.TenantId:D}/report-exports/{job.PublicId:D}/{generated.FileName}";
+            var containerName = rule.ContainerOverride ?? "clarihr-files";
+            var artifact = await provider.UploadStreamAsync(
+                containerName,
+                objectKey,
                 generated.ContentType,
                 tempStream,
                 cancellationToken);
@@ -167,9 +178,9 @@ internal sealed class ReportExportJobProcessor(
             var completedUtc = dateTimeProvider.UtcNow;
             job.MarkSucceeded(
                 generated.RowCount,
-                artifact.BlobName,
-                artifact.FileName,
-                artifact.ContentType,
+                objectKey,
+                generated.FileName,
+                generated.ContentType,
                 artifact.SizeBytes,
                 completedUtc,
                 completedUtc.Add(_options.NormalizedArtifactRetention));
@@ -363,7 +374,13 @@ internal sealed class ReportExportJobProcessor(
             {
                 try
                 {
-                    await storage.DeleteIfExistsAsync(job.ArtifactBlobName, cancellationToken);
+                    var rule = ruleProvider.GetRule(FilePurpose.ReportExport);
+                    if (rule is not null)
+                    {
+                        var provider = providerResolver.Resolve(rule.DefaultProvider);
+                        var containerName = rule.ContainerOverride ?? "clarihr-files";
+                        await provider.DeleteAsync(containerName, job.ArtifactBlobName, cancellationToken);
+                    }
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {

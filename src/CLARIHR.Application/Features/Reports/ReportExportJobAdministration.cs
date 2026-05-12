@@ -10,6 +10,7 @@ using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Abstractions.Reports;
 using CLARIHR.Application.Abstractions.SalaryTabulator;
+using CLARIHR.Application.Abstractions.Files;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
@@ -17,6 +18,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.Reports.Common;
+using CLARIHR.Domain.Files;
 using CLARIHR.Domain.Reports;
 using FluentValidation;
 
@@ -171,7 +173,7 @@ internal sealed class CancelReportExportJobCommandValidator : AbstractValidator<
 
 internal sealed class CreateReportExportJobCommandHandler(
     IReportExportJobRepository repository,
-    IReportExportStorage storage,
+    IFilePurposeRuleProvider ruleProvider,
     IUnitOfWork unitOfWork,
     ITenantContext tenantContext,
     ICurrentUserService currentUserService,
@@ -205,7 +207,7 @@ internal sealed class CreateReportExportJobCommandHandler(
             return Result<ReportExportJobResponse>.Failure(AuthorizationErrors.TenantMismatch("REPORT_EXPORT_JOBS", RbacPermissionAction.Create));
         }
 
-        if (!storage.IsConfigured)
+        if (ruleProvider.GetRule(FilePurpose.ReportExport) is null)
         {
             return Result<ReportExportJobResponse>.Failure(ReportPolicyErrors.ExportStorageNotConfigured);
         }

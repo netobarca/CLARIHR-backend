@@ -19,6 +19,18 @@ public interface IFileStorageProvider
     Task<FileObjectInfo?> GetObjectInfoAsync(string containerName, string objectKey, CancellationToken cancellationToken);
 
     Task DeleteAsync(string containerName, string objectKey, CancellationToken cancellationToken);
+
+    Task<FileObjectInfo> UploadStreamAsync(
+        string containerName,
+        string objectKey,
+        string contentType,
+        Stream content,
+        CancellationToken cancellationToken);
+
+    Task<Stream?> OpenReadStreamAsync(
+        string containerName,
+        string objectKey,
+        CancellationToken cancellationToken);
 }
 
 public sealed record CreateUploadSessionProviderCommand(
