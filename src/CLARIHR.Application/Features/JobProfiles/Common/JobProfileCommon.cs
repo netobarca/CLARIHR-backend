@@ -42,6 +42,11 @@ public static class JobProfileErrors
         "The job catalog item could not be found.",
         ErrorType.NotFound);
 
+    public static readonly Error RequirementNotFound = new(
+        "JOB_PROFILE_REQUIREMENT_NOT_FOUND",
+        "The job profile requirement could not be found.",
+        ErrorType.NotFound);
+
     public static readonly Error OrgUnitNotFound = new(
         "JOB_PROFILE_ORG_UNIT_NOT_FOUND",
         "The selected organization unit could not be found.",

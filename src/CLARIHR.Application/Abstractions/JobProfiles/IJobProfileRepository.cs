@@ -10,6 +10,7 @@ public interface IJobProfileRepository
 
     Task<JobProfile?> GetByIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfile?> GetCoreByIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfile?> GetWithRequirementsOnlyAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken);
 
     Task<bool> ExistsOutsideTenantAsync(Guid profileId, CancellationToken cancellationToken);
@@ -41,8 +42,9 @@ public interface IJobProfileRepository
     Task<JobProfileEntityResponse?> GetEntityResponseByIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfileResponse?> GetResponseByIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfileCoreResponse?> GetCoreResponseByIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<JobProfileRequirementResponse>?> GetRequirementResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfileRequirementResponse?> GetRequirementResponseAsync(Guid profileId, Guid requirementId, CancellationToken cancellationToken);
 
-    Task<JobProfileVacancyTemplateResponse?> GetVacancyTemplateByIdAsync(Guid profileId, CancellationToken cancellationToken);
-
+    /// <summary>Internal use only: used by the async PDF export pipeline. Not exposed as an API endpoint.</summary>
     Task<JobProfilePrintResponse?> GetPrintByIdAsync(Guid profileId, CancellationToken cancellationToken);
 }

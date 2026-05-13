@@ -14,7 +14,8 @@ internal static class JobProfileSubResourceMappers
             requirementTypeCatalogItemId,
             requirement.RequirementType,
             requirement.Description,
-            requirement.SortOrder);
+            requirement.SortOrder,
+            requirement.ConcurrencyToken);
 
     public static JobProfileFunctionResponse ToResponse(this JobProfileFunction function, Guid? frequencyCatalogItemId) =>
         new(

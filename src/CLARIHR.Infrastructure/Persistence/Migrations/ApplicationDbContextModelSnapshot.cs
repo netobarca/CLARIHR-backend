@@ -5349,6 +5349,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnName("catalog_item_id");
 
                     b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedUtc")

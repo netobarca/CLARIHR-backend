@@ -53,8 +53,7 @@ public sealed class JobProfileCollectionAdministrationTests
             null,
             null,
             "3 years",
-            1,
-            profile.ConcurrencyToken);
+            1);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
@@ -62,22 +61,24 @@ public sealed class JobProfileCollectionAdministrationTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Single(profile.Requirements);
-        Assert.Equal("3 years", result.Value.Item.Description);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        Assert.Equal("3 years", result.Value.Description);
+        Assert.NotEqual(Guid.Empty, result.Value.ConcurrencyToken);
         Assert.Equal(2, _unitOfWork.SaveChangesCalls); // Once for entity, once for audit
     }
 
     [Fact]
-    public async Task AddRequirement_WhenTokenMismatch_ShouldReturnConflict()
+    public async Task UpdateRequirement_WhenTokenMismatch_ShouldReturnConflict()
     {
         // Arrange
         var profile = JobProfile.Create("JP-001", "Title");
         profile.SetTenantId(_tenantId);
+        var requirement = JobProfileRequirement.Create(JobRequirementType.Experience, null, null, null, "3 years", 1);
+        profile.AddRequirement(requirement);
         var profileId = profile.PublicId;
         
         _profileRepository.Profiles[profileId] = profile;
 
-        var handler = new AddJobProfileRequirementCommandHandler(
+        var handler = new UpdateJobProfileRequirementCommandHandler(
             _authService,
             _profileRepository,
             _auditService,
@@ -86,14 +87,15 @@ public sealed class JobProfileCollectionAdministrationTests
             _positionDescriptionCatalogRepository,
             _catalogRepository);
 
-        var command = new AddJobProfileRequirementCommand(
+        var command = new UpdateJobProfileRequirementCommand(
             profileId,
+            requirement.PublicId,
             JobRequirementType.Experience,
             null,
             null,
             null,
             null,
-            "3 years",
+            "4 years",
             1,
             Guid.NewGuid()); // Wrong token
 
@@ -144,7 +146,7 @@ public sealed class JobProfileCollectionAdministrationTests
     }
 
     [Fact]
-    public async Task RemoveRequirement_WhenProfileExists_ShouldReturnParentConcurrencyToken()
+    public async Task RemoveRequirement_WhenProfileExists_ShouldReturnDeletedEntity()
     {
         var profile = JobProfile.Create("JP-001", "Title");
         profile.SetTenantId(_tenantId);
@@ -162,12 +164,69 @@ public sealed class JobProfileCollectionAdministrationTests
             _unitOfWork);
 
         var result = await handler.Handle(
-            new RemoveJobProfileRequirementCommand(profileId, requirement.PublicId, profile.ConcurrencyToken),
+            new RemoveJobProfileRequirementCommand(profileId, requirement.PublicId, requirement.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Empty(profile.Requirements);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        Assert.Equal("3 years", result.Value.Description);
+    }
+
+    [Fact]
+    public async Task GetRequirements_WhenProfileExists_ShouldReturnRequirementArray()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        profile.AddRequirement(JobProfileRequirement.Create(JobRequirementType.Experience, null, null, null, "3 years", 1));
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new GetJobProfileRequirementsQueryHandler(
+            _authService,
+            _profileRepository,
+            _tenantContext);
+
+        var result = await handler.Handle(new GetJobProfileRequirementsQuery(profileId), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var requirement = Assert.Single(result.Value);
+        Assert.Equal("3 years", requirement.Description);
+        Assert.NotEqual(Guid.Empty, requirement.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task PatchRequirement_WhenTokenMatches_ShouldUpdateAndReturnEntity()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var requirement = JobProfileRequirement.Create(JobRequirementType.Experience, null, null, null, "3 years", 1);
+        profile.AddRequirement(requirement);
+        var profileId = profile.PublicId;
+        var token = requirement.ConcurrencyToken;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new PatchJobProfileRequirementCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork,
+            _positionDescriptionCatalogRepository,
+            _catalogRepository);
+
+        var result = await handler.Handle(
+            new PatchJobProfileRequirementCommand(
+                profileId,
+                requirement.PublicId,
+                [
+                    new JobProfileRequirementPatchOperation("replace", "/description", null, JsonSerializer.SerializeToElement("5 years")),
+                    new JobProfileRequirementPatchOperation("replace", "/concurrencyToken", null, JsonSerializer.SerializeToElement(token.ToString()))
+                ]),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("5 years", result.Value.Description);
+        Assert.NotEqual(token, result.Value.ConcurrencyToken);
     }
 
     [Fact]

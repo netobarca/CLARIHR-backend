@@ -1,6 +1,7 @@
 using CLARIHR.Application.Abstractions.Localization;
 using CLARIHR.Infrastructure.Localization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Globalization;
 using System.Security.Claims;
@@ -40,6 +41,8 @@ internal sealed class UnhandledExceptionMiddleware(
                 var userId = RequestIdentityContextResolver.ResolveUserId(context.User);
                 var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
+                var isConcurrencyConflict = exception is DbUpdateConcurrencyException;
+
                 using (logger.BeginScope(new Dictionary<string, object>
                 {
                     { "TenantId", tenantId },
@@ -50,7 +53,8 @@ internal sealed class UnhandledExceptionMiddleware(
                     { "Path", context.Request.Path.Value ?? "/" }
                 }))
                 {
-                    logger.LogError(
+                    logger.Log(
+                        isConcurrencyConflict ? LogLevel.Warning : LogLevel.Error,
                         exception,
                         "Unhandled exception processing request {Method} {Path} | Tenant: {TenantId} | User: {UserId} | TraceId: {TraceIdentifier}",
                         context.Request.Method,
@@ -60,22 +64,32 @@ internal sealed class UnhandledExceptionMiddleware(
                         context.TraceIdentifier);
                 }
 
-                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                var statusCode = isConcurrencyConflict
+                    ? StatusCodes.Status409Conflict
+                    : StatusCodes.Status500InternalServerError;
+                context.Response.StatusCode = statusCode;
+
                 var localizer = context.RequestServices.GetService<IBackendMessageLocalizer>();
-                var title = localizer?.Localize("common.unexpected", "Unexpected error") ?? "Unexpected error";
-                var detail = hostEnvironment.IsDevelopment()
+                var title = isConcurrencyConflict
+                    ? "Concurrency conflict"
+                    : localizer?.Localize("common.unexpected", "Unexpected error") ?? "Unexpected error";
+                var detail = isConcurrencyConflict
+                    ? "The resource was modified by another request. Refresh and try again."
+                    : hostEnvironment.IsDevelopment()
                     ? exception.Message
                     : localizer?.Localize("common.unexpected", "An unexpected error occurred.") ?? "An unexpected error occurred.";
 
                 var problemDetails = new ProblemDetails
                 {
-                    Status = StatusCodes.Status500InternalServerError,
+                    Status = statusCode,
                     Title = title,
                     Detail = detail,
-                    Type = "https://httpstatuses.com/500"
+                    Type = $"https://httpstatuses.com/{statusCode}"
                 };
 
-                problemDetails.Extensions["code"] = "common.unexpected";
+                problemDetails.Extensions["code"] = isConcurrencyConflict
+                    ? "CONCURRENCY_CONFLICT"
+                    : "common.unexpected";
                 problemDetails.Extensions["traceId"] = context.TraceIdentifier;
 
                 await problemDetailsService.WriteAsync(new ProblemDetailsContext

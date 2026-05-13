@@ -2501,6 +2501,7 @@ Este bloque cubre cinco controladores que juntos definen el diseno formal de pue
 
 - `JobCatalogsController`
 - `JobProfilesController`
+- `JobProfileRequirementsController`
 - `CompetencyFrameworkController`
 - `PositionDescriptionCatalogsController`
 - `PositionSlotsController`
@@ -2517,6 +2518,8 @@ Familias de rutas:
 - `/api/v1/job-profiles/{publicId}/export`
 - `/api/v1/job-profiles/{publicId}/publish`
 - `/api/v1/job-profiles/{publicId}/archive`
+- `/api/v1/job-profiles/{jobProfilePublicId}/requirements`
+- `/api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}`
 - `/api/v1/companies/{companyId}/occupational-pyramid-levels`
 - `/api/v1/occupational-pyramid-levels/{id}`
 - `/api/v1/companies/{companyId}/competency-conducts`
@@ -2581,9 +2584,12 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - `PUT /job-profiles/{publicId}` reemplaza todas las colecciones anidadas del perfil; si una coleccion llega `null`, el controller la convierte en `[]` y el handler limpia la seccion existente.
 - `PATCH /job-profiles/{publicId}` aplica JSON Patch desde Application sobre el agregado cargado en transaccion; si el patch no toca `/compensation`, preserva la referencia de compensacion existente y evita reconstruirla desde una proyeccion parcial.
 - `POST/PUT /job-profiles` usan `compensation` (singular, opcional) como referencia canonica a `salaryTabulatorLineId`; si llega `null`, se limpia la referencia de compensacion del perfil.
-- Breaking change coordinado con frontend en los sub-recursos atomicos de `JobProfiles`: `requirements`, `functions`, `relations`, `competencies` legacy, `trainings`, `benefits`, `dependent-positions` y `working-conditions` ya no devuelven `JobProfileResponse` completo.
-- `POST/PUT` de esos sub-recursos ahora responden `200 OK` con wrapper `{ item, parentConcurrencyToken }`. `item` representa solo el sub-recurso mutado; `parentConcurrencyToken` es el token nuevo del `JobProfile` padre para encadenar la siguiente mutacion.
-- `DELETE` de esos sub-recursos requiere el header `If-Match: <ConcurrencyToken-del-padre>` (RFC 7232; el valor admite formato con o sin comillas) en lugar de body. Responde `204 No Content` y expone `Parent-Concurrency-Token` solo cuando la eliminacion fue exitosa; si el header falta o no es un Guid valido, responde `400 Bad Request`.
+- Breaking change coordinado con frontend en los sub-recursos atomicos de `JobProfiles`: `functions`, `relations`, `competencies` legacy, `trainings`, `benefits`, `dependent-positions` y `working-conditions` ya no devuelven `JobProfileResponse` completo.
+- `POST/PUT` de esos sub-recursos atomicos restantes responden `200 OK` con wrapper `{ item, parentConcurrencyToken }`. `item` representa solo el sub-recurso mutado; `parentConcurrencyToken` es el token nuevo del `JobProfile` padre para encadenar la siguiente mutacion.
+- `DELETE` de esos sub-recursos atomicos restantes requiere el header `If-Match: <ConcurrencyToken-del-padre>` (RFC 7232; el valor admite formato con o sin comillas) en lugar de body. Responde `204 No Content` y expone `Parent-Concurrency-Token` solo cuando la eliminacion fue exitosa; si el header falta o no es un Guid valido, responde `400 Bad Request`.
+- `JobProfileRequirements` ya usa concurrencia granular por entidad hija: `GET /api/v1/job-profiles/{jobProfilePublicId}/requirements` es el unico endpoint que retorna el array completo; `POST` crea un requisito sin pedir token y responde `201 Created` con `JobProfileRequirementResponse`; `PUT`, `PATCH` y `DELETE` retornan la entidad del requisito y validan `concurrencyToken` del requisito, no del padre.
+- `PATCH /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. Debe incluir una operacion `add` o `replace` sobre `/concurrencyToken`; no se acepta wrapper `{ data: [...] }`.
+- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}` requiere `If-Match: <ConcurrencyToken-del-requisito>` y responde `200 OK` con el snapshot eliminado, no `204`.
 - `PUT /job-profiles/{publicId}/competency-matrix`, `PATCH /job-profiles/{publicId}/publish`, `PATCH /job-profiles/{publicId}/archive`, `GET /job-profiles/{publicId}` y las escrituras del agregado completo no cambian contrato por este ajuste.
 - `PUT /competency-conducts/{id}/behaviors` reemplaza el conjunto completo de behaviors del conducto.
 - `PUT /job-profiles/{publicId}/competency-matrix` reemplaza la matriz completa del perfil; una lista vacia limpia la matriz.

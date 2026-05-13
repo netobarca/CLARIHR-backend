@@ -69,7 +69,7 @@ internal sealed class ReportExportJobGenerator(
                     job.TenantId,
                     ReadBool(parameters, "isActive"),
                     ReadEnum<PersonnelFileRecordType>(parameters, null, "recordType"),
-                    ReadGuid(parameters, "orgUnitId"),
+                    ReadGuid(parameters, "orgUnitPublicId"),
                     ReadInt(parameters, "minAge"),
                     ReadInt(parameters, "maxAge"),
                     ReadString(parameters, "maritalStatus"),
@@ -90,7 +90,7 @@ internal sealed class ReportExportJobGenerator(
                 job,
                 destination,
                 await personnelFileEmployeeRepository.ExportPersonnelActionsAsync(
-                    RequireGuid(parameters, "personnelFileId"),
+                    RequireGuid(parameters, "personnelFilePublicId"),
                     ReadDateTime(parameters, "fromUtc"),
                     ReadDateTime(parameters, "toUtc"),
                     ReadString(parameters, "type"),
@@ -108,7 +108,7 @@ internal sealed class ReportExportJobGenerator(
                 job,
                 destination,
                 await personnelFileEmployeeRepository.ExportPayrollTransactionsAsync(
-                    RequireGuid(parameters, "personnelFileId"),
+                    RequireGuid(parameters, "personnelFilePublicId"),
                     ReadDateTime(parameters, "fromUtc"),
                     ReadDateTime(parameters, "toUtc"),
                     ReadString(parameters, "type"),
@@ -129,9 +129,9 @@ internal sealed class ReportExportJobGenerator(
                     job.TenantId,
                     ReadBool(parameters, "isActive"),
                     ReadString(parameters, "search", "q"),
-                    ReadGuid(parameters, "orgUnitTypeId"),
-                    ReadGuid(parameters, "functionalAreaId"),
-                    ReadGuid(parameters, "parentId"),
+                    ReadGuid(parameters, "orgUnitTypePublicId"),
+                    ReadGuid(parameters, "functionalAreaPublicId"),
+                    ReadGuid(parameters, "parentPublicId"),
                     maxRowsToRead,
                     cancellationToken),
                 "org-units",
@@ -144,10 +144,10 @@ internal sealed class ReportExportJobGenerator(
                 await positionSlotRepository.GetExportRowsAsync(
                     job.TenantId,
                     ReadEnum<PositionSlotStatus>(parameters, null, "status"),
-                    ReadGuid(parameters, "jobProfileId"),
-                    ReadGuid(parameters, "orgUnitId"),
-                    ReadGuid(parameters, "workCenterId"),
-                    ReadGuid(parameters, "contractTypeId"),
+                    ReadGuid(parameters, "jobProfilePublicId"),
+                    ReadGuid(parameters, "orgUnitPublicId"),
+                    ReadGuid(parameters, "workCenterPublicId"),
+                    ReadGuid(parameters, "contractTypePublicId"),
                     ReadString(parameters, "search", "q"),
                     maxRowsToRead,
                     cancellationToken),
@@ -190,7 +190,7 @@ internal sealed class ReportExportJobGenerator(
                 job,
                 destination,
                 await competencyFrameworkRepository.GetJobProfileCompetencyMatrixExportRowsAsync(
-                    RequireGuid(parameters, "jobProfileId"),
+                    RequireGuid(parameters, "jobProfilePublicId"),
                     maxRowsToRead,
                     cancellationToken),
                 "job-profile-competency-matrix",
@@ -213,7 +213,7 @@ internal sealed class ReportExportJobGenerator(
         JsonElement parameters,
         CancellationToken cancellationToken)
     {
-        var jobProfileId = RequireGuid(parameters, "jobProfileId");
+        var jobProfileId = RequireGuid(parameters, "jobProfilePublicId");
 
         var payload = await jobProfileRepository.GetPrintByIdAsync(jobProfileId, cancellationToken);
         if (payload is null)
@@ -245,7 +245,7 @@ internal sealed class ReportExportJobGenerator(
         CancellationToken cancellationToken)
     {
         string? salaryClassCode = null;
-        var salaryClassId = ReadGuid(parameters, "salaryClassId");
+        var salaryClassId = ReadGuid(parameters, "salaryClassPublicId");
         if (salaryClassId.HasValue)
         {
             salaryClassCode = await positionDescriptionCatalogRepository.ResolveSalaryClassCodeByCatalogIdAsync(

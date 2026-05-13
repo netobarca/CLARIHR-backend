@@ -130,8 +130,8 @@ public sealed class JobProfilePdfRendererTests
             ReportsToJobProfileTitle = "Chief Technology Officer",
             Requirements = new[]
             {
-                new JobProfileRequirementResponse(Guid.NewGuid(), null, null, JobRequirementType.Education, "Ingeniería en Sistemas", 1),
-                new JobProfileRequirementResponse(Guid.NewGuid(), null, null, JobRequirementType.Experience, "8+ años en roles de gerencia técnica", 2)
+                new JobProfileRequirementResponse(Guid.NewGuid(), null, null, JobRequirementType.Education, "Ingeniería en Sistemas", 1, Guid.NewGuid()),
+                new JobProfileRequirementResponse(Guid.NewGuid(), null, null, JobRequirementType.Experience, "8+ años en roles de gerencia técnica", 2, Guid.NewGuid())
             },
             Functions = new[]
             {

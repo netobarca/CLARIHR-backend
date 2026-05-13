@@ -354,6 +354,7 @@ internal sealed class JobProfileRequirementConfiguration : IEntityTypeConfigurat
             .HasMaxLength(1000);
 
         builder.Property(item => item.SortOrder).HasColumnName("sort_order");
+        builder.Property(item => item.ConcurrencyToken).IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 

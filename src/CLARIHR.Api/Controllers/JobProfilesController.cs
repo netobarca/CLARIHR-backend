@@ -57,38 +57,7 @@ public sealed class JobProfilesController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("job-profiles/{publicId:guid}/vacancy-template")]
-    [Authorize(Policy = JobProfilePolicies.Read)]
-    [ProducesResponseType<JobProfileVacancyTemplateResponse>(StatusCodes.Status200OK)]
-    [ProducesStandardErrors(StandardErrorSet.Read)]
-    public async Task<ActionResult<JobProfileVacancyTemplateResponse>> VacancyTemplate(
-        Guid publicId,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetJobProfileVacancyTemplateQuery(publicId), cancellationToken);
-        return this.ToActionResult(result);
-    }
 
-    [HttpGet("job-profiles/{publicId:guid}/print")]
-    [Authorize(Policy = JobProfilePolicies.Read)]
-    [ProducesResponseType<JobProfilePrintResponse>(StatusCodes.Status200OK)]
-    [ProducesStandardErrors(StandardErrorSet.Read)]
-    public async Task<ActionResult<JobProfilePrintResponse>> Print(Guid publicId, CancellationToken cancellationToken = default)
-    {
-        var result = await queryDispatcher.SendAsync(new GetJobProfilePrintQuery(publicId), cancellationToken);
-        if (result.IsFailure)
-        {
-            return this.ToActionResult(result);
-        }
-
-        var auditResult = await commandDispatcher.SendAsync(new MarkJobProfilePrintedCommand(publicId), cancellationToken);
-        if (auditResult.IsFailure)
-        {
-            return this.ToActionResult(Result<JobProfilePrintResponse>.Failure(auditResult.Error));
-        }
-
-        return this.ToActionResult(result);
-    }
 
     [HttpPost("companies/{companyId:guid}/job-profiles")]
     [Authorize(Policy = JobProfilePolicies.Manage)]
