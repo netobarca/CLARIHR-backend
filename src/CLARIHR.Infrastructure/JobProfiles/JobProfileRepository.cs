@@ -38,6 +38,12 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .Include(profile => profile.SalaryClassCatalogItem)
             .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
 
+    public Task<JobProfile?> GetWithRequirementsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .Include(profile => profile.Requirements)
+                .ThenInclude(requirement => requirement.CatalogItem)
+            .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
+
     public Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles
             .Include(profile => profile.WorkingConditions)
@@ -448,6 +454,67 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             profile.ModifiedUtc);
     }
 
+    public async Task<IReadOnlyCollection<JobProfileRequirementResponse>?> GetRequirementResponsesByProfileIdAsync(
+        Guid profileId,
+        CancellationToken cancellationToken)
+    {
+        var profileInternalId = await dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.PublicId == profileId)
+            .Select(profile => (long?)profile.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!profileInternalId.HasValue)
+        {
+            return null;
+        }
+
+        return await
+            (from requirement in dbContext.JobProfileRequirements.AsNoTracking()
+             where requirement.JobProfileId == profileInternalId.Value
+             join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+                 on requirement.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+             from catalogItem in catalogItems.DefaultIfEmpty()
+             join requirementTypeItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+                 on requirement.RequirementTypeCatalogItemId equals (long?)requirementTypeItem.Id into requirementTypeItems
+             from requirementTypeItem in requirementTypeItems.DefaultIfEmpty()
+             orderby requirement.SortOrder, requirement.Description
+             select new JobProfileRequirementResponse(
+                 requirement.PublicId,
+                 catalogItem == null ? null : catalogItem.PublicId,
+                 requirementTypeItem == null ? null : requirementTypeItem.PublicId,
+                 requirement.RequirementType,
+                 requirement.Description,
+                 requirement.SortOrder,
+                 requirement.ConcurrencyToken))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public Task<JobProfileRequirementResponse?> GetRequirementResponseAsync(
+        Guid profileId,
+        Guid requirementId,
+        CancellationToken cancellationToken) =>
+        (from profile in dbContext.JobProfiles.AsNoTracking()
+         where profile.PublicId == profileId
+         join requirement in dbContext.JobProfileRequirements.AsNoTracking()
+             on profile.Id equals requirement.JobProfileId
+         where requirement.PublicId == requirementId
+         join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+             on requirement.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+         from catalogItem in catalogItems.DefaultIfEmpty()
+         join requirementTypeItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+             on requirement.RequirementTypeCatalogItemId equals (long?)requirementTypeItem.Id into requirementTypeItems
+         from requirementTypeItem in requirementTypeItems.DefaultIfEmpty()
+         select new JobProfileRequirementResponse(
+             requirement.PublicId,
+             catalogItem == null ? null : catalogItem.PublicId,
+             requirementTypeItem == null ? null : requirementTypeItem.PublicId,
+             requirement.RequirementType,
+             requirement.Description,
+             requirement.SortOrder,
+             requirement.ConcurrencyToken))
+        .SingleOrDefaultAsync(cancellationToken);
+
     public async Task<JobProfileResponse?> GetResponseByIdAsync(Guid profileId, CancellationToken cancellationToken)
     {
         var profile = await dbContext.JobProfiles
@@ -535,7 +602,8 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 ResolveCatalogPublicId(item.RequirementTypeCatalogItemId, positionDescriptionCatalogLookup),
                 item.RequirementType,
                 item.Description,
-                item.SortOrder))
+                item.SortOrder,
+                item.ConcurrencyToken))
             .ToArray();
 
         var functionItems = profile.Functions
@@ -805,87 +873,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .ToArray();
     }
 
-    public async Task<JobProfileVacancyTemplateResponse?> GetVacancyTemplateByIdAsync(Guid profileId, CancellationToken cancellationToken)
-    {
-        var profile = await dbContext.JobProfiles
-            .AsNoTracking()
-            .Include(x => x.Requirements).ThenInclude(x => x.CatalogItem)
-            .Include(x => x.Functions)
-            .Include(x => x.Trainings).ThenInclude(x => x.CatalogItem)
-            .FirstOrDefaultAsync(x => x.PublicId == profileId, cancellationToken);
 
-        if (profile is null)
-        {
-            return null;
-        }
-
-        var positionDescriptionCatalogItemIds = new HashSet<long>();
-        foreach (var requirement in profile.Requirements)
-        {
-            AddIfPresent(positionDescriptionCatalogItemIds, requirement.RequirementTypeCatalogItemId);
-        }
-
-        foreach (var function in profile.Functions)
-        {
-            AddIfPresent(positionDescriptionCatalogItemIds, function.FrequencyCatalogItemId);
-        }
-
-        var positionDescriptionCatalogLookup = positionDescriptionCatalogItemIds.Count == 0
-            ? new Dictionary<long, Guid>()
-            : await dbContext.PositionDescriptionCatalogItems
-                .AsNoTracking()
-                .Where(item => positionDescriptionCatalogItemIds.Contains(item.Id))
-                .ToDictionaryAsync(item => item.Id, item => item.PublicId, cancellationToken);
-
-        var requirementItems = profile.Requirements
-            .OrderBy(item => item.SortOrder)
-            .ThenBy(item => item.Description)
-            .Select(item => new JobProfileRequirementResponse(
-                item.PublicId,
-                item.CatalogItem?.PublicId,
-                ResolveCatalogPublicId(item.RequirementTypeCatalogItemId, positionDescriptionCatalogLookup),
-                item.RequirementType,
-                item.Description,
-                item.SortOrder))
-            .ToArray();
-
-        var functionItems = profile.Functions
-            .OrderBy(item => item.SortOrder)
-            .ThenBy(item => item.Description)
-            .Select(item => new JobProfileFunctionResponse(
-                item.PublicId,
-                item.FunctionType,
-                ResolveCatalogPublicId(item.FrequencyCatalogItemId, positionDescriptionCatalogLookup),
-                item.Description,
-                item.SortOrder))
-            .ToArray();
-
-        var competencyItems = await GetCompetencyMatrixItemsAsync(profile.Id, cancellationToken);
-
-        var trainingItems = profile.Trainings
-            .OrderBy(item => item.SortOrder)
-            .ThenBy(item => item.Name)
-            .Select(item => new JobProfileTrainingResponse(
-                item.PublicId,
-                item.CatalogItem?.PublicId,
-                item.Name,
-                item.Notes,
-                item.SortOrder))
-            .ToArray();
-
-        return new JobProfileVacancyTemplateResponse(
-            profile.PublicId,
-            profile.Code,
-            profile.Title,
-            profile.Objective,
-            profile.Responsibilities,
-            profile.WorkingConditionSummary,
-            profile.BenefitsSummary,
-            requirementItems,
-            functionItems,
-            competencyItems,
-            trainingItems);
-    }
 
     public async Task<JobProfilePrintResponse?> GetPrintByIdAsync(Guid profileId, CancellationToken cancellationToken)
     {

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Authentication;
@@ -31,12 +32,23 @@ using FluentValidation;
 namespace CLARIHR.Application.Features.JobProfiles;
 
 public sealed record JobProfileRequirementResponse(
-    Guid Id,
-    Guid? CatalogItemId,
-    Guid? RequirementTypeCatalogItemId,
+    Guid RequirementPublicId,
+    Guid? CatalogItemPublicId,
+    Guid? RequirementTypeCatalogItemPublicId,
     JobRequirementType RequirementType,
     string Description,
-    int SortOrder);
+    int SortOrder,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => RequirementPublicId;
+
+    [JsonIgnore]
+    public Guid? CatalogItemId => CatalogItemPublicId;
+
+    [JsonIgnore]
+    public Guid? RequirementTypeCatalogItemId => RequirementTypeCatalogItemPublicId;
+}
 
 public sealed record JobProfileFunctionResponse(
     Guid Id,
@@ -256,22 +268,11 @@ public sealed record JobProfileCoreResponse(
     DateTime? ModifiedAtUtc,
     AllowedActionsResponse? AllowedActions = null);
 
-public sealed record JobProfileVacancyTemplateResponse(
-    Guid Id,
-    string Code,
-    string Title,
-    string? Objective,
-    string? Responsibilities,
-    string? WorkingConditionSummary,
-    string? BenefitsSummary,
-    IReadOnlyCollection<JobProfileRequirementResponse> Requirements,
-    IReadOnlyCollection<JobProfileFunctionResponse> Functions,
-    IReadOnlyCollection<JobProfileCompetencyResponse> Competencies,
-    IReadOnlyCollection<JobProfileTrainingResponse> Trainings);
-
+/// <summary>Internal payload used exclusively by the async PDF export pipeline. Not exposed as an API endpoint.</summary>
 public sealed record JobProfilePrintResponse(
     JobProfileResponse Profile,
     DateTime GeneratedAtUtc);
+
 
 public sealed record JobProfileDependencyNodeData(
     long InternalId,
@@ -364,11 +365,6 @@ public sealed record GetJobProfileByIdQuery(Guid JobProfileId) : IQuery<JobProfi
 
 public sealed record GetJobProfileCoreByIdQuery(Guid JobProfileId) : IQuery<JobProfileCoreResponse>;
 
-public sealed record GetJobProfileVacancyTemplateQuery(Guid JobProfileId) : IQuery<JobProfileVacancyTemplateResponse>;
-
-public sealed record GetJobProfilePrintQuery(Guid JobProfileId) : IQuery<JobProfilePrintResponse>;
-
-public sealed record MarkJobProfilePrintedCommand(Guid JobProfileId) : ICommand<bool>;
 
 public sealed record CreateJobProfileCommand(
     Guid CompanyId,
@@ -456,29 +452,6 @@ internal sealed class GetJobProfileCoreByIdQueryValidator : AbstractValidator<Ge
     }
 }
 
-internal sealed class GetJobProfileVacancyTemplateQueryValidator : AbstractValidator<GetJobProfileVacancyTemplateQuery>
-{
-    public GetJobProfileVacancyTemplateQueryValidator()
-    {
-        RuleFor(query => query.JobProfileId).NotEmpty();
-    }
-}
-
-internal sealed class GetJobProfilePrintQueryValidator : AbstractValidator<GetJobProfilePrintQuery>
-{
-    public GetJobProfilePrintQueryValidator()
-    {
-        RuleFor(query => query.JobProfileId).NotEmpty();
-    }
-}
-
-internal sealed class MarkJobProfilePrintedCommandValidator : AbstractValidator<MarkJobProfilePrintedCommand>
-{
-    public MarkJobProfilePrintedCommandValidator()
-    {
-        RuleFor(command => command.JobProfileId).NotEmpty();
-    }
-}
 
 internal sealed class CreateJobProfileCommandValidator : AbstractValidator<CreateJobProfileCommand>
 {
@@ -929,129 +902,6 @@ internal sealed class GetJobProfileCoreByIdQueryHandler(
     }
 }
 
-internal sealed class GetJobProfileVacancyTemplateQueryHandler(
-    IJobProfileAuthorizationService authorizationService,
-    IJobProfileRepository repository,
-    ITenantContext tenantContext)
-    : IQueryHandler<GetJobProfileVacancyTemplateQuery, JobProfileVacancyTemplateResponse>
-{
-    public async Task<Result<JobProfileVacancyTemplateResponse>> Handle(
-        GetJobProfileVacancyTemplateQuery query,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<JobProfileVacancyTemplateResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<JobProfileVacancyTemplateResponse>.Failure(authorizationResult.Error);
-        }
-
-        var response = await repository.GetVacancyTemplateByIdAsync(query.JobProfileId, cancellationToken);
-        if (response is not null)
-        {
-            return Result<JobProfileVacancyTemplateResponse>.Success(response);
-        }
-
-        return Result<JobProfileVacancyTemplateResponse>.Failure(
-            await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
-                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
-                : JobProfileErrors.JobProfileNotFound);
-    }
-}
-
-internal sealed class GetJobProfilePrintQueryHandler(
-    IJobProfileAuthorizationService authorizationService,
-    IJobProfileRepository repository,
-    ITenantContext tenantContext,
-    IResourceActionPolicyService resourceActionPolicyService)
-    : IQueryHandler<GetJobProfilePrintQuery, JobProfilePrintResponse>
-{
-    public async Task<Result<JobProfilePrintResponse>> Handle(
-        GetJobProfilePrintQuery query,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<JobProfilePrintResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<JobProfilePrintResponse>.Failure(authorizationResult.Error);
-        }
-
-        var response = await repository.GetPrintByIdAsync(query.JobProfileId, cancellationToken);
-        if (response is not null)
-        {
-            var canManageProfiles = (await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
-            var enrichedProfile = JobProfilePolicyAdapter.ApplyAllowedActions(response.Profile, resourceActionPolicyService, canManageProfiles);
-            response = response with { Profile = enrichedProfile };
-            return Result<JobProfilePrintResponse>.Success(response);
-        }
-
-        return Result<JobProfilePrintResponse>.Failure(
-            await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
-                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
-                : JobProfileErrors.JobProfileNotFound);
-    }
-}
-
-internal sealed class MarkJobProfilePrintedCommandHandler(
-    IJobProfileAuthorizationService authorizationService,
-    IJobProfileRepository repository,
-    IAuditService auditService,
-    ITenantContext tenantContext,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<MarkJobProfilePrintedCommand, bool>
-{
-    public async Task<Result<bool>> Handle(MarkJobProfilePrintedCommand command, CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<bool>.Failure(authorizationResult.Error);
-        }
-
-        var response = await repository.GetEntityResponseByIdAsync(command.JobProfileId, cancellationToken);
-        if (response is null)
-        {
-            return Result<bool>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
-                    : JobProfileErrors.JobProfileNotFound);
-        }
-
-        await auditService.LogAsync(
-            new AuditLogEntry(
-                AuditEventTypes.ReportPrinted,
-                AuditEntityTypes.JobProfile,
-                command.JobProfileId,
-                JobProfilePermissionCodes.ResourceKey,
-                AuditActions.Print,
-                "Printed job profile report.",
-                After: new
-                {
-                    resourceKey = JobProfilePermissionCodes.ResourceKey,
-                    format = "print",
-                    filters = new { id = command.JobProfileId },
-                    rowCount = 1
-                }),
-            cancellationToken);
-        _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return Result<bool>.Success(true);
-    }
-}
 
 internal sealed class CreateJobProfileCommandHandler(
     IJobProfileAuthorizationService authorizationService,
@@ -3397,88 +3247,6 @@ internal static class JobProfilePolicyAdapter
                 NonEditableStates: [JobProfileStatus.Archived.ToString()]));
 
         return response with { AllowedActions = allowedActions };
-    }
-}
-
-internal static class JobProfileCsvExporter
-{
-    public static string Export(JobProfilePrintResponse payload)
-    {
-        var profile = payload.Profile;
-        var lines = new List<string>
-        {
-            "Field,Value",
-            $"Id,{Escape(profile.Id.ToString())}",
-            $"Code,{Escape(profile.Code)}",
-            $"Title,{Escape(profile.Title)}",
-            $"Status,{Escape(profile.Status.ToString())}",
-            $"Version,{profile.Version}",
-            $"Objective,{Escape(profile.Objective)}",
-            $"Responsibilities,{Escape(profile.Responsibilities)}",
-            $"OrgUnitId,{Escape(profile.OrgUnitId?.ToString())}",
-            $"OrgUnitName,{Escape(profile.OrgUnitName)}",
-            $"ReportsToJobProfileId,{Escape(profile.ReportsToJobProfileId?.ToString())}",
-            $"ReportsToJobProfileCode,{Escape(profile.ReportsToJobProfileCode)}",
-            $"ReportsToJobProfileTitle,{Escape(profile.ReportsToJobProfileTitle)}",
-            $"DecisionScope,{Escape(profile.DecisionScope)}",
-            $"AssignedResources,{Escape(profile.AssignedResources)}",
-            $"BenefitsSummary,{Escape(profile.BenefitsSummary)}",
-            $"WorkingConditionSummary,{Escape(profile.WorkingConditionSummary)}",
-            $"MarketSalaryReference,{Escape(profile.MarketSalaryReference)}",
-            $"ValuationNotes,{Escape(profile.ValuationNotes)}",
-            $"EffectiveFromUtc,{Escape(profile.EffectiveFromUtc?.ToString("O", CultureInfo.InvariantCulture))}",
-            $"EffectiveToUtc,{Escape(profile.EffectiveToUtc?.ToString("O", CultureInfo.InvariantCulture))}",
-            $"IsActive,{profile.IsActive}",
-            $"CreatedAtUtc,{Escape(profile.CreatedAtUtc.ToString("O", CultureInfo.InvariantCulture))}",
-            $"ModifiedAtUtc,{Escape(profile.ModifiedAtUtc?.ToString("O", CultureInfo.InvariantCulture))}",
-            $"GeneratedAtUtc,{Escape(payload.GeneratedAtUtc.ToString("O", CultureInfo.InvariantCulture))}"
-        };
-
-        lines.Add("Section,Type,Item,Extra1,Extra2,Extra3");
-
-        lines.AddRange(profile.Requirements.Select(item =>
-            $"Requirement,{Escape(item.RequirementType.ToString())},{Escape(item.Description)},{Escape(item.CatalogItemId?.ToString())},{item.SortOrder},"));
-
-        lines.AddRange(profile.Functions.Select(item =>
-            $"Function,{Escape(item.FunctionType.ToString())},{Escape(item.Description)},{item.SortOrder},,"));
-
-        lines.AddRange(profile.Relations.Select(item =>
-            $"Relation,{Escape(item.RelationType.ToString())},{Escape(item.Counterpart)},{Escape(item.Notes)},{Escape(item.CatalogItemId?.ToString())},{item.SortOrder}"));
-
-        lines.AddRange(profile.Competencies.Select(item =>
-            $"Competency,{Escape(item.CompetencyTypeName)},{Escape(item.CompetencyName)},{Escape(item.BehaviorLevelName)},{Escape(item.ExpectedEvidence)},{item.SortOrder}"));
-
-        lines.AddRange(profile.Trainings.Select(item =>
-            $"Training,,{Escape(item.Name)},{Escape(item.Notes)},,{item.SortOrder}"));
-
-        if (profile.Compensation is not null)
-        {
-            lines.Add(
-                $"Compensation,,{Escape(profile.Compensation.SalaryClassName)},{Escape(profile.Compensation.SalaryScaleCode)},{Escape(profile.Compensation.BaseAmount?.ToString(CultureInfo.InvariantCulture))},{Escape(profile.Compensation.CurrencyCode)}");
-        }
-
-        lines.AddRange(profile.Benefits.Select(item =>
-            $"Benefit,,{Escape(item.Name)},{Escape(item.Notes)},,{item.SortOrder}"));
-
-        lines.AddRange(profile.WorkingConditions.Select(item =>
-            $"WorkingCondition,,{Escape(item.Name)},{Escape(item.Notes)},,{item.SortOrder}"));
-
-        lines.AddRange(profile.DependentPositions.Select(item =>
-            $"DependentPosition,,{Escape(item.DependentJobProfileTitle)},{Escape(item.DependentJobProfileCode)},{item.Quantity},{Escape(item.Notes)}"));
-
-        return string.Join("\n", lines);
-    }
-
-    private static string Escape(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        var needsQuotes = value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r');
-        var escaped = value.Replace("\"", "\"\"");
-        return needsQuotes ? $"\"{escaped}\"" : escaped;
     }
 }
 

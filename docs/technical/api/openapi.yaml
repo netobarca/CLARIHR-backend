@@ -23,6 +23,7 @@ servers:
   - url: /
 security:
   - Bearer: []
+paths:
   /api/v1/personnel-files/{publicId}/educations:
     get:
       tags:
@@ -6115,6 +6116,16 @@ components:
         sortOrder:
           type: integer
           format: int32
+    JobProfileRequirementUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/JobProfileRequirementRequest'
+        - type: object
+          required:
+            - concurrencyToken
+          properties:
+            concurrencyToken:
+              type: string
+              format: uuid
     JobProfileFunctionRequest:
       type: object
       required:
@@ -6303,19 +6314,20 @@ components:
     JobProfileRequirementResponse:
       type: object
       required:
-        - id
+        - requirementPublicId
         - requirementType
         - description
         - sortOrder
+        - concurrencyToken
       properties:
-        id:
+        requirementPublicId:
           type: string
           format: uuid
-        catalogItemId:
+        catalogItemPublicId:
           type: string
           format: uuid
           nullable: true
-        requirementTypeCatalogItemId:
+        requirementTypeCatalogItemPublicId:
           type: string
           format: uuid
           nullable: true
@@ -6326,6 +6338,9 @@ components:
         sortOrder:
           type: integer
           format: int32
+        concurrencyToken:
+          type: string
+          format: uuid
     JobProfileFunctionResponse:
       type: object
       required:
@@ -6497,17 +6512,6 @@ components:
         notes:
           type: string
           nullable: true
-    JobProfileSubResourceResultOfJobProfileRequirementResponse:
-      type: object
-      required:
-        - item
-        - parentConcurrencyToken
-      properties:
-        item:
-          $ref: '#/components/schemas/JobProfileRequirementResponse'
-        parentConcurrencyToken:
-          type: string
-          format: uuid
     JobProfileSubResourceResultOfJobProfileFunctionResponse:
       type: object
       required:
@@ -9791,7 +9795,11 @@ paths:
               properties:
                 manifestJson:
                   type: string
-                  description: JSON payload with shape `{ "items": [...] }`. Each item accepts `documentPublicId`, `documentType`, `observations`, `deliveryDate`, `loanDate`, `returnDate` and optional `fileKey`. For new documents `fileKey` is required. For existing documents `fileKey` is optional and only required when replacing the binary file.
+                  description: >
+                    JSON payload with shape `{ "items": [...] }`. Each item accepts `documentPublicId`,
+                    `documentType`, `observations`, `deliveryDate`, `loanDate`, `returnDate` and optional
+                    `fileKey`. For new documents `fileKey` is required. For existing documents `fileKey`
+                    is optional and only required when replacing the binary file.
                 concurrencyToken:
                   type: string
                   format: uuid
@@ -13280,6 +13288,311 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Business-rule violation such as publish requirements or invalid compensation tabulator line coverage.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/requirements:
+    get:
+      tags:
+        - job-and-competency-design
+      operationId: GetJobProfileRequirements
+      summary: List job profile requirements
+      description: Returns only the requirements array for the selected tenant-scoped job profile. This is the only requirements endpoint that returns the full requirements collection.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Requirements retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobProfileRequirementResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job profile was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - job-and-competency-design
+      operationId: AddJobProfileRequirement
+      summary: Create a job profile requirement
+      description: Creates one requirement for the selected job profile and returns the created requirement entity. The request does not require a concurrency token; the created entity response includes its granular token.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobProfileRequirementRequest'
+      responses:
+        '201':
+          description: Requirement created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileRequirementResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile or referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict while adding the requirement.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}:
+    put:
+      tags:
+        - job-and-competency-design
+      operationId: UpdateJobProfileRequirement
+      summary: Replace a job profile requirement
+      description: Replaces one requirement. Concurrency is validated against the requirement entity token, not the parent job profile token.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: requirementPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobProfileRequirementUpdateRequest'
+      responses:
+        '200':
+          description: Requirement updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileRequirementResponse'
+        '400':
+          description: Validation error, including missing `concurrencyToken`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile, requirement or referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale requirement concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+        - job-and-competency-design
+      operationId: PatchJobProfileRequirement
+      summary: Partially update a job profile requirement
+      description: Applies ASP.NET Core JSON Patch to one requirement. The patch document is the RFC 6902 operation array and must include `/concurrencyToken` as an add or replace operation.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: requirementPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/JsonPatchOperation'
+            examples:
+              replaceDescription:
+                value:
+                  - op: replace
+                    path: /description
+                    value: 5 years of payroll administration
+                  - op: replace
+                    path: /concurrencyToken
+                    value: c1c9f1d4-4f3c-47de-9d9b-4f8cb0c2e8d2
+      responses:
+        '200':
+          description: Requirement patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileRequirementResponse'
+        '400':
+          description: Invalid JSON Patch document, missing `/concurrencyToken` or unsupported patch path/operation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile, requirement or patched referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale requirement concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - job-and-competency-design
+      operationId: DeleteJobProfileRequirement
+      summary: Delete a job profile requirement
+      description: Deletes one requirement and returns the deleted requirement entity. Concurrency is validated using the requirement token supplied in the `If-Match` header.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: requirementPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current requirement `concurrencyToken`, with or without quotes.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Requirement deleted successfully. Response body contains the deleted entity snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileRequirementResponse'
+        '400':
+          description: Missing or invalid `If-Match` concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile or requirement was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale requirement concurrency token or another business conflict.
           content:
             application/problem+json:
               schema:

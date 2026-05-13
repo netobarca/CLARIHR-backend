@@ -38,6 +38,9 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
     public Task<JobProfile?> GetCoreByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(Profiles.GetValueOrDefault(profileId));
 
+    public Task<JobProfile?> GetWithRequirementsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Profiles.GetValueOrDefault(profileId));
+
     public Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(Profiles.GetValueOrDefault(profileId));
 
@@ -122,8 +125,47 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
     public Task<JobProfileResponse?> GetResponseByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(Responses.GetValueOrDefault(profileId));
 
-    public Task<JobProfileVacancyTemplateResponse?> GetVacancyTemplateByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
+    public Task<IReadOnlyCollection<JobProfileRequirementResponse>?> GetRequirementResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<IReadOnlyCollection<JobProfileRequirementResponse>?>(null);
+        }
+
+        return Task.FromResult<IReadOnlyCollection<JobProfileRequirementResponse>?>(
+            profile.Requirements
+                .OrderBy(requirement => requirement.SortOrder)
+                .ThenBy(requirement => requirement.Description)
+                .Select(requirement => new JobProfileRequirementResponse(
+                    requirement.PublicId,
+                    null,
+                    null,
+                    requirement.RequirementType,
+                    requirement.Description,
+                    requirement.SortOrder,
+                    requirement.ConcurrencyToken))
+                .ToArray());
+    }
+
+    public Task<JobProfileRequirementResponse?> GetRequirementResponseAsync(Guid profileId, Guid requirementId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<JobProfileRequirementResponse?>(null);
+        }
+
+        var requirement = profile.Requirements.FirstOrDefault(item => item.PublicId == requirementId);
+        return Task.FromResult(requirement is null
+            ? null
+            : new JobProfileRequirementResponse(
+                requirement.PublicId,
+                null,
+                null,
+                requirement.RequirementType,
+                requirement.Description,
+                requirement.SortOrder,
+                requirement.ConcurrencyToken));
+    }
 
     public Task<JobProfilePrintResponse?> GetPrintByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
