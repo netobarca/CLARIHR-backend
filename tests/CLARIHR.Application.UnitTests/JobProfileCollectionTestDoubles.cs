@@ -41,6 +41,9 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
     public Task<JobProfile?> GetWithRequirementsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(Profiles.GetValueOrDefault(profileId));
 
+    public Task<JobProfile?> GetWithFunctionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Profiles.GetValueOrDefault(profileId));
+
     public Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(Profiles.GetValueOrDefault(profileId));
 
@@ -165,6 +168,46 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
                 requirement.Description,
                 requirement.SortOrder,
                 requirement.ConcurrencyToken));
+    }
+
+    public Task<IReadOnlyCollection<JobProfileFunctionResponse>?> GetFunctionResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<IReadOnlyCollection<JobProfileFunctionResponse>?>(null);
+        }
+
+        return Task.FromResult<IReadOnlyCollection<JobProfileFunctionResponse>?>(
+            profile.Functions
+                .OrderBy(function => function.SortOrder)
+                .ThenBy(function => function.Description)
+                .Select(function => new JobProfileFunctionResponse(
+                    function.PublicId,
+                    null,
+                    function.FunctionType,
+                    function.Description,
+                    function.SortOrder,
+                    function.ConcurrencyToken))
+                .ToArray());
+    }
+
+    public Task<JobProfileFunctionResponse?> GetFunctionResponseAsync(Guid profileId, Guid functionId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<JobProfileFunctionResponse?>(null);
+        }
+
+        var function = profile.Functions.FirstOrDefault(item => item.PublicId == functionId);
+        return Task.FromResult(function is null
+            ? null
+            : new JobProfileFunctionResponse(
+                function.PublicId,
+                null,
+                function.FunctionType,
+                function.Description,
+                function.SortOrder,
+                function.ConcurrencyToken));
     }
 
     public Task<JobProfilePrintResponse?> GetPrintByIdAsync(Guid profileId, CancellationToken cancellationToken) =>

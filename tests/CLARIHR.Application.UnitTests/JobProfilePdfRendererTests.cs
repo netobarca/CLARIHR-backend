@@ -135,8 +135,8 @@ public sealed class JobProfilePdfRendererTests
             },
             Functions = new[]
             {
-                new JobProfileFunctionResponse(Guid.NewGuid(), JobFunctionType.General, null, "Gestión del roadmap del área", 1),
-                new JobProfileFunctionResponse(Guid.NewGuid(), JobFunctionType.Specific, null, "Mentoría de tech leads", 2)
+                new JobProfileFunctionResponse(Guid.NewGuid(), null, JobFunctionType.General, "Gestión del roadmap del área", 1, Guid.NewGuid()),
+                new JobProfileFunctionResponse(Guid.NewGuid(), null, JobFunctionType.Specific, "Mentoría de tech leads", 2, Guid.NewGuid())
             },
             Relations = new[]
             {

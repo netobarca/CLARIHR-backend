@@ -51,11 +51,19 @@ public sealed record JobProfileRequirementResponse(
 }
 
 public sealed record JobProfileFunctionResponse(
-    Guid Id,
+    Guid FunctionPublicId,
+    Guid? FrequencyCatalogItemPublicId,
     JobFunctionType FunctionType,
-    Guid? FrequencyCatalogItemId,
     string Description,
-    int SortOrder);
+    int SortOrder,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => FunctionPublicId;
+
+    [JsonIgnore]
+    public Guid? FrequencyCatalogItemId => FrequencyCatalogItemPublicId;
+}
 
 public sealed record JobProfileRelationResponse(
     Guid Id,
