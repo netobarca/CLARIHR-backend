@@ -2497,11 +2497,12 @@ Observaciones funcionales:
 
 #### 5.9.1 Alcance
 
-Este bloque cubre cinco controladores que juntos definen el diseno formal de puestos, competencias y plazas operativas del tenant:
+Este bloque cubre siete controladores que juntos definen el diseno formal de puestos, competencias y plazas operativas del tenant:
 
 - `JobCatalogsController`
 - `JobProfilesController`
 - `JobProfileRequirementsController`
+- `JobProfileFunctionsController`
 - `CompetencyFrameworkController`
 - `PositionDescriptionCatalogsController`
 - `PositionSlotsController`
@@ -2520,6 +2521,8 @@ Familias de rutas:
 - `/api/v1/job-profiles/{publicId}/archive`
 - `/api/v1/job-profiles/{jobProfilePublicId}/requirements`
 - `/api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}`
+- `/api/v1/job-profiles/{jobProfilePublicId}/functions`
+- `/api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId}`
 - `/api/v1/companies/{companyId}/occupational-pyramid-levels`
 - `/api/v1/occupational-pyramid-levels/{id}`
 - `/api/v1/companies/{companyId}/competency-conducts`
@@ -2584,12 +2587,15 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - `PUT /job-profiles/{publicId}` reemplaza todas las colecciones anidadas del perfil; si una coleccion llega `null`, el controller la convierte en `[]` y el handler limpia la seccion existente.
 - `PATCH /job-profiles/{publicId}` aplica JSON Patch desde Application sobre el agregado cargado en transaccion; si el patch no toca `/compensation`, preserva la referencia de compensacion existente y evita reconstruirla desde una proyeccion parcial.
 - `POST/PUT /job-profiles` usan `compensation` (singular, opcional) como referencia canonica a `salaryTabulatorLineId`; si llega `null`, se limpia la referencia de compensacion del perfil.
-- Breaking change coordinado con frontend en los sub-recursos atomicos de `JobProfiles`: `functions`, `relations`, `competencies` legacy, `trainings`, `benefits`, `dependent-positions` y `working-conditions` ya no devuelven `JobProfileResponse` completo.
+- Breaking change coordinado con frontend en los sub-recursos atomicos de `JobProfiles`: `relations`, `competencies` legacy, `trainings`, `benefits`, `dependent-positions` y `working-conditions` ya no devuelven `JobProfileResponse` completo.
 - `POST/PUT` de esos sub-recursos atomicos restantes responden `200 OK` con wrapper `{ item, parentConcurrencyToken }`. `item` representa solo el sub-recurso mutado; `parentConcurrencyToken` es el token nuevo del `JobProfile` padre para encadenar la siguiente mutacion.
 - `DELETE` de esos sub-recursos atomicos restantes requiere el header `If-Match: <ConcurrencyToken-del-padre>` (RFC 7232; el valor admite formato con o sin comillas) en lugar de body. Responde `204 No Content` y expone `Parent-Concurrency-Token` solo cuando la eliminacion fue exitosa; si el header falta o no es un Guid valido, responde `400 Bad Request`.
 - `JobProfileRequirements` ya usa concurrencia granular por entidad hija: `GET /api/v1/job-profiles/{jobProfilePublicId}/requirements` es el unico endpoint que retorna el array completo; `POST` crea un requisito sin pedir token y responde `201 Created` con `JobProfileRequirementResponse`; `PUT`, `PATCH` y `DELETE` retornan la entidad del requisito y validan `concurrencyToken` del requisito, no del padre.
 - `PATCH /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. Debe incluir una operacion `add` o `replace` sobre `/concurrencyToken`; no se acepta wrapper `{ data: [...] }`.
 - `DELETE /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}` requiere `If-Match: <ConcurrencyToken-del-requisito>` y responde `200 OK` con el snapshot eliminado, no `204`.
+- `JobProfileFunctions` aplica el mismo patron granular que `requirements`: `GET /api/v1/job-profiles/{jobProfilePublicId}/functions` es el unico endpoint que retorna el array completo; `POST` crea una funcion sin pedir token y responde `201 Created` con `JobProfileFunctionResponse`; `PUT`, `PATCH` y `DELETE` retornan la entidad de la funcion y validan `concurrencyToken` de la funcion, no del padre. Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `functionPublicId`, `frequencyCatalogItemId` pasa a `frequencyCatalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`.
+- `PATCH /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. Debe incluir una operacion `add` o `replace` sobre `/concurrencyToken`; no se acepta wrapper `{ data: [...] }`.
+- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId}` requiere `If-Match: <ConcurrencyToken-de-la-funcion>` y responde `200 OK` con el snapshot eliminado, no `204`.
 - `PUT /job-profiles/{publicId}/competency-matrix`, `PATCH /job-profiles/{publicId}/publish`, `PATCH /job-profiles/{publicId}/archive`, `GET /job-profiles/{publicId}` y las escrituras del agregado completo no cambian contrato por este ajuste.
 - `PUT /competency-conducts/{id}/behaviors` reemplaza el conjunto completo de behaviors del conducto.
 - `PUT /job-profiles/{publicId}/competency-matrix` reemplaza la matriz completa del perfil; una lista vacia limpia la matriz.

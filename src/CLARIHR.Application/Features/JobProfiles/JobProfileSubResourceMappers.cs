@@ -17,13 +17,14 @@ internal static class JobProfileSubResourceMappers
             requirement.SortOrder,
             requirement.ConcurrencyToken);
 
-    public static JobProfileFunctionResponse ToResponse(this JobProfileFunction function, Guid? frequencyCatalogItemId) =>
+    public static JobProfileFunctionResponse ToResponse(this JobProfileFunction function, Guid? frequencyCatalogItemPublicId) =>
         new(
             function.PublicId,
+            frequencyCatalogItemPublicId,
             function.FunctionType,
-            frequencyCatalogItemId,
             function.Description,
-            function.SortOrder);
+            function.SortOrder,
+            function.ConcurrencyToken);
 
     public static JobProfileRelationResponse ToResponse(this JobProfileRelation relation, Guid? catalogItemId = null) =>
         new(

@@ -230,7 +230,7 @@ public sealed class JobProfileCollectionAdministrationTests
     }
 
     [Fact]
-    public async Task AddFunction_WhenProfileExists_ShouldReturnLightweightItem()
+    public async Task AddFunction_WhenProfileExists_ShouldReturnCreatedEntity()
     {
         var profile = JobProfile.Create("JP-001", "Title");
         profile.SetTenantId(_tenantId);
@@ -247,23 +247,137 @@ public sealed class JobProfileCollectionAdministrationTests
             _positionDescriptionCatalogRepository);
 
         var result = await handler.Handle(
-            new AddJobProfileFunctionCommand(profileId, JobFunctionType.General, frequencyId, "Lead delivery", 1, profile.ConcurrencyToken),
+            new AddJobProfileFunctionCommand(profileId, JobFunctionType.General, frequencyId, "Lead delivery", 1),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("Lead delivery", result.Value.Item.Description);
-        Assert.Equal(frequencyId, result.Value.Item.FrequencyCatalogItemId);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        Assert.Equal("Lead delivery", result.Value.Description);
+        Assert.Equal(JobFunctionType.General, result.Value.FunctionType);
+        Assert.NotEqual(Guid.Empty, result.Value.ConcurrencyToken);
+        var function = Assert.Single(profile.Functions);
+        Assert.Equal(function.PublicId, result.Value.FunctionPublicId);
     }
 
     [Fact]
-    public async Task RemoveFunction_WhenProfileExists_ShouldReturnParentConcurrencyToken()
+    public async Task UpdateFunction_WhenTokenMatches_ShouldUpdateAndReturnEntity()
     {
         var profile = JobProfile.Create("JP-001", "Title");
         profile.SetTenantId(_tenantId);
         var function = JobProfileFunction.Create(JobFunctionType.General, null, "Lead delivery", 1);
         profile.AddFunction(function);
         var profileId = profile.PublicId;
+        var token = function.ConcurrencyToken;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new UpdateJobProfileFunctionCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork,
+            _positionDescriptionCatalogRepository);
+
+        var result = await handler.Handle(
+            new UpdateJobProfileFunctionCommand(profileId, function.PublicId, JobFunctionType.Specific, null, "Lead delivery roadmap", 2, token),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Lead delivery roadmap", result.Value.Description);
+        Assert.Equal(JobFunctionType.Specific, result.Value.FunctionType);
+        Assert.NotEqual(token, result.Value.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task UpdateFunction_WhenTokenStale_ShouldFailWithConcurrencyConflict()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var function = JobProfileFunction.Create(JobFunctionType.General, null, "Lead delivery", 1);
+        profile.AddFunction(function);
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new UpdateJobProfileFunctionCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork,
+            _positionDescriptionCatalogRepository);
+
+        var result = await handler.Handle(
+            new UpdateJobProfileFunctionCommand(profileId, function.PublicId, JobFunctionType.Specific, null, "Lead delivery roadmap", 2, Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(JobProfileErrors.ConcurrencyConflict.Code, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task PatchFunction_WhenTokenMatches_ShouldUpdateAndReturnEntity()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var function = JobProfileFunction.Create(JobFunctionType.General, null, "Lead delivery", 1);
+        profile.AddFunction(function);
+        var profileId = profile.PublicId;
+        var token = function.ConcurrencyToken;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new PatchJobProfileFunctionCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork,
+            _positionDescriptionCatalogRepository);
+
+        var result = await handler.Handle(
+            new PatchJobProfileFunctionCommand(
+                profileId,
+                function.PublicId,
+                [
+                    new JobProfileFunctionPatchOperation("replace", "/description", null, JsonSerializer.SerializeToElement("Lead delivery roadmap")),
+                    new JobProfileFunctionPatchOperation("replace", "/concurrencyToken", null, JsonSerializer.SerializeToElement(token.ToString()))
+                ]),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Lead delivery roadmap", result.Value.Description);
+        Assert.NotEqual(token, result.Value.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task GetFunctions_WhenProfileExists_ShouldReturnFunctionsWithConcurrencyTokens()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        profile.AddFunction(JobProfileFunction.Create(JobFunctionType.General, null, "Lead delivery", 1));
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new GetJobProfileFunctionsQueryHandler(
+            _authService,
+            _profileRepository,
+            _tenantContext);
+
+        var result = await handler.Handle(new GetJobProfileFunctionsQuery(profileId), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var function = Assert.Single(result.Value);
+        Assert.Equal("Lead delivery", function.Description);
+        Assert.NotEqual(Guid.Empty, function.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task RemoveFunction_WhenTokenMatches_ShouldRemoveAndReturnDeletedEntity()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var function = JobProfileFunction.Create(JobFunctionType.General, null, "Lead delivery", 1);
+        profile.AddFunction(function);
+        var profileId = profile.PublicId;
+        var token = function.ConcurrencyToken;
         _profileRepository.Profiles[profileId] = profile;
 
         var handler = new RemoveJobProfileFunctionCommandHandler(
@@ -274,12 +388,12 @@ public sealed class JobProfileCollectionAdministrationTests
             _unitOfWork);
 
         var result = await handler.Handle(
-            new RemoveJobProfileFunctionCommand(profileId, function.PublicId, profile.ConcurrencyToken),
+            new RemoveJobProfileFunctionCommand(profileId, function.PublicId, token),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Empty(profile.Functions);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        Assert.Equal(function.PublicId, result.Value.FunctionPublicId);
     }
 
     [Fact]

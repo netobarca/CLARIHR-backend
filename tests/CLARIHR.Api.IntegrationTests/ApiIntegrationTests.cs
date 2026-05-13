@@ -5201,7 +5201,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task JobProfileFunctions_SubresourceMutations_ShouldReturnLightweightContracts()
+    public async Task JobProfileFunctions_CrudFlow_ShouldReturnEntityContracts()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
@@ -5211,35 +5211,74 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var addResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/functions", new
         {
             functionType = "General",
-            frequencyCatalogItemId = (Guid?)null,
+            frequencyCatalogItemPublicId = (Guid?)null,
             description = "Planificar entregables",
-            sortOrder = 1,
-            concurrencyToken = profile.ConcurrencyToken
+            sortOrder = 1
         });
-        addResponse.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
 
         var addBody = await addResponse.Content.ReadAsStringAsync();
         var addJson = JsonDocument.Parse(addBody);
-        var addPayload = JsonSerializer.Deserialize<JobProfileSubResourceResult<JobProfileFunctionResponse>>(addBody, JsonOptions);
-        Assert.NotNull(addPayload);
-        Assert.True(addJson.RootElement.TryGetProperty("item", out var itemElement));
-        Assert.True(addJson.RootElement.TryGetProperty("parentConcurrencyToken", out var parentTokenElement));
+        Assert.False(addJson.RootElement.TryGetProperty("item", out _));
         Assert.False(addJson.RootElement.TryGetProperty("code", out _));
-        Assert.Equal("Planificar entregables", addPayload!.Item.Description);
-        Assert.Equal(JobFunctionType.General, addPayload.Item.FunctionType);
+        var created = JsonSerializer.Deserialize<JobProfileFunctionResponse>(addBody, JsonOptions);
+        Assert.NotNull(created);
+        Assert.Equal("Planificar entregables", created!.Description);
+        Assert.Equal(JobFunctionType.General, created.FunctionType);
+        Assert.NotEqual(Guid.Empty, created.ConcurrencyToken);
 
-        var functionId = addPayload.Item.Id;
-        var parentConcurrencyToken = addPayload.ParentConcurrencyToken;
+        var functionId = created.FunctionPublicId;
+
+        var getResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/functions");
+        getResponse.EnsureSuccessStatusCode();
+        var listed = await getResponse.Content.ReadFromJsonAsync<JobProfileFunctionResponse[]>(JsonOptions);
+        Assert.NotNull(listed);
+        var fromList = Assert.Single(listed!);
+        Assert.Equal(functionId, fromList.FunctionPublicId);
+
+        using var putRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/functions/{functionId}")
+        {
+            Content = JsonContent.Create(new
+            {
+                functionType = "Specific",
+                frequencyCatalogItemPublicId = (Guid?)null,
+                description = "Planificar entregables y roadmap",
+                sortOrder = 2,
+                concurrencyToken = created.ConcurrencyToken
+            })
+        };
+        var putResponse = await client.SendAsync(putRequest);
+        putResponse.EnsureSuccessStatusCode();
+        var updated = await putResponse.Content.ReadFromJsonAsync<JobProfileFunctionResponse>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Equal("Planificar entregables y roadmap", updated!.Description);
+        Assert.Equal(JobFunctionType.Specific, updated.FunctionType);
+        Assert.NotEqual(created.ConcurrencyToken, updated.ConcurrencyToken);
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/job-profiles/{profile.Id}/functions/{functionId}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[]
+                {
+                    new { op = "replace", path = "/sortOrder", value = (object)3 },
+                    new { op = "replace", path = "/concurrencyToken", value = (object)updated.ConcurrencyToken.ToString() }
+                }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = await patchResponse.Content.ReadFromJsonAsync<JobProfileFunctionResponse>(JsonOptions);
+        Assert.NotNull(patched);
+        Assert.Equal(3, patched!.SortOrder);
 
         using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/job-profiles/{profile.Id}/functions/{functionId}");
-        deleteRequest.Headers.TryAddWithoutValidation("If-Match", parentConcurrencyToken.ToString());
+        deleteRequest.Headers.TryAddWithoutValidation("If-Match", patched.ConcurrencyToken.ToString());
         var deleteResponse = await client.SendAsync(deleteRequest);
-
-        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
-        Assert.True(deleteResponse.Headers.TryGetValues("Parent-Concurrency-Token", out var headerValues));
-        var headerToken = Assert.Single(headerValues);
-        Assert.True(Guid.TryParse(headerToken, out _));
-        Assert.Empty(await deleteResponse.Content.ReadAsByteArrayAsync());
+        deleteResponse.EnsureSuccessStatusCode();
+        var deleted = await deleteResponse.Content.ReadFromJsonAsync<JobProfileFunctionResponse>(JsonOptions);
+        Assert.NotNull(deleted);
+        Assert.Equal(functionId, deleted!.FunctionPublicId);
     }
 
     [Fact]
@@ -5253,16 +5292,15 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var addResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/functions", new
         {
             functionType = "General",
-            frequencyCatalogItemId = (Guid?)null,
+            frequencyCatalogItemPublicId = (Guid?)null,
             description = "Tarea efímera",
-            sortOrder = 1,
-            concurrencyToken = profile.ConcurrencyToken
+            sortOrder = 1
         });
-        addResponse.EnsureSuccessStatusCode();
-        var addPayload = await addResponse.Content.ReadFromJsonAsync<JobProfileSubResourceResult<JobProfileFunctionResponse>>(JsonOptions);
-        Assert.NotNull(addPayload);
+        Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
+        var created = await addResponse.Content.ReadFromJsonAsync<JobProfileFunctionResponse>(JsonOptions);
+        Assert.NotNull(created);
 
-        var deleteResponse = await client.DeleteAsync($"/api/v1/job-profiles/{profile.Id}/functions/{addPayload!.Item.Id}");
+        var deleteResponse = await client.DeleteAsync($"/api/v1/job-profiles/{profile.Id}/functions/{created!.FunctionPublicId}");
 
         Assert.Equal(HttpStatusCode.BadRequest, deleteResponse.StatusCode);
     }
@@ -5278,20 +5316,19 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var addResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/functions", new
         {
             functionType = "General",
-            frequencyCatalogItemId = (Guid?)null,
+            frequencyCatalogItemPublicId = (Guid?)null,
             description = "Tarea con ETag con comillas",
-            sortOrder = 1,
-            concurrencyToken = profile.ConcurrencyToken
+            sortOrder = 1
         });
-        addResponse.EnsureSuccessStatusCode();
-        var addPayload = await addResponse.Content.ReadFromJsonAsync<JobProfileSubResourceResult<JobProfileFunctionResponse>>(JsonOptions);
-        Assert.NotNull(addPayload);
+        Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
+        var created = await addResponse.Content.ReadFromJsonAsync<JobProfileFunctionResponse>(JsonOptions);
+        Assert.NotNull(created);
 
-        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/job-profiles/{profile.Id}/functions/{addPayload!.Item.Id}");
-        deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{addPayload.ParentConcurrencyToken}\"");
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/job-profiles/{profile.Id}/functions/{created!.FunctionPublicId}");
+        deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{created.ConcurrencyToken}\"");
         var deleteResponse = await client.SendAsync(deleteRequest);
 
-        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        deleteResponse.EnsureSuccessStatusCode();
     }
 
     [Fact]

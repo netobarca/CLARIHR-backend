@@ -6146,6 +6146,16 @@ components:
         sortOrder:
           type: integer
           format: int32
+    JobProfileFunctionUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/JobProfileFunctionRequest'
+        - type: object
+          required:
+            - concurrencyToken
+          properties:
+            concurrencyToken:
+              type: string
+              format: uuid
     JobProfileRelationRequest:
       type: object
       required:
@@ -6344,25 +6354,29 @@ components:
     JobProfileFunctionResponse:
       type: object
       required:
-        - id
+        - functionPublicId
         - functionType
         - description
         - sortOrder
+        - concurrencyToken
       properties:
-        id:
+        functionPublicId:
           type: string
           format: uuid
-        functionType:
-          type: string
-        frequencyCatalogItemId:
+        frequencyCatalogItemPublicId:
           type: string
           format: uuid
           nullable: true
+        functionType:
+          type: string
         description:
           type: string
         sortOrder:
           type: integer
           format: int32
+        concurrencyToken:
+          type: string
+          format: uuid
     JobProfileRelationResponse:
       type: object
       required:
@@ -6512,17 +6526,6 @@ components:
         notes:
           type: string
           nullable: true
-    JobProfileSubResourceResultOfJobProfileFunctionResponse:
-      type: object
-      required:
-        - item
-        - parentConcurrencyToken
-      properties:
-        item:
-          $ref: '#/components/schemas/JobProfileFunctionResponse'
-        parentConcurrencyToken:
-          type: string
-          format: uuid
     JobProfileSubResourceResultOfJobProfileRelationResponse:
       type: object
       required:
@@ -13593,6 +13596,311 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Stale requirement concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/functions:
+    get:
+      tags:
+        - job-and-competency-design
+      operationId: GetJobProfileFunctions
+      summary: List job profile functions
+      description: Returns only the functions array for the selected tenant-scoped job profile. This is the only functions endpoint that returns the full functions collection.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Functions retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobProfileFunctionResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job profile was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - job-and-competency-design
+      operationId: AddJobProfileFunction
+      summary: Create a job profile function
+      description: Creates one function for the selected job profile and returns the created function entity. The request does not require a concurrency token; the created entity response includes its granular token.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobProfileFunctionRequest'
+      responses:
+        '201':
+          description: Function created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileFunctionResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile or referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict while adding the function.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId}:
+    put:
+      tags:
+        - job-and-competency-design
+      operationId: UpdateJobProfileFunction
+      summary: Replace a job profile function
+      description: Replaces one function. Concurrency is validated against the function entity token, not the parent job profile token.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: functionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobProfileFunctionUpdateRequest'
+      responses:
+        '200':
+          description: Function updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileFunctionResponse'
+        '400':
+          description: Validation error, including missing `concurrencyToken`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile, function or referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale function concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+        - job-and-competency-design
+      operationId: PatchJobProfileFunction
+      summary: Partially update a job profile function
+      description: Applies ASP.NET Core JSON Patch to one function. The patch document is the RFC 6902 operation array and must include `/concurrencyToken` as an add or replace operation.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: functionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/JsonPatchOperation'
+            examples:
+              replaceDescription:
+                value:
+                  - op: replace
+                    path: /description
+                    value: Coordinar el roadmap del area
+                  - op: replace
+                    path: /concurrencyToken
+                    value: c1c9f1d4-4f3c-47de-9d9b-4f8cb0c2e8d2
+      responses:
+        '200':
+          description: Function patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileFunctionResponse'
+        '400':
+          description: Invalid JSON Patch document, missing `/concurrencyToken` or unsupported patch path/operation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile, function or patched referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale function concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - job-and-competency-design
+      operationId: DeleteJobProfileFunction
+      summary: Delete a job profile function
+      description: Deletes one function and returns the deleted function entity. Concurrency is validated using the function token supplied in the `If-Match` header.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: functionPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current function `concurrencyToken`, with or without quotes.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Function deleted successfully. Response body contains the deleted entity snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileFunctionResponse'
+        '400':
+          description: Missing or invalid `If-Match` concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile or function was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale function concurrency token or another business conflict.
           content:
             application/problem+json:
               schema:

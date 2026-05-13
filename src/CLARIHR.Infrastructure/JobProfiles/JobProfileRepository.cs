@@ -44,6 +44,11 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 .ThenInclude(requirement => requirement.CatalogItem)
             .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
 
+    public Task<JobProfile?> GetWithFunctionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .Include(profile => profile.Functions)
+            .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
+
     public Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles
             .Include(profile => profile.WorkingConditions)
@@ -515,6 +520,59 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
              requirement.ConcurrencyToken))
         .SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyCollection<JobProfileFunctionResponse>?> GetFunctionResponsesByProfileIdAsync(
+        Guid profileId,
+        CancellationToken cancellationToken)
+    {
+        var profileInternalId = await dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.PublicId == profileId)
+            .Select(profile => (long?)profile.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!profileInternalId.HasValue)
+        {
+            return null;
+        }
+
+        return await
+            (from function in dbContext.JobProfileFunctions.AsNoTracking()
+             where function.JobProfileId == profileInternalId.Value
+             join frequencyItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+                 on function.FrequencyCatalogItemId equals (long?)frequencyItem.Id into frequencyItems
+             from frequencyItem in frequencyItems.DefaultIfEmpty()
+             orderby function.SortOrder, function.Description
+             select new JobProfileFunctionResponse(
+                 function.PublicId,
+                 frequencyItem == null ? null : frequencyItem.PublicId,
+                 function.FunctionType,
+                 function.Description,
+                 function.SortOrder,
+                 function.ConcurrencyToken))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public Task<JobProfileFunctionResponse?> GetFunctionResponseAsync(
+        Guid profileId,
+        Guid functionId,
+        CancellationToken cancellationToken) =>
+        (from profile in dbContext.JobProfiles.AsNoTracking()
+         where profile.PublicId == profileId
+         join function in dbContext.JobProfileFunctions.AsNoTracking()
+             on profile.Id equals function.JobProfileId
+         where function.PublicId == functionId
+         join frequencyItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+             on function.FrequencyCatalogItemId equals (long?)frequencyItem.Id into frequencyItems
+         from frequencyItem in frequencyItems.DefaultIfEmpty()
+         select new JobProfileFunctionResponse(
+             function.PublicId,
+             frequencyItem == null ? null : frequencyItem.PublicId,
+             function.FunctionType,
+             function.Description,
+             function.SortOrder,
+             function.ConcurrencyToken))
+        .SingleOrDefaultAsync(cancellationToken);
+
     public async Task<JobProfileResponse?> GetResponseByIdAsync(Guid profileId, CancellationToken cancellationToken)
     {
         var profile = await dbContext.JobProfiles
@@ -611,10 +669,11 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .ThenBy(item => item.Description)
             .Select(item => new JobProfileFunctionResponse(
                 item.PublicId,
-                item.FunctionType,
                 ResolveCatalogPublicId(item.FrequencyCatalogItemId, positionDescriptionCatalogLookup),
+                item.FunctionType,
                 item.Description,
-                item.SortOrder))
+                item.SortOrder,
+                item.ConcurrencyToken))
             .ToArray();
 
         var relationItems = profile.Relations

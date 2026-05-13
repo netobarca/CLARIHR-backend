@@ -47,6 +47,11 @@ public static class JobProfileErrors
         "The job profile requirement could not be found.",
         ErrorType.NotFound);
 
+    public static readonly Error FunctionNotFound = new(
+        "JOB_PROFILE_FUNCTION_NOT_FOUND",
+        "The job profile function could not be found.",
+        ErrorType.NotFound);
+
     public static readonly Error OrgUnitNotFound = new(
         "JOB_PROFILE_ORG_UNIT_NOT_FOUND",
         "The selected organization unit could not be found.",

@@ -9,8 +9,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260513000100_BackfillJobProfileRequirementConcurrencyTokens")]
-    public partial class BackfillJobProfileRequirementConcurrencyTokens : Migration
+    [Migration("20260513000200_BackfillJobProfileFunctionConcurrencyTokens")]
+    public partial class BackfillJobProfileFunctionConcurrencyTokens : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -23,21 +23,21 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         SELECT 1
                         FROM information_schema.columns
                         WHERE table_schema = current_schema()
-                          AND table_name = 'job_profile_requirements'
+                          AND table_name = 'job_profile_functions'
                           AND column_name = 'ConcurrencyToken'
                     ) AND NOT EXISTS (
                         SELECT 1
                         FROM information_schema.columns
                         WHERE table_schema = current_schema()
-                          AND table_name = 'job_profile_requirements'
+                          AND table_name = 'job_profile_functions'
                           AND column_name = 'concurrency_token'
                     ) THEN
-                        ALTER TABLE job_profile_requirements
+                        ALTER TABLE job_profile_functions
                         RENAME COLUMN "ConcurrencyToken" TO concurrency_token;
                     END IF;
                 END $$;
 
-                UPDATE job_profile_requirements
+                UPDATE job_profile_functions
                 SET concurrency_token = (md5(random()::text || clock_timestamp()::text))::uuid
                 WHERE concurrency_token = '00000000-0000-0000-0000-000000000000'::uuid;
                 """);
@@ -54,16 +54,16 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         SELECT 1
                         FROM information_schema.columns
                         WHERE table_schema = current_schema()
-                          AND table_name = 'job_profile_requirements'
+                          AND table_name = 'job_profile_functions'
                           AND column_name = 'concurrency_token'
                     ) AND NOT EXISTS (
                         SELECT 1
                         FROM information_schema.columns
                         WHERE table_schema = current_schema()
-                          AND table_name = 'job_profile_requirements'
+                          AND table_name = 'job_profile_functions'
                           AND column_name = 'ConcurrencyToken'
                     ) THEN
-                        ALTER TABLE job_profile_requirements
+                        ALTER TABLE job_profile_functions
                         RENAME COLUMN concurrency_token TO "ConcurrencyToken";
                     END IF;
                 END $$;
