@@ -52,6 +52,86 @@ public static class JobProfileErrors
         "The job profile function could not be found.",
         ErrorType.NotFound);
 
+    public static readonly Error RelationNotFound = new(
+        "JOB_PROFILE_RELATION_NOT_FOUND",
+        "The job profile relation could not be found.",
+        ErrorType.NotFound);
+
+    public static readonly Error CompetencyNotFound = new(
+        "JOB_PROFILE_COMPETENCY_NOT_FOUND",
+        "The job profile competency could not be found.",
+        ErrorType.NotFound);
+
+    public static readonly Error TrainingNotFound = new(
+        "JOB_PROFILE_TRAINING_NOT_FOUND",
+        "The job profile training could not be found.",
+        ErrorType.NotFound);
+
+    public static readonly Error TrainingNameRequired = new(
+        "JOB_PROFILE_TRAINING_NAME_REQUIRED",
+        "A name is required for the training.",
+        ErrorType.Validation);
+
+    public static readonly Error BenefitNotFound = new(
+        "JOB_PROFILE_BENEFIT_NOT_FOUND",
+        "The job profile benefit could not be found.",
+        ErrorType.NotFound);
+
+    public static readonly Error BenefitNameRequired = new(
+        "JOB_PROFILE_BENEFIT_NAME_REQUIRED",
+        "A name is required for the benefit.",
+        ErrorType.Validation);
+
+    public static readonly Error WorkingConditionNotFound = new(
+        "JOB_PROFILE_WORKING_CONDITION_NOT_FOUND",
+        "The job profile working condition could not be found.",
+        ErrorType.NotFound);
+
+    public static readonly Error WorkingConditionNameRequired = new(
+        "JOB_PROFILE_WORKING_CONDITION_NAME_REQUIRED",
+        "A name is required for the working condition.",
+        ErrorType.Validation);
+
+    public static readonly Error DependentPositionNotFound = new(
+        "JOB_PROFILE_DEPENDENT_POSITION_NOT_FOUND",
+        "The job profile dependent position could not be found.",
+        ErrorType.NotFound);
+
+    public static readonly Error CatalogItemSystemImmutable = new(
+        "JOB_CATALOG_ITEM_SYSTEM_IMMUTABLE",
+        "System catalog items cannot be modified or deleted.",
+        ErrorType.Conflict);
+
+    public static readonly Error CatalogItemInUse = new(
+        "JOB_CATALOG_ITEM_IN_USE",
+        "The catalog item is referenced by one or more job profile records and cannot be deleted.",
+        ErrorType.Conflict);
+
+    public static readonly Error CompensationAlreadyExists = new(
+        "JOB_PROFILE_COMPENSATION_ALREADY_EXISTS",
+        "The job profile already has a compensation configured. Update the existing one instead.",
+        ErrorType.Conflict);
+
+    public static readonly Error CompensationNotFound = new(
+        "JOB_PROFILE_COMPENSATION_NOT_FOUND",
+        "The job profile compensation could not be found.",
+        ErrorType.NotFound);
+
+    public static readonly Error SalaryTabulatorLineNotFoundForCompensation = new(
+        "JOB_PROFILE_COMPENSATION_SALARY_TABULATOR_LINE_NOT_FOUND",
+        "The selected salary tabulator line could not be found.",
+        ErrorType.NotFound);
+
+    public static readonly Error SalaryTabulatorLineInactiveForCompensation = new(
+        "JOB_PROFILE_COMPENSATION_SALARY_TABULATOR_LINE_INACTIVE",
+        "The selected salary tabulator line is not active.",
+        ErrorType.Conflict);
+
+    public static readonly Error CompetencyNameRequired = new(
+        "JOB_PROFILE_COMPETENCY_NAME_REQUIRED",
+        "A name is required for the competency.",
+        ErrorType.Validation);
+
     public static readonly Error OrgUnitNotFound = new(
         "JOB_PROFILE_ORG_UNIT_NOT_FOUND",
         "The selected organization unit could not be found.",

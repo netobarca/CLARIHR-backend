@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -86,6 +87,83 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         Assert.True(problemDocument.RootElement.TryGetProperty("suggestions", out var suggestions));
         Assert.Equal(JsonValueKind.Array, suggestions.ValueKind);
         Assert.NotEmpty(suggestions.EnumerateArray());
+    }
+
+    [Fact]
+    public async Task PositionDescriptionCatalogs_PatchEndpoints_ShouldReturnPatchedEntity()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var frequency = await EnsurePositionDescriptionCatalogItemAsync(client, scenario.TenantId, "frequencies", "FREQ-PATCH");
+        using var frequencyPatchRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/position-description-catalogs/frequencies/items/{frequency.Id}")
+        {
+            Content = CreateJsonPatchContent(
+                new { op = "replace", path = "/name", value = (object)"Frecuencia parcheada" },
+                new { op = "replace", path = "/isActive", value = (object)false },
+                new { op = "replace", path = "/concurrencyToken", value = (object)frequency.ConcurrencyToken.ToString() })
+        };
+
+        var frequencyPatchResponse = await client.SendAsync(frequencyPatchRequest);
+        frequencyPatchResponse.EnsureSuccessStatusCode();
+        var patchedFrequency = await frequencyPatchResponse.Content.ReadFromJsonAsync<PositionDescriptionCatalogItem>(JsonOptions);
+        Assert.NotNull(patchedFrequency);
+        Assert.Equal(frequency.Id, patchedFrequency!.Id);
+        Assert.Equal("Frecuencia parcheada", patchedFrequency.Name);
+        Assert.False(patchedFrequency.IsActive);
+        Assert.NotEqual(frequency.ConcurrencyToken, patchedFrequency.ConcurrencyToken);
+
+        var orgUnitType = await EnsureOrgUnitTypeAsync(client, scenario.TenantId, "ORG-PATCH");
+        var functionType = await EnsurePositionDescriptionCatalogItemAsync(client, scenario.TenantId, "position-function-types", "FUNC-PATCH");
+        var contractType = await EnsurePositionDescriptionCatalogItemAsync(client, scenario.TenantId, "position-contract-types", "CON-PATCH");
+        var classification = await EnsurePositionCategoryClassificationAsync(
+            client,
+            scenario.TenantId,
+            "CLASS-PATCH",
+            functionType.Id,
+            contractType.Id,
+            orgUnitType.Id);
+
+        using var classificationPatchRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/position-category-classifications/{classification.Id}")
+        {
+            Content = CreateJsonPatchContent(
+                new { op = "replace", path = "/name", value = (object)"Clasificacion parcheada" },
+                new { op = "replace", path = "/sortOrder", value = (object)25 },
+                new { op = "replace", path = "/concurrencyToken", value = (object)classification.ConcurrencyToken.ToString() })
+        };
+
+        var classificationPatchResponse = await client.SendAsync(classificationPatchRequest);
+        classificationPatchResponse.EnsureSuccessStatusCode();
+        var patchedClassification = await classificationPatchResponse.Content.ReadFromJsonAsync<PositionCategoryClassificationItem>(JsonOptions);
+        Assert.NotNull(patchedClassification);
+        Assert.Equal(classification.Id, patchedClassification!.Id);
+        Assert.Equal("Clasificacion parcheada", patchedClassification.Name);
+        Assert.Equal(25, patchedClassification.SortOrder);
+        Assert.NotEqual(classification.ConcurrencyToken, patchedClassification.ConcurrencyToken);
+
+        var category = await EnsurePositionCategoryAsync(client, scenario.TenantId, "CAT-PATCH", classification.Id);
+        using var categoryPatchRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/position-categories/{category.Id}")
+        {
+            Content = CreateJsonPatchContent(
+                new { op = "replace", path = "/name", value = (object)"Categoria parcheada" },
+                new { op = "replace", path = "/isActive", value = (object)false },
+                new { op = "replace", path = "/concurrencyToken", value = (object)category.ConcurrencyToken.ToString() })
+        };
+
+        var categoryPatchResponse = await client.SendAsync(categoryPatchRequest);
+        categoryPatchResponse.EnsureSuccessStatusCode();
+        var patchedCategory = await categoryPatchResponse.Content.ReadFromJsonAsync<PositionCategoryItem>(JsonOptions);
+        Assert.NotNull(patchedCategory);
+        Assert.Equal(category.Id, patchedCategory!.Id);
+        Assert.Equal("Categoria parcheada", patchedCategory.Name);
+        Assert.False(patchedCategory.IsActive);
+        Assert.NotEqual(category.ConcurrencyToken, patchedCategory.ConcurrencyToken);
     }
 
     [Fact]
@@ -329,7 +407,7 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         string code)
     {
         var listResponse = await client.GetAsync(
-            $"/api/v1/companies/{companyId}/{routeSegment}?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+            $"/api/v1/companies/{companyId}/position-description-catalogs/{routeSegment}/items?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
         listResponse.EnsureSuccessStatusCode();
 
         var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<PositionDescriptionCatalogItem>>(JsonOptions);
@@ -341,7 +419,7 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
             return existing;
         }
 
-        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/{routeSegment}", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/position-description-catalogs/{routeSegment}/items", new
         {
             code,
             name = code,
@@ -381,9 +459,9 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
             code,
             name = code,
             description = (string?)null,
-            positionFunctionTypeId,
-            positionContractTypeId,
-            orgUnitTypeId,
+            positionFunctionTypePublicId = positionFunctionTypeId,
+            positionContractTypePublicId = positionContractTypeId,
+            orgUnitTypePublicId = orgUnitTypeId,
             sortOrder = 10
         });
         createResponse.EnsureSuccessStatusCode();
@@ -417,7 +495,7 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
             code,
             name = code,
             description = (string?)null,
-            classificationId,
+            classificationPublicId = classificationId,
             sortOrder = 10
         });
         createResponse.EnsureSuccessStatusCode();
@@ -442,6 +520,12 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
 
         return await EnsurePositionCategoryAsync(client, companyId, "CAT-BASE", classification.Id);
     }
+
+    private static StringContent CreateJsonPatchContent(params object[] operations) =>
+        new(
+            JsonSerializer.Serialize(operations),
+            Encoding.UTF8,
+            "application/json-patch+json");
 
     private async Task<OrgUnitItem> EnsureDefaultOrgUnitAsync(HttpClient client, Guid companyId)
     {
@@ -499,9 +583,25 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
 
     private sealed record OrgStructureCatalogItem(Guid Id, string Code);
 
-    private sealed record PositionDescriptionCatalogItem(Guid Id, string Code);
+    private sealed record PositionDescriptionCatalogItem(
+        Guid Id,
+        string Code,
+        string Name,
+        bool IsActive,
+        Guid ConcurrencyToken);
 
-    private sealed record PositionCategoryClassificationItem(Guid Id, string Code);
+    private sealed record PositionCategoryClassificationItem(
+        Guid Id,
+        string Code,
+        string Name,
+        int SortOrder,
+        bool IsActive,
+        Guid ConcurrencyToken);
 
-    private sealed record PositionCategoryItem(Guid Id, string Code);
+    private sealed record PositionCategoryItem(
+        Guid Id,
+        string Code,
+        string Name,
+        bool IsActive,
+        Guid ConcurrencyToken);
 }

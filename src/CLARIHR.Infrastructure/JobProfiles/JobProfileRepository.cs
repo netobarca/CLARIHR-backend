@@ -24,7 +24,6 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 .ThenInclude(competency => competency.CatalogItem)
             .Include(profile => profile.Trainings)
                 .ThenInclude(training => training.CatalogItem)
-            .Include(profile => profile.SalaryClassCatalogItem)
             .Include(profile => profile.Benefits)
                 .ThenInclude(benefit => benefit.CatalogItem)
             .Include(profile => profile.WorkingConditions)
@@ -35,7 +34,6 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
 
     public Task<JobProfile?> GetCoreByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles
-            .Include(profile => profile.SalaryClassCatalogItem)
             .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
 
     public Task<JobProfile?> GetWithRequirementsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
@@ -49,9 +47,39 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .Include(profile => profile.Functions)
             .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
 
+    public Task<JobProfile?> GetWithRelationsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .Include(profile => profile.Relations)
+                .ThenInclude(relation => relation.CatalogItem)
+            .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
+
+    public Task<JobProfile?> GetWithCompetenciesOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .Include(profile => profile.Competencies)
+                .ThenInclude(competency => competency.CatalogItem)
+            .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
+
     public Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles
             .Include(profile => profile.WorkingConditions)
+            .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
+
+    public Task<JobProfile?> GetWithTrainingsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .Include(profile => profile.Trainings)
+                .ThenInclude(training => training.CatalogItem)
+            .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
+
+    public Task<JobProfile?> GetWithBenefitsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .Include(profile => profile.Benefits)
+                .ThenInclude(benefit => benefit.CatalogItem)
+            .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
+
+    public Task<JobProfile?> GetWithDependentPositionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        dbContext.JobProfiles
+            .Include(profile => profile.DependentPositions)
+                .ThenInclude(position => position.DependentJobProfile)
             .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
 
     public Task<bool> ExistsOutsideTenantAsync(Guid profileId, CancellationToken cancellationToken) =>
@@ -205,7 +233,24 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 return new PagedResponse<JobProfileListItemResponse>([], pageNumber, pageSize, 0);
             }
 
-            query = query.Where(profile => profile.SalaryClassCatalogItemId == salaryClassInternalId.Value);
+            var matchingClassCode = await dbContext.PositionDescriptionCatalogItems
+                .AsNoTracking()
+                .Where(item => item.Id == salaryClassInternalId.Value)
+                .Select(item => item.NormalizedCode)
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(matchingClassCode))
+            {
+                return new PagedResponse<JobProfileListItemResponse>([], pageNumber, pageSize, 0);
+            }
+
+            query = from profile in query
+                    join compensation in dbContext.JobProfileCompensations.AsNoTracking()
+                        on profile.Id equals compensation.JobProfileId
+                    join line in dbContext.SalaryTabulatorLines.AsNoTracking()
+                        on compensation.SalaryTabulatorLineId equals line.Id
+                    where line.NormalizedSalaryClassCode == matchingClassCode
+                    select profile;
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -245,7 +290,6 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
     {
         var profile = await dbContext.JobProfiles
             .AsNoTracking()
-            .Include(item => item.SalaryClassCatalogItem)
             .SingleOrDefaultAsync(item => item.PublicId == profileId, cancellationToken);
 
         if (profile is null)
@@ -279,7 +323,6 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
         AddIfPresent(positionDescriptionCatalogItemIds, profile.StrategicObjectiveCatalogItemId);
         AddIfPresent(positionDescriptionCatalogItemIds, profile.AssignedWorkEquipmentCatalogItemId);
         AddIfPresent(positionDescriptionCatalogItemIds, profile.ResponsibilityCatalogItemId);
-        AddIfPresent(positionDescriptionCatalogItemIds, profile.SalaryClassCatalogItemId);
 
         var positionDescriptionCatalogLookup = positionDescriptionCatalogItemIds.Count == 0
             ? new Dictionary<long, Guid>()
@@ -288,69 +331,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 .Where(item => positionDescriptionCatalogItemIds.Contains(item.Id))
                 .ToDictionaryAsync(item => item.Id, item => item.PublicId, cancellationToken);
 
-        JobProfileCompensationResponse? compensationItem = null;
-        if (!string.IsNullOrWhiteSpace(profile.SalaryScaleCode) &&
-            !string.IsNullOrWhiteSpace(profile.NormalizedSalaryScaleCode))
-        {
-            var normalizedSalaryClassCode = profile.SalaryClassCatalogItem?.Code.Trim().ToUpperInvariant();
-            var effectiveRangeStartUtc = (profile.EffectiveFromUtc ?? DateTime.UtcNow).Date;
-            var effectiveRangeEndUtc = profile.EffectiveToUtc?.Date ?? DateTime.SpecifyKind(DateTime.MaxValue.Date, DateTimeKind.Utc);
-            var lineQuery = dbContext.SalaryTabulatorLines
-                .AsNoTracking()
-                .Where(line =>
-                    line.TenantId == profile.TenantId &&
-                    line.NormalizedSalaryScaleCode == profile.NormalizedSalaryScaleCode &&
-                    line.EffectiveFromUtc.Date <= effectiveRangeEndUtc &&
-                    (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value.Date >= effectiveRangeStartUtc));
-
-            if (!string.IsNullOrWhiteSpace(normalizedSalaryClassCode))
-            {
-                lineQuery = lineQuery.Where(line => line.NormalizedSalaryClassCode == normalizedSalaryClassCode);
-            }
-
-            var matchingLines = await lineQuery
-                .OrderByDescending(line => line.EffectiveFromUtc)
-                .Select(line => new SalaryTabulatorResolution(
-                    line.PublicId,
-                    line.NormalizedSalaryClassCode,
-                    line.CurrencyCode,
-                    line.BaseAmount,
-                    line.MinAmount,
-                    line.MaxAmount,
-                    line.EffectiveFromUtc,
-                    line.EffectiveToUtc))
-                .Take(2)
-                .ToArrayAsync(cancellationToken);
-            var resolution = matchingLines.Length == 1 ? matchingLines[0] : null;
-            var salaryClassPublicId = ResolveCatalogPublicId(profile.SalaryClassCatalogItemId, positionDescriptionCatalogLookup);
-            var salaryClassName = profile.SalaryClassCatalogItem?.Name;
-            if (resolution is not null && (!salaryClassPublicId.HasValue || string.IsNullOrWhiteSpace(salaryClassName)))
-            {
-                var salaryClassLookup = await dbContext.PositionDescriptionCatalogItems
-                    .AsNoTracking()
-                    .Where(item =>
-                        item.TenantId == profile.TenantId &&
-                        item.CatalogType == Domain.PositionDescriptionCatalogs.PositionDescriptionCatalogType.SalaryClass &&
-                        item.NormalizedCode == resolution.NormalizedSalaryClassCode)
-                    .Select(item => new { item.PublicId, item.Name })
-                    .FirstOrDefaultAsync(cancellationToken);
-
-                salaryClassPublicId ??= salaryClassLookup?.PublicId;
-                salaryClassName ??= salaryClassLookup?.Name;
-            }
-
-            compensationItem = new JobProfileCompensationResponse(
-                salaryClassPublicId,
-                salaryClassName,
-                profile.SalaryScaleCode,
-                resolution?.Id,
-                resolution?.CurrencyCode,
-                resolution?.BaseAmount,
-                resolution?.MinAmount,
-                resolution?.MaxAmount,
-                resolution?.EffectiveFromUtc,
-                resolution?.EffectiveToUtc);
-        }
+        var compensationItem = await GetCompensationResponseAsync(profile.Id, profile.TenantId, cancellationToken);
 
         return new JobProfileCoreResponse(
             profile.PublicId,
@@ -573,6 +554,336 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
              function.ConcurrencyToken))
         .SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyCollection<JobProfileRelationResponse>?> GetRelationResponsesByProfileIdAsync(
+        Guid profileId,
+        CancellationToken cancellationToken)
+    {
+        var profileInternalId = await dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.PublicId == profileId)
+            .Select(profile => (long?)profile.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!profileInternalId.HasValue)
+        {
+            return null;
+        }
+
+        return await
+            (from relation in dbContext.JobProfileRelations.AsNoTracking()
+             where relation.JobProfileId == profileInternalId.Value
+             join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+                 on relation.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+             from catalogItem in catalogItems.DefaultIfEmpty()
+             orderby relation.SortOrder, relation.Counterpart
+             select new JobProfileRelationResponse(
+                 relation.PublicId,
+                 catalogItem == null ? null : catalogItem.PublicId,
+                 relation.RelationType,
+                 relation.Counterpart,
+                 relation.Notes,
+                 relation.SortOrder,
+                 relation.ConcurrencyToken))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public Task<JobProfileRelationResponse?> GetRelationResponseAsync(
+        Guid profileId,
+        Guid relationId,
+        CancellationToken cancellationToken) =>
+        (from profile in dbContext.JobProfiles.AsNoTracking()
+         where profile.PublicId == profileId
+         join relation in dbContext.JobProfileRelations.AsNoTracking()
+             on profile.Id equals relation.JobProfileId
+         where relation.PublicId == relationId
+         join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+             on relation.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+         from catalogItem in catalogItems.DefaultIfEmpty()
+         select new JobProfileRelationResponse(
+             relation.PublicId,
+             catalogItem == null ? null : catalogItem.PublicId,
+             relation.RelationType,
+             relation.Counterpart,
+             relation.Notes,
+             relation.SortOrder,
+             relation.ConcurrencyToken))
+        .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<JobProfileLegacyCompetencyResponse>?> GetLegacyCompetencyResponsesByProfileIdAsync(
+        Guid profileId,
+        CancellationToken cancellationToken)
+    {
+        var profileInternalId = await dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.PublicId == profileId)
+            .Select(profile => (long?)profile.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!profileInternalId.HasValue)
+        {
+            return null;
+        }
+
+        return await
+            (from competency in dbContext.JobProfileCompetencies.AsNoTracking()
+             where competency.JobProfileId == profileInternalId.Value
+             join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+                 on competency.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+             from catalogItem in catalogItems.DefaultIfEmpty()
+             orderby competency.SortOrder, competency.Name
+             select new JobProfileLegacyCompetencyResponse(
+                 competency.PublicId,
+                 catalogItem == null ? null : catalogItem.PublicId,
+                 competency.Name,
+                 competency.ExpectedLevel,
+                 competency.Notes,
+                 competency.SortOrder,
+                 competency.ConcurrencyToken))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public Task<JobProfileLegacyCompetencyResponse?> GetLegacyCompetencyResponseAsync(
+        Guid profileId,
+        Guid competencyId,
+        CancellationToken cancellationToken) =>
+        (from profile in dbContext.JobProfiles.AsNoTracking()
+         where profile.PublicId == profileId
+         join competency in dbContext.JobProfileCompetencies.AsNoTracking()
+             on profile.Id equals competency.JobProfileId
+         where competency.PublicId == competencyId
+         join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+             on competency.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+         from catalogItem in catalogItems.DefaultIfEmpty()
+         select new JobProfileLegacyCompetencyResponse(
+             competency.PublicId,
+             catalogItem == null ? null : catalogItem.PublicId,
+             competency.Name,
+             competency.ExpectedLevel,
+             competency.Notes,
+             competency.SortOrder,
+             competency.ConcurrencyToken))
+        .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<JobProfileTrainingResponse>?> GetTrainingResponsesByProfileIdAsync(
+        Guid profileId,
+        CancellationToken cancellationToken)
+    {
+        var profileInternalId = await dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.PublicId == profileId)
+            .Select(profile => (long?)profile.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!profileInternalId.HasValue)
+        {
+            return null;
+        }
+
+        return await
+            (from training in dbContext.Set<Domain.JobProfiles.JobProfileTraining>().AsNoTracking()
+             where training.JobProfileId == profileInternalId.Value
+             join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+                 on training.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+             from catalogItem in catalogItems.DefaultIfEmpty()
+             orderby training.SortOrder, training.Name
+             select new JobProfileTrainingResponse(
+                 training.PublicId,
+                 catalogItem == null ? null : catalogItem.PublicId,
+                 training.Name,
+                 training.Notes,
+                 training.SortOrder,
+                 training.ConcurrencyToken))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public Task<JobProfileTrainingResponse?> GetTrainingResponseAsync(
+        Guid profileId,
+        Guid trainingId,
+        CancellationToken cancellationToken) =>
+        (from profile in dbContext.JobProfiles.AsNoTracking()
+         where profile.PublicId == profileId
+         join training in dbContext.Set<Domain.JobProfiles.JobProfileTraining>().AsNoTracking()
+             on profile.Id equals training.JobProfileId
+         where training.PublicId == trainingId
+         join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+             on training.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+         from catalogItem in catalogItems.DefaultIfEmpty()
+         select new JobProfileTrainingResponse(
+             training.PublicId,
+             catalogItem == null ? null : catalogItem.PublicId,
+             training.Name,
+             training.Notes,
+             training.SortOrder,
+             training.ConcurrencyToken))
+        .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<JobProfileBenefitResponse>?> GetBenefitResponsesByProfileIdAsync(
+        Guid profileId,
+        CancellationToken cancellationToken)
+    {
+        var profileInternalId = await dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.PublicId == profileId)
+            .Select(profile => (long?)profile.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!profileInternalId.HasValue)
+        {
+            return null;
+        }
+
+        return await
+            (from benefit in dbContext.Set<Domain.JobProfiles.JobProfileBenefit>().AsNoTracking()
+             where benefit.JobProfileId == profileInternalId.Value
+             join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+                 on benefit.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+             from catalogItem in catalogItems.DefaultIfEmpty()
+             orderby benefit.SortOrder, benefit.Name
+             select new JobProfileBenefitResponse(
+                 benefit.PublicId,
+                 catalogItem == null ? null : catalogItem.PublicId,
+                 benefit.Name,
+                 benefit.Notes,
+                 benefit.SortOrder,
+                 benefit.ConcurrencyToken))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public Task<JobProfileBenefitResponse?> GetBenefitResponseAsync(
+        Guid profileId,
+        Guid benefitId,
+        CancellationToken cancellationToken) =>
+        (from profile in dbContext.JobProfiles.AsNoTracking()
+         where profile.PublicId == profileId
+         join benefit in dbContext.Set<Domain.JobProfiles.JobProfileBenefit>().AsNoTracking()
+             on profile.Id equals benefit.JobProfileId
+         where benefit.PublicId == benefitId
+         join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+             on benefit.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+         from catalogItem in catalogItems.DefaultIfEmpty()
+         select new JobProfileBenefitResponse(
+             benefit.PublicId,
+             catalogItem == null ? null : catalogItem.PublicId,
+             benefit.Name,
+             benefit.Notes,
+             benefit.SortOrder,
+             benefit.ConcurrencyToken))
+        .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<JobProfileWorkingConditionResponse>?> GetWorkingConditionResponsesByProfileIdAsync(
+        Guid profileId,
+        CancellationToken cancellationToken)
+    {
+        var profileInternalId = await dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.PublicId == profileId)
+            .Select(profile => (long?)profile.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!profileInternalId.HasValue)
+        {
+            return null;
+        }
+
+        return await
+            (from condition in dbContext.Set<Domain.JobProfiles.JobProfileWorkingCondition>().AsNoTracking()
+             where condition.JobProfileId == profileInternalId.Value
+             join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+                 on condition.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+             from catalogItem in catalogItems.DefaultIfEmpty()
+             join workConditionTypeItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+                 on condition.WorkConditionTypeCatalogItemId equals (long?)workConditionTypeItem.Id into workConditionTypeItems
+             from workConditionTypeItem in workConditionTypeItems.DefaultIfEmpty()
+             orderby condition.SortOrder, condition.Name
+             select new JobProfileWorkingConditionResponse(
+                 condition.PublicId,
+                 catalogItem == null ? null : catalogItem.PublicId,
+                 workConditionTypeItem == null ? null : workConditionTypeItem.PublicId,
+                 condition.Name,
+                 condition.Notes,
+                 condition.SortOrder,
+                 condition.ConcurrencyToken))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public Task<JobProfileWorkingConditionResponse?> GetWorkingConditionResponseAsync(
+        Guid profileId,
+        Guid workingConditionId,
+        CancellationToken cancellationToken) =>
+        (from profile in dbContext.JobProfiles.AsNoTracking()
+         where profile.PublicId == profileId
+         join condition in dbContext.Set<Domain.JobProfiles.JobProfileWorkingCondition>().AsNoTracking()
+             on profile.Id equals condition.JobProfileId
+         where condition.PublicId == workingConditionId
+         join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+             on condition.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+         from catalogItem in catalogItems.DefaultIfEmpty()
+         join workConditionTypeItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+             on condition.WorkConditionTypeCatalogItemId equals (long?)workConditionTypeItem.Id into workConditionTypeItems
+         from workConditionTypeItem in workConditionTypeItems.DefaultIfEmpty()
+         select new JobProfileWorkingConditionResponse(
+             condition.PublicId,
+             catalogItem == null ? null : catalogItem.PublicId,
+             workConditionTypeItem == null ? null : workConditionTypeItem.PublicId,
+             condition.Name,
+             condition.Notes,
+             condition.SortOrder,
+             condition.ConcurrencyToken))
+        .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<JobProfileDependentPositionResponse>?> GetDependentPositionResponsesByProfileIdAsync(
+        Guid profileId,
+        CancellationToken cancellationToken)
+    {
+        var profileInternalId = await dbContext.JobProfiles
+            .AsNoTracking()
+            .Where(profile => profile.PublicId == profileId)
+            .Select(profile => (long?)profile.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!profileInternalId.HasValue)
+        {
+            return null;
+        }
+
+        return await
+            (from position in dbContext.JobProfileDependentPositions.AsNoTracking()
+             where position.JobProfileId == profileInternalId.Value
+             join dependent in dbContext.JobProfiles.AsNoTracking()
+                 on position.DependentJobProfileId equals dependent.Id
+             orderby dependent.Title, dependent.Code
+             select new JobProfileDependentPositionResponse(
+                 position.PublicId,
+                 dependent.PublicId,
+                 dependent.Code,
+                 dependent.Title,
+                 position.Quantity,
+                 position.Notes,
+                 position.ConcurrencyToken))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    public Task<JobProfileDependentPositionResponse?> GetDependentPositionResponseAsync(
+        Guid profileId,
+        Guid dependentPositionId,
+        CancellationToken cancellationToken) =>
+        (from profile in dbContext.JobProfiles.AsNoTracking()
+         where profile.PublicId == profileId
+         join position in dbContext.JobProfileDependentPositions.AsNoTracking()
+             on profile.Id equals position.JobProfileId
+         where position.PublicId == dependentPositionId
+         join dependent in dbContext.JobProfiles.AsNoTracking()
+             on position.DependentJobProfileId equals dependent.Id
+         select new JobProfileDependentPositionResponse(
+             position.PublicId,
+             dependent.PublicId,
+             dependent.Code,
+             dependent.Title,
+             position.Quantity,
+             position.Notes,
+             position.ConcurrencyToken))
+        .SingleOrDefaultAsync(cancellationToken);
+
     public async Task<JobProfileResponse?> GetResponseByIdAsync(Guid profileId, CancellationToken cancellationToken)
     {
         var profile = await dbContext.JobProfiles
@@ -587,7 +898,6 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 .ThenInclude(item => item.CatalogItem)
             .Include(item => item.Trainings)
                 .ThenInclude(item => item.CatalogItem)
-            .Include(item => item.SalaryClassCatalogItem)
             .Include(item => item.Benefits)
                 .ThenInclude(item => item.CatalogItem)
             .Include(item => item.WorkingConditions)
@@ -627,7 +937,6 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
         AddIfPresent(positionDescriptionCatalogItemIds, profile.StrategicObjectiveCatalogItemId);
         AddIfPresent(positionDescriptionCatalogItemIds, profile.AssignedWorkEquipmentCatalogItemId);
         AddIfPresent(positionDescriptionCatalogItemIds, profile.ResponsibilityCatalogItemId);
-        AddIfPresent(positionDescriptionCatalogItemIds, profile.SalaryClassCatalogItemId);
 
         foreach (var requirement in profile.Requirements)
         {
@@ -685,7 +994,8 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 item.RelationType,
                 item.Counterpart,
                 item.Notes,
-                item.SortOrder))
+                item.SortOrder,
+                item.ConcurrencyToken))
             .ToArray();
 
         var competencyItems = await GetCompetencyMatrixItemsAsync(profile.Id, cancellationToken);
@@ -698,72 +1008,11 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 item.CatalogItem?.PublicId,
                 item.Name,
                 item.Notes,
-                item.SortOrder))
+                item.SortOrder,
+                item.ConcurrencyToken))
             .ToArray();
 
-        JobProfileCompensationResponse? compensationItem = null;
-        if (!string.IsNullOrWhiteSpace(profile.SalaryScaleCode) &&
-            !string.IsNullOrWhiteSpace(profile.NormalizedSalaryScaleCode))
-        {
-            var normalizedSalaryClassCode = profile.SalaryClassCatalogItem?.Code.Trim().ToUpperInvariant();
-            var effectiveRangeStartUtc = (profile.EffectiveFromUtc ?? DateTime.UtcNow).Date;
-            var effectiveRangeEndUtc = profile.EffectiveToUtc?.Date ?? DateTime.SpecifyKind(DateTime.MaxValue.Date, DateTimeKind.Utc);
-            var lineQuery = dbContext.SalaryTabulatorLines
-                .AsNoTracking()
-                .Where(line =>
-                    line.TenantId == profile.TenantId &&
-                    line.NormalizedSalaryScaleCode == profile.NormalizedSalaryScaleCode &&
-                    line.EffectiveFromUtc.Date <= effectiveRangeEndUtc &&
-                    (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value.Date >= effectiveRangeStartUtc));
-
-            if (!string.IsNullOrWhiteSpace(normalizedSalaryClassCode))
-            {
-                lineQuery = lineQuery.Where(line => line.NormalizedSalaryClassCode == normalizedSalaryClassCode);
-            }
-
-            var matchingLines = await lineQuery
-                .OrderByDescending(line => line.EffectiveFromUtc)
-                .Select(line => new SalaryTabulatorResolution(
-                    line.PublicId,
-                    line.NormalizedSalaryClassCode,
-                    line.CurrencyCode,
-                    line.BaseAmount,
-                    line.MinAmount,
-                    line.MaxAmount,
-                    line.EffectiveFromUtc,
-                    line.EffectiveToUtc))
-                .Take(2)
-                .ToArrayAsync(cancellationToken);
-            var resolution = matchingLines.Length == 1 ? matchingLines[0] : null;
-            var salaryClassPublicId = ResolveCatalogPublicId(profile.SalaryClassCatalogItemId, positionDescriptionCatalogLookup);
-            var salaryClassName = profile.SalaryClassCatalogItem?.Name;
-            if (resolution is not null && (!salaryClassPublicId.HasValue || string.IsNullOrWhiteSpace(salaryClassName)))
-            {
-                var salaryClassLookup = await dbContext.PositionDescriptionCatalogItems
-                    .AsNoTracking()
-                    .Where(item =>
-                        item.TenantId == profile.TenantId &&
-                        item.CatalogType == Domain.PositionDescriptionCatalogs.PositionDescriptionCatalogType.SalaryClass &&
-                        item.NormalizedCode == resolution.NormalizedSalaryClassCode)
-                    .Select(item => new { item.PublicId, item.Name })
-                    .FirstOrDefaultAsync(cancellationToken);
-
-                salaryClassPublicId ??= salaryClassLookup?.PublicId;
-                salaryClassName ??= salaryClassLookup?.Name;
-            }
-
-            compensationItem = new JobProfileCompensationResponse(
-                salaryClassPublicId,
-                salaryClassName,
-                profile.SalaryScaleCode,
-                resolution?.Id,
-                resolution?.CurrencyCode,
-                resolution?.BaseAmount,
-                resolution?.MinAmount,
-                resolution?.MaxAmount,
-                resolution?.EffectiveFromUtc,
-                resolution?.EffectiveToUtc);
-        }
+        var compensationItem = await GetCompensationResponseAsync(profile.Id, profile.TenantId, cancellationToken);
 
         var benefitItems = profile.Benefits
             .OrderBy(item => item.SortOrder)
@@ -773,7 +1022,8 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 item.CatalogItem?.PublicId,
                 item.Name,
                 item.Notes,
-                item.SortOrder))
+                item.SortOrder,
+                item.ConcurrencyToken))
             .ToArray();
 
         var workingConditionItems = profile.WorkingConditions
@@ -798,7 +1048,8 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
                 item.DependentJobProfile.Code,
                 item.DependentJobProfile.Title,
                 item.Quantity,
-                item.Notes))
+                item.Notes,
+                item.ConcurrencyToken))
             .ToArray();
 
         return new JobProfileResponse(
@@ -942,13 +1193,55 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             : new JobProfilePrintResponse(profile, DateTime.UtcNow);
     }
 
-    private sealed record SalaryTabulatorResolution(
-        Guid Id,
-        string NormalizedSalaryClassCode,
-        string CurrencyCode,
-        decimal BaseAmount,
-        decimal? MinAmount,
-        decimal? MaxAmount,
-        DateTime EffectiveFromUtc,
-        DateTime? EffectiveToUtc);
+    private async Task<JobProfileCompensationResponse?> GetCompensationResponseAsync(
+        long profileInternalId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var compensation = await
+            (from item in dbContext.JobProfileCompensations.AsNoTracking()
+             where item.JobProfileId == profileInternalId
+             join line in dbContext.SalaryTabulatorLines.AsNoTracking()
+                 on item.SalaryTabulatorLineId equals line.Id
+             select new
+             {
+                 line.PublicId,
+                 line.SalaryClassCode,
+                 line.NormalizedSalaryClassCode,
+                 line.SalaryScaleCode,
+                 line.CurrencyCode,
+                 line.BaseAmount,
+                 line.MinAmount,
+                 line.MaxAmount,
+                 line.EffectiveFromUtc,
+                 line.EffectiveToUtc
+             })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (compensation is null)
+        {
+            return null;
+        }
+
+        var salaryClassLookup = await dbContext.PositionDescriptionCatalogItems
+            .AsNoTracking()
+            .Where(item =>
+                item.TenantId == tenantId &&
+                item.CatalogType == Domain.PositionDescriptionCatalogs.PositionDescriptionCatalogType.SalaryClass &&
+                item.NormalizedCode == compensation.NormalizedSalaryClassCode)
+            .Select(item => new { item.PublicId, item.Name })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new JobProfileCompensationResponse(
+            salaryClassLookup?.PublicId,
+            salaryClassLookup?.Name,
+            compensation.SalaryScaleCode,
+            compensation.PublicId,
+            compensation.CurrencyCode,
+            compensation.BaseAmount,
+            compensation.MinAmount,
+            compensation.MaxAmount,
+            compensation.EffectiveFromUtc,
+            compensation.EffectiveToUtc);
+    }
 }

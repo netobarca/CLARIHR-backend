@@ -3195,7 +3195,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         await AssertFirstItemHasAllowedActionsAsync(functionalAreasList);
 
         var positionFunctionTypesList = await catalogClient.GetAsync(
-            $"/api/v1/companies/{scenario.TenantId}/position-function-types?page=1&pageSize=20&includeAllowedActions=true");
+            $"/api/v1/companies/{scenario.TenantId}/position-description-catalogs/position-function-types/items?page=1&pageSize=20&includeAllowedActions=true");
         await AssertFirstItemHasAllowedActionsAsync(positionFunctionTypesList);
 
         var classificationsList = await catalogClient.GetAsync(
@@ -7925,7 +7925,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string code,
         string? name = null)
     {
-        var listResponse = await client.GetAsync($"/api/v1/companies/{companyId}/{routeSegment}?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
+        var listResponse = await client.GetAsync($"/api/v1/companies/{companyId}/position-description-catalogs/{routeSegment}/items?page=1&pageSize=100&q={Uri.EscapeDataString(code)}");
         listResponse.EnsureSuccessStatusCode();
 
         var listPayload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<PositionDescriptionCatalogItem>>(JsonOptions);
@@ -7937,7 +7937,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             return existing;
         }
 
-        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/{routeSegment}", new
+        var createResponse = await client.PostJsonAsync($"/api/v1/companies/{companyId}/position-description-catalogs/{routeSegment}/items", new
         {
             code,
             name = name ?? code,
@@ -7977,9 +7977,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code,
             name = code,
             description = (string?)null,
-            positionFunctionTypeId,
-            positionContractTypeId,
-            orgUnitTypeId,
+            positionFunctionTypePublicId = positionFunctionTypeId,
+            positionContractTypePublicId = positionContractTypeId,
+            orgUnitTypePublicId = orgUnitTypeId,
             sortOrder = 10
         });
         createResponse.EnsureSuccessStatusCode();
@@ -8012,7 +8012,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             code,
             name = code,
             description = (string?)null,
-            classificationId,
+            classificationPublicId = classificationId,
             sortOrder = 10
         });
         createResponse.EnsureSuccessStatusCode();

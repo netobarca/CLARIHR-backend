@@ -44,7 +44,22 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
     public Task<JobProfile?> GetWithFunctionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(Profiles.GetValueOrDefault(profileId));
 
+    public Task<JobProfile?> GetWithRelationsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Profiles.GetValueOrDefault(profileId));
+
+    public Task<JobProfile?> GetWithCompetenciesOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Profiles.GetValueOrDefault(profileId));
+
     public Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Profiles.GetValueOrDefault(profileId));
+
+    public Task<JobProfile?> GetWithTrainingsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Profiles.GetValueOrDefault(profileId));
+
+    public Task<JobProfile?> GetWithBenefitsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
+        Task.FromResult(Profiles.GetValueOrDefault(profileId));
+
+    public Task<JobProfile?> GetWithDependentPositionsOnlyAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(Profiles.GetValueOrDefault(profileId));
 
     public Task<JobProfileCoreResponse?> GetCoreResponseByIdAsync(Guid profileId, CancellationToken cancellationToken)
@@ -210,6 +225,252 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
                 function.ConcurrencyToken));
     }
 
+    public Task<IReadOnlyCollection<JobProfileRelationResponse>?> GetRelationResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<IReadOnlyCollection<JobProfileRelationResponse>?>(null);
+        }
+
+        return Task.FromResult<IReadOnlyCollection<JobProfileRelationResponse>?>(
+            profile.Relations
+                .OrderBy(relation => relation.SortOrder)
+                .ThenBy(relation => relation.Counterpart)
+                .Select(relation => new JobProfileRelationResponse(
+                    relation.PublicId,
+                    null,
+                    relation.RelationType,
+                    relation.Counterpart,
+                    relation.Notes,
+                    relation.SortOrder,
+                    relation.ConcurrencyToken))
+                .ToArray());
+    }
+
+    public Task<JobProfileRelationResponse?> GetRelationResponseAsync(Guid profileId, Guid relationId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<JobProfileRelationResponse?>(null);
+        }
+
+        var relation = profile.Relations.FirstOrDefault(item => item.PublicId == relationId);
+        return Task.FromResult(relation is null
+            ? null
+            : new JobProfileRelationResponse(
+                relation.PublicId,
+                null,
+                relation.RelationType,
+                relation.Counterpart,
+                relation.Notes,
+                relation.SortOrder,
+                relation.ConcurrencyToken));
+    }
+
+    public Task<IReadOnlyCollection<JobProfileLegacyCompetencyResponse>?> GetLegacyCompetencyResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<IReadOnlyCollection<JobProfileLegacyCompetencyResponse>?>(null);
+        }
+
+        return Task.FromResult<IReadOnlyCollection<JobProfileLegacyCompetencyResponse>?>(
+            profile.Competencies
+                .OrderBy(competency => competency.SortOrder)
+                .ThenBy(competency => competency.Name)
+                .Select(competency => new JobProfileLegacyCompetencyResponse(
+                    competency.PublicId,
+                    null,
+                    competency.Name,
+                    competency.ExpectedLevel,
+                    competency.Notes,
+                    competency.SortOrder,
+                    competency.ConcurrencyToken))
+                .ToArray());
+    }
+
+    public Task<JobProfileLegacyCompetencyResponse?> GetLegacyCompetencyResponseAsync(Guid profileId, Guid competencyId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<JobProfileLegacyCompetencyResponse?>(null);
+        }
+
+        var competency = profile.Competencies.FirstOrDefault(item => item.PublicId == competencyId);
+        return Task.FromResult(competency is null
+            ? null
+            : new JobProfileLegacyCompetencyResponse(
+                competency.PublicId,
+                null,
+                competency.Name,
+                competency.ExpectedLevel,
+                competency.Notes,
+                competency.SortOrder,
+                competency.ConcurrencyToken));
+    }
+
+    public Task<IReadOnlyCollection<JobProfileTrainingResponse>?> GetTrainingResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<IReadOnlyCollection<JobProfileTrainingResponse>?>(null);
+        }
+
+        return Task.FromResult<IReadOnlyCollection<JobProfileTrainingResponse>?>(
+            profile.Trainings
+                .OrderBy(training => training.SortOrder)
+                .ThenBy(training => training.Name)
+                .Select(training => new JobProfileTrainingResponse(
+                    training.PublicId,
+                    null,
+                    training.Name,
+                    training.Notes,
+                    training.SortOrder,
+                    training.ConcurrencyToken))
+                .ToArray());
+    }
+
+    public Task<JobProfileTrainingResponse?> GetTrainingResponseAsync(Guid profileId, Guid trainingId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<JobProfileTrainingResponse?>(null);
+        }
+
+        var training = profile.Trainings.FirstOrDefault(item => item.PublicId == trainingId);
+        return Task.FromResult(training is null
+            ? null
+            : new JobProfileTrainingResponse(
+                training.PublicId,
+                null,
+                training.Name,
+                training.Notes,
+                training.SortOrder,
+                training.ConcurrencyToken));
+    }
+
+    public Task<IReadOnlyCollection<JobProfileBenefitResponse>?> GetBenefitResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<IReadOnlyCollection<JobProfileBenefitResponse>?>(null);
+        }
+
+        return Task.FromResult<IReadOnlyCollection<JobProfileBenefitResponse>?>(
+            profile.Benefits
+                .OrderBy(benefit => benefit.SortOrder)
+                .ThenBy(benefit => benefit.Name)
+                .Select(benefit => new JobProfileBenefitResponse(
+                    benefit.PublicId,
+                    null,
+                    benefit.Name,
+                    benefit.Notes,
+                    benefit.SortOrder,
+                    benefit.ConcurrencyToken))
+                .ToArray());
+    }
+
+    public Task<JobProfileBenefitResponse?> GetBenefitResponseAsync(Guid profileId, Guid benefitId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<JobProfileBenefitResponse?>(null);
+        }
+
+        var benefit = profile.Benefits.FirstOrDefault(item => item.PublicId == benefitId);
+        return Task.FromResult(benefit is null
+            ? null
+            : new JobProfileBenefitResponse(
+                benefit.PublicId,
+                null,
+                benefit.Name,
+                benefit.Notes,
+                benefit.SortOrder,
+                benefit.ConcurrencyToken));
+    }
+
+    public Task<IReadOnlyCollection<JobProfileWorkingConditionResponse>?> GetWorkingConditionResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<IReadOnlyCollection<JobProfileWorkingConditionResponse>?>(null);
+        }
+
+        return Task.FromResult<IReadOnlyCollection<JobProfileWorkingConditionResponse>?>(
+            profile.WorkingConditions
+                .OrderBy(condition => condition.SortOrder)
+                .ThenBy(condition => condition.Name)
+                .Select(condition => new JobProfileWorkingConditionResponse(
+                    condition.PublicId,
+                    null,
+                    null,
+                    condition.Name,
+                    condition.Notes,
+                    condition.SortOrder,
+                    condition.ConcurrencyToken))
+                .ToArray());
+    }
+
+    public Task<JobProfileWorkingConditionResponse?> GetWorkingConditionResponseAsync(Guid profileId, Guid workingConditionId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<JobProfileWorkingConditionResponse?>(null);
+        }
+
+        var condition = profile.WorkingConditions.FirstOrDefault(item => item.PublicId == workingConditionId);
+        return Task.FromResult(condition is null
+            ? null
+            : new JobProfileWorkingConditionResponse(
+                condition.PublicId,
+                null,
+                null,
+                condition.Name,
+                condition.Notes,
+                condition.SortOrder,
+                condition.ConcurrencyToken));
+    }
+
+    public Task<IReadOnlyCollection<JobProfileDependentPositionResponse>?> GetDependentPositionResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<IReadOnlyCollection<JobProfileDependentPositionResponse>?>(null);
+        }
+
+        return Task.FromResult<IReadOnlyCollection<JobProfileDependentPositionResponse>?>(
+            profile.DependentPositions
+                .Select(position => new JobProfileDependentPositionResponse(
+                    position.PublicId,
+                    Guid.NewGuid(),
+                    "JP-REF",
+                    "Referenced profile",
+                    position.Quantity,
+                    position.Notes,
+                    position.ConcurrencyToken))
+                .ToArray());
+    }
+
+    public Task<JobProfileDependentPositionResponse?> GetDependentPositionResponseAsync(Guid profileId, Guid dependentPositionId, CancellationToken cancellationToken)
+    {
+        if (!Profiles.TryGetValue(profileId, out var profile))
+        {
+            return Task.FromResult<JobProfileDependentPositionResponse?>(null);
+        }
+
+        var position = profile.DependentPositions.FirstOrDefault(item => item.PublicId == dependentPositionId);
+        return Task.FromResult(position is null
+            ? null
+            : new JobProfileDependentPositionResponse(
+                position.PublicId,
+                Guid.NewGuid(),
+                "JP-REF",
+                "Referenced profile",
+                position.Quantity,
+                position.Notes,
+                position.ConcurrencyToken));
+    }
+
     public Task<JobProfilePrintResponse?> GetPrintByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
         throw new NotImplementedException();
 
@@ -228,9 +489,11 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
 internal sealed class TestJobCatalogRepository : IJobCatalogRepository
 {
     public void Add(JobCatalogItem item) { }
+    public void Remove(JobCatalogItem item) { }
     public Task<JobCatalogItem?> GetByIdAsync(Guid itemId, CancellationToken cancellationToken) => Task.FromResult<JobCatalogItem?>(null);
     public Task<bool> ExistsOutsideTenantAsync(Guid itemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> CodeExistsAsync(Guid tenantId, JobCatalogCategory category, string normalizedCode, long? excludingItemId, CancellationToken cancellationToken) => Task.FromResult(false);
+    public Task<bool> HasUsageAsync(long catalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<PagedResponse<JobCatalogItemResponse>> SearchAsync(Guid tenantId, JobCatalogCategory category, bool? isActive, string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task<JobCatalogItemResponse?> GetResponseByIdAsync(Guid itemId, CancellationToken cancellationToken) => Task.FromResult<JobCatalogItemResponse?>(null);
     public Task<JobCatalogItem?> ResolveActiveItemAsync(Guid tenantId, JobCatalogCategory category, Guid itemId, CancellationToken cancellationToken) => Task.FromResult<JobCatalogItem?>(null);

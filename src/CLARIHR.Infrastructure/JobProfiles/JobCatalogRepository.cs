@@ -18,6 +18,43 @@ internal sealed class JobCatalogRepository(
 
     public void Add(JobCatalogItem item) => dbContext.JobCatalogItems.Add(item);
 
+    public void Remove(JobCatalogItem item) => dbContext.JobCatalogItems.Remove(item);
+
+    public async Task<bool> HasUsageAsync(long catalogItemId, CancellationToken cancellationToken)
+    {
+        if (await dbContext.JobProfileRequirements.AnyAsync(item => item.CatalogItemId == catalogItemId, cancellationToken))
+        {
+            return true;
+        }
+
+        if (await dbContext.JobProfileRelations.AnyAsync(item => item.CatalogItemId == catalogItemId, cancellationToken))
+        {
+            return true;
+        }
+
+        if (await dbContext.Set<Domain.JobProfiles.JobProfileBenefit>().AnyAsync(item => item.CatalogItemId == catalogItemId, cancellationToken))
+        {
+            return true;
+        }
+
+        if (await dbContext.Set<Domain.JobProfiles.JobProfileWorkingCondition>().AnyAsync(item => item.CatalogItemId == catalogItemId, cancellationToken))
+        {
+            return true;
+        }
+
+        if (await dbContext.Set<Domain.JobProfiles.JobProfileTraining>().AnyAsync(item => item.CatalogItemId == catalogItemId, cancellationToken))
+        {
+            return true;
+        }
+
+        if (await dbContext.Set<Domain.JobProfiles.JobProfileCompetency>().AnyAsync(item => item.CatalogItemId == catalogItemId, cancellationToken))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     public Task<JobCatalogItem?> GetByIdAsync(Guid itemId, CancellationToken cancellationToken) =>
         dbContext.JobCatalogItems.SingleOrDefaultAsync(item => item.PublicId == itemId, cancellationToken);
 

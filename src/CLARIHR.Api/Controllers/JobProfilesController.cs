@@ -89,8 +89,7 @@ public sealed class JobProfilesController(
                 request.ValuationNotes,
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
-                request.AllowInlineCatalogCreate,
-                JobProfilesMappers.MapCompensation(request.Compensation)),
+                request.AllowInlineCatalogCreate),
             cancellationToken);
 
         return result.IsFailure
@@ -129,7 +128,6 @@ public sealed class JobProfilesController(
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 request.AllowInlineCatalogCreate,
-                JobProfilesMappers.MapCompensation(request.Compensation),
                 request.ConcurrencyToken),
             cancellationToken);
 
@@ -211,6 +209,5 @@ public sealed class JobProfilesController(
         public DateTime? EffectiveFromUtc { get; set; }
         public DateTime? EffectiveToUtc { get; set; }
         public bool AllowInlineCatalogCreate { get; set; }
-        public JobProfileCompensationRequest? Compensation { get; set; }
     }
 }

@@ -1,54 +1,78 @@
+using System.Text.Json;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json.Linq;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = JobProfilePolicies.Manage)]
-[Route("api/v1/job-profiles/{publicId:guid}/dependent-positions")]
+[Authorize]
+[Route("api/v1/job-profiles/{jobProfilePublicId:guid}/dependent-positions")]
 [Consumes("application/json")]
 [Produces("application/json")]
-[ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
 public sealed class JobProfileDependentPositionsController(
-    ICommandDispatcher commandDispatcher) : ControllerBase
+    ICommandDispatcher commandDispatcher,
+    IQueryDispatcher queryDispatcher) : ControllerBase
 {
-    private const string ParentConcurrencyTokenHeaderName = "Parent-Concurrency-Token";
-
-    [HttpPost]
-    [ProducesResponseType<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>> Add(
-        Guid publicId,
-        [FromBody] AddDependentPositionRequest request,
+    [HttpGet]
+    [Authorize(Policy = JobProfilePolicies.Read)]
+    [ProducesResponseType<IReadOnlyCollection<JobProfileDependentPositionResponse>>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    public async Task<ActionResult<IReadOnlyCollection<JobProfileDependentPositionResponse>>> Get(
+        Guid jobProfilePublicId,
         CancellationToken cancellationToken = default)
     {
-        var result = await commandDispatcher.SendAsync(
-            new AddJobProfileDependentPositionCommand(
-                publicId,
-                request.DependentJobProfileId,
-                request.Quantity,
-                request.Notes,
-                request.ConcurrencyToken),
+        var result = await queryDispatcher.SendAsync(
+            new GetJobProfileDependentPositionsQuery(jobProfilePublicId),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
+    [HttpPost]
+    [Authorize(Policy = JobProfilePolicies.Manage)]
+    [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status201Created)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    public async Task<ActionResult<JobProfileDependentPositionResponse>> Add(
+        Guid jobProfilePublicId,
+        [FromBody] AddDependentPositionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new AddJobProfileDependentPositionCommand(
+                jobProfilePublicId,
+                request.DependentJobProfileId,
+                request.Quantity,
+                request.Notes),
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return this.ToActionResult(result).Result!;
+        }
+
+        return Created($"{Request.Path}/{result.Value.Id:D}", result.Value);
+    }
+
     [HttpPut("{dependentPositionPublicId:guid}")]
-    [ProducesResponseType<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<JobProfileSubResourceResult<JobProfileDependentPositionResponse>>> Update(
-        Guid publicId,
+    [Authorize(Policy = JobProfilePolicies.Manage)]
+    [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    public async Task<ActionResult<JobProfileDependentPositionResponse>> Update(
+        Guid jobProfilePublicId,
         Guid dependentPositionPublicId,
         [FromBody] UpdateDependentPositionRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileDependentPositionCommand(
-                publicId,
+                jobProfilePublicId,
                 dependentPositionPublicId,
                 request.DependentJobProfileId,
                 request.Quantity,
@@ -59,46 +83,97 @@ public sealed class JobProfileDependentPositionsController(
         return this.ToActionResult(result);
     }
 
+    [HttpPatch("{dependentPositionPublicId:guid}")]
+    [Authorize(Policy = JobProfilePolicies.Manage)]
+    [Consumes("application/json-patch+json")]
+    [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    public async Task<ActionResult<JobProfileDependentPositionResponse>> Patch(
+        Guid jobProfilePublicId,
+        Guid dependentPositionPublicId,
+        [FromBody] JsonPatchDocument<UpdateDependentPositionRequest> patchDoc,
+        CancellationToken cancellationToken = default)
+    {
+        if (patchDoc is null)
+        {
+            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
+                HttpContext,
+                statusCode: StatusCodes.Status400BadRequest,
+                detail: "Invalid patch document."));
+        }
+
+        var result = await commandDispatcher.SendAsync(
+            new PatchJobProfileDependentPositionCommand(
+                jobProfilePublicId,
+                dependentPositionPublicId,
+                MapPatchOperations(patchDoc)),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
     [HttpDelete("{dependentPositionPublicId:guid}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> Remove(
-        Guid publicId,
+    [Authorize(Policy = JobProfilePolicies.Manage)]
+    [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    public async Task<ActionResult<JobProfileDependentPositionResponse>> Remove(
+        Guid jobProfilePublicId,
         Guid dependentPositionPublicId,
         [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         CancellationToken cancellationToken = default)
     {
         if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
         {
-            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(HttpContext, statusCode: StatusCodes.Status400BadRequest, detail: IfMatchHeader.MissingDetail));
+            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
+                HttpContext,
+                statusCode: StatusCodes.Status400BadRequest,
+                detail: IfMatchHeader.MissingDetail));
         }
 
         var result = await commandDispatcher.SendAsync(
-            new RemoveJobProfileDependentPositionCommand(publicId, dependentPositionPublicId, concurrencyToken),
+            new RemoveJobProfileDependentPositionCommand(jobProfilePublicId, dependentPositionPublicId, concurrencyToken),
             cancellationToken);
 
-        if (result.IsFailure)
+        return this.ToActionResult(result);
+    }
+
+    private static IReadOnlyCollection<JobProfileDependentPositionPatchOperation> MapPatchOperations(JsonPatchDocument<UpdateDependentPositionRequest> patchDoc) =>
+        patchDoc.Operations
+            .Select(operation => new JobProfileDependentPositionPatchOperation(
+                operation.op,
+                operation.path,
+                operation.from,
+                MapPatchValue(operation.value)))
+            .ToArray();
+
+    private static JsonElement? MapPatchValue(object? value)
+    {
+        if (value is null)
         {
-            return this.ToActionResult(result).Result!;
+            return JsonSerializer.SerializeToElement<object?>(null);
         }
 
-        Response.Headers[ParentConcurrencyTokenHeaderName] = result.Value.ParentConcurrencyToken.ToString();
-        return NoContent();
+        if (value is JToken token)
+        {
+            using var document = JsonDocument.Parse(token.ToString(Newtonsoft.Json.Formatting.None));
+            return document.RootElement.Clone();
+        }
+
+        return JsonSerializer.SerializeToElement(value, value.GetType());
     }
 
     public sealed class AddDependentPositionRequest
     {
-        public Guid DependentJobProfileId { get; init; }
-        public int Quantity { get; init; }
-        public string? Notes { get; init; }
-        public Guid ConcurrencyToken { get; init; }
+        public Guid DependentJobProfileId { get; set; }
+        public int Quantity { get; set; }
+        public string? Notes { get; set; }
     }
 
     public sealed class UpdateDependentPositionRequest
     {
-        public Guid DependentJobProfileId { get; init; }
-        public int Quantity { get; init; }
-        public string? Notes { get; init; }
-        public Guid ConcurrencyToken { get; init; }
+        public Guid DependentJobProfileId { get; set; }
+        public int Quantity { get; set; }
+        public string? Notes { get; set; }
+        public Guid ConcurrencyToken { get; set; }
     }
-
 }

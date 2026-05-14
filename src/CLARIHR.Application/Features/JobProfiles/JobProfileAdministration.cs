@@ -66,12 +66,20 @@ public sealed record JobProfileFunctionResponse(
 }
 
 public sealed record JobProfileRelationResponse(
-    Guid Id,
-    Guid? CatalogItemId,
+    Guid RelationPublicId,
+    Guid? CatalogItemPublicId,
     JobRelationType RelationType,
     string Counterpart,
     string? Notes,
-    int SortOrder);
+    int SortOrder,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => RelationPublicId;
+
+    [JsonIgnore]
+    public Guid? CatalogItemId => CatalogItemPublicId;
+}
 
 public sealed record JobProfileCompetencyResponse(
     Guid Id,
@@ -102,7 +110,8 @@ public sealed record JobProfileTrainingResponse(
     Guid? CatalogItemId,
     string Name,
     string? Notes,
-    int SortOrder);
+    int SortOrder,
+    Guid ConcurrencyToken);
 
 public sealed record JobProfileCompensationResponse(
     Guid? SalaryClassId,
@@ -121,7 +130,8 @@ public sealed record JobProfileBenefitResponse(
     Guid? CatalogItemId,
     string Name,
     string? Notes,
-    int SortOrder);
+    int SortOrder,
+    Guid ConcurrencyToken);
 
 public sealed record JobProfileWorkingConditionResponse(
     Guid Id,
@@ -138,7 +148,8 @@ public sealed record JobProfileDependentPositionResponse(
     string DependentJobProfileCode,
     string DependentJobProfileTitle,
     int Quantity,
-    string? Notes);
+    string? Notes,
+    Guid ConcurrencyToken);
 
 public sealed record JobProfileSubResourceResult<TItem>(
     TItem Item,
@@ -152,12 +163,20 @@ public sealed record JobProfileReferenceResponse(
     string Title);
 
 public sealed record JobProfileLegacyCompetencyResponse(
-    Guid Id,
-    Guid? CatalogItemId,
+    Guid CompetencyPublicId,
+    Guid? CatalogItemPublicId,
     string Name,
     string? ExpectedLevel,
     string? Notes,
-    int SortOrder);
+    int SortOrder,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => CompetencyPublicId;
+
+    [JsonIgnore]
+    public Guid? CatalogItemId => CatalogItemPublicId;
+}
 
 public sealed record JobProfileListItemResponse(
     Guid Id,
@@ -329,14 +348,6 @@ public sealed record JobProfileTrainingInput(
     string? Notes,
     int SortOrder);
 
-public sealed record JobProfileCompensationInput(
-    Guid? SalaryTabulatorLineId,
-    Guid? SalaryClassId,
-    string? SalaryClassCode,
-    string? CurrencyCode,
-    decimal? MinAmount,
-    decimal? MaxAmount);
-
 public sealed record JobProfileBenefitInput(
     Guid? CatalogItemId,
     string? CatalogCode,
@@ -394,8 +405,7 @@ public sealed record CreateJobProfileCommand(
     string? ValuationNotes,
     DateTime? EffectiveFromUtc,
     DateTime? EffectiveToUtc,
-    bool AllowInlineCatalogCreate,
-    JobProfileCompensationInput? Compensation) : ICommand<JobProfileCoreResponse>;
+    bool AllowInlineCatalogCreate) : ICommand<JobProfileCoreResponse>;
 
 public sealed record UpdateJobProfileCommand(
     Guid JobProfileId,
@@ -418,7 +428,6 @@ public sealed record UpdateJobProfileCommand(
     DateTime? EffectiveFromUtc,
     DateTime? EffectiveToUtc,
     bool AllowInlineCatalogCreate,
-    JobProfileCompensationInput? Compensation,
     Guid ConcurrencyToken) : ICommand<JobProfileCoreResponse>;
 
 public sealed record JobProfilePatchOperation(
@@ -502,13 +511,6 @@ internal sealed class CreateJobProfileCommandValidator : AbstractValidator<Creat
                                    command.EffectiveFromUtc.Value <= command.EffectiveToUtc.Value)
             .WithMessage("EffectiveFromUtc must be less than or equal to EffectiveToUtc.");
 
-        ApplyCollectionRules();
-    }
-
-    private void ApplyCollectionRules()
-    {
-        RuleFor(command => command.Compensation)
-            .SetValidator(new JobProfileCompensationInputValidator()!);
     }
 }
 
@@ -554,13 +556,6 @@ internal sealed class UpdateJobProfileCommandValidator : AbstractValidator<Updat
             .WithMessage("EffectiveFromUtc must be less than or equal to EffectiveToUtc.");
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
 
-        ApplyCollectionRules();
-    }
-
-    private void ApplyCollectionRules()
-    {
-        RuleFor(command => command.Compensation)
-            .SetValidator(new JobProfileCompensationInputValidator()!);
     }
 }
 
@@ -732,19 +727,6 @@ internal sealed class JobProfileTrainingInputValidator : AbstractValidator<JobPr
         RuleFor(input => input.Name).NotEmpty().MaximumLength(300);
         RuleFor(input => input.Notes).MaximumLength(1000);
         RuleFor(input => input.SortOrder).GreaterThanOrEqualTo(0);
-    }
-}
-
-internal sealed class JobProfileCompensationInputValidator : AbstractValidator<JobProfileCompensationInput>
-{
-    public JobProfileCompensationInputValidator()
-    {
-        RuleFor(input => input)
-            .Must(static input =>
-                input.SalaryTabulatorLineId.HasValue ||
-                input.SalaryClassId.HasValue ||
-                !string.IsNullOrWhiteSpace(input.SalaryClassCode))
-            .WithMessage("A salary tabulator line or salary class reference is required for compensation.");
     }
 }
 
@@ -1092,20 +1074,6 @@ internal sealed class CreateJobProfileCommandHandler(
             command.EffectiveToUtc,
             bumpVersion: false);
 
-        if (mutation.Value.CompensationSalaryClassCatalogItemId.HasValue &&
-            !string.IsNullOrWhiteSpace(mutation.Value.CompensationSalaryScaleCode))
-        {
-            profile.SetCompensationReference(
-                mutation.Value.CompensationSalaryClassCatalogItemId.Value,
-                salaryClassCatalogItem: null,
-                mutation.Value.CompensationSalaryScaleCode!,
-                bumpVersion: false);
-        }
-        else
-        {
-            profile.ClearCompensationReference(bumpVersion: false);
-        }
-
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -1374,20 +1342,6 @@ internal sealed class UpdateJobProfileCommandHandler(
                 return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.StateConflict);
             }
 
-            if (mutation.Value.CompensationSalaryClassCatalogItemId.HasValue &&
-                !string.IsNullOrWhiteSpace(mutation.Value.CompensationSalaryScaleCode))
-            {
-                profile.SetCompensationReference(
-                    mutation.Value.CompensationSalaryClassCatalogItemId.Value,
-                    salaryClassCatalogItem: null,
-                    mutation.Value.CompensationSalaryScaleCode!,
-                    bumpVersion: false);
-            }
-            else
-            {
-                profile.ClearCompensationReference(bumpVersion: false);
-            }
-
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await JobProfileCommandSupport.WriteInlineCatalogAuditAsync(
@@ -1435,12 +1389,8 @@ internal sealed class UpdateJobProfileCommandHandler(
 internal sealed class PatchJobProfileCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
-    IJobCatalogRepository catalogRepository,
-    IInternalCatalogRepository internalCatalogRepository,
     IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
-    ISalaryTabulatorRepository salaryTabulatorRepository,
     IAuditService auditService,
-    IDateTimeProvider dateTimeProvider,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : ICommandHandler<PatchJobProfileCommand, JobProfileCoreResponse>
@@ -1631,52 +1581,6 @@ internal sealed class PatchJobProfileCommandHandler(
                 return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.PublishRequirementsMissing);
             }
 
-            var shouldResolveCompensation = patchState.CompensationTouched ||
-                                            (patchState.EffectiveRangeTouched && patchState.Compensation is not null);
-            JobProfileMutation? mutation = null;
-            if (shouldResolveCompensation && patchState.Compensation is not null)
-            {
-                var createdCatalogItems = new List<JobCatalogItem>();
-                var createdInternalCatalogValues = new List<InternalCatalogValue>();
-                var categoryInvalidation = new HashSet<JobCatalogCategory>();
-
-                var mutationResult = await JobProfileMutationMapper.BuildAsync(
-                    profile.TenantId,
-                    [],
-                    [],
-                    [],
-                    [],
-                    [],
-                    patchState.Compensation.ToInput(),
-                    [],
-                    [],
-                    [],
-                    patchState.EffectiveFromUtc,
-                    patchState.EffectiveToUtc,
-                    profile.PublicId,
-                    profile.Id,
-                    allowInlineCatalogCreate: false,
-                    authorizationService,
-                    repository,
-                    catalogRepository,
-                    internalCatalogRepository,
-                    positionDescriptionCatalogRepository,
-                    salaryTabulatorRepository,
-                    actorUserPublicId: Guid.Empty,
-                    dateTimeProvider,
-                    createdCatalogItems,
-                    createdInternalCatalogValues,
-                    categoryInvalidation,
-                    cancellationToken);
-                if (mutationResult.IsFailure)
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                    return Result<JobProfileCoreResponse>.Failure(mutationResult.Error);
-                }
-
-                mutation = mutationResult.Value;
-            }
-
             try
             {
                 profile.UpdateCore(
@@ -1703,24 +1607,6 @@ internal sealed class PatchJobProfileCommandHandler(
             {
                 await transaction.RollbackAsync(cancellationToken);
                 return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.StateConflict);
-            }
-
-            if (shouldResolveCompensation)
-            {
-                if (mutation is not null &&
-                    mutation.CompensationSalaryClassCatalogItemId.HasValue &&
-                    !string.IsNullOrWhiteSpace(mutation.CompensationSalaryScaleCode))
-                {
-                    profile.SetCompensationReference(
-                        mutation.CompensationSalaryClassCatalogItemId.Value,
-                        salaryClassCatalogItem: null,
-                        mutation.CompensationSalaryScaleCode!,
-                        bumpVersion: false);
-                }
-                else
-                {
-                    profile.ClearCompensationReference(bumpVersion: false);
-                }
             }
 
             var statusTransition = JobProfileStatusTransition.None;
@@ -1815,7 +1701,6 @@ internal sealed class JobProfilePatchState
         AllowInlineCatalogCreate = false;
         ConcurrencyToken = Guid.Empty;
         Status = profile.Status;
-        Compensation = JobProfilePatchCompensationState.From(before.Compensation);
     }
 
     public string Code { get; set; }
@@ -1847,36 +1732,8 @@ internal sealed class JobProfilePatchState
     public Guid ConcurrencyToken { get; set; }
     public JobProfileStatus Status { get; set; }
     public bool StatusTouched { get; set; }
-    public JobProfilePatchCompensationState? Compensation { get; set; }
-    public bool CompensationTouched { get; set; }
 
     public static JobProfilePatchState From(JobProfile profile, JobProfileCoreResponse before) => new(profile, before);
-}
-
-internal sealed class JobProfilePatchCompensationState
-{
-    public Guid? SalaryTabulatorLineId { get; set; }
-    public Guid? SalaryClassId { get; set; }
-    public string? SalaryClassCode { get; set; }
-    public string? CurrencyCode { get; set; }
-    public decimal? MinAmount { get; set; }
-    public decimal? MaxAmount { get; set; }
-
-    public static JobProfilePatchCompensationState? From(JobProfileCompensationResponse? compensation) =>
-        compensation is null
-            ? null
-            : new JobProfilePatchCompensationState
-            {
-                SalaryTabulatorLineId = compensation.SalaryTabulatorLineId,
-                SalaryClassId = compensation.SalaryClassId,
-                SalaryClassCode = compensation.SalaryScaleCode,
-                CurrencyCode = compensation.CurrencyCode,
-                MinAmount = compensation.MinAmount,
-                MaxAmount = compensation.MaxAmount
-            };
-
-    public JobProfileCompensationInput ToInput() =>
-        new(SalaryTabulatorLineId, SalaryClassId, SalaryClassCode, CurrencyCode, MinAmount, MaxAmount);
 }
 
 internal static class JobProfilePatchApplier
@@ -1906,20 +1763,9 @@ internal static class JobProfilePatchApplier
 
             try
             {
-                if (IsSegment(segments[0], "compensation"))
-                {
-                    var compensationResult = ApplyCompensationOperation(op, segments, operation.Value, state, operation.Path);
-                    if (compensationResult.IsFailure)
-                    {
-                        return compensationResult;
-                    }
-
-                    continue;
-                }
-
                 if (segments.Length != 1)
                 {
-                    return ValidationFailure(operation.Path, "Nested patch paths are only supported for compensation.");
+                    return ValidationFailure(operation.Path, "Only root patch paths are supported.");
                 }
 
                 var coreResult = ApplyCoreOperation(op, segments[0], operation.Value, state, operation.Path);
@@ -1968,14 +1814,6 @@ internal static class JobProfilePatchApplier
             state.EffectiveFromUtc.Value > state.EffectiveToUtc.Value)
         {
             errors["effectiveFromUtc"] = ["EffectiveFromUtc must be less than or equal to EffectiveToUtc."];
-        }
-
-        if (state.CompensationTouched && state.Compensation is not null &&
-            !state.Compensation.SalaryTabulatorLineId.HasValue &&
-            !state.Compensation.SalaryClassId.HasValue &&
-            string.IsNullOrWhiteSpace(state.Compensation.SalaryClassCode))
-        {
-            errors["compensation"] = ["A salary tabulator line or salary class reference is required for compensation."];
         }
 
         return errors.Count == 0
@@ -2147,96 +1985,6 @@ internal static class JobProfilePatchApplier
             : throw new JobProfilePatchValueException(path, $"Status '{raw}' is not a valid value.");
     }
 
-    private static Result ApplyCompensationOperation(
-        string op,
-        string[] segments,
-        JsonElement? value,
-        JobProfilePatchState state,
-        string path)
-    {
-        state.CompensationTouched = true;
-        var isRemove = IsRemove(op);
-        if (segments.Length == 1)
-        {
-            state.Compensation = isRemove || IsNull(value)
-                ? null
-                : ReadCompensation(value, path);
-            return Result.Success();
-        }
-
-        if (segments.Length != 2)
-        {
-            return ValidationFailure(path, "Only one nested compensation property can be patched at a time.");
-        }
-
-        if (state.Compensation is null)
-        {
-            return ValidationFailure(path, "Compensation must exist before patching nested compensation fields.");
-        }
-
-        var property = segments[1];
-        if (IsSegment(property, "salaryTabulatorLineId"))
-        {
-            state.Compensation.SalaryTabulatorLineId = isRemove ? null : ReadNullableGuid(value, path);
-            return Result.Success();
-        }
-
-        if (IsAnySegment(property, "salaryClassPublicId", "salaryClassId"))
-        {
-            state.Compensation.SalaryClassId = isRemove ? null : ReadNullableGuid(value, path);
-            return Result.Success();
-        }
-
-        if (IsAnySegment(property, "salaryClassCode", "salaryScaleCode"))
-        {
-            state.Compensation.SalaryClassCode = isRemove ? null : ReadNullableString(value, path);
-            return Result.Success();
-        }
-
-        if (IsAnySegment(property, "minSalary", "minAmount"))
-        {
-            state.Compensation.MinAmount = isRemove ? null : ReadNullableDecimal(value, path);
-            return Result.Success();
-        }
-
-        if (IsAnySegment(property, "maxSalary", "maxAmount"))
-        {
-            state.Compensation.MaxAmount = isRemove ? null : ReadNullableDecimal(value, path);
-            return Result.Success();
-        }
-
-        if (IsSegment(property, "currencyCode"))
-        {
-            state.Compensation.CurrencyCode = isRemove ? null : ReadNullableString(value, path);
-            return Result.Success();
-        }
-
-        return ValidationFailure(path, $"Unsupported compensation patch path '{path}'.");
-    }
-
-    private static JobProfilePatchCompensationState ReadCompensation(JsonElement? value, string path)
-    {
-        if (!value.HasValue || value.Value.ValueKind != JsonValueKind.Object)
-        {
-            throw new JobProfilePatchValueException(path, "Compensation value must be an object or null.");
-        }
-
-        var element = value.Value;
-        return new JobProfilePatchCompensationState
-        {
-            SalaryTabulatorLineId = ReadOptionalPropertyGuid(element, "salaryTabulatorLineId", path),
-            SalaryClassId = ReadOptionalPropertyGuid(element, "salaryClassPublicId", path) ??
-                            ReadOptionalPropertyGuid(element, "salaryClassId", path),
-            SalaryClassCode = ReadOptionalPropertyString(element, "salaryClassCode", path) ??
-                              ReadOptionalPropertyString(element, "salaryScaleCode", path),
-            CurrencyCode = ReadOptionalPropertyString(element, "currencyCode", path),
-            MinAmount = ReadOptionalPropertyDecimal(element, "minSalary", path) ??
-                        ReadOptionalPropertyDecimal(element, "minAmount", path),
-            MaxAmount = ReadOptionalPropertyDecimal(element, "maxSalary", path) ??
-                        ReadOptionalPropertyDecimal(element, "maxAmount", path)
-        };
-    }
-
     private static string[] ParsePath(string path) =>
         path.Split('/', StringSplitOptions.RemoveEmptyEntries)
             .Select(UnescapeJsonPointerSegment)
@@ -2404,10 +2152,6 @@ internal sealed record JobProfileMutation(
     IReadOnlyCollection<JobProfileRelation> Relations,
     IReadOnlyCollection<JobProfileCompetency> Competencies,
     IReadOnlyCollection<JobProfileTraining> Trainings,
-    long? CompensationSalaryClassCatalogItemId,
-    string? CompensationSalaryClassCode,
-    string? CompensationSalaryClassName,
-    string? CompensationSalaryScaleCode,
     IReadOnlyCollection<JobProfileBenefit> Benefits,
     IReadOnlyCollection<JobProfileWorkingCondition> WorkingConditions,
     IReadOnlyCollection<JobProfileDependentPosition> DependentPositions);
@@ -2443,7 +2187,6 @@ internal static class JobProfileMutationMapper
             [],
             [],
             [],
-            command.Compensation,
             [],
             [],
             [],
@@ -2490,7 +2233,6 @@ internal static class JobProfileMutationMapper
             [],
             [],
             [],
-            command.Compensation,
             [],
             [],
             [],
@@ -2519,7 +2261,6 @@ internal static class JobProfileMutationMapper
         IReadOnlyCollection<JobProfileRelationInput> relations,
         IReadOnlyCollection<JobProfileCompetencyInput> competencies,
         IReadOnlyCollection<JobProfileTrainingInput> trainings,
-        JobProfileCompensationInput? compensation,
         IReadOnlyCollection<JobProfileBenefitInput> benefits,
         IReadOnlyCollection<JobProfileWorkingConditionInput> workingConditions,
         IReadOnlyCollection<JobProfileDependentPositionInput> dependentPositions,
@@ -2720,110 +2461,6 @@ internal static class JobProfileMutationMapper
                 input.SortOrder));
         }
 
-        long? compensationSalaryClassCatalogItemId = null;
-        string? compensationSalaryClassCode = null;
-        string? compensationSalaryClassName = null;
-        string? compensationSalaryScaleCode = null;
-
-        if (compensation is not null)
-        {
-            var action = profilePublicId.HasValue ? RbacPermissionAction.Update : RbacPermissionAction.Create;
-            var effectiveRangeStartUtc = (effectiveFromUtc ?? dateTimeProvider.UtcNow).Date;
-            var effectiveRangeEndUtc = effectiveToUtc?.Date;
-            SalaryTabulatorLine? salaryLine = null;
-
-            if (compensation.SalaryTabulatorLineId.HasValue)
-            {
-                salaryLine = await salaryTabulatorRepository.GetLineByIdAsync(
-                    compensation.SalaryTabulatorLineId.Value,
-                    cancellationToken);
-                if (salaryLine is null)
-                {
-                    return Result<JobProfileMutation>.Failure(
-                        await salaryTabulatorRepository.LineExistsOutsideTenantAsync(compensation.SalaryTabulatorLineId.Value, cancellationToken)
-                            ? SalaryTabulatorErrors.TenantMismatch(action)
-                            : JobProfileErrors.CompensationTabulatorLineNotFound);
-                }
-            }
-            else
-            {
-                string? salaryClassCode = null;
-                if (compensation.SalaryClassId.HasValue)
-                {
-                    salaryClassCode = await positionDescriptionCatalogRepository.ResolveSalaryClassCodeByCatalogIdAsync(
-                        tenantId,
-                        compensation.SalaryClassId.Value,
-                        cancellationToken);
-
-                    if (string.IsNullOrWhiteSpace(salaryClassCode))
-                    {
-                        salaryLine = await salaryTabulatorRepository.GetLineByIdAsync(
-                            compensation.SalaryClassId.Value,
-                            cancellationToken);
-                    }
-                }
-
-                if (salaryLine is null &&
-                    string.IsNullOrWhiteSpace(salaryClassCode) &&
-                    !string.IsNullOrWhiteSpace(compensation.SalaryClassCode))
-                {
-                    salaryClassCode = compensation.SalaryClassCode.Trim().ToUpperInvariant();
-                }
-
-                if (salaryLine is null && string.IsNullOrWhiteSpace(salaryClassCode))
-                {
-                    return Result<JobProfileMutation>.Failure(JobProfileErrors.CompensationTabulatorLineNotFound);
-                }
-
-                salaryLine ??= await salaryTabulatorRepository.FindActiveLineForLegacyCompensationAsync(
-                    tenantId,
-                    salaryClassCode!,
-                    compensation.CurrencyCode,
-                    compensation.MinAmount,
-                    compensation.MaxAmount,
-                    effectiveRangeStartUtc,
-                    effectiveRangeEndUtc,
-                    cancellationToken);
-                if (salaryLine is null)
-                {
-                    return Result<JobProfileMutation>.Failure(JobProfileErrors.CompensationTabulatorLineNotFound);
-                }
-            }
-
-            var lineIsEffective = salaryLine.TenantId == tenantId &&
-                                  salaryLine.IsActive &&
-                                  salaryLine.EffectiveFromUtc.Date <= (effectiveRangeEndUtc ?? DateTime.SpecifyKind(DateTime.MaxValue.Date, DateTimeKind.Utc)) &&
-                                  (!salaryLine.EffectiveToUtc.HasValue || salaryLine.EffectiveToUtc.Value.Date >= effectiveRangeStartUtc);
-            if (!lineIsEffective)
-            {
-                return Result<JobProfileMutation>.Failure(JobProfileErrors.CompensationTabulatorLineNotFound);
-            }
-
-            var salaryClassCatalogId = await positionDescriptionCatalogRepository.ResolveSalaryClassCatalogIdByCodeAsync(
-                tenantId,
-                salaryLine.SalaryClassCode,
-                cancellationToken);
-            if (!salaryClassCatalogId.HasValue)
-            {
-                return Result<JobProfileMutation>.Failure(PositionDescriptionCatalogErrors.SalaryClassNotFound);
-            }
-
-            var salaryClassLookup = await positionDescriptionCatalogRepository.GetActiveCatalogReferenceAsync(
-                tenantId,
-                PositionDescriptionCatalogType.SalaryClass,
-                salaryClassCatalogId.Value,
-                cancellationToken);
-            if (salaryClassLookup is null)
-            {
-                return Result<JobProfileMutation>.Failure(PositionDescriptionCatalogErrors.SalaryClassNotFound);
-            }
-
-            compensationSalaryClassCatalogItemId = salaryClassLookup.InternalId;
-            compensationSalaryClassCode = salaryClassLookup.Code.Trim().ToUpperInvariant();
-            compensationSalaryClassName = salaryClassLookup.Name;
-            compensationSalaryScaleCode = salaryLine.SalaryScaleCode;
-        }
-
         var benefitEntities = new List<JobProfileBenefit>();
         foreach (var input in benefits)
         {
@@ -2942,11 +2579,7 @@ internal static class JobProfileMutationMapper
                 functionEntities,
                 relationEntities,
                 competencyEntities,
-            trainingEntities,
-            compensationSalaryClassCatalogItemId,
-            compensationSalaryClassCode,
-            compensationSalaryClassName,
-                compensationSalaryScaleCode,
+                trainingEntities,
                 benefitEntities,
                 workingConditionEntities,
                 dependentEntities));

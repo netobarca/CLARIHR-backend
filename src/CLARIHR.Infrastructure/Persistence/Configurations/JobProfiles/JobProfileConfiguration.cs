@@ -1,6 +1,7 @@
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
 using CLARIHR.Domain.OrgUnits;
+using CLARIHR.Domain.SalaryTabulator;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -62,17 +63,6 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
 
         builder.Property(profile => profile.ResponsibilityCatalogItemId)
             .HasColumnName("responsibility_catalog_item_id");
-
-        builder.Property(profile => profile.SalaryClassCatalogItemId)
-            .HasColumnName("salary_class_catalog_item_id");
-
-        builder.Property(profile => profile.SalaryScaleCode)
-            .HasColumnName("salary_scale_code")
-            .HasMaxLength(50);
-
-        builder.Property(profile => profile.NormalizedSalaryScaleCode)
-            .HasColumnName("normalized_salary_scale_code")
-            .HasMaxLength(50);
 
         builder.Property(profile => profile.DecisionScope)
             .HasColumnName("decision_scope")
@@ -149,12 +139,6 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
         builder.HasIndex(profile => new { profile.TenantId, profile.NormalizedTitle })
             .HasDatabaseName("ix_job_profiles__tenant_title");
 
-        builder.HasIndex(profile => new { profile.TenantId, profile.SalaryClassCatalogItemId })
-            .HasDatabaseName("ix_job_profiles__tenant_salary_class");
-
-        builder.HasIndex(profile => new { profile.TenantId, profile.NormalizedSalaryScaleCode })
-            .HasDatabaseName("ix_job_profiles__tenant_salary_scale");
-
         builder.HasOne<OrgUnit>()
             .WithMany()
             .HasForeignKey(profile => profile.OrgUnitId)
@@ -190,12 +174,6 @@ internal sealed class JobProfileConfiguration : IEntityTypeConfiguration<JobProf
             .HasForeignKey(profile => profile.ResponsibilityCatalogItemId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_job_profiles__responsibility_catalog_item");
-
-        builder.HasOne(profile => profile.SalaryClassCatalogItem)
-            .WithMany()
-            .HasForeignKey(profile => profile.SalaryClassCatalogItemId)
-            .OnDelete(DeleteBehavior.Restrict)
-            .HasConstraintName("fk_job_profiles__salary_class_catalog_item");
 
         builder.HasMany(profile => profile.Requirements)
             .WithOne(requirement => requirement.JobProfile)
@@ -446,6 +424,9 @@ internal sealed class JobProfileRelationConfiguration : IEntityTypeConfiguration
             .HasMaxLength(1000);
 
         builder.Property(item => item.SortOrder).HasColumnName("sort_order");
+        builder.Property(item => item.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -489,6 +470,9 @@ internal sealed class JobProfileCompetencyConfiguration : IEntityTypeConfigurati
             .HasMaxLength(1000);
 
         builder.Property(item => item.SortOrder).HasColumnName("sort_order");
+        builder.Property(item => item.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -526,6 +510,9 @@ internal sealed class JobProfileTrainingConfiguration : IEntityTypeConfiguration
             .HasMaxLength(1000);
 
         builder.Property(item => item.SortOrder).HasColumnName("sort_order");
+        builder.Property(item => item.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -563,6 +550,9 @@ internal sealed class JobProfileBenefitConfiguration : IEntityTypeConfiguration<
             .HasMaxLength(1000);
 
         builder.Property(item => item.SortOrder).HasColumnName("sort_order");
+        builder.Property(item => item.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -601,6 +591,9 @@ internal sealed class JobProfileWorkingConditionConfiguration : IEntityTypeConfi
             .HasMaxLength(1000);
 
         builder.Property(item => item.SortOrder).HasColumnName("sort_order");
+        builder.Property(item => item.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -641,6 +634,9 @@ internal sealed class JobProfileDependentPositionConfiguration : IEntityTypeConf
             .HasColumnName("notes")
             .HasMaxLength(1000);
 
+        builder.Property(item => item.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -652,5 +648,55 @@ internal sealed class JobProfileDependentPositionConfiguration : IEntityTypeConf
             .HasForeignKey(item => item.DependentJobProfileId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_job_profile_dependent_positions__dependent_profile");
+    }
+}
+
+internal sealed class JobProfileCompensationConfiguration : IEntityTypeConfiguration<JobProfileCompensation>
+{
+    public void Configure(EntityTypeBuilder<JobProfileCompensation> builder)
+    {
+        builder.ToTable("job_profile_compensations");
+
+        builder.HasKey(item => item.Id)
+            .HasName("pk_job_profile_compensations");
+
+        builder.Property(item => item.Id).HasColumnName("id");
+        builder.Property(item => item.PublicId).HasColumnName("public_id");
+        builder.Property(item => item.TenantId).HasColumnName("tenant_id");
+        builder.Property(item => item.JobProfileId).HasColumnName("job_profile_id");
+        builder.Property(item => item.SalaryTabulatorLineId).HasColumnName("salary_tabulator_line_id");
+
+        builder.Property(item => item.Notes)
+            .HasColumnName("notes")
+            .HasMaxLength(1000);
+
+        builder.Property(item => item.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
+        builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
+        builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
+
+        builder.HasIndex(item => item.PublicId)
+            .IsUnique()
+            .HasDatabaseName("uq_job_profile_compensations__public_id");
+
+        builder.HasIndex(item => item.JobProfileId)
+            .IsUnique()
+            .HasDatabaseName("uq_job_profile_compensations__job_profile_id");
+
+        builder.HasIndex(item => item.SalaryTabulatorLineId)
+            .HasDatabaseName("ix_job_profile_compensations__salary_tabulator_line");
+
+        builder.HasOne<JobProfile>()
+            .WithOne()
+            .HasForeignKey<JobProfileCompensation>(item => item.JobProfileId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .HasConstraintName("fk_job_profile_compensations__job_profile");
+
+        builder.HasOne<SalaryTabulatorLine>()
+            .WithMany()
+            .HasForeignKey(item => item.SalaryTabulatorLineId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_job_profile_compensations__salary_tabulator_line");
     }
 }

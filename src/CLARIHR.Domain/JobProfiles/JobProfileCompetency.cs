@@ -27,6 +27,7 @@ public sealed class JobProfileCompetency : TenantEntity
         ExpectedLevel = JobProfileNormalization.CleanOptional(expectedLevel);
         Notes = JobProfileNormalization.CleanOptional(notes);
         SortOrder = sortOrder;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long JobProfileId { get; private set; }
@@ -44,6 +45,8 @@ public sealed class JobProfileCompetency : TenantEntity
     public string? Notes { get; private set; }
 
     public int SortOrder { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static JobProfileCompetency Create(
         long? catalogItemId,
@@ -73,5 +76,6 @@ public sealed class JobProfileCompetency : TenantEntity
         ExpectedLevel = JobProfileNormalization.CleanOptional(expectedLevel);
         Notes = JobProfileNormalization.CleanOptional(notes);
         SortOrder = sortOrder;
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
