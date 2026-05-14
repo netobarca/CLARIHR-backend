@@ -68,6 +68,9 @@ public static class AuditEventTypes
     public const string JobProfileUpdated = "JOB_PROFILE_UPDATED";
     public const string JobProfilePublished = "JOB_PROFILE_PUBLISHED";
     public const string JobProfileArchived = "JOB_PROFILE_ARCHIVED";
+    public const string JobProfileCompensationCreated = "JOB_PROFILE_COMPENSATION_CREATED";
+    public const string JobProfileCompensationUpdated = "JOB_PROFILE_COMPENSATION_UPDATED";
+    public const string JobProfileCompensationDeleted = "JOB_PROFILE_COMPENSATION_DELETED";
     public const string JobCatalogItemCreated = "JOB_CATALOG_ITEM_CREATED";
     public const string JobCatalogItemUpdated = "JOB_CATALOG_ITEM_UPDATED";
     public const string InternalCatalogValueCreated = "INTERNAL_CATALOG_VALUE_CREATED";
@@ -193,6 +196,9 @@ public static class AuditEventTypes
         FunctionalAreaCatalogItemInactivated,
         JobProfileCreated,
         JobProfileUpdated,
+        JobProfileCompensationCreated,
+        JobProfileCompensationUpdated,
+        JobProfileCompensationDeleted,
         JobProfilePublished,
         JobProfileArchived,
         JobCatalogItemCreated,
@@ -287,6 +293,7 @@ public static class AuditEntityTypes
     public const string OrgUnitTypeCatalogItem = "OrgUnitTypeCatalogItem";
     public const string FunctionalAreaCatalogItem = "FunctionalAreaCatalogItem";
     public const string JobProfile = "JobProfile";
+    public const string JobProfileCompensation = "JobProfileCompensation";
     public const string JobCatalogItem = "JobCatalogItem";
     public const string InternalCatalogValue = "InternalCatalogValue";
     public const string PositionDescriptionCatalogItem = "PositionDescriptionCatalogItem";
@@ -321,6 +328,7 @@ public static class AuditEntityTypes
         OrgUnitTypeCatalogItem,
         FunctionalAreaCatalogItem,
         JobProfile,
+        JobProfileCompensation,
         JobCatalogItem,
         InternalCatalogValue,
         PositionDescriptionCatalogItem,

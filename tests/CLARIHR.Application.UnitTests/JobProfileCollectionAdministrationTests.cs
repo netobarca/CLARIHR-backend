@@ -108,15 +108,14 @@ public sealed class JobProfileCollectionAdministrationTests
     }
 
     [Fact]
-    public async Task AddBenefit_WhenProfileExists_ShouldAddAndReturnSuccess()
+    public async Task AddBenefit_WhenProfileExists_ShouldReturnCreatedEntity()
     {
         // Arrange
         var profile = JobProfile.Create("JP-001", "Title");
         profile.SetTenantId(_tenantId);
         var profileId = profile.PublicId;
-        
+
         _profileRepository.Profiles[profileId] = profile;
-        _profileRepository.Responses[profileId] = new JobProfileResponse(profileId, _tenantId, "JP-001", "Title", JobProfileStatus.Draft, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, true, [], [], [], [], [], null, [], [], [], profile.ConcurrencyToken, DateTime.UtcNow, null);
 
         var handler = new AddJobProfileBenefitCommandHandler(
             _authService,
@@ -131,17 +130,17 @@ public sealed class JobProfileCollectionAdministrationTests
             null,
             "Health Insurance",
             "Notes",
-            1,
-            profile.ConcurrencyToken);
+            1);
 
         // Act
         var result = await handler.Handle(command, CancellationToken.None);
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Single(profile.Benefits);
-        Assert.Equal("Health Insurance", result.Value.Item.Name);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        Assert.Equal("Health Insurance", result.Value.Name);
+        Assert.NotEqual(Guid.Empty, result.Value.ConcurrencyToken);
+        var benefit = Assert.Single(profile.Benefits);
+        Assert.Equal(benefit.PublicId, result.Value.Id);
         Assert.Equal(2, _unitOfWork.SaveChangesCalls); // Once for entity, once for audit
     }
 
@@ -397,7 +396,173 @@ public sealed class JobProfileCollectionAdministrationTests
     }
 
     [Fact]
-    public async Task AddTraining_WhenProfileExists_ShouldReturnLightweightItem()
+    public async Task AddRelation_WhenProfileExists_ShouldReturnCreatedEntity()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new AddJobProfileRelationCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork,
+            _catalogRepository);
+
+        var result = await handler.Handle(
+            new AddJobProfileRelationCommand(profileId, JobRelationType.Internal, null, "Gerente de Producto", "Coordina prioridades", 1),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Gerente de Producto", result.Value.Counterpart);
+        Assert.Equal(JobRelationType.Internal, result.Value.RelationType);
+        Assert.NotEqual(Guid.Empty, result.Value.ConcurrencyToken);
+        var relation = Assert.Single(profile.Relations);
+        Assert.Equal(relation.PublicId, result.Value.RelationPublicId);
+    }
+
+    [Fact]
+    public async Task UpdateRelation_WhenTokenMatches_ShouldUpdateAndReturnEntity()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var relation = JobProfileRelation.Create(JobRelationType.Internal, null, null, "Gerente de Producto", "Coordina prioridades", 1);
+        profile.AddRelation(relation);
+        var profileId = profile.PublicId;
+        var token = relation.ConcurrencyToken;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new UpdateJobProfileRelationCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork,
+            _catalogRepository);
+
+        var result = await handler.Handle(
+            new UpdateJobProfileRelationCommand(profileId, relation.PublicId, JobRelationType.External, null, "Proveedores cloud", "Negociación de contratos", 2, token),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Proveedores cloud", result.Value.Counterpart);
+        Assert.Equal(JobRelationType.External, result.Value.RelationType);
+        Assert.NotEqual(token, result.Value.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task UpdateRelation_WhenTokenStale_ShouldFailWithConcurrencyConflict()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var relation = JobProfileRelation.Create(JobRelationType.Internal, null, null, "Gerente de Producto", null, 1);
+        profile.AddRelation(relation);
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new UpdateJobProfileRelationCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork,
+            _catalogRepository);
+
+        var result = await handler.Handle(
+            new UpdateJobProfileRelationCommand(profileId, relation.PublicId, JobRelationType.External, null, "Proveedores cloud", null, 2, Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(JobProfileErrors.ConcurrencyConflict.Code, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task PatchRelation_WhenTokenMatches_ShouldUpdateAndReturnEntity()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var relation = JobProfileRelation.Create(JobRelationType.Internal, null, null, "Gerente de Producto", null, 1);
+        profile.AddRelation(relation);
+        var profileId = profile.PublicId;
+        var token = relation.ConcurrencyToken;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new PatchJobProfileRelationCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork,
+            _catalogRepository);
+
+        var result = await handler.Handle(
+            new PatchJobProfileRelationCommand(
+                profileId,
+                relation.PublicId,
+                [
+                    new JobProfileRelationPatchOperation("replace", "/counterpart", null, JsonSerializer.SerializeToElement("Gerente de Producto Senior")),
+                    new JobProfileRelationPatchOperation("replace", "/concurrencyToken", null, JsonSerializer.SerializeToElement(token.ToString()))
+                ]),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Gerente de Producto Senior", result.Value.Counterpart);
+        Assert.NotEqual(token, result.Value.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task GetRelations_WhenProfileExists_ShouldReturnRelationsWithConcurrencyTokens()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        profile.AddRelation(JobProfileRelation.Create(JobRelationType.Internal, null, null, "Gerente de Producto", null, 1));
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new GetJobProfileRelationsQueryHandler(
+            _authService,
+            _profileRepository,
+            _tenantContext);
+
+        var result = await handler.Handle(new GetJobProfileRelationsQuery(profileId), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var relation = Assert.Single(result.Value);
+        Assert.Equal("Gerente de Producto", relation.Counterpart);
+        Assert.NotEqual(Guid.Empty, relation.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task RemoveRelation_WhenTokenMatches_ShouldRemoveAndReturnDeletedEntity()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var relation = JobProfileRelation.Create(JobRelationType.Internal, null, null, "Gerente de Producto", null, 1);
+        profile.AddRelation(relation);
+        var profileId = profile.PublicId;
+        var token = relation.ConcurrencyToken;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new RemoveJobProfileRelationCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork);
+
+        var result = await handler.Handle(
+            new RemoveJobProfileRelationCommand(profileId, relation.PublicId, token),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(profile.Relations);
+        Assert.Equal(relation.PublicId, result.Value.RelationPublicId);
+    }
+
+    [Fact]
+    public async Task AddTraining_WhenProfileExists_ShouldReturnCreatedEntity()
     {
         var profile = JobProfile.Create("JP-001", "Title");
         profile.SetTenantId(_tenantId);
@@ -413,16 +578,18 @@ public sealed class JobProfileCollectionAdministrationTests
             _catalogRepository);
 
         var result = await handler.Handle(
-            new AddJobProfileTrainingCommand(profileId, null, "Leadership", "Notes", 1, profile.ConcurrencyToken),
+            new AddJobProfileTrainingCommand(profileId, null, "Leadership", "Notes", 1),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("Leadership", result.Value.Item.Name);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        Assert.Equal("Leadership", result.Value.Name);
+        Assert.NotEqual(Guid.Empty, result.Value.ConcurrencyToken);
+        var training = Assert.Single(profile.Trainings);
+        Assert.Equal(training.PublicId, result.Value.Id);
     }
 
     [Fact]
-    public async Task AddCompetency_WhenProfileExists_ShouldReturnLegacyLightweightItem()
+    public async Task AddCompetency_WhenProfileExists_ShouldReturnCreatedEntity()
     {
         var profile = JobProfile.Create("JP-001", "Title");
         profile.SetTenantId(_tenantId);
@@ -438,17 +605,157 @@ public sealed class JobProfileCollectionAdministrationTests
             _catalogRepository);
 
         var result = await handler.Handle(
-            new AddJobProfileCompetencyCommand(profileId, null, "Communication", "Advanced", "Notes", 1, profile.ConcurrencyToken),
+            new AddJobProfileCompetencyCommand(profileId, null, "Communication", "Advanced", "Notes", 1),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("Communication", result.Value.Item.Name);
-        Assert.Equal("Advanced", result.Value.Item.ExpectedLevel);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        Assert.Equal("Communication", result.Value.Name);
+        Assert.Equal("Advanced", result.Value.ExpectedLevel);
+        Assert.NotEqual(Guid.Empty, result.Value.ConcurrencyToken);
+        var competency = Assert.Single(profile.Competencies);
+        Assert.Equal(competency.PublicId, result.Value.CompetencyPublicId);
     }
 
     [Fact]
-    public async Task AddDependentPosition_WhenProfileExists_ShouldReturnLightweightItem()
+    public async Task UpdateCompetency_WhenTokenMatches_ShouldUpdateAndReturnEntity()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var competency = JobProfileCompetency.Create(null, null, "Communication", "Advanced", "Notes", 1);
+        profile.AddCompetency(competency);
+        var profileId = profile.PublicId;
+        var token = competency.ConcurrencyToken;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new UpdateJobProfileCompetencyCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork,
+            _catalogRepository);
+
+        var result = await handler.Handle(
+            new UpdateJobProfileCompetencyCommand(profileId, competency.PublicId, null, "Communication Plus", "Expert", "Updated", 2, token),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Communication Plus", result.Value.Name);
+        Assert.Equal("Expert", result.Value.ExpectedLevel);
+        Assert.NotEqual(token, result.Value.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task UpdateCompetency_WhenTokenStale_ShouldFailWithConcurrencyConflict()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var competency = JobProfileCompetency.Create(null, null, "Communication", null, null, 1);
+        profile.AddCompetency(competency);
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new UpdateJobProfileCompetencyCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork,
+            _catalogRepository);
+
+        var result = await handler.Handle(
+            new UpdateJobProfileCompetencyCommand(profileId, competency.PublicId, null, "Communication Plus", null, null, 2, Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(JobProfileErrors.ConcurrencyConflict.Code, result.Error.Code);
+    }
+
+    [Fact]
+    public async Task PatchCompetency_WhenTokenMatches_ShouldUpdateAndReturnEntity()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var competency = JobProfileCompetency.Create(null, null, "Communication", null, null, 1);
+        profile.AddCompetency(competency);
+        var profileId = profile.PublicId;
+        var token = competency.ConcurrencyToken;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new PatchJobProfileCompetencyCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork,
+            _catalogRepository);
+
+        var result = await handler.Handle(
+            new PatchJobProfileCompetencyCommand(
+                profileId,
+                competency.PublicId,
+                [
+                    new JobProfileCompetencyPatchOperation("replace", "/expectedLevel", null, JsonSerializer.SerializeToElement("Expert")),
+                    new JobProfileCompetencyPatchOperation("replace", "/concurrencyToken", null, JsonSerializer.SerializeToElement(token.ToString()))
+                ]),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Expert", result.Value.ExpectedLevel);
+        Assert.NotEqual(token, result.Value.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task GetCompetencies_WhenProfileExists_ShouldReturnCompetenciesWithConcurrencyTokens()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        profile.AddCompetency(JobProfileCompetency.Create(null, null, "Communication", null, null, 1));
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new GetJobProfileCompetenciesQueryHandler(
+            _authService,
+            _profileRepository,
+            _tenantContext);
+
+        var result = await handler.Handle(new GetJobProfileCompetenciesQuery(profileId), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var competency = Assert.Single(result.Value);
+        Assert.Equal("Communication", competency.Name);
+        Assert.NotEqual(Guid.Empty, competency.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task RemoveCompetency_WhenTokenMatches_ShouldRemoveAndReturnDeletedEntity()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        var competency = JobProfileCompetency.Create(null, null, "Communication", null, null, 1);
+        profile.AddCompetency(competency);
+        var profileId = profile.PublicId;
+        var token = competency.ConcurrencyToken;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new RemoveJobProfileCompetencyCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork);
+
+        var result = await handler.Handle(
+            new RemoveJobProfileCompetencyCommand(profileId, competency.PublicId, token),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(profile.Competencies);
+        Assert.Equal(competency.PublicId, result.Value.CompetencyPublicId);
+    }
+
+    [Fact]
+    public async Task AddDependentPosition_WhenProfileExists_ShouldReturnCreatedEntity()
     {
         var profile = JobProfile.Create("JP-001", "Title");
         profile.SetTenantId(_tenantId);
@@ -464,17 +771,19 @@ public sealed class JobProfileCollectionAdministrationTests
             _unitOfWork);
 
         var result = await handler.Handle(
-            new AddJobProfileDependentPositionCommand(profileId, dependentProfileId, 2, "Notes", profile.ConcurrencyToken),
+            new AddJobProfileDependentPositionCommand(profileId, dependentProfileId, 2, "Notes"),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(2, result.Value.Item.Quantity);
-        Assert.Equal("JP-REF", result.Value.Item.DependentJobProfileCode);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        Assert.Equal(2, result.Value.Quantity);
+        Assert.Equal("JP-REF", result.Value.DependentJobProfileCode);
+        Assert.NotEqual(Guid.Empty, result.Value.ConcurrencyToken);
+        var dependentPosition = Assert.Single(profile.DependentPositions);
+        Assert.Equal(dependentPosition.PublicId, result.Value.Id);
     }
 
     [Fact]
-    public async Task AddWorkingCondition_WhenProfileExists_ShouldReturnLightweightItem()
+    public async Task AddWorkingCondition_WhenProfileExists_ShouldReturnCreatedEntity()
     {
         var profile = JobProfile.Create("JP-001", "Title");
         profile.SetTenantId(_tenantId);
@@ -495,8 +804,10 @@ public sealed class JobProfileCollectionAdministrationTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("Remote", result.Value.Item.Name);
-        Assert.Equal(profile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
+        Assert.Equal("Remote", result.Value.Name);
+        Assert.NotEqual(Guid.Empty, result.Value.ConcurrencyToken);
+        var workingCondition = Assert.Single(profile.WorkingConditions);
+        Assert.Equal(workingCondition.PublicId, result.Value.Id);
     }
 
     [Fact]

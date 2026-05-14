@@ -140,8 +140,8 @@ public sealed class JobProfilePdfRendererTests
             },
             Relations = new[]
             {
-                new JobProfileRelationResponse(Guid.NewGuid(), null, JobRelationType.Internal, "Gerente de Producto", "Coordinación de prioridades", 1),
-                new JobProfileRelationResponse(Guid.NewGuid(), null, JobRelationType.External, "Proveedores cloud", "Negociación de contratos", 2)
+                new JobProfileRelationResponse(Guid.NewGuid(), null, JobRelationType.Internal, "Gerente de Producto", "Coordinación de prioridades", 1, Guid.NewGuid()),
+                new JobProfileRelationResponse(Guid.NewGuid(), null, JobRelationType.External, "Proveedores cloud", "Negociación de contratos", 2, Guid.NewGuid())
             },
             Competencies = new[]
             {
@@ -169,11 +169,11 @@ public sealed class JobProfilePdfRendererTests
             },
             Trainings = new[]
             {
-                new JobProfileTrainingResponse(Guid.NewGuid(), null, "Programa de Liderazgo Ejecutivo", "Recomendado", 1)
+                new JobProfileTrainingResponse(Guid.NewGuid(), null, "Programa de Liderazgo Ejecutivo", "Recomendado", 1, Guid.NewGuid())
             },
             Benefits = new[]
             {
-                new JobProfileBenefitResponse(Guid.NewGuid(), null, "Seguro médico premium", "Cobertura familiar", 1)
+                new JobProfileBenefitResponse(Guid.NewGuid(), null, "Seguro médico premium", "Cobertura familiar", 1, Guid.NewGuid())
             },
             WorkingConditions = new[]
             {
@@ -181,7 +181,7 @@ public sealed class JobProfilePdfRendererTests
             },
             DependentPositions = new[]
             {
-                new JobProfileDependentPositionResponse(Guid.NewGuid(), Guid.NewGuid(), "DEV-LEAD", "Tech Lead", 3, "Reportes directos")
+                new JobProfileDependentPositionResponse(Guid.NewGuid(), Guid.NewGuid(), "DEV-LEAD", "Tech Lead", 3, "Reportes directos", Guid.NewGuid())
             },
             Compensation = new JobProfileCompensationResponse(
                 SalaryClassId: Guid.NewGuid(),

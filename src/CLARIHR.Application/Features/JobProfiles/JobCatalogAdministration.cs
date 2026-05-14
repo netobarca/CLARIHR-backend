@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.Policies;
@@ -42,9 +43,32 @@ public sealed record CreateJobCatalogItemCommand(
     string Code,
     string Name) : ICommand<JobCatalogItemResponse>;
 
-public sealed record ActivateJobCatalogItemCommand(Guid ItemId, Guid ConcurrencyToken) : ICommand<JobCatalogItemResponse>;
+public sealed record UpdateJobCatalogItemCommand(
+    Guid CompanyId,
+    JobCatalogCategory Category,
+    Guid ItemId,
+    string Code,
+    string Name,
+    bool IsActive,
+    Guid ConcurrencyToken) : ICommand<JobCatalogItemResponse>;
 
-public sealed record InactivateJobCatalogItemCommand(Guid ItemId, Guid ConcurrencyToken) : ICommand<JobCatalogItemResponse>;
+public sealed record JobCatalogItemPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchJobCatalogItemCommand(
+    Guid CompanyId,
+    JobCatalogCategory Category,
+    Guid ItemId,
+    IReadOnlyCollection<JobCatalogItemPatchOperation> Operations) : ICommand<JobCatalogItemResponse>;
+
+public sealed record RemoveJobCatalogItemCommand(
+    Guid CompanyId,
+    JobCatalogCategory Category,
+    Guid ItemId,
+    Guid ConcurrencyToken) : ICommand<JobCatalogItemResponse>;
 
 internal sealed class SearchJobCatalogItemsQueryValidator : AbstractValidator<SearchJobCatalogItemsQuery>
 {
@@ -71,19 +95,52 @@ internal sealed class CreateJobCatalogItemCommandValidator : AbstractValidator<C
     }
 }
 
-internal sealed class ActivateJobCatalogItemCommandValidator : AbstractValidator<ActivateJobCatalogItemCommand>
+internal sealed class UpdateJobCatalogItemCommandValidator : AbstractValidator<UpdateJobCatalogItemCommand>
 {
-    public ActivateJobCatalogItemCommandValidator()
+    public UpdateJobCatalogItemCommandValidator()
     {
+        RuleFor(command => command.CompanyId).NotEmpty();
         RuleFor(command => command.ItemId).NotEmpty();
+        RuleFor(command => command.Code)
+            .NotEmpty()
+            .MaximumLength(50)
+            .Must(JobProfileValidationRules.IsValidCode)
+            .WithMessage("Code format is invalid.");
+        RuleFor(command => command.Name).NotEmpty().MaximumLength(120);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
-internal sealed class InactivateJobCatalogItemCommandValidator : AbstractValidator<InactivateJobCatalogItemCommand>
+internal sealed class PatchJobCatalogItemCommandValidator : AbstractValidator<PatchJobCatalogItemCommand>
 {
-    public InactivateJobCatalogItemCommandValidator()
+    public PatchJobCatalogItemCommandValidator()
     {
+        RuleFor(command => command.CompanyId).NotEmpty();
+        RuleFor(command => command.ItemId).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(ContainsConcurrencyToken)
+            .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
+    }
+
+    private static bool ContainsConcurrencyToken(IReadOnlyCollection<JobCatalogItemPatchOperation>? operations) =>
+        operations is not null &&
+        operations.Any(static operation =>
+            !string.Equals(operation.Op, "remove", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(operation.Path) &&
+            string.Equals(operation.Path.Trim(), "/concurrencyToken", StringComparison.OrdinalIgnoreCase));
+}
+
+internal sealed class RemoveJobCatalogItemCommandValidator : AbstractValidator<RemoveJobCatalogItemCommand>
+{
+    public RemoveJobCatalogItemCommandValidator()
+    {
+        RuleFor(command => command.CompanyId).NotEmpty();
         RuleFor(command => command.ItemId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
@@ -136,19 +193,22 @@ internal static class JobCatalogPolicyAdapter
         bool canManageCatalogs)
     {
         var state = response.Category.ToString();
+        var canMutateSystem = !response.IsSystem && canManageCatalogs;
         var allowedActions = resourceActionPolicyService.Evaluate(
             new ResourceActionContext(
                 JobProfilePermissionCodes.ResourceKey,
                 state,
                 response.IsActive,
                 IsSystem: response.IsSystem,
-                SupportsEdit: false,
-                SupportsDelete: false,
+                SupportsEdit: true,
+                EditAllowed: canMutateSystem,
+                SupportsDelete: true,
+                DeleteAllowed: canMutateSystem,
                 SupportsArchive: false,
                 SupportsActivate: true,
-                ActivateAllowed: canManageCatalogs,
+                ActivateAllowed: canMutateSystem,
                 SupportsInactivate: true,
-                InactivateAllowed: canManageCatalogs));
+                InactivateAllowed: canMutateSystem));
 
         return response with { AllowedActions = allowedActions };
     }
@@ -218,31 +278,25 @@ internal sealed class CreateJobCatalogItemCommandHandler(
     }
 }
 
-internal sealed class ActivateJobCatalogItemCommandHandler(
+internal sealed class UpdateJobCatalogItemCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobCatalogRepository repository,
     IAuditService auditService,
-    ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<ActivateJobCatalogItemCommand, JobCatalogItemResponse>
+    : ICommandHandler<UpdateJobCatalogItemCommand, JobCatalogItemResponse>
 {
     public async Task<Result<JobCatalogItemResponse>> Handle(
-        ActivateJobCatalogItemCommand command,
+        UpdateJobCatalogItemCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<JobCatalogItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageCatalogsAsync(tenantContext.TenantId.Value, cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanManageCatalogsAsync(command.CompanyId, cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<JobCatalogItemResponse>.Failure(authorizationResult.Error);
         }
 
         var item = await repository.GetByIdAsync(command.ItemId, cancellationToken);
-        if (item is null)
+        if (item is null || item.Category != command.Category)
         {
             return Result<JobCatalogItemResponse>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.ItemId, cancellationToken)
@@ -250,22 +304,48 @@ internal sealed class ActivateJobCatalogItemCommandHandler(
                     : JobProfileErrors.CatalogItemNotFound);
         }
 
+        if (item.IsSystem)
+        {
+            return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.CatalogItemSystemImmutable);
+        }
+
         if (item.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
+        var normalizedIncomingCode = command.Code.Trim().ToUpperInvariant();
+        if (item.NormalizedCode != normalizedIncomingCode &&
+            await repository.CodeExistsAsync(
+                command.CompanyId,
+                command.Category,
+                normalizedIncomingCode,
+                excludingItemId: item.Id,
+                cancellationToken))
+        {
+            return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.CatalogCodeConflict);
+        }
+
         var before = await repository.GetResponseByIdAsync(item.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Catalog item response could not be resolved before activation.");
+            ?? throw new InvalidOperationException("Catalog item response could not be resolved before update.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            item.Activate();
+            item.Update(command.Code, command.Name);
+            if (command.IsActive && !item.IsActive)
+            {
+                item.Activate();
+            }
+            else if (!command.IsActive && item.IsActive)
+            {
+                item.Inactivate();
+            }
+
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetResponseByIdAsync(item.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Catalog item response could not be resolved after activation.");
+                ?? throw new InvalidOperationException("Catalog item response could not be resolved after update.");
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -274,7 +354,7 @@ internal sealed class ActivateJobCatalogItemCommandHandler(
                     item.PublicId,
                     item.Code,
                     AuditActions.Update,
-                    $"Activated job catalog item {item.Code} ({item.Category}).",
+                    $"Updated job catalog item {item.Code} ({item.Category}).",
                     Before: before,
                     After: after),
                 cancellationToken);
@@ -293,31 +373,25 @@ internal sealed class ActivateJobCatalogItemCommandHandler(
     }
 }
 
-internal sealed class InactivateJobCatalogItemCommandHandler(
+internal sealed class PatchJobCatalogItemCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobCatalogRepository repository,
     IAuditService auditService,
-    ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<InactivateJobCatalogItemCommand, JobCatalogItemResponse>
+    : ICommandHandler<PatchJobCatalogItemCommand, JobCatalogItemResponse>
 {
     public async Task<Result<JobCatalogItemResponse>> Handle(
-        InactivateJobCatalogItemCommand command,
+        PatchJobCatalogItemCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<JobCatalogItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageCatalogsAsync(tenantContext.TenantId.Value, cancellationToken);
+        var authorizationResult = await authorizationService.EnsureCanManageCatalogsAsync(command.CompanyId, cancellationToken);
         if (authorizationResult.IsFailure)
         {
             return Result<JobCatalogItemResponse>.Failure(authorizationResult.Error);
         }
 
         var item = await repository.GetByIdAsync(command.ItemId, cancellationToken);
-        if (item is null)
+        if (item is null || item.Category != command.Category)
         {
             return Result<JobCatalogItemResponse>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.ItemId, cancellationToken)
@@ -325,22 +399,65 @@ internal sealed class InactivateJobCatalogItemCommandHandler(
                     : JobProfileErrors.CatalogItemNotFound);
         }
 
-        if (item.ConcurrencyToken != command.ConcurrencyToken)
+        if (item.IsSystem)
+        {
+            return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.CatalogItemSystemImmutable);
+        }
+
+        var before = await repository.GetResponseByIdAsync(item.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Catalog item response could not be resolved before patch.");
+        var patchState = JobCatalogItemPatchState.From(before);
+        var patchApplication = JobCatalogItemPatchApplier.Apply(command.Operations, patchState);
+        if (patchApplication.IsFailure)
+        {
+            return Result<JobCatalogItemResponse>.Failure(patchApplication.Error);
+        }
+
+        var validation = JobCatalogItemPatchApplier.Validate(patchState);
+        if (validation.IsFailure)
+        {
+            return Result<JobCatalogItemResponse>.Failure(validation.Error);
+        }
+
+        if (patchState.ConcurrencyToken != item.ConcurrencyToken)
         {
             return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
-        var before = await repository.GetResponseByIdAsync(item.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Catalog item response could not be resolved before inactivation.");
+        if (!patchState.HasMutation)
+        {
+            return Result<JobCatalogItemResponse>.Success(before);
+        }
+
+        var normalizedIncomingCode = patchState.Code.Trim().ToUpperInvariant();
+        if (item.NormalizedCode != normalizedIncomingCode &&
+            await repository.CodeExistsAsync(
+                command.CompanyId,
+                command.Category,
+                normalizedIncomingCode,
+                excludingItemId: item.Id,
+                cancellationToken))
+        {
+            return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.CatalogCodeConflict);
+        }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            item.Inactivate();
+            item.Update(patchState.Code, patchState.Name);
+            if (patchState.IsActive && !item.IsActive)
+            {
+                item.Activate();
+            }
+            else if (!patchState.IsActive && item.IsActive)
+            {
+                item.Inactivate();
+            }
+
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetResponseByIdAsync(item.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Catalog item response could not be resolved after inactivation.");
+                ?? throw new InvalidOperationException("Catalog item response could not be resolved after patch.");
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -349,7 +466,7 @@ internal sealed class InactivateJobCatalogItemCommandHandler(
                     item.PublicId,
                     item.Code,
                     AuditActions.Update,
-                    $"Inactivated job catalog item {item.Code} ({item.Category}).",
+                    $"Patched job catalog item {item.Code} ({item.Category}).",
                     Before: before,
                     After: after),
                 cancellationToken);
@@ -366,4 +483,308 @@ internal sealed class InactivateJobCatalogItemCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class RemoveJobCatalogItemCommandHandler(
+    IJobProfileAuthorizationService authorizationService,
+    IJobCatalogRepository repository,
+    IAuditService auditService,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<RemoveJobCatalogItemCommand, JobCatalogItemResponse>
+{
+    public async Task<Result<JobCatalogItemResponse>> Handle(
+        RemoveJobCatalogItemCommand command,
+        CancellationToken cancellationToken)
+    {
+        var authorizationResult = await authorizationService.EnsureCanManageCatalogsAsync(command.CompanyId, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<JobCatalogItemResponse>.Failure(authorizationResult.Error);
+        }
+
+        var item = await repository.GetByIdAsync(command.ItemId, cancellationToken);
+        if (item is null || item.Category != command.Category)
+        {
+            return Result<JobCatalogItemResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.ItemId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : JobProfileErrors.CatalogItemNotFound);
+        }
+
+        if (item.IsSystem)
+        {
+            return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.CatalogItemSystemImmutable);
+        }
+
+        if (item.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+        }
+
+        if (await repository.HasUsageAsync(item.Id, cancellationToken))
+        {
+            return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.CatalogItemInUse);
+        }
+
+        var before = await repository.GetResponseByIdAsync(item.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Catalog item response could not be resolved before delete.");
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            repository.Remove(item);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.JobCatalogItemUpdated,
+                    AuditEntityTypes.JobCatalogItem,
+                    item.PublicId,
+                    item.Code,
+                    AuditActions.Update,
+                    $"Deleted job catalog item {item.Code} ({item.Category}).",
+                    Before: before),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            repository.InvalidateCategoryCache(item.TenantId, item.Category);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<JobCatalogItemResponse>.Success(before);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class JobCatalogItemPatchState
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public Guid ConcurrencyToken { get; set; }
+    public bool ConcurrencyTokenTouched { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static JobCatalogItemPatchState From(JobCatalogItemResponse response) =>
+        new()
+        {
+            Code = response.Code,
+            Name = response.Name,
+            IsActive = response.IsActive,
+            ConcurrencyToken = response.ConcurrencyToken
+        };
+}
+
+internal static class JobCatalogItemPatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<JobCatalogItemPatchOperation> operations, JobCatalogItemPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root catalog item properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (JobProfilePatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(JobCatalogItemPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (!state.ConcurrencyTokenTouched)
+        {
+            errors["concurrencyToken"] = ["ConcurrencyToken is required."];
+        }
+        else if (state.ConcurrencyToken == Guid.Empty)
+        {
+            errors["concurrencyToken"] = ["ConcurrencyToken must be a valid UUID."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.Code))
+        {
+            errors["code"] = ["Code is required."];
+        }
+        else if (state.Code.Length > 50)
+        {
+            errors["code"] = ["Code must be 50 characters or fewer."];
+        }
+        else if (!JobProfileValidationRules.IsValidCode(state.Code))
+        {
+            errors["code"] = ["Code format is invalid."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.Name))
+        {
+            errors["name"] = ["Name is required."];
+        }
+        else if (state.Name.Length > 120)
+        {
+            errors["name"] = ["Name must be 120 characters or fewer."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        JobCatalogItemPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "code"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Code cannot be removed.");
+            }
+
+            state.Code = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "name"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Name cannot be removed.");
+            }
+
+            state.Name = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "isActive"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "IsActive cannot be removed.");
+            }
+
+            state.IsActive = ReadBool(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "concurrencyToken"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "ConcurrencyToken cannot be removed.");
+            }
+
+            state.ConcurrencyToken = ReadRequiredGuid(value, path);
+            state.ConcurrencyTokenTouched = true;
+            return Result.Success();
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadRequiredString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new JobProfilePatchValueException(path, "Value is required.");
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString() ?? string.Empty
+            : throw new JobProfilePatchValueException(path, "Value must be a string.");
+    }
+
+    private static bool ReadBool(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new JobProfilePatchValueException(path, "Value must be a boolean.");
+        }
+
+        return value!.Value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String when bool.TryParse(value.Value.GetString(), out var parsed) => parsed,
+            _ => throw new JobProfilePatchValueException(path, "Value must be a boolean.")
+        };
+    }
+
+    private static Guid ReadRequiredGuid(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new JobProfilePatchValueException(path, "Value must be a valid UUID.");
+        }
+
+        var raw = value!.Value.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            throw new JobProfilePatchValueException(path, "Value must be a valid UUID.");
+        }
+
+        return Guid.TryParse(raw, out var parsed)
+            ? parsed
+            : throw new JobProfilePatchValueException(path, "Value must be a valid UUID.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }

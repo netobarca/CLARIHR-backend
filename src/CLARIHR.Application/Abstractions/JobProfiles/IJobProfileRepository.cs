@@ -12,7 +12,12 @@ public interface IJobProfileRepository
     Task<JobProfile?> GetCoreByIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfile?> GetWithRequirementsOnlyAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfile?> GetWithFunctionsOnlyAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfile?> GetWithRelationsOnlyAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfile?> GetWithCompetenciesOnlyAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfile?> GetWithWorkingConditionsOnlyAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfile?> GetWithTrainingsOnlyAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfile?> GetWithBenefitsOnlyAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfile?> GetWithDependentPositionsOnlyAsync(Guid profileId, CancellationToken cancellationToken);
 
     Task<bool> ExistsOutsideTenantAsync(Guid profileId, CancellationToken cancellationToken);
 
@@ -47,6 +52,18 @@ public interface IJobProfileRepository
     Task<JobProfileRequirementResponse?> GetRequirementResponseAsync(Guid profileId, Guid requirementId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<JobProfileFunctionResponse>?> GetFunctionResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfileFunctionResponse?> GetFunctionResponseAsync(Guid profileId, Guid functionId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<JobProfileRelationResponse>?> GetRelationResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfileRelationResponse?> GetRelationResponseAsync(Guid profileId, Guid relationId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<JobProfileLegacyCompetencyResponse>?> GetLegacyCompetencyResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfileLegacyCompetencyResponse?> GetLegacyCompetencyResponseAsync(Guid profileId, Guid competencyId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<JobProfileTrainingResponse>?> GetTrainingResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfileTrainingResponse?> GetTrainingResponseAsync(Guid profileId, Guid trainingId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<JobProfileBenefitResponse>?> GetBenefitResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfileBenefitResponse?> GetBenefitResponseAsync(Guid profileId, Guid benefitId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<JobProfileWorkingConditionResponse>?> GetWorkingConditionResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfileWorkingConditionResponse?> GetWorkingConditionResponseAsync(Guid profileId, Guid workingConditionId, CancellationToken cancellationToken);
+    Task<IReadOnlyCollection<JobProfileDependentPositionResponse>?> GetDependentPositionResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<JobProfileDependentPositionResponse?> GetDependentPositionResponseAsync(Guid profileId, Guid dependentPositionId, CancellationToken cancellationToken);
 
     /// <summary>Internal use only: used by the async PDF export pipeline. Not exposed as an API endpoint.</summary>
     Task<JobProfilePrintResponse?> GetPrintByIdAsync(Guid profileId, CancellationToken cancellationToken);

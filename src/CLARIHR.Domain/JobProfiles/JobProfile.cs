@@ -1,5 +1,4 @@
 using CLARIHR.Domain.Common;
-using CLARIHR.Domain.PositionDescriptionCatalogs;
 
 namespace CLARIHR.Domain.JobProfiles;
 
@@ -64,14 +63,6 @@ public sealed class JobProfile : TenantEntity
     public string? MarketSalaryReference { get; private set; }
 
     public string? ValuationNotes { get; private set; }
-
-    public long? SalaryClassCatalogItemId { get; private set; }
-
-    public PositionDescriptionCatalogItem? SalaryClassCatalogItem { get; private set; }
-
-    public string? SalaryScaleCode { get; private set; }
-
-    public string? NormalizedSalaryScaleCode { get; private set; }
 
     public JobProfileStatus Status { get; private set; }
 
@@ -413,48 +404,6 @@ public sealed class JobProfile : TenantEntity
         RefreshConcurrencyToken();
     }
 
-    public void SetCompensationReference(
-        long salaryClassCatalogItemId,
-        PositionDescriptionCatalogItem? salaryClassCatalogItem,
-        string salaryScaleCode,
-        bool bumpVersion = true)
-    {
-        EnsurePositiveId(salaryClassCatalogItemId, nameof(salaryClassCatalogItemId));
-
-        var normalizedSalaryScaleCode = NormalizeOptionalCode(salaryScaleCode);
-        if (string.IsNullOrWhiteSpace(normalizedSalaryScaleCode))
-        {
-            throw new ArgumentException("SalaryScaleCode is required.", nameof(salaryScaleCode));
-        }
-
-        EnsureEditable();
-        SalaryClassCatalogItemId = salaryClassCatalogItemId;
-        SalaryClassCatalogItem = salaryClassCatalogItem;
-        SalaryScaleCode = normalizedSalaryScaleCode;
-        NormalizedSalaryScaleCode = normalizedSalaryScaleCode;
-
-        if (bumpVersion)
-        {
-            Version++;
-            RefreshConcurrencyToken();
-        }
-    }
-
-    public void ClearCompensationReference(bool bumpVersion = true)
-    {
-        EnsureEditable();
-        SalaryClassCatalogItemId = null;
-        SalaryClassCatalogItem = null;
-        SalaryScaleCode = null;
-        NormalizedSalaryScaleCode = null;
-
-        if (bumpVersion)
-        {
-            Version++;
-            RefreshConcurrencyToken();
-        }
-    }
-
     private void EnsureEditable()
     {
         if (Status == JobProfileStatus.Archived)
@@ -482,11 +431,6 @@ public sealed class JobProfile : TenantEntity
             throw new ArgumentOutOfRangeException(parameterName, "Identifier must be greater than zero.");
         }
     }
-
-    private static string? NormalizeOptionalCode(string? value) =>
-        string.IsNullOrWhiteSpace(value)
-            ? null
-            : JobProfileNormalization.NormalizeCode(value);
 
     private static DateTime? NormalizeOptionalUtc(DateTime? value)
     {

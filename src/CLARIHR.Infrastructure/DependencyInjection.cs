@@ -141,6 +141,7 @@ public static class DependencyInjection
         services.AddScoped<IOrgStructureCatalogSeedService, OrgStructureCatalogSeedService>();
         services.AddScoped<IJobProfileRepository, JobProfileRepository>();
         services.AddScoped<IJobCatalogRepository, JobCatalogRepository>();
+        services.AddScoped<IJobProfileCompensationRepository, JobProfileCompensationRepository>();
         services.AddScoped<IJobProfileAuthorizationService, JobProfileAuthorizationService>();
         services.AddScoped<IPositionDescriptionCatalogRepository, PositionDescriptionCatalogRepository>();
         services.AddScoped<IPositionDescriptionCatalogAuthorizationService, PositionDescriptionCatalogAuthorizationService>();

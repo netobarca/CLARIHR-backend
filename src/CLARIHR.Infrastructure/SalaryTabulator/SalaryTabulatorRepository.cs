@@ -350,37 +350,24 @@ internal sealed class SalaryTabulatorRepository(ApplicationDbContext dbContext) 
         DateTime fallbackEffectiveAtUtc,
         CancellationToken cancellationToken)
     {
-        var salaryClassInternalId = await dbContext.PositionDescriptionCatalogItems
-            .AsNoTracking()
-            .Where(item =>
-                item.TenantId == tenantId &&
-                item.CatalogType == PositionDescriptionCatalogType.SalaryClass &&
-                item.NormalizedCode == normalizedSalaryClassCode)
-            .Select(item => (long?)item.Id)
-            .SingleOrDefaultAsync(cancellationToken);
-
-        if (!salaryClassInternalId.HasValue)
-        {
-            return false;
-        }
-
-        return await dbContext.JobProfiles
-            .AsNoTracking()
-            .Where(profile =>
-                profile.TenantId == tenantId &&
-                profile.SalaryClassCatalogItemId == salaryClassInternalId.Value &&
-                profile.NormalizedSalaryScaleCode == normalizedSalaryScaleCode)
-            .AnyAsync(
-                profile => !dbContext.SalaryTabulatorLines
-                    .AsNoTracking()
-                    .Any(line =>
-                        line.TenantId == tenantId &&
-                        line.NormalizedSalaryClassCode == normalizedSalaryClassCode &&
-                        line.NormalizedSalaryScaleCode == normalizedSalaryScaleCode &&
-                        line.IsActive &&
-                        line.EffectiveFromUtc <= (profile.EffectiveFromUtc ?? fallbackEffectiveAtUtc) &&
-                        (!line.EffectiveToUtc.HasValue || line.EffectiveToUtc.Value >= (profile.EffectiveFromUtc ?? fallbackEffectiveAtUtc))),
-                cancellationToken);
+        return await
+            (from compensation in dbContext.JobProfileCompensations.AsNoTracking()
+             join line in dbContext.SalaryTabulatorLines.AsNoTracking()
+                 on compensation.SalaryTabulatorLineId equals line.Id
+             join profile in dbContext.JobProfiles.AsNoTracking()
+                 on compensation.JobProfileId equals profile.Id
+             where compensation.TenantId == tenantId &&
+                   line.NormalizedSalaryClassCode == normalizedSalaryClassCode &&
+                   line.NormalizedSalaryScaleCode == normalizedSalaryScaleCode &&
+                   !dbContext.SalaryTabulatorLines.AsNoTracking().Any(cover =>
+                       cover.TenantId == tenantId &&
+                       cover.NormalizedSalaryClassCode == normalizedSalaryClassCode &&
+                       cover.NormalizedSalaryScaleCode == normalizedSalaryScaleCode &&
+                       cover.IsActive &&
+                       cover.EffectiveFromUtc <= (profile.EffectiveFromUtc ?? fallbackEffectiveAtUtc) &&
+                       (!cover.EffectiveToUtc.HasValue || cover.EffectiveToUtc.Value >= (profile.EffectiveFromUtc ?? fallbackEffectiveAtUtc)))
+             select compensation.Id)
+            .AnyAsync(cancellationToken);
     }
 
     public Task<SalaryTabulatorChangeRequest?> GetChangeRequestByIdAsync(Guid requestId, CancellationToken cancellationToken) =>

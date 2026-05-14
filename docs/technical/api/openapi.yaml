@@ -6185,6 +6185,39 @@ components:
         sortOrder:
           type: integer
           format: int32
+    JobProfileRelationCreateRequest:
+      type: object
+      required:
+        - relationType
+        - counterpart
+        - sortOrder
+      properties:
+        relationType:
+          type: string
+          description: Serialized `JobRelationType` enum value.
+          example: Internal
+        catalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        counterpart:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileRelationUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/JobProfileRelationCreateRequest'
+        - type: object
+          required:
+            - concurrencyToken
+          properties:
+            concurrencyToken:
+              type: string
+              format: uuid
     JobProfileCompetencyRequest:
       type: object
       required:
@@ -6380,15 +6413,16 @@ components:
     JobProfileRelationResponse:
       type: object
       required:
-        - id
+        - relationPublicId
         - relationType
         - counterpart
         - sortOrder
+        - concurrencyToken
       properties:
-        id:
+        relationPublicId:
           type: string
           format: uuid
-        catalogItemId:
+        catalogItemPublicId:
           type: string
           format: uuid
           nullable: true
@@ -6402,17 +6436,21 @@ components:
         sortOrder:
           type: integer
           format: int32
+        concurrencyToken:
+          type: string
+          format: uuid
     JobProfileLegacyCompetencyResponse:
       type: object
       required:
-        - id
+        - competencyPublicId
         - name
         - sortOrder
+        - concurrencyToken
       properties:
-        id:
+        competencyPublicId:
           type: string
           format: uuid
-        catalogItemId:
+        catalogItemPublicId:
           type: string
           format: uuid
           nullable: true
@@ -6427,6 +6465,41 @@ components:
         sortOrder:
           type: integer
           format: int32
+        concurrencyToken:
+          type: string
+          format: uuid
+    JobProfileLegacyCompetencyCreateRequest:
+      type: object
+      required:
+        - sortOrder
+      properties:
+        catalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+          nullable: true
+          description: Optional. When blank, the name is taken from the referenced catalog item.
+        expectedLevel:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+    JobProfileLegacyCompetencyUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/JobProfileLegacyCompetencyCreateRequest'
+        - type: object
+          required:
+            - concurrencyToken
+          properties:
+            concurrencyToken:
+              type: string
+              format: uuid
     JobProfileTrainingResponse:
       type: object
       required:
@@ -6526,28 +6599,6 @@ components:
         notes:
           type: string
           nullable: true
-    JobProfileSubResourceResultOfJobProfileRelationResponse:
-      type: object
-      required:
-        - item
-        - parentConcurrencyToken
-      properties:
-        item:
-          $ref: '#/components/schemas/JobProfileRelationResponse'
-        parentConcurrencyToken:
-          type: string
-          format: uuid
-    JobProfileSubResourceResultOfJobProfileLegacyCompetencyResponse:
-      type: object
-      required:
-        - item
-        - parentConcurrencyToken
-      properties:
-        item:
-          $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
-        parentConcurrencyToken:
-          type: string
-          format: uuid
     JobProfileSubResourceResultOfJobProfileTrainingResponse:
       type: object
       required:
@@ -7296,6 +7347,203 @@ components:
         totalCount:
           type: integer
           format: int32
+    CatalogReferenceResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        isActive:
+          type: boolean
+    PositionDescriptionCatalogItemResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        catalogType:
+          type: string
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+    PagedPositionDescriptionCatalogItemResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PositionDescriptionCatalogItemResponse'
+        pageNumber:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+    UpsertPositionDescriptionCatalogItemRequest:
+      type: object
+      required:
+        - code
+        - name
+        - sortOrder
+      properties:
+        code:
+          type: string
+          maxLength: 50
+        name:
+          type: string
+          maxLength: 150
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        sortOrder:
+          type: integer
+          minimum: 0
+    PositionCategoryClassificationResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        positionFunctionType:
+          $ref: '#/components/schemas/CatalogReferenceResponse'
+        positionContractType:
+          $ref: '#/components/schemas/CatalogReferenceResponse'
+        orgUnitType:
+          $ref: '#/components/schemas/CatalogReferenceResponse'
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+    PagedPositionCategoryClassificationResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PositionCategoryClassificationResponse'
+        pageNumber:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+    UpsertPositionCategoryClassificationRequest:
+      type: object
+      required:
+        - code
+        - name
+        - positionFunctionTypePublicId
+        - positionContractTypePublicId
+        - orgUnitTypePublicId
+        - sortOrder
+      properties:
+        code:
+          type: string
+          maxLength: 50
+        name:
+          type: string
+          maxLength: 150
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        positionFunctionTypePublicId:
+          type: string
+          format: uuid
+        positionContractTypePublicId:
+          type: string
+          format: uuid
+        orgUnitTypePublicId:
+          type: string
+          format: uuid
+        sortOrder:
+          type: integer
+          minimum: 0
+    PositionCategoryResponse:
+      type: object
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        classification:
+          $ref: '#/components/schemas/CatalogReferenceResponse'
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+    PagedPositionCategoryResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PositionCategoryResponse'
+        pageNumber:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+    UpsertPositionCategoryRequest:
+      type: object
+      required:
+        - code
+        - name
+        - classificationPublicId
+        - sortOrder
+      properties:
+        code:
+          type: string
+          maxLength: 50
+        name:
+          type: string
+          maxLength: 150
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        classificationPublicId:
+          type: string
+          format: uuid
+        sortOrder:
+          type: integer
+          minimum: 0
 paths:
   /api/audit/logs:
     get:
@@ -13905,6 +14153,616 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/relations:
+    get:
+      tags:
+        - job-and-competency-design
+      operationId: GetJobProfileRelations
+      summary: List job profile relations
+      description: Returns only the relations array for the selected tenant-scoped job profile. This is the only relations endpoint that returns the full relations collection.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Relations retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobProfileRelationResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job profile was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - job-and-competency-design
+      operationId: AddJobProfileRelation
+      summary: Create a job profile relation
+      description: Creates one relation for the selected job profile and returns the created relation entity. The request does not require a concurrency token; the created entity response includes its granular token.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobProfileRelationCreateRequest'
+      responses:
+        '201':
+          description: Relation created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileRelationResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile or referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict while adding the relation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/relations/{relationPublicId}:
+    put:
+      tags:
+        - job-and-competency-design
+      operationId: UpdateJobProfileRelation
+      summary: Replace a job profile relation
+      description: Replaces one relation. Concurrency is validated against the relation entity token, not the parent job profile token.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: relationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobProfileRelationUpdateRequest'
+      responses:
+        '200':
+          description: Relation updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileRelationResponse'
+        '400':
+          description: Validation error, including missing `concurrencyToken`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile, relation or referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale relation concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+        - job-and-competency-design
+      operationId: PatchJobProfileRelation
+      summary: Partially update a job profile relation
+      description: Applies ASP.NET Core JSON Patch to one relation. The patch document is the RFC 6902 operation array and must include `/concurrencyToken` as an add or replace operation.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: relationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/JsonPatchOperation'
+            examples:
+              replaceCounterpart:
+                value:
+                  - op: replace
+                    path: /counterpart
+                    value: Gerente de Producto Senior
+                  - op: replace
+                    path: /concurrencyToken
+                    value: c1c9f1d4-4f3c-47de-9d9b-4f8cb0c2e8d2
+      responses:
+        '200':
+          description: Relation patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileRelationResponse'
+        '400':
+          description: Invalid JSON Patch document, missing `/concurrencyToken` or unsupported patch path/operation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile, relation or patched referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale relation concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - job-and-competency-design
+      operationId: DeleteJobProfileRelation
+      summary: Delete a job profile relation
+      description: Deletes one relation and returns the deleted relation entity. Concurrency is validated using the relation token supplied in the `If-Match` header.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: relationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current relation `concurrencyToken`, with or without quotes.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Relation deleted successfully. Response body contains the deleted entity snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileRelationResponse'
+        '400':
+          description: Missing or invalid `If-Match` concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile or relation was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale relation concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/competencies:
+    get:
+      tags:
+        - job-and-competency-design
+      operationId: GetJobProfileCompetencies
+      summary: List job profile legacy competencies
+      description: Returns only the legacy competencies array for the selected tenant-scoped job profile. This is the only legacy-competencies endpoint that returns the full collection. The structured competency matrix is exposed by CompetencyFrameworkController and is unrelated.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Competencies retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job profile was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+        - job-and-competency-design
+      operationId: AddJobProfileCompetency
+      summary: Create a job profile legacy competency
+      description: Creates one legacy competency for the selected job profile and returns the created competency entity. The request does not require a concurrency token; the created entity response includes its granular token. If `name` is blank, it is taken from the referenced catalog item.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobProfileLegacyCompetencyCreateRequest'
+      responses:
+        '201':
+          description: Competency created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
+        '400':
+          description: Validation error, including missing competency name when no catalog item is provided.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile or referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict while adding the competency.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/competencies/{competencyPublicId}:
+    put:
+      tags:
+        - job-and-competency-design
+      operationId: UpdateJobProfileCompetency
+      summary: Replace a job profile legacy competency
+      description: Replaces one legacy competency. Concurrency is validated against the competency entity token, not the parent job profile token.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: competencyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobProfileLegacyCompetencyUpdateRequest'
+      responses:
+        '200':
+          description: Competency updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
+        '400':
+          description: Validation error, including missing `concurrencyToken` or missing competency name when no catalog item is provided.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile, competency or referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale competency concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+        - job-and-competency-design
+      operationId: PatchJobProfileCompetency
+      summary: Partially update a job profile legacy competency
+      description: Applies ASP.NET Core JSON Patch to one legacy competency. The patch document is the RFC 6902 operation array and must include `/concurrencyToken` as an add or replace operation.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: competencyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/JsonPatchOperation'
+            examples:
+              replaceExpectedLevel:
+                value:
+                  - op: replace
+                    path: /expectedLevel
+                    value: Expert
+                  - op: replace
+                    path: /concurrencyToken
+                    value: c1c9f1d4-4f3c-47de-9d9b-4f8cb0c2e8d2
+      responses:
+        '200':
+          description: Competency patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
+        '400':
+          description: Invalid JSON Patch document, missing `/concurrencyToken` or unsupported patch path/operation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile, competency or patched referenced catalog item was not found in the tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale competency concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+        - job-and-competency-design
+      operationId: DeleteJobProfileCompetency
+      summary: Delete a job profile legacy competency
+      description: Deletes one legacy competency and returns the deleted competency entity. Concurrency is validated using the competency token supplied in the `If-Match` header.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: competencyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current competency `concurrencyToken`, with or without quotes.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Competency deleted successfully. Response body contains the deleted entity snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
+        '400':
+          description: Missing or invalid `If-Match` concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to manage job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The target job profile or competency was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale competency concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/companies/{companyId}/position-slots:
     post:
       tags:
@@ -14910,6 +15768,362 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/companies/{companyPublicId}/position-description-catalogs/{catalogType}/items:
+    get:
+      tags: [job-and-competency-design]
+      operationId: ListPositionDescriptionCatalogItems
+      summary: List position description catalog items by catalog type
+      description: The only endpoint that returns the paged item array for a simple position description catalog.
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: catalogType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [position-function-types, position-contract-types, strategic-objectives, frequencies, requirement-types, requirements, general-functions, salary-classes, work-equipments, responsibilities-catalog, benefits-catalog, work-condition-types, work-conditions]
+        - name: isActive
+          in: query
+          schema: { type: boolean }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 150 }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: includeAllowedActions
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Paged catalog items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPositionDescriptionCatalogItemResponse'
+        '400': { description: Invalid catalog type or query validation error. }
+        '401': { description: Authentication is required. }
+        '403': { description: Missing permission or tenant mismatch. }
+    post:
+      tags: [job-and-competency-design]
+      operationId: CreatePositionDescriptionCatalogItem
+      summary: Create one position description catalog item
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: catalogType
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertPositionDescriptionCatalogItemRequest'
+      responses:
+        '201':
+          description: Catalog item created. Body contains the created entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionDescriptionCatalogItemResponse'
+        '400': { description: Validation error. }
+        '401': { description: Authentication is required. }
+        '403': { description: Missing permission or tenant mismatch. }
+        '409': { description: Duplicate catalog item code. }
+  /api/v1/position-description-catalogs/{catalogType}/items/{positionDescriptionCatalogItemPublicId}:
+    get:
+      tags: [job-and-competency-design]
+      operationId: GetPositionDescriptionCatalogItem
+      summary: Get one position description catalog item
+      parameters:
+        - name: catalogType
+          in: path
+          required: true
+          schema: { type: string }
+        - name: positionDescriptionCatalogItemPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Catalog item entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionDescriptionCatalogItemResponse'
+        '400': { description: Invalid catalog type. }
+        '401': { description: Authentication is required. }
+        '403': { description: Missing permission or tenant mismatch. }
+        '404': { description: Catalog item not found or not in the requested catalog type. }
+    patch:
+      tags: [job-and-competency-design]
+      operationId: PatchPositionDescriptionCatalogItem
+      summary: Patch one position description catalog item
+      description: ASP.NET Core JSON Patch. Requires `/concurrencyToken`; `/isActive` replaces legacy activate/inactivate endpoints.
+      parameters:
+        - name: catalogType
+          in: path
+          required: true
+          schema: { type: string }
+        - name: positionDescriptionCatalogItemPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/JsonPatchOperation'
+      responses:
+        '200':
+          description: Patched catalog item entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionDescriptionCatalogItemResponse'
+        '400': { description: Invalid patch document, missing concurrency token or invalid catalog type. }
+        '401': { description: Authentication is required. }
+        '403': { description: Missing permission or tenant mismatch. }
+        '404': { description: Catalog item not found or not in the requested catalog type. }
+        '409': { description: Concurrency conflict, duplicate code or in-use inactivation conflict. }
+  /api/v1/companies/{companyPublicId}/position-category-classifications:
+    get:
+      tags: [job-and-competency-design]
+      operationId: ListPositionCategoryClassifications
+      summary: List position category classifications
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: positionFunctionTypePublicId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: positionContractTypePublicId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: orgUnitTypePublicId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: isActive
+          in: query
+          schema: { type: boolean }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 150 }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: includeAllowedActions
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Paged classification entities.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPositionCategoryClassificationResponse'
+    post:
+      tags: [job-and-competency-design]
+      operationId: CreatePositionCategoryClassification
+      summary: Create one position category classification
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertPositionCategoryClassificationRequest'
+      responses:
+        '201':
+          description: Classification created. Body contains the created entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionCategoryClassificationResponse'
+        '400': { description: Validation error. }
+        '401': { description: Authentication is required. }
+        '403': { description: Missing permission or tenant mismatch. }
+        '404': { description: Related catalog item or organization unit type not found. }
+        '409': { description: Duplicate code or duplicate axes. }
+  /api/v1/position-category-classifications/{positionCategoryClassificationPublicId}:
+    get:
+      tags: [job-and-competency-design]
+      operationId: GetPositionCategoryClassification
+      summary: Get one position category classification
+      parameters:
+        - name: positionCategoryClassificationPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Classification entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionCategoryClassificationResponse'
+    patch:
+      tags: [job-and-competency-design]
+      operationId: PatchPositionCategoryClassification
+      summary: Patch one position category classification
+      description: ASP.NET Core JSON Patch. Requires `/concurrencyToken`; `/isActive` replaces legacy activate/inactivate endpoints.
+      parameters:
+        - name: positionCategoryClassificationPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/JsonPatchOperation'
+      responses:
+        '200':
+          description: Patched classification entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionCategoryClassificationResponse'
+        '400': { description: Invalid patch document or missing concurrency token. }
+        '401': { description: Authentication is required. }
+        '403': { description: Missing permission or tenant mismatch. }
+        '404': { description: Classification or patched related resource not found. }
+        '409': { description: Concurrency conflict, duplicate code, duplicate axes or in-use inactivation conflict. }
+  /api/v1/companies/{companyPublicId}/position-categories:
+    get:
+      tags: [job-and-competency-design]
+      operationId: ListPositionCategories
+      summary: List position categories
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: classificationPublicId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: isActive
+          in: query
+          schema: { type: boolean }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 150 }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+        - name: includeAllowedActions
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Paged category entities.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPositionCategoryResponse'
+    post:
+      tags: [job-and-competency-design]
+      operationId: CreatePositionCategory
+      summary: Create one position category
+      parameters:
+        - name: companyPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertPositionCategoryRequest'
+      responses:
+        '201':
+          description: Category created. Body contains the created entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionCategoryResponse'
+        '400': { description: Validation error. }
+        '401': { description: Authentication is required. }
+        '403': { description: Missing permission or tenant mismatch. }
+        '404': { description: Classification not found. }
+        '409': { description: Duplicate category code. }
+  /api/v1/position-categories/{positionCategoryPublicId}:
+    get:
+      tags: [job-and-competency-design]
+      operationId: GetPositionCategory
+      summary: Get one position category
+      parameters:
+        - name: positionCategoryPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Category entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionCategoryResponse'
+    patch:
+      tags: [job-and-competency-design]
+      operationId: PatchPositionCategory
+      summary: Patch one position category
+      description: ASP.NET Core JSON Patch. Requires `/concurrencyToken`; `/isActive` replaces legacy activate/inactivate endpoints.
+      parameters:
+        - name: positionCategoryPublicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/JsonPatchOperation'
+      responses:
+        '200':
+          description: Patched category entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionCategoryResponse'
+        '400': { description: Invalid patch document or missing concurrency token. }
+        '401': { description: Authentication is required. }
+        '403': { description: Missing permission or tenant mismatch. }
+        '404': { description: Category or patched classification not found. }
+        '409': { description: Concurrency conflict, duplicate code or in-use inactivation conflict. }
 
 components:
   schemas:

@@ -8,6 +8,8 @@ public interface IJobCatalogRepository
 {
     void Add(JobCatalogItem item);
 
+    void Remove(JobCatalogItem item);
+
     Task<JobCatalogItem?> GetByIdAsync(Guid itemId, CancellationToken cancellationToken);
 
     Task<bool> ExistsOutsideTenantAsync(Guid itemId, CancellationToken cancellationToken);
@@ -18,6 +20,8 @@ public interface IJobCatalogRepository
         string normalizedCode,
         long? excludingItemId,
         CancellationToken cancellationToken);
+
+    Task<bool> HasUsageAsync(long catalogItemId, CancellationToken cancellationToken);
 
     Task<PagedResponse<JobCatalogItemResponse>> SearchAsync(
         Guid tenantId,

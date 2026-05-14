@@ -4862,11 +4862,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("normalized_code");
 
-                    b.Property<string>("NormalizedSalaryScaleCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("normalized_salary_scale_code");
-
                     b.Property<string>("NormalizedTitle")
                         .IsRequired()
                         .HasMaxLength(180)
@@ -4902,15 +4897,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<long?>("ResponsibilityCatalogItemId")
                         .HasColumnType("bigint")
                         .HasColumnName("responsibility_catalog_item_id");
-
-                    b.Property<long?>("SalaryClassCatalogItemId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("salary_class_catalog_item_id");
-
-                    b.Property<string>("SalaryScaleCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("salary_scale_code");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -4963,16 +4949,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ResponsibilityCatalogItemId");
 
-                    b.HasIndex("SalaryClassCatalogItemId");
-
                     b.HasIndex("StrategicObjectiveCatalogItemId");
 
                     b.HasIndex("TenantId", "NormalizedCode")
                         .IsUnique()
                         .HasDatabaseName("uq_job_profiles__tenant_code");
-
-                    b.HasIndex("TenantId", "NormalizedSalaryScaleCode")
-                        .HasDatabaseName("ix_job_profiles__tenant_salary_scale");
 
                     b.HasIndex("TenantId", "NormalizedTitle")
                         .HasDatabaseName("ix_job_profiles__tenant_title");
@@ -4982,9 +4963,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "PositionCategoryId")
                         .HasDatabaseName("ix_job_profiles__tenant_position_category");
-
-                    b.HasIndex("TenantId", "SalaryClassCatalogItemId")
-                        .HasDatabaseName("ix_job_profiles__tenant_salary_class");
 
                     b.HasIndex("TenantId", "Status")
                         .HasDatabaseName("ix_job_profiles__tenant_status");
@@ -5006,7 +4984,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnName("catalog_item_id");
 
                     b.Property<Guid>("ConcurrencyToken")
-                        .HasColumnType("uuid");
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
 
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -5060,6 +5040,66 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.ToTable("job_profile_benefits", (string)null);
                 });
 
+            modelBuilder.Entity("CLARIHR.Domain.JobProfiles.JobProfileCompensation", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_utc");
+
+                    b.Property<long>("JobProfileId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("job_profile_id");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_utc");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
+
+                    b.Property<Guid>("PublicId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_id");
+
+                    b.Property<long>("SalaryTabulatorLineId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("salary_tabulator_line_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_job_profile_compensations");
+
+                    b.HasIndex("JobProfileId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_compensations__job_profile_id");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("uq_job_profile_compensations__public_id");
+
+                    b.HasIndex("SalaryTabulatorLineId")
+                        .HasDatabaseName("ix_job_profile_compensations__salary_tabulator_line");
+
+                    b.ToTable("job_profile_compensations", (string)null);
+                });
+
             modelBuilder.Entity("CLARIHR.Domain.JobProfiles.JobProfileCompetency", b =>
                 {
                     b.Property<long>("Id")
@@ -5072,6 +5112,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Property<long?>("CatalogItemId")
                         .HasColumnType("bigint")
                         .HasColumnName("catalog_item_id");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
 
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -5140,7 +5185,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<Guid>("ConcurrencyToken")
-                        .HasColumnType("uuid");
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
 
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -5277,7 +5324,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnName("catalog_item_id");
 
                     b.Property<Guid>("ConcurrencyToken")
-                        .HasColumnType("uuid");
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
 
                     b.Property<string>("Counterpart")
                         .IsRequired()
@@ -5428,7 +5477,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnName("catalog_item_id");
 
                     b.Property<Guid>("ConcurrencyToken")
-                        .HasColumnType("uuid");
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
 
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -5496,7 +5547,9 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasColumnName("catalog_item_id");
 
                     b.Property<Guid>("ConcurrencyToken")
-                        .HasColumnType("uuid");
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("concurrency_token");
 
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("timestamp with time zone")
@@ -15674,19 +15727,11 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_job_profiles__responsibility_catalog_item");
 
-                    b.HasOne("CLARIHR.Domain.PositionDescriptionCatalogs.PositionDescriptionCatalogItem", "SalaryClassCatalogItem")
-                        .WithMany()
-                        .HasForeignKey("SalaryClassCatalogItemId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_job_profiles__salary_class_catalog_item");
-
                     b.HasOne("CLARIHR.Domain.PositionDescriptionCatalogs.PositionDescriptionCatalogItem", null)
                         .WithMany()
                         .HasForeignKey("StrategicObjectiveCatalogItemId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_job_profiles__strategic_objective_catalog_item");
-
-                    b.Navigation("SalaryClassCatalogItem");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.JobProfiles.JobProfileBenefit", b =>
@@ -15707,6 +15752,23 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                     b.Navigation("CatalogItem");
 
                     b.Navigation("JobProfile");
+                });
+
+            modelBuilder.Entity("CLARIHR.Domain.JobProfiles.JobProfileCompensation", b =>
+                {
+                    b.HasOne("CLARIHR.Domain.JobProfiles.JobProfile", null)
+                        .WithOne()
+                        .HasForeignKey("CLARIHR.Domain.JobProfiles.JobProfileCompensation", "JobProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_job_profile_compensations__job_profile");
+
+                    b.HasOne("CLARIHR.Domain.SalaryTabulator.SalaryTabulatorLine", null)
+                        .WithMany()
+                        .HasForeignKey("SalaryTabulatorLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_job_profile_compensations__salary_tabulator_line");
                 });
 
             modelBuilder.Entity("CLARIHR.Domain.JobProfiles.JobProfileCompetency", b =>

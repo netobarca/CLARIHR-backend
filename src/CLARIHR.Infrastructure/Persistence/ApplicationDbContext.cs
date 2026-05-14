@@ -147,6 +147,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<JobProfileDependentPosition> JobProfileDependentPositions => Set<JobProfileDependentPosition>();
 
+    public DbSet<JobProfileCompensation> JobProfileCompensations => Set<JobProfileCompensation>();
+
     public DbSet<PositionSlot> PositionSlots => Set<PositionSlot>();
 
     public DbSet<PositionDescriptionCatalogItem> PositionDescriptionCatalogItems => Set<PositionDescriptionCatalogItem>();

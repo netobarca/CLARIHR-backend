@@ -26,23 +26,25 @@ internal static class JobProfileSubResourceMappers
             function.SortOrder,
             function.ConcurrencyToken);
 
-    public static JobProfileRelationResponse ToResponse(this JobProfileRelation relation, Guid? catalogItemId = null) =>
+    public static JobProfileRelationResponse ToResponse(this JobProfileRelation relation, Guid? catalogItemPublicId = null) =>
         new(
             relation.PublicId,
-            relation.CatalogItem?.PublicId ?? catalogItemId,
+            relation.CatalogItem?.PublicId ?? catalogItemPublicId,
             relation.RelationType,
             relation.Counterpart,
             relation.Notes,
-            relation.SortOrder);
+            relation.SortOrder,
+            relation.ConcurrencyToken);
 
-    public static JobProfileLegacyCompetencyResponse ToLegacyResponse(this JobProfileCompetency competency, Guid? catalogItemId = null) =>
+    public static JobProfileLegacyCompetencyResponse ToLegacyResponse(this JobProfileCompetency competency, Guid? catalogItemPublicId = null) =>
         new(
             competency.PublicId,
-            competency.CatalogItem?.PublicId ?? catalogItemId,
+            competency.CatalogItem?.PublicId ?? catalogItemPublicId,
             competency.Name,
             competency.ExpectedLevel,
             competency.Notes,
-            competency.SortOrder);
+            competency.SortOrder,
+            competency.ConcurrencyToken);
 
     public static JobProfileTrainingResponse ToResponse(this JobProfileTraining training, Guid? catalogItemId = null) =>
         new(
@@ -50,7 +52,8 @@ internal static class JobProfileSubResourceMappers
             training.CatalogItem?.PublicId ?? catalogItemId,
             training.Name,
             training.Notes,
-            training.SortOrder);
+            training.SortOrder,
+            training.ConcurrencyToken);
 
     public static JobProfileBenefitResponse ToResponse(this JobProfileBenefit benefit, Guid? catalogItemId = null) =>
         new(
@@ -58,7 +61,8 @@ internal static class JobProfileSubResourceMappers
             benefit.CatalogItem?.PublicId ?? catalogItemId,
             benefit.Name,
             benefit.Notes,
-            benefit.SortOrder);
+            benefit.SortOrder,
+            benefit.ConcurrencyToken);
 
     public static JobProfileWorkingConditionResponse ToResponse(
         this JobProfileWorkingCondition workingCondition,
@@ -82,5 +86,6 @@ internal static class JobProfileSubResourceMappers
             dependentProfile.Code,
             dependentProfile.Title,
             dependentPosition.Quantity,
-            dependentPosition.Notes);
+            dependentPosition.Notes,
+            dependentPosition.ConcurrencyToken);
 }
