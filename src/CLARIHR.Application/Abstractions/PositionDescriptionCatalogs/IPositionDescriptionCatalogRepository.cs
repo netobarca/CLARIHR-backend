@@ -86,13 +86,13 @@ public interface IPositionDescriptionCatalogRepository
 
     Task<PositionCategoryResponse?> GetCategoryResponseByIdAsync(Guid categoryId, CancellationToken cancellationToken);
 
-    Task<CatalogReferenceResponse?> GetActiveCatalogReferenceAsync(
+    Task<CatalogReferenceInternal?> GetActiveCatalogReferenceAsync(
         Guid tenantId,
         PositionDescriptionCatalogType catalogType,
         Guid catalogItemId,
         CancellationToken cancellationToken);
 
-    Task<CatalogReferenceResponse?> GetActiveOrgUnitTypeReferenceAsync(
+    Task<CatalogReferenceInternal?> GetActiveOrgUnitTypeReferenceAsync(
         Guid tenantId,
         Guid orgUnitTypeId,
         CancellationToken cancellationToken);

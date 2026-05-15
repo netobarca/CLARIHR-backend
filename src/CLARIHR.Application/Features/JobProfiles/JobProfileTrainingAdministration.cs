@@ -7,6 +7,7 @@ using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -19,9 +20,12 @@ namespace CLARIHR.Application.Features.JobProfiles;
 public sealed record GetJobProfileTrainingsQuery(Guid JobProfileId)
     : IQuery<IReadOnlyCollection<JobProfileTrainingResponse>>;
 
+public sealed record GetJobProfileTrainingByIdQuery(Guid JobProfileId, Guid TrainingId)
+    : IQuery<JobProfileTrainingResponse>;
+
 public sealed record AddJobProfileTrainingCommand(
     Guid JobProfileId,
-    Guid? CatalogItemId,
+    Guid? CatalogItemPublicId,
     string? Name,
     string? Notes,
     int SortOrder) : ICommand<JobProfileTrainingResponse>;
@@ -29,7 +33,7 @@ public sealed record AddJobProfileTrainingCommand(
 public sealed record UpdateJobProfileTrainingCommand(
     Guid JobProfileId,
     Guid TrainingId,
-    Guid? CatalogItemId,
+    Guid? CatalogItemPublicId,
     string? Name,
     string? Notes,
     int SortOrder,
@@ -44,12 +48,13 @@ public sealed record JobProfileTrainingPatchOperation(
 public sealed record PatchJobProfileTrainingCommand(
     Guid JobProfileId,
     Guid TrainingId,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<JobProfileTrainingPatchOperation> Operations) : ICommand<JobProfileTrainingResponse>;
 
 public sealed record RemoveJobProfileTrainingCommand(
     Guid JobProfileId,
     Guid TrainingId,
-    Guid ConcurrencyToken) : ICommand<JobProfileTrainingResponse>;
+    Guid ConcurrencyToken) : ICommand<JobProfileParentConcurrencyResult>;
 
 internal sealed class GetJobProfileTrainingsQueryValidator : AbstractValidator<GetJobProfileTrainingsQuery>
 {
@@ -59,14 +64,23 @@ internal sealed class GetJobProfileTrainingsQueryValidator : AbstractValidator<G
     }
 }
 
+internal sealed class GetJobProfileTrainingByIdQueryValidator : AbstractValidator<GetJobProfileTrainingByIdQuery>
+{
+    public GetJobProfileTrainingByIdQueryValidator()
+    {
+        RuleFor(query => query.JobProfileId).NotEmpty();
+        RuleFor(query => query.TrainingId).NotEmpty();
+    }
+}
+
 internal sealed class AddJobProfileTrainingCommandValidator : AbstractValidator<AddJobProfileTrainingCommand>
 {
     public AddJobProfileTrainingCommandValidator()
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
-        RuleFor(command => command.CatalogItemId)
+        RuleFor(command => command.CatalogItemPublicId)
             .NotEqual(Guid.Empty)
-            .When(static command => command.CatalogItemId.HasValue);
+            .When(static command => command.CatalogItemPublicId.HasValue);
         RuleFor(command => command.Name).MaximumLength(300);
         RuleFor(command => command.Notes).MaximumLength(1000);
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
@@ -79,9 +93,9 @@ internal sealed class UpdateJobProfileTrainingCommandValidator : AbstractValidat
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
         RuleFor(command => command.TrainingId).NotEmpty();
-        RuleFor(command => command.CatalogItemId)
+        RuleFor(command => command.CatalogItemPublicId)
             .NotEqual(Guid.Empty)
-            .When(static command => command.CatalogItemId.HasValue);
+            .When(static command => command.CatalogItemPublicId.HasValue);
         RuleFor(command => command.Name).MaximumLength(300);
         RuleFor(command => command.Notes).MaximumLength(1000);
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
@@ -95,10 +109,11 @@ internal sealed class PatchJobProfileTrainingCommandValidator : AbstractValidato
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
         RuleFor(command => command.TrainingId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Operations).NotEmpty();
         RuleFor(command => command.Operations)
-            .Must(ContainsConcurrencyToken)
-            .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
         RuleForEach(command => command.Operations).ChildRules(operation =>
         {
             operation.RuleFor(item => item.Op).NotEmpty();
@@ -106,12 +121,6 @@ internal sealed class PatchJobProfileTrainingCommandValidator : AbstractValidato
         });
     }
 
-    private static bool ContainsConcurrencyToken(IReadOnlyCollection<JobProfileTrainingPatchOperation>? operations) =>
-        operations is not null &&
-        operations.Any(static operation =>
-            !string.Equals(operation.Op, "remove", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(operation.Path) &&
-            string.Equals(operation.Path.Trim(), "/concurrencyToken", StringComparison.OrdinalIgnoreCase));
 }
 
 internal sealed class RemoveJobProfileTrainingCommandValidator : AbstractValidator<RemoveJobProfileTrainingCommand>
@@ -156,6 +165,38 @@ internal sealed class GetJobProfileTrainingsQueryHandler(
     }
 }
 
+internal sealed class GetJobProfileTrainingByIdQueryHandler(
+    IJobProfileAuthorizationService authorizationService,
+    IJobProfileRepository repository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetJobProfileTrainingByIdQuery, JobProfileTrainingResponse>
+{
+    public async Task<Result<JobProfileTrainingResponse>> Handle(GetJobProfileTrainingByIdQuery query, CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<JobProfileTrainingResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<JobProfileTrainingResponse>.Failure(authorizationResult.Error);
+        }
+
+        var training = await repository.GetTrainingResponseAsync(query.JobProfileId, query.TrainingId, cancellationToken);
+        if (training is null)
+        {
+            return Result<JobProfileTrainingResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                    : JobProfileErrors.TrainingNotFound);
+        }
+
+        return Result<JobProfileTrainingResponse>.Success(training);
+    }
+}
+
 internal sealed class AddJobProfileTrainingCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
@@ -187,7 +228,7 @@ internal sealed class AddJobProfileTrainingCommandHandler(
                     : JobProfileErrors.JobProfileNotFound);
         }
 
-        var catalogItemResult = await ResolveCatalogItemAsync(command.CatalogItemId, catalogRepository, cancellationToken);
+        var catalogItemResult = await ResolveCatalogItemAsync(command.CatalogItemPublicId, catalogRepository, cancellationToken);
         if (catalogItemResult.IsFailure)
         {
             return Result<JobProfileTrainingResponse>.Failure(catalogItemResult.Error);
@@ -217,7 +258,7 @@ internal sealed class AddJobProfileTrainingCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var response = await repository.GetTrainingResponseAsync(profile.PublicId, training.PublicId, cancellationToken)
-                ?? training.ToResponse(command.CatalogItemId);
+                ?? training.ToResponse(command.CatalogItemPublicId);
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -289,7 +330,7 @@ internal sealed class UpdateJobProfileTrainingCommandHandler(
             return Result<JobProfileTrainingResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
-        var catalogItemResult = await ResolveCatalogItemAsync(command.CatalogItemId, catalogRepository, cancellationToken);
+        var catalogItemResult = await ResolveCatalogItemAsync(command.CatalogItemPublicId, catalogRepository, cancellationToken);
         if (catalogItemResult.IsFailure)
         {
             return Result<JobProfileTrainingResponse>.Failure(catalogItemResult.Error);
@@ -305,7 +346,7 @@ internal sealed class UpdateJobProfileTrainingCommandHandler(
         }
 
         var before = await repository.GetTrainingResponseAsync(profile.PublicId, training.PublicId, cancellationToken)
-            ?? training.ToResponse(command.CatalogItemId);
+            ?? training.ToResponse(command.CatalogItemPublicId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -322,7 +363,7 @@ internal sealed class UpdateJobProfileTrainingCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetTrainingResponseAsync(profile.PublicId, training.PublicId, cancellationToken)
-                ?? training.ToResponse(command.CatalogItemId);
+                ?? training.ToResponse(command.CatalogItemPublicId);
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -390,6 +431,11 @@ internal sealed class PatchJobProfileTrainingCommandHandler(
             return Result<JobProfileTrainingResponse>.Failure(JobProfileErrors.TrainingNotFound);
         }
 
+        if (training.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<JobProfileTrainingResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+        }
+
         var before = await repository.GetTrainingResponseAsync(profile.PublicId, training.PublicId, cancellationToken)
             ?? training.ToResponse();
         var patchState = JobProfileTrainingPatchState.From(before);
@@ -403,11 +449,6 @@ internal sealed class PatchJobProfileTrainingCommandHandler(
         if (validation.IsFailure)
         {
             return Result<JobProfileTrainingResponse>.Failure(validation.Error);
-        }
-
-        if (patchState.ConcurrencyToken != training.ConcurrencyToken)
-        {
-            return Result<JobProfileTrainingResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         if (!patchState.HasMutation)
@@ -482,25 +523,25 @@ internal sealed class RemoveJobProfileTrainingCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<RemoveJobProfileTrainingCommand, JobProfileTrainingResponse>
+    : ICommandHandler<RemoveJobProfileTrainingCommand, JobProfileParentConcurrencyResult>
 {
-    public async Task<Result<JobProfileTrainingResponse>> Handle(RemoveJobProfileTrainingCommand command, CancellationToken cancellationToken)
+    public async Task<Result<JobProfileParentConcurrencyResult>> Handle(RemoveJobProfileTrainingCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileTrainingResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<JobProfileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileTrainingResponse>.Failure(authorizationResult.Error);
+            return Result<JobProfileParentConcurrencyResult>.Failure(authorizationResult.Error);
         }
 
         var profile = await repository.GetWithTrainingsOnlyAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
-            return Result<JobProfileTrainingResponse>.Failure(
+            return Result<JobProfileParentConcurrencyResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
@@ -509,12 +550,12 @@ internal sealed class RemoveJobProfileTrainingCommandHandler(
         var training = profile.Trainings.FirstOrDefault(item => item.PublicId == command.TrainingId);
         if (training is null)
         {
-            return Result<JobProfileTrainingResponse>.Failure(JobProfileErrors.TrainingNotFound);
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.TrainingNotFound);
         }
 
         if (training.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileTrainingResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetTrainingResponseAsync(profile.PublicId, training.PublicId, cancellationToken)
@@ -540,12 +581,12 @@ internal sealed class RemoveJobProfileTrainingCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileTrainingResponse>.Success(before);
+            return Result<JobProfileParentConcurrencyResult>.Success(new JobProfileParentConcurrencyResult(profile.ConcurrencyToken));
         }
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileTrainingResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileParentConcurrencyResult>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
         }
         catch
         {
@@ -580,18 +621,15 @@ internal sealed class JobProfileTrainingPatchState
     public string Name { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public int SortOrder { get; set; }
-    public Guid ConcurrencyToken { get; set; }
-    public bool ConcurrencyTokenTouched { get; set; }
     public bool HasMutation { get; set; }
 
     public static JobProfileTrainingPatchState From(JobProfileTrainingResponse response) =>
         new()
         {
-            CatalogItemPublicId = response.CatalogItemId,
+            CatalogItemPublicId = response.CatalogItemPublicId,
             Name = response.Name,
             Notes = response.Notes,
-            SortOrder = response.SortOrder,
-            ConcurrencyToken = response.ConcurrencyToken
+            SortOrder = response.SortOrder
         };
 }
 
@@ -641,18 +679,9 @@ internal static class JobProfileTrainingPatchApplier
     {
         var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
-        if (!state.ConcurrencyTokenTouched)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken is required."];
-        }
-        else if (state.ConcurrencyToken == Guid.Empty)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken must be a valid UUID."];
-        }
-
         if (state.CatalogItemPublicId == Guid.Empty)
         {
-            errors["catalogItemId"] = ["CatalogItemId must be a valid UUID."];
+            errors["catalogItemPublicId"] = ["CatalogItemPublicId must be a valid UUID."];
         }
 
         if (!string.IsNullOrEmpty(state.Name) && state.Name.Length > 300)
@@ -684,7 +713,7 @@ internal static class JobProfileTrainingPatchApplier
     {
         var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
 
-        if (IsAnySegment(property, "catalogItemId", "catalogItemPublicId"))
+        if (IsSegment(property, "catalogItemPublicId"))
         {
             state.CatalogItemPublicId = isRemove ? null : ReadNullableGuid(value, path);
             state.HasMutation = true;
@@ -714,18 +743,6 @@ internal static class JobProfileTrainingPatchApplier
 
             state.SortOrder = ReadInt(value, path);
             state.HasMutation = true;
-            return Result.Success();
-        }
-
-        if (IsSegment(property, "concurrencyToken"))
-        {
-            if (isRemove)
-            {
-                return ValidationFailure(path, "ConcurrencyToken cannot be removed.");
-            }
-
-            state.ConcurrencyToken = ReadRequiredGuid(value, path);
-            state.ConcurrencyTokenTouched = true;
             return Result.Success();
         }
 

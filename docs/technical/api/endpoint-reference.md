@@ -2514,8 +2514,7 @@ Este bloque cubre nueve controladores que juntos definen el diseno formal de pue
 Familias de rutas:
 
 - `/api/v1/companies/{companyId}/job-catalogs/{category}`
-- `/api/v1/job-catalogs/{id}/activate`
-- `/api/v1/job-catalogs/{id}/inactivate`
+- `/api/v1/companies/{companyId}/job-catalogs/{category}/{jobCatalogPublicId}`
 - `/api/v1/companies/{companyId}/job-profiles`
 - `/api/v1/job-profiles/{publicId}`
 - `/api/v1/job-profiles/{publicId}/vacancy-template`
@@ -2576,7 +2575,9 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - `PositionSlots /graph` acepta `depth` opcional, pero si se envia debe estar entre `1` y `15`.
 - Los codigos del bloque usan regex alfanumerica con `_` o `-`, longitud maxima `50`.
 - `q/search` admite hasta `150` caracteres.
-- `update`, `activate`, `inactivate`, `publish`, `archive`, `status`, `dependencies`, `occupancy` y `competency-matrix` usan concurrencia optimista con `ConcurrencyToken`.
+- Las mutaciones de `JobProfiles`, sus sub-recursos granulares y `JobCatalogs` usan concurrencia HTTP con `If-Match: "<concurrencyToken>"` en `PUT`, `PATCH` y `DELETE`; el token ya no se envia en body ni como operacion `/concurrencyToken` del JSON Patch.
+- Las respuestas exitosas `200 OK` y `201 Created` de esas mutaciones incluyen `ETag: "<nuevoConcurrencyToken>"` para encadenar operaciones sin hacer un `GET` adicional.
+- Otros submodulos del bloque que aun no fueron migrados mantienen su contrato vigente con `concurrencyToken` en body o patch segun corresponda.
 - Todas las escrituras generan auditoria.
 - `print` y `export` de `JobProfiles`, `export` de matriz de competencias y `export/diagram-export` de `PositionSlots` tambien generan auditoria.
 - No existen endpoints de borrado fisico en este bloque.
@@ -2584,22 +2585,25 @@ En terminos funcionales, este bloque es la base del diseno organizacional y del 
 - `PUT /job-profiles/{publicId}` reemplaza todas las colecciones anidadas del perfil; si una coleccion llega `null`, el controller la convierte en `[]` y el handler limpia la seccion existente.
 - `PATCH /job-profiles/{publicId}` aplica JSON Patch desde Application sobre el agregado cargado en transaccion; si el patch no toca `/compensation`, preserva la referencia de compensacion existente y evita reconstruirla desde una proyeccion parcial.
 - `POST/PUT /job-profiles` usan `compensation` (singular, opcional) como referencia canonica a `salaryTabulatorLineId`; si llega `null`, se limpia la referencia de compensacion del perfil.
-- Breaking change coordinado con frontend en los sub-recursos atomicos de `JobProfiles`: `trainings`, `benefits`, `dependent-positions` y `working-conditions` ya no devuelven `JobProfileResponse` completo.
-- `POST/PUT` de esos sub-recursos atomicos restantes responden `200 OK` con wrapper `{ item, parentConcurrencyToken }`. `item` representa solo el sub-recurso mutado; `parentConcurrencyToken` es el token nuevo del `JobProfile` padre para encadenar la siguiente mutacion.
-- `DELETE` de esos sub-recursos atomicos restantes requiere el header `If-Match: <ConcurrencyToken-del-padre>` (RFC 7232; el valor admite formato con o sin comillas) en lugar de body. Responde `204 No Content` y expone `Parent-Concurrency-Token` solo cuando la eliminacion fue exitosa; si el header falta o no es un Guid valido, responde `400 Bad Request`.
-- `JobProfileRequirements` ya usa concurrencia granular por entidad hija: `GET /api/v1/job-profiles/{jobProfilePublicId}/requirements` es el unico endpoint que retorna el array completo; `POST` crea un requisito sin pedir token y responde `201 Created` con `JobProfileRequirementResponse`; `PUT`, `PATCH` y `DELETE` retornan la entidad del requisito y validan `concurrencyToken` del requisito, no del padre.
-- `PATCH /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. Debe incluir una operacion `add` o `replace` sobre `/concurrencyToken`; no se acepta wrapper `{ data: [...] }`.
-- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}` requiere `If-Match: <ConcurrencyToken-del-requisito>` y responde `200 OK` con el snapshot eliminado, no `204`.
-- `JobProfileFunctions` aplica el mismo patron granular que `requirements`: `GET /api/v1/job-profiles/{jobProfilePublicId}/functions` es el unico endpoint que retorna el array completo; `POST` crea una funcion sin pedir token y responde `201 Created` con `JobProfileFunctionResponse`; `PUT`, `PATCH` y `DELETE` retornan la entidad de la funcion y validan `concurrencyToken` de la funcion, no del padre. Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `functionPublicId`, `frequencyCatalogItemId` pasa a `frequencyCatalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`.
-- `PATCH /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. Debe incluir una operacion `add` o `replace` sobre `/concurrencyToken`; no se acepta wrapper `{ data: [...] }`.
-- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId}` requiere `If-Match: <ConcurrencyToken-de-la-funcion>` y responde `200 OK` con el snapshot eliminado, no `204`.
-- `JobProfileRelations` aplica el mismo patron granular que `requirements` y `functions`: `GET /api/v1/job-profiles/{jobProfilePublicId}/relations` es el unico endpoint que retorna el array completo; `POST` crea una relacion sin pedir token y responde `201 Created` con `JobProfileRelationResponse`; `PUT`, `PATCH` y `DELETE` retornan la entidad de la relacion y validan `concurrencyToken` de la relacion, no del padre. Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `relationPublicId`, `catalogItemId` pasa a `catalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`.
-- `PATCH /api/v1/job-profiles/{jobProfilePublicId}/relations/{relationPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. Debe incluir una operacion `add` o `replace` sobre `/concurrencyToken`; no se acepta wrapper `{ data: [...] }`.
-- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/relations/{relationPublicId}` requiere `If-Match: <ConcurrencyToken-de-la-relacion>` y responde `200 OK` con el snapshot eliminado, no `204`.
-- `JobProfileCompetencies` (competencias legacy, independiente de la matriz de `CompetencyFrameworkController`) aplica el mismo patron granular: `GET /api/v1/job-profiles/{jobProfilePublicId}/competencies` es el unico endpoint que retorna el array completo; `POST` crea una competencia sin pedir token y responde `201 Created` con `JobProfileLegacyCompetencyResponse`; `PUT`, `PATCH` y `DELETE` retornan la entidad de la competencia y validan `concurrencyToken` de la competencia, no del padre. Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `competencyPublicId`, `catalogItemId` pasa a `catalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`. Si `name` llega vacio en `POST`/`PUT`, se toma del `JobCatalogItem` referenciado; si no hay catalogo y `name` queda vacio se responde `JOB_PROFILE_COMPETENCY_NAME_REQUIRED` (`400`).
-- `PATCH /api/v1/job-profiles/{jobProfilePublicId}/competencies/{competencyPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. Debe incluir una operacion `add` o `replace` sobre `/concurrencyToken`; no se acepta wrapper `{ data: [...] }`.
-- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/competencies/{competencyPublicId}` requiere `If-Match: <ConcurrencyToken-de-la-competencia>` y responde `200 OK` con el snapshot eliminado, no `204`.
-- `PUT /job-profiles/{publicId}/competency-matrix`, `PATCH /job-profiles/{publicId}/publish`, `PATCH /job-profiles/{publicId}/archive`, `GET /job-profiles/{publicId}` y las escrituras del agregado completo no cambian contrato por este ajuste.
+- Los sub-recursos granulares de `JobProfiles` (`requirements`, `functions`, `relations`, `competencies`, `trainings`, `benefits`, `working-conditions`, `dependent-positions` y `compensations`) devuelven solo el sub-recurso mutado, no el `JobProfileResponse` completo ni wrappers `{ item, parentConcurrencyToken }`.
+- En requests y responses de sub-recursos de `JobProfiles`, el identificador externo expuesto sigue el canon `*PublicId`: `trainingPublicId`, `benefitPublicId`, `workingConditionPublicId`, `dependentPositionPublicId` y `compensationPublicId`. Las referencias relacionadas tambien usan `*PublicId`: `catalogItemPublicId`, `workConditionTypeCatalogItemPublicId`, `dependentJobProfilePublicId` y `salaryTabulatorLinePublicId`.
+- `PATCH` granular de `trainings`, `benefits`, `working-conditions`, `dependent-positions` y `compensations` tambien usa JSON Pointer con nombres `*PublicId`; por ejemplo `/catalogItemPublicId`, `/workConditionTypeCatalogItemPublicId`, `/dependentJobProfilePublicId` y `/salaryTabulatorLinePublicId`.
+- `POST` de sub-recursos responde `201 Created` con `Location` apuntando al `*PublicId` creado y `ETag` del sub-recurso creado; `PUT` y `PATCH` retornan `200 OK` con el snapshot del sub-recurso y `ETag` del nuevo token del sub-recurso; `DELETE` retorna `200 OK` con `{ parentConcurrencyToken }` y `ETag` del nuevo token del `JobProfile` padre.
+- `JobProfileRequirements` ya usa concurrencia granular por entidad hija: `GET /api/v1/job-profiles/{jobProfilePublicId}/requirements` ahora acepta paging opcional con `page` y `pageSize` y responde `PagedResponse<JobProfileRequirementResponse>`; `POST` crea un requisito sin pedir token y responde `201 Created` con `JobProfileRequirementResponse`; `PUT` y `PATCH` retornan la entidad del requisito y validan `If-Match` con el token del requisito; `DELETE` valida `If-Match` con el token del requisito y retorna el token actualizado del padre.
+- `PATCH /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. No debe incluir `/concurrencyToken`; el token actual viaja exclusivamente en `If-Match`.
+- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/requirements/{requirementPublicId}` requiere `If-Match: "<ConcurrencyToken-del-requisito>"` y responde `200 OK` con `{ parentConcurrencyToken }`, no con el snapshot eliminado.
+- `JobProfileFunctions` aplica el mismo patron granular que `requirements`: `GET /api/v1/job-profiles/{jobProfilePublicId}/functions` ahora acepta paging opcional con `page` y `pageSize` y responde `PagedResponse<JobProfileFunctionResponse>`; `POST` crea una funcion sin pedir token y responde `201 Created` con `JobProfileFunctionResponse`; `PUT` y `PATCH` retornan la entidad de la funcion y validan `If-Match` con el token de la funcion; `DELETE` retorna `{ parentConcurrencyToken }`. Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `functionPublicId`, `frequencyCatalogItemId` pasa a `frequencyCatalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`.
+- `PATCH /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. No debe incluir `/concurrencyToken`; el token actual viaja exclusivamente en `If-Match`.
+- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/functions/{functionPublicId}` requiere `If-Match: "<ConcurrencyToken-de-la-funcion>"` y responde `200 OK` con `{ parentConcurrencyToken }`, no con el snapshot eliminado.
+- `JobProfileRelations` aplica el mismo patron granular que `requirements` y `functions`: `GET /api/v1/job-profiles/{jobProfilePublicId}/relations` es el unico endpoint que retorna el array completo; `POST` crea una relacion sin pedir token y responde `201 Created` con `JobProfileRelationResponse`; `PUT` y `PATCH` retornan la entidad de la relacion y validan `If-Match` con el token de la relacion; `DELETE` retorna `{ parentConcurrencyToken }`. Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `relationPublicId`, `catalogItemId` pasa a `catalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`.
+- `PATCH /api/v1/job-profiles/{jobProfilePublicId}/relations/{relationPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. No debe incluir `/concurrencyToken`; el token actual viaja exclusivamente en `If-Match`.
+- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/relations/{relationPublicId}` requiere `If-Match: "<ConcurrencyToken-de-la-relacion>"` y responde `200 OK` con `{ parentConcurrencyToken }`, no con el snapshot eliminado.
+- `JobProfileCompetencies` (competencias legacy, independiente de la matriz de `CompetencyFrameworkController`) aplica el mismo patron granular: `GET /api/v1/job-profiles/{jobProfilePublicId}/competencies` ahora acepta paging opcional con `page` y `pageSize` y responde `PagedResponse<JobProfileLegacyCompetencyResponse>`; `POST` crea una competencia sin pedir token y responde `201 Created` con `JobProfileLegacyCompetencyResponse`; `PUT` y `PATCH` retornan la entidad de la competencia y validan `If-Match` con el token de la competencia; `DELETE` retorna `{ parentConcurrencyToken }`. Cambios de contrato vs. la version anterior basada en wrapper: el campo `id` pasa a `competencyPublicId`, `catalogItemId` pasa a `catalogItemPublicId`, `POST` ya no recibe `concurrencyToken` ni devuelve `{ item, parentConcurrencyToken }`, y `DELETE` ya no expone el header `Parent-Concurrency-Token`. Si `name` llega vacio en `POST`/`PUT`, se toma del `JobCatalogItem` referenciado; si no hay catalogo y `name` queda vacio se responde `JOB_PROFILE_COMPETENCY_NAME_REQUIRED` (`400`).
+- `PATCH /api/v1/job-profiles/{jobProfilePublicId}/competencies/{competencyPublicId}` consume `application/json-patch+json` con array RFC 6902 como body raiz. No debe incluir `/concurrencyToken`; el token actual viaja exclusivamente en `If-Match`.
+- `DELETE /api/v1/job-profiles/{jobProfilePublicId}/competencies/{competencyPublicId}` requiere `If-Match: "<ConcurrencyToken-de-la-competencia>"` y responde `200 OK` con `{ parentConcurrencyToken }`, no con el snapshot eliminado.
+- `PUT /job-profiles/{publicId}` y `PATCH /job-profiles/{publicId}` tambien requieren `If-Match` y responden con `ETag`; `PUT` ya no acepta `concurrencyToken` en body y `PATCH` ya no acepta `/concurrencyToken`.
+- Todos los endpoints `PATCH` que consumen `application/json-patch+json` en este bloque aplican hardening uniforme: maximo `50` operaciones RFC 6902 por documento y limite de body de `64 KiB`. Si el cliente excede `50` operaciones responde `400 common.validation`; si excede el tamano permitido el servidor rechaza la peticion con `413`.
+- `PUT /job-profiles/{publicId}/competency-matrix`, `PATCH /job-profiles/{publicId}/publish`, `PATCH /job-profiles/{publicId}/archive` y `GET /job-profiles/{publicId}` no cambian contrato por este ajuste.
 - `PUT /competency-conducts/{id}/behaviors` reemplaza el conjunto completo de behaviors del conducto.
 - `PUT /job-profiles/{publicId}/competency-matrix` reemplaza la matriz completa del perfil; una lista vacia limpia la matriz.
 - `PATCH /position-slots/{id}/dependencies` sobrescribe tanto la dependencia directa como la funcional; `null` limpia la relacion.
@@ -2719,7 +2723,7 @@ Errores `400` de validacion frecuentes:
 - `depth` fuera de `1..15`.
 - ids vacios.
 - `code` invalido.
-- `ConcurrencyToken` ausente.
+- `If-Match` ausente en mutaciones migradas, o `ConcurrencyToken` ausente en endpoints legacy no migrados.
 - `EffectiveToUtc < EffectiveFromUtc`.
 
 #### 5.9.6 Job catalogs
@@ -2728,8 +2732,9 @@ Route family:
 
 - `GET /api/v1/companies/{companyId}/job-catalogs/{category}`
 - `POST /api/v1/companies/{companyId}/job-catalogs/{category}`
-- `PATCH /api/v1/job-catalogs/{id}/activate`
-- `PATCH /api/v1/job-catalogs/{id}/inactivate`
+- `PUT /api/v1/companies/{companyId}/job-catalogs/{category}/{jobCatalogPublicId}`
+- `PATCH /api/v1/companies/{companyId}/job-catalogs/{category}/{jobCatalogPublicId}`
+- `DELETE /api/v1/companies/{companyId}/job-catalogs/{category}/{jobCatalogPublicId}`
 
 Uso principal:
 
@@ -2742,6 +2747,12 @@ Observaciones funcionales:
 - `q` busca por `code` y `name`.
 - el orden observable del listado es `name`, luego `code`.
 - el response incluye `IsSystem`, `IsActive` y `ConcurrencyToken`.
+- `POST` responde `201 Created` con `ETag` del item creado.
+- `PUT`, `PATCH` y `DELETE` requieren `If-Match: "<ConcurrencyToken-del-item>"`.
+- `PUT` recibe `code`, `name` e `isActive`; ya no recibe `concurrencyToken` en body.
+- `PATCH` consume JSON Patch para `/code`, `/name` e `/isActive`; ya no acepta `/concurrencyToken`.
+- El `PATCH` de `job-catalogs` admite maximo `50` operaciones y body de hasta `64 KiB`. Excesos de operaciones responden `400 common.validation`; requests mas grandes son rechazados con `413`.
+- `PUT`, `PATCH` y `DELETE` responden `200 OK` con `JobCatalogItemResponse` y header `ETag` del token devuelto.
 - no existe `get by id`.
 - no existe endpoint `update`.
 - `create` exige unicidad de `code` por tenant + categoria.
@@ -2782,8 +2793,8 @@ Observaciones funcionales:
 - `print` devuelve `JobProfilePrintResponse` con `Profile + GeneratedAtUtc` y registra auditoria `ReportPrinted`.
 - `export` soporta solo `json|csv`.
 - el payload de `create/update` mezcla campos escalares y colecciones anidadas.
-- `update` es de reemplazo total sobre las colecciones; no es un merge parcial.
-- `patch` es parcial sobre campos escalares y `compensation`; soporta operaciones `add`, `replace` y `remove`. `remove /compensation` limpia la referencia, pero cualquier patch que no toque `/compensation` conserva la compensacion actual.
+- `update` es de reemplazo total sobre las colecciones; no es un merge parcial y no acepta cambios de `status`.
+- `patch` es parcial sobre campos escalares, `status` y `compensation`; soporta operaciones `add`, `replace` y `remove`. `status` no es obligatorio, pero si llega como `add` o `replace /status` aplica la transicion de estado sobre la entidad. `remove /compensation` limpia la referencia, pero cualquier patch que no toque `/compensation` conserva la compensacion actual.
 - `compensation` no es coleccion: es una sola referencia opcional (`salaryTabulatorLineId`) y el backend valida que la linea exista y este activa en `Salary Tabulator` para la fecha efectiva.
 - `create/update` resuelven referencias a `OrgUnit`, `ReportsToJobProfile`, `PositionCategory`, `StrategicObjective`, `AssignedWorkEquipment` y `Responsibility`.
 - `OrgUnitPublicId` es obligatoria en `create/update`; incluso un borrador debe quedar asociado a una unidad organizativa valida.
@@ -2791,7 +2802,7 @@ Observaciones funcionales:
 - las referencias a `StrategicObjective`, `AssignedWorkEquipment`, `Responsibility`, `RequirementType`, `Frequency` y `WorkConditionType` deben existir y estar activas.
 - el sistema detecta ciclos tanto en `reportsTo` como en `dependentPositions`.
 - `Published` no es un estado inmutable: un job profile publicado todavia puede editarse y volver a publicarse mientras no este archivado.
-- `PUT /api/v1/job-profiles/{publicId}` permite guardar borradores incompletos, pero si el perfil ya esta `Published` no puede remover `objective`, `responsibilities`, `requirements` o `functions`; en ese caso responde `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING` (`422`). Esa flexibilidad ya no aplica a `OrgUnit`: siempre debe existir.
+- `PUT /api/v1/job-profiles/{publicId}` permite guardar borradores incompletos, pero si el perfil ya esta `Published` no puede remover `objective`, `responsibilities`, `requirements` o `functions`; en ese caso responde `JOB_PROFILE_PUBLISH_REQUIREMENTS_MISSING` (`422`). Esa flexibilidad ya no aplica a `OrgUnit`: siempre debe existir. Las transiciones de estado se hacen exclusivamente con `PATCH /api/v1/job-profiles/{publicId}` usando `/status`.
 - `Archived` si es terminal para edicion: cualquier `update` o `publish` sobre un perfil archivado falla con `JOB_PROFILE_STATE_CONFLICT`.
 - `publish` exige al menos estas precondiciones: `Objective`, minimo un `Requirement`, minimo una `Function` y `Responsibilities`.
 - `publish` no exige competencias, trainings, beneficios, compensacion ni categoria de puesto.
@@ -2880,6 +2891,7 @@ Observaciones funcionales de los catalogos simples:
 - `POST` responde `201 Created` con la entidad creada.
 - `PATCH` consume `application/json-patch+json` con array RFC 6902 y debe incluir `add` o `replace` sobre `/concurrencyToken`.
 - `PATCH` permite administrar `/code`, `/name`, `/description`, `/sortOrder` e `/isActive`; `/isActive` reemplaza los endpoints historicos `activate` e `inactivate`.
+- El `PATCH` de catalogos simples admite maximo `50` operaciones y body de hasta `64 KiB`. Excesos de operaciones responden `400 common.validation`; requests mas grandes son rechazados con `413`.
 - todo endpoint por entidad retorna la entidad afectada para que el frontend no tenga que recargar la coleccion completa.
 - no existen exportes para estos catalogos.
 - el bloqueo por uso para inactivar depende del tipo:
@@ -2898,6 +2910,7 @@ Observaciones funcionales de `position-category-classifications`:
 - el orden observable es `SortOrder`, luego `Name`, luego `Code`.
 - `POST` responde `201 Created` con la clasificacion creada.
 - `PATCH` consume `application/json-patch+json`, debe incluir `/concurrencyToken` y puede administrar `/code`, `/name`, `/description`, `/positionFunctionTypePublicId`, `/positionContractTypePublicId`, `/orgUnitTypePublicId`, `/sortOrder` e `/isActive`.
+- El `PATCH` de clasificaciones admite maximo `50` operaciones y body de hasta `64 KiB`. Excesos de operaciones responden `400 common.validation`; requests mas grandes son rechazados con `413`.
 - las modificaciones escalares exigen referencias activas a `PositionFunctionType`, `PositionContractType` y `OrgUnitType`.
 - la clasificacion es unica por `code`.
 - ademas la combinacion `PositionFunctionType + PositionContractType + OrgUnitType` tambien debe ser unica.
@@ -2910,6 +2923,7 @@ Observaciones funcionales de `position-categories`:
 - el orden observable es `SortOrder`, luego `Name`, luego `Code`.
 - `POST` responde `201 Created` con la categoria creada.
 - `PATCH` consume `application/json-patch+json`, debe incluir `/concurrencyToken` y puede administrar `/code`, `/name`, `/description`, `/classificationPublicId`, `/sortOrder` e `/isActive`.
+- El `PATCH` de categorias admite maximo `50` operaciones y body de hasta `64 KiB`. Excesos de operaciones responden `400 common.validation`; requests mas grandes son rechazados con `413`.
 - las modificaciones escalares exigen `classificationPublicId`.
 - la categoria es unica por `code`.
 - `PATCH /isActive=false` falla si algun `JobProfile` sigue usando la categoria.

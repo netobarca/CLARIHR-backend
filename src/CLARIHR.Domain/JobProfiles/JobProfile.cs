@@ -358,7 +358,6 @@ public sealed class JobProfile : TenantEntity
     {
         EnsureEditable();
         Version++;
-        RefreshConcurrencyToken();
     }
 
     public void Publish()

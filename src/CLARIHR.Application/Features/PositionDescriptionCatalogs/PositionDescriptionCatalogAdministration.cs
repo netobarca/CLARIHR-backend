@@ -15,8 +15,14 @@ using FluentValidation;
 
 namespace CLARIHR.Application.Features.PositionDescriptionCatalogs;
 
-public sealed record CatalogReferenceResponse(
+public sealed record CatalogReferenceInternal(
     long InternalId,
+    Guid Id,
+    string Code,
+    string Name,
+    bool IsActive);
+
+public sealed record CatalogReferenceResponse(
     Guid Id,
     string Code,
     string Name,

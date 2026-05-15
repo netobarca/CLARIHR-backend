@@ -22,10 +22,20 @@ internal static class PositionDescriptionCatalogRouteMap
             ["work-conditions"] = PositionDescriptionCatalogType.WorkCondition
         };
 
+    private static readonly Lazy<IReadOnlyDictionary<PositionDescriptionCatalogType, string>> CatalogTypeSlugs =
+        new(() => CatalogTypes.ToDictionary(kvp => kvp.Value, kvp => kvp.Key));
+
     public static bool TryResolve(string? slug, out PositionDescriptionCatalogType catalogType)
     {
         catalogType = default;
         return !string.IsNullOrWhiteSpace(slug) &&
             CatalogTypes.TryGetValue(slug.Trim(), out catalogType);
+    }
+
+    public static string ToSlug(PositionDescriptionCatalogType catalogType)
+    {
+        return CatalogTypeSlugs.Value.TryGetValue(catalogType, out var slug)
+            ? slug
+            : catalogType.ToString().ToLowerInvariant();
     }
 }

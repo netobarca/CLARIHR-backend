@@ -1,13 +1,13 @@
-using System.Text.Json;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
 
 namespace CLARIHR.Api.Controllers;
 
@@ -35,6 +35,22 @@ public sealed class JobProfileDependentPositionsController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("{dependentPositionPublicId:guid}")]
+    [Authorize(Policy = JobProfilePolicies.Read)]
+    [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    public async Task<ActionResult<JobProfileDependentPositionResponse>> GetById(
+        Guid jobProfilePublicId,
+        Guid dependentPositionPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetJobProfileDependentPositionByIdQuery(jobProfilePublicId, dependentPositionPublicId),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
     [HttpPost]
     [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status201Created)]
@@ -47,17 +63,18 @@ public sealed class JobProfileDependentPositionsController(
         var result = await commandDispatcher.SendAsync(
             new AddJobProfileDependentPositionCommand(
                 jobProfilePublicId,
-                request.DependentJobProfileId,
+                request.DependentJobProfilePublicId,
                 request.Quantity,
                 request.Notes),
             cancellationToken);
 
         if (result.IsFailure)
         {
-            return this.ToActionResult(result).Result!;
+            return this.ToActionResult(Result<JobProfileDependentPositionResponse>.Failure(result.Error));
         }
 
-        return Created($"{Request.Path}/{result.Value.Id:D}", result.Value);
+        this.SetETag(result, value => value.ConcurrencyToken);
+        return CreatedAtAction(nameof(GetById), new { jobProfilePublicId, dependentPositionPublicId = result.Value.DependentPositionPublicId }, result.Value);
     }
 
     [HttpPut("{dependentPositionPublicId:guid}")]
@@ -67,56 +84,68 @@ public sealed class JobProfileDependentPositionsController(
     public async Task<ActionResult<JobProfileDependentPositionResponse>> Update(
         Guid jobProfilePublicId,
         Guid dependentPositionPublicId,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         [FromBody] UpdateDependentPositionRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
+        {
+            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
+                HttpContext,
+                statusCode: StatusCodes.Status400BadRequest,
+                detail: IfMatchHeader.MissingDetail));
+        }
+
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileDependentPositionCommand(
                 jobProfilePublicId,
                 dependentPositionPublicId,
-                request.DependentJobProfileId,
+                request.DependentJobProfilePublicId,
                 request.Quantity,
                 request.Notes,
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("{dependentPositionPublicId:guid}")]
     [Authorize(Policy = JobProfilePolicies.Manage)]
     [Consumes("application/json-patch+json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     public async Task<ActionResult<JobProfileDependentPositionResponse>> Patch(
         Guid jobProfilePublicId,
         Guid dependentPositionPublicId,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         [FromBody] JsonPatchDocument<UpdateDependentPositionRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
-        if (patchDoc is null)
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
         {
             return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
                 HttpContext,
                 statusCode: StatusCodes.Status400BadRequest,
-                detail: "Invalid patch document."));
+                detail: IfMatchHeader.MissingDetail));
         }
 
         var result = await commandDispatcher.SendAsync(
             new PatchJobProfileDependentPositionCommand(
                 jobProfilePublicId,
                 dependentPositionPublicId,
+                concurrencyToken,
                 MapPatchOperations(patchDoc)),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpDelete("{dependentPositionPublicId:guid}")]
     [Authorize(Policy = JobProfilePolicies.Manage)]
-    [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileParentConcurrencyResult>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
-    public async Task<ActionResult<JobProfileDependentPositionResponse>> Remove(
+    public async Task<ActionResult<JobProfileParentConcurrencyResult>> Remove(
         Guid jobProfilePublicId,
         Guid dependentPositionPublicId,
         [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
@@ -134,46 +163,25 @@ public sealed class JobProfileDependentPositionsController(
             new RemoveJobProfileDependentPositionCommand(jobProfilePublicId, dependentPositionPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
     private static IReadOnlyCollection<JobProfileDependentPositionPatchOperation> MapPatchOperations(JsonPatchDocument<UpdateDependentPositionRequest> patchDoc) =>
-        patchDoc.Operations
-            .Select(operation => new JobProfileDependentPositionPatchOperation(
-                operation.op,
-                operation.path,
-                operation.from,
-                MapPatchValue(operation.value)))
-            .ToArray();
-
-    private static JsonElement? MapPatchValue(object? value)
-    {
-        if (value is null)
-        {
-            return JsonSerializer.SerializeToElement<object?>(null);
-        }
-
-        if (value is JToken token)
-        {
-            using var document = JsonDocument.Parse(token.ToString(Newtonsoft.Json.Formatting.None));
-            return document.RootElement.Clone();
-        }
-
-        return JsonSerializer.SerializeToElement(value, value.GetType());
-    }
+        JsonPatchOperationMapper.Map(
+            patchDoc,
+            static (op, path, from, value) => new JobProfileDependentPositionPatchOperation(op, path, from, value));
 
     public sealed class AddDependentPositionRequest
     {
-        public Guid DependentJobProfileId { get; set; }
+        public Guid DependentJobProfilePublicId { get; set; }
         public int Quantity { get; set; }
         public string? Notes { get; set; }
     }
 
     public sealed class UpdateDependentPositionRequest
     {
-        public Guid DependentJobProfileId { get; set; }
+        public Guid DependentJobProfilePublicId { get; set; }
         public int Quantity { get; set; }
         public string? Notes { get; set; }
-        public Guid ConcurrencyToken { get; set; }
     }
 }

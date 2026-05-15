@@ -244,19 +244,16 @@ internal sealed class PositionDescriptionCatalogRepository(
                 item.Classification.Name,
                 item.Classification.Description,
                 new CatalogReferenceResponse(
-                    item.PositionFunctionType.Id,
                     item.PositionFunctionType.PublicId,
                     item.PositionFunctionType.Code,
                     item.PositionFunctionType.Name,
                     item.PositionFunctionType.IsActive),
                 new CatalogReferenceResponse(
-                    item.PositionContractType.Id,
                     item.PositionContractType.PublicId,
                     item.PositionContractType.Code,
                     item.PositionContractType.Name,
                     item.PositionContractType.IsActive),
                 new CatalogReferenceResponse(
-                    item.OrgUnitType.Id,
                     item.OrgUnitType.PublicId,
                     item.OrgUnitType.Code,
                     item.OrgUnitType.Name,
@@ -333,7 +330,6 @@ internal sealed class PositionDescriptionCatalogRepository(
                 item.Category.Name,
                 item.Category.Description,
                 new CatalogReferenceResponse(
-                    item.Classification.Id,
                     item.Classification.PublicId,
                     item.Classification.Code,
                     item.Classification.Name,
@@ -383,19 +379,16 @@ internal sealed class PositionDescriptionCatalogRepository(
              classification.Name,
              classification.Description,
              new CatalogReferenceResponse(
-                 positionFunctionType.Id,
                  positionFunctionType.PublicId,
                  positionFunctionType.Code,
                  positionFunctionType.Name,
                  positionFunctionType.IsActive),
              new CatalogReferenceResponse(
-                 positionContractType.Id,
                  positionContractType.PublicId,
                  positionContractType.Code,
                  positionContractType.Name,
                  positionContractType.IsActive),
              new CatalogReferenceResponse(
-                 orgUnitType.Id,
                  orgUnitType.PublicId,
                  orgUnitType.Code,
                  orgUnitType.Name,
@@ -418,7 +411,6 @@ internal sealed class PositionDescriptionCatalogRepository(
              category.Name,
              category.Description,
              new CatalogReferenceResponse(
-                 classification.Id,
                  classification.PublicId,
                  classification.Code,
                  classification.Name,
@@ -430,7 +422,7 @@ internal sealed class PositionDescriptionCatalogRepository(
              category.ModifiedUtc))
         .SingleOrDefaultAsync(cancellationToken);
 
-    public Task<CatalogReferenceResponse?> GetActiveCatalogReferenceAsync(
+    public Task<CatalogReferenceInternal?> GetActiveCatalogReferenceAsync(
         Guid tenantId,
         PositionDescriptionCatalogType catalogType,
         Guid catalogItemId,
@@ -438,17 +430,17 @@ internal sealed class PositionDescriptionCatalogRepository(
         dbContext.PositionDescriptionCatalogItems
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.CatalogType == catalogType && item.PublicId == catalogItemId && item.IsActive)
-            .Select(item => new CatalogReferenceResponse(item.Id, item.PublicId, item.Code, item.Name, item.IsActive))
+            .Select(item => new CatalogReferenceInternal(item.Id, item.PublicId, item.Code, item.Name, item.IsActive))
             .SingleOrDefaultAsync(cancellationToken);
 
-    public Task<CatalogReferenceResponse?> GetActiveOrgUnitTypeReferenceAsync(
+    public Task<CatalogReferenceInternal?> GetActiveOrgUnitTypeReferenceAsync(
         Guid tenantId,
         Guid orgUnitTypeId,
         CancellationToken cancellationToken) =>
         dbContext.OrgUnitTypeCatalogItems
             .AsNoTracking()
             .Where(item => item.TenantId == tenantId && item.PublicId == orgUnitTypeId && item.IsActive)
-            .Select(item => new CatalogReferenceResponse(item.Id, item.PublicId, item.Code, item.Name, item.IsActive))
+            .Select(item => new CatalogReferenceInternal(item.Id, item.PublicId, item.Code, item.Name, item.IsActive))
             .SingleOrDefaultAsync(cancellationToken);
 
     public Task<bool> HasCategoriesUsingClassificationAsync(long classificationId, CancellationToken cancellationToken) =>
