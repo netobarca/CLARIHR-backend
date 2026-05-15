@@ -5,6 +5,7 @@ using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
@@ -45,6 +46,9 @@ internal sealed class PatchPositionDescriptionCatalogItemCommandValidator : Abst
             .WithMessage("Unsupported catalog type.");
         RuleFor(command => command.Operations).NotEmpty();
         RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleFor(command => command.Operations)
             .Must(PositionDescriptionCatalogPatchValidation.ContainsConcurrencyToken)
             .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
         RuleForEach(command => command.Operations).ChildRules(operation =>
@@ -62,6 +66,9 @@ internal sealed class PatchPositionCategoryClassificationCommandValidator : Abst
         RuleFor(command => command.ClassificationId).NotEmpty();
         RuleFor(command => command.Operations).NotEmpty();
         RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleFor(command => command.Operations)
             .Must(PositionDescriptionCatalogPatchValidation.ContainsConcurrencyToken)
             .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
         RuleForEach(command => command.Operations).ChildRules(operation =>
@@ -78,6 +85,9 @@ internal sealed class PatchPositionCategoryCommandValidator : AbstractValidator<
     {
         RuleFor(command => command.CategoryId).NotEmpty();
         RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
         RuleFor(command => command.Operations)
             .Must(PositionDescriptionCatalogPatchValidation.ContainsConcurrencyToken)
             .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
@@ -323,9 +333,9 @@ internal sealed class PatchPositionCategoryClassificationCommandHandler(
             return Result<PositionCategoryClassificationResponse>.Success(before);
         }
 
-        CatalogReferenceResponse? positionFunctionLookup = null;
-        CatalogReferenceResponse? contractTypeLookup = null;
-        CatalogReferenceResponse? orgUnitTypeLookup = null;
+        CatalogReferenceInternal? positionFunctionLookup = null;
+        CatalogReferenceInternal? contractTypeLookup = null;
+        CatalogReferenceInternal? orgUnitTypeLookup = null;
         if (patchState.HasScalarMutation)
         {
             positionFunctionLookup = await repository.GetActiveCatalogReferenceAsync(

@@ -43,10 +43,12 @@ builder.Services
     .AddControllers(options =>
     {
         options.InputFormatters.Insert(0, GetJsonPatchInputFormatter());
+        options.ModelBinderProviders.Insert(0, new CLARIHR.Api.Common.Binders.PositionDescriptionCatalogTypeModelBinderProvider());
         options.ModelMetadataDetailsProviders.Add(new PublicContractBindingMetadataProvider());
         options.Conventions.Add(new PublicContractRouteConvention());
         options.Conventions.Add(new ProducesStandardErrorsConvention());
         options.Filters.AddService<PersonnelFilePhotoUrlResultFilter>();
+        options.Filters.AddService<ValidateJsonPatchDocumentFilter>();
     })
     .AddJsonOptions(options =>
     {
@@ -57,9 +59,11 @@ builder.Services
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddScoped<PersonnelFilePhotoUrlResultFilter>();
+builder.Services.AddScoped<ValidateJsonPatchDocumentFilter>();
 builder.Services.AddScoped<ReportExportDeliveryService>();
 builder.Services.AddSwaggerGen(options =>
 {
+    options.EnableAnnotations();
     options.CustomSchemaIds(type =>
         (type.FullName ?? type.Name).Replace('+', '.'));
     options.SchemaFilter<PublicContractSchemaFilter>();

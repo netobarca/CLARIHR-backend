@@ -1,13 +1,13 @@
-using System.Text.Json;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
 
 namespace CLARIHR.Api.Controllers;
 
@@ -35,6 +35,22 @@ public sealed class JobProfileWorkingConditionsController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("{workingConditionPublicId:guid}")]
+    [Authorize(Policy = JobProfilePolicies.Read)]
+    [ProducesResponseType<JobProfileWorkingConditionResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    public async Task<ActionResult<JobProfileWorkingConditionResponse>> GetById(
+        Guid jobProfilePublicId,
+        Guid workingConditionPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetJobProfileWorkingConditionByIdQuery(jobProfilePublicId, workingConditionPublicId),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
     [HttpPost]
     [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileWorkingConditionResponse>(StatusCodes.Status201Created)]
@@ -47,8 +63,8 @@ public sealed class JobProfileWorkingConditionsController(
         var result = await commandDispatcher.SendAsync(
             new AddJobProfileWorkingConditionCommand(
                 jobProfilePublicId,
-                request.WorkConditionTypeCatalogItemId,
-                request.CatalogItemId,
+                request.WorkConditionTypeCatalogItemPublicId,
+                request.CatalogItemPublicId,
                 request.Name,
                 request.Notes,
                 request.SortOrder),
@@ -56,10 +72,11 @@ public sealed class JobProfileWorkingConditionsController(
 
         if (result.IsFailure)
         {
-            return this.ToActionResult(result).Result!;
+            return this.ToActionResult(Result<JobProfileWorkingConditionResponse>.Failure(result.Error));
         }
 
-        return Created($"{Request.Path}/{result.Value.Id:D}", result.Value);
+        this.SetETag(result, value => value.ConcurrencyToken);
+        return CreatedAtAction(nameof(GetById), new { jobProfilePublicId, workingConditionPublicId = result.Value.WorkingConditionPublicId }, result.Value);
     }
 
     [HttpPut("{workingConditionPublicId:guid}")]
@@ -69,58 +86,70 @@ public sealed class JobProfileWorkingConditionsController(
     public async Task<ActionResult<JobProfileWorkingConditionResponse>> Update(
         Guid jobProfilePublicId,
         Guid workingConditionPublicId,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         [FromBody] UpdateWorkingConditionRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
+        {
+            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
+                HttpContext,
+                statusCode: StatusCodes.Status400BadRequest,
+                detail: IfMatchHeader.MissingDetail));
+        }
+
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileWorkingConditionCommand(
                 jobProfilePublicId,
                 workingConditionPublicId,
-                request.WorkConditionTypeCatalogItemId,
-                request.CatalogItemId,
+                request.WorkConditionTypeCatalogItemPublicId,
+                request.CatalogItemPublicId,
                 request.Name,
                 request.Notes,
                 request.SortOrder,
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("{workingConditionPublicId:guid}")]
     [Authorize(Policy = JobProfilePolicies.Manage)]
     [Consumes("application/json-patch+json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<JobProfileWorkingConditionResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     public async Task<ActionResult<JobProfileWorkingConditionResponse>> Patch(
         Guid jobProfilePublicId,
         Guid workingConditionPublicId,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         [FromBody] JsonPatchDocument<UpdateWorkingConditionRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
-        if (patchDoc is null)
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
         {
             return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
                 HttpContext,
                 statusCode: StatusCodes.Status400BadRequest,
-                detail: "Invalid patch document."));
+                detail: IfMatchHeader.MissingDetail));
         }
 
         var result = await commandDispatcher.SendAsync(
             new PatchJobProfileWorkingConditionCommand(
                 jobProfilePublicId,
                 workingConditionPublicId,
+                concurrencyToken,
                 MapPatchOperations(patchDoc)),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpDelete("{workingConditionPublicId:guid}")]
     [Authorize(Policy = JobProfilePolicies.Manage)]
-    [ProducesResponseType<JobProfileWorkingConditionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileParentConcurrencyResult>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
-    public async Task<ActionResult<JobProfileWorkingConditionResponse>> Remove(
+    public async Task<ActionResult<JobProfileParentConcurrencyResult>> Remove(
         Guid jobProfilePublicId,
         Guid workingConditionPublicId,
         [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
@@ -138,38 +167,18 @@ public sealed class JobProfileWorkingConditionsController(
             new RemoveJobProfileWorkingConditionCommand(jobProfilePublicId, workingConditionPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
     private static IReadOnlyCollection<JobProfileWorkingConditionPatchOperation> MapPatchOperations(JsonPatchDocument<UpdateWorkingConditionRequest> patchDoc) =>
-        patchDoc.Operations
-            .Select(operation => new JobProfileWorkingConditionPatchOperation(
-                operation.op,
-                operation.path,
-                operation.from,
-                MapPatchValue(operation.value)))
-            .ToArray();
-
-    private static JsonElement? MapPatchValue(object? value)
-    {
-        if (value is null)
-        {
-            return JsonSerializer.SerializeToElement<object?>(null);
-        }
-
-        if (value is JToken token)
-        {
-            using var document = JsonDocument.Parse(token.ToString(Newtonsoft.Json.Formatting.None));
-            return document.RootElement.Clone();
-        }
-
-        return JsonSerializer.SerializeToElement(value, value.GetType());
-    }
+        JsonPatchOperationMapper.Map(
+            patchDoc,
+            static (op, path, from, value) => new JobProfileWorkingConditionPatchOperation(op, path, from, value));
 
     public sealed class AddWorkingConditionRequest
     {
-        public Guid? WorkConditionTypeCatalogItemId { get; set; }
-        public Guid? CatalogItemId { get; set; }
+        public Guid? WorkConditionTypeCatalogItemPublicId { get; set; }
+        public Guid? CatalogItemPublicId { get; set; }
         public string? Name { get; set; }
         public string? Notes { get; set; }
         public int SortOrder { get; set; }
@@ -177,11 +186,10 @@ public sealed class JobProfileWorkingConditionsController(
 
     public sealed class UpdateWorkingConditionRequest
     {
-        public Guid? WorkConditionTypeCatalogItemId { get; set; }
-        public Guid? CatalogItemId { get; set; }
+        public Guid? WorkConditionTypeCatalogItemPublicId { get; set; }
+        public Guid? CatalogItemPublicId { get; set; }
         public string? Name { get; set; }
         public string? Notes { get; set; }
         public int SortOrder { get; set; }
-        public Guid ConcurrencyToken { get; set; }
     }
 }

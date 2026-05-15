@@ -3541,20 +3541,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using (var scope = factory.Services.CreateScope())
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var internalSalaryClassId = await dbContext.PositionDescriptionCatalogItems
-                .IgnoreQueryFilters()
-                .AsNoTracking()
-                .Where(item => item.PublicId == salaryClass.Id)
-                .Select(item => item.Id)
-                .SingleAsync();
-
             var profileEntity = await dbContext.JobProfiles
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .SingleAsync(item => item.PublicId == profile.Id);
-            Assert.Equal(internalSalaryClassId, profileEntity.SalaryClassCatalogItemId);
-            Assert.Equal("S1", profileEntity.SalaryScaleCode);
-            Assert.Equal("S1", profileEntity.NormalizedSalaryScaleCode);
+            var compensationEntity = await dbContext.JobProfileCompensations
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .SingleAsync(item => item.JobProfileId == profileEntity.Id);
 
             var activeLine = await dbContext.SalaryTabulatorLines
                 .IgnoreQueryFilters()
@@ -3565,6 +3559,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                     line.NormalizedSalaryScaleCode == "S1" &&
                     line.IsActive);
             Assert.NotNull(activeLine);
+            Assert.Equal(activeLine!.Id, compensationEntity.SalaryTabulatorLineId);
+            Assert.Equal(salaryClass.Code, activeLine.SalaryClassCode);
+            Assert.Equal(salaryClass.Code, activeLine.NormalizedSalaryClassCode);
+            Assert.Equal("S1", activeLine.SalaryScaleCode);
+            Assert.Equal("S1", activeLine.NormalizedSalaryScaleCode);
             Assert.Equal(1850m, activeLine!.BaseAmount);
         }
     }
@@ -4072,8 +4071,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .SingleAsync(item => item.PublicId == createdProfile.Id);
-            Assert.NotNull(profileEntity.SalaryClassCatalogItemId);
-            Assert.Equal("S1", profileEntity.NormalizedSalaryScaleCode);
+            var compensationEntity = await dbContext.JobProfileCompensations
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .SingleAsync(item => item.JobProfileId == profileEntity.Id);
+            var linkedLine = await dbContext.SalaryTabulatorLines
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .SingleAsync(item => item.Id == compensationEntity.SalaryTabulatorLineId);
+            Assert.False(string.IsNullOrWhiteSpace(linkedLine.SalaryClassCode));
+            Assert.Equal("S1", linkedLine.NormalizedSalaryScaleCode);
         }
 
         var inactivateRequestResponse = await requesterClient.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/change-requests", new
@@ -4383,6 +4390,81 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var payload = await response.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
         Assert.NotNull(payload);
         Assert.Equal(JobProfileStatus.Draft, payload!.Status);
+    }
+
+    [Fact]
+    public async Task JobProfiles_Update_WithStatusInBody_ShouldKeepExistingStatus()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-STATUS-PUT", "Perfil Status PUT");
+
+        var response = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
+        {
+            code = profile.Code,
+            title = "Perfil Status PUT Actualizado",
+            status = JobProfileStatus.Published,
+            objective = "Objetivo",
+            orgUnitPublicId = profile.OrgUnitId,
+            reportsToJobProfilePublicId = (Guid?)null,
+            positionCategoryPublicId = (Guid?)null,
+            strategicObjectiveCatalogItemPublicId = (Guid?)null,
+            assignedWorkEquipmentCatalogItemPublicId = (Guid?)null,
+            responsibilityCatalogItemPublicId = (Guid?)null,
+            decisionScope = "Operacion",
+            assignedResources = "Equipo",
+            responsibilities = "Responsabilidades",
+            benefitsSummary = "Ley",
+            workingConditionSummary = "Presencial",
+            marketSalaryReference = "Mercado",
+            valuationNotes = "Notas",
+            effectiveFromUtc = (DateTime?)null,
+            effectiveToUtc = (DateTime?)null,
+            allowInlineCatalogCreate = false,
+            requirements = new[]
+            {
+                new
+                {
+                    requirementType = "Experience",
+                    catalogItemPublicId = (Guid?)null,
+                    catalogCode = (string?)null,
+                    catalogName = (string?)null,
+                    description = "3 anios",
+                    sortOrder = 1
+                }
+            },
+            functions = new[]
+            {
+                new
+                {
+                    functionType = "General",
+                    description = "Funcion",
+                    sortOrder = 1
+                }
+            },
+            relations = Array.Empty<object>(),
+            competencies = Array.Empty<object>(),
+            trainings = Array.Empty<object>(),
+            compensation = (object?)null,
+            benefits = Array.Empty<object>(),
+            workingConditions = Array.Empty<object>(),
+            dependentPositions = Array.Empty<object>(),
+            concurrencyToken = profile.ConcurrencyToken
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Perfil Status PUT Actualizado", payload!.Title);
+        Assert.Equal(JobProfileStatus.Draft, payload.Status);
+
+        var detailResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}");
+        detailResponse.EnsureSuccessStatusCode();
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions);
+        Assert.NotNull(detail);
+        Assert.Equal(JobProfileStatus.Draft, detail!.Status);
     }
 
     [Fact]
@@ -5005,6 +5087,23 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task JobProfiles_List_WithPageSizeAboveMax_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileReadContext(scenario));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/job-profiles?page=1&pageSize={JobProfileValidationRules.MaxPageSize + 1}");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.BadRequest, "common.validation");
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var errors = document.RootElement.GetProperty("errors");
+        var fieldErrors = errors.GetProperty("pageSize");
+        Assert.NotEmpty(fieldErrors.EnumerateArray());
+    }
+
+    [Fact]
     public async Task JobProfiles_List_WithoutPermission_ShouldReturn403()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -5200,6 +5299,33 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Contains(payload!.Items, static item => item.EventType == "JOB_PROFILE_CREATED" && item.EntityType == "JobProfile");
     }
 
+    [Theory]
+    [MemberData(nameof(JobProfilePatchEndpointTemplates))]
+    public async Task JobProfilePatchEndpoints_WithJsonContentType_ShouldReturn415(string endpointTemplate)
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var endpoint = endpointTemplate
+            .Replace("{profileId}", Guid.NewGuid().ToString("D"), StringComparison.Ordinal)
+            .Replace("{resourceId}", Guid.NewGuid().ToString("D"), StringComparison.Ordinal);
+
+        using var request = new HttpRequestMessage(HttpMethod.Patch, endpoint)
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[]
+                {
+                    new { op = "replace", path = "/concurrencyToken", value = Guid.NewGuid().ToString("D") }
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
+    }
+
     [Fact]
     public async Task JobProfileFunctions_CrudFlow_ShouldReturnEntityContracts()
     {
@@ -5229,11 +5355,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var functionId = created.FunctionPublicId;
 
-        var getResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/functions");
+        var getResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/functions?page=1&pageSize=1");
         getResponse.EnsureSuccessStatusCode();
-        var listed = await getResponse.Content.ReadFromJsonAsync<JobProfileFunctionResponse[]>(JsonOptions);
+        var listed = await getResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<JobProfileFunctionResponse>>(JsonOptions);
         Assert.NotNull(listed);
-        var fromList = Assert.Single(listed!);
+        Assert.Equal(1, listed!.PageNumber);
+        Assert.Equal(1, listed.PageSize);
+        Assert.Equal(1, listed.TotalCount);
+        var fromList = Assert.Single(listed.Items);
         Assert.Equal(functionId, fromList.FunctionPublicId);
 
         using var putRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/functions/{functionId}")
@@ -5276,9 +5405,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         deleteRequest.Headers.TryAddWithoutValidation("If-Match", patched.ConcurrencyToken.ToString());
         var deleteResponse = await client.SendAsync(deleteRequest);
         deleteResponse.EnsureSuccessStatusCode();
-        var deleted = await deleteResponse.Content.ReadFromJsonAsync<JobProfileFunctionResponse>(JsonOptions);
-        Assert.NotNull(deleted);
-        Assert.Equal(functionId, deleted!.FunctionPublicId);
+        var deleteResult = await deleteResponse.Content.ReadFromJsonAsync<JobProfileParentConcurrencyResult>(JsonOptions);
+        Assert.NotNull(deleteResult);
+        Assert.NotEqual(Guid.Empty, deleteResult!.ParentConcurrencyToken);
     }
 
     [Fact]
@@ -5329,6 +5458,90 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var deleteResponse = await client.SendAsync(deleteRequest);
 
         deleteResponse.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task JobProfileRequirements_Get_ShouldReturnPagedResponse()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-REQ-001", "Perfil Requisitos");
+
+        var firstResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/requirements", new
+        {
+            requirementType = "Experience",
+            requirementTypeCatalogItemPublicId = (Guid?)null,
+            catalogItemPublicId = (Guid?)null,
+            catalogCode = (string?)null,
+            catalogName = (string?)null,
+            description = "3 years",
+            sortOrder = 1
+        });
+        firstResponse.EnsureSuccessStatusCode();
+
+        var secondResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/requirements", new
+        {
+            requirementType = "Education",
+            requirementTypeCatalogItemPublicId = (Guid?)null,
+            catalogItemPublicId = (Guid?)null,
+            catalogCode = (string?)null,
+            catalogName = (string?)null,
+            description = "Degree",
+            sortOrder = 2
+        });
+        secondResponse.EnsureSuccessStatusCode();
+
+        var listResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/requirements?page=2&pageSize=1");
+        listResponse.EnsureSuccessStatusCode();
+
+        var payload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<JobProfileRequirementResponse>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(2, payload!.PageNumber);
+        Assert.Equal(1, payload.PageSize);
+        Assert.Equal(2, payload.TotalCount);
+        var item = Assert.Single(payload.Items);
+        Assert.Equal("Degree", item.Description);
+    }
+
+    [Fact]
+    public async Task JobProfileCompetencies_Get_ShouldReturnPagedResponse()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-COMP-001", "Perfil Competencias");
+
+        var firstResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/competencies", new
+        {
+            catalogItemPublicId = (Guid?)null,
+            name = "Communication",
+            expectedLevel = "Intermediate",
+            notes = (string?)null,
+            sortOrder = 1
+        });
+        firstResponse.EnsureSuccessStatusCode();
+
+        var secondResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/competencies", new
+        {
+            catalogItemPublicId = (Guid?)null,
+            name = "Leadership",
+            expectedLevel = "Advanced",
+            notes = (string?)null,
+            sortOrder = 2
+        });
+        secondResponse.EnsureSuccessStatusCode();
+
+        var listResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competencies?page=2&pageSize=1");
+        listResponse.EnsureSuccessStatusCode();
+
+        var payload = await listResponse.Content.ReadFromJsonAsync<PagedResponseEnvelope<JobProfileLegacyCompetencyResponse>>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(2, payload!.PageNumber);
+        Assert.Equal(1, payload.PageSize);
+        Assert.Equal(2, payload.TotalCount);
+        var item = Assert.Single(payload.Items);
+        Assert.Equal("Leadership", item.Name);
     }
 
     [Fact]
@@ -7506,6 +7719,20 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             CompetencyFrameworkPermissionCodes.Admin,
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Access),
             PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.AuditLogs, RbacPermissionAction.Read));
+
+    public static IEnumerable<object[]> JobProfilePatchEndpointTemplates()
+    {
+        yield return ["/api/v1/job-profiles/{profileId}"];
+        yield return ["/api/v1/job-profiles/{profileId}/requirements/{resourceId}"];
+        yield return ["/api/v1/job-profiles/{profileId}/functions/{resourceId}"];
+        yield return ["/api/v1/job-profiles/{profileId}/relations/{resourceId}"];
+        yield return ["/api/v1/job-profiles/{profileId}/competencies/{resourceId}"];
+        yield return ["/api/v1/job-profiles/{profileId}/trainings/{resourceId}"];
+        yield return ["/api/v1/job-profiles/{profileId}/compensations/{resourceId}"];
+        yield return ["/api/v1/job-profiles/{profileId}/benefits/{resourceId}"];
+        yield return ["/api/v1/job-profiles/{profileId}/working-conditions/{resourceId}"];
+        yield return ["/api/v1/job-profiles/{profileId}/dependent-positions/{resourceId}"];
+    }
 
     private static TestUserContext CreateCompetencyFrameworkReadContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, CompetencyFrameworkPermissionCodes.Read);

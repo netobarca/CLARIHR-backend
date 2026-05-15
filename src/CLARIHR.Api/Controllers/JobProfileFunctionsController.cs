@@ -1,14 +1,15 @@
-using System.Text.Json;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Conventions;
+using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Domain.JobProfiles;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
 
 namespace CLARIHR.Api.Controllers;
 
@@ -23,14 +24,32 @@ public sealed class JobProfileFunctionsController(
 {
     [HttpGet]
     [Authorize(Policy = JobProfilePolicies.Read)]
-    [ProducesResponseType<IReadOnlyCollection<JobProfileFunctionResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PagedResponse<JobProfileFunctionResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
-    public async Task<ActionResult<IReadOnlyCollection<JobProfileFunctionResponse>>> Get(
+    public async Task<ActionResult<PagedResponse<JobProfileFunctionResponse>>> Get(
         Guid jobProfilePublicId,
+        [FromQuery(Name = "page")] int pageNumber = 1,
+        [FromQuery] int pageSize = JobProfileValidationRules.DefaultPageSize,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new GetJobProfileFunctionsQuery(jobProfilePublicId),
+            new GetJobProfileFunctionsQuery(jobProfilePublicId, pageNumber, pageSize),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("{functionPublicId:guid}")]
+    [Authorize(Policy = JobProfilePolicies.Read)]
+    [ProducesResponseType<JobProfileFunctionResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    public async Task<ActionResult<JobProfileFunctionResponse>> GetById(
+        Guid jobProfilePublicId,
+        Guid functionPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetJobProfileFunctionByIdQuery(jobProfilePublicId, functionPublicId),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -56,10 +75,11 @@ public sealed class JobProfileFunctionsController(
 
         if (result.IsFailure)
         {
-            return this.ToActionResult(result).Result!;
+            return this.ToActionResult(Result<JobProfileFunctionResponse>.Failure(result.Error));
         }
 
-        return Created($"{Request.Path}/{result.Value.FunctionPublicId:D}", result.Value);
+        this.SetETag(result, value => value.ConcurrencyToken);
+        return CreatedAtAction(nameof(GetById), new { jobProfilePublicId, functionPublicId = result.Value.FunctionPublicId }, result.Value);
     }
 
     [HttpPut("{functionPublicId:guid}")]
@@ -69,9 +89,18 @@ public sealed class JobProfileFunctionsController(
     public async Task<ActionResult<JobProfileFunctionResponse>> Update(
         Guid jobProfilePublicId,
         Guid functionPublicId,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         [FromBody] UpdateFunctionRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
+        {
+            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
+                HttpContext,
+                statusCode: StatusCodes.Status400BadRequest,
+                detail: IfMatchHeader.MissingDetail));
+        }
+
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileFunctionCommand(
                 jobProfilePublicId,
@@ -80,46 +109,49 @@ public sealed class JobProfileFunctionsController(
                 request.FrequencyCatalogItemPublicId,
                 request.Description,
                 request.SortOrder,
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("{functionPublicId:guid}")]
     [Authorize(Policy = JobProfilePolicies.Manage)]
     [Consumes("application/json-patch+json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<JobProfileFunctionResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     public async Task<ActionResult<JobProfileFunctionResponse>> Patch(
         Guid jobProfilePublicId,
         Guid functionPublicId,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         [FromBody] JsonPatchDocument<UpdateFunctionRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
-        if (patchDoc is null)
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
         {
             return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
                 HttpContext,
                 statusCode: StatusCodes.Status400BadRequest,
-                detail: "Invalid patch document."));
+                detail: IfMatchHeader.MissingDetail));
         }
 
         var result = await commandDispatcher.SendAsync(
             new PatchJobProfileFunctionCommand(
                 jobProfilePublicId,
                 functionPublicId,
+                concurrencyToken,
                 MapPatchOperations(patchDoc)),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpDelete("{functionPublicId:guid}")]
     [Authorize(Policy = JobProfilePolicies.Manage)]
-    [ProducesResponseType<JobProfileFunctionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<JobProfileParentConcurrencyResult>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
-    public async Task<ActionResult<JobProfileFunctionResponse>> Remove(
+    public async Task<ActionResult<JobProfileParentConcurrencyResult>> Remove(
         Guid jobProfilePublicId,
         Guid functionPublicId,
         [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
@@ -137,33 +169,13 @@ public sealed class JobProfileFunctionsController(
             new RemoveJobProfileFunctionCommand(jobProfilePublicId, functionPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
     private static IReadOnlyCollection<JobProfileFunctionPatchOperation> MapPatchOperations(JsonPatchDocument<UpdateFunctionRequest> patchDoc) =>
-        patchDoc.Operations
-            .Select(operation => new JobProfileFunctionPatchOperation(
-                operation.op,
-                operation.path,
-                operation.from,
-                MapPatchValue(operation.value)))
-            .ToArray();
-
-    private static JsonElement? MapPatchValue(object? value)
-    {
-        if (value is null)
-        {
-            return JsonSerializer.SerializeToElement<object?>(null);
-        }
-
-        if (value is JToken token)
-        {
-            using var document = JsonDocument.Parse(token.ToString(Newtonsoft.Json.Formatting.None));
-            return document.RootElement.Clone();
-        }
-
-        return JsonSerializer.SerializeToElement(value, value.GetType());
-    }
+        JsonPatchOperationMapper.Map(
+            patchDoc,
+            static (op, path, from, value) => new JobProfileFunctionPatchOperation(op, path, from, value));
 
     public sealed class AddFunctionRequest
     {
@@ -179,6 +191,5 @@ public sealed class JobProfileFunctionsController(
         public Guid? FrequencyCatalogItemPublicId { get; set; }
         public string Description { get; set; } = string.Empty;
         public int SortOrder { get; set; }
-        public Guid ConcurrencyToken { get; set; }
     }
 }

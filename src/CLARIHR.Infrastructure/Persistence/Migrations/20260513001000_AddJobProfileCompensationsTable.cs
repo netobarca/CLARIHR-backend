@@ -42,53 +42,6 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
             migrationBuilder.Sql(
                 """
-                -- Best-effort backfill: resolves a single salary_tabulator_line per profile based on legacy codes
-                -- and the profile's effective date. Profiles without a unique match are skipped silently.
-                DO $$
-                BEGIN
-                    IF EXISTS (
-                        SELECT 1
-                        FROM information_schema.columns
-                        WHERE table_schema = current_schema()
-                          AND table_name = 'job_profiles'
-                          AND column_name = 'normalized_salary_scale_code'
-                    ) THEN
-                        INSERT INTO job_profile_compensations
-                            (public_id, tenant_id, job_profile_id, salary_tabulator_line_id, notes, concurrency_token, created_utc)
-                        SELECT
-                            gen_random_uuid(),
-                            jp.tenant_id,
-                            jp.id,
-                            matched.line_id,
-                            NULL,
-                            (md5(random()::text || clock_timestamp()::text))::uuid,
-                            now()
-                        FROM job_profiles jp
-                        JOIN LATERAL (
-                            SELECT stl.id AS line_id
-                            FROM salary_tabulator_lines stl
-                            JOIN job_catalog_items jci_class ON jci_class.id = jp.salary_class_catalog_item_id
-                            WHERE stl.tenant_id = jp.tenant_id
-                              AND stl.normalized_salary_scale_code = jp.normalized_salary_scale_code
-                              AND stl.normalized_salary_class_code = jci_class.normalized_code
-                              AND stl.is_active = true
-                              AND stl.effective_from_utc <= COALESCE(jp.effective_to_utc, 'infinity'::timestamptz)
-                              AND (stl.effective_to_utc IS NULL OR stl.effective_to_utc >= COALESCE(jp.effective_from_utc, now()))
-                            ORDER BY stl.effective_from_utc DESC
-                            LIMIT 1
-                        ) AS matched ON TRUE
-                        WHERE jp.salary_class_catalog_item_id IS NOT NULL
-                          AND jp.normalized_salary_scale_code IS NOT NULL
-                          AND NOT EXISTS (
-                              SELECT 1 FROM job_profile_compensations existing
-                              WHERE existing.job_profile_id = jp.id
-                          );
-                    END IF;
-                END $$;
-                """);
-
-            migrationBuilder.Sql(
-                """
                 ALTER TABLE job_profiles DROP CONSTRAINT IF EXISTS fk_job_profiles__salary_class_catalog_item;
                 DROP INDEX IF EXISTS ix_job_profiles__tenant_salary_class;
                 DROP INDEX IF EXISTS ix_job_profiles__tenant_salary_scale;

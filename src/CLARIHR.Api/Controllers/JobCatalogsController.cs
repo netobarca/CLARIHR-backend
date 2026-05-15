@@ -1,14 +1,13 @@
-using System.Text.Json;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Domain.JobProfiles;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
 
 namespace CLARIHR.Api.Controllers;
 
@@ -54,12 +53,8 @@ public sealed class JobCatalogsController(
             new CreateJobCatalogItemCommand(companyId, category, request.Code, request.Name),
             cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return this.ToActionResult(result).Result!;
-        }
-
-        return Created($"{Request.Path}/{result.Value.Id:D}", result.Value);
+        this.SetETag(result, value => value.ConcurrencyToken);
+        return this.ToCreatedResult(result, value => $"{Request.Path}/{value.Id:D}");
     }
 
     [HttpPut("{jobCatalogPublicId:guid}")]
@@ -69,9 +64,18 @@ public sealed class JobCatalogsController(
         Guid companyId,
         JobCatalogCategory category,
         Guid jobCatalogPublicId,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         [FromBody] UpdateJobCatalogItemRequest request,
         CancellationToken cancellationToken = default)
     {
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
+        {
+            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
+                HttpContext,
+                statusCode: StatusCodes.Status400BadRequest,
+                detail: IfMatchHeader.MissingDetail));
+        }
+
         var result = await commandDispatcher.SendAsync(
             new UpdateJobCatalogItemCommand(
                 companyId,
@@ -80,29 +84,31 @@ public sealed class JobCatalogsController(
                 request.Code,
                 request.Name,
                 request.IsActive,
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("{jobCatalogPublicId:guid}")]
     [Consumes("application/json-patch+json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<JobCatalogItemResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     public async Task<ActionResult<JobCatalogItemResponse>> Patch(
         Guid companyId,
         JobCatalogCategory category,
         Guid jobCatalogPublicId,
+        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
         [FromBody] JsonPatchDocument<UpdateJobCatalogItemRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
-        if (patchDoc is null)
+        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
         {
             return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
                 HttpContext,
                 statusCode: StatusCodes.Status400BadRequest,
-                detail: "Invalid patch document."));
+                detail: IfMatchHeader.MissingDetail));
         }
 
         var result = await commandDispatcher.SendAsync(
@@ -110,10 +116,11 @@ public sealed class JobCatalogsController(
                 companyId,
                 category,
                 jobCatalogPublicId,
+                concurrencyToken,
                 MapPatchOperations(patchDoc)),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpDelete("{jobCatalogPublicId:guid}")]
@@ -138,33 +145,13 @@ public sealed class JobCatalogsController(
             new RemoveJobCatalogItemCommand(companyId, category, jobCatalogPublicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     private static IReadOnlyCollection<JobCatalogItemPatchOperation> MapPatchOperations(JsonPatchDocument<UpdateJobCatalogItemRequest> patchDoc) =>
-        patchDoc.Operations
-            .Select(operation => new JobCatalogItemPatchOperation(
-                operation.op,
-                operation.path,
-                operation.from,
-                MapPatchValue(operation.value)))
-            .ToArray();
-
-    private static JsonElement? MapPatchValue(object? value)
-    {
-        if (value is null)
-        {
-            return JsonSerializer.SerializeToElement<object?>(null);
-        }
-
-        if (value is JToken token)
-        {
-            using var document = JsonDocument.Parse(token.ToString(Newtonsoft.Json.Formatting.None));
-            return document.RootElement.Clone();
-        }
-
-        return JsonSerializer.SerializeToElement(value, value.GetType());
-    }
+        JsonPatchOperationMapper.Map(
+            patchDoc,
+            static (op, path, from, value) => new JobCatalogItemPatchOperation(op, path, from, value));
 
     public sealed class CreateJobCatalogItemRequest
     {
@@ -177,6 +164,5 @@ public sealed class JobCatalogsController(
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;
-        public Guid ConcurrencyToken { get; set; }
     }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.JobProfiles;
@@ -7,6 +8,7 @@ using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -16,8 +18,8 @@ using FluentValidation;
 namespace CLARIHR.Application.Features.JobProfiles;
 
 public sealed record JobProfileCompensationItemResponse(
-    Guid Id,
-    Guid SalaryTabulatorLineId,
+    Guid CompensationPublicId,
+    Guid SalaryTabulatorLinePublicId,
     string SalaryClassCode,
     string SalaryScaleCode,
     string CurrencyCode,
@@ -29,20 +31,30 @@ public sealed record JobProfileCompensationItemResponse(
     string? Notes,
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc)
+{
+    [JsonIgnore]
+    public Guid Id => CompensationPublicId;
+
+    [JsonIgnore]
+    public Guid SalaryTabulatorLineId => SalaryTabulatorLinePublicId;
+}
 
 public sealed record GetJobProfileCompensationsQuery(Guid JobProfileId)
     : IQuery<IReadOnlyCollection<JobProfileCompensationItemResponse>>;
 
+public sealed record GetJobProfileCompensationByIdQuery(Guid JobProfileId, Guid CompensationId)
+    : IQuery<JobProfileCompensationItemResponse>;
+
 public sealed record AddJobProfileCompensationCommand(
     Guid JobProfileId,
-    Guid SalaryTabulatorLineId,
+    Guid SalaryTabulatorLinePublicId,
     string? Notes) : ICommand<JobProfileCompensationItemResponse>;
 
 public sealed record UpdateJobProfileCompensationCommand(
     Guid JobProfileId,
     Guid CompensationId,
-    Guid SalaryTabulatorLineId,
+    Guid SalaryTabulatorLinePublicId,
     string? Notes,
     Guid ConcurrencyToken) : ICommand<JobProfileCompensationItemResponse>;
 
@@ -55,12 +67,13 @@ public sealed record JobProfileCompensationPatchOperation(
 public sealed record PatchJobProfileCompensationCommand(
     Guid JobProfileId,
     Guid CompensationId,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<JobProfileCompensationPatchOperation> Operations) : ICommand<JobProfileCompensationItemResponse>;
 
 public sealed record RemoveJobProfileCompensationCommand(
     Guid JobProfileId,
     Guid CompensationId,
-    Guid ConcurrencyToken) : ICommand<JobProfileCompensationItemResponse>;
+    Guid ConcurrencyToken) : ICommand<JobProfileParentConcurrencyResult>;
 
 internal sealed class GetJobProfileCompensationsQueryValidator : AbstractValidator<GetJobProfileCompensationsQuery>
 {
@@ -70,12 +83,21 @@ internal sealed class GetJobProfileCompensationsQueryValidator : AbstractValidat
     }
 }
 
+internal sealed class GetJobProfileCompensationByIdQueryValidator : AbstractValidator<GetJobProfileCompensationByIdQuery>
+{
+    public GetJobProfileCompensationByIdQueryValidator()
+    {
+        RuleFor(query => query.JobProfileId).NotEmpty();
+        RuleFor(query => query.CompensationId).NotEmpty();
+    }
+}
+
 internal sealed class AddJobProfileCompensationCommandValidator : AbstractValidator<AddJobProfileCompensationCommand>
 {
     public AddJobProfileCompensationCommandValidator()
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
-        RuleFor(command => command.SalaryTabulatorLineId).NotEmpty();
+        RuleFor(command => command.SalaryTabulatorLinePublicId).NotEmpty();
         RuleFor(command => command.Notes).MaximumLength(1000);
     }
 }
@@ -86,7 +108,7 @@ internal sealed class UpdateJobProfileCompensationCommandValidator : AbstractVal
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
         RuleFor(command => command.CompensationId).NotEmpty();
-        RuleFor(command => command.SalaryTabulatorLineId).NotEmpty();
+        RuleFor(command => command.SalaryTabulatorLinePublicId).NotEmpty();
         RuleFor(command => command.Notes).MaximumLength(1000);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
@@ -98,23 +120,17 @@ internal sealed class PatchJobProfileCompensationCommandValidator : AbstractVali
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
         RuleFor(command => command.CompensationId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Operations).NotEmpty();
         RuleFor(command => command.Operations)
-            .Must(ContainsConcurrencyToken)
-            .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
         RuleForEach(command => command.Operations).ChildRules(operation =>
         {
             operation.RuleFor(item => item.Op).NotEmpty();
             operation.RuleFor(item => item.Path).NotEmpty();
         });
     }
-
-    private static bool ContainsConcurrencyToken(IReadOnlyCollection<JobProfileCompensationPatchOperation>? operations) =>
-        operations is not null &&
-        operations.Any(static operation =>
-            !string.Equals(operation.Op, "remove", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(operation.Path) &&
-            string.Equals(operation.Path.Trim(), "/concurrencyToken", StringComparison.OrdinalIgnoreCase));
 }
 
 internal sealed class RemoveJobProfileCompensationCommandValidator : AbstractValidator<RemoveJobProfileCompensationCommand>
@@ -160,6 +176,39 @@ internal sealed class GetJobProfileCompensationsQueryHandler(
     }
 }
 
+internal sealed class GetJobProfileCompensationByIdQueryHandler(
+    IJobProfileAuthorizationService authorizationService,
+    IJobProfileRepository profileRepository,
+    IJobProfileCompensationRepository repository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetJobProfileCompensationByIdQuery, JobProfileCompensationItemResponse>
+{
+    public async Task<Result<JobProfileCompensationItemResponse>> Handle(GetJobProfileCompensationByIdQuery query, CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<JobProfileCompensationItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<JobProfileCompensationItemResponse>.Failure(authorizationResult.Error);
+        }
+
+        var compensation = await repository.GetResponseAsync(query.JobProfileId, query.CompensationId, cancellationToken);
+        if (compensation is null)
+        {
+            return Result<JobProfileCompensationItemResponse>.Failure(
+                await profileRepository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                    : JobProfileErrors.CompensationNotFound);
+        }
+
+        return Result<JobProfileCompensationItemResponse>.Success(compensation);
+    }
+}
+
 internal sealed class AddJobProfileCompensationCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository profileRepository,
@@ -196,7 +245,7 @@ internal sealed class AddJobProfileCompensationCommandHandler(
             return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.CompensationAlreadyExists);
         }
 
-        var line = await repository.ResolveSalaryTabulatorLineAsync(tenantContext.TenantId.Value, command.SalaryTabulatorLineId, cancellationToken);
+        var line = await repository.ResolveSalaryTabulatorLineAsync(tenantContext.TenantId.Value, command.SalaryTabulatorLinePublicId, cancellationToken);
         if (line is null)
         {
             return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.SalaryTabulatorLineNotFoundForCompensation);
@@ -234,12 +283,20 @@ internal sealed class AddJobProfileCompensationCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             return Result<JobProfileCompensationItemResponse>.Success(response);
         }
+        catch (UniqueConstraintViolationException ex) when (IsCompensationPerProfileConstraint(ex.ConstraintName))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.CompensationAlreadyExists);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
     }
+
+    private static bool IsCompensationPerProfileConstraint(string? constraintName) =>
+        string.Equals(constraintName, "uq_job_profile_compensations__job_profile_id", StringComparison.Ordinal);
 }
 
 internal sealed class UpdateJobProfileCompensationCommandHandler(
@@ -278,7 +335,7 @@ internal sealed class UpdateJobProfileCompensationCommandHandler(
             return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
-        var line = await repository.ResolveSalaryTabulatorLineAsync(tenantContext.TenantId.Value, command.SalaryTabulatorLineId, cancellationToken);
+        var line = await repository.ResolveSalaryTabulatorLineAsync(tenantContext.TenantId.Value, command.SalaryTabulatorLinePublicId, cancellationToken);
         if (line is null)
         {
             return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.SalaryTabulatorLineNotFoundForCompensation);
@@ -355,6 +412,11 @@ internal sealed class PatchJobProfileCompensationCommandHandler(
                     : JobProfileErrors.CompensationNotFound);
         }
 
+        if (compensation.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+        }
+
         var before = await repository.GetResponseAsync(command.JobProfileId, compensation.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Job profile compensation response could not be resolved before patch.");
         var patchState = JobProfileCompensationPatchState.From(before);
@@ -368,11 +430,6 @@ internal sealed class PatchJobProfileCompensationCommandHandler(
         if (validation.IsFailure)
         {
             return Result<JobProfileCompensationItemResponse>.Failure(validation.Error);
-        }
-
-        if (patchState.ConcurrencyToken != compensation.ConcurrencyToken)
-        {
-            return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         if (!patchState.HasMutation)
@@ -431,33 +488,39 @@ internal sealed class RemoveJobProfileCompensationCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<RemoveJobProfileCompensationCommand, JobProfileCompensationItemResponse>
+    : ICommandHandler<RemoveJobProfileCompensationCommand, JobProfileParentConcurrencyResult>
 {
-    public async Task<Result<JobProfileCompensationItemResponse>> Handle(RemoveJobProfileCompensationCommand command, CancellationToken cancellationToken)
+    public async Task<Result<JobProfileParentConcurrencyResult>> Handle(RemoveJobProfileCompensationCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileCompensationItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<JobProfileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileCompensationItemResponse>.Failure(authorizationResult.Error);
+            return Result<JobProfileParentConcurrencyResult>.Failure(authorizationResult.Error);
+        }
+
+        var profile = await profileRepository.GetCoreByIdAsync(command.JobProfileId, cancellationToken);
+        if (profile is null)
+        {
+            return Result<JobProfileParentConcurrencyResult>.Failure(
+                await profileRepository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : JobProfileErrors.JobProfileNotFound);
         }
 
         var compensation = await repository.GetByPublicIdAsync(command.JobProfileId, command.CompensationId, cancellationToken);
         if (compensation is null)
         {
-            return Result<JobProfileCompensationItemResponse>.Failure(
-                await profileRepository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : JobProfileErrors.CompensationNotFound);
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.CompensationNotFound);
         }
 
         if (compensation.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileCompensationItemResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetResponseAsync(command.JobProfileId, compensation.PublicId, cancellationToken)
@@ -466,6 +529,7 @@ internal sealed class RemoveJobProfileCompensationCommandHandler(
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            profile.BumpVersion();
             repository.Remove(compensation);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -482,7 +546,7 @@ internal sealed class RemoveJobProfileCompensationCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileCompensationItemResponse>.Success(before);
+            return Result<JobProfileParentConcurrencyResult>.Success(new JobProfileParentConcurrencyResult(profile.ConcurrencyToken));
         }
         catch
         {
@@ -496,16 +560,13 @@ internal sealed class JobProfileCompensationPatchState
 {
     public Guid SalaryTabulatorLinePublicId { get; set; }
     public string? Notes { get; set; }
-    public Guid ConcurrencyToken { get; set; }
-    public bool ConcurrencyTokenTouched { get; set; }
     public bool HasMutation { get; set; }
 
     public static JobProfileCompensationPatchState From(JobProfileCompensationItemResponse response) =>
         new()
         {
-            SalaryTabulatorLinePublicId = response.SalaryTabulatorLineId,
-            Notes = response.Notes,
-            ConcurrencyToken = response.ConcurrencyToken
+            SalaryTabulatorLinePublicId = response.SalaryTabulatorLinePublicId,
+            Notes = response.Notes
         };
 }
 
@@ -555,18 +616,9 @@ internal static class JobProfileCompensationPatchApplier
     {
         var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
-        if (!state.ConcurrencyTokenTouched)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken is required."];
-        }
-        else if (state.ConcurrencyToken == Guid.Empty)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken must be a valid UUID."];
-        }
-
         if (state.SalaryTabulatorLinePublicId == Guid.Empty)
         {
-            errors["salaryTabulatorLineId"] = ["SalaryTabulatorLineId is required."];
+            errors["salaryTabulatorLinePublicId"] = ["SalaryTabulatorLinePublicId is required."];
         }
 
         if (state.Notes is not null && state.Notes.Length > 1000)
@@ -588,11 +640,11 @@ internal static class JobProfileCompensationPatchApplier
     {
         var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
 
-        if (IsAnySegment(property, "salaryTabulatorLineId", "salaryTabulatorLinePublicId"))
+        if (IsSegment(property, "salaryTabulatorLinePublicId"))
         {
             if (isRemove)
             {
-                return ValidationFailure(path, "SalaryTabulatorLineId cannot be removed.");
+                return ValidationFailure(path, "SalaryTabulatorLinePublicId cannot be removed.");
             }
 
             state.SalaryTabulatorLinePublicId = ReadRequiredGuid(value, path);
@@ -604,18 +656,6 @@ internal static class JobProfileCompensationPatchApplier
         {
             state.Notes = isRemove ? null : ReadNullableString(value, path);
             state.HasMutation = true;
-            return Result.Success();
-        }
-
-        if (IsSegment(property, "concurrencyToken"))
-        {
-            if (isRemove)
-            {
-                return ValidationFailure(path, "ConcurrencyToken cannot be removed.");
-            }
-
-            state.ConcurrencyToken = ReadRequiredGuid(value, path);
-            state.ConcurrencyTokenTouched = true;
             return Result.Success();
         }
 

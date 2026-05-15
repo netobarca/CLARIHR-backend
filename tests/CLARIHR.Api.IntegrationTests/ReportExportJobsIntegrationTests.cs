@@ -3,11 +3,13 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using CLARIHR.Application.Abstractions.Companies;
+using CLARIHR.Application.Abstractions.Files;
 using CLARIHR.Application.Abstractions.Reports;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Reports;
 using CLARIHR.Domain.Auth;
+using CLARIHR.Domain.Files;
 using CLARIHR.Domain.Reports;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
@@ -197,7 +199,9 @@ public sealed class ReportExportIntegrationTestWebApplicationFactory : WebApplic
             RemoveInfrastructureHostedServices(services);
 
             var storageDescriptors = services
-                .Where(static descriptor => descriptor.ServiceType == typeof(IReportExportStorage))
+                .Where(static descriptor =>
+                    descriptor.ServiceType == typeof(IFileStorageProvider) ||
+                    descriptor.ServiceType == typeof(IFileStorageProviderResolver))
                 .ToArray();
 
             foreach (var descriptor in storageDescriptors)
@@ -206,7 +210,9 @@ public sealed class ReportExportIntegrationTestWebApplicationFactory : WebApplic
             }
 
             services.AddSingleton(Storage);
-            services.AddSingleton<IReportExportStorage>(Storage);
+            services.AddSingleton<IFileStorageProvider>(Storage);
+            services.AddSingleton<IFileStorageProviderResolver>(
+                static serviceProvider => new SingleFileStorageProviderResolver(serviceProvider.GetRequiredService<InMemoryReportExportStorage>()));
         });
     }
 
@@ -284,18 +290,18 @@ public sealed class ReportExportIntegrationTestWebApplicationFactory : WebApplic
     }
 }
 
-internal sealed class InMemoryReportExportStorage : IReportExportStorage
+internal sealed class InMemoryReportExportStorage : IFileStorageProvider
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, StoredBlob> _blobs = new(StringComparer.Ordinal);
 
-    public bool IsConfigured => true;
+    public StorageProvider ProviderType => StorageProvider.AzureBlob;
 
     public void Seed(string blobName, byte[] content, string contentType)
     {
         lock (_gate)
         {
-            _blobs[blobName] = new StoredBlob(content.ToArray(), contentType);
+            _blobs[BuildStorageKey("clarihr-files", blobName)] = new StoredBlob(content.ToArray(), contentType);
         }
     }
 
@@ -307,10 +313,50 @@ internal sealed class InMemoryReportExportStorage : IReportExportStorage
         }
     }
 
-    public async Task<ReportExportStoredArtifact> UploadAsync(
-        Guid tenantId,
-        Guid jobId,
-        string fileName,
+    public Task<CreateUploadSessionResult> CreateUploadSessionAsync(
+        CreateUploadSessionProviderCommand command,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public Task<CreateReadSessionResult> CreateReadSessionAsync(
+        CreateReadSessionCommand command,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
+    public Task<bool> ExistsAsync(string containerName, string objectKey, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            return Task.FromResult(_blobs.ContainsKey(BuildStorageKey(containerName, objectKey)));
+        }
+    }
+
+    public Task<FileObjectInfo?> GetObjectInfoAsync(string containerName, string objectKey, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            if (!_blobs.TryGetValue(BuildStorageKey(containerName, objectKey), out var blob))
+            {
+                return Task.FromResult<FileObjectInfo?>(null);
+            }
+
+            return Task.FromResult<FileObjectInfo?>(new FileObjectInfo(blob.Content.Length, blob.ContentType, DateTime.UtcNow));
+        }
+    }
+
+    public Task DeleteAsync(string containerName, string objectKey, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            _blobs.Remove(BuildStorageKey(containerName, objectKey));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public async Task<FileObjectInfo> UploadStreamAsync(
+        string containerName,
+        string objectKey,
         string contentType,
         Stream content,
         CancellationToken cancellationToken)
@@ -318,22 +364,24 @@ internal sealed class InMemoryReportExportStorage : IReportExportStorage
         await using var buffer = new MemoryStream();
         await content.CopyToAsync(buffer, cancellationToken);
 
-        var blobName = $"tenants/{tenantId:D}/report-exports/{jobId:D}/{fileName}";
         var bytes = buffer.ToArray();
 
         lock (_gate)
         {
-            _blobs[blobName] = new StoredBlob(bytes, contentType);
+            _blobs[BuildStorageKey(containerName, objectKey)] = new StoredBlob(bytes, contentType);
         }
 
-        return new ReportExportStoredArtifact(blobName, fileName, contentType, bytes.Length);
+        return new FileObjectInfo(bytes.Length, contentType, DateTime.UtcNow);
     }
 
-    public Task<Stream?> OpenReadAsync(string blobName, CancellationToken cancellationToken)
+    public Task<Stream?> OpenReadStreamAsync(
+        string containerName,
+        string objectKey,
+        CancellationToken cancellationToken)
     {
         lock (_gate)
         {
-            if (!_blobs.TryGetValue(blobName, out var blob))
+            if (!_blobs.TryGetValue(BuildStorageKey(containerName, objectKey), out var blob))
             {
                 return Task.FromResult<Stream?>(null);
             }
@@ -342,15 +390,15 @@ internal sealed class InMemoryReportExportStorage : IReportExportStorage
         }
     }
 
-    public Task DeleteIfExistsAsync(string blobName, CancellationToken cancellationToken)
-    {
-        lock (_gate)
-        {
-            _blobs.Remove(blobName);
-        }
-
-        return Task.CompletedTask;
-    }
+    private static string BuildStorageKey(string containerName, string objectKey) => $"{containerName}/{objectKey}";
 
     private sealed record StoredBlob(byte[] Content, string ContentType);
+}
+
+internal sealed class SingleFileStorageProviderResolver(InMemoryReportExportStorage storage) : IFileStorageProviderResolver
+{
+    public IFileStorageProvider Resolve(StorageProvider provider) =>
+        provider == storage.ProviderType
+            ? storage
+            : throw new InvalidOperationException($"No storage provider registered for '{provider}'.");
 }

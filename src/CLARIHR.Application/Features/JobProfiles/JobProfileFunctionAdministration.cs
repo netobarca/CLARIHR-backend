@@ -8,6 +8,8 @@ using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
+using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -19,8 +21,14 @@ using static CLARIHR.Application.Features.JobProfiles.JobProfileFunctionCommandS
 
 namespace CLARIHR.Application.Features.JobProfiles;
 
-public sealed record GetJobProfileFunctionsQuery(Guid JobProfileId)
-    : IQuery<IReadOnlyCollection<JobProfileFunctionResponse>>;
+public sealed record GetJobProfileFunctionsQuery(
+    Guid JobProfileId,
+    int PageNumber = 1,
+    int PageSize = JobProfileValidationRules.DefaultPageSize)
+    : IQuery<PagedResponse<JobProfileFunctionResponse>>;
+
+public sealed record GetJobProfileFunctionByIdQuery(Guid JobProfileId, Guid FunctionId)
+    : IQuery<JobProfileFunctionResponse>;
 
 public sealed record AddJobProfileFunctionCommand(
     Guid JobProfileId,
@@ -47,18 +55,30 @@ public sealed record JobProfileFunctionPatchOperation(
 public sealed record PatchJobProfileFunctionCommand(
     Guid JobProfileId,
     Guid FunctionId,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<JobProfileFunctionPatchOperation> Operations) : ICommand<JobProfileFunctionResponse>;
 
 public sealed record RemoveJobProfileFunctionCommand(
     Guid JobProfileId,
     Guid FunctionId,
-    Guid ConcurrencyToken) : ICommand<JobProfileFunctionResponse>;
+    Guid ConcurrencyToken) : ICommand<JobProfileParentConcurrencyResult>;
 
 internal sealed class GetJobProfileFunctionsQueryValidator : AbstractValidator<GetJobProfileFunctionsQuery>
 {
     public GetJobProfileFunctionsQueryValidator()
     {
         RuleFor(query => query.JobProfileId).NotEmpty();
+        RuleFor(query => query.PageNumber).GreaterThan(0);
+        RuleFor(query => query.PageSize).InclusiveBetween(1, JobProfileValidationRules.MaxPageSize);
+    }
+}
+
+internal sealed class GetJobProfileFunctionByIdQueryValidator : AbstractValidator<GetJobProfileFunctionByIdQuery>
+{
+    public GetJobProfileFunctionByIdQueryValidator()
+    {
+        RuleFor(query => query.JobProfileId).NotEmpty();
+        RuleFor(query => query.FunctionId).NotEmpty();
     }
 }
 
@@ -98,23 +118,17 @@ internal sealed class PatchJobProfileFunctionCommandValidator : AbstractValidato
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
         RuleFor(command => command.FunctionId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Operations).NotEmpty();
         RuleFor(command => command.Operations)
-            .Must(ContainsConcurrencyToken)
-            .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
         RuleForEach(command => command.Operations).ChildRules(operation =>
         {
             operation.RuleFor(item => item.Op).NotEmpty();
             operation.RuleFor(item => item.Path).NotEmpty();
         });
     }
-
-    private static bool ContainsConcurrencyToken(IReadOnlyCollection<JobProfileFunctionPatchOperation>? operations) =>
-        operations is not null &&
-        operations.Any(static operation =>
-            !string.Equals(operation.Op, "remove", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(operation.Path) &&
-            string.Equals(operation.Path.Trim(), "/concurrencyToken", StringComparison.OrdinalIgnoreCase));
 }
 
 internal sealed class RemoveJobProfileFunctionCommandValidator : AbstractValidator<RemoveJobProfileFunctionCommand>
@@ -131,31 +145,67 @@ internal sealed class GetJobProfileFunctionsQueryHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
     ITenantContext tenantContext)
-    : IQueryHandler<GetJobProfileFunctionsQuery, IReadOnlyCollection<JobProfileFunctionResponse>>
+    : IQueryHandler<GetJobProfileFunctionsQuery, PagedResponse<JobProfileFunctionResponse>>
 {
-    public async Task<Result<IReadOnlyCollection<JobProfileFunctionResponse>>> Handle(GetJobProfileFunctionsQuery query, CancellationToken cancellationToken)
+    public async Task<Result<PagedResponse<JobProfileFunctionResponse>>> Handle(GetJobProfileFunctionsQuery query, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<IReadOnlyCollection<JobProfileFunctionResponse>>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PagedResponse<JobProfileFunctionResponse>>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<IReadOnlyCollection<JobProfileFunctionResponse>>.Failure(authorizationResult.Error);
+            return Result<PagedResponse<JobProfileFunctionResponse>>.Failure(authorizationResult.Error);
         }
 
-        var functions = await repository.GetFunctionResponsesByProfileIdAsync(query.JobProfileId, cancellationToken);
+        var functions = await repository.GetFunctionResponsesByProfileIdAsync(
+            query.JobProfileId,
+            query.PageNumber,
+            query.PageSize,
+            cancellationToken);
         if (functions is null)
         {
-            return Result<IReadOnlyCollection<JobProfileFunctionResponse>>.Failure(
+            return Result<PagedResponse<JobProfileFunctionResponse>>.Failure(
                 await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                     : JobProfileErrors.JobProfileNotFound);
         }
 
-        return Result<IReadOnlyCollection<JobProfileFunctionResponse>>.Success(functions);
+        return Result<PagedResponse<JobProfileFunctionResponse>>.Success(functions);
+    }
+}
+
+internal sealed class GetJobProfileFunctionByIdQueryHandler(
+    IJobProfileAuthorizationService authorizationService,
+    IJobProfileRepository repository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetJobProfileFunctionByIdQuery, JobProfileFunctionResponse>
+{
+    public async Task<Result<JobProfileFunctionResponse>> Handle(GetJobProfileFunctionByIdQuery query, CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<JobProfileFunctionResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<JobProfileFunctionResponse>.Failure(authorizationResult.Error);
+        }
+
+        var function = await repository.GetFunctionResponseAsync(query.JobProfileId, query.FunctionId, cancellationToken);
+        if (function is null)
+        {
+            return Result<JobProfileFunctionResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                    : JobProfileErrors.FunctionNotFound);
+        }
+
+        return Result<JobProfileFunctionResponse>.Success(function);
     }
 }
 
@@ -383,6 +433,11 @@ internal sealed class PatchJobProfileFunctionCommandHandler(
             return Result<JobProfileFunctionResponse>.Failure(JobProfileErrors.FunctionNotFound);
         }
 
+        if (function.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<JobProfileFunctionResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+        }
+
         var before = await repository.GetFunctionResponseAsync(profile.PublicId, function.PublicId, cancellationToken)
             ?? function.ToResponse(null);
         var patchState = JobProfileFunctionPatchState.From(before);
@@ -396,11 +451,6 @@ internal sealed class PatchJobProfileFunctionCommandHandler(
         if (validation.IsFailure)
         {
             return Result<JobProfileFunctionResponse>.Failure(validation.Error);
-        }
-
-        if (patchState.ConcurrencyToken != function.ConcurrencyToken)
-        {
-            return Result<JobProfileFunctionResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         if (!patchState.HasMutation)
@@ -470,25 +520,25 @@ internal sealed class RemoveJobProfileFunctionCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<RemoveJobProfileFunctionCommand, JobProfileFunctionResponse>
+    : ICommandHandler<RemoveJobProfileFunctionCommand, JobProfileParentConcurrencyResult>
 {
-    public async Task<Result<JobProfileFunctionResponse>> Handle(RemoveJobProfileFunctionCommand command, CancellationToken cancellationToken)
+    public async Task<Result<JobProfileParentConcurrencyResult>> Handle(RemoveJobProfileFunctionCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileFunctionResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<JobProfileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileFunctionResponse>.Failure(authorizationResult.Error);
+            return Result<JobProfileParentConcurrencyResult>.Failure(authorizationResult.Error);
         }
 
         var profile = await repository.GetWithFunctionsOnlyAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
-            return Result<JobProfileFunctionResponse>.Failure(
+            return Result<JobProfileParentConcurrencyResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
@@ -497,12 +547,12 @@ internal sealed class RemoveJobProfileFunctionCommandHandler(
         var function = profile.Functions.FirstOrDefault(item => item.PublicId == command.FunctionId);
         if (function is null)
         {
-            return Result<JobProfileFunctionResponse>.Failure(JobProfileErrors.FunctionNotFound);
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.FunctionNotFound);
         }
 
         if (function.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileFunctionResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetFunctionResponseAsync(profile.PublicId, function.PublicId, cancellationToken)
@@ -528,12 +578,12 @@ internal sealed class RemoveJobProfileFunctionCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileFunctionResponse>.Success(before);
+            return Result<JobProfileParentConcurrencyResult>.Success(new JobProfileParentConcurrencyResult(profile.ConcurrencyToken));
         }
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileFunctionResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileParentConcurrencyResult>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
         }
         catch
         {
@@ -549,8 +599,6 @@ internal sealed class JobProfileFunctionPatchState
     public Guid? FrequencyCatalogItemPublicId { get; set; }
     public string Description { get; set; } = string.Empty;
     public int SortOrder { get; set; }
-    public Guid ConcurrencyToken { get; set; }
-    public bool ConcurrencyTokenTouched { get; set; }
     public bool HasMutation { get; set; }
 
     public static JobProfileFunctionPatchState From(JobProfileFunctionResponse response) =>
@@ -559,8 +607,7 @@ internal sealed class JobProfileFunctionPatchState
             FunctionType = response.FunctionType,
             FrequencyCatalogItemPublicId = response.FrequencyCatalogItemPublicId,
             Description = response.Description,
-            SortOrder = response.SortOrder,
-            ConcurrencyToken = response.ConcurrencyToken
+            SortOrder = response.SortOrder
         };
 }
 
@@ -609,15 +656,6 @@ internal static class JobProfileFunctionPatchApplier
     public static Result Validate(JobProfileFunctionPatchState state)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-
-        if (!state.ConcurrencyTokenTouched)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken is required."];
-        }
-        else if (state.ConcurrencyToken == Guid.Empty)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken must be a valid UUID."];
-        }
 
         if (state.FrequencyCatalogItemPublicId == Guid.Empty)
         {
@@ -687,18 +725,6 @@ internal static class JobProfileFunctionPatchApplier
 
             state.SortOrder = ReadInt(value, path);
             state.HasMutation = true;
-            return Result.Success();
-        }
-
-        if (IsSegment(property, "concurrencyToken"))
-        {
-            if (isRemove)
-            {
-                return ValidationFailure(path, "ConcurrencyToken cannot be removed.");
-            }
-
-            state.ConcurrencyToken = ReadRequiredGuid(value, path);
-            state.ConcurrencyTokenTouched = true;
             return Result.Success();
         }
 

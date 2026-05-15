@@ -7,6 +7,7 @@ using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -18,6 +19,9 @@ namespace CLARIHR.Application.Features.JobProfiles;
 
 public sealed record GetJobProfileRelationsQuery(Guid JobProfileId)
     : IQuery<IReadOnlyCollection<JobProfileRelationResponse>>;
+
+public sealed record GetJobProfileRelationByIdQuery(Guid JobProfileId, Guid RelationId)
+    : IQuery<JobProfileRelationResponse>;
 
 public sealed record AddJobProfileRelationCommand(
     Guid JobProfileId,
@@ -46,18 +50,28 @@ public sealed record JobProfileRelationPatchOperation(
 public sealed record PatchJobProfileRelationCommand(
     Guid JobProfileId,
     Guid RelationId,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<JobProfileRelationPatchOperation> Operations) : ICommand<JobProfileRelationResponse>;
 
 public sealed record RemoveJobProfileRelationCommand(
     Guid JobProfileId,
     Guid RelationId,
-    Guid ConcurrencyToken) : ICommand<JobProfileRelationResponse>;
+    Guid ConcurrencyToken) : ICommand<JobProfileParentConcurrencyResult>;
 
 internal sealed class GetJobProfileRelationsQueryValidator : AbstractValidator<GetJobProfileRelationsQuery>
 {
     public GetJobProfileRelationsQueryValidator()
     {
         RuleFor(query => query.JobProfileId).NotEmpty();
+    }
+}
+
+internal sealed class GetJobProfileRelationByIdQueryValidator : AbstractValidator<GetJobProfileRelationByIdQuery>
+{
+    public GetJobProfileRelationByIdQueryValidator()
+    {
+        RuleFor(query => query.JobProfileId).NotEmpty();
+        RuleFor(query => query.RelationId).NotEmpty();
     }
 }
 
@@ -99,23 +113,17 @@ internal sealed class PatchJobProfileRelationCommandValidator : AbstractValidato
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
         RuleFor(command => command.RelationId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Operations).NotEmpty();
         RuleFor(command => command.Operations)
-            .Must(ContainsConcurrencyToken)
-            .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
         RuleForEach(command => command.Operations).ChildRules(operation =>
         {
             operation.RuleFor(item => item.Op).NotEmpty();
             operation.RuleFor(item => item.Path).NotEmpty();
         });
     }
-
-    private static bool ContainsConcurrencyToken(IReadOnlyCollection<JobProfileRelationPatchOperation>? operations) =>
-        operations is not null &&
-        operations.Any(static operation =>
-            !string.Equals(operation.Op, "remove", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(operation.Path) &&
-            string.Equals(operation.Path.Trim(), "/concurrencyToken", StringComparison.OrdinalIgnoreCase));
 }
 
 internal sealed class RemoveJobProfileRelationCommandValidator : AbstractValidator<RemoveJobProfileRelationCommand>
@@ -157,6 +165,38 @@ internal sealed class GetJobProfileRelationsQueryHandler(
         }
 
         return Result<IReadOnlyCollection<JobProfileRelationResponse>>.Success(relations);
+    }
+}
+
+internal sealed class GetJobProfileRelationByIdQueryHandler(
+    IJobProfileAuthorizationService authorizationService,
+    IJobProfileRepository repository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetJobProfileRelationByIdQuery, JobProfileRelationResponse>
+{
+    public async Task<Result<JobProfileRelationResponse>> Handle(GetJobProfileRelationByIdQuery query, CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<JobProfileRelationResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<JobProfileRelationResponse>.Failure(authorizationResult.Error);
+        }
+
+        var relation = await repository.GetRelationResponseAsync(query.JobProfileId, query.RelationId, cancellationToken);
+        if (relation is null)
+        {
+            return Result<JobProfileRelationResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                    : JobProfileErrors.RelationNotFound);
+        }
+
+        return Result<JobProfileRelationResponse>.Success(relation);
     }
 }
 
@@ -378,6 +418,11 @@ internal sealed class PatchJobProfileRelationCommandHandler(
             return Result<JobProfileRelationResponse>.Failure(JobProfileErrors.RelationNotFound);
         }
 
+        if (relation.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<JobProfileRelationResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+        }
+
         var before = await repository.GetRelationResponseAsync(profile.PublicId, relation.PublicId, cancellationToken)
             ?? relation.ToResponse(null);
         var patchState = JobProfileRelationPatchState.From(before);
@@ -391,11 +436,6 @@ internal sealed class PatchJobProfileRelationCommandHandler(
         if (validation.IsFailure)
         {
             return Result<JobProfileRelationResponse>.Failure(validation.Error);
-        }
-
-        if (patchState.ConcurrencyToken != relation.ConcurrencyToken)
-        {
-            return Result<JobProfileRelationResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         if (!patchState.HasMutation)
@@ -462,25 +502,25 @@ internal sealed class RemoveJobProfileRelationCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<RemoveJobProfileRelationCommand, JobProfileRelationResponse>
+    : ICommandHandler<RemoveJobProfileRelationCommand, JobProfileParentConcurrencyResult>
 {
-    public async Task<Result<JobProfileRelationResponse>> Handle(RemoveJobProfileRelationCommand command, CancellationToken cancellationToken)
+    public async Task<Result<JobProfileParentConcurrencyResult>> Handle(RemoveJobProfileRelationCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileRelationResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<JobProfileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileRelationResponse>.Failure(authorizationResult.Error);
+            return Result<JobProfileParentConcurrencyResult>.Failure(authorizationResult.Error);
         }
 
         var profile = await repository.GetWithRelationsOnlyAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
-            return Result<JobProfileRelationResponse>.Failure(
+            return Result<JobProfileParentConcurrencyResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
@@ -489,12 +529,12 @@ internal sealed class RemoveJobProfileRelationCommandHandler(
         var relation = profile.Relations.FirstOrDefault(item => item.PublicId == command.RelationId);
         if (relation is null)
         {
-            return Result<JobProfileRelationResponse>.Failure(JobProfileErrors.RelationNotFound);
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.RelationNotFound);
         }
 
         if (relation.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileRelationResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetRelationResponseAsync(profile.PublicId, relation.PublicId, cancellationToken)
@@ -520,12 +560,12 @@ internal sealed class RemoveJobProfileRelationCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileRelationResponse>.Success(before);
+            return Result<JobProfileParentConcurrencyResult>.Success(new JobProfileParentConcurrencyResult(profile.ConcurrencyToken));
         }
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileRelationResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileParentConcurrencyResult>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
         }
         catch
         {
@@ -542,8 +582,6 @@ internal sealed class JobProfileRelationPatchState
     public string Counterpart { get; set; } = string.Empty;
     public string? Notes { get; set; }
     public int SortOrder { get; set; }
-    public Guid ConcurrencyToken { get; set; }
-    public bool ConcurrencyTokenTouched { get; set; }
     public bool HasMutation { get; set; }
 
     public static JobProfileRelationPatchState From(JobProfileRelationResponse response) =>
@@ -553,8 +591,7 @@ internal sealed class JobProfileRelationPatchState
             CatalogItemPublicId = response.CatalogItemPublicId,
             Counterpart = response.Counterpart,
             Notes = response.Notes,
-            SortOrder = response.SortOrder,
-            ConcurrencyToken = response.ConcurrencyToken
+            SortOrder = response.SortOrder
         };
 }
 
@@ -603,15 +640,6 @@ internal static class JobProfileRelationPatchApplier
     public static Result Validate(JobProfileRelationPatchState state)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-
-        if (!state.ConcurrencyTokenTouched)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken is required."];
-        }
-        else if (state.ConcurrencyToken == Guid.Empty)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken must be a valid UUID."];
-        }
 
         if (state.CatalogItemPublicId == Guid.Empty)
         {
@@ -693,18 +721,6 @@ internal static class JobProfileRelationPatchApplier
 
             state.SortOrder = ReadInt(value, path);
             state.HasMutation = true;
-            return Result.Success();
-        }
-
-        if (IsSegment(property, "concurrencyToken"))
-        {
-            if (isRemove)
-            {
-                return ValidationFailure(path, "ConcurrencyToken cannot be removed.");
-            }
-
-            state.ConcurrencyToken = ReadRequiredGuid(value, path);
-            state.ConcurrencyTokenTouched = true;
             return Result.Success();
         }
 

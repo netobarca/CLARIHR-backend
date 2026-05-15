@@ -7,6 +7,7 @@ using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
@@ -62,6 +63,7 @@ public sealed record PatchJobCatalogItemCommand(
     Guid CompanyId,
     JobCatalogCategory Category,
     Guid ItemId,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<JobCatalogItemPatchOperation> Operations) : ICommand<JobCatalogItemResponse>;
 
 public sealed record RemoveJobCatalogItemCommand(
@@ -117,23 +119,17 @@ internal sealed class PatchJobCatalogItemCommandValidator : AbstractValidator<Pa
     {
         RuleFor(command => command.CompanyId).NotEmpty();
         RuleFor(command => command.ItemId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Operations).NotEmpty();
         RuleFor(command => command.Operations)
-            .Must(ContainsConcurrencyToken)
-            .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
         RuleForEach(command => command.Operations).ChildRules(operation =>
         {
             operation.RuleFor(item => item.Op).NotEmpty();
             operation.RuleFor(item => item.Path).NotEmpty();
         });
     }
-
-    private static bool ContainsConcurrencyToken(IReadOnlyCollection<JobCatalogItemPatchOperation>? operations) =>
-        operations is not null &&
-        operations.Any(static operation =>
-            !string.Equals(operation.Op, "remove", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(operation.Path) &&
-            string.Equals(operation.Path.Trim(), "/concurrencyToken", StringComparison.OrdinalIgnoreCase));
 }
 
 internal sealed class RemoveJobCatalogItemCommandValidator : AbstractValidator<RemoveJobCatalogItemCommand>
@@ -404,6 +400,11 @@ internal sealed class PatchJobCatalogItemCommandHandler(
             return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.CatalogItemSystemImmutable);
         }
 
+        if (item.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+        }
+
         var before = await repository.GetResponseByIdAsync(item.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Catalog item response could not be resolved before patch.");
         var patchState = JobCatalogItemPatchState.From(before);
@@ -417,11 +418,6 @@ internal sealed class PatchJobCatalogItemCommandHandler(
         if (validation.IsFailure)
         {
             return Result<JobCatalogItemResponse>.Failure(validation.Error);
-        }
-
-        if (patchState.ConcurrencyToken != item.ConcurrencyToken)
-        {
-            return Result<JobCatalogItemResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         if (!patchState.HasMutation)
@@ -565,8 +561,6 @@ internal sealed class JobCatalogItemPatchState
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public bool IsActive { get; set; }
-    public Guid ConcurrencyToken { get; set; }
-    public bool ConcurrencyTokenTouched { get; set; }
     public bool HasMutation { get; set; }
 
     public static JobCatalogItemPatchState From(JobCatalogItemResponse response) =>
@@ -574,8 +568,7 @@ internal sealed class JobCatalogItemPatchState
         {
             Code = response.Code,
             Name = response.Name,
-            IsActive = response.IsActive,
-            ConcurrencyToken = response.ConcurrencyToken
+            IsActive = response.IsActive
         };
 }
 
@@ -624,15 +617,6 @@ internal static class JobCatalogItemPatchApplier
     public static Result Validate(JobCatalogItemPatchState state)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-
-        if (!state.ConcurrencyTokenTouched)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken is required."];
-        }
-        else if (state.ConcurrencyToken == Guid.Empty)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken must be a valid UUID."];
-        }
 
         if (string.IsNullOrWhiteSpace(state.Code))
         {
@@ -706,18 +690,6 @@ internal static class JobCatalogItemPatchApplier
             return Result.Success();
         }
 
-        if (IsSegment(property, "concurrencyToken"))
-        {
-            if (isRemove)
-            {
-                return ValidationFailure(path, "ConcurrencyToken cannot be removed.");
-            }
-
-            state.ConcurrencyToken = ReadRequiredGuid(value, path);
-            state.ConcurrencyTokenTouched = true;
-            return Result.Success();
-        }
-
         return ValidationFailure(path, $"Unsupported patch path '{path}'.");
     }
 
@@ -762,24 +734,6 @@ internal static class JobCatalogItemPatchApplier
             JsonValueKind.String when bool.TryParse(value.Value.GetString(), out var parsed) => parsed,
             _ => throw new JobProfilePatchValueException(path, "Value must be a boolean.")
         };
-    }
-
-    private static Guid ReadRequiredGuid(JsonElement? value, string path)
-    {
-        if (IsNull(value))
-        {
-            throw new JobProfilePatchValueException(path, "Value must be a valid UUID.");
-        }
-
-        var raw = value!.Value.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            throw new JobProfilePatchValueException(path, "Value must be a valid UUID.");
-        }
-
-        return Guid.TryParse(raw, out var parsed)
-            ? parsed
-            : throw new JobProfilePatchValueException(path, "Value must be a valid UUID.");
     }
 
     private static Result ValidationFailure(string path, string message) =>

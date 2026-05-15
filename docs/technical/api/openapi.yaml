@@ -58,6 +58,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current job profile `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -6086,6 +6092,101 @@ components:
         - Vacant
         - Occupied
         - Suspended
+    JobCatalogCategory:
+      type: string
+      enum:
+        - EducationLevel
+        - KnowledgeArea
+        - Competency
+        - Training
+        - SalaryClass
+        - BenefitType
+        - WorkingCondition
+        - RelationType
+        - DecisionLevel
+        - CompetencyType
+        - BehaviorLevel
+        - Behavior
+    JobCatalogItemResponse:
+      type: object
+      required:
+        - id
+        - category
+        - code
+        - name
+        - isSystem
+        - isActive
+        - concurrencyToken
+        - createdAtUtc
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Public identifier of the catalog item.
+        category:
+          $ref: '#/components/schemas/JobCatalogCategory'
+        code:
+          type: string
+        name:
+          type: string
+        isSystem:
+          type: boolean
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        allowedActions:
+          $ref: '#/components/schemas/AllowedActionsResponse'
+    PagedJobCatalogItemResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+        - totalPages
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobCatalogItemResponse'
+        pageNumber:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+        totalPages:
+          type: integer
+    CreateJobCatalogItemRequest:
+      type: object
+      required:
+        - code
+        - name
+      properties:
+        code:
+          type: string
+          maxLength: 50
+        name:
+          type: string
+          maxLength: 120
+    UpdateJobCatalogItemRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateJobCatalogItemRequest'
+        - type: object
+          required:
+            - isActive
+          properties:
+            isActive:
+              type: boolean
     JobProfileRequirementRequest:
       type: object
       required:
@@ -6119,13 +6220,6 @@ components:
     JobProfileRequirementUpdateRequest:
       allOf:
         - $ref: '#/components/schemas/JobProfileRequirementRequest'
-        - type: object
-          required:
-            - concurrencyToken
-          properties:
-            concurrencyToken:
-              type: string
-              format: uuid
     JobProfileFunctionRequest:
       type: object
       required:
@@ -6149,13 +6243,6 @@ components:
     JobProfileFunctionUpdateRequest:
       allOf:
         - $ref: '#/components/schemas/JobProfileFunctionRequest'
-        - type: object
-          required:
-            - concurrencyToken
-          properties:
-            concurrencyToken:
-              type: string
-              format: uuid
     JobProfileRelationRequest:
       type: object
       required:
@@ -6211,13 +6298,6 @@ components:
     JobProfileRelationUpdateRequest:
       allOf:
         - $ref: '#/components/schemas/JobProfileRelationCreateRequest'
-        - type: object
-          required:
-            - concurrencyToken
-          properties:
-            concurrencyToken:
-              type: string
-              format: uuid
     JobProfileCompetencyRequest:
       type: object
       required:
@@ -6278,6 +6358,21 @@ components:
           type: string
           format: uuid
           description: Canonical Salary Tabulator line selected for the job profile compensation reference.
+    JobProfileCompensationItemRequest:
+      type: object
+      required:
+        - salaryTabulatorLinePublicId
+      properties:
+        salaryTabulatorLinePublicId:
+          type: string
+          format: uuid
+          description: Public identifier of the Salary Tabulator line selected for the job profile compensation sub-resource.
+        notes:
+          type: string
+          nullable: true
+    JobProfileCompensationItemUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/JobProfileCompensationItemRequest'
     JobProfileBenefitRequest:
       type: object
       required:
@@ -6384,6 +6479,27 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    PagedJobProfileRequirementResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobProfileRequirementResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     JobProfileFunctionResponse:
       type: object
       required:
@@ -6410,6 +6526,27 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    PagedJobProfileFunctionResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobProfileFunctionResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     JobProfileRelationResponse:
       type: object
       required:
@@ -6468,6 +6605,27 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    PagedJobProfileLegacyCompetencyResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     JobProfileLegacyCompetencyCreateRequest:
       type: object
       required:
@@ -6493,73 +6651,74 @@ components:
     JobProfileLegacyCompetencyUpdateRequest:
       allOf:
         - $ref: '#/components/schemas/JobProfileLegacyCompetencyCreateRequest'
-        - type: object
-          required:
-            - concurrencyToken
-          properties:
-            concurrencyToken:
-              type: string
-              format: uuid
     JobProfileTrainingResponse:
       type: object
       required:
-        - id
-        - name
-        - sortOrder
-      properties:
-        id:
-          type: string
-          format: uuid
-        catalogItemId:
-          type: string
-          format: uuid
-          nullable: true
-        name:
-          type: string
-        notes:
-          type: string
-          nullable: true
-        sortOrder:
-          type: integer
-          format: int32
-    JobProfileBenefitResponse:
-      type: object
-      required:
-        - id
-        - name
-        - sortOrder
-      properties:
-        id:
-          type: string
-          format: uuid
-        catalogItemId:
-          type: string
-          format: uuid
-          nullable: true
-        name:
-          type: string
-        notes:
-          type: string
-          nullable: true
-        sortOrder:
-          type: integer
-          format: int32
-    JobProfileWorkingConditionResponse:
-      type: object
-      required:
-        - id
+        - trainingPublicId
         - name
         - sortOrder
         - concurrencyToken
       properties:
-        id:
+        trainingPublicId:
           type: string
           format: uuid
-        catalogItemId:
+        catalogItemPublicId:
           type: string
           format: uuid
           nullable: true
-        workConditionTypeCatalogItemId:
+        name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+        concurrencyToken:
+          type: string
+          format: uuid
+    JobProfileBenefitResponse:
+      type: object
+      required:
+        - benefitPublicId
+        - name
+        - sortOrder
+        - concurrencyToken
+      properties:
+        benefitPublicId:
+          type: string
+          format: uuid
+        catalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+        concurrencyToken:
+          type: string
+          format: uuid
+    JobProfileWorkingConditionResponse:
+      type: object
+      required:
+        - workingConditionPublicId
+        - name
+        - sortOrder
+        - concurrencyToken
+      properties:
+        workingConditionPublicId:
+          type: string
+          format: uuid
+        catalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        workConditionTypeCatalogItemPublicId:
           type: string
           format: uuid
           nullable: true
@@ -6577,16 +6736,17 @@ components:
     JobProfileDependentPositionResponse:
       type: object
       required:
-        - id
-        - dependentJobProfileId
+        - dependentPositionPublicId
+        - dependentJobProfilePublicId
         - dependentJobProfileCode
         - dependentJobProfileTitle
         - quantity
+        - concurrencyToken
       properties:
-        id:
+        dependentPositionPublicId:
           type: string
           format: uuid
-        dependentJobProfileId:
+        dependentJobProfilePublicId:
           type: string
           format: uuid
         dependentJobProfileCode:
@@ -6598,6 +6758,65 @@ components:
           format: int32
         notes:
           type: string
+          nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+    JobProfileCompensationItemResponse:
+      type: object
+      required:
+        - compensationPublicId
+        - salaryTabulatorLinePublicId
+        - salaryClassCode
+        - salaryScaleCode
+        - currencyCode
+        - baseAmount
+        - effectiveFromUtc
+        - concurrencyToken
+        - createdAtUtc
+      properties:
+        compensationPublicId:
+          type: string
+          format: uuid
+        salaryTabulatorLinePublicId:
+          type: string
+          format: uuid
+        salaryClassCode:
+          type: string
+        salaryScaleCode:
+          type: string
+        currencyCode:
+          type: string
+        baseAmount:
+          type: number
+          format: decimal
+        minAmount:
+          type: number
+          format: decimal
+          nullable: true
+        maxAmount:
+          type: number
+          format: decimal
+          nullable: true
+        effectiveFromUtc:
+          type: string
+          format: date-time
+        effectiveToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
           nullable: true
     JobProfileSubResourceResultOfJobProfileTrainingResponse:
       type: object
@@ -6782,12 +7001,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/JobProfileUpsertRequest'
         - type: object
-          required:
-            - concurrencyToken
-          properties:
-            concurrencyToken:
-              type: string
-              format: uuid
+          description: Full replacement payload for mutable job profile fields. Status transitions are not accepted here; use JSON Patch `/status`. Optimistic concurrency is supplied through the `If-Match` header, not this body.
     JsonPatchOperation:
       type: object
       description: JSON Patch operation accepted by partial update endpoints.
@@ -6803,7 +7017,7 @@ components:
             - remove
         path:
           type: string
-          description: JSON Pointer path using the public request contract, for example `/title` or `/compensation/salaryTabulatorLineId`.
+          description: JSON Pointer path using the public request contract, for example `/title`, `/status` or `/compensation/salaryTabulatorLineId`.
         from:
           type: string
           nullable: true
@@ -13307,6 +13521,291 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyId}/job-catalogs/{category}:
+    get:
+      tags:
+        - job-and-competency-design
+      operationId: SearchJobCatalogItems
+      summary: Search job catalog items
+      description: Returns paged tenant-scoped catalog items for a job catalog category.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/JobCatalogCategory'
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: q
+          in: query
+          schema:
+            type: string
+            maxLength: 150
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: includeAllowedActions
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Paged job catalog items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedJobCatalogItemResponse'
+        '400':
+          description: Validation error.
+        '401':
+          description: Authentication is required.
+        '403':
+          description: Missing permission or tenant mismatch.
+    post:
+      tags:
+        - job-and-competency-design
+      operationId: CreateJobCatalogItem
+      summary: Create a job catalog item
+      description: Creates one tenant-scoped job catalog item.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/JobCatalogCategory'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJobCatalogItemRequest'
+      responses:
+        '201':
+          description: Job catalog item created successfully.
+          headers:
+            ETag:
+              description: New item concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCatalogItemResponse'
+        '400':
+          description: Validation error.
+        '401':
+          description: Authentication is required.
+        '403':
+          description: Missing permission or tenant mismatch.
+        '409':
+          description: Duplicate catalog code.
+  /api/v1/companies/{companyId}/job-catalogs/{category}/{jobCatalogPublicId}:
+    put:
+      tags:
+        - job-and-competency-design
+      operationId: UpdateJobCatalogItem
+      summary: Replace a job catalog item
+      description: Replaces one job catalog item. Optimistic concurrency is supplied through `If-Match`, not the body.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/JobCatalogCategory'
+        - name: jobCatalogPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current item `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateJobCatalogItemRequest'
+      responses:
+        '200':
+          description: Job catalog item updated successfully.
+          headers:
+            ETag:
+              description: New item concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCatalogItemResponse'
+        '400':
+          description: Validation error or missing/invalid `If-Match`.
+        '401':
+          description: Authentication is required.
+        '403':
+          description: Missing permission or tenant mismatch.
+        '404':
+          description: Catalog item not found.
+        '409':
+          description: Concurrency conflict, duplicate code, immutable system item or item in use.
+    patch:
+      tags:
+        - job-and-competency-design
+      operationId: PatchJobCatalogItem
+      summary: Patch a job catalog item
+      description: Applies JSON Patch to `/code`, `/name` or `/isActive`. Optimistic concurrency is supplied through `If-Match`; `/concurrencyToken` is not part of the patch contract. The patch document is limited to 50 operations and the request body is capped at 64 KiB.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/JobCatalogCategory'
+        - name: jobCatalogPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current item `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              maxItems: 50
+              items:
+                $ref: '#/components/schemas/JsonPatchOperation'
+      responses:
+        '200':
+          description: Job catalog item patched successfully.
+          headers:
+            ETag:
+              description: New item concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCatalogItemResponse'
+        '400':
+          description: Invalid JSON Patch document or missing/invalid `If-Match`.
+        '401':
+          description: Authentication is required.
+        '403':
+          description: Missing permission or tenant mismatch.
+        '404':
+          description: Catalog item not found.
+        '409':
+          description: Concurrency conflict, duplicate code, immutable system item or item in use.
+        '413':
+          description: Patch request body exceeds the 64 KiB limit.
+    delete:
+      tags:
+        - job-and-competency-design
+      operationId: DeleteJobCatalogItem
+      summary: Delete a job catalog item
+      description: Deletes one job catalog item. Concurrency is supplied through `If-Match`.
+      security:
+        - Bearer: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: category
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/JobCatalogCategory'
+        - name: jobCatalogPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current item `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job catalog item deleted successfully. Body contains the deleted item snapshot.
+          headers:
+            ETag:
+              description: Returned item concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobCatalogItemResponse'
+        '400':
+          description: Missing or invalid `If-Match`.
+        '401':
+          description: Authentication is required.
+        '403':
+          description: Missing permission or tenant mismatch.
+        '404':
+          description: Catalog item not found.
+        '409':
+          description: Concurrency conflict, immutable system item or item in use.
   /api/v1/companies/{companyId}/job-profiles:
     post:
       tags:
@@ -13332,6 +13831,11 @@ paths:
       responses:
         '201':
           description: Job profile created successfully.
+          headers:
+            ETag:
+              description: New job profile concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -13418,7 +13922,7 @@ paths:
         - job-and-competency-design
       operationId: UpdateJobProfile
       summary: Replace a job profile
-      description: Replaces the mutable job profile payload. `orgUnitPublicId` remains mandatory on every update.
+      description: Replaces the mutable job profile payload. `orgUnitPublicId` remains mandatory on every update. Status transitions are not accepted by this endpoint; use JSON Patch `/status`.
       security:
         - Bearer: []
       parameters:
@@ -13437,12 +13941,17 @@ paths:
       responses:
         '200':
           description: Job profile updated successfully.
+          headers:
+            ETag:
+              description: New job profile concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobProfileContractResponse'
         '400':
-          description: Validation error, including missing `orgUnitPublicId`, missing `concurrencyToken` or invalid nested payload items.
+          description: Validation error, missing or invalid `If-Match`, missing `orgUnitPublicId` or invalid nested payload items.
           content:
             application/problem+json:
               schema:
@@ -13482,7 +13991,7 @@ paths:
         - job-and-competency-design
       operationId: PatchJobProfile
       summary: Partially update a job profile
-      description: Applies JSON Patch inside the Job Profiles application command over the tracked aggregate. Existing compensation is preserved when the patch does not touch `/compensation`; `remove /compensation` clears the compensation reference.
+      description: Applies JSON Patch inside the Job Profiles application command over the tracked aggregate. `status` is optional; when present as `add` or `replace /status`, it applies the state transition. Existing compensation is preserved when the patch does not touch `/compensation`; `remove /compensation` clears the compensation reference. Optimistic concurrency is supplied through `If-Match`; `/concurrencyToken` is not part of the patch contract. The patch document is limited to 50 operations and the request body is capped at 64 KiB.
       security:
         - Bearer: []
       parameters:
@@ -13492,17 +14001,29 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current job profile `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json-patch+json:
             schema:
               type: array
+              maxItems: 50
               items:
                 $ref: '#/components/schemas/JsonPatchOperation'
       responses:
         '200':
           description: Job profile patched successfully.
+          headers:
+            ETag:
+              description: New job profile concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -13543,13 +14064,15 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Patch request body exceeds the 64 KiB limit.
   /api/v1/job-profiles/{jobProfilePublicId}/requirements:
     get:
       tags:
         - job-and-competency-design
       operationId: GetJobProfileRequirements
       summary: List job profile requirements
-      description: Returns only the requirements array for the selected tenant-scoped job profile. This is the only requirements endpoint that returns the full requirements collection.
+      description: Returns a paged requirements collection for the selected tenant-scoped job profile. This is the only requirements endpoint that returns the requirements list.
       security:
         - Bearer: []
       parameters:
@@ -13559,15 +14082,30 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            minimum: 1
+            maximum: 100
       responses:
         '200':
           description: Requirements retrieved successfully.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/JobProfileRequirementResponse'
+                $ref: '#/components/schemas/PagedJobProfileRequirementResponse'
         '401':
           description: Authentication is required.
           content:
@@ -13610,6 +14148,11 @@ paths:
       responses:
         '201':
           description: Requirement created successfully.
+          headers:
+            ETag:
+              description: New requirement concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -13650,7 +14193,7 @@ paths:
         - job-and-competency-design
       operationId: UpdateJobProfileRequirement
       summary: Replace a job profile requirement
-      description: Replaces one requirement. Concurrency is validated against the requirement entity token, not the parent job profile token.
+      description: Replaces one requirement. Concurrency is validated against the requirement entity token supplied in `If-Match`, not the parent job profile token.
       security:
         - Bearer: []
       parameters:
@@ -13666,6 +14209,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current requirement `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -13675,12 +14224,17 @@ paths:
       responses:
         '200':
           description: Requirement updated successfully.
+          headers:
+            ETag:
+              description: New requirement concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobProfileRequirementResponse'
         '400':
-          description: Validation error, including missing `concurrencyToken`.
+          description: Validation error, including missing or invalid `If-Match`.
           content:
             application/problem+json:
               schema:
@@ -13714,7 +14268,7 @@ paths:
         - job-and-competency-design
       operationId: PatchJobProfileRequirement
       summary: Partially update a job profile requirement
-      description: Applies ASP.NET Core JSON Patch to one requirement. The patch document is the RFC 6902 operation array and must include `/concurrencyToken` as an add or replace operation.
+      description: Applies ASP.NET Core JSON Patch to one requirement. The patch document is the RFC 6902 operation array; optimistic concurrency is supplied through `If-Match`, not `/concurrencyToken`. The patch document is limited to 50 operations and the request body is capped at 64 KiB.
       security:
         - Bearer: []
       parameters:
@@ -13730,12 +14284,19 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current requirement `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json-patch+json:
             schema:
               type: array
+              maxItems: 50
               items:
                 $ref: '#/components/schemas/JsonPatchOperation'
             examples:
@@ -13744,18 +14305,20 @@ paths:
                   - op: replace
                     path: /description
                     value: 5 years of payroll administration
-                  - op: replace
-                    path: /concurrencyToken
-                    value: c1c9f1d4-4f3c-47de-9d9b-4f8cb0c2e8d2
       responses:
         '200':
           description: Requirement patched successfully.
+          headers:
+            ETag:
+              description: New requirement concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobProfileRequirementResponse'
         '400':
-          description: Invalid JSON Patch document, missing `/concurrencyToken` or unsupported patch path/operation.
+          description: Invalid JSON Patch document, missing or invalid `If-Match`, or unsupported patch path/operation.
           content:
             application/problem+json:
               schema:
@@ -13784,12 +14347,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Patch request body exceeds the 64 KiB limit.
     delete:
       tags:
         - job-and-competency-design
       operationId: DeleteJobProfileRequirement
       summary: Delete a job profile requirement
-      description: Deletes one requirement and returns the deleted requirement entity. Concurrency is validated using the requirement token supplied in the `If-Match` header.
+      description: Deletes one requirement and returns the refreshed parent concurrency token. Concurrency is validated using the requirement token supplied in the `If-Match` header.
       security:
         - Bearer: []
       parameters:
@@ -13813,11 +14378,16 @@ paths:
             type: string
       responses:
         '200':
-          description: Requirement deleted successfully. Response body contains the deleted entity snapshot.
+          description: Requirement deleted successfully. Response body contains the refreshed parent concurrency token.
+          headers:
+            ETag:
+              description: New parent job profile concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobProfileRequirementResponse'
+                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
         '400':
           description: Missing or invalid `If-Match` concurrency token.
           content:
@@ -13854,7 +14424,7 @@ paths:
         - job-and-competency-design
       operationId: GetJobProfileFunctions
       summary: List job profile functions
-      description: Returns only the functions array for the selected tenant-scoped job profile. This is the only functions endpoint that returns the full functions collection.
+      description: Returns a paged functions collection for the selected tenant-scoped job profile. This is the only functions endpoint that returns the functions list.
       security:
         - Bearer: []
       parameters:
@@ -13864,15 +14434,30 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            minimum: 1
+            maximum: 100
       responses:
         '200':
           description: Functions retrieved successfully.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/JobProfileFunctionResponse'
+                $ref: '#/components/schemas/PagedJobProfileFunctionResponse'
         '401':
           description: Authentication is required.
           content:
@@ -13915,6 +14500,11 @@ paths:
       responses:
         '201':
           description: Function created successfully.
+          headers:
+            ETag:
+              description: New function concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -13955,7 +14545,7 @@ paths:
         - job-and-competency-design
       operationId: UpdateJobProfileFunction
       summary: Replace a job profile function
-      description: Replaces one function. Concurrency is validated against the function entity token, not the parent job profile token.
+      description: Replaces one function. Concurrency is validated against the function entity token supplied in `If-Match`, not the parent job profile token.
       security:
         - Bearer: []
       parameters:
@@ -13971,6 +14561,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current function `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -13980,12 +14576,17 @@ paths:
       responses:
         '200':
           description: Function updated successfully.
+          headers:
+            ETag:
+              description: New function concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobProfileFunctionResponse'
         '400':
-          description: Validation error, including missing `concurrencyToken`.
+          description: Validation error, including missing or invalid `If-Match`.
           content:
             application/problem+json:
               schema:
@@ -14019,7 +14620,7 @@ paths:
         - job-and-competency-design
       operationId: PatchJobProfileFunction
       summary: Partially update a job profile function
-      description: Applies ASP.NET Core JSON Patch to one function. The patch document is the RFC 6902 operation array and must include `/concurrencyToken` as an add or replace operation.
+      description: Applies ASP.NET Core JSON Patch to one function. The patch document is the RFC 6902 operation array; optimistic concurrency is supplied through `If-Match`, not `/concurrencyToken`. The patch document is limited to 50 operations and the request body is capped at 64 KiB.
       security:
         - Bearer: []
       parameters:
@@ -14035,12 +14636,19 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current function `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json-patch+json:
             schema:
               type: array
+              maxItems: 50
               items:
                 $ref: '#/components/schemas/JsonPatchOperation'
             examples:
@@ -14049,18 +14657,20 @@ paths:
                   - op: replace
                     path: /description
                     value: Coordinar el roadmap del area
-                  - op: replace
-                    path: /concurrencyToken
-                    value: c1c9f1d4-4f3c-47de-9d9b-4f8cb0c2e8d2
       responses:
         '200':
           description: Function patched successfully.
+          headers:
+            ETag:
+              description: New function concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobProfileFunctionResponse'
         '400':
-          description: Invalid JSON Patch document, missing `/concurrencyToken` or unsupported patch path/operation.
+          description: Invalid JSON Patch document, missing or invalid `If-Match`, or unsupported patch path/operation.
           content:
             application/problem+json:
               schema:
@@ -14089,12 +14699,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Patch request body exceeds the 64 KiB limit.
     delete:
       tags:
         - job-and-competency-design
       operationId: DeleteJobProfileFunction
       summary: Delete a job profile function
-      description: Deletes one function and returns the deleted function entity. Concurrency is validated using the function token supplied in the `If-Match` header.
+      description: Deletes one function and returns the refreshed parent concurrency token. Concurrency is validated using the function token supplied in the `If-Match` header.
       security:
         - Bearer: []
       parameters:
@@ -14118,11 +14730,16 @@ paths:
             type: string
       responses:
         '200':
-          description: Function deleted successfully. Response body contains the deleted entity snapshot.
+          description: Function deleted successfully. Response body contains the refreshed parent concurrency token.
+          headers:
+            ETag:
+              description: New parent job profile concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobProfileFunctionResponse'
+                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
         '400':
           description: Missing or invalid `If-Match` concurrency token.
           content:
@@ -14220,6 +14837,11 @@ paths:
       responses:
         '201':
           description: Relation created successfully.
+          headers:
+            ETag:
+              description: New relation concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -14260,7 +14882,7 @@ paths:
         - job-and-competency-design
       operationId: UpdateJobProfileRelation
       summary: Replace a job profile relation
-      description: Replaces one relation. Concurrency is validated against the relation entity token, not the parent job profile token.
+      description: Replaces one relation. Concurrency is validated against the relation entity token supplied in `If-Match`, not the parent job profile token.
       security:
         - Bearer: []
       parameters:
@@ -14276,6 +14898,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current relation `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -14285,12 +14913,17 @@ paths:
       responses:
         '200':
           description: Relation updated successfully.
+          headers:
+            ETag:
+              description: New relation concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobProfileRelationResponse'
         '400':
-          description: Validation error, including missing `concurrencyToken`.
+          description: Validation error, including missing or invalid `If-Match`.
           content:
             application/problem+json:
               schema:
@@ -14324,7 +14957,7 @@ paths:
         - job-and-competency-design
       operationId: PatchJobProfileRelation
       summary: Partially update a job profile relation
-      description: Applies ASP.NET Core JSON Patch to one relation. The patch document is the RFC 6902 operation array and must include `/concurrencyToken` as an add or replace operation.
+      description: Applies ASP.NET Core JSON Patch to one relation. The patch document is the RFC 6902 operation array; optimistic concurrency is supplied through `If-Match`, not `/concurrencyToken`. The patch document is limited to 50 operations and the request body is capped at 64 KiB.
       security:
         - Bearer: []
       parameters:
@@ -14340,12 +14973,19 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current relation `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json-patch+json:
             schema:
               type: array
+              maxItems: 50
               items:
                 $ref: '#/components/schemas/JsonPatchOperation'
             examples:
@@ -14354,18 +14994,20 @@ paths:
                   - op: replace
                     path: /counterpart
                     value: Gerente de Producto Senior
-                  - op: replace
-                    path: /concurrencyToken
-                    value: c1c9f1d4-4f3c-47de-9d9b-4f8cb0c2e8d2
       responses:
         '200':
           description: Relation patched successfully.
+          headers:
+            ETag:
+              description: New relation concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobProfileRelationResponse'
         '400':
-          description: Invalid JSON Patch document, missing `/concurrencyToken` or unsupported patch path/operation.
+          description: Invalid JSON Patch document, missing or invalid `If-Match`, or unsupported patch path/operation.
           content:
             application/problem+json:
               schema:
@@ -14394,12 +15036,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Patch request body exceeds the 64 KiB limit.
     delete:
       tags:
         - job-and-competency-design
       operationId: DeleteJobProfileRelation
       summary: Delete a job profile relation
-      description: Deletes one relation and returns the deleted relation entity. Concurrency is validated using the relation token supplied in the `If-Match` header.
+      description: Deletes one relation and returns the refreshed parent concurrency token. Concurrency is validated using the relation token supplied in the `If-Match` header.
       security:
         - Bearer: []
       parameters:
@@ -14423,11 +15067,16 @@ paths:
             type: string
       responses:
         '200':
-          description: Relation deleted successfully. Response body contains the deleted entity snapshot.
+          description: Relation deleted successfully. Response body contains the refreshed parent concurrency token.
+          headers:
+            ETag:
+              description: New parent job profile concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobProfileRelationResponse'
+                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
         '400':
           description: Missing or invalid `If-Match` concurrency token.
           content:
@@ -14464,7 +15113,7 @@ paths:
         - job-and-competency-design
       operationId: GetJobProfileCompetencies
       summary: List job profile legacy competencies
-      description: Returns only the legacy competencies array for the selected tenant-scoped job profile. This is the only legacy-competencies endpoint that returns the full collection. The structured competency matrix is exposed by CompetencyFrameworkController and is unrelated.
+      description: Returns a paged legacy competencies collection for the selected tenant-scoped job profile. This is the only legacy-competencies endpoint that returns the list. The structured competency matrix is exposed by CompetencyFrameworkController and is unrelated.
       security:
         - Bearer: []
       parameters:
@@ -14474,15 +15123,30 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            minimum: 1
+            maximum: 100
       responses:
         '200':
           description: Competencies retrieved successfully.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
+                $ref: '#/components/schemas/PagedJobProfileLegacyCompetencyResponse'
         '401':
           description: Authentication is required.
           content:
@@ -14525,6 +15189,11 @@ paths:
       responses:
         '201':
           description: Competency created successfully.
+          headers:
+            ETag:
+              description: New competency concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -14565,7 +15234,7 @@ paths:
         - job-and-competency-design
       operationId: UpdateJobProfileCompetency
       summary: Replace a job profile legacy competency
-      description: Replaces one legacy competency. Concurrency is validated against the competency entity token, not the parent job profile token.
+      description: Replaces one legacy competency. Concurrency is validated against the competency entity token supplied in `If-Match`, not the parent job profile token.
       security:
         - Bearer: []
       parameters:
@@ -14581,6 +15250,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current competency `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -14590,12 +15265,17 @@ paths:
       responses:
         '200':
           description: Competency updated successfully.
+          headers:
+            ETag:
+              description: New competency concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
         '400':
-          description: Validation error, including missing `concurrencyToken` or missing competency name when no catalog item is provided.
+          description: Validation error, including missing or invalid `If-Match` or missing competency name when no catalog item is provided.
           content:
             application/problem+json:
               schema:
@@ -14629,7 +15309,7 @@ paths:
         - job-and-competency-design
       operationId: PatchJobProfileCompetency
       summary: Partially update a job profile legacy competency
-      description: Applies ASP.NET Core JSON Patch to one legacy competency. The patch document is the RFC 6902 operation array and must include `/concurrencyToken` as an add or replace operation.
+      description: Applies ASP.NET Core JSON Patch to one legacy competency. The patch document is the RFC 6902 operation array; optimistic concurrency is supplied through `If-Match`, not `/concurrencyToken`. The patch document is limited to 50 operations and the request body is capped at 64 KiB.
       security:
         - Bearer: []
       parameters:
@@ -14645,12 +15325,19 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current competency `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json-patch+json:
             schema:
               type: array
+              maxItems: 50
               items:
                 $ref: '#/components/schemas/JsonPatchOperation'
             examples:
@@ -14659,18 +15346,20 @@ paths:
                   - op: replace
                     path: /expectedLevel
                     value: Expert
-                  - op: replace
-                    path: /concurrencyToken
-                    value: c1c9f1d4-4f3c-47de-9d9b-4f8cb0c2e8d2
       responses:
         '200':
           description: Competency patched successfully.
+          headers:
+            ETag:
+              description: New competency concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
         '400':
-          description: Invalid JSON Patch document, missing `/concurrencyToken` or unsupported patch path/operation.
+          description: Invalid JSON Patch document, missing or invalid `If-Match`, or unsupported patch path/operation.
           content:
             application/problem+json:
               schema:
@@ -14699,12 +15388,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Patch request body exceeds the 64 KiB limit.
     delete:
       tags:
         - job-and-competency-design
       operationId: DeleteJobProfileCompetency
       summary: Delete a job profile legacy competency
-      description: Deletes one legacy competency and returns the deleted competency entity. Concurrency is validated using the competency token supplied in the `If-Match` header.
+      description: Deletes one legacy competency and returns the refreshed parent concurrency token. Concurrency is validated using the competency token supplied in the `If-Match` header.
       security:
         - Bearer: []
       parameters:
@@ -14728,11 +15419,16 @@ paths:
             type: string
       responses:
         '200':
-          description: Competency deleted successfully. Response body contains the deleted entity snapshot.
+          description: Competency deleted successfully. Response body contains the refreshed parent concurrency token.
+          headers:
+            ETag:
+              description: New parent job profile concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobProfileLegacyCompetencyResponse'
+                $ref: '#/components/schemas/JobProfileParentConcurrencyResult'
         '400':
           description: Missing or invalid `If-Match` concurrency token.
           content:
@@ -15870,7 +16566,7 @@ paths:
       tags: [job-and-competency-design]
       operationId: PatchPositionDescriptionCatalogItem
       summary: Patch one position description catalog item
-      description: ASP.NET Core JSON Patch. Requires `/concurrencyToken`; `/isActive` replaces legacy activate/inactivate endpoints.
+      description: ASP.NET Core JSON Patch. Requires `/concurrencyToken`; `/isActive` replaces legacy activate/inactivate endpoints. The patch document is limited to 50 operations and the request body is capped at 64 KiB.
       parameters:
         - name: catalogType
           in: path
@@ -15886,6 +16582,7 @@ paths:
           application/json-patch+json:
             schema:
               type: array
+              maxItems: 50
               items:
                 $ref: '#/components/schemas/JsonPatchOperation'
       responses:
@@ -15900,6 +16597,7 @@ paths:
         '403': { description: Missing permission or tenant mismatch. }
         '404': { description: Catalog item not found or not in the requested catalog type. }
         '409': { description: Concurrency conflict, duplicate code or in-use inactivation conflict. }
+        '413': { description: Patch request body exceeds the 64 KiB limit. }
   /api/v1/companies/{companyPublicId}/position-category-classifications:
     get:
       tags: [job-and-competency-design]
@@ -15989,7 +16687,7 @@ paths:
       tags: [job-and-competency-design]
       operationId: PatchPositionCategoryClassification
       summary: Patch one position category classification
-      description: ASP.NET Core JSON Patch. Requires `/concurrencyToken`; `/isActive` replaces legacy activate/inactivate endpoints.
+      description: ASP.NET Core JSON Patch. Requires `/concurrencyToken`; `/isActive` replaces legacy activate/inactivate endpoints. The patch document is limited to 50 operations and the request body is capped at 64 KiB.
       parameters:
         - name: positionCategoryClassificationPublicId
           in: path
@@ -16001,6 +16699,7 @@ paths:
           application/json-patch+json:
             schema:
               type: array
+              maxItems: 50
               items:
                 $ref: '#/components/schemas/JsonPatchOperation'
       responses:
@@ -16015,6 +16714,7 @@ paths:
         '403': { description: Missing permission or tenant mismatch. }
         '404': { description: Classification or patched related resource not found. }
         '409': { description: Concurrency conflict, duplicate code, duplicate axes or in-use inactivation conflict. }
+        '413': { description: Patch request body exceeds the 64 KiB limit. }
   /api/v1/companies/{companyPublicId}/position-categories:
     get:
       tags: [job-and-competency-design]
@@ -16098,7 +16798,7 @@ paths:
       tags: [job-and-competency-design]
       operationId: PatchPositionCategory
       summary: Patch one position category
-      description: ASP.NET Core JSON Patch. Requires `/concurrencyToken`; `/isActive` replaces legacy activate/inactivate endpoints.
+      description: ASP.NET Core JSON Patch. Requires `/concurrencyToken`; `/isActive` replaces legacy activate/inactivate endpoints. The patch document is limited to 50 operations and the request body is capped at 64 KiB.
       parameters:
         - name: positionCategoryPublicId
           in: path
@@ -16110,6 +16810,7 @@ paths:
           application/json-patch+json:
             schema:
               type: array
+              maxItems: 50
               items:
                 $ref: '#/components/schemas/JsonPatchOperation'
       responses:
@@ -16124,6 +16825,7 @@ paths:
         '403': { description: Missing permission or tenant mismatch. }
         '404': { description: Category or patched classification not found. }
         '409': { description: Concurrency conflict, duplicate code or in-use inactivation conflict. }
+        '413': { description: Patch request body exceeds the 64 KiB limit. }
 
 components:
   schemas:

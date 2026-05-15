@@ -48,13 +48,25 @@ public interface IJobProfileRepository
     Task<JobProfileEntityResponse?> GetEntityResponseByIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfileResponse?> GetResponseByIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfileCoreResponse?> GetCoreResponseByIdAsync(Guid profileId, CancellationToken cancellationToken);
-    Task<IReadOnlyCollection<JobProfileRequirementResponse>?> GetRequirementResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<PagedResponse<JobProfileRequirementResponse>?> GetRequirementResponsesByProfileIdAsync(
+        Guid profileId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
     Task<JobProfileRequirementResponse?> GetRequirementResponseAsync(Guid profileId, Guid requirementId, CancellationToken cancellationToken);
-    Task<IReadOnlyCollection<JobProfileFunctionResponse>?> GetFunctionResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<PagedResponse<JobProfileFunctionResponse>?> GetFunctionResponsesByProfileIdAsync(
+        Guid profileId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
     Task<JobProfileFunctionResponse?> GetFunctionResponseAsync(Guid profileId, Guid functionId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<JobProfileRelationResponse>?> GetRelationResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfileRelationResponse?> GetRelationResponseAsync(Guid profileId, Guid relationId, CancellationToken cancellationToken);
-    Task<IReadOnlyCollection<JobProfileLegacyCompetencyResponse>?> GetLegacyCompetencyResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
+    Task<PagedResponse<JobProfileLegacyCompetencyResponse>?> GetLegacyCompetencyResponsesByProfileIdAsync(
+        Guid profileId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken);
     Task<JobProfileLegacyCompetencyResponse?> GetLegacyCompetencyResponseAsync(Guid profileId, Guid competencyId, CancellationToken cancellationToken);
     Task<IReadOnlyCollection<JobProfileTrainingResponse>?> GetTrainingResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken);
     Task<JobProfileTrainingResponse?> GetTrainingResponseAsync(Guid profileId, Guid trainingId, CancellationToken cancellationToken);

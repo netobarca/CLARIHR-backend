@@ -14,6 +14,7 @@ using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
@@ -27,6 +28,7 @@ using CLARIHR.Domain.InternalCatalogs;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
 using CLARIHR.Domain.SalaryTabulator;
+using Microsoft.Extensions.Logging;
 using FluentValidation;
 
 namespace CLARIHR.Application.Features.JobProfiles;
@@ -106,12 +108,19 @@ public sealed record JobProfileCompetencyConductResponse(
     int SortOrder);
 
 public sealed record JobProfileTrainingResponse(
-    Guid Id,
-    Guid? CatalogItemId,
+    Guid TrainingPublicId,
+    Guid? CatalogItemPublicId,
     string Name,
     string? Notes,
     int SortOrder,
-    Guid ConcurrencyToken);
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => TrainingPublicId;
+
+    [JsonIgnore]
+    public Guid? CatalogItemId => CatalogItemPublicId;
+}
 
 public sealed record JobProfileCompensationResponse(
     Guid? SalaryClassId,
@@ -126,30 +135,54 @@ public sealed record JobProfileCompensationResponse(
     DateTime? ResolvedEffectiveToUtc);
 
 public sealed record JobProfileBenefitResponse(
-    Guid Id,
-    Guid? CatalogItemId,
+    Guid BenefitPublicId,
+    Guid? CatalogItemPublicId,
     string Name,
     string? Notes,
     int SortOrder,
-    Guid ConcurrencyToken);
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => BenefitPublicId;
+
+    [JsonIgnore]
+    public Guid? CatalogItemId => CatalogItemPublicId;
+}
 
 public sealed record JobProfileWorkingConditionResponse(
-    Guid Id,
-    Guid? CatalogItemId,
-    Guid? WorkConditionTypeCatalogItemId,
+    Guid WorkingConditionPublicId,
+    Guid? CatalogItemPublicId,
+    Guid? WorkConditionTypeCatalogItemPublicId,
     string Name,
     string? Notes,
     int SortOrder,
-    Guid ConcurrencyToken);
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => WorkingConditionPublicId;
+
+    [JsonIgnore]
+    public Guid? CatalogItemId => CatalogItemPublicId;
+
+    [JsonIgnore]
+    public Guid? WorkConditionTypeCatalogItemId => WorkConditionTypeCatalogItemPublicId;
+}
 
 public sealed record JobProfileDependentPositionResponse(
-    Guid Id,
-    Guid DependentJobProfileId,
+    Guid DependentPositionPublicId,
+    Guid DependentJobProfilePublicId,
     string DependentJobProfileCode,
     string DependentJobProfileTitle,
     int Quantity,
     string? Notes,
-    Guid ConcurrencyToken);
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => DependentPositionPublicId;
+
+    [JsonIgnore]
+    public Guid DependentJobProfileId => DependentJobProfilePublicId;
+}
 
 public sealed record JobProfileSubResourceResult<TItem>(
     TItem Item,
@@ -438,6 +471,7 @@ public sealed record JobProfilePatchOperation(
 
 public sealed record PatchJobProfileCommand(
     Guid JobProfileId,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<JobProfilePatchOperation> Operations) : ICommand<JobProfileCoreResponse>;
 
 internal sealed class SearchJobProfilesQueryValidator : AbstractValidator<SearchJobProfilesQuery>
@@ -561,81 +595,20 @@ internal sealed class UpdateJobProfileCommandValidator : AbstractValidator<Updat
 
 internal sealed class PatchJobProfileCommandValidator : AbstractValidator<PatchJobProfileCommand>
 {
-    private static readonly HashSet<string> ConcurrencyTokenPathTokens = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "/concurrencyToken",
-        "concurrencyToken"
-    };
-
     public PatchJobProfileCommandValidator()
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
         RuleForEach(command => command.Operations)
             .ChildRules(operation =>
             {
                 operation.RuleFor(item => item.Op).NotEmpty();
                 operation.RuleFor(item => item.Path).NotEmpty();
             });
-        RuleFor(command => command.Operations)
-            .Must(ContainsValidConcurrencyTokenOperation)
-            .WithName("concurrencyToken")
-            .WithMessage("A 'replace /concurrencyToken' operation with a non-empty Guid value is required.");
-    }
-
-    private static bool ContainsValidConcurrencyTokenOperation(IReadOnlyCollection<JobProfilePatchOperation> operations)
-    {
-        if (operations is null)
-        {
-            return false;
-        }
-
-        foreach (var operation in operations)
-        {
-            if (operation is null || string.IsNullOrWhiteSpace(operation.Path) || string.IsNullOrWhiteSpace(operation.Op))
-            {
-                continue;
-            }
-
-            if (!ConcurrencyTokenPathTokens.Contains(operation.Path.Trim()))
-            {
-                continue;
-            }
-
-            var op = operation.Op.Trim();
-            if (!string.Equals(op, "replace", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(op, "add", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            if (TryReadNonEmptyGuid(operation.Value, out _))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool TryReadNonEmptyGuid(JsonElement? value, out Guid parsed)
-    {
-        parsed = Guid.Empty;
-        if (!value.HasValue)
-        {
-            return false;
-        }
-
-        var element = value.Value;
-        if (element.ValueKind == JsonValueKind.String &&
-            Guid.TryParse(element.GetString(), out var fromString) &&
-            fromString != Guid.Empty)
-        {
-            parsed = fromString;
-            return true;
-        }
-
-        return false;
     }
 }
 
@@ -905,7 +878,8 @@ internal sealed class CreateJobProfileCommandHandler(
     IUserRepository userRepository,
     ICurrentUserService currentUserService,
     IDateTimeProvider dateTimeProvider,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    ILogger<CreateJobProfileCommandHandler> logger)
     : ICommandHandler<CreateJobProfileCommand, JobProfileCoreResponse>
 {
     public async Task<Result<JobProfileCoreResponse>> Handle(CreateJobProfileCommand command, CancellationToken cancellationToken)
@@ -1015,6 +989,14 @@ internal sealed class CreateJobProfileCommandHandler(
         if (actorResult.IsFailure)
         {
             return Result<JobProfileCoreResponse>.Failure(actorResult.Error);
+        }
+
+        if (command.AllowInlineCatalogCreate && inlineDecision.Value)
+        {
+            logger.LogInformation(
+                "Job profile creation requested with AllowInlineCatalogCreate=true. TenantId={TenantId}, ActorId={ActorId}.",
+                command.CompanyId,
+                actorResult.Value.PublicId);
         }
 
         var createdCatalogItems = new List<JobCatalogItem>();
@@ -1134,7 +1116,8 @@ internal sealed class UpdateJobProfileCommandHandler(
     ICurrentUserService currentUserService,
     IDateTimeProvider dateTimeProvider,
     ITenantContext tenantContext,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    ILogger<UpdateJobProfileCommandHandler> logger)
     : ICommandHandler<UpdateJobProfileCommand, JobProfileCoreResponse>
 {
     public async Task<Result<JobProfileCoreResponse>> Handle(UpdateJobProfileCommand command, CancellationToken cancellationToken)
@@ -1263,6 +1246,15 @@ internal sealed class UpdateJobProfileCommandHandler(
         if (actorResult.IsFailure)
         {
             return Result<JobProfileCoreResponse>.Failure(actorResult.Error);
+        }
+
+        if (command.AllowInlineCatalogCreate && inlineDecision.Value)
+        {
+            logger.LogInformation(
+                "Job profile update requested with AllowInlineCatalogCreate=true. TenantId={TenantId}, ProfileId={ProfileId}, ActorId={ActorId}.",
+                profile.TenantId,
+                command.JobProfileId,
+                actorResult.Value.PublicId);
         }
 
         var createdCatalogItems = new List<JobCatalogItem>();
@@ -1425,6 +1417,12 @@ internal sealed class PatchJobProfileCommandHandler(
             var before = await repository.GetCoreResponseByIdAsync(profile.PublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Job profile response could not be resolved before patch.");
 
+            if (profile.ConcurrencyToken != command.ConcurrencyToken)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+            }
+
             var patchState = JobProfilePatchState.From(profile, before);
             var patchApplication = JobProfilePatchApplier.Apply(command.Operations, patchState);
             if (patchApplication.IsFailure)
@@ -1438,12 +1436,6 @@ internal sealed class PatchJobProfileCommandHandler(
             {
                 await transaction.RollbackAsync(cancellationToken);
                 return Result<JobProfileCoreResponse>.Failure(validation.Error);
-            }
-
-            if (patchState.ConcurrencyToken != profile.ConcurrencyToken)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                return Result<JobProfileCoreResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
             }
 
             if (patchState.StatusTouched &&
@@ -1699,7 +1691,6 @@ internal sealed class JobProfilePatchState
         EffectiveFromUtc = profile.EffectiveFromUtc;
         EffectiveToUtc = profile.EffectiveToUtc;
         AllowInlineCatalogCreate = false;
-        ConcurrencyToken = Guid.Empty;
         Status = profile.Status;
     }
 
@@ -1729,7 +1720,6 @@ internal sealed class JobProfilePatchState
     public DateTime? EffectiveToUtc { get; set; }
     public bool EffectiveRangeTouched { get; set; }
     public bool AllowInlineCatalogCreate { get; set; }
-    public Guid ConcurrencyToken { get; set; }
     public JobProfileStatus Status { get; set; }
     public bool StatusTouched { get; set; }
 
@@ -1948,12 +1938,6 @@ internal static class JobProfilePatchApplier
         if (IsSegment(property, "allowInlineCatalogCreate"))
         {
             state.AllowInlineCatalogCreate = !isRemove && ReadBool(value, path);
-            return Result.Success();
-        }
-
-        if (IsSegment(property, "concurrencyToken"))
-        {
-            state.ConcurrencyToken = isRemove ? Guid.Empty : ReadRequiredGuid(value, path);
             return Result.Success();
         }
 

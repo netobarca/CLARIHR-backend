@@ -143,26 +143,37 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
     public Task<JobProfileResponse?> GetResponseByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
         Task.FromResult(Responses.GetValueOrDefault(profileId));
 
-    public Task<IReadOnlyCollection<JobProfileRequirementResponse>?> GetRequirementResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    public Task<PagedResponse<JobProfileRequirementResponse>?> GetRequirementResponsesByProfileIdAsync(
+        Guid profileId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
     {
         if (!Profiles.TryGetValue(profileId, out var profile))
         {
-            return Task.FromResult<IReadOnlyCollection<JobProfileRequirementResponse>?>(null);
+            return Task.FromResult<PagedResponse<JobProfileRequirementResponse>?>(null);
         }
 
-        return Task.FromResult<IReadOnlyCollection<JobProfileRequirementResponse>?>(
-            profile.Requirements
-                .OrderBy(requirement => requirement.SortOrder)
-                .ThenBy(requirement => requirement.Description)
-                .Select(requirement => new JobProfileRequirementResponse(
-                    requirement.PublicId,
-                    null,
-                    null,
-                    requirement.RequirementType,
-                    requirement.Description,
-                    requirement.SortOrder,
-                    requirement.ConcurrencyToken))
-                .ToArray());
+        var orderedItems = profile.Requirements
+            .OrderBy(requirement => requirement.SortOrder)
+            .ThenBy(requirement => requirement.Description)
+            .Select(requirement => new JobProfileRequirementResponse(
+                requirement.PublicId,
+                null,
+                null,
+                requirement.RequirementType,
+                requirement.Description,
+                requirement.SortOrder,
+                requirement.ConcurrencyToken))
+            .ToArray();
+
+        var pagedItems = orderedItems
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+
+        return Task.FromResult<PagedResponse<JobProfileRequirementResponse>?>(
+            new PagedResponse<JobProfileRequirementResponse>(pagedItems, pageNumber, pageSize, orderedItems.Length));
     }
 
     public Task<JobProfileRequirementResponse?> GetRequirementResponseAsync(Guid profileId, Guid requirementId, CancellationToken cancellationToken)
@@ -185,25 +196,36 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
                 requirement.ConcurrencyToken));
     }
 
-    public Task<IReadOnlyCollection<JobProfileFunctionResponse>?> GetFunctionResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    public Task<PagedResponse<JobProfileFunctionResponse>?> GetFunctionResponsesByProfileIdAsync(
+        Guid profileId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
     {
         if (!Profiles.TryGetValue(profileId, out var profile))
         {
-            return Task.FromResult<IReadOnlyCollection<JobProfileFunctionResponse>?>(null);
+            return Task.FromResult<PagedResponse<JobProfileFunctionResponse>?>(null);
         }
 
-        return Task.FromResult<IReadOnlyCollection<JobProfileFunctionResponse>?>(
-            profile.Functions
-                .OrderBy(function => function.SortOrder)
-                .ThenBy(function => function.Description)
-                .Select(function => new JobProfileFunctionResponse(
-                    function.PublicId,
-                    null,
-                    function.FunctionType,
-                    function.Description,
-                    function.SortOrder,
-                    function.ConcurrencyToken))
-                .ToArray());
+        var orderedItems = profile.Functions
+            .OrderBy(function => function.SortOrder)
+            .ThenBy(function => function.Description)
+            .Select(function => new JobProfileFunctionResponse(
+                function.PublicId,
+                null,
+                function.FunctionType,
+                function.Description,
+                function.SortOrder,
+                function.ConcurrencyToken))
+            .ToArray();
+
+        var pagedItems = orderedItems
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+
+        return Task.FromResult<PagedResponse<JobProfileFunctionResponse>?>(
+            new PagedResponse<JobProfileFunctionResponse>(pagedItems, pageNumber, pageSize, orderedItems.Length));
     }
 
     public Task<JobProfileFunctionResponse?> GetFunctionResponseAsync(Guid profileId, Guid functionId, CancellationToken cancellationToken)
@@ -267,26 +289,37 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
                 relation.ConcurrencyToken));
     }
 
-    public Task<IReadOnlyCollection<JobProfileLegacyCompetencyResponse>?> GetLegacyCompetencyResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    public Task<PagedResponse<JobProfileLegacyCompetencyResponse>?> GetLegacyCompetencyResponsesByProfileIdAsync(
+        Guid profileId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
     {
         if (!Profiles.TryGetValue(profileId, out var profile))
         {
-            return Task.FromResult<IReadOnlyCollection<JobProfileLegacyCompetencyResponse>?>(null);
+            return Task.FromResult<PagedResponse<JobProfileLegacyCompetencyResponse>?>(null);
         }
 
-        return Task.FromResult<IReadOnlyCollection<JobProfileLegacyCompetencyResponse>?>(
-            profile.Competencies
-                .OrderBy(competency => competency.SortOrder)
-                .ThenBy(competency => competency.Name)
-                .Select(competency => new JobProfileLegacyCompetencyResponse(
-                    competency.PublicId,
-                    null,
-                    competency.Name,
-                    competency.ExpectedLevel,
-                    competency.Notes,
-                    competency.SortOrder,
-                    competency.ConcurrencyToken))
-                .ToArray());
+        var orderedItems = profile.Competencies
+            .OrderBy(competency => competency.SortOrder)
+            .ThenBy(competency => competency.Name)
+            .Select(competency => new JobProfileLegacyCompetencyResponse(
+                competency.PublicId,
+                null,
+                competency.Name,
+                competency.ExpectedLevel,
+                competency.Notes,
+                competency.SortOrder,
+                competency.ConcurrencyToken))
+            .ToArray();
+
+        var pagedItems = orderedItems
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+
+        return Task.FromResult<PagedResponse<JobProfileLegacyCompetencyResponse>?>(
+            new PagedResponse<JobProfileLegacyCompetencyResponse>(pagedItems, pageNumber, pageSize, orderedItems.Length));
     }
 
     public Task<JobProfileLegacyCompetencyResponse?> GetLegacyCompetencyResponseAsync(Guid profileId, Guid competencyId, CancellationToken cancellationToken)

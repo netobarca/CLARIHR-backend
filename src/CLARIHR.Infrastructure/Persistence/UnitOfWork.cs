@@ -1,12 +1,25 @@
 using CLARIHR.Application.Abstractions.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
 
 namespace CLARIHR.Infrastructure.Persistence;
 
 internal sealed class UnitOfWork(ApplicationDbContext dbContext) : IUnitOfWork
 {
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
-        dbContext.SaveChangesAsync(cancellationToken);
+    private const string PostgresUniqueViolationSqlState = "23505";
+
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg && pg.SqlState == PostgresUniqueViolationSqlState)
+        {
+            throw new UniqueConstraintViolationException(pg.ConstraintName, ex);
+        }
+    }
 
     public async Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
     {

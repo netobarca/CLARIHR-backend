@@ -1,14 +1,13 @@
-using System.Text.Json;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
 
 namespace CLARIHR.Api.Controllers;
 
@@ -87,16 +86,12 @@ public sealed class PositionCategoryClassificationsController(
                 request.SortOrder),
             cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return this.ToActionResult(result).Result!;
-        }
-
-        return Created($"/api/v1/position-category-classifications/{result.Value.Id:D}", result.Value);
+        return this.ToCreatedResult(result, value => $"/api/v1/position-category-classifications/{value.Id:D}");
     }
 
     [HttpPatch("position-category-classifications/{positionCategoryClassificationPublicId:guid}")]
     [Consumes("application/json-patch+json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<PositionCategoryClassificationResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
     public async Task<ActionResult<PositionCategoryClassificationResponse>> Patch(
@@ -104,14 +99,6 @@ public sealed class PositionCategoryClassificationsController(
         [FromBody] JsonPatchDocument<PatchPositionCategoryClassificationRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
-        if (patchDoc is null)
-        {
-            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
-                HttpContext,
-                statusCode: StatusCodes.Status400BadRequest,
-                detail: "Invalid patch document."));
-        }
-
         var result = await commandDispatcher.SendAsync(
             new PatchPositionCategoryClassificationCommand(
                 positionCategoryClassificationPublicId,
@@ -123,29 +110,9 @@ public sealed class PositionCategoryClassificationsController(
 
     private static IReadOnlyCollection<PositionDescriptionCatalogPatchOperation> MapPatchOperations(
         JsonPatchDocument<PatchPositionCategoryClassificationRequest> patchDoc) =>
-        patchDoc.Operations
-            .Select(operation => new PositionDescriptionCatalogPatchOperation(
-                operation.op,
-                operation.path,
-                operation.from,
-                MapPatchValue(operation.value)))
-            .ToArray();
-
-    private static JsonElement? MapPatchValue(object? value)
-    {
-        if (value is null)
-        {
-            return JsonSerializer.SerializeToElement<object?>(null);
-        }
-
-        if (value is JToken token)
-        {
-            using var document = JsonDocument.Parse(token.ToString(Newtonsoft.Json.Formatting.None));
-            return document.RootElement.Clone();
-        }
-
-        return JsonSerializer.SerializeToElement(value, value.GetType());
-    }
+        JsonPatchOperationMapper.Map(
+            patchDoc,
+            static (op, path, from, value) => new PositionDescriptionCatalogPatchOperation(op, path, from, value));
 
     public sealed class UpsertPositionCategoryClassificationRequest
     {

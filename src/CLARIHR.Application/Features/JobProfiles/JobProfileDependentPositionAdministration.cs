@@ -7,6 +7,7 @@ using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -18,16 +19,19 @@ namespace CLARIHR.Application.Features.JobProfiles;
 public sealed record GetJobProfileDependentPositionsQuery(Guid JobProfileId)
     : IQuery<IReadOnlyCollection<JobProfileDependentPositionResponse>>;
 
+public sealed record GetJobProfileDependentPositionByIdQuery(Guid JobProfileId, Guid DependentPositionId)
+    : IQuery<JobProfileDependentPositionResponse>;
+
 public sealed record AddJobProfileDependentPositionCommand(
     Guid JobProfileId,
-    Guid DependentJobProfileId,
+    Guid DependentJobProfilePublicId,
     int Quantity,
     string? Notes) : ICommand<JobProfileDependentPositionResponse>;
 
 public sealed record UpdateJobProfileDependentPositionCommand(
     Guid JobProfileId,
     Guid DependentPositionId,
-    Guid DependentJobProfileId,
+    Guid DependentJobProfilePublicId,
     int Quantity,
     string? Notes,
     Guid ConcurrencyToken) : ICommand<JobProfileDependentPositionResponse>;
@@ -41,12 +45,22 @@ public sealed record JobProfileDependentPositionPatchOperation(
 public sealed record PatchJobProfileDependentPositionCommand(
     Guid JobProfileId,
     Guid DependentPositionId,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<JobProfileDependentPositionPatchOperation> Operations) : ICommand<JobProfileDependentPositionResponse>;
 
 public sealed record RemoveJobProfileDependentPositionCommand(
     Guid JobProfileId,
     Guid DependentPositionId,
-    Guid ConcurrencyToken) : ICommand<JobProfileDependentPositionResponse>;
+    Guid ConcurrencyToken) : ICommand<JobProfileParentConcurrencyResult>;
+
+internal sealed class GetJobProfileDependentPositionByIdQueryValidator : AbstractValidator<GetJobProfileDependentPositionByIdQuery>
+{
+    public GetJobProfileDependentPositionByIdQueryValidator()
+    {
+        RuleFor(query => query.JobProfileId).NotEmpty();
+        RuleFor(query => query.DependentPositionId).NotEmpty();
+    }
+}
 
 internal sealed class GetJobProfileDependentPositionsQueryValidator : AbstractValidator<GetJobProfileDependentPositionsQuery>
 {
@@ -61,7 +75,7 @@ internal sealed class AddJobProfileDependentPositionCommandValidator : AbstractV
     public AddJobProfileDependentPositionCommandValidator()
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
-        RuleFor(command => command.DependentJobProfileId).NotEmpty();
+        RuleFor(command => command.DependentJobProfilePublicId).NotEmpty();
         RuleFor(command => command.Quantity).GreaterThanOrEqualTo(0);
         RuleFor(command => command.Notes).MaximumLength(1000);
     }
@@ -73,7 +87,7 @@ internal sealed class UpdateJobProfileDependentPositionCommandValidator : Abstra
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
         RuleFor(command => command.DependentPositionId).NotEmpty();
-        RuleFor(command => command.DependentJobProfileId).NotEmpty();
+        RuleFor(command => command.DependentJobProfilePublicId).NotEmpty();
         RuleFor(command => command.Quantity).GreaterThanOrEqualTo(0);
         RuleFor(command => command.Notes).MaximumLength(1000);
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
@@ -86,10 +100,11 @@ internal sealed class PatchJobProfileDependentPositionCommandValidator : Abstrac
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
         RuleFor(command => command.DependentPositionId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleFor(command => command.Operations).NotEmpty();
         RuleFor(command => command.Operations)
-            .Must(ContainsConcurrencyToken)
-            .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
         RuleForEach(command => command.Operations).ChildRules(operation =>
         {
             operation.RuleFor(item => item.Op).NotEmpty();
@@ -97,12 +112,6 @@ internal sealed class PatchJobProfileDependentPositionCommandValidator : Abstrac
         });
     }
 
-    private static bool ContainsConcurrencyToken(IReadOnlyCollection<JobProfileDependentPositionPatchOperation>? operations) =>
-        operations is not null &&
-        operations.Any(static operation =>
-            !string.Equals(operation.Op, "remove", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(operation.Path) &&
-            string.Equals(operation.Path.Trim(), "/concurrencyToken", StringComparison.OrdinalIgnoreCase));
 }
 
 internal sealed class RemoveJobProfileDependentPositionCommandValidator : AbstractValidator<RemoveJobProfileDependentPositionCommand>
@@ -147,6 +156,38 @@ internal sealed class GetJobProfileDependentPositionsQueryHandler(
     }
 }
 
+internal sealed class GetJobProfileDependentPositionByIdQueryHandler(
+    IJobProfileAuthorizationService authorizationService,
+    IJobProfileRepository repository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetJobProfileDependentPositionByIdQuery, JobProfileDependentPositionResponse>
+{
+    public async Task<Result<JobProfileDependentPositionResponse>> Handle(GetJobProfileDependentPositionByIdQuery query, CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<JobProfileDependentPositionResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<JobProfileDependentPositionResponse>.Failure(authorizationResult.Error);
+        }
+
+        var dependentPosition = await repository.GetDependentPositionResponseAsync(query.JobProfileId, query.DependentPositionId, cancellationToken);
+        if (dependentPosition is null)
+        {
+            return Result<JobProfileDependentPositionResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                    : JobProfileErrors.DependentPositionNotFound);
+        }
+
+        return Result<JobProfileDependentPositionResponse>.Success(dependentPosition);
+    }
+}
+
 internal sealed class AddJobProfileDependentPositionCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
@@ -168,7 +209,7 @@ internal sealed class AddJobProfileDependentPositionCommandHandler(
             return Result<JobProfileDependentPositionResponse>.Failure(authorizationResult.Error);
         }
 
-        if (command.JobProfileId == command.DependentJobProfileId)
+        if (command.JobProfileId == command.DependentJobProfilePublicId)
         {
             return Result<JobProfileDependentPositionResponse>.Failure(JobProfileErrors.DependencyCycle);
         }
@@ -182,11 +223,11 @@ internal sealed class AddJobProfileDependentPositionCommandHandler(
                     : JobProfileErrors.JobProfileNotFound);
         }
 
-        var dependentInternalId = await repository.ResolveProfileIdAsync(tenantContext.TenantId.Value, command.DependentJobProfileId, cancellationToken);
+        var dependentInternalId = await repository.ResolveProfileIdAsync(tenantContext.TenantId.Value, command.DependentJobProfilePublicId, cancellationToken);
         if (!dependentInternalId.HasValue)
         {
             return Result<JobProfileDependentPositionResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.DependentJobProfileId, cancellationToken)
+                await repository.ExistsOutsideTenantAsync(command.DependentJobProfilePublicId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
         }
@@ -213,7 +254,7 @@ internal sealed class AddJobProfileDependentPositionCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var response = await repository.GetDependentPositionResponseAsync(profile.PublicId, dependentPosition.PublicId, cancellationToken)
-                ?? await BuildResponseAsync(tenantContext.TenantId.Value, dependentPosition, command.DependentJobProfileId, cancellationToken);
+                ?? await BuildResponseAsync(tenantContext.TenantId.Value, dependentPosition, command.DependentJobProfilePublicId, cancellationToken);
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -275,7 +316,7 @@ internal sealed class UpdateJobProfileDependentPositionCommandHandler(
             return Result<JobProfileDependentPositionResponse>.Failure(authorizationResult.Error);
         }
 
-        if (command.JobProfileId == command.DependentJobProfileId)
+        if (command.JobProfileId == command.DependentJobProfilePublicId)
         {
             return Result<JobProfileDependentPositionResponse>.Failure(JobProfileErrors.DependencyCycle);
         }
@@ -300,11 +341,11 @@ internal sealed class UpdateJobProfileDependentPositionCommandHandler(
             return Result<JobProfileDependentPositionResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
-        var dependentInternalId = await repository.ResolveProfileIdAsync(tenantContext.TenantId.Value, command.DependentJobProfileId, cancellationToken);
+        var dependentInternalId = await repository.ResolveProfileIdAsync(tenantContext.TenantId.Value, command.DependentJobProfilePublicId, cancellationToken);
         if (!dependentInternalId.HasValue)
         {
             return Result<JobProfileDependentPositionResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.DependentJobProfileId, cancellationToken)
+                await repository.ExistsOutsideTenantAsync(command.DependentJobProfilePublicId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
         }
@@ -337,7 +378,7 @@ internal sealed class UpdateJobProfileDependentPositionCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetDependentPositionResponseAsync(profile.PublicId, dependentPosition.PublicId, cancellationToken)
-                ?? await BuildResponseForDependentPublicAsync(tenantContext.TenantId.Value, dependentPosition, command.DependentJobProfileId, cancellationToken);
+                ?? await BuildResponseForDependentPublicAsync(tenantContext.TenantId.Value, dependentPosition, command.DependentJobProfilePublicId, cancellationToken);
 
             await auditService.LogAsync(
                 new AuditLogEntry(
@@ -430,6 +471,11 @@ internal sealed class PatchJobProfileDependentPositionCommandHandler(
             return Result<JobProfileDependentPositionResponse>.Failure(JobProfileErrors.DependentPositionNotFound);
         }
 
+        if (dependentPosition.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<JobProfileDependentPositionResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+        }
+
         var before = await repository.GetDependentPositionResponseAsync(profile.PublicId, dependentPosition.PublicId, cancellationToken)
             ?? await BuildCurrentResponseAsync(tenantContext.TenantId.Value, dependentPosition, cancellationToken);
         var patchState = JobProfileDependentPositionPatchState.From(before);
@@ -443,11 +489,6 @@ internal sealed class PatchJobProfileDependentPositionCommandHandler(
         if (validation.IsFailure)
         {
             return Result<JobProfileDependentPositionResponse>.Failure(validation.Error);
-        }
-
-        if (patchState.ConcurrencyToken != dependentPosition.ConcurrencyToken)
-        {
-            return Result<JobProfileDependentPositionResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         if (!patchState.HasMutation)
@@ -557,25 +598,25 @@ internal sealed class RemoveJobProfileDependentPositionCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<RemoveJobProfileDependentPositionCommand, JobProfileDependentPositionResponse>
+    : ICommandHandler<RemoveJobProfileDependentPositionCommand, JobProfileParentConcurrencyResult>
 {
-    public async Task<Result<JobProfileDependentPositionResponse>> Handle(RemoveJobProfileDependentPositionCommand command, CancellationToken cancellationToken)
+    public async Task<Result<JobProfileParentConcurrencyResult>> Handle(RemoveJobProfileDependentPositionCommand command, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<JobProfileDependentPositionResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<JobProfileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageProfilesAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<JobProfileDependentPositionResponse>.Failure(authorizationResult.Error);
+            return Result<JobProfileParentConcurrencyResult>.Failure(authorizationResult.Error);
         }
 
         var profile = await repository.GetWithDependentPositionsOnlyAsync(command.JobProfileId, cancellationToken);
         if (profile is null)
         {
-            return Result<JobProfileDependentPositionResponse>.Failure(
+            return Result<JobProfileParentConcurrencyResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
@@ -584,12 +625,12 @@ internal sealed class RemoveJobProfileDependentPositionCommandHandler(
         var dependentPosition = profile.DependentPositions.FirstOrDefault(item => item.PublicId == command.DependentPositionId);
         if (dependentPosition is null)
         {
-            return Result<JobProfileDependentPositionResponse>.Failure(JobProfileErrors.DependentPositionNotFound);
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.DependentPositionNotFound);
         }
 
         if (dependentPosition.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<JobProfileDependentPositionResponse>.Failure(JobProfileErrors.ConcurrencyConflict);
+            return Result<JobProfileParentConcurrencyResult>.Failure(JobProfileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetDependentPositionResponseAsync(profile.PublicId, dependentPosition.PublicId, cancellationToken)
@@ -615,12 +656,12 @@ internal sealed class RemoveJobProfileDependentPositionCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
-            return Result<JobProfileDependentPositionResponse>.Success(before);
+            return Result<JobProfileParentConcurrencyResult>.Success(new JobProfileParentConcurrencyResult(profile.ConcurrencyToken));
         }
         catch (InvalidOperationException ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<JobProfileDependentPositionResponse>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
+            return Result<JobProfileParentConcurrencyResult>.Failure(new Error("JobProfile.Conflict", ex.Message, ErrorType.Conflict));
         }
         catch
         {
@@ -650,17 +691,14 @@ internal sealed class JobProfileDependentPositionPatchState
     public Guid DependentJobProfilePublicId { get; set; }
     public int Quantity { get; set; }
     public string? Notes { get; set; }
-    public Guid ConcurrencyToken { get; set; }
-    public bool ConcurrencyTokenTouched { get; set; }
     public bool HasMutation { get; set; }
 
     public static JobProfileDependentPositionPatchState From(JobProfileDependentPositionResponse response) =>
         new()
         {
-            DependentJobProfilePublicId = response.DependentJobProfileId,
+            DependentJobProfilePublicId = response.DependentJobProfilePublicId,
             Quantity = response.Quantity,
-            Notes = response.Notes,
-            ConcurrencyToken = response.ConcurrencyToken
+            Notes = response.Notes
         };
 }
 
@@ -710,18 +748,9 @@ internal static class JobProfileDependentPositionPatchApplier
     {
         var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
-        if (!state.ConcurrencyTokenTouched)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken is required."];
-        }
-        else if (state.ConcurrencyToken == Guid.Empty)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken must be a valid UUID."];
-        }
-
         if (state.DependentJobProfilePublicId == Guid.Empty)
         {
-            errors["dependentJobProfileId"] = ["DependentJobProfileId is required."];
+            errors["dependentJobProfilePublicId"] = ["DependentJobProfilePublicId is required."];
         }
 
         if (state.Quantity < 0)
@@ -748,11 +777,11 @@ internal static class JobProfileDependentPositionPatchApplier
     {
         var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
 
-        if (IsAnySegment(property, "dependentJobProfileId", "dependentJobProfilePublicId"))
+        if (IsSegment(property, "dependentJobProfilePublicId"))
         {
             if (isRemove)
             {
-                return ValidationFailure(path, "DependentJobProfileId cannot be removed.");
+                return ValidationFailure(path, "DependentJobProfilePublicId cannot be removed.");
             }
 
             state.DependentJobProfilePublicId = ReadRequiredGuid(value, path);
@@ -776,18 +805,6 @@ internal static class JobProfileDependentPositionPatchApplier
         {
             state.Notes = isRemove ? null : ReadNullableString(value, path);
             state.HasMutation = true;
-            return Result.Success();
-        }
-
-        if (IsSegment(property, "concurrencyToken"))
-        {
-            if (isRemove)
-            {
-                return ValidationFailure(path, "ConcurrencyToken cannot be removed.");
-            }
-
-            state.ConcurrencyToken = ReadRequiredGuid(value, path);
-            state.ConcurrencyTokenTouched = true;
             return Result.Success();
         }
 
