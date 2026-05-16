@@ -3919,7 +3919,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/job-profiles?page=1&pageSize=20");
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "JOB_PROFILES_FORBIDDEN");
     }
 
     [Fact]
@@ -3944,7 +3944,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             allowInlineCatalogCreate = false
         });
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "JOB_PROFILES_FORBIDDEN");
     }
 
     [Fact]
@@ -3962,7 +3962,106 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             concurrencyToken = Guid.NewGuid()
         });
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "JOB_PROFILES_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task JobProfiles_GetById_Unauthenticated_ShouldReturn401WithProblemDetails()
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/v1/job-profiles/{Guid.NewGuid()}");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Unauthorized, "UNAUTHENTICATED");
+    }
+
+    [Fact]
+    public async Task PositionCategories_List_Unauthenticated_ShouldReturn401WithProblemDetails()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/position-categories?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Unauthorized, "UNAUTHENTICATED");
+    }
+
+    [Fact]
+    public async Task PositionCategories_List_WithoutPermissionClaim_ShouldReturn403FromPolicy()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/position-categories?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "POSITION_DESCRIPTION_CATALOG_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task PositionCategories_List_WithReadPermission_ShouldPassPolicy()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionCatalogReadContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/position-categories?page=1&pageSize=20");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PositionCategories_Add_WithReadOnlyPermissionClaim_ShouldReturn403FromPolicy()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionCatalogReadContext(scenario));
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/position-categories", new
+        {
+            code = "PC-POLICY",
+            name = "Should not be created",
+            description = (string?)null,
+            classificationPublicId = Guid.NewGuid(),
+            sortOrder = 1
+        });
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "POSITION_DESCRIPTION_CATALOG_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task PositionCategoryClassifications_List_WithoutPermissionClaim_ShouldReturn403FromPolicy()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/position-category-classifications?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "POSITION_DESCRIPTION_CATALOG_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task PositionDescriptionCatalogItems_List_WithoutPermissionClaim_ShouldReturn403FromPolicy()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-description-catalogs/position-function-types/items?page=1&pageSize=20");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "POSITION_DESCRIPTION_CATALOG_FORBIDDEN");
+    }
+
+    [Fact]
+    public async Task PositionDescriptionCatalogItems_List_WithReadPermission_ShouldPassPolicy()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionCatalogReadContext(scenario));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-description-catalogs/position-function-types/items?page=1&pageSize=20");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -6956,6 +7055,9 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
     private static TestUserContext CreateJobProfileReadContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, JobProfilePermissionCodes.Read);
+
+    private static TestUserContext CreatePositionCatalogReadContext(IntegrationTestScenario scenario) =>
+        TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, PositionDescriptionCatalogPermissionCodes.Read);
 
     private static TestUserContext CreateJobProfileAdminContext(IntegrationTestScenario scenario) =>
         TestUserContext.Authenticated(

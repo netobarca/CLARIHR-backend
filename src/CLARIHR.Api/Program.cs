@@ -9,6 +9,7 @@ using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Infrastructure;
 using CLARIHR.Infrastructure.Configuration;
@@ -18,6 +19,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.Extensions.Options;
@@ -48,6 +50,7 @@ builder.Services
         options.ModelMetadataDetailsProviders.Add(new PublicContractBindingMetadataProvider());
         options.Conventions.Add(new PublicContractRouteConvention());
         options.Conventions.Add(new ProducesStandardErrorsConvention());
+        options.Conventions.Add(new AuthorizationPolicyConvention());
         options.Filters.AddService<PersonnelFilePhotoUrlResultFilter>();
         options.Filters.AddService<ConditionalRequestResultFilter>();
         options.Filters.AddService<ValidateJsonPatchDocumentFilter>();
@@ -87,6 +90,7 @@ builder.Services.AddSwaggerGen(options =>
         (type.FullName ?? type.Name).Replace('+', '.'));
     options.SchemaFilter<PublicContractSchemaFilter>();
     options.OperationFilter<PublicContractOperationFilter>();
+    options.OperationFilter<AuthorizationPolicyOperationFilter>();
 
     options.SwaggerDoc("v1", new OpenApiInfo
     {
@@ -220,7 +224,27 @@ builder.Services.AddAuthorization(options =>
             context,
             JobProfilePermissionCodes.Admin,
             JobProfilePermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(PositionDescriptionCatalogPolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PositionDescriptionCatalogPermissionCodes.Read,
+            PositionDescriptionCatalogPermissionCodes.Admin,
+            PositionDescriptionCatalogPermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(PositionDescriptionCatalogPolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PositionDescriptionCatalogPermissionCodes.Admin,
+            PositionDescriptionCatalogPermissionCodes.ManageAdministration)));
 });
+
+// Emit the standard ProblemDetails contract (code/traceId/localized title) on policy-layer
+// denials instead of the ASP.NET default empty body. Overrides the framework default
+// (registered via TryAddSingleton), so a later AddSingleton always wins.
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, ProblemDetailsAuthorizationMiddlewareResultHandler>();
 
 ConfigureAuthentication(builder.Services);
 

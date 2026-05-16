@@ -23,6 +23,7 @@ namespace CLARIHR.Api.Controllers;
 [Consumes("application/json")]
 [Produces("application/json")]
 [Tags("Job Profiles")]
+// AuthZ (defense-in-depth): GET→JobProfilePolicies.Read, POST/PUT/PATCH/DELETE→JobProfilePolicies.Manage — assigned centrally by AuthorizationPolicyConvention.
 public sealed class JobProfileTrainingsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase

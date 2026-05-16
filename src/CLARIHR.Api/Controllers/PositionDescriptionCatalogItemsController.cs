@@ -11,6 +11,7 @@ using CLARIHR.Domain.PositionDescriptionCatalogs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
@@ -20,6 +21,7 @@ namespace CLARIHR.Api.Controllers;
 [Route("api/v{version:apiVersion}")]
 [Consumes("application/json")]
 [Produces("application/json")]
+// AuthZ (defense-in-depth): GET→PositionDescriptionCatalogPolicies.Read, POST/PATCH→PositionDescriptionCatalogPolicies.Manage — assigned centrally by AuthorizationPolicyConvention.
 public sealed class PositionDescriptionCatalogItemsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher)
@@ -103,6 +105,23 @@ public sealed class PositionDescriptionCatalogItemsController(
     [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Patch a position description catalog item",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to a catalog item of the given
+            `{catalogType}`.
+
+            **Deletion / soft-delete**: there is intentionally **no `DELETE`**
+            endpoint for this resource. Deactivation ("soft-delete") and
+            reactivation are performed through this PATCH by replacing the
+            `isActive` member, e.g.
+            `[{ "op": "replace", "path": "/isActive", "value": false }]`.
+            A `DELETE` request returns `405 Method Not Allowed` by design.
+
+            The document must also include a non-remove operation for
+            `/concurrencyToken` carrying the current token to prevent lost updates.
+            """)]
     public async Task<ActionResult<PositionDescriptionCatalogItemResponse>> Patch(
         PositionDescriptionCatalogType catalogType,
         Guid positionDescriptionCatalogItemPublicId,

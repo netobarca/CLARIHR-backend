@@ -15,13 +15,3 @@ public sealed record EducationCatalogItemResponse(
     Guid ConcurrencyToken,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc);
-
-/// <summary>
-/// Lightweight lookup response exposed to the CLARIHR Core public API.
-/// </summary>
-public sealed record EducationCatalogLookup(
-    long InternalId,
-    Guid Id,
-    string Code,
-    string Name,
-    bool IsActive);
