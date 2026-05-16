@@ -8,6 +8,7 @@ using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
+using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -16,8 +17,11 @@ using FluentValidation;
 
 namespace CLARIHR.Application.Features.JobProfiles;
 
-public sealed record GetJobProfileDependentPositionsQuery(Guid JobProfileId)
-    : IQuery<IReadOnlyCollection<JobProfileDependentPositionResponse>>;
+public sealed record GetJobProfileDependentPositionsQuery(
+    Guid JobProfileId,
+    int PageNumber = 1,
+    int PageSize = JobProfileValidationRules.DefaultPageSize)
+    : IQuery<PagedResponse<JobProfileDependentPositionResponse>>;
 
 public sealed record GetJobProfileDependentPositionByIdQuery(Guid JobProfileId, Guid DependentPositionId)
     : IQuery<JobProfileDependentPositionResponse>;
@@ -67,6 +71,8 @@ internal sealed class GetJobProfileDependentPositionsQueryValidator : AbstractVa
     public GetJobProfileDependentPositionsQueryValidator()
     {
         RuleFor(query => query.JobProfileId).NotEmpty();
+        RuleFor(query => query.PageNumber).GreaterThan(0);
+        RuleFor(query => query.PageSize).InclusiveBetween(1, JobProfileValidationRules.MaxPageSize);
     }
 }
 
@@ -128,31 +134,35 @@ internal sealed class GetJobProfileDependentPositionsQueryHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
     ITenantContext tenantContext)
-    : IQueryHandler<GetJobProfileDependentPositionsQuery, IReadOnlyCollection<JobProfileDependentPositionResponse>>
+    : IQueryHandler<GetJobProfileDependentPositionsQuery, PagedResponse<JobProfileDependentPositionResponse>>
 {
-    public async Task<Result<IReadOnlyCollection<JobProfileDependentPositionResponse>>> Handle(GetJobProfileDependentPositionsQuery query, CancellationToken cancellationToken)
+    public async Task<Result<PagedResponse<JobProfileDependentPositionResponse>>> Handle(GetJobProfileDependentPositionsQuery query, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<IReadOnlyCollection<JobProfileDependentPositionResponse>>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PagedResponse<JobProfileDependentPositionResponse>>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<IReadOnlyCollection<JobProfileDependentPositionResponse>>.Failure(authorizationResult.Error);
+            return Result<PagedResponse<JobProfileDependentPositionResponse>>.Failure(authorizationResult.Error);
         }
 
-        var positions = await repository.GetDependentPositionResponsesByProfileIdAsync(query.JobProfileId, cancellationToken);
+        var positions = await repository.GetDependentPositionResponsesByProfileIdAsync(
+            query.JobProfileId,
+            query.PageNumber,
+            query.PageSize,
+            cancellationToken);
         if (positions is null)
         {
-            return Result<IReadOnlyCollection<JobProfileDependentPositionResponse>>.Failure(
+            return Result<PagedResponse<JobProfileDependentPositionResponse>>.Failure(
                 await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                     : JobProfileErrors.JobProfileNotFound);
         }
 
-        return Result<IReadOnlyCollection<JobProfileDependentPositionResponse>>.Success(positions);
+        return Result<PagedResponse<JobProfileDependentPositionResponse>>.Success(positions);
     }
 }
 
@@ -230,6 +240,11 @@ internal sealed class AddJobProfileDependentPositionCommandHandler(
                 await repository.ExistsOutsideTenantAsync(command.DependentJobProfilePublicId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
+        }
+
+        if (profile.ReportsToJobProfileId == dependentInternalId.Value)
+        {
+            return Result<JobProfileDependentPositionResponse>.Failure(JobProfileErrors.DependencyCycle);
         }
 
         var dependentInternalIds = profile.DependentPositions.Select(position => position.DependentJobProfileId).ToList();
@@ -348,6 +363,11 @@ internal sealed class UpdateJobProfileDependentPositionCommandHandler(
                 await repository.ExistsOutsideTenantAsync(command.DependentJobProfilePublicId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
+        }
+
+        if (profile.ReportsToJobProfileId == dependentInternalId.Value)
+        {
+            return Result<JobProfileDependentPositionResponse>.Failure(JobProfileErrors.DependencyCycle);
         }
 
         var dependentInternalIds = profile.DependentPositions
@@ -508,6 +528,11 @@ internal sealed class PatchJobProfileDependentPositionCommandHandler(
                 await repository.ExistsOutsideTenantAsync(patchState.DependentJobProfilePublicId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : JobProfileErrors.JobProfileNotFound);
+        }
+
+        if (profile.ReportsToJobProfileId == dependentInternalId.Value)
+        {
+            return Result<JobProfileDependentPositionResponse>.Failure(JobProfileErrors.DependencyCycle);
         }
 
         var dependentInternalIds = profile.DependentPositions

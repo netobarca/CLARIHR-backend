@@ -5,7 +5,8 @@ using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs;
 using CLARIHR.Domain.JobProfiles;
-using Microsoft.AspNetCore.JsonPatch;
+using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CLARIHR.Application.UnitTests;
@@ -59,7 +60,8 @@ public sealed class JsonPatchHardeningTests
         {
             var attribute = action.GetCustomAttribute<RequestSizeLimitAttribute>();
             Assert.NotNull(attribute);
-            Assert.Equal(JsonPatchHardening.MaxRequestBodySizeBytes, attribute!.Bytes);
+            var metadata = Assert.IsAssignableFrom<IRequestSizeLimitMetadata>(attribute);
+            Assert.Equal(JsonPatchHardening.MaxRequestBodySizeBytes, metadata.MaxRequestBodySize);
         }
     }
 

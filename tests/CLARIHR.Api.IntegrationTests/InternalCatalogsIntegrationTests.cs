@@ -268,42 +268,25 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
             valuationNotes = "Notas",
             effectiveFromUtc = (DateTime?)null,
             effectiveToUtc = (DateTime?)null,
-            allowInlineCatalogCreate = false,
-            requirements = new[]
-            {
-                new
-                {
-                    requirementType,
-                    requirementTypeCatalogItemPublicId = (Guid?)null,
-                    catalogItemPublicId = (Guid?)null,
-                    catalogCode = (string?)null,
-                    catalogName = (string?)null,
-                    description,
-                    sortOrder = 1
-                }
-            },
-            functions = new[]
-            {
-                new
-                {
-                    functionType = "General",
-                    frequencyCatalogItemPublicId = (Guid?)null,
-                    description = "Funcion",
-                    sortOrder = 1
-                }
-            },
-            relations = Array.Empty<object>(),
-            competencies = Array.Empty<object>(),
-            trainings = Array.Empty<object>(),
-            compensation = (object?)null,
-            benefits = Array.Empty<object>(),
-            workingConditions = Array.Empty<object>(),
-            dependentPositions = Array.Empty<object>()
+            allowInlineCatalogCreate = false
         });
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<JobProfileItem>(JsonOptions);
         Assert.NotNull(payload);
+        
+        var reqResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{payload!.Id}/requirements", new
+        {
+            requirementType,
+            requirementTypeCatalogItemPublicId = (Guid?)null,
+            catalogItemPublicId = (Guid?)null,
+            catalogCode = (string?)null,
+            catalogName = (string?)null,
+            description,
+            sortOrder = 1
+        });
+        reqResponse.EnsureSuccessStatusCode();
+
         return payload!;
     }
 
@@ -317,58 +300,45 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         var positionCategory = await EnsureDefaultPositionCategoryAsync(client, companyId);
         var orgUnit = await EnsureDefaultOrgUnitAsync(client, companyId);
 
-        var response = await client.PutJsonAsync($"/api/v1/job-profiles/{profile.Id}", new
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}")
         {
-            code = profile.Code,
-            title = profile.Title,
-            objective = "Objetivo",
-            orgUnitPublicId = orgUnit.Id,
-            reportsToJobProfilePublicId = (Guid?)null,
-            positionCategoryPublicId = positionCategory.Id,
-            strategicObjectiveCatalogItemPublicId = (Guid?)null,
-            assignedWorkEquipmentCatalogItemPublicId = (Guid?)null,
-            responsibilityCatalogItemPublicId = (Guid?)null,
-            decisionScope = "Operacion",
-            assignedResources = "Equipo",
-            responsibilities = "Responsabilidades",
-            benefitsSummary = "Ley",
-            workingConditionSummary = "Presencial",
-            marketSalaryReference = "Mercado",
-            valuationNotes = "Notas",
-            effectiveFromUtc = (DateTime?)null,
-            effectiveToUtc = (DateTime?)null,
-            allowInlineCatalogCreate = false,
-            requirements = new[]
+            Content = JsonContent.Create(new
             {
-                new
-                {
-                    requirementType,
-                    catalogItemPublicId = (Guid?)null,
-                    catalogCode = (string?)null,
-                    catalogName = (string?)null,
-                    description,
-                    sortOrder = 1
-                }
-            },
-            functions = new[]
-            {
-                new
-                {
-                    functionType = "General",
-                    description = "Funcion",
-                    sortOrder = 1
-                }
-            },
-            relations = Array.Empty<object>(),
-            competencies = Array.Empty<object>(),
-            trainings = Array.Empty<object>(),
-            compensation = (object?)null,
-            benefits = Array.Empty<object>(),
-            workingConditions = Array.Empty<object>(),
-            dependentPositions = Array.Empty<object>(),
-            concurrencyToken = profile.ConcurrencyToken
+                code = profile.Code,
+                title = profile.Title,
+                objective = "Objetivo",
+                orgUnitPublicId = orgUnit.Id,
+                reportsToJobProfilePublicId = (Guid?)null,
+                positionCategoryPublicId = positionCategory.Id,
+                strategicObjectiveCatalogItemPublicId = (Guid?)null,
+                assignedWorkEquipmentCatalogItemPublicId = (Guid?)null,
+                responsibilityCatalogItemPublicId = (Guid?)null,
+                decisionScope = "Operacion",
+                assignedResources = "Equipo",
+                responsibilities = "Responsabilidades",
+                benefitsSummary = "Ley",
+                workingConditionSummary = "Presencial",
+                marketSalaryReference = "Mercado",
+                valuationNotes = "Notas",
+                effectiveFromUtc = (DateTime?)null,
+                effectiveToUtc = (DateTime?)null,
+                allowInlineCatalogCreate = false
+            })
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{profile.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
+        updateResponse.EnsureSuccessStatusCode();
+
+        var reqResponse = await client.PostJsonAsync($"/api/v1/job-profiles/{profile.Id}/requirements", new
+        {
+            requirementType,
+            catalogItemPublicId = (Guid?)null,
+            catalogCode = (string?)null,
+            catalogName = (string?)null,
+            description,
+            sortOrder = 1
         });
-        response.EnsureSuccessStatusCode();
+        reqResponse.EnsureSuccessStatusCode();
     }
 
     private async Task<OrgStructureCatalogItem> EnsureOrgUnitTypeAsync(HttpClient client, Guid companyId, string code)

@@ -1432,4 +1432,61 @@
   <data name="files.concurrency_conflict" xml:space="preserve">
     <value>The file was modified by another process. Please reload and try again.</value>
   </data>
+  <data name="JOB_CATALOG_ITEM_IN_USE" xml:space="preserve">
+    <value>The job catalog item is in use and cannot be inactivated.</value>
+  </data>
+  <data name="JOB_CATALOG_ITEM_SYSTEM_IMMUTABLE" xml:space="preserve">
+    <value>System job catalog items cannot be modified.</value>
+  </data>
+  <data name="JOB_PROFILE_BENEFIT_NAME_REQUIRED" xml:space="preserve">
+    <value>Benefit name is required.</value>
+  </data>
+  <data name="JOB_PROFILE_BENEFIT_NOT_FOUND" xml:space="preserve">
+    <value>The requested job profile benefit could not be found.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPENSATION_ALREADY_EXISTS" xml:space="preserve">
+    <value>The job profile already has a compensation reference.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPENSATION_NOT_FOUND" xml:space="preserve">
+    <value>The requested job profile compensation could not be found.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPENSATION_SALARY_TABULATOR_LINE_INACTIVE" xml:space="preserve">
+    <value>The selected salary tabulator line is inactive.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPENSATION_SALARY_TABULATOR_LINE_NOT_FOUND" xml:space="preserve">
+    <value>The selected salary tabulator line could not be found.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPETENCY_NAME_REQUIRED" xml:space="preserve">
+    <value>Competency name is required.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPETENCY_NOT_FOUND" xml:space="preserve">
+    <value>The requested job profile competency could not be found.</value>
+  </data>
+  <data name="JOB_PROFILE_DEPENDENT_POSITION_NOT_FOUND" xml:space="preserve">
+    <value>The requested job profile dependent position could not be found.</value>
+  </data>
+  <data name="JOB_PROFILE_FUNCTION_NOT_FOUND" xml:space="preserve">
+    <value>The requested job profile function could not be found.</value>
+  </data>
+  <data name="JOB_PROFILE_RELATION_NOT_FOUND" xml:space="preserve">
+    <value>The requested job profile relation could not be found.</value>
+  </data>
+  <data name="JOB_PROFILE_REQUIREMENT_NOT_FOUND" xml:space="preserve">
+    <value>The requested job profile requirement could not be found.</value>
+  </data>
+  <data name="JOB_PROFILE_TRAINING_NAME_REQUIRED" xml:space="preserve">
+    <value>Training name is required.</value>
+  </data>
+  <data name="JOB_PROFILE_TRAINING_NOT_FOUND" xml:space="preserve">
+    <value>The requested job profile training could not be found.</value>
+  </data>
+  <data name="JOB_PROFILE_WORKING_CONDITION_NAME_REQUIRED" xml:space="preserve">
+    <value>Working condition name is required.</value>
+  </data>
+  <data name="JOB_PROFILE_WORKING_CONDITION_NOT_FOUND" xml:space="preserve">
+    <value>The requested job profile working condition could not be found.</value>
+  </data>
+  <data name="validation.message.patch_document_must_include_a_non_remove_operation_for_concurrencytoken" xml:space="preserve">
+    <value>Patch document must include a non-remove operation for ConcurrencyToken.</value>
+  </data>
 </root>

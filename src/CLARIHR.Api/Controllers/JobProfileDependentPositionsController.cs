@@ -1,44 +1,68 @@
+using Asp.Versioning;
+using System.ComponentModel.DataAnnotations;
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
+using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.JsonPatch;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
-[Route("api/v1/job-profiles/{jobProfilePublicId:guid}/dependent-positions")]
+[Route("api/v{version:apiVersion}/job-profiles/{jobProfilePublicId:guid}/dependent-positions")]
 [Consumes("application/json")]
 [Produces("application/json")]
+[Tags("Job Profiles")]
 public sealed class JobProfileDependentPositionsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = JobProfilePolicies.Read)]
-    [ProducesResponseType<IReadOnlyCollection<JobProfileDependentPositionResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<PagedResponse<JobProfileDependentPositionResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
-    public async Task<ActionResult<IReadOnlyCollection<JobProfileDependentPositionResponse>>> Get(
+    [SwaggerOperation(
+        Summary = "List dependent positions of a job profile",
+        Description = """
+            Returns a paginated list of the dependent positions defined for the specified
+            job profile. Use the `page` and `pageSize` query parameters to
+            navigate large collections.
+            """)]
+    public async Task<ActionResult<PagedResponse<JobProfileDependentPositionResponse>>> Get(
         Guid jobProfilePublicId,
+        [FromQuery(Name = "page")] int pageNumber = 1,
+        [Range(1, JobProfileValidationRules.MaxPageSize)]
+        [FromQuery] int pageSize = JobProfileValidationRules.DefaultPageSize,
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new GetJobProfileDependentPositionsQuery(jobProfilePublicId),
+            new GetJobProfileDependentPositionsQuery(jobProfilePublicId, pageNumber, pageSize),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
 
     [HttpGet("{dependentPositionPublicId:guid}")]
-    [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a job profile dependent position by id",
+        Description = """
+            Returns a single dependent position of the specified job profile.
+
+            The `concurrencyToken` in the response is required in the `If-Match`
+            header of subsequent `PUT`/`PATCH`/`DELETE` requests to prevent
+            lost updates.
+            """)]
     public async Task<ActionResult<JobProfileDependentPositionResponse>> GetById(
         Guid jobProfilePublicId,
         Guid dependentPositionPublicId,
@@ -52,12 +76,19 @@ public sealed class JobProfileDependentPositionsController(
     }
 
     [HttpPost]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status201Created)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Add a dependent position to a job profile",
+        Description = """
+            Creates a new dependent position under the specified job profile and returns it
+            with a `201 Created` response. The `Location` header points to the
+            created resource and the `ETag` header carries its initial
+            `concurrencyToken`.
+            """)]
     public async Task<ActionResult<JobProfileDependentPositionResponse>> Add(
         Guid jobProfilePublicId,
-        [FromBody] AddDependentPositionRequest request,
+        [FromBody] MutateDependentPositionRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
@@ -68,34 +99,30 @@ public sealed class JobProfileDependentPositionsController(
                 request.Notes),
             cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return this.ToActionResult(Result<JobProfileDependentPositionResponse>.Failure(result.Error));
-        }
-
-        this.SetETag(result, value => value.ConcurrencyToken);
-        return CreatedAtAction(nameof(GetById), new { jobProfilePublicId, dependentPositionPublicId = result.Value.DependentPositionPublicId }, result.Value);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetById),
+            value => new { jobProfilePublicId, dependentPositionPublicId = value.DependentPositionPublicId },
+            value => value.ConcurrencyToken);
     }
 
     [HttpPut("{dependentPositionPublicId:guid}")]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Replace a job profile dependent position",
+        Description = """
+            Replaces all fields of an existing dependent position. Requires the `If-Match`
+            header with the current `concurrencyToken` to prevent lost updates.
+            The new token is returned in the `ETag` header.
+            """)]
     public async Task<ActionResult<JobProfileDependentPositionResponse>> Update(
         Guid jobProfilePublicId,
         Guid dependentPositionPublicId,
-        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
-        [FromBody] UpdateDependentPositionRequest request,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] MutateDependentPositionRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
-        {
-            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
-                HttpContext,
-                statusCode: StatusCodes.Status400BadRequest,
-                detail: IfMatchHeader.MissingDetail));
-        }
-
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileDependentPositionCommand(
                 jobProfilePublicId,
@@ -110,55 +137,53 @@ public sealed class JobProfileDependentPositionsController(
     }
 
     [HttpPatch("{dependentPositionPublicId:guid}")]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
     [Consumes("application/json-patch+json")]
     [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<JobProfileDependentPositionResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Patch a job profile dependent position",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to an existing dependent position. Requires the
+            `If-Match` header with the current `concurrencyToken`. The new token
+            is returned in the `ETag` header.
+            """)]
     public async Task<ActionResult<JobProfileDependentPositionResponse>> Patch(
         Guid jobProfilePublicId,
         Guid dependentPositionPublicId,
-        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
-        [FromBody] JsonPatchDocument<UpdateDependentPositionRequest> patchDoc,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<MutateDependentPositionRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
-        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
-        {
-            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
-                HttpContext,
-                statusCode: StatusCodes.Status400BadRequest,
-                detail: IfMatchHeader.MissingDetail));
-        }
-
         var result = await commandDispatcher.SendAsync(
             new PatchJobProfileDependentPositionCommand(
                 jobProfilePublicId,
                 dependentPositionPublicId,
                 concurrencyToken,
-                MapPatchOperations(patchDoc)),
+                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new JobProfileDependentPositionPatchOperation(op, path, from, value))),
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpDelete("{dependentPositionPublicId:guid}")]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileParentConcurrencyResult>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Remove a dependent position from a job profile",
+        Description = """
+            Deletes the specified dependent position. Requires the `If-Match` header with the
+            current `concurrencyToken`. Returns the parent job profile's updated
+            concurrency token so the caller can continue mutating the profile
+            without an extra round-trip.
+            """)]
     public async Task<ActionResult<JobProfileParentConcurrencyResult>> Remove(
         Guid jobProfilePublicId,
         Guid dependentPositionPublicId,
-        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
-        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
-        {
-            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
-                HttpContext,
-                statusCode: StatusCodes.Status400BadRequest,
-                detail: IfMatchHeader.MissingDetail));
-        }
-
         var result = await commandDispatcher.SendAsync(
             new RemoveJobProfileDependentPositionCommand(jobProfilePublicId, dependentPositionPublicId, concurrencyToken),
             cancellationToken);
@@ -166,19 +191,7 @@ public sealed class JobProfileDependentPositionsController(
         return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
-    private static IReadOnlyCollection<JobProfileDependentPositionPatchOperation> MapPatchOperations(JsonPatchDocument<UpdateDependentPositionRequest> patchDoc) =>
-        JsonPatchOperationMapper.Map(
-            patchDoc,
-            static (op, path, from, value) => new JobProfileDependentPositionPatchOperation(op, path, from, value));
-
-    public sealed class AddDependentPositionRequest
-    {
-        public Guid DependentJobProfilePublicId { get; set; }
-        public int Quantity { get; set; }
-        public string? Notes { get; set; }
-    }
-
-    public sealed class UpdateDependentPositionRequest
+    public sealed class MutateDependentPositionRequest
     {
         public Guid DependentJobProfilePublicId { get; set; }
         public int Quantity { get; set; }

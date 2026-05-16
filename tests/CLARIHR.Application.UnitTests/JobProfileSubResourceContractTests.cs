@@ -1,6 +1,7 @@
 using System.Text.Json;
 using CLARIHR.Api.Controllers;
 using CLARIHR.Application.Features.JobProfiles;
+using CLARIHR.Domain.JobProfiles;
 
 namespace CLARIHR.Application.UnitTests;
 
@@ -68,11 +69,65 @@ public sealed class JobProfileSubResourceContractTests
     {
         var publicId = Guid.Parse("eafae5a0-130e-437f-a4c7-bf78d2bf1101");
         var relatedPublicId = Guid.Parse("d47e6960-b4fd-4a92-a003-71ecae24125a");
-        var concurrencyToken = Guid.Parse("2754c741-d5d7-4cd5-9b3c-176e6e268107");
 
         yield return
         [
-            new JobProfileTrainingsController.AddTrainingRequest
+            new JobProfileRequirementsController.MutateRequirementRequest
+            {
+                RequirementType = JobRequirementType.Education,
+                RequirementTypeCatalogItemPublicId = relatedPublicId,
+                CatalogItemPublicId = publicId,
+                Description = "Degree",
+                SortOrder = 1
+            },
+            new[] { "requirementTypeCatalogItemPublicId", "catalogItemPublicId" },
+            new[] { "requirementTypeCatalogItemId", "catalogItemId" }
+        ];
+
+        yield return
+        [
+            new JobProfileFunctionsController.MutateFunctionRequest
+            {
+                FunctionType = JobFunctionType.General,
+                FrequencyCatalogItemPublicId = relatedPublicId,
+                Description = "Function",
+                SortOrder = 1
+            },
+            new[] { "frequencyCatalogItemPublicId" },
+            new[] { "frequencyCatalogItemId" }
+        ];
+
+        yield return
+        [
+            new JobProfileRelationsController.MutateRelationRequest
+            {
+                RelationType = JobRelationType.Internal,
+                CatalogItemPublicId = relatedPublicId,
+                Counterpart = "Counterpart",
+                Notes = "Notes",
+                SortOrder = 1
+            },
+            new[] { "catalogItemPublicId" },
+            new[] { "catalogItemId" }
+        ];
+
+        yield return
+        [
+            new JobProfileCompetenciesController.MutateCompetencyRequest
+            {
+                CatalogItemPublicId = relatedPublicId,
+                Name = "Competency",
+                ExpectedLevel = "Advanced",
+                Notes = "Notes",
+                SortOrder = 1
+            },
+            new[] { "catalogItemPublicId" },
+            new[] { "catalogItemId" }
+        ];
+
+        yield return
+        [
+            new JobProfileTrainingsController.MutateTrainingRequest
             {
                 CatalogItemPublicId = relatedPublicId,
                 Name = "Training",
@@ -85,21 +140,7 @@ public sealed class JobProfileSubResourceContractTests
 
         yield return
         [
-            new JobProfileTrainingsController.UpdateTrainingRequest
-            {
-                CatalogItemPublicId = relatedPublicId,
-                Name = "Training",
-                Notes = "Notes",
-                SortOrder = 1,
-                ConcurrencyToken = concurrencyToken
-            },
-            new[] { "catalogItemPublicId" },
-            new[] { "catalogItemId" }
-        ];
-
-        yield return
-        [
-            new JobProfileBenefitsController.AddBenefitRequest
+            new JobProfileBenefitsController.MutateBenefitRequest
             {
                 CatalogItemPublicId = relatedPublicId,
                 Name = "Benefit",
@@ -112,21 +153,7 @@ public sealed class JobProfileSubResourceContractTests
 
         yield return
         [
-            new JobProfileBenefitsController.UpdateBenefitRequest
-            {
-                CatalogItemPublicId = relatedPublicId,
-                Name = "Benefit",
-                Notes = "Notes",
-                SortOrder = 1,
-                ConcurrencyToken = concurrencyToken
-            },
-            new[] { "catalogItemPublicId" },
-            new[] { "catalogItemId" }
-        ];
-
-        yield return
-        [
-            new JobProfileWorkingConditionsController.AddWorkingConditionRequest
+            new JobProfileWorkingConditionsController.MutateWorkingConditionRequest
             {
                 WorkConditionTypeCatalogItemPublicId = relatedPublicId,
                 CatalogItemPublicId = publicId,
@@ -140,22 +167,7 @@ public sealed class JobProfileSubResourceContractTests
 
         yield return
         [
-            new JobProfileWorkingConditionsController.UpdateWorkingConditionRequest
-            {
-                WorkConditionTypeCatalogItemPublicId = relatedPublicId,
-                CatalogItemPublicId = publicId,
-                Name = "Condition",
-                Notes = "Notes",
-                SortOrder = 1,
-                ConcurrencyToken = concurrencyToken
-            },
-            new[] { "workConditionTypeCatalogItemPublicId", "catalogItemPublicId" },
-            new[] { "workConditionTypeCatalogItemId", "catalogItemId" }
-        ];
-
-        yield return
-        [
-            new JobProfileDependentPositionsController.AddDependentPositionRequest
+            new JobProfileDependentPositionsController.MutateDependentPositionRequest
             {
                 DependentJobProfilePublicId = relatedPublicId,
                 Quantity = 1,
@@ -167,35 +179,10 @@ public sealed class JobProfileSubResourceContractTests
 
         yield return
         [
-            new JobProfileDependentPositionsController.UpdateDependentPositionRequest
-            {
-                DependentJobProfilePublicId = relatedPublicId,
-                Quantity = 1,
-                Notes = "Notes",
-                ConcurrencyToken = concurrencyToken
-            },
-            new[] { "dependentJobProfilePublicId" },
-            new[] { "dependentJobProfileId" }
-        ];
-
-        yield return
-        [
-            new JobProfileCompensationsController.AddCompensationRequest
+            new JobProfileCompensationsController.MutateCompensationRequest
             {
                 SalaryTabulatorLinePublicId = relatedPublicId,
                 Notes = "Notes"
-            },
-            new[] { "salaryTabulatorLinePublicId" },
-            new[] { "salaryTabulatorLineId" }
-        ];
-
-        yield return
-        [
-            new JobProfileCompensationsController.UpdateCompensationRequest
-            {
-                SalaryTabulatorLinePublicId = relatedPublicId,
-                Notes = "Notes",
-                ConcurrencyToken = concurrencyToken
             },
             new[] { "salaryTabulatorLinePublicId" },
             new[] { "salaryTabulatorLineId" }

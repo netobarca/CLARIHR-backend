@@ -26,6 +26,7 @@ public interface IJobProfileCompensationRepository
 
     Task<IReadOnlyCollection<JobProfileCompensationItemResponse>?> GetResponsesByProfileIdAsync(
         Guid jobProfilePublicId,
+        int maxItems,
         CancellationToken cancellationToken);
 
     Task<bool> ProfileHasCompensationAsync(long jobProfileInternalId, CancellationToken cancellationToken);

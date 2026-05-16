@@ -30,19 +30,6 @@ internal static class ResultExtensions
         return new ActionResult<TValue>(ProblemDetailsFactory.Create(controller.HttpContext, result.Error));
     }
 
-    public static void SetETag<TValue>(
-        this ControllerBase controller,
-        CLARIHR.Application.Common.Errors.Result<TValue> result,
-        Func<TValue, Guid> etagSelector)
-    {
-        ArgumentNullException.ThrowIfNull(etagSelector);
-
-        if (result.IsSuccess)
-        {
-            controller.Response.Headers[ETagHeader.HeaderName] = ETagHeader.Format(etagSelector(result.Value));
-        }
-    }
-
     public static ActionResult<TValue> ToCreatedResult<TValue>(
         this ControllerBase controller,
         CLARIHR.Application.Common.Errors.Result<TValue> result,
@@ -53,6 +40,61 @@ internal static class ResultExtensions
         if (result.IsSuccess)
         {
             return controller.Created(locationFactory(result.Value), result.Value);
+        }
+
+        return new ActionResult<TValue>(ProblemDetailsFactory.Create(controller.HttpContext, result.Error));
+    }
+
+    public static ActionResult<TValue> ToCreatedResult<TValue>(
+        this ControllerBase controller,
+        CLARIHR.Application.Common.Errors.Result<TValue> result,
+        Func<TValue, string> locationFactory,
+        Func<TValue, Guid> etagSelector)
+    {
+        ArgumentNullException.ThrowIfNull(locationFactory);
+        ArgumentNullException.ThrowIfNull(etagSelector);
+
+        if (result.IsSuccess)
+        {
+            controller.Response.Headers[ETagHeader.HeaderName] = ETagHeader.Format(etagSelector(result.Value));
+            return controller.Created(locationFactory(result.Value), result.Value);
+        }
+
+        return new ActionResult<TValue>(ProblemDetailsFactory.Create(controller.HttpContext, result.Error));
+    }
+
+    public static ActionResult<TValue> ToCreatedAtActionResult<TValue>(
+        this ControllerBase controller,
+        CLARIHR.Application.Common.Errors.Result<TValue> result,
+        string actionName,
+        Func<TValue, object?> routeValuesFactory)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(actionName);
+        ArgumentNullException.ThrowIfNull(routeValuesFactory);
+
+        if (result.IsSuccess)
+        {
+            return controller.CreatedAtAction(actionName, routeValuesFactory(result.Value), result.Value);
+        }
+
+        return new ActionResult<TValue>(ProblemDetailsFactory.Create(controller.HttpContext, result.Error));
+    }
+
+    public static ActionResult<TValue> ToCreatedAtActionResult<TValue>(
+        this ControllerBase controller,
+        CLARIHR.Application.Common.Errors.Result<TValue> result,
+        string actionName,
+        Func<TValue, object?> routeValuesFactory,
+        Func<TValue, Guid> etagSelector)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(actionName);
+        ArgumentNullException.ThrowIfNull(routeValuesFactory);
+        ArgumentNullException.ThrowIfNull(etagSelector);
+
+        if (result.IsSuccess)
+        {
+            controller.Response.Headers[ETagHeader.HeaderName] = ETagHeader.Format(etagSelector(result.Value));
+            return controller.CreatedAtAction(actionName, routeValuesFactory(result.Value), result.Value);
         }
 
         return new ActionResult<TValue>(ProblemDetailsFactory.Create(controller.HttpContext, result.Error));

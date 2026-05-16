@@ -8,6 +8,7 @@ using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
+using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -17,8 +18,11 @@ using static CLARIHR.Application.Features.JobProfiles.JobProfileTrainingCommandS
 
 namespace CLARIHR.Application.Features.JobProfiles;
 
-public sealed record GetJobProfileTrainingsQuery(Guid JobProfileId)
-    : IQuery<IReadOnlyCollection<JobProfileTrainingResponse>>;
+public sealed record GetJobProfileTrainingsQuery(
+    Guid JobProfileId,
+    int PageNumber = 1,
+    int PageSize = JobProfileValidationRules.DefaultPageSize)
+    : IQuery<PagedResponse<JobProfileTrainingResponse>>;
 
 public sealed record GetJobProfileTrainingByIdQuery(Guid JobProfileId, Guid TrainingId)
     : IQuery<JobProfileTrainingResponse>;
@@ -61,6 +65,8 @@ internal sealed class GetJobProfileTrainingsQueryValidator : AbstractValidator<G
     public GetJobProfileTrainingsQueryValidator()
     {
         RuleFor(query => query.JobProfileId).NotEmpty();
+        RuleFor(query => query.PageNumber).GreaterThan(0);
+        RuleFor(query => query.PageSize).InclusiveBetween(1, JobProfileValidationRules.MaxPageSize);
     }
 }
 
@@ -137,31 +143,35 @@ internal sealed class GetJobProfileTrainingsQueryHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
     ITenantContext tenantContext)
-    : IQueryHandler<GetJobProfileTrainingsQuery, IReadOnlyCollection<JobProfileTrainingResponse>>
+    : IQueryHandler<GetJobProfileTrainingsQuery, PagedResponse<JobProfileTrainingResponse>>
 {
-    public async Task<Result<IReadOnlyCollection<JobProfileTrainingResponse>>> Handle(GetJobProfileTrainingsQuery query, CancellationToken cancellationToken)
+    public async Task<Result<PagedResponse<JobProfileTrainingResponse>>> Handle(GetJobProfileTrainingsQuery query, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<IReadOnlyCollection<JobProfileTrainingResponse>>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PagedResponse<JobProfileTrainingResponse>>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<IReadOnlyCollection<JobProfileTrainingResponse>>.Failure(authorizationResult.Error);
+            return Result<PagedResponse<JobProfileTrainingResponse>>.Failure(authorizationResult.Error);
         }
 
-        var trainings = await repository.GetTrainingResponsesByProfileIdAsync(query.JobProfileId, cancellationToken);
+        var trainings = await repository.GetTrainingResponsesByProfileIdAsync(
+            query.JobProfileId,
+            query.PageNumber,
+            query.PageSize,
+            cancellationToken);
         if (trainings is null)
         {
-            return Result<IReadOnlyCollection<JobProfileTrainingResponse>>.Failure(
+            return Result<PagedResponse<JobProfileTrainingResponse>>.Failure(
                 await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                     : JobProfileErrors.JobProfileNotFound);
         }
 
-        return Result<IReadOnlyCollection<JobProfileTrainingResponse>>.Success(trainings);
+        return Result<PagedResponse<JobProfileTrainingResponse>>.Success(trainings);
     }
 }
 

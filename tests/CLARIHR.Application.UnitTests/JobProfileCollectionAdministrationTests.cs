@@ -14,9 +14,12 @@ public sealed class JobProfileCollectionAdministrationTests
     private readonly TestJobProfileRepository _profileRepository = new();
     private readonly TestJobCatalogRepository _catalogRepository = new();
     private readonly TestPositionDescriptionCatalogRepository _positionDescriptionCatalogRepository = new();
+    private readonly TestInternalCatalogRepository _internalCatalogRepository = new();
     private readonly TestJobProfileAuthorizationService _authService = new();
     private readonly TestAuditService _auditService = new();
     private readonly TestUnitOfWork _unitOfWork = new();
+    private readonly TestJobProfileCurrentUserService _currentUserService = new(Guid.NewGuid());
+    private readonly TestJobProfileDateTimeProvider _dateTimeProvider = new(new DateTime(2026, 5, 15, 12, 0, 0, DateTimeKind.Utc));
     private readonly Guid _tenantId = Guid.NewGuid();
     private readonly FixedTenantContext _tenantContext;
 
@@ -43,7 +46,10 @@ public sealed class JobProfileCollectionAdministrationTests
             _tenantContext,
             _unitOfWork,
             _positionDescriptionCatalogRepository,
-            _catalogRepository);
+            _catalogRepository,
+            _internalCatalogRepository,
+            _currentUserService,
+            _dateTimeProvider);
 
         var command = new AddJobProfileRequirementCommand(
             profileId,
@@ -85,7 +91,10 @@ public sealed class JobProfileCollectionAdministrationTests
             _tenantContext,
             _unitOfWork,
             _positionDescriptionCatalogRepository,
-            _catalogRepository);
+            _catalogRepository,
+            _internalCatalogRepository,
+            _currentUserService,
+            _dateTimeProvider);
 
         var command = new UpdateJobProfileRequirementCommand(
             profileId,
@@ -215,7 +224,10 @@ public sealed class JobProfileCollectionAdministrationTests
             _tenantContext,
             _unitOfWork,
             _positionDescriptionCatalogRepository,
-            _catalogRepository);
+            _catalogRepository,
+            _internalCatalogRepository,
+            _currentUserService,
+            _dateTimeProvider);
 
         var result = await handler.Handle(
             new PatchJobProfileRequirementCommand(
@@ -521,11 +533,12 @@ public sealed class JobProfileCollectionAdministrationTests
     }
 
     [Fact]
-    public async Task GetRelations_WhenProfileExists_ShouldReturnRelationsWithConcurrencyTokens()
+    public async Task GetRelations_WhenProfileExists_ShouldReturnPagedRelationsWithConcurrencyTokens()
     {
         var profile = JobProfile.Create("JP-001", "Title");
         profile.SetTenantId(_tenantId);
         profile.AddRelation(JobProfileRelation.Create(JobRelationType.Internal, null, null, "Gerente de Producto", null, 1));
+        profile.AddRelation(JobProfileRelation.Create(JobRelationType.External, null, null, "Proveedor", null, 2));
         var profileId = profile.PublicId;
         _profileRepository.Profiles[profileId] = profile;
 
@@ -534,11 +547,14 @@ public sealed class JobProfileCollectionAdministrationTests
             _profileRepository,
             _tenantContext);
 
-        var result = await handler.Handle(new GetJobProfileRelationsQuery(profileId), CancellationToken.None);
+        var result = await handler.Handle(new GetJobProfileRelationsQuery(profileId, PageNumber: 2, PageSize: 1), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var relation = Assert.Single(result.Value);
-        Assert.Equal("Gerente de Producto", relation.Counterpart);
+        var relation = Assert.Single(result.Value.Items);
+        Assert.Equal(2, result.Value.TotalCount);
+        Assert.Equal(2, result.Value.PageNumber);
+        Assert.Equal(1, result.Value.PageSize);
+        Assert.Equal("Proveedor", relation.Counterpart);
         Assert.NotEqual(Guid.Empty, relation.ConcurrencyToken);
     }
 
@@ -594,6 +610,32 @@ public sealed class JobProfileCollectionAdministrationTests
         Assert.NotEqual(Guid.Empty, result.Value.ConcurrencyToken);
         var training = Assert.Single(profile.Trainings);
         Assert.Equal(training.PublicId, result.Value.Id);
+    }
+
+    [Fact]
+    public async Task GetTrainings_WhenProfileExists_ShouldReturnPagedTrainingsWithConcurrencyTokens()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        profile.AddTraining(JobProfileTraining.Create(null, null, "Leadership", null, 1));
+        profile.AddTraining(JobProfileTraining.Create(null, null, "Security", null, 2));
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new GetJobProfileTrainingsQueryHandler(
+            _authService,
+            _profileRepository,
+            _tenantContext);
+
+        var result = await handler.Handle(new GetJobProfileTrainingsQuery(profileId, PageNumber: 2, PageSize: 1), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var training = Assert.Single(result.Value.Items);
+        Assert.Equal(2, result.Value.TotalCount);
+        Assert.Equal(2, result.Value.PageNumber);
+        Assert.Equal(1, result.Value.PageSize);
+        Assert.Equal("Security", training.Name);
+        Assert.NotEqual(Guid.Empty, training.ConcurrencyToken);
     }
 
     [Fact]
@@ -796,6 +838,75 @@ public sealed class JobProfileCollectionAdministrationTests
     }
 
     [Fact]
+    public async Task AddDependentPosition_WhenDependentProfileIsReportsTo_ShouldReturnDependencyCycle()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        profile.UpdateCore(
+            "JP-001",
+            "Title",
+            objective: "Objective",
+            orgUnitId: 1,
+            reportsToJobProfileId: 1,
+            positionCategoryId: null,
+            strategicObjectiveCatalogItemId: null,
+            assignedWorkEquipmentCatalogItemId: null,
+            responsibilityCatalogItemId: null,
+            decisionScope: null,
+            assignedResources: null,
+            responsibilities: "Responsibilities",
+            benefitsSummary: null,
+            workingConditionSummary: null,
+            marketSalaryReference: null,
+            valuationNotes: null,
+            effectiveFromUtc: null,
+            effectiveToUtc: null);
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new AddJobProfileDependentPositionCommandHandler(
+            _authService,
+            _profileRepository,
+            _auditService,
+            _tenantContext,
+            _unitOfWork);
+
+        var result = await handler.Handle(
+            new AddJobProfileDependentPositionCommand(profileId, Guid.NewGuid(), 1, null),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(JobProfileErrors.DependencyCycle.Code, result.Error.Code);
+        Assert.Empty(profile.DependentPositions);
+    }
+
+    [Fact]
+    public async Task GetDependentPositions_WhenProfileExists_ShouldReturnPagedDependentPositionsWithConcurrencyTokens()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        profile.AddDependentPosition(JobProfileDependentPosition.Create(1, 1, "First"));
+        profile.AddDependentPosition(JobProfileDependentPosition.Create(2, 2, "Second"));
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new GetJobProfileDependentPositionsQueryHandler(
+            _authService,
+            _profileRepository,
+            _tenantContext);
+
+        var result = await handler.Handle(new GetJobProfileDependentPositionsQuery(profileId, PageNumber: 2, PageSize: 1), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var position = Assert.Single(result.Value.Items);
+        Assert.Equal(2, result.Value.TotalCount);
+        Assert.Equal(2, result.Value.PageNumber);
+        Assert.Equal(1, result.Value.PageSize);
+        Assert.Equal(2, position.Quantity);
+        Assert.NotEqual(Guid.Empty, position.ConcurrencyToken);
+    }
+
+    [Fact]
     public async Task AddWorkingCondition_WhenProfileExists_ShouldReturnCreatedEntity()
     {
         var profile = JobProfile.Create("JP-001", "Title");
@@ -824,66 +935,61 @@ public sealed class JobProfileCollectionAdministrationTests
     }
 
     [Fact]
-    public async Task MarkPrinted_WhenProfileExists_ShouldWriteAuditAndCommit()
+    public async Task GetBenefits_WhenProfileExists_ShouldReturnPagedBenefitsWithConcurrencyTokens()
     {
-        // Arrange
-        var profileId = Guid.NewGuid();
-        _profileRepository.EntityResponses[profileId] = new JobProfileEntityResponse(
-            profileId,
-            _tenantId,
-            "JP-PRINT",
-            "Printable profile",
-            JobProfileStatus.Draft,
-            Version: 1,
-            Objective: null,
-            OrgUnitId: Guid.NewGuid(),
-            ReportsToJobProfileId: null,
-            PositionCategoryId: null,
-            StrategicObjectiveCatalogItemId: null,
-            AssignedWorkEquipmentCatalogItemId: null,
-            ResponsibilityCatalogItemId: null,
-            DecisionScope: null,
-            AssignedResources: null,
-            Responsibilities: null,
-            BenefitsSummary: null,
-            WorkingConditionSummary: null,
-            MarketSalaryReference: null,
-            ValuationNotes: null,
-            EffectiveFromUtc: null,
-            EffectiveToUtc: null,
-            IsActive: true,
-            ConcurrencyToken: Guid.NewGuid(),
-            CreatedAtUtc: DateTime.UtcNow,
-            ModifiedAtUtc: null);
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        profile.AddBenefit(JobProfileBenefit.Create(null, null, "Health", null, 1));
+        profile.AddBenefit(JobProfileBenefit.Create(null, null, "Transport", null, 2));
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
 
-        var handler = new MarkJobProfilePrintedCommandHandler(
+        var handler = new GetJobProfileBenefitsQueryHandler(
             _authService,
             _profileRepository,
-            _auditService,
-            _tenantContext,
-            _unitOfWork);
+            _tenantContext);
 
-        // Act
-        var result = await handler.Handle(new MarkJobProfilePrintedCommand(profileId), CancellationToken.None);
+        var result = await handler.Handle(new GetJobProfileBenefitsQuery(profileId, PageNumber: 2, PageSize: 1), CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsSuccess);
-        Assert.True(result.Value);
-        Assert.Equal(1, _unitOfWork.SaveChangesCalls);
-        var entry = Assert.Single(_auditService.Entries);
-        Assert.Equal(AuditEventTypes.ReportPrinted, entry.EventType);
-        Assert.Equal(AuditEntityTypes.JobProfile, entry.EntityType);
-        Assert.Equal(profileId, entry.EntityId);
-        Assert.Equal(JobProfilePermissionCodes.ResourceKey, entry.EntityKey);
-        Assert.Equal(AuditActions.Print, entry.Action);
-        Assert.Empty(_auditService.TenantEntries);
+        var benefit = Assert.Single(result.Value.Items);
+        Assert.Equal(2, result.Value.TotalCount);
+        Assert.Equal(2, result.Value.PageNumber);
+        Assert.Equal(1, result.Value.PageSize);
+        Assert.Equal("Transport", benefit.Name);
+        Assert.NotEqual(Guid.Empty, benefit.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task GetWorkingConditions_WhenProfileExists_ShouldReturnPagedWorkingConditionsWithConcurrencyTokens()
+    {
+        var profile = JobProfile.Create("JP-001", "Title");
+        profile.SetTenantId(_tenantId);
+        profile.AddWorkingCondition(JobProfileWorkingCondition.Create(null, null, null, "Hybrid", null, 1));
+        profile.AddWorkingCondition(JobProfileWorkingCondition.Create(null, null, null, "Remote", null, 2));
+        var profileId = profile.PublicId;
+        _profileRepository.Profiles[profileId] = profile;
+
+        var handler = new GetJobProfileWorkingConditionsQueryHandler(
+            _authService,
+            _profileRepository,
+            _tenantContext);
+
+        var result = await handler.Handle(new GetJobProfileWorkingConditionsQuery(profileId, PageNumber: 2, PageSize: 1), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var condition = Assert.Single(result.Value.Items);
+        Assert.Equal(2, result.Value.TotalCount);
+        Assert.Equal(2, result.Value.PageNumber);
+        Assert.Equal(1, result.Value.PageSize);
+        Assert.Equal("Remote", condition.Name);
+        Assert.NotEqual(Guid.Empty, condition.ConcurrencyToken);
     }
 
     [Fact]
     public async Task Patch_WhenOnlyTitleChanges_ShouldPreserveExistingCompensationReference()
     {
         // Arrange
-        var salaryTabulatorRepository = new TestSalaryTabulatorRepository();
         var profile = JobProfile.Create("JP-COMP", "Original title");
         profile.SetTenantId(_tenantId);
         profile.UpdateCore(
@@ -905,8 +1011,6 @@ public sealed class JobProfileCollectionAdministrationTests
             valuationNotes: null,
             effectiveFromUtc: null,
             effectiveToUtc: null);
-        profile.SetCompensationReference(99, salaryClassCatalogItem: null, "S1");
-
         var profileId = profile.PublicId;
         var salaryClassPublicId = Guid.NewGuid();
         var salaryLinePublicId = Guid.NewGuid();
@@ -926,12 +1030,8 @@ public sealed class JobProfileCollectionAdministrationTests
         var handler = new PatchJobProfileCommandHandler(
             _authService,
             _profileRepository,
-            _catalogRepository,
-            new TestInternalCatalogRepository(),
             _positionDescriptionCatalogRepository,
-            salaryTabulatorRepository,
             _auditService,
-            new TestJobProfileDateTimeProvider(DateTime.UtcNow),
             _tenantContext,
             _unitOfWork);
 
@@ -952,10 +1052,6 @@ public sealed class JobProfileCollectionAdministrationTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal("Patched title", profile.Title);
-        Assert.Equal(99, profile.SalaryClassCatalogItemId);
-        Assert.Equal("S1", profile.SalaryScaleCode);
-        Assert.Equal("S1", profile.NormalizedSalaryScaleCode);
-        Assert.Equal(0, salaryTabulatorRepository.GetLineByIdCalls);
         Assert.NotNull(result.Value.Compensation);
         Assert.Equal(salaryLinePublicId, result.Value.Compensation!.SalaryTabulatorLineId);
         Assert.Equal(2, _unitOfWork.SaveChangesCalls);

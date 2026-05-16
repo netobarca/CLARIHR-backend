@@ -184,10 +184,6 @@ public sealed record JobProfileDependentPositionResponse(
     public Guid DependentJobProfileId => DependentJobProfilePublicId;
 }
 
-public sealed record JobProfileSubResourceResult<TItem>(
-    TItem Item,
-    Guid ParentConcurrencyToken);
-
 public sealed record JobProfileParentConcurrencyResult(Guid ParentConcurrencyToken);
 
 public sealed record JobProfileReferenceResponse(

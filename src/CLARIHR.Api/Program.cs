@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using CLARIHR.Api.Common;
@@ -20,8 +21,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.Extensions.Options;
-using Microsoft.AspNetCore.Mvc.Formatters;
 using Serilog;
+// Disambiguate from Asp.Versioning.ProblemDetailsDefaults introduced by `using Asp.Versioning;`.
+using ProblemDetailsDefaults = CLARIHR.Api.Common.ProblemDetailsDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,12 +44,12 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services
     .AddControllers(options =>
     {
-        options.InputFormatters.Insert(0, GetJsonPatchInputFormatter());
         options.ModelBinderProviders.Insert(0, new CLARIHR.Api.Common.Binders.PositionDescriptionCatalogTypeModelBinderProvider());
         options.ModelMetadataDetailsProviders.Add(new PublicContractBindingMetadataProvider());
         options.Conventions.Add(new PublicContractRouteConvention());
         options.Conventions.Add(new ProducesStandardErrorsConvention());
         options.Filters.AddService<PersonnelFilePhotoUrlResultFilter>();
+        options.Filters.AddService<ConditionalRequestResultFilter>();
         options.Filters.AddService<ValidateJsonPatchDocumentFilter>();
     })
     .AddJsonOptions(options =>
@@ -58,7 +60,24 @@ builder.Services
             options.JsonSerializerOptions.TypeInfoResolver);
     });
 builder.Services.AddEndpointsApiExplorer();
+builder.Services
+    .AddApiVersioning(options =>
+    {
+        options.DefaultApiVersion = new ApiVersion(1, 0);
+        options.AssumeDefaultVersionWhenUnspecified = true;
+        options.ReportApiVersions = true;
+        options.ApiVersionReader = new UrlSegmentApiVersionReader();
+    })
+    .AddMvc()
+    .AddApiExplorer(options =>
+    {
+        // Format the group name as "v1", "v2", ... so it matches the SwaggerDoc names.
+        options.GroupNameFormat = "'v'VVV";
+        // Replace the {version:apiVersion} route token with the resolved version in generated URLs.
+        options.SubstituteApiVersionInUrl = true;
+    });
 builder.Services.AddScoped<PersonnelFilePhotoUrlResultFilter>();
+builder.Services.AddScoped<ConditionalRequestResultFilter>();
 builder.Services.AddScoped<ValidateJsonPatchDocumentFilter>();
 builder.Services.AddScoped<ReportExportDeliveryService>();
 builder.Services.AddSwaggerGen(options =>
@@ -358,23 +377,5 @@ static RateLimitPartition<string> CreateUserTenantPartitionedLimiter(HttpContext
             AutoReplenishment = true
         });
 }
-
-#pragma warning disable ASP0000
-static Microsoft.AspNetCore.Mvc.Formatters.NewtonsoftJsonPatchInputFormatter GetJsonPatchInputFormatter()
-{
-    var builder = new Microsoft.Extensions.DependencyInjection.ServiceCollection()
-        .AddLogging()
-        .AddMvc()
-        .AddNewtonsoftJson()
-        .Services.BuildServiceProvider();
-
-    return builder
-        .GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Mvc.MvcOptions>>()
-        .Value
-        .InputFormatters
-        .OfType<Microsoft.AspNetCore.Mvc.Formatters.NewtonsoftJsonPatchInputFormatter>()
-        .First();
-}
-#pragma warning restore ASP0000
 
 public partial class Program;

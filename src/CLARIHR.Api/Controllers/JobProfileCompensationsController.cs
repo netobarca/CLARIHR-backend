@@ -1,4 +1,6 @@
+using Asp.Versioning;
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -6,24 +8,32 @@ using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.JsonPatch;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
-[Route("api/v1/job-profiles/{jobProfilePublicId:guid}/compensations")]
+[Route("api/v{version:apiVersion}/job-profiles/{jobProfilePublicId:guid}/compensations")]
 [Consumes("application/json")]
 [Produces("application/json")]
+[Tags("Job Profiles")]
 public sealed class JobProfileCompensationsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<IReadOnlyCollection<JobProfileCompensationItemResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List compensation items of a job profile",
+        Description = """
+            Returns the full list of compensation items defined for the
+            specified job profile.
+            """)]
     public async Task<ActionResult<IReadOnlyCollection<JobProfileCompensationItemResponse>>> Get(
         Guid jobProfilePublicId,
         CancellationToken cancellationToken = default)
@@ -36,9 +46,17 @@ public sealed class JobProfileCompensationsController(
     }
 
     [HttpGet("{compensationPublicId:guid}")]
-    [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<JobProfileCompensationItemResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a job profile compensation item by id",
+        Description = """
+            Returns a single compensation item of the specified job profile.
+
+            The `concurrencyToken` in the response is required in the `If-Match`
+            header of subsequent `PUT`/`PATCH`/`DELETE` requests to prevent
+            lost updates.
+            """)]
     public async Task<ActionResult<JobProfileCompensationItemResponse>> GetById(
         Guid jobProfilePublicId,
         Guid compensationPublicId,
@@ -52,12 +70,19 @@ public sealed class JobProfileCompensationsController(
     }
 
     [HttpPost]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileCompensationItemResponse>(StatusCodes.Status201Created)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Add a compensation item to a job profile",
+        Description = """
+            Creates a new compensation item under the specified job profile and returns it
+            with a `201 Created` response. The `Location` header points to the
+            created resource and the `ETag` header carries its initial
+            `concurrencyToken`.
+            """)]
     public async Task<ActionResult<JobProfileCompensationItemResponse>> Add(
         Guid jobProfilePublicId,
-        [FromBody] AddCompensationRequest request,
+        [FromBody] MutateCompensationRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
@@ -67,34 +92,30 @@ public sealed class JobProfileCompensationsController(
                 request.Notes),
             cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return this.ToActionResult(Result<JobProfileCompensationItemResponse>.Failure(result.Error));
-        }
-
-        this.SetETag(result, value => value.ConcurrencyToken);
-        return CreatedAtAction(nameof(GetById), new { jobProfilePublicId, compensationPublicId = result.Value.CompensationPublicId }, result.Value);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetById),
+            value => new { jobProfilePublicId, compensationPublicId = value.CompensationPublicId },
+            value => value.ConcurrencyToken);
     }
 
     [HttpPut("{compensationPublicId:guid}")]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileCompensationItemResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Replace a job profile compensation item",
+        Description = """
+            Replaces all fields of an existing compensation item. Requires the `If-Match`
+            header with the current `concurrencyToken` to prevent lost updates.
+            The new token is returned in the `ETag` header.
+            """)]
     public async Task<ActionResult<JobProfileCompensationItemResponse>> Update(
         Guid jobProfilePublicId,
         Guid compensationPublicId,
-        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
-        [FromBody] UpdateCompensationRequest request,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] MutateCompensationRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
-        {
-            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
-                HttpContext,
-                statusCode: StatusCodes.Status400BadRequest,
-                detail: IfMatchHeader.MissingDetail));
-        }
-
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileCompensationCommand(
                 jobProfilePublicId,
@@ -108,55 +129,53 @@ public sealed class JobProfileCompensationsController(
     }
 
     [HttpPatch("{compensationPublicId:guid}")]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
     [Consumes("application/json-patch+json")]
     [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<JobProfileCompensationItemResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Patch a job profile compensation item",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to an existing compensation item. Requires the
+            `If-Match` header with the current `concurrencyToken`. The new token
+            is returned in the `ETag` header.
+            """)]
     public async Task<ActionResult<JobProfileCompensationItemResponse>> Patch(
         Guid jobProfilePublicId,
         Guid compensationPublicId,
-        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
-        [FromBody] JsonPatchDocument<UpdateCompensationRequest> patchDoc,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<MutateCompensationRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
-        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
-        {
-            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
-                HttpContext,
-                statusCode: StatusCodes.Status400BadRequest,
-                detail: IfMatchHeader.MissingDetail));
-        }
-
         var result = await commandDispatcher.SendAsync(
             new PatchJobProfileCompensationCommand(
                 jobProfilePublicId,
                 compensationPublicId,
                 concurrencyToken,
-                MapPatchOperations(patchDoc)),
+                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new JobProfileCompensationPatchOperation(op, path, from, value))),
             cancellationToken);
 
         return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpDelete("{compensationPublicId:guid}")]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileParentConcurrencyResult>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Remove a compensation item from a job profile",
+        Description = """
+            Deletes the specified compensation item. Requires the `If-Match` header with the
+            current `concurrencyToken`. Returns the parent job profile's updated
+            concurrency token so the caller can continue mutating the profile
+            without an extra round-trip.
+            """)]
     public async Task<ActionResult<JobProfileParentConcurrencyResult>> Remove(
         Guid jobProfilePublicId,
         Guid compensationPublicId,
-        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
-        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
-        {
-            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
-                HttpContext,
-                statusCode: StatusCodes.Status400BadRequest,
-                detail: IfMatchHeader.MissingDetail));
-        }
-
         var result = await commandDispatcher.SendAsync(
             new RemoveJobProfileCompensationCommand(jobProfilePublicId, compensationPublicId, concurrencyToken),
             cancellationToken);
@@ -164,18 +183,7 @@ public sealed class JobProfileCompensationsController(
         return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
-    private static IReadOnlyCollection<JobProfileCompensationPatchOperation> MapPatchOperations(JsonPatchDocument<UpdateCompensationRequest> patchDoc) =>
-        JsonPatchOperationMapper.Map(
-            patchDoc,
-            static (op, path, from, value) => new JobProfileCompensationPatchOperation(op, path, from, value));
-
-    public sealed class AddCompensationRequest
-    {
-        public Guid SalaryTabulatorLinePublicId { get; set; }
-        public string? Notes { get; set; }
-    }
-
-    public sealed class UpdateCompensationRequest
+    public sealed class MutateCompensationRequest
     {
         public Guid SalaryTabulatorLinePublicId { get; set; }
         public string? Notes { get; set; }

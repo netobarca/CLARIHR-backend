@@ -127,8 +127,36 @@ public static class PublicContractNaming
         }
 
         var normalizedTemplate = routeTemplate.TrimStart('/');
-        return normalizedTemplate.StartsWith("api/v1/companies/{companyId", StringComparison.Ordinal) ||
-               normalizedTemplate.StartsWith("api/v1/companies/{companyPublicId", StringComparison.Ordinal);
+
+        // Skip the API version segment so company-context detection is
+        // independent of versioning: "api/v1/...", "api/v2/...", or the
+        // versioned route token "api/v{version:apiVersion}/...".
+        const string apiPrefix = "api/";
+        if (!normalizedTemplate.StartsWith(apiPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var afterApi = normalizedTemplate.AsSpan(apiPrefix.Length);
+        var nextSlash = afterApi.IndexOf('/');
+        if (nextSlash <= 0)
+        {
+            return false;
+        }
+
+        var versionSegment = afterApi[..nextSlash];
+        var isVersionSegment = versionSegment.Length > 1 &&
+            versionSegment[0] == 'v' &&
+            (char.IsAsciiDigit(versionSegment[1]) ||
+             versionSegment.StartsWith("v{version", StringComparison.Ordinal));
+        if (!isVersionSegment)
+        {
+            return false;
+        }
+
+        var remainder = afterApi[(nextSlash + 1)..];
+        return remainder.StartsWith("companies/{companyId", StringComparison.Ordinal) ||
+               remainder.StartsWith("companies/{companyPublicId", StringComparison.Ordinal);
     }
 
     private static string? TransformGuidIdentifier(string memberName)

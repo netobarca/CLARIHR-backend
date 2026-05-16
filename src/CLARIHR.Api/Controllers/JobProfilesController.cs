@@ -1,5 +1,7 @@
+using Asp.Versioning;
 using System.ComponentModel.DataAnnotations;
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -10,25 +12,36 @@ using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Domain.JobProfiles;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.JsonPatch;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
-[Route("api/v1")]
+[Route("api/v{version:apiVersion}")]
 [Consumes("application/json")]
 [Produces("application/json")]
+[Tags("Job Profiles")]
 public sealed class JobProfilesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
     [HttpGet("companies/{companyId:guid}/job-profiles")]
-    [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<PagedResponse<JobProfileListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "Search job profiles",
+        Description = """
+            Returns a paginated list of job profiles for the specified company.
+
+            Supports optional filtering by `status`, `orgUnitId` and `salaryClass`,
+            plus a free-text query (`q`) matched against code and title.
+            Set `includeAllowedActions=true` to include, per item, the set of
+            operations the current user is authorized to perform on it.
+            """)]
     public async Task<ActionResult<PagedResponse<JobProfileListItemResponse>>> Search(
         Guid companyId,
         [FromQuery] JobProfileStatus? status,
@@ -49,9 +62,18 @@ public sealed class JobProfilesController(
     }
 
     [HttpGet("job-profiles/{publicId:guid}")]
-    [Authorize(Policy = JobProfilePolicies.Read)]
     [ProducesResponseType<JobProfileEntityResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a job profile by id",
+        Description = """
+            Returns the full job profile entity, including its sub-resources
+            (functions, requirements, competencies, benefits and the rest).
+
+            The `concurrencyToken` in the response body is required in the
+            `If-Match` header of subsequent `PUT`/`PATCH`/`DELETE` requests
+            to prevent lost updates.
+            """)]
     public async Task<ActionResult<JobProfileEntityResponse>> GetById(Guid publicId, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetJobProfileByIdQuery(publicId), cancellationToken);
@@ -61,7 +83,6 @@ public sealed class JobProfilesController(
 
 
     [HttpPost("companies/{companyId:guid}/job-profiles")]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileCoreResponse>(StatusCodes.Status201Created)]
     [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
@@ -105,17 +126,14 @@ public sealed class JobProfilesController(
                 request.AllowInlineCatalogCreate),
             cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return this.ToActionResult(Result<JobProfileCoreResponse>.Failure(result.Error));
-        }
-
-        this.SetETag(result, value => value.ConcurrencyToken);
-        return CreatedAtAction(nameof(GetById), new { publicId = result.Value.Id }, result.Value);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetById),
+            value => new { publicId = value.Id },
+            value => value.ConcurrencyToken);
     }
 
     [HttpPut("job-profiles/{publicId:guid}")]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
     [ProducesResponseType<JobProfileCoreResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Command)]
     [SwaggerOperation(
@@ -136,18 +154,10 @@ public sealed class JobProfilesController(
             """)]
     public async Task<ActionResult<JobProfileCoreResponse>> Update(
         Guid publicId,
-        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateJobProfileRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
-        {
-            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
-                HttpContext,
-                statusCode: StatusCodes.Status400BadRequest,
-                detail: IfMatchHeader.MissingDetail));
-        }
-
         var result = await commandDispatcher.SendAsync(
             new UpdateJobProfileCommand(
                 publicId,
@@ -177,36 +187,34 @@ public sealed class JobProfilesController(
     }
 
     [HttpPatch("job-profiles/{publicId:guid}")]
-    [Authorize(Policy = JobProfilePolicies.Manage)]
     [Consumes("application/json-patch+json")]
     [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<JobProfileCoreResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Patch a job profile",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to an existing job profile.
+            Requires the `If-Match` header with the current `concurrencyToken`
+            to prevent lost updates.
+
+            Unlike `PUT /job-profiles/{publicId}`, this endpoint **can change the
+            `status`** field, making it the supported mechanism for job profile
+            **status transitions**.
+            """)]
     public async Task<ActionResult<JobProfileCoreResponse>> Patch(
         Guid publicId,
-        [FromHeader(Name = IfMatchHeader.HeaderName)] string? ifMatch,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] JsonPatchDocument<PatchJobProfileRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
-        if (!IfMatchHeader.TryParseConcurrencyToken(ifMatch, out var concurrencyToken))
-        {
-            return BadRequest(ProblemDetailsFactory.CreateProblemDetails(
-                HttpContext,
-                statusCode: StatusCodes.Status400BadRequest,
-                detail: IfMatchHeader.MissingDetail));
-        }
-
         var updateResult = await commandDispatcher.SendAsync(
-            new PatchJobProfileCommand(publicId, concurrencyToken, MapPatchOperations(patchDoc)),
+            new PatchJobProfileCommand(publicId, concurrencyToken, JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new JobProfilePatchOperation(op, path, from, value))),
             cancellationToken);
 
         return this.ToActionResultWithETag(updateResult, value => value.ConcurrencyToken);
     }
-
-    private static IReadOnlyCollection<JobProfilePatchOperation> MapPatchOperations(JsonPatchDocument<PatchJobProfileRequest> patchDoc) =>
-        JsonPatchOperationMapper.Map(
-            patchDoc,
-            static (op, path, from, value) => new JobProfilePatchOperation(op, path, from, value));
 
     public sealed class CreateJobProfileRequest : JobProfileMutationRequest;
 

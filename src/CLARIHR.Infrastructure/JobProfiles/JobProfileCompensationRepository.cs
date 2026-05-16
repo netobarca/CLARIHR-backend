@@ -33,17 +33,34 @@ internal sealed class JobProfileCompensationRepository(ApplicationDbContext dbCo
          select compensation)
         .SingleOrDefaultAsync(cancellationToken);
 
-    public async Task<JobProfileCompensationItemResponse?> GetResponseAsync(
+    public Task<JobProfileCompensationItemResponse?> GetResponseAsync(
         Guid jobProfilePublicId,
         Guid compensationPublicId,
         CancellationToken cancellationToken) =>
-        await BuildResponseQuery()
-            .Where(item => item.ProfilePublicId == jobProfilePublicId && item.CompensationPublicId == compensationPublicId)
-            .Select(item => item.Response)
-            .SingleOrDefaultAsync(cancellationToken);
+        (from compensation in dbContext.JobProfileCompensations.AsNoTracking()
+         join profile in dbContext.JobProfiles.AsNoTracking() on compensation.JobProfileId equals profile.Id
+         join line in dbContext.SalaryTabulatorLines.AsNoTracking() on compensation.SalaryTabulatorLineId equals line.Id
+         where profile.PublicId == jobProfilePublicId && compensation.PublicId == compensationPublicId
+         select new JobProfileCompensationItemResponse(
+             compensation.PublicId,
+             line.PublicId,
+             line.SalaryClassCode,
+             line.SalaryScaleCode,
+             line.CurrencyCode,
+             line.BaseAmount,
+             line.MinAmount,
+             line.MaxAmount,
+             line.EffectiveFromUtc,
+             line.EffectiveToUtc,
+             compensation.Notes,
+             compensation.ConcurrencyToken,
+             compensation.CreatedUtc,
+             compensation.ModifiedUtc))
+        .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<JobProfileCompensationItemResponse>?> GetResponsesByProfileIdAsync(
         Guid jobProfilePublicId,
+        int maxItems,
         CancellationToken cancellationToken)
     {
         var profileExists = await dbContext.JobProfiles
@@ -54,9 +71,26 @@ internal sealed class JobProfileCompensationRepository(ApplicationDbContext dbCo
             return null;
         }
 
-        return await BuildResponseQuery()
-            .Where(item => item.ProfilePublicId == jobProfilePublicId)
-            .Select(item => item.Response)
+        return await (from compensation in dbContext.JobProfileCompensations.AsNoTracking()
+                      join profile in dbContext.JobProfiles.AsNoTracking() on compensation.JobProfileId equals profile.Id
+                      join line in dbContext.SalaryTabulatorLines.AsNoTracking() on compensation.SalaryTabulatorLineId equals line.Id
+                      where profile.PublicId == jobProfilePublicId
+                      select new JobProfileCompensationItemResponse(
+                          compensation.PublicId,
+                          line.PublicId,
+                          line.SalaryClassCode,
+                          line.SalaryScaleCode,
+                          line.CurrencyCode,
+                          line.BaseAmount,
+                          line.MinAmount,
+                          line.MaxAmount,
+                          line.EffectiveFromUtc,
+                          line.EffectiveToUtc,
+                          compensation.Notes,
+                          compensation.ConcurrencyToken,
+                          compensation.CreatedUtc,
+                          compensation.ModifiedUtc))
+            .Take(maxItems)
             .ToArrayAsync(cancellationToken);
     }
 
@@ -78,29 +112,4 @@ internal sealed class JobProfileCompensationRepository(ApplicationDbContext dbCo
             .SingleOrDefaultAsync(
                 line => line.TenantId == tenantId && line.PublicId == salaryTabulatorLinePublicId,
                 cancellationToken);
-
-    private IQueryable<CompensationRow> BuildResponseQuery() =>
-        from compensation in dbContext.JobProfileCompensations.AsNoTracking()
-        join profile in dbContext.JobProfiles.AsNoTracking() on compensation.JobProfileId equals profile.Id
-        join line in dbContext.SalaryTabulatorLines.AsNoTracking() on compensation.SalaryTabulatorLineId equals line.Id
-        select new CompensationRow(
-            profile.PublicId,
-            compensation.PublicId,
-            new JobProfileCompensationItemResponse(
-                compensation.PublicId,
-                line.PublicId,
-                line.SalaryClassCode,
-                line.SalaryScaleCode,
-                line.CurrencyCode,
-                line.BaseAmount,
-                line.MinAmount,
-                line.MaxAmount,
-                line.EffectiveFromUtc,
-                line.EffectiveToUtc,
-                compensation.Notes,
-                compensation.ConcurrencyToken,
-                compensation.CreatedUtc,
-                compensation.ModifiedUtc));
-
-    private sealed record CompensationRow(Guid ProfilePublicId, Guid CompensationPublicId, JobProfileCompensationItemResponse Response);
 }

@@ -2,6 +2,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Abstractions.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace CLARIHR.Api.Common;
 
@@ -19,6 +20,21 @@ internal static class ProblemDetailsFactory
 
         var statusCode = MapStatusCode(error.Type);
         var requestServices = httpContext.RequestServices;
+
+        if (statusCode == StatusCodes.Status500InternalServerError)
+        {
+            var logger = requestServices?
+                .GetService<ILoggerFactory>()
+                ?.CreateLogger("CLARIHR.Api.Common.ProblemDetailsFactory");
+            logger?.LogWarning(
+                "Unexpected failure mapped to 500 for {Method} {Path}: error code '{ErrorCode}' (type {ErrorType}), traceId {TraceId}.",
+                httpContext.Request.Method,
+                httpContext.Request.Path.Value,
+                error.Code,
+                error.Type,
+                httpContext.TraceIdentifier);
+        }
+
         var localizer = requestServices is null
             ? null
             : requestServices.GetService<IBackendMessageLocalizer>();

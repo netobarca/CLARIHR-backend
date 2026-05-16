@@ -1,4 +1,5 @@
 using CLARIHR.Application.Abstractions.Auditing;
+using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.InternalCatalogs;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.Persistence;
@@ -247,26 +248,37 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
                 function.ConcurrencyToken));
     }
 
-    public Task<IReadOnlyCollection<JobProfileRelationResponse>?> GetRelationResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    public Task<PagedResponse<JobProfileRelationResponse>?> GetRelationResponsesByProfileIdAsync(
+        Guid profileId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
     {
         if (!Profiles.TryGetValue(profileId, out var profile))
         {
-            return Task.FromResult<IReadOnlyCollection<JobProfileRelationResponse>?>(null);
+            return Task.FromResult<PagedResponse<JobProfileRelationResponse>?>(null);
         }
 
-        return Task.FromResult<IReadOnlyCollection<JobProfileRelationResponse>?>(
-            profile.Relations
-                .OrderBy(relation => relation.SortOrder)
-                .ThenBy(relation => relation.Counterpart)
-                .Select(relation => new JobProfileRelationResponse(
-                    relation.PublicId,
-                    null,
-                    relation.RelationType,
-                    relation.Counterpart,
-                    relation.Notes,
-                    relation.SortOrder,
-                    relation.ConcurrencyToken))
-                .ToArray());
+        var orderedItems = profile.Relations
+            .OrderBy(relation => relation.SortOrder)
+            .ThenBy(relation => relation.Counterpart)
+            .Select(relation => new JobProfileRelationResponse(
+                relation.PublicId,
+                null,
+                relation.RelationType,
+                relation.Counterpart,
+                relation.Notes,
+                relation.SortOrder,
+                relation.ConcurrencyToken))
+            .ToArray();
+
+        var pagedItems = orderedItems
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+
+        return Task.FromResult<PagedResponse<JobProfileRelationResponse>?>(
+            new PagedResponse<JobProfileRelationResponse>(pagedItems, pageNumber, pageSize, orderedItems.Length));
     }
 
     public Task<JobProfileRelationResponse?> GetRelationResponseAsync(Guid profileId, Guid relationId, CancellationToken cancellationToken)
@@ -342,25 +354,36 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
                 competency.ConcurrencyToken));
     }
 
-    public Task<IReadOnlyCollection<JobProfileTrainingResponse>?> GetTrainingResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    public Task<PagedResponse<JobProfileTrainingResponse>?> GetTrainingResponsesByProfileIdAsync(
+        Guid profileId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
     {
         if (!Profiles.TryGetValue(profileId, out var profile))
         {
-            return Task.FromResult<IReadOnlyCollection<JobProfileTrainingResponse>?>(null);
+            return Task.FromResult<PagedResponse<JobProfileTrainingResponse>?>(null);
         }
 
-        return Task.FromResult<IReadOnlyCollection<JobProfileTrainingResponse>?>(
-            profile.Trainings
-                .OrderBy(training => training.SortOrder)
-                .ThenBy(training => training.Name)
-                .Select(training => new JobProfileTrainingResponse(
-                    training.PublicId,
-                    null,
-                    training.Name,
-                    training.Notes,
-                    training.SortOrder,
-                    training.ConcurrencyToken))
-                .ToArray());
+        var orderedItems = profile.Trainings
+            .OrderBy(training => training.SortOrder)
+            .ThenBy(training => training.Name)
+            .Select(training => new JobProfileTrainingResponse(
+                training.PublicId,
+                null,
+                training.Name,
+                training.Notes,
+                training.SortOrder,
+                training.ConcurrencyToken))
+            .ToArray();
+
+        var pagedItems = orderedItems
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+
+        return Task.FromResult<PagedResponse<JobProfileTrainingResponse>?>(
+            new PagedResponse<JobProfileTrainingResponse>(pagedItems, pageNumber, pageSize, orderedItems.Length));
     }
 
     public Task<JobProfileTrainingResponse?> GetTrainingResponseAsync(Guid profileId, Guid trainingId, CancellationToken cancellationToken)
@@ -382,25 +405,36 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
                 training.ConcurrencyToken));
     }
 
-    public Task<IReadOnlyCollection<JobProfileBenefitResponse>?> GetBenefitResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    public Task<PagedResponse<JobProfileBenefitResponse>?> GetBenefitResponsesByProfileIdAsync(
+        Guid profileId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
     {
         if (!Profiles.TryGetValue(profileId, out var profile))
         {
-            return Task.FromResult<IReadOnlyCollection<JobProfileBenefitResponse>?>(null);
+            return Task.FromResult<PagedResponse<JobProfileBenefitResponse>?>(null);
         }
 
-        return Task.FromResult<IReadOnlyCollection<JobProfileBenefitResponse>?>(
-            profile.Benefits
-                .OrderBy(benefit => benefit.SortOrder)
-                .ThenBy(benefit => benefit.Name)
-                .Select(benefit => new JobProfileBenefitResponse(
-                    benefit.PublicId,
-                    null,
-                    benefit.Name,
-                    benefit.Notes,
-                    benefit.SortOrder,
-                    benefit.ConcurrencyToken))
-                .ToArray());
+        var orderedItems = profile.Benefits
+            .OrderBy(benefit => benefit.SortOrder)
+            .ThenBy(benefit => benefit.Name)
+            .Select(benefit => new JobProfileBenefitResponse(
+                benefit.PublicId,
+                null,
+                benefit.Name,
+                benefit.Notes,
+                benefit.SortOrder,
+                benefit.ConcurrencyToken))
+            .ToArray();
+
+        var pagedItems = orderedItems
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+
+        return Task.FromResult<PagedResponse<JobProfileBenefitResponse>?>(
+            new PagedResponse<JobProfileBenefitResponse>(pagedItems, pageNumber, pageSize, orderedItems.Length));
     }
 
     public Task<JobProfileBenefitResponse?> GetBenefitResponseAsync(Guid profileId, Guid benefitId, CancellationToken cancellationToken)
@@ -422,26 +456,37 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
                 benefit.ConcurrencyToken));
     }
 
-    public Task<IReadOnlyCollection<JobProfileWorkingConditionResponse>?> GetWorkingConditionResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    public Task<PagedResponse<JobProfileWorkingConditionResponse>?> GetWorkingConditionResponsesByProfileIdAsync(
+        Guid profileId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
     {
         if (!Profiles.TryGetValue(profileId, out var profile))
         {
-            return Task.FromResult<IReadOnlyCollection<JobProfileWorkingConditionResponse>?>(null);
+            return Task.FromResult<PagedResponse<JobProfileWorkingConditionResponse>?>(null);
         }
 
-        return Task.FromResult<IReadOnlyCollection<JobProfileWorkingConditionResponse>?>(
-            profile.WorkingConditions
-                .OrderBy(condition => condition.SortOrder)
-                .ThenBy(condition => condition.Name)
-                .Select(condition => new JobProfileWorkingConditionResponse(
-                    condition.PublicId,
-                    null,
-                    null,
-                    condition.Name,
-                    condition.Notes,
-                    condition.SortOrder,
-                    condition.ConcurrencyToken))
-                .ToArray());
+        var orderedItems = profile.WorkingConditions
+            .OrderBy(condition => condition.SortOrder)
+            .ThenBy(condition => condition.Name)
+            .Select(condition => new JobProfileWorkingConditionResponse(
+                condition.PublicId,
+                null,
+                null,
+                condition.Name,
+                condition.Notes,
+                condition.SortOrder,
+                condition.ConcurrencyToken))
+            .ToArray();
+
+        var pagedItems = orderedItems
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+
+        return Task.FromResult<PagedResponse<JobProfileWorkingConditionResponse>?>(
+            new PagedResponse<JobProfileWorkingConditionResponse>(pagedItems, pageNumber, pageSize, orderedItems.Length));
     }
 
     public Task<JobProfileWorkingConditionResponse?> GetWorkingConditionResponseAsync(Guid profileId, Guid workingConditionId, CancellationToken cancellationToken)
@@ -464,24 +509,37 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
                 condition.ConcurrencyToken));
     }
 
-    public Task<IReadOnlyCollection<JobProfileDependentPositionResponse>?> GetDependentPositionResponsesByProfileIdAsync(Guid profileId, CancellationToken cancellationToken)
+    public Task<PagedResponse<JobProfileDependentPositionResponse>?> GetDependentPositionResponsesByProfileIdAsync(
+        Guid profileId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
     {
         if (!Profiles.TryGetValue(profileId, out var profile))
         {
-            return Task.FromResult<IReadOnlyCollection<JobProfileDependentPositionResponse>?>(null);
+            return Task.FromResult<PagedResponse<JobProfileDependentPositionResponse>?>(null);
         }
 
-        return Task.FromResult<IReadOnlyCollection<JobProfileDependentPositionResponse>?>(
-            profile.DependentPositions
-                .Select(position => new JobProfileDependentPositionResponse(
-                    position.PublicId,
-                    Guid.NewGuid(),
-                    "JP-REF",
-                    "Referenced profile",
-                    position.Quantity,
-                    position.Notes,
-                    position.ConcurrencyToken))
-                .ToArray());
+        var orderedItems = profile.DependentPositions
+            .Select(position => new JobProfileDependentPositionResponse(
+                position.PublicId,
+                Guid.NewGuid(),
+                "JP-REF",
+                "Referenced profile",
+                position.Quantity,
+                position.Notes,
+                position.ConcurrencyToken))
+            .OrderBy(position => position.DependentJobProfileTitle)
+            .ThenBy(position => position.DependentJobProfileCode)
+            .ToArray();
+
+        var pagedItems = orderedItems
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToArray();
+
+        return Task.FromResult<PagedResponse<JobProfileDependentPositionResponse>?>(
+            new PagedResponse<JobProfileDependentPositionResponse>(pagedItems, pageNumber, pageSize, orderedItems.Length));
     }
 
     public Task<JobProfileDependentPositionResponse?> GetDependentPositionResponseAsync(Guid profileId, Guid dependentPositionId, CancellationToken cancellationToken)
@@ -556,10 +614,10 @@ internal sealed class TestPositionDescriptionCatalogRepository : IPositionDescri
     public Task<PositionCategoryClassificationResponse?> GetClassificationResponseByIdAsync(Guid classificationId, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task<PositionCategoryResponse?> GetCategoryResponseByIdAsync(Guid categoryId, CancellationToken cancellationToken) => throw new NotImplementedException();
     
-    public Task<CatalogReferenceResponse?> GetActiveCatalogReferenceAsync(Guid tenantId, PositionDescriptionCatalogType catalogType, Guid catalogItemId, CancellationToken cancellationToken) => 
-        Task.FromResult((CatalogReferenceResponse?)new CatalogReferenceResponse(1, catalogItemId, "Code", "Name", true));
+    public Task<CatalogReferenceInternal?> GetActiveCatalogReferenceAsync(Guid tenantId, PositionDescriptionCatalogType catalogType, Guid catalogItemId, CancellationToken cancellationToken) =>
+        Task.FromResult((CatalogReferenceInternal?)new CatalogReferenceInternal(1, catalogItemId, "Code", "Name", true));
 
-    public Task<CatalogReferenceResponse?> GetActiveOrgUnitTypeReferenceAsync(Guid tenantId, Guid orgUnitTypeId, CancellationToken cancellationToken) => throw new NotImplementedException();
+    public Task<CatalogReferenceInternal?> GetActiveOrgUnitTypeReferenceAsync(Guid tenantId, Guid orgUnitTypeId, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task<bool> HasCategoriesUsingClassificationAsync(long classificationId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasJobProfilesUsingCategoryAsync(long categoryId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasClassificationsUsingOrgUnitTypeAsync(long orgUnitTypeCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
@@ -606,6 +664,14 @@ internal sealed class TestAuditService : IAuditService
 internal sealed class FixedTenantContext(Guid? tenantId) : ITenantContext
 {
     public Guid? TenantId { get; } = tenantId;
+}
+
+internal sealed class TestJobProfileCurrentUserService(Guid userId) : ICurrentUserService
+{
+    public bool IsAuthenticated => true;
+    public string? UserId { get; } = userId.ToString("D");
+    public IReadOnlyCollection<string> Roles => [];
+    public IReadOnlyCollection<string> Permissions => [];
 }
 
 internal sealed class TestInternalCatalogRepository : IInternalCatalogRepository

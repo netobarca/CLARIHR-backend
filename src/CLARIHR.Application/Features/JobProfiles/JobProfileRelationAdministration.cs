@@ -8,6 +8,7 @@ using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
+using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -17,8 +18,11 @@ using static CLARIHR.Application.Features.JobProfiles.JobProfileRelationCommandS
 
 namespace CLARIHR.Application.Features.JobProfiles;
 
-public sealed record GetJobProfileRelationsQuery(Guid JobProfileId)
-    : IQuery<IReadOnlyCollection<JobProfileRelationResponse>>;
+public sealed record GetJobProfileRelationsQuery(
+    Guid JobProfileId,
+    int PageNumber = 1,
+    int PageSize = JobProfileValidationRules.DefaultPageSize)
+    : IQuery<PagedResponse<JobProfileRelationResponse>>;
 
 public sealed record GetJobProfileRelationByIdQuery(Guid JobProfileId, Guid RelationId)
     : IQuery<JobProfileRelationResponse>;
@@ -63,6 +67,8 @@ internal sealed class GetJobProfileRelationsQueryValidator : AbstractValidator<G
     public GetJobProfileRelationsQueryValidator()
     {
         RuleFor(query => query.JobProfileId).NotEmpty();
+        RuleFor(query => query.PageNumber).GreaterThan(0);
+        RuleFor(query => query.PageSize).InclusiveBetween(1, JobProfileValidationRules.MaxPageSize);
     }
 }
 
@@ -140,31 +146,35 @@ internal sealed class GetJobProfileRelationsQueryHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
     ITenantContext tenantContext)
-    : IQueryHandler<GetJobProfileRelationsQuery, IReadOnlyCollection<JobProfileRelationResponse>>
+    : IQueryHandler<GetJobProfileRelationsQuery, PagedResponse<JobProfileRelationResponse>>
 {
-    public async Task<Result<IReadOnlyCollection<JobProfileRelationResponse>>> Handle(GetJobProfileRelationsQuery query, CancellationToken cancellationToken)
+    public async Task<Result<PagedResponse<JobProfileRelationResponse>>> Handle(GetJobProfileRelationsQuery query, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<IReadOnlyCollection<JobProfileRelationResponse>>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PagedResponse<JobProfileRelationResponse>>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<IReadOnlyCollection<JobProfileRelationResponse>>.Failure(authorizationResult.Error);
+            return Result<PagedResponse<JobProfileRelationResponse>>.Failure(authorizationResult.Error);
         }
 
-        var relations = await repository.GetRelationResponsesByProfileIdAsync(query.JobProfileId, cancellationToken);
+        var relations = await repository.GetRelationResponsesByProfileIdAsync(
+            query.JobProfileId,
+            query.PageNumber,
+            query.PageSize,
+            cancellationToken);
         if (relations is null)
         {
-            return Result<IReadOnlyCollection<JobProfileRelationResponse>>.Failure(
+            return Result<PagedResponse<JobProfileRelationResponse>>.Failure(
                 await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                     : JobProfileErrors.JobProfileNotFound);
         }
 
-        return Result<IReadOnlyCollection<JobProfileRelationResponse>>.Success(relations);
+        return Result<PagedResponse<JobProfileRelationResponse>>.Success(relations);
     }
 }
 

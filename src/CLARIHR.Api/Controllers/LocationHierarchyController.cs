@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -8,8 +9,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
-[Route("api/v1/companies/{companyId:guid}/location-hierarchy")]
+[Route("api/v{version:apiVersion}/companies/{companyId:guid}/location-hierarchy")]
 public sealed class LocationHierarchyController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
