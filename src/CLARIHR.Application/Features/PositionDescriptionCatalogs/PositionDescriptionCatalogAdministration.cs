@@ -109,12 +109,6 @@ public sealed record UpdatePositionDescriptionCatalogItemCommand(
     Guid ConcurrencyToken)
     : ICommand<PositionDescriptionCatalogItemResponse>;
 
-public sealed record ActivatePositionDescriptionCatalogItemCommand(Guid ItemId, Guid ConcurrencyToken)
-    : ICommand<PositionDescriptionCatalogItemResponse>;
-
-public sealed record InactivatePositionDescriptionCatalogItemCommand(Guid ItemId, Guid ConcurrencyToken)
-    : ICommand<PositionDescriptionCatalogItemResponse>;
-
 public sealed record SearchPositionCategoryClassificationsQuery(
     Guid CompanyId,
     Guid? PositionFunctionTypeId,
@@ -153,12 +147,6 @@ public sealed record UpdatePositionCategoryClassificationCommand(
     Guid ConcurrencyToken)
     : ICommand<PositionCategoryClassificationResponse>;
 
-public sealed record ActivatePositionCategoryClassificationCommand(Guid ClassificationId, Guid ConcurrencyToken)
-    : ICommand<PositionCategoryClassificationResponse>;
-
-public sealed record InactivatePositionCategoryClassificationCommand(Guid ClassificationId, Guid ConcurrencyToken)
-    : ICommand<PositionCategoryClassificationResponse>;
-
 public sealed record SearchPositionCategoriesQuery(
     Guid CompanyId,
     Guid? ClassificationId,
@@ -189,12 +177,6 @@ public sealed record UpdatePositionCategoryCommand(
     Guid ClassificationId,
     int SortOrder,
     Guid ConcurrencyToken)
-    : ICommand<PositionCategoryResponse>;
-
-public sealed record ActivatePositionCategoryCommand(Guid CategoryId, Guid ConcurrencyToken)
-    : ICommand<PositionCategoryResponse>;
-
-public sealed record InactivatePositionCategoryCommand(Guid CategoryId, Guid ConcurrencyToken)
     : ICommand<PositionCategoryResponse>;
 
 internal sealed class SearchPositionDescriptionCatalogItemsQueryValidator : AbstractValidator<SearchPositionDescriptionCatalogItemsQuery>
@@ -245,24 +227,6 @@ internal sealed class UpdatePositionDescriptionCatalogItemCommandValidator : Abs
         RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
-    }
-}
-
-internal sealed class ActivatePositionDescriptionCatalogItemCommandValidator : AbstractValidator<ActivatePositionDescriptionCatalogItemCommand>
-{
-    public ActivatePositionDescriptionCatalogItemCommandValidator()
-    {
-        RuleFor(command => command.ItemId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
-    }
-}
-
-internal sealed class InactivatePositionDescriptionCatalogItemCommandValidator : AbstractValidator<InactivatePositionDescriptionCatalogItemCommand>
-{
-    public InactivatePositionDescriptionCatalogItemCommandValidator()
-    {
-        RuleFor(command => command.ItemId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -325,24 +289,6 @@ internal sealed class UpdatePositionCategoryClassificationCommandValidator : Abs
     }
 }
 
-internal sealed class ActivatePositionCategoryClassificationCommandValidator : AbstractValidator<ActivatePositionCategoryClassificationCommand>
-{
-    public ActivatePositionCategoryClassificationCommandValidator()
-    {
-        RuleFor(command => command.ClassificationId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
-    }
-}
-
-internal sealed class InactivatePositionCategoryClassificationCommandValidator : AbstractValidator<InactivatePositionCategoryClassificationCommand>
-{
-    public InactivatePositionCategoryClassificationCommandValidator()
-    {
-        RuleFor(command => command.ClassificationId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
-    }
-}
-
 internal sealed class SearchPositionCategoriesQueryValidator : AbstractValidator<SearchPositionCategoriesQuery>
 {
     public SearchPositionCategoriesQueryValidator()
@@ -391,24 +337,6 @@ internal sealed class UpdatePositionCategoryCommandValidator : AbstractValidator
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.ClassificationId).NotEmpty();
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
-    }
-}
-
-internal sealed class ActivatePositionCategoryCommandValidator : AbstractValidator<ActivatePositionCategoryCommand>
-{
-    public ActivatePositionCategoryCommandValidator()
-    {
-        RuleFor(command => command.CategoryId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
-    }
-}
-
-internal sealed class InactivatePositionCategoryCommandValidator : AbstractValidator<InactivatePositionCategoryCommand>
-{
-    public InactivatePositionCategoryCommandValidator()
-    {
-        RuleFor(command => command.CategoryId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -643,173 +571,6 @@ internal sealed class UpdatePositionDescriptionCatalogItemCommandHandler(
             throw;
         }
     }
-}
-
-internal sealed class ActivatePositionDescriptionCatalogItemCommandHandler(
-    IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository,
-    ITenantContext tenantContext,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<ActivatePositionDescriptionCatalogItemCommand, PositionDescriptionCatalogItemResponse>
-{
-    public async Task<Result<PositionDescriptionCatalogItemResponse>> Handle(
-        ActivatePositionDescriptionCatalogItemCommand command,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authResult.IsFailure)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(authResult.Error);
-        }
-
-        var entity = await repository.GetCatalogItemByIdAsync(command.ItemId, cancellationToken);
-        if (entity is null)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(
-                await repository.ExistsCatalogItemOutsideTenantAsync(command.ItemId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionDescriptionCatalogErrors.CatalogItemNotFound);
-        }
-
-        if (entity.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
-        }
-
-        var before = await repository.GetCatalogItemResponseByIdAsync(entity.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Catalog item response could not be resolved before activation.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            entity.Activate();
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            PositionDescriptionCatalogCacheInvalidation.InvalidateSimple(repository, entity.TenantId, entity.CatalogType);
-
-            var after = await repository.GetCatalogItemResponseByIdAsync(entity.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Catalog item response could not be resolved after activation.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PositionDescriptionCatalogItemActivated,
-                    AuditEntityTypes.PositionDescriptionCatalogItem,
-                    entity.PublicId,
-                    entity.Code,
-                    AuditActions.Reactivate,
-                    $"Activated position description catalog item {entity.Code} ({entity.CatalogType}).",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PositionDescriptionCatalogItemResponse>.Success(after);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
-internal sealed class InactivatePositionDescriptionCatalogItemCommandHandler(
-    IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository,
-    ITenantContext tenantContext,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<InactivatePositionDescriptionCatalogItemCommand, PositionDescriptionCatalogItemResponse>
-{
-    public async Task<Result<PositionDescriptionCatalogItemResponse>> Handle(
-        InactivatePositionDescriptionCatalogItemCommand command,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authResult.IsFailure)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(authResult.Error);
-        }
-
-        var entity = await repository.GetCatalogItemByIdAsync(command.ItemId, cancellationToken);
-        if (entity is null)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(
-                await repository.ExistsCatalogItemOutsideTenantAsync(command.ItemId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionDescriptionCatalogErrors.CatalogItemNotFound);
-        }
-
-        if (entity.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
-        }
-
-        if (await IsCatalogItemInUseAsync(entity, repository, cancellationToken))
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(PositionDescriptionCatalogErrors.CatalogInUse);
-        }
-
-        var before = await repository.GetCatalogItemResponseByIdAsync(entity.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Catalog item response could not be resolved before inactivation.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            entity.Inactivate();
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            PositionDescriptionCatalogCacheInvalidation.InvalidateSimple(repository, entity.TenantId, entity.CatalogType);
-
-            var after = await repository.GetCatalogItemResponseByIdAsync(entity.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Catalog item response could not be resolved after inactivation.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PositionDescriptionCatalogItemInactivated,
-                    AuditEntityTypes.PositionDescriptionCatalogItem,
-                    entity.PublicId,
-                    entity.Code,
-                    AuditActions.Deactivate,
-                    $"Inactivated position description catalog item {entity.Code} ({entity.CatalogType}).",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PositionDescriptionCatalogItemResponse>.Success(after);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-
-    private static Task<bool> IsCatalogItemInUseAsync(
-        PositionDescriptionCatalogItem entity,
-        IPositionDescriptionCatalogRepository repository,
-        CancellationToken cancellationToken) =>
-        entity.CatalogType switch
-        {
-            PositionDescriptionCatalogType.PositionFunctionType => repository.HasClassificationsUsingCatalogItemAsync(entity.Id, cancellationToken),
-            PositionDescriptionCatalogType.PositionContractType => repository.HasClassificationsUsingCatalogItemAsync(entity.Id, cancellationToken),
-            PositionDescriptionCatalogType.Frequency => repository.HasFunctionsUsingFrequencyAsync(entity.Id, cancellationToken),
-            PositionDescriptionCatalogType.RequirementType => repository.HasRequirementsUsingRequirementTypeAsync(entity.Id, cancellationToken),
-            PositionDescriptionCatalogType.WorkConditionType => repository.HasWorkConditionsUsingWorkConditionTypeAsync(entity.Id, cancellationToken),
-            _ => repository.HasJobProfilesUsingCatalogItemAsync(entity.Id, cancellationToken)
-        };
 }
 
 internal sealed class SearchPositionCategoryClassificationsQueryHandler(
@@ -1127,159 +888,6 @@ internal sealed class UpdatePositionCategoryClassificationCommandHandler(
     }
 }
 
-internal sealed class ActivatePositionCategoryClassificationCommandHandler(
-    IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository,
-    ITenantContext tenantContext,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<ActivatePositionCategoryClassificationCommand, PositionCategoryClassificationResponse>
-{
-    public async Task<Result<PositionCategoryClassificationResponse>> Handle(
-        ActivatePositionCategoryClassificationCommand command,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authResult.IsFailure)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(authResult.Error);
-        }
-
-        var entity = await repository.GetClassificationByIdAsync(command.ClassificationId, cancellationToken);
-        if (entity is null)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(
-                await repository.ExistsClassificationOutsideTenantAsync(command.ClassificationId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionDescriptionCatalogErrors.ClassificationNotFound);
-        }
-
-        if (entity.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
-        }
-
-        var before = await repository.GetClassificationResponseByIdAsync(entity.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Classification response could not be resolved before activation.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            entity.Activate();
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            PositionDescriptionCatalogCacheInvalidation.InvalidateClassificationAndDependents(repository, entity.TenantId);
-
-            var after = await repository.GetClassificationResponseByIdAsync(entity.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Classification response could not be resolved after activation.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PositionCategoryClassificationActivated,
-                    AuditEntityTypes.PositionCategoryClassification,
-                    entity.PublicId,
-                    entity.Code,
-                    AuditActions.Reactivate,
-                    $"Activated position category classification {entity.Code}.",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PositionCategoryClassificationResponse>.Success(after);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
-internal sealed class InactivatePositionCategoryClassificationCommandHandler(
-    IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository,
-    ITenantContext tenantContext,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<InactivatePositionCategoryClassificationCommand, PositionCategoryClassificationResponse>
-{
-    public async Task<Result<PositionCategoryClassificationResponse>> Handle(
-        InactivatePositionCategoryClassificationCommand command,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authResult.IsFailure)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(authResult.Error);
-        }
-
-        var entity = await repository.GetClassificationByIdAsync(command.ClassificationId, cancellationToken);
-        if (entity is null)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(
-                await repository.ExistsClassificationOutsideTenantAsync(command.ClassificationId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionDescriptionCatalogErrors.ClassificationNotFound);
-        }
-
-        if (entity.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
-        }
-
-        if (await repository.HasCategoriesUsingClassificationAsync(entity.Id, cancellationToken))
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(PositionDescriptionCatalogErrors.ClassificationInUse);
-        }
-
-        var before = await repository.GetClassificationResponseByIdAsync(entity.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Classification response could not be resolved before inactivation.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            entity.Inactivate();
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            PositionDescriptionCatalogCacheInvalidation.InvalidateClassificationAndDependents(repository, entity.TenantId);
-
-            var after = await repository.GetClassificationResponseByIdAsync(entity.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Classification response could not be resolved after inactivation.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PositionCategoryClassificationInactivated,
-                    AuditEntityTypes.PositionCategoryClassification,
-                    entity.PublicId,
-                    entity.Code,
-                    AuditActions.Deactivate,
-                    $"Inactivated position category classification {entity.Code}.",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PositionCategoryClassificationResponse>.Success(after);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
 internal sealed class SearchPositionCategoriesQueryHandler(
     IPositionDescriptionCatalogAuthorizationService authorizationService,
     IPositionDescriptionCatalogRepository repository,
@@ -1514,159 +1122,6 @@ internal sealed class UpdatePositionCategoryCommandHandler(
                     entity.Code,
                     AuditActions.Update,
                     $"Updated position category {entity.Code}.",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PositionCategoryResponse>.Success(after);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
-internal sealed class ActivatePositionCategoryCommandHandler(
-    IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository,
-    ITenantContext tenantContext,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<ActivatePositionCategoryCommand, PositionCategoryResponse>
-{
-    public async Task<Result<PositionCategoryResponse>> Handle(
-        ActivatePositionCategoryCommand command,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PositionCategoryResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authResult.IsFailure)
-        {
-            return Result<PositionCategoryResponse>.Failure(authResult.Error);
-        }
-
-        var entity = await repository.GetCategoryByIdAsync(command.CategoryId, cancellationToken);
-        if (entity is null)
-        {
-            return Result<PositionCategoryResponse>.Failure(
-                await repository.ExistsCategoryOutsideTenantAsync(command.CategoryId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionDescriptionCatalogErrors.CategoryNotFound);
-        }
-
-        if (entity.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PositionCategoryResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
-        }
-
-        var before = await repository.GetCategoryResponseByIdAsync(entity.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Category response could not be resolved before activation.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            entity.Activate();
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            repository.InvalidateCategoryCache(entity.TenantId);
-
-            var after = await repository.GetCategoryResponseByIdAsync(entity.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Category response could not be resolved after activation.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PositionCategoryActivated,
-                    AuditEntityTypes.PositionCategory,
-                    entity.PublicId,
-                    entity.Code,
-                    AuditActions.Reactivate,
-                    $"Activated position category {entity.Code}.",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PositionCategoryResponse>.Success(after);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
-internal sealed class InactivatePositionCategoryCommandHandler(
-    IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository,
-    ITenantContext tenantContext,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<InactivatePositionCategoryCommand, PositionCategoryResponse>
-{
-    public async Task<Result<PositionCategoryResponse>> Handle(
-        InactivatePositionCategoryCommand command,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PositionCategoryResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authResult.IsFailure)
-        {
-            return Result<PositionCategoryResponse>.Failure(authResult.Error);
-        }
-
-        var entity = await repository.GetCategoryByIdAsync(command.CategoryId, cancellationToken);
-        if (entity is null)
-        {
-            return Result<PositionCategoryResponse>.Failure(
-                await repository.ExistsCategoryOutsideTenantAsync(command.CategoryId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionDescriptionCatalogErrors.CategoryNotFound);
-        }
-
-        if (entity.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PositionCategoryResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
-        }
-
-        if (await repository.HasJobProfilesUsingCategoryAsync(entity.Id, cancellationToken))
-        {
-            return Result<PositionCategoryResponse>.Failure(PositionDescriptionCatalogErrors.CategoryInUse);
-        }
-
-        var before = await repository.GetCategoryResponseByIdAsync(entity.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Category response could not be resolved before inactivation.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            entity.Inactivate();
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            repository.InvalidateCategoryCache(entity.TenantId);
-
-            var after = await repository.GetCategoryResponseByIdAsync(entity.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Category response could not be resolved after inactivation.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PositionCategoryInactivated,
-                    AuditEntityTypes.PositionCategory,
-                    entity.PublicId,
-                    entity.Code,
-                    AuditActions.Deactivate,
-                    $"Inactivated position category {entity.Code}.",
                     Before: before,
                     After: after),
                 cancellationToken);

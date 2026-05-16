@@ -94,7 +94,7 @@ internal sealed class EducationCatalogRepository(ApplicationDbContext dbContext)
             _ => throw new ArgumentOutOfRangeException(nameof(catalogType), catalogType, "Unsupported education catalog type.")
         };
 
-    public Task<EducationCatalogLookup?> GetActiveLookupByIdAsync(
+    public Task<EducationCatalogLookupInternal?> GetActiveLookupByIdAsync(
         EducationCatalogType catalogType,
         Guid id,
         CancellationToken cancellationToken) =>
@@ -209,11 +209,11 @@ internal sealed class EducationCatalogRepository(ApplicationDbContext dbContext)
                 item.ModifiedUtc))
             .SingleOrDefaultAsync(cancellationToken);
 
-    private Task<EducationCatalogLookup?> GetActiveLookupByIdAsync<TCatalogItem>(Guid id, CancellationToken cancellationToken)
+    private Task<EducationCatalogLookupInternal?> GetActiveLookupByIdAsync<TCatalogItem>(Guid id, CancellationToken cancellationToken)
         where TCatalogItem : EducationCatalogItem =>
         dbContext.Set<TCatalogItem>()
             .AsNoTracking()
             .Where(item => item.PublicId == id && item.IsActive)
-            .Select(item => new EducationCatalogLookup(item.Id, item.PublicId, item.Code, item.Name, item.IsActive))
+            .Select(item => new EducationCatalogLookupInternal(item.Id, item.PublicId, item.Code, item.Name, item.IsActive))
             .SingleOrDefaultAsync(cancellationToken);
 }

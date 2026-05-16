@@ -33,7 +33,7 @@ public interface IEducationCatalogRepository
         Guid id,
         CancellationToken cancellationToken);
 
-    Task<EducationCatalogLookup?> GetActiveLookupByIdAsync(
+    Task<EducationCatalogLookupInternal?> GetActiveLookupByIdAsync(
         EducationCatalogType catalogType,
         Guid id,
         CancellationToken cancellationToken);
