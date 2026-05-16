@@ -1,19 +1,25 @@
 using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
+using CLARIHR.Application.Abstractions.Authentication;
+using CLARIHR.Application.Abstractions.InternalCatalogs;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.Tenancy;
+using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
+using CLARIHR.Application.Features.InternalCatalogs;
+using CLARIHR.Application.Features.InternalCatalogs.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
+using CLARIHR.Domain.InternalCatalogs;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
 using FluentValidation;
@@ -238,7 +244,10 @@ internal sealed class AddJobProfileRequirementCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
     IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
-    IJobCatalogRepository catalogRepository)
+    IJobCatalogRepository catalogRepository,
+    IInternalCatalogRepository internalCatalogRepository,
+    ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider)
     : ICommandHandler<AddJobProfileRequirementCommand, JobProfileRequirementResponse>
 {
     public async Task<Result<JobProfileRequirementResponse>> Handle(AddJobProfileRequirementCommand command, CancellationToken cancellationToken)
@@ -280,15 +289,32 @@ internal sealed class AddJobProfileRequirementCommandHandler(
             return Result<JobProfileRequirementResponse>.Failure(catalogItemResult.Error);
         }
 
+        var descriptionResult = await ResolveDescriptionInternalCatalogUsageAsync(
+            command.RequirementType,
+            command.Description,
+            internalCatalogRepository,
+            currentUserService,
+            dateTimeProvider,
+            cancellationToken);
+        if (descriptionResult.IsFailure)
+        {
+            return Result<JobProfileRequirementResponse>.Failure(descriptionResult.Error);
+        }
+
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (descriptionResult.Value.CreatedValue is not null)
+            {
+                internalCatalogRepository.Add(descriptionResult.Value.CreatedValue);
+            }
+
             var requirement = JobProfileRequirement.Create(
                 command.RequirementType,
                 requirementTypeInternalIdResult.Value,
                 catalogItemResult.Value,
                 null,
-                command.Description,
+                descriptionResult.Value.Description,
                 command.SortOrder);
 
             profile.AddRequirement(requirement);
@@ -333,7 +359,10 @@ internal sealed class UpdateJobProfileRequirementCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
     IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
-    IJobCatalogRepository catalogRepository)
+    IJobCatalogRepository catalogRepository,
+    IInternalCatalogRepository internalCatalogRepository,
+    ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider)
     : ICommandHandler<UpdateJobProfileRequirementCommand, JobProfileRequirementResponse>
 {
     public async Task<Result<JobProfileRequirementResponse>> Handle(UpdateJobProfileRequirementCommand command, CancellationToken cancellationToken)
@@ -386,18 +415,35 @@ internal sealed class UpdateJobProfileRequirementCommandHandler(
             return Result<JobProfileRequirementResponse>.Failure(catalogItemResult.Error);
         }
 
+        var descriptionResult = await ResolveDescriptionInternalCatalogUsageAsync(
+            command.RequirementType,
+            command.Description,
+            internalCatalogRepository,
+            currentUserService,
+            dateTimeProvider,
+            cancellationToken);
+        if (descriptionResult.IsFailure)
+        {
+            return Result<JobProfileRequirementResponse>.Failure(descriptionResult.Error);
+        }
+
         var before = await repository.GetRequirementResponseAsync(profile.PublicId, requirement.PublicId, cancellationToken)
             ?? requirement.ToResponse(command.RequirementTypeCatalogItemPublicId, command.CatalogItemPublicId);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (descriptionResult.Value.CreatedValue is not null)
+            {
+                internalCatalogRepository.Add(descriptionResult.Value.CreatedValue);
+            }
+
             requirement.Update(
                 command.RequirementType,
                 requirementTypeInternalIdResult.Value,
                 catalogItemResult.Value,
                 null,
-                command.Description,
+                descriptionResult.Value.Description,
                 command.SortOrder);
 
             profile.BumpVersion();
@@ -443,7 +489,10 @@ internal sealed class PatchJobProfileRequirementCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
     IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
-    IJobCatalogRepository catalogRepository)
+    IJobCatalogRepository catalogRepository,
+    IInternalCatalogRepository internalCatalogRepository,
+    ICurrentUserService currentUserService,
+    IDateTimeProvider dateTimeProvider)
     : ICommandHandler<PatchJobProfileRequirementCommand, JobProfileRequirementResponse>
 {
     public async Task<Result<JobProfileRequirementResponse>> Handle(PatchJobProfileRequirementCommand command, CancellationToken cancellationToken)
@@ -516,15 +565,32 @@ internal sealed class PatchJobProfileRequirementCommandHandler(
             return Result<JobProfileRequirementResponse>.Failure(catalogItemResult.Error);
         }
 
+        var descriptionResult = await ResolveDescriptionInternalCatalogUsageAsync(
+            patchState.RequirementType,
+            patchState.Description,
+            internalCatalogRepository,
+            currentUserService,
+            dateTimeProvider,
+            cancellationToken);
+        if (descriptionResult.IsFailure)
+        {
+            return Result<JobProfileRequirementResponse>.Failure(descriptionResult.Error);
+        }
+
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (descriptionResult.Value.CreatedValue is not null)
+            {
+                internalCatalogRepository.Add(descriptionResult.Value.CreatedValue);
+            }
+
             requirement.Update(
                 patchState.RequirementType,
                 requirementTypeInternalIdResult.Value,
                 catalogItemResult.Value,
                 null,
-                patchState.Description,
+                descriptionResult.Value.Description,
                 patchState.SortOrder);
 
             profile.BumpVersion();
@@ -899,6 +965,8 @@ internal static class JobProfileRequirementPatchApplier
 
 internal static class JobProfileRequirementCommandSupport
 {
+    public sealed record RequirementDescriptionResolution(string Description, InternalCatalogValue? CreatedValue);
+
     public static async Task<Result<long?>> ResolveRequirementTypeInternalIdAsync(
         Guid tenantId,
         Guid? requirementTypeCatalogItemPublicId,
@@ -930,5 +998,44 @@ internal static class JobProfileRequirementCommandSupport
         }
 
         return Result<long?>.Success(catalogItem.Id);
+    }
+
+    public static async Task<Result<RequirementDescriptionResolution>> ResolveDescriptionInternalCatalogUsageAsync(
+        JobRequirementType requirementType,
+        string description,
+        IInternalCatalogRepository internalCatalogRepository,
+        ICurrentUserService currentUserService,
+        IDateTimeProvider dateTimeProvider,
+        CancellationToken cancellationToken)
+    {
+        if (!InternalCatalogRegistry.TryGetRequirementDefinition(requirementType, out var definition) ||
+            definition.RenderType != InternalCatalogRenderType.Search ||
+            string.IsNullOrWhiteSpace(definition.CatalogKey) ||
+            string.IsNullOrWhiteSpace(description))
+        {
+            return Result<RequirementDescriptionResolution>.Success(new RequirementDescriptionResolution(description, null));
+        }
+
+        if (!Guid.TryParse(currentUserService.UserId, out var actorUserPublicId))
+        {
+            return Result<RequirementDescriptionResolution>.Failure(InternalCatalogErrors.InvalidCurrentUser);
+        }
+
+        var resolution = await InternalCatalogValueResolver.ResolveForUsageAsync(
+            definition.CatalogKey,
+            description,
+            actorUserPublicId,
+            internalCatalogRepository,
+            dateTimeProvider,
+            cancellationToken);
+        if (resolution.IsFailure)
+        {
+            return Result<RequirementDescriptionResolution>.Failure(resolution.Error);
+        }
+
+        return Result<RequirementDescriptionResolution>.Success(
+            new RequirementDescriptionResolution(
+                resolution.Value.ResolvedValue,
+                resolution.Value.CreatedValue));
     }
 }

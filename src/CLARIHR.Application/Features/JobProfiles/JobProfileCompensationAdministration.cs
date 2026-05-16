@@ -17,6 +17,11 @@ using FluentValidation;
 
 namespace CLARIHR.Application.Features.JobProfiles;
 
+public static class JobProfileCompensationReadLimits
+{
+    public const int MaxItemsPerProfile = 1;
+}
+
 public sealed record JobProfileCompensationItemResponse(
     Guid CompensationPublicId,
     Guid SalaryTabulatorLinePublicId,
@@ -163,7 +168,10 @@ internal sealed class GetJobProfileCompensationsQueryHandler(
             return Result<IReadOnlyCollection<JobProfileCompensationItemResponse>>.Failure(authorizationResult.Error);
         }
 
-        var items = await repository.GetResponsesByProfileIdAsync(query.JobProfileId, cancellationToken);
+        var items = await repository.GetResponsesByProfileIdAsync(
+            query.JobProfileId,
+            JobProfileCompensationReadLimits.MaxItemsPerProfile,
+            cancellationToken);
         if (items is null)
         {
             return Result<IReadOnlyCollection<JobProfileCompensationItemResponse>>.Failure(

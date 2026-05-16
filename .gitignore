@@ -6,3 +6,4 @@ obj/
 logs/
 publish/
 .claude/
+*.lscache

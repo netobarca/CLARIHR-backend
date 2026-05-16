@@ -39,8 +39,20 @@ internal static class TestHttpClientExtensions
     public static Task<HttpResponseMessage> PostJsonAsync(this HttpClient client, string? requestUri, object? value, CancellationToken cancellationToken = default) =>
         client.PostAsJsonAsync(requestUri, value, JsonOptions, cancellationToken);
 
-    public static Task<HttpResponseMessage> PutJsonAsync(this HttpClient client, string? requestUri, object? value, CancellationToken cancellationToken = default) =>
-        client.PutAsJsonAsync(requestUri, value, JsonOptions, cancellationToken);
+    public static Task<HttpResponseMessage> PutJsonAsync(this HttpClient client, string? requestUri, object? value, CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, requestUri)
+        {
+            Content = JsonContent.Create(value, options: JsonOptions)
+        };
+
+        if (TryReadConcurrencyToken(value, out var concurrencyToken))
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", concurrencyToken.ToString("D"));
+        }
+
+        return client.SendAsync(request, cancellationToken);
+    }
 
     public static Task<HttpResponseMessage> PatchJsonAsync(this HttpClient client, string? requestUri, object? value, CancellationToken cancellationToken = default)
     {
@@ -50,6 +62,30 @@ internal static class TestHttpClientExtensions
         };
 
         return client.SendAsync(request, cancellationToken);
+    }
+
+    private static bool TryReadConcurrencyToken(object? value, out Guid concurrencyToken)
+    {
+        concurrencyToken = Guid.Empty;
+        if (value is null)
+        {
+            return false;
+        }
+
+        var element = JsonSerializer.SerializeToElement(value, JsonOptions);
+        return element.ValueKind == JsonValueKind.Object &&
+            element.TryGetProperty("concurrencyToken", out var tokenElement) &&
+            TryReadGuid(tokenElement, out concurrencyToken);
+    }
+
+    private static bool TryReadGuid(JsonElement element, out Guid value)
+    {
+        value = Guid.Empty;
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => Guid.TryParse(element.GetString(), out value),
+            _ => false
+        };
     }
 }
 

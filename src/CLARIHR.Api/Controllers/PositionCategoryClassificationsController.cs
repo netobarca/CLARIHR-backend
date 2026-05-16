@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
@@ -6,14 +7,15 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.JsonPatch;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
-[Route("api/v1")]
+[Route("api/v{version:apiVersion}")]
 [Consumes("application/json")]
 [Produces("application/json")]
 public sealed class PositionCategoryClassificationsController(
@@ -86,7 +88,7 @@ public sealed class PositionCategoryClassificationsController(
                 request.SortOrder),
             cancellationToken);
 
-        return this.ToCreatedResult(result, value => $"/api/v1/position-category-classifications/{value.Id:D}");
+        return this.ToCreatedAtActionResult(result, nameof(GetById), value => new { positionCategoryClassificationPublicId = value.Id });
     }
 
     [HttpPatch("position-category-classifications/{positionCategoryClassificationPublicId:guid}")]
@@ -102,17 +104,11 @@ public sealed class PositionCategoryClassificationsController(
         var result = await commandDispatcher.SendAsync(
             new PatchPositionCategoryClassificationCommand(
                 positionCategoryClassificationPublicId,
-                MapPatchOperations(patchDoc)),
+                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new PositionDescriptionCatalogPatchOperation(op, path, from, value))),
             cancellationToken);
 
         return this.ToActionResult(result);
     }
-
-    private static IReadOnlyCollection<PositionDescriptionCatalogPatchOperation> MapPatchOperations(
-        JsonPatchDocument<PatchPositionCategoryClassificationRequest> patchDoc) =>
-        JsonPatchOperationMapper.Map(
-            patchDoc,
-            static (op, path, from, value) => new PositionDescriptionCatalogPatchOperation(op, path, from, value));
 
     public sealed class UpsertPositionCategoryClassificationRequest
     {

@@ -8,6 +8,7 @@ using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.JsonPatch;
+using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
@@ -17,8 +18,11 @@ using static CLARIHR.Application.Features.JobProfiles.JobProfileBenefitCommandSu
 
 namespace CLARIHR.Application.Features.JobProfiles;
 
-public sealed record GetJobProfileBenefitsQuery(Guid JobProfileId)
-    : IQuery<IReadOnlyCollection<JobProfileBenefitResponse>>;
+public sealed record GetJobProfileBenefitsQuery(
+    Guid JobProfileId,
+    int PageNumber = 1,
+    int PageSize = JobProfileValidationRules.DefaultPageSize)
+    : IQuery<PagedResponse<JobProfileBenefitResponse>>;
 
 public sealed record GetJobProfileBenefitByIdQuery(Guid JobProfileId, Guid BenefitId)
     : IQuery<JobProfileBenefitResponse>;
@@ -61,6 +65,8 @@ internal sealed class GetJobProfileBenefitsQueryValidator : AbstractValidator<Ge
     public GetJobProfileBenefitsQueryValidator()
     {
         RuleFor(query => query.JobProfileId).NotEmpty();
+        RuleFor(query => query.PageNumber).GreaterThan(0);
+        RuleFor(query => query.PageSize).InclusiveBetween(1, JobProfileValidationRules.MaxPageSize);
     }
 }
 
@@ -136,31 +142,35 @@ internal sealed class GetJobProfileBenefitsQueryHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
     ITenantContext tenantContext)
-    : IQueryHandler<GetJobProfileBenefitsQuery, IReadOnlyCollection<JobProfileBenefitResponse>>
+    : IQueryHandler<GetJobProfileBenefitsQuery, PagedResponse<JobProfileBenefitResponse>>
 {
-    public async Task<Result<IReadOnlyCollection<JobProfileBenefitResponse>>> Handle(GetJobProfileBenefitsQuery query, CancellationToken cancellationToken)
+    public async Task<Result<PagedResponse<JobProfileBenefitResponse>>> Handle(GetJobProfileBenefitsQuery query, CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<IReadOnlyCollection<JobProfileBenefitResponse>>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PagedResponse<JobProfileBenefitResponse>>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<IReadOnlyCollection<JobProfileBenefitResponse>>.Failure(authorizationResult.Error);
+            return Result<PagedResponse<JobProfileBenefitResponse>>.Failure(authorizationResult.Error);
         }
 
-        var benefits = await repository.GetBenefitResponsesByProfileIdAsync(query.JobProfileId, cancellationToken);
+        var benefits = await repository.GetBenefitResponsesByProfileIdAsync(
+            query.JobProfileId,
+            query.PageNumber,
+            query.PageSize,
+            cancellationToken);
         if (benefits is null)
         {
-            return Result<IReadOnlyCollection<JobProfileBenefitResponse>>.Failure(
+            return Result<PagedResponse<JobProfileBenefitResponse>>.Failure(
                 await repository.ExistsOutsideTenantAsync(query.JobProfileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
                     : JobProfileErrors.JobProfileNotFound);
         }
 
-        return Result<IReadOnlyCollection<JobProfileBenefitResponse>>.Success(benefits);
+        return Result<PagedResponse<JobProfileBenefitResponse>>.Success(benefits);
     }
 }
 

@@ -1432,4 +1432,61 @@
   <data name="files.concurrency_conflict" xml:space="preserve">
     <value>El archivo fue modificado por otro proceso. Por favor recargue e intente nuevamente.</value>
   </data>
+  <data name="JOB_CATALOG_ITEM_IN_USE" xml:space="preserve">
+    <value>El elemento del catalogo de puestos esta en uso y no puede ser inactivado.</value>
+  </data>
+  <data name="JOB_CATALOG_ITEM_SYSTEM_IMMUTABLE" xml:space="preserve">
+    <value>Los elementos de sistema del catalogo de puestos no pueden modificarse.</value>
+  </data>
+  <data name="JOB_PROFILE_BENEFIT_NAME_REQUIRED" xml:space="preserve">
+    <value>El nombre del beneficio es obligatorio.</value>
+  </data>
+  <data name="JOB_PROFILE_BENEFIT_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar el beneficio solicitado del perfil de puesto.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPENSATION_ALREADY_EXISTS" xml:space="preserve">
+    <value>El perfil de puesto ya tiene una referencia de compensacion.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPENSATION_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar la compensacion solicitada del perfil de puesto.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPENSATION_SALARY_TABULATOR_LINE_INACTIVE" xml:space="preserve">
+    <value>La linea seleccionada del tabulador salarial esta inactiva.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPENSATION_SALARY_TABULATOR_LINE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar la linea seleccionada del tabulador salarial.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPETENCY_NAME_REQUIRED" xml:space="preserve">
+    <value>El nombre de la competencia es obligatorio.</value>
+  </data>
+  <data name="JOB_PROFILE_COMPETENCY_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar la competencia solicitada del perfil de puesto.</value>
+  </data>
+  <data name="JOB_PROFILE_DEPENDENT_POSITION_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar el puesto dependiente solicitado del perfil de puesto.</value>
+  </data>
+  <data name="JOB_PROFILE_FUNCTION_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar la funcion solicitada del perfil de puesto.</value>
+  </data>
+  <data name="JOB_PROFILE_RELATION_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar la relacion solicitada del perfil de puesto.</value>
+  </data>
+  <data name="JOB_PROFILE_REQUIREMENT_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar el requisito solicitado del perfil de puesto.</value>
+  </data>
+  <data name="JOB_PROFILE_TRAINING_NAME_REQUIRED" xml:space="preserve">
+    <value>El nombre de la formacion es obligatorio.</value>
+  </data>
+  <data name="JOB_PROFILE_TRAINING_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar la formacion solicitada del perfil de puesto.</value>
+  </data>
+  <data name="JOB_PROFILE_WORKING_CONDITION_NAME_REQUIRED" xml:space="preserve">
+    <value>El nombre de la condicion de trabajo es obligatorio.</value>
+  </data>
+  <data name="JOB_PROFILE_WORKING_CONDITION_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar la condicion de trabajo solicitada del perfil de puesto.</value>
+  </data>
+  <data name="validation.message.patch_document_must_include_a_non_remove_operation_for_concurrencytoken" xml:space="preserve">
+    <value>El documento patch debe incluir una operacion distinta de remove para ConcurrencyToken.</value>
+  </data>
 </root>

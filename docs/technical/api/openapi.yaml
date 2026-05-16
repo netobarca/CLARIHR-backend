@@ -6217,7 +6217,7 @@ components:
         sortOrder:
           type: integer
           format: int32
-    JobProfileRequirementUpdateRequest:
+    JobProfileRequirementMutateRequest:
       allOf:
         - $ref: '#/components/schemas/JobProfileRequirementRequest'
     JobProfileFunctionRequest:
@@ -6240,7 +6240,7 @@ components:
         sortOrder:
           type: integer
           format: int32
-    JobProfileFunctionUpdateRequest:
+    JobProfileFunctionMutateRequest:
       allOf:
         - $ref: '#/components/schemas/JobProfileFunctionRequest'
     JobProfileRelationRequest:
@@ -6272,7 +6272,7 @@ components:
         sortOrder:
           type: integer
           format: int32
-    JobProfileRelationCreateRequest:
+    JobProfileRelationMutateRequest:
       type: object
       required:
         - relationType
@@ -6295,9 +6295,6 @@ components:
         sortOrder:
           type: integer
           format: int32
-    JobProfileRelationUpdateRequest:
-      allOf:
-        - $ref: '#/components/schemas/JobProfileRelationCreateRequest'
     JobProfileCompetencyRequest:
       type: object
       required:
@@ -6370,7 +6367,7 @@ components:
         notes:
           type: string
           nullable: true
-    JobProfileCompensationItemUpdateRequest:
+    JobProfileCompensationItemMutateRequest:
       allOf:
         - $ref: '#/components/schemas/JobProfileCompensationItemRequest'
     JobProfileBenefitRequest:
@@ -6576,6 +6573,27 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    PagedJobProfileRelationResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobProfileRelationResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     JobProfileLegacyCompetencyResponse:
       type: object
       required:
@@ -6626,7 +6644,7 @@ components:
         totalCount:
           type: integer
           format: int32
-    JobProfileLegacyCompetencyCreateRequest:
+    JobProfileLegacyCompetencyMutateRequest:
       type: object
       required:
         - sortOrder
@@ -6648,9 +6666,6 @@ components:
         sortOrder:
           type: integer
           format: int32
-    JobProfileLegacyCompetencyUpdateRequest:
-      allOf:
-        - $ref: '#/components/schemas/JobProfileLegacyCompetencyCreateRequest'
     JobProfileTrainingResponse:
       type: object
       required:
@@ -6677,6 +6692,27 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    PagedJobProfileTrainingResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobProfileTrainingResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     JobProfileBenefitResponse:
       type: object
       required:
@@ -6703,6 +6739,27 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    PagedJobProfileBenefitResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobProfileBenefitResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     JobProfileWorkingConditionResponse:
       type: object
       required:
@@ -6733,6 +6790,27 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    PagedJobProfileWorkingConditionResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobProfileWorkingConditionResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     JobProfileDependentPositionResponse:
       type: object
       required:
@@ -6762,6 +6840,27 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    PagedJobProfileDependentPositionResponse:
+      type: object
+      required:
+        - items
+        - pageNumber
+        - pageSize
+        - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobProfileDependentPositionResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     JobProfileCompensationItemResponse:
       type: object
       required:
@@ -14144,7 +14243,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobProfileRequirementRequest'
+              $ref: '#/components/schemas/JobProfileRequirementMutateRequest'
       responses:
         '201':
           description: Requirement created successfully.
@@ -14220,7 +14319,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobProfileRequirementUpdateRequest'
+              $ref: '#/components/schemas/JobProfileRequirementMutateRequest'
       responses:
         '200':
           description: Requirement updated successfully.
@@ -14496,7 +14595,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobProfileFunctionRequest'
+              $ref: '#/components/schemas/JobProfileFunctionMutateRequest'
       responses:
         '201':
           description: Function created successfully.
@@ -14572,7 +14671,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobProfileFunctionUpdateRequest'
+              $ref: '#/components/schemas/JobProfileFunctionMutateRequest'
       responses:
         '200':
           description: Function updated successfully.
@@ -14776,7 +14875,7 @@ paths:
         - job-and-competency-design
       operationId: GetJobProfileRelations
       summary: List job profile relations
-      description: Returns only the relations array for the selected tenant-scoped job profile. This is the only relations endpoint that returns the full relations collection.
+      description: Returns a paged relations collection for the selected tenant-scoped job profile. This is the only relations endpoint that returns the relations list.
       security:
         - Bearer: []
       parameters:
@@ -14786,15 +14885,30 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            minimum: 1
+            maximum: 100
       responses:
         '200':
           description: Relations retrieved successfully.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/JobProfileRelationResponse'
+                $ref: '#/components/schemas/PagedJobProfileRelationResponse'
         '401':
           description: Authentication is required.
           content:
@@ -14833,7 +14947,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobProfileRelationCreateRequest'
+              $ref: '#/components/schemas/JobProfileRelationMutateRequest'
       responses:
         '201':
           description: Relation created successfully.
@@ -14909,7 +15023,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobProfileRelationUpdateRequest'
+              $ref: '#/components/schemas/JobProfileRelationMutateRequest'
       responses:
         '200':
           description: Relation updated successfully.
@@ -15185,7 +15299,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobProfileLegacyCompetencyCreateRequest'
+              $ref: '#/components/schemas/JobProfileLegacyCompetencyMutateRequest'
       responses:
         '201':
           description: Competency created successfully.
@@ -15261,7 +15375,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobProfileLegacyCompetencyUpdateRequest'
+              $ref: '#/components/schemas/JobProfileLegacyCompetencyMutateRequest'
       responses:
         '200':
           description: Competency updated successfully.
@@ -15455,6 +15569,282 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Stale competency concurrency token or another business conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/trainings:
+    get:
+      tags:
+        - job-and-competency-design
+      operationId: GetJobProfileTrainings
+      summary: List job profile trainings
+      description: Returns a paged trainings collection for the selected tenant-scoped job profile.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Trainings retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedJobProfileTrainingResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job profile was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/benefits:
+    get:
+      tags:
+        - job-and-competency-design
+      operationId: GetJobProfileBenefits
+      summary: List job profile benefits
+      description: Returns a paged benefits collection for the selected tenant-scoped job profile.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Benefits retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedJobProfileBenefitResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job profile was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/working-conditions:
+    get:
+      tags:
+        - job-and-competency-design
+      operationId: GetJobProfileWorkingConditions
+      summary: List job profile working conditions
+      description: Returns a paged working-conditions collection for the selected tenant-scoped job profile.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Working conditions retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedJobProfileWorkingConditionResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job profile was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/dependent-positions:
+    get:
+      tags:
+        - job-and-competency-design
+      operationId: GetJobProfileDependentPositions
+      summary: List job profile dependent positions
+      description: Returns a paged dependent-positions collection for the selected tenant-scoped job profile.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Dependent positions retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedJobProfileDependentPositionResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job profile was not found in tenant scope.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/job-profiles/{jobProfilePublicId}/compensations:
+    get:
+      tags:
+        - job-and-competency-design
+      operationId: GetJobProfileCompensations
+      summary: List job profile compensations
+      description: Returns the compensation collection for the selected tenant-scoped job profile. The domain currently allows one compensation per profile, and the handler applies a hard cap of one item.
+      security:
+        - Bearer: []
+      parameters:
+        - name: jobProfilePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Compensations retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 1
+                items:
+                  $ref: '#/components/schemas/JobProfileCompensationItemResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have permission to read job profiles or the tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Job profile was not found in tenant scope.
           content:
             application/problem+json:
               schema:

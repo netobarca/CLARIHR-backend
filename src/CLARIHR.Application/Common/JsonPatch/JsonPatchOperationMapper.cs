@@ -1,11 +1,16 @@
 using System.Text.Json;
-using Microsoft.AspNetCore.JsonPatch;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 
-namespace CLARIHR.Api.Common;
+namespace CLARIHR.Application.Common.JsonPatch;
 
-internal static class JsonPatchOperationMapper
+public static class JsonPatchOperationMapper
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     public static IReadOnlyCollection<TOperation> Map<TRequest, TOperation>(
         JsonPatchDocument<TRequest> patchDoc,
         Func<string, string, string?, JsonElement?, TOperation> createOperation)
@@ -23,19 +28,11 @@ internal static class JsonPatchOperationMapper
             .ToArray();
     }
 
-    public static JsonElement? MapValue(object? value)
-    {
-        if (value is null)
+    public static JsonElement? MapValue(object? value) =>
+        value switch
         {
-            return JsonSerializer.SerializeToElement<object?>(null);
-        }
-
-        if (value is JToken token)
-        {
-            using var document = JsonDocument.Parse(token.ToString(Newtonsoft.Json.Formatting.None));
-            return document.RootElement.Clone();
-        }
-
-        return JsonSerializer.SerializeToElement(value, value.GetType());
-    }
+            null => JsonSerializer.SerializeToElement<object?>(null),
+            JsonElement element => element.Clone(),
+            _ => JsonSerializer.SerializeToElement(value, value.GetType(), JsonOptions)
+        };
 }

@@ -572,8 +572,10 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
              function.ConcurrencyToken))
         .SingleOrDefaultAsync(cancellationToken);
 
-    public async Task<IReadOnlyCollection<JobProfileRelationResponse>?> GetRelationResponsesByProfileIdAsync(
+    public async Task<PagedResponse<JobProfileRelationResponse>?> GetRelationResponsesByProfileIdAsync(
         Guid profileId,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         var profileInternalId = await dbContext.JobProfiles
@@ -587,22 +589,29 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             return null;
         }
 
-        return await
-            (from relation in dbContext.JobProfileRelations.AsNoTracking()
-             where relation.JobProfileId == profileInternalId.Value
-             join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
-                 on relation.CatalogItemId equals (long?)catalogItem.Id into catalogItems
-             from catalogItem in catalogItems.DefaultIfEmpty()
-             orderby relation.SortOrder, relation.Counterpart
-             select new JobProfileRelationResponse(
-                 relation.PublicId,
-                 catalogItem == null ? null : catalogItem.PublicId,
-                 relation.RelationType,
-                 relation.Counterpart,
-                 relation.Notes,
-                 relation.SortOrder,
-                 relation.ConcurrencyToken))
+        var query =
+            from relation in dbContext.JobProfileRelations.AsNoTracking()
+            where relation.JobProfileId == profileInternalId.Value
+            join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+                on relation.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+            from catalogItem in catalogItems.DefaultIfEmpty()
+            orderby relation.SortOrder, relation.Counterpart
+            select new JobProfileRelationResponse(
+                relation.PublicId,
+                catalogItem == null ? null : catalogItem.PublicId,
+                relation.RelationType,
+                relation.Counterpart,
+                relation.Notes,
+                relation.SortOrder,
+                relation.ConcurrencyToken);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToArrayAsync(cancellationToken);
+
+        return new PagedResponse<JobProfileRelationResponse>(items, pageNumber, pageSize, totalCount);
     }
 
     public Task<JobProfileRelationResponse?> GetRelationResponseAsync(
@@ -691,8 +700,10 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
              competency.ConcurrencyToken))
         .SingleOrDefaultAsync(cancellationToken);
 
-    public async Task<IReadOnlyCollection<JobProfileTrainingResponse>?> GetTrainingResponsesByProfileIdAsync(
+    public async Task<PagedResponse<JobProfileTrainingResponse>?> GetTrainingResponsesByProfileIdAsync(
         Guid profileId,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         var profileInternalId = await dbContext.JobProfiles
@@ -706,21 +717,28 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             return null;
         }
 
-        return await
-            (from training in dbContext.Set<Domain.JobProfiles.JobProfileTraining>().AsNoTracking()
-             where training.JobProfileId == profileInternalId.Value
-             join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
-                 on training.CatalogItemId equals (long?)catalogItem.Id into catalogItems
-             from catalogItem in catalogItems.DefaultIfEmpty()
-             orderby training.SortOrder, training.Name
-             select new JobProfileTrainingResponse(
-                 training.PublicId,
-                 catalogItem == null ? null : catalogItem.PublicId,
-                 training.Name,
-                 training.Notes,
-                 training.SortOrder,
-                 training.ConcurrencyToken))
+        var query =
+            from training in dbContext.Set<Domain.JobProfiles.JobProfileTraining>().AsNoTracking()
+            where training.JobProfileId == profileInternalId.Value
+            join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+                on training.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+            from catalogItem in catalogItems.DefaultIfEmpty()
+            orderby training.SortOrder, training.Name
+            select new JobProfileTrainingResponse(
+                training.PublicId,
+                catalogItem == null ? null : catalogItem.PublicId,
+                training.Name,
+                training.Notes,
+                training.SortOrder,
+                training.ConcurrencyToken);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToArrayAsync(cancellationToken);
+
+        return new PagedResponse<JobProfileTrainingResponse>(items, pageNumber, pageSize, totalCount);
     }
 
     public Task<JobProfileTrainingResponse?> GetTrainingResponseAsync(
@@ -744,8 +762,10 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
              training.ConcurrencyToken))
         .SingleOrDefaultAsync(cancellationToken);
 
-    public async Task<IReadOnlyCollection<JobProfileBenefitResponse>?> GetBenefitResponsesByProfileIdAsync(
+    public async Task<PagedResponse<JobProfileBenefitResponse>?> GetBenefitResponsesByProfileIdAsync(
         Guid profileId,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         var profileInternalId = await dbContext.JobProfiles
@@ -759,21 +779,28 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             return null;
         }
 
-        return await
-            (from benefit in dbContext.Set<Domain.JobProfiles.JobProfileBenefit>().AsNoTracking()
-             where benefit.JobProfileId == profileInternalId.Value
-             join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
-                 on benefit.CatalogItemId equals (long?)catalogItem.Id into catalogItems
-             from catalogItem in catalogItems.DefaultIfEmpty()
-             orderby benefit.SortOrder, benefit.Name
-             select new JobProfileBenefitResponse(
-                 benefit.PublicId,
-                 catalogItem == null ? null : catalogItem.PublicId,
-                 benefit.Name,
-                 benefit.Notes,
-                 benefit.SortOrder,
-                 benefit.ConcurrencyToken))
+        var query =
+            from benefit in dbContext.Set<Domain.JobProfiles.JobProfileBenefit>().AsNoTracking()
+            where benefit.JobProfileId == profileInternalId.Value
+            join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+                on benefit.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+            from catalogItem in catalogItems.DefaultIfEmpty()
+            orderby benefit.SortOrder, benefit.Name
+            select new JobProfileBenefitResponse(
+                benefit.PublicId,
+                catalogItem == null ? null : catalogItem.PublicId,
+                benefit.Name,
+                benefit.Notes,
+                benefit.SortOrder,
+                benefit.ConcurrencyToken);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToArrayAsync(cancellationToken);
+
+        return new PagedResponse<JobProfileBenefitResponse>(items, pageNumber, pageSize, totalCount);
     }
 
     public Task<JobProfileBenefitResponse?> GetBenefitResponseAsync(
@@ -797,8 +824,10 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
              benefit.ConcurrencyToken))
         .SingleOrDefaultAsync(cancellationToken);
 
-    public async Task<IReadOnlyCollection<JobProfileWorkingConditionResponse>?> GetWorkingConditionResponsesByProfileIdAsync(
+    public async Task<PagedResponse<JobProfileWorkingConditionResponse>?> GetWorkingConditionResponsesByProfileIdAsync(
         Guid profileId,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         var profileInternalId = await dbContext.JobProfiles
@@ -812,25 +841,32 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             return null;
         }
 
-        return await
-            (from condition in dbContext.Set<Domain.JobProfiles.JobProfileWorkingCondition>().AsNoTracking()
-             where condition.JobProfileId == profileInternalId.Value
-             join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
-                 on condition.CatalogItemId equals (long?)catalogItem.Id into catalogItems
-             from catalogItem in catalogItems.DefaultIfEmpty()
-             join workConditionTypeItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
-                 on condition.WorkConditionTypeCatalogItemId equals (long?)workConditionTypeItem.Id into workConditionTypeItems
-             from workConditionTypeItem in workConditionTypeItems.DefaultIfEmpty()
-             orderby condition.SortOrder, condition.Name
-             select new JobProfileWorkingConditionResponse(
-                 condition.PublicId,
-                 catalogItem == null ? null : catalogItem.PublicId,
-                 workConditionTypeItem == null ? null : workConditionTypeItem.PublicId,
-                 condition.Name,
-                 condition.Notes,
-                 condition.SortOrder,
-                 condition.ConcurrencyToken))
+        var query =
+            from condition in dbContext.Set<Domain.JobProfiles.JobProfileWorkingCondition>().AsNoTracking()
+            where condition.JobProfileId == profileInternalId.Value
+            join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+                on condition.CatalogItemId equals (long?)catalogItem.Id into catalogItems
+            from catalogItem in catalogItems.DefaultIfEmpty()
+            join workConditionTypeItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+                on condition.WorkConditionTypeCatalogItemId equals (long?)workConditionTypeItem.Id into workConditionTypeItems
+            from workConditionTypeItem in workConditionTypeItems.DefaultIfEmpty()
+            orderby condition.SortOrder, condition.Name
+            select new JobProfileWorkingConditionResponse(
+                condition.PublicId,
+                catalogItem == null ? null : catalogItem.PublicId,
+                workConditionTypeItem == null ? null : workConditionTypeItem.PublicId,
+                condition.Name,
+                condition.Notes,
+                condition.SortOrder,
+                condition.ConcurrencyToken);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToArrayAsync(cancellationToken);
+
+        return new PagedResponse<JobProfileWorkingConditionResponse>(items, pageNumber, pageSize, totalCount);
     }
 
     public Task<JobProfileWorkingConditionResponse?> GetWorkingConditionResponseAsync(
@@ -858,8 +894,10 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
              condition.ConcurrencyToken))
         .SingleOrDefaultAsync(cancellationToken);
 
-    public async Task<IReadOnlyCollection<JobProfileDependentPositionResponse>?> GetDependentPositionResponsesByProfileIdAsync(
+    public async Task<PagedResponse<JobProfileDependentPositionResponse>?> GetDependentPositionResponsesByProfileIdAsync(
         Guid profileId,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken)
     {
         var profileInternalId = await dbContext.JobProfiles
@@ -873,21 +911,28 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             return null;
         }
 
-        return await
-            (from position in dbContext.JobProfileDependentPositions.AsNoTracking()
-             where position.JobProfileId == profileInternalId.Value
-             join dependent in dbContext.JobProfiles.AsNoTracking()
-                 on position.DependentJobProfileId equals dependent.Id
-             orderby dependent.Title, dependent.Code
-             select new JobProfileDependentPositionResponse(
-                 position.PublicId,
-                 dependent.PublicId,
-                 dependent.Code,
-                 dependent.Title,
-                 position.Quantity,
-                 position.Notes,
-                 position.ConcurrencyToken))
+        var query =
+            from position in dbContext.JobProfileDependentPositions.AsNoTracking()
+            where position.JobProfileId == profileInternalId.Value
+            join dependent in dbContext.JobProfiles.AsNoTracking()
+                on position.DependentJobProfileId equals dependent.Id
+            orderby dependent.Title, dependent.Code
+            select new JobProfileDependentPositionResponse(
+                position.PublicId,
+                dependent.PublicId,
+                dependent.Code,
+                dependent.Title,
+                position.Quantity,
+                position.Notes,
+                position.ConcurrencyToken);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToArrayAsync(cancellationToken);
+
+        return new PagedResponse<JobProfileDependentPositionResponse>(items, pageNumber, pageSize, totalCount);
     }
 
     public Task<JobProfileDependentPositionResponse?> GetDependentPositionResponseAsync(

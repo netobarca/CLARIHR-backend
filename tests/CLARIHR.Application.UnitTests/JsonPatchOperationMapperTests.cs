@@ -1,8 +1,7 @@
 using System.Text.Json;
-using CLARIHR.Api.Common;
-using Microsoft.AspNetCore.JsonPatch;
-using Microsoft.AspNetCore.JsonPatch.Operations;
-using Newtonsoft.Json.Linq;
+using CLARIHR.Application.Common.JsonPatch;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson.Operations;
 
 namespace CLARIHR.Application.UnitTests;
 
@@ -14,19 +13,19 @@ public sealed class JsonPatchOperationMapperTests
     public static IEnumerable<object?[]> PatchValues()
     {
         yield return ["null", null];
-        yield return ["string", new JValue("Analista senior")];
-        yield return ["int", new JValue(42)];
-        yield return ["decimal", new JValue(12345.67m)];
-        yield return ["guid", new JValue(ExpectedGuid)];
-        yield return ["dateTime", new JValue(ExpectedDateTime)];
-        yield return ["array", JArray.FromObject(new object[] { 1, "two", true })];
-        yield return ["object", JObject.FromObject(new { code = "JP-001", sortOrder = 3 })];
+        yield return ["string", JsonSerializer.SerializeToElement("Analista senior")];
+        yield return ["int", JsonSerializer.SerializeToElement(42)];
+        yield return ["decimal", JsonSerializer.SerializeToElement(12345.67m)];
+        yield return ["guid", JsonSerializer.SerializeToElement(ExpectedGuid)];
+        yield return ["dateTime", JsonSerializer.SerializeToElement(ExpectedDateTime)];
+        yield return ["array", JsonSerializer.SerializeToElement(new object[] { 1, "two", true })];
+        yield return ["object", JsonSerializer.SerializeToElement(new { code = "JP-001", sortOrder = 3 })];
         yield return ["nativeObject", new NativeValue("JP-002", 4)];
     }
 
     [Theory]
     [MemberData(nameof(PatchValues))]
-    public void Map_ShouldTransferOperationMetadataAndConvertNewtonsoftValues(string caseName, object? value)
+    public void Map_ShouldTransferOperationMetadataAndConvertSystemTextJsonValues(string caseName, object? value)
     {
         var patchDoc = new JsonPatchDocument<TestPatchRequest>();
         patchDoc.Operations.Add(new Operation<TestPatchRequest>(

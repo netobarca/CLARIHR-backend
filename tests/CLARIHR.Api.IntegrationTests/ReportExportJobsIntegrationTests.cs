@@ -301,7 +301,7 @@ internal sealed class InMemoryReportExportStorage : IFileStorageProvider
     {
         lock (_gate)
         {
-            _blobs[BuildStorageKey("clarihr-files", blobName)] = new StoredBlob(content.ToArray(), contentType);
+            _blobs[BuildStorageKey("clarihr-report-exports", blobName)] = new StoredBlob(content.ToArray(), contentType);
         }
     }
 

@@ -1,9 +1,11 @@
+using CLARIHR.Application.Abstractions.Files;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Reports;
 using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Reports;
 using CLARIHR.Application.Features.Reports.Common;
+using CLARIHR.Domain.Files;
 using CLARIHR.Domain.Reports;
 using CLARIHR.Infrastructure.Configuration;
 using CLARIHR.Infrastructure.Reports;
@@ -37,7 +39,7 @@ public sealed class ReportExportTelemetryTests
         var storage = new StubReportExportStorage
         {
             UploadHandler = static (_, _, _, _, _, _) => Task.FromResult(
-                new ReportExportStoredArtifact("blob-1", "personnel-files.csv", "text/csv", 4096))
+                new FileObjectInfo(4096, "text/csv", DateTime.UtcNow))
         };
 
         var generator = new StubReportExportJobGenerator
@@ -230,7 +232,7 @@ public sealed class ReportExportTelemetryTests
 
     private static ReportExportJobProcessor CreateProcessor(
         IReportExportJobRepository repository,
-        IReportExportStorage storage,
+        IFileStorageProvider storage,
         IReportExportJobGenerator generator,
         DateTime utcNow,
         ListLogger<ReportExportJobProcessor> logger,
@@ -247,7 +249,8 @@ public sealed class ReportExportTelemetryTests
 
         return new ReportExportJobProcessor(
             repository,
-            storage,
+            new StubFilePurposeRuleProvider(storage.ProviderType),
+            new StubFileStorageProviderResolver(storage),
             generator,
             new StubUnitOfWork(),
             new StubDateTimeProvider(utcNow),
@@ -318,41 +321,78 @@ public sealed class ReportExportTelemetryTests
             Task.FromResult(ExpiredSucceededJobs);
     }
 
-    private sealed class StubReportExportStorage : IReportExportStorage
+    private sealed class StubFilePurposeRuleProvider(StorageProvider provider) : IFilePurposeRuleProvider
     {
-        public Func<Guid, Guid, string, string, Stream, CancellationToken, Task<ReportExportStoredArtifact>>? UploadHandler { get; init; }
+        public FilePurposeRule? GetRule(FilePurpose purpose) =>
+            purpose == FilePurpose.ReportExport
+                ? new FilePurposeRule(
+                    MaxSizeBytes: 100 * 1024 * 1024,
+                    AllowedContentTypes: ["text/csv", "application/json", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+                    AllowedExtensions: [".csv", ".json", ".xlsx"],
+                    DefaultProvider: provider,
+                    RequiresMalwareScan: false,
+                    ContainerOverride: "clarihr-files")
+                : null;
+    }
+
+    private sealed class StubFileStorageProviderResolver(IFileStorageProvider storage) : IFileStorageProviderResolver
+    {
+        public IFileStorageProvider Resolve(StorageProvider provider) =>
+            provider == storage.ProviderType
+                ? storage
+                : throw new InvalidOperationException($"No storage provider registered for '{provider}'.");
+    }
+
+    private sealed class StubReportExportStorage : IFileStorageProvider
+    {
+        public Func<Guid, Guid, string, string, Stream, CancellationToken, Task<FileObjectInfo>>? UploadHandler { get; init; }
 
         public Func<string, CancellationToken, Task>? DeleteHandler { get; init; }
 
-        public bool IsConfigured => true;
+        public StorageProvider ProviderType => StorageProvider.AzureBlob;
 
-        public Task<ReportExportStoredArtifact> UploadAsync(
-            Guid tenantId,
-            Guid jobId,
-            string fileName,
+        public Task<CreateUploadSessionResult> CreateUploadSessionAsync(
+            CreateUploadSessionProviderCommand command,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<CreateReadSessionResult> CreateReadSessionAsync(
+            CreateReadSessionCommand command,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<bool> ExistsAsync(string containerName, string objectKey, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<FileObjectInfo?> GetObjectInfoAsync(string containerName, string objectKey, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<FileObjectInfo> UploadStreamAsync(
+            string containerName,
+            string objectKey,
             string contentType,
             Stream content,
             CancellationToken cancellationToken)
         {
             if (UploadHandler is not null)
             {
-                return UploadHandler(tenantId, jobId, fileName, contentType, content, cancellationToken);
+                return UploadHandler(Guid.Empty, Guid.Empty, objectKey, contentType, content, cancellationToken);
             }
 
-            return Task.FromResult(new ReportExportStoredArtifact("blob-default", fileName, contentType, 1024));
+            return Task.FromResult(new FileObjectInfo(1024, contentType, DateTime.UtcNow));
         }
 
-        public Task<Stream?> OpenReadAsync(string blobName, CancellationToken cancellationToken) =>
+        public Task<Stream?> OpenReadStreamAsync(string containerName, string objectKey, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task DeleteIfExistsAsync(string blobName, CancellationToken cancellationToken)
+        public Task DeleteAsync(string containerName, string objectKey, CancellationToken cancellationToken)
         {
             if (DeleteHandler is null)
             {
                 return Task.CompletedTask;
             }
 
-            return DeleteHandler(blobName, cancellationToken);
+            return DeleteHandler(objectKey, cancellationToken);
         }
     }
 
