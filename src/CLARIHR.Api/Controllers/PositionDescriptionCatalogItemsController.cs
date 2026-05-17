@@ -23,7 +23,8 @@ namespace CLARIHR.Api.Controllers;
 [Route("api/v{version:apiVersion}")]
 [Consumes("application/json")]
 [Produces("application/json")]
-// AuthZ (defense-in-depth): GET→PositionDescriptionCatalogPolicies.Read, POST/PATCH→PositionDescriptionCatalogPolicies.Manage — assigned centrally by AuthorizationPolicyConvention.
+[Tags("Position Description Catalogs")]
+[AuthorizationPolicySet(PositionDescriptionCatalogPolicies.Read, PositionDescriptionCatalogPolicies.Manage)]
 public sealed class PositionDescriptionCatalogItemsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher)
@@ -32,6 +33,16 @@ public sealed class PositionDescriptionCatalogItemsController(
     [HttpGet("companies/{companyPublicId:guid}/position-description-catalogs/{catalogType}/items")]
     [ProducesResponseType<PagedResponse<PositionDescriptionCatalogItemResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "List items of a position description catalog",
+        Description = """
+            Returns a paginated list of catalog items for the catalog selected by the
+            **`{catalogType}` slug** (this single endpoint discriminates across the 13
+            catalogs — e.g. `position-function-types`, `salary-classes`,
+            `benefits-catalog`, `requirements`; the full accepted set is enumerated on
+            the `catalogType` parameter). Supports `isActive`, free-text `q` and
+            `includeAllowedActions`.
+            """)]
     public async Task<ActionResult<PagedResponse<PositionDescriptionCatalogItemResponse>>> Get(
         Guid companyPublicId,
         PositionDescriptionCatalogType catalogType,
@@ -60,6 +71,16 @@ public sealed class PositionDescriptionCatalogItemsController(
     [HttpGet("position-description-catalogs/{catalogType}/items/{positionDescriptionCatalogItemPublicId:guid}")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a position description catalog item by id",
+        Description = """
+            Returns a single catalog item by its public id within the catalog
+            selected by the **`{catalogType}` slug** (accepted values enumerated on
+            the `catalogType` parameter). If the item exists but belongs to a
+            different catalog type, `404` is returned. The owning company is resolved
+            from the authenticated tenant; `concurrencyToken` is also emitted as the
+            `ETag` header.
+            """)]
     public async Task<ActionResult<PositionDescriptionCatalogItemResponse>> GetById(
         PositionDescriptionCatalogType catalogType,
         Guid positionDescriptionCatalogItemPublicId,
@@ -81,10 +102,19 @@ public sealed class PositionDescriptionCatalogItemsController(
     [HttpPost("companies/{companyPublicId:guid}/position-description-catalogs/{catalogType}/items")]
     [ProducesResponseType<PositionDescriptionCatalogItemResponse>(StatusCodes.Status201Created)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Create an item in a position description catalog",
+        Description = """
+            Creates a catalog item in the catalog selected by the **`{catalogType}`
+            slug** (accepted values enumerated on the `catalogType` parameter; an
+            unknown slug yields `400` at routing/binding time). Returns `201 Created`
+            with a `Location` header pointing to the item's `GET` route (version-
+            relative). The created resource's `concurrencyToken` is returned.
+            """)]
     public async Task<ActionResult<PositionDescriptionCatalogItemResponse>> Add(
         Guid companyPublicId,
         PositionDescriptionCatalogType catalogType,
-        [FromBody] UpsertPositionDescriptionCatalogItemRequest request,
+        [FromBody] CreatePositionDescriptionCatalogItemRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
@@ -149,7 +179,7 @@ public sealed class PositionDescriptionCatalogItemsController(
         return this.ToActionResult(result);
     }
 
-    public sealed class UpsertPositionDescriptionCatalogItemRequest
+    public class CreatePositionDescriptionCatalogItemRequest
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
@@ -157,12 +187,8 @@ public sealed class PositionDescriptionCatalogItemsController(
         public int SortOrder { get; set; }
     }
 
-    public sealed class PatchPositionDescriptionCatalogItemRequest
+    public sealed class PatchPositionDescriptionCatalogItemRequest : CreatePositionDescriptionCatalogItemRequest
     {
-        public string Code { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public int SortOrder { get; set; }
         public bool IsActive { get; set; } = true;
     }
 }

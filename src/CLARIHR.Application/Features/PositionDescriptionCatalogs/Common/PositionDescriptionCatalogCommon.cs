@@ -10,6 +10,19 @@ public static partial class PositionDescriptionCatalogValidationRules
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
 
+    // Free-text search guardrail (P2): non-sargable LIKE '%x%' over Normalized* columns.
+    // A minimum length avoids tenant-wide scans on 1-char queries. Threshold aligned
+    // with the existing Internal Catalogs precedent (MinQueryLength: 2).
+    // See project-foundation.md §12.8 / ADR-0002.
+    public const int MinSearchLength = 2;
+    public const int MaxSearchLength = 150;
+
+    // Empty/whitespace search means "no filter" (the repository skips the predicate
+    // via !string.IsNullOrWhiteSpace), so it is valid; otherwise enforce the minimum
+    // length on the trimmed term.
+    public static bool IsValidSearchLength(string? search) =>
+        string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
+
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
 

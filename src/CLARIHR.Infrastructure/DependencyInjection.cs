@@ -180,6 +180,8 @@ public static class DependencyInjection
         services.AddScoped<IReportExportHandler, JobProfilePdfExportHandler>();
         services.AddScoped<IReportExportJobGenerator, ReportExportJobGenerator>();
         services.AddScoped<IReportExportJobProcessor, ReportExportJobProcessor>();
+        services.AddScoped<IJobProfileDocumentMapper, JobProfileDocumentMapper>();
+        services.AddScoped<IDocumentModelRenderer, QuestPdfDocumentRenderer>();
         services.AddScoped<IDocumentPdfRenderer<JobProfilePrintResponse>, JobProfilePdfRenderer>();
         services.AddScoped<IResourceActionPolicyService, ResourceActionPolicyService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();

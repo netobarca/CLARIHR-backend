@@ -21,7 +21,8 @@ namespace CLARIHR.Api.Controllers;
 [Route("api/v{version:apiVersion}")]
 [Consumes("application/json")]
 [Produces("application/json")]
-// AuthZ (defense-in-depth): GET→PositionDescriptionCatalogPolicies.Read, POST/PATCH→PositionDescriptionCatalogPolicies.Manage — assigned centrally by AuthorizationPolicyConvention.
+[Tags("Position Description Catalogs")]
+[AuthorizationPolicySet(PositionDescriptionCatalogPolicies.Read, PositionDescriptionCatalogPolicies.Manage)]
 public sealed class PositionCategoriesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher)
@@ -30,6 +31,15 @@ public sealed class PositionCategoriesController(
     [HttpGet("companies/{companyPublicId:guid}/position-categories")]
     [ProducesResponseType<PagedResponse<PositionCategoryResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "List position categories",
+        Description = """
+            Returns a paginated list of position categories for the given company.
+            Supports optional filtering by `classificationPublicId`, `isActive`
+            and a free-text query (`q`) matched against code and name.
+            Set `includeAllowedActions=true` to include, per item, the operations
+            the current user is authorized to perform on it.
+            """)]
     public async Task<ActionResult<PagedResponse<PositionCategoryResponse>>> Get(
         Guid companyPublicId,
         [FromQuery] Guid? classificationPublicId,
@@ -58,6 +68,14 @@ public sealed class PositionCategoriesController(
     [HttpGet("position-categories/{positionCategoryPublicId:guid}")]
     [ProducesResponseType<PositionCategoryResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a position category by id",
+        Description = """
+            Returns a single position category by its public id. The owning company
+            is resolved from the authenticated tenant (no `companyPublicId` in the
+            route). The `concurrencyToken` travels in the body and is also emitted as
+            the `ETag` response header for conditional requests / `If-Match` on PATCH.
+            """)]
     public async Task<ActionResult<PositionCategoryResponse>> GetById(
         Guid positionCategoryPublicId,
         CancellationToken cancellationToken = default)
@@ -72,9 +90,17 @@ public sealed class PositionCategoriesController(
     [HttpPost("companies/{companyPublicId:guid}/position-categories")]
     [ProducesResponseType<PositionCategoryResponse>(StatusCodes.Status201Created)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Create a position category",
+        Description = """
+            Creates a position category under the given company. Returns `201 Created`
+            with a `Location` header pointing to `GET /position-categories/{publicId}`
+            (resolved against the routing table, version-relative). The created
+            resource's `concurrencyToken` is returned for subsequent `PATCH`.
+            """)]
     public async Task<ActionResult<PositionCategoryResponse>> Add(
         Guid companyPublicId,
-        [FromBody] UpsertPositionCategoryRequest request,
+        [FromBody] CreatePositionCategoryRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
@@ -133,7 +159,7 @@ public sealed class PositionCategoriesController(
         return this.ToActionResult(result);
     }
 
-    public sealed class UpsertPositionCategoryRequest
+    public class CreatePositionCategoryRequest
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
@@ -142,13 +168,8 @@ public sealed class PositionCategoriesController(
         public int SortOrder { get; set; }
     }
 
-    public sealed class PatchPositionCategoryRequest
+    public sealed class PatchPositionCategoryRequest : CreatePositionCategoryRequest
     {
-        public string Code { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public Guid ClassificationPublicId { get; set; }
-        public int SortOrder { get; set; }
         public bool IsActive { get; set; } = true;
     }
 }

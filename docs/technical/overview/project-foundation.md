@@ -383,6 +383,36 @@ El sistema debe prepararse para medir:
 - rendimiento por endpoint,
 - comportamiento de base de datos bajo carga.
 
+## 12.7 `hasDependents` en superficies de detalle
+- Los listados/búsquedas **no** calculan estado de dependencia por ítem. Prohibido el patrón
+  N+1 (recorrer la página y consultar dependencias por cada elemento), incluso post-caché.
+- En listados, `AllowedActions` deriva únicamente del permiso del usuario (`canManage`), no del
+  estado de dependencia. El bloqueo real de borrado/inactivación se enforcea server-side en los
+  command/PATCH handlers, de forma independiente del flag de enriquecimiento del listado.
+- Cualquier superficie de **detalle** que requiera `hasDependents` debe resolverlo con una sola
+  proyección SQL `EXISTS` dentro de la query de lectura (no cargar la entidad + `AnyAsync` aparte).
+- Referencia de implementación: `JobProfilePolicyAdapter` /
+  `PositionDescriptionCatalogPolicyAdapter`. Decisión registrada en
+  `docs/technical/adr/ADR-0001-catalog-allowedactions-no-per-item-dependency.md`.
+
+## 12.8 Búsqueda free-text y supuesto de escala
+- La búsqueda free-text de listados filtra con `Normalized*.Contains(q)` → `LIKE '%x%'`
+  **no-sargable** sobre columnas `Normalized*`. Los índices B-tree compuestos
+  `(TenantId, …, Normalized*)` **no** aplican a `%x%`: el coste crece con las filas/tenant.
+- **Guardrail obligatorio:** todo endpoint de búsqueda free-text debe imponer una longitud
+  mínima de `q` (tras `Trim()`). `q` vacía/whitespace = "sin filtro" (válido). Umbral del
+  dominio: `MinSearchLength = 2` (alineado con el precedente de Internal Catalogs
+  `MinQueryLength`). La regla vive en el validador (rechazo 400 antes de tocar caché/DB).
+- **Supuesto de escala declarado:** los catálogos son pequeños por tenant (orden de magnitud
+  ≲ unos miles de filas/tenant por tabla de catálogo). Con ese volumen, el scan acotado por
+  `(TenantId, …)` + min length es aceptable.
+- **Trigger de escalado:** si el p95 del endpoint de búsqueda o las filas/tenant superan el
+  supuesto declarado, migrar a `pg_trgm` (índice GIN `gin_trgm_ops`) + `EF.Functions.ILike`.
+- **Concern cross-cutting:** el mismo patrón `.Contains()` existe en el search de Job Profiles
+  y en 23+ repositorios. Deuda conocida; los nuevos search deben aplicar el guardrail y declarar
+  su supuesto de escala. Decisión y deuda registradas en
+  `docs/technical/adr/ADR-0002-catalog-free-text-search-min-length-and-scale-assumption.md`.
+
 ---
 
 ## 13. Estrategia oficial de pruebas unitarias

@@ -209,7 +209,7 @@ internal sealed class ReportExportJobProcessor(
         catch (ReportExportLimitExceededException exception)
         {
             const string errorCode = "REPORT_EXPORT_LIMIT_EXCEEDED";
-            const string errorMessage = "Report export row count exceeds the asynchronous export limit.";
+            const string errorMessage = "Report export exceeded an enforced limit (row count or document size).";
 
             job.MarkProcessingFailed(
                 ReportPolicyErrors.ExportLimitExceeded.Code,

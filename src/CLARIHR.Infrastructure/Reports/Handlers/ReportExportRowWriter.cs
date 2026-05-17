@@ -31,7 +31,7 @@ internal sealed class ReportExportRowWriter(IOptions<ReportPerformanceOptions> o
         var maxRows = _options.NormalizedMaxAsyncExportRows;
         if (rows.Count > maxRows)
         {
-            throw new ReportExportLimitExceededException(rows.Count, maxRows);
+            throw ReportExportLimitExceededException.ForRowCount(rows.Count, maxRows);
         }
 
         var normalizedFormat = job.Format;

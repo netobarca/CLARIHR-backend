@@ -4,7 +4,9 @@ using System.Text.Json;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.Reports;
 using CLARIHR.Domain.Reports;
+using CLARIHR.Infrastructure.Persistence;
 using CLARIHR.Infrastructure.Reports;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CLARIHR.Api.IntegrationTests;
@@ -115,6 +117,75 @@ public sealed class JobProfilePdfExportIntegrationTests(ReportExportIntegrationT
         Assert.NotNull(detail);
         Assert.Equal(ReportExportJobStatus.Failed, detail.Status);
         Assert.False(string.IsNullOrWhiteSpace(detail.LastErrorMessage));
+    }
+
+    [Fact]
+    public async Task PostJob_WhenRequesterCannotManageProfiles_ForcesIncludeCompensationFalse()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                JobProfilePermissionCodes.Read));
+
+        // The client tries to self-grant salary visibility.
+        var response = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs",
+            new
+            {
+                resourceKey = "JOB_PROFILE_PDF",
+                format = "pdf",
+                parameters = new { jobProfileId = Guid.NewGuid(), includeCompensation = true }
+            });
+
+        response.EnsureSuccessStatusCode();
+        var queued = await response.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
+        Assert.NotNull(queued);
+
+        Assert.False(await ReadIncludeCompensationAsync(queued.Id),
+            "A Read-only requester must not be able to embed salary data, even by sending includeCompensation=true.");
+    }
+
+    [Fact]
+    public async Task PostJob_WhenRequesterCanManageProfiles_AllowsIncludeCompensationTrue()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                JobProfilePermissionCodes.Read,
+                JobProfilePermissionCodes.Admin));
+
+        var response = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs",
+            new
+            {
+                resourceKey = "JOB_PROFILE_PDF",
+                format = "pdf",
+                parameters = new { jobProfileId = Guid.NewGuid() }
+            });
+
+        response.EnsureSuccessStatusCode();
+        var queued = await response.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
+        Assert.NotNull(queued);
+
+        Assert.True(await ReadIncludeCompensationAsync(queued.Id),
+            "A profile manager must keep salary data in the exported document.");
+    }
+
+    private async Task<bool> ReadIncludeCompensationAsync(Guid jobPublicId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var job = await dbContext.ReportExportJobs
+            .IgnoreQueryFilters()
+            .SingleAsync(item => item.PublicId == jobPublicId);
+
+        using var document = JsonDocument.Parse(job.ParametersJson);
+        return document.RootElement.TryGetProperty("includeCompensation", out var flag)
+            && flag.ValueKind == JsonValueKind.True;
     }
 
     private async Task ProcessAllPendingJobsAsync()

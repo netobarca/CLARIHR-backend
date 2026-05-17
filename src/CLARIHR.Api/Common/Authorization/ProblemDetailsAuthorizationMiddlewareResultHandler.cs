@@ -70,7 +70,9 @@ public sealed class ProblemDetailsAuthorizationMiddlewareResultHandler : IAuthor
 
         return policyName switch
         {
-            JobProfilePolicies.Read or JobProfilePolicies.Manage => JobProfileErrors.Forbidden,
+            JobProfilePolicies.Read
+                or JobProfilePolicies.Manage
+                or JobProfilePolicies.ManageCatalogs => JobProfileErrors.Forbidden,
             PositionDescriptionCatalogPolicies.Read or PositionDescriptionCatalogPolicies.Manage =>
                 PositionDescriptionCatalogErrors.Forbidden,
             _ => ErrorCatalog.Forbidden

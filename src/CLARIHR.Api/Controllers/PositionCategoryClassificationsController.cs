@@ -21,7 +21,8 @@ namespace CLARIHR.Api.Controllers;
 [Route("api/v{version:apiVersion}")]
 [Consumes("application/json")]
 [Produces("application/json")]
-// AuthZ (defense-in-depth): GET→PositionDescriptionCatalogPolicies.Read, POST/PATCH→PositionDescriptionCatalogPolicies.Manage — assigned centrally by AuthorizationPolicyConvention.
+[Tags("Position Description Catalogs")]
+[AuthorizationPolicySet(PositionDescriptionCatalogPolicies.Read, PositionDescriptionCatalogPolicies.Manage)]
 public sealed class PositionCategoryClassificationsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher)
@@ -30,6 +31,15 @@ public sealed class PositionCategoryClassificationsController(
     [HttpGet("companies/{companyPublicId:guid}/position-category-classifications")]
     [ProducesResponseType<PagedResponse<PositionCategoryClassificationResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "List position category classifications",
+        Description = """
+            Returns a paginated list of position category classifications for the
+            given company. Supports optional filtering by `positionFunctionTypePublicId`,
+            `positionContractTypePublicId`, `orgUnitTypePublicId`, `isActive` and a
+            free-text query (`q`). Set `includeAllowedActions=true` to include, per
+            item, the operations the current user is authorized to perform on it.
+            """)]
     public async Task<ActionResult<PagedResponse<PositionCategoryClassificationResponse>>> Get(
         Guid companyPublicId,
         [FromQuery] Guid? positionFunctionTypePublicId,
@@ -62,6 +72,15 @@ public sealed class PositionCategoryClassificationsController(
     [HttpGet("position-category-classifications/{positionCategoryClassificationPublicId:guid}")]
     [ProducesResponseType<PositionCategoryClassificationResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a position category classification by id",
+        Description = """
+            Returns a single position category classification by its public id. The
+            owning company is resolved from the authenticated tenant (no
+            `companyPublicId` in the route). The `concurrencyToken` travels in the
+            body and is also emitted as the `ETag` header for conditional requests /
+            `If-Match` on PATCH.
+            """)]
     public async Task<ActionResult<PositionCategoryClassificationResponse>> GetById(
         Guid positionCategoryClassificationPublicId,
         CancellationToken cancellationToken = default)
@@ -76,9 +95,18 @@ public sealed class PositionCategoryClassificationsController(
     [HttpPost("companies/{companyPublicId:guid}/position-category-classifications")]
     [ProducesResponseType<PositionCategoryClassificationResponse>(StatusCodes.Status201Created)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Create a position category classification",
+        Description = """
+            Creates a position category classification under the given company.
+            Returns `201 Created` with a `Location` header pointing to
+            `GET /position-category-classifications/{publicId}` (resolved against
+            the routing table, version-relative). The created resource's
+            `concurrencyToken` is returned for subsequent `PATCH`.
+            """)]
     public async Task<ActionResult<PositionCategoryClassificationResponse>> Add(
         Guid companyPublicId,
-        [FromBody] UpsertPositionCategoryClassificationRequest request,
+        [FromBody] CreatePositionCategoryClassificationRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
@@ -139,7 +167,7 @@ public sealed class PositionCategoryClassificationsController(
         return this.ToActionResult(result);
     }
 
-    public sealed class UpsertPositionCategoryClassificationRequest
+    public class CreatePositionCategoryClassificationRequest
     {
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
@@ -150,15 +178,8 @@ public sealed class PositionCategoryClassificationsController(
         public int SortOrder { get; set; }
     }
 
-    public sealed class PatchPositionCategoryClassificationRequest
+    public sealed class PatchPositionCategoryClassificationRequest : CreatePositionCategoryClassificationRequest
     {
-        public string Code { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public Guid PositionFunctionTypePublicId { get; set; }
-        public Guid PositionContractTypePublicId { get; set; }
-        public Guid OrgUnitTypePublicId { get; set; }
-        public int SortOrder { get; set; }
         public bool IsActive { get; set; } = true;
     }
 }

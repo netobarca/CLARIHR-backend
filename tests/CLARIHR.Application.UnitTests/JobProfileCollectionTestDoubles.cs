@@ -30,6 +30,7 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
     public Dictionary<Guid, JobProfileResponse> Responses { get; } = new();
     public Dictionary<Guid, JobProfileCompensationResponse?> CoreCompensations { get; } = new();
     public Dictionary<long, Guid> OrgUnitPublicIds { get; } = new();
+    public Dictionary<Guid, JobProfilePrintResponse> PrintResponses { get; } = new();
 
     public void Add(JobProfile profile) => Profiles[profile.PublicId] = profile;
 
@@ -563,7 +564,7 @@ internal sealed class TestJobProfileRepository : IJobProfileRepository
     }
 
     public Task<JobProfilePrintResponse?> GetPrintByIdAsync(Guid profileId, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
+        Task.FromResult(PrintResponses.GetValueOrDefault(profileId));
 
     private static Guid ResolvePublicId(IDictionary<long, Guid> values, long internalId)
     {
@@ -620,16 +621,13 @@ internal sealed class TestPositionDescriptionCatalogRepository : IPositionDescri
     public Task<CatalogReferenceInternal?> GetActiveOrgUnitTypeReferenceAsync(Guid tenantId, Guid orgUnitTypeId, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task<bool> HasCategoriesUsingClassificationAsync(long classificationId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasJobProfilesUsingCategoryAsync(long categoryId, CancellationToken cancellationToken) => Task.FromResult(false);
-    public Task<bool> HasClassificationsUsingOrgUnitTypeAsync(long orgUnitTypeCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasJobProfilesUsingCatalogItemAsync(long catalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasClassificationsUsingCatalogItemAsync(long catalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasFunctionsUsingFrequencyAsync(long frequencyCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasRequirementsUsingRequirementTypeAsync(long requirementTypeCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasWorkConditionsUsingWorkConditionTypeAsync(long workConditionTypeCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<long?> ResolvePositionCategoryIdAsync(Guid tenantId, Guid positionCategoryId, CancellationToken cancellationToken) => Task.FromResult((long?)1);
-    public Task<PositionSlotContractTypeLookup?> GetPositionSlotContractTypeLookupAsync(Guid tenantId, Guid positionSlotId, CancellationToken cancellationToken) => throw new NotImplementedException();
     public Task<string?> ResolveSalaryClassCodeByCatalogIdAsync(Guid tenantId, Guid salaryClassId, CancellationToken cancellationToken) => throw new NotImplementedException();
-    public Task<Guid?> ResolveSalaryClassCatalogIdByCodeAsync(Guid tenantId, string salaryClassCode, CancellationToken cancellationToken) => throw new NotImplementedException();
     public void InvalidateSimpleCatalogCache(Guid tenantId, PositionDescriptionCatalogType catalogType) { }
     public void InvalidateClassificationCache(Guid tenantId) { }
     public void InvalidateCategoryCache(Guid tenantId) { }

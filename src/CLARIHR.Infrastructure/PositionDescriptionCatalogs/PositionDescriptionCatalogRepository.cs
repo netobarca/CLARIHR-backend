@@ -449,9 +449,6 @@ internal sealed class PositionDescriptionCatalogRepository(
     public Task<bool> HasJobProfilesUsingCategoryAsync(long categoryId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles.AnyAsync(item => item.PositionCategoryId == categoryId, cancellationToken);
 
-    public Task<bool> HasClassificationsUsingOrgUnitTypeAsync(long orgUnitTypeCatalogItemId, CancellationToken cancellationToken) =>
-        dbContext.PositionCategoryClassifications.AnyAsync(item => item.OrgUnitTypeCatalogItemId == orgUnitTypeCatalogItemId, cancellationToken);
-
     public Task<bool> HasJobProfilesUsingCatalogItemAsync(long catalogItemId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles.AnyAsync(item =>
             item.StrategicObjectiveCatalogItemId == catalogItemId ||
@@ -480,26 +477,6 @@ internal sealed class PositionDescriptionCatalogRepository(
             .Select(item => (long?)item.Id)
             .SingleOrDefaultAsync(cancellationToken);
 
-    public Task<PositionSlotContractTypeLookup?> GetPositionSlotContractTypeLookupAsync(Guid tenantId, Guid positionSlotId, CancellationToken cancellationToken) =>
-        (from slot in dbContext.PositionSlots.AsNoTracking()
-         join profile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals profile.Id
-         join category in dbContext.PositionCategories.AsNoTracking() on profile.PositionCategoryId equals category.Id into categoryGroup
-         from category in categoryGroup.DefaultIfEmpty()
-         join classification in dbContext.PositionCategoryClassifications.AsNoTracking() on category.PositionCategoryClassificationId equals classification.Id into classificationGroup
-         from classification in classificationGroup.DefaultIfEmpty()
-         join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking() on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
-         from contractType in contractTypeGroup.DefaultIfEmpty()
-         where slot.TenantId == tenantId && slot.PublicId == positionSlotId
-         select new PositionSlotContractTypeLookup(
-             slot.PublicId,
-             profile.PublicId,
-             category != null ? category.PublicId : null,
-             classification != null ? classification.PublicId : null,
-             contractType != null ? contractType.PublicId : null,
-             contractType != null ? contractType.Code : null,
-             contractType != null ? contractType.Name : null))
-        .SingleOrDefaultAsync(cancellationToken);
-
     public Task<string?> ResolveSalaryClassCodeByCatalogIdAsync(Guid tenantId, Guid salaryClassId, CancellationToken cancellationToken) =>
         dbContext.PositionDescriptionCatalogItems
             .AsNoTracking()
@@ -509,19 +486,6 @@ internal sealed class PositionDescriptionCatalogRepository(
                            item.IsActive)
             .Select(item => item.Code)
             .SingleOrDefaultAsync(cancellationToken);
-
-    public Task<Guid?> ResolveSalaryClassCatalogIdByCodeAsync(Guid tenantId, string salaryClassCode, CancellationToken cancellationToken)
-    {
-        var normalizedCode = salaryClassCode.Trim().ToUpperInvariant();
-        return dbContext.PositionDescriptionCatalogItems
-            .AsNoTracking()
-            .Where(item => item.TenantId == tenantId &&
-                           item.CatalogType == PositionDescriptionCatalogType.SalaryClass &&
-                           item.NormalizedCode == normalizedCode &&
-                           item.IsActive)
-            .Select(item => (Guid?)item.PublicId)
-            .SingleOrDefaultAsync(cancellationToken);
-    }
 
     public void InvalidateSimpleCatalogCache(Guid tenantId, PositionDescriptionCatalogType catalogType) =>
         RemoveKeysByPrefix(BuildSimpleCatalogCachePrefix(tenantId, catalogType));

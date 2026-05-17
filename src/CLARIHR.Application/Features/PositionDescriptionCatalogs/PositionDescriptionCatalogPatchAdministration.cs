@@ -646,8 +646,6 @@ internal sealed class PositionDescriptionCatalogItemPatchState
     public string? Description { get; set; }
     public int SortOrder { get; set; }
     public bool IsActive { get; set; }
-    public Guid ConcurrencyToken { get; set; }
-    public bool ConcurrencyTokenTouched { get; set; }
     public bool HasMutation { get; set; }
     public bool HasScalarMutation { get; set; }
     public bool IsActiveTouched { get; set; }
@@ -659,8 +657,7 @@ internal sealed class PositionDescriptionCatalogItemPatchState
             Name = response.Name,
             Description = response.Description,
             SortOrder = response.SortOrder,
-            IsActive = response.IsActive,
-            ConcurrencyToken = response.ConcurrencyToken
+            IsActive = response.IsActive
         };
 }
 
@@ -674,8 +671,6 @@ internal sealed class PositionCategoryClassificationPatchState
     public Guid OrgUnitTypePublicId { get; set; }
     public int SortOrder { get; set; }
     public bool IsActive { get; set; }
-    public Guid ConcurrencyToken { get; set; }
-    public bool ConcurrencyTokenTouched { get; set; }
     public bool HasMutation { get; set; }
     public bool HasScalarMutation { get; set; }
     public bool IsActiveTouched { get; set; }
@@ -690,8 +685,7 @@ internal sealed class PositionCategoryClassificationPatchState
             PositionContractTypePublicId = response.PositionContractType.Id,
             OrgUnitTypePublicId = response.OrgUnitType.Id,
             SortOrder = response.SortOrder,
-            IsActive = response.IsActive,
-            ConcurrencyToken = response.ConcurrencyToken
+            IsActive = response.IsActive
         };
 }
 
@@ -703,8 +697,6 @@ internal sealed class PositionCategoryPatchState
     public Guid ClassificationPublicId { get; set; }
     public int SortOrder { get; set; }
     public bool IsActive { get; set; }
-    public Guid ConcurrencyToken { get; set; }
-    public bool ConcurrencyTokenTouched { get; set; }
     public bool HasMutation { get; set; }
     public bool HasScalarMutation { get; set; }
     public bool IsActiveTouched { get; set; }
@@ -717,8 +709,7 @@ internal sealed class PositionCategoryPatchState
             Description = response.Description,
             ClassificationPublicId = response.Classification.Id,
             SortOrder = response.SortOrder,
-            IsActive = response.IsActive,
-            ConcurrencyToken = response.ConcurrencyToken
+            IsActive = response.IsActive
         };
 }
 

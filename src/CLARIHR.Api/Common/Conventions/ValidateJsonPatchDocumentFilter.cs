@@ -1,15 +1,20 @@
+using CLARIHR.Application.Common.Errors;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using MvcProblemDetailsFactory = Microsoft.AspNetCore.Mvc.Infrastructure.ProblemDetailsFactory;
 
 namespace CLARIHR.Api.Common.Conventions;
 
-internal sealed class ValidateJsonPatchDocumentFilter(MvcProblemDetailsFactory problemDetailsFactory) : IActionFilter
+/// <summary>
+/// Rejects a missing/unbound JSON Patch body with the project's standard
+/// <c>ProblemDetails</c> shape (typed <c>code</c> + <c>traceId</c> + localized,
+/// via <see cref="ProblemDetailsFactory"/>) instead of the framework factory,
+/// so every PATCH endpoint returns a consistent 400 (technical-debt JP §8.2).
+/// </summary>
+internal sealed class ValidateJsonPatchDocumentFilter : IActionFilter
 {
-    private const string InvalidPatchDocumentDetail = "Invalid patch document.";
+    private const string InvalidPatchDocumentDetail = "The request body is invalid.";
 
     public void OnActionExecuting(ActionExecutingContext context)
     {
@@ -30,11 +35,12 @@ internal sealed class ValidateJsonPatchDocumentFilter(MvcProblemDetailsFactory p
                 continue;
             }
 
-            context.Result = new BadRequestObjectResult(problemDetailsFactory.CreateProblemDetails(
-                context.HttpContext,
-                statusCode: StatusCodes.Status400BadRequest,
-                detail: InvalidPatchDocumentDetail));
+            var error = ErrorCatalog.Validation(new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                ["body"] = [InvalidPatchDocumentDetail],
+            });
 
+            context.Result = ProblemDetailsFactory.Create(context.HttpContext, error);
             return;
         }
     }
