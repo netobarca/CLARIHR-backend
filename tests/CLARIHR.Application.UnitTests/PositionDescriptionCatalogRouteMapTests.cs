@@ -80,4 +80,39 @@ public class PositionDescriptionCatalogRouteMapTests
         // Assert
         Assert.Equal("999", result);
     }
+
+    /// <summary>
+    /// Guard for technical-debt §3.6 / §6.2: <see cref="PositionDescriptionCatalogRouteMap.Slugs"/>
+    /// is the single source of truth exposed in OpenAPI by
+    /// <c>CatalogTypeSlugOperationFilter</c>. It must list exactly the canonical slugs and
+    /// every one must round-trip through <c>TryResolve</c> — so the documented contract can
+    /// never advertise a slug the binder rejects, nor omit a valid one.
+    /// </summary>
+    [Fact]
+    public void Slugs_ShouldBeTheCanonicalResolvableSet_ForOpenApiContract()
+    {
+        string[] expected =
+        [
+            "position-function-types",
+            "position-contract-types",
+            "strategic-objectives",
+            "frequencies",
+            "requirement-types",
+            "requirements",
+            "general-functions",
+            "salary-classes",
+            "work-equipments",
+            "responsibilities-catalog",
+            "benefits-catalog",
+            "work-condition-types",
+            "work-conditions",
+        ];
+
+        Assert.Equal(expected, PositionDescriptionCatalogRouteMap.Slugs);
+
+        Assert.All(PositionDescriptionCatalogRouteMap.Slugs, slug =>
+            Assert.True(
+                PositionDescriptionCatalogRouteMap.TryResolve(slug, out _),
+                $"OpenAPI slug '{slug}' is not resolvable by the binder."));
+    }
 }

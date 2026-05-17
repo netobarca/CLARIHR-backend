@@ -91,6 +91,7 @@ builder.Services.AddSwaggerGen(options =>
     options.SchemaFilter<PublicContractSchemaFilter>();
     options.OperationFilter<PublicContractOperationFilter>();
     options.OperationFilter<AuthorizationPolicyOperationFilter>();
+    options.OperationFilter<CatalogTypeSlugOperationFilter>();
 
     options.SwaggerDoc("v1", new OpenApiInfo
     {

@@ -23,16 +23,19 @@ public sealed record PositionDescriptionCatalogPatchOperation(
 public sealed record PatchPositionDescriptionCatalogItemCommand(
     Guid ItemId,
     PositionDescriptionCatalogType CatalogType,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<PositionDescriptionCatalogPatchOperation> Operations)
     : ICommand<PositionDescriptionCatalogItemResponse>;
 
 public sealed record PatchPositionCategoryClassificationCommand(
     Guid ClassificationId,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<PositionDescriptionCatalogPatchOperation> Operations)
     : ICommand<PositionCategoryClassificationResponse>;
 
 public sealed record PatchPositionCategoryCommand(
     Guid CategoryId,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<PositionDescriptionCatalogPatchOperation> Operations)
     : ICommand<PositionCategoryResponse>;
 
@@ -48,9 +51,7 @@ internal sealed class PatchPositionDescriptionCatalogItemCommandValidator : Abst
         RuleFor(command => command.Operations)
             .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
             .WithMessage(JsonPatchHardening.MaxOperationsMessage);
-        RuleFor(command => command.Operations)
-            .Must(PositionDescriptionCatalogPatchValidation.ContainsConcurrencyToken)
-            .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleForEach(command => command.Operations).ChildRules(operation =>
         {
             operation.RuleFor(item => item.Op).NotEmpty();
@@ -68,9 +69,7 @@ internal sealed class PatchPositionCategoryClassificationCommandValidator : Abst
         RuleFor(command => command.Operations)
             .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
             .WithMessage(JsonPatchHardening.MaxOperationsMessage);
-        RuleFor(command => command.Operations)
-            .Must(PositionDescriptionCatalogPatchValidation.ContainsConcurrencyToken)
-            .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleForEach(command => command.Operations).ChildRules(operation =>
         {
             operation.RuleFor(item => item.Op).NotEmpty();
@@ -88,9 +87,7 @@ internal sealed class PatchPositionCategoryCommandValidator : AbstractValidator<
         RuleFor(command => command.Operations)
             .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
             .WithMessage(JsonPatchHardening.MaxOperationsMessage);
-        RuleFor(command => command.Operations)
-            .Must(PositionDescriptionCatalogPatchValidation.ContainsConcurrencyToken)
-            .WithMessage("Patch document must include a non-remove operation for /concurrencyToken.");
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
         RuleForEach(command => command.Operations).ChildRules(operation =>
         {
             operation.RuleFor(item => item.Op).NotEmpty();
@@ -151,7 +148,7 @@ internal sealed class PatchPositionDescriptionCatalogItemCommandHandler(
             return Result<PositionDescriptionCatalogItemResponse>.Failure(validation.Error);
         }
 
-        if (patchState.ConcurrencyToken != entity.ConcurrencyToken)
+        if (command.ConcurrencyToken != entity.ConcurrencyToken)
         {
             return Result<PositionDescriptionCatalogItemResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
         }
@@ -318,7 +315,7 @@ internal sealed class PatchPositionCategoryClassificationCommandHandler(
             return Result<PositionCategoryClassificationResponse>.Failure(validation.Error);
         }
 
-        if (patchState.ConcurrencyToken != entity.ConcurrencyToken)
+        if (command.ConcurrencyToken != entity.ConcurrencyToken)
         {
             return Result<PositionCategoryClassificationResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
         }
@@ -519,7 +516,7 @@ internal sealed class PatchPositionCategoryCommandHandler(
             return Result<PositionCategoryResponse>.Failure(validation.Error);
         }
 
-        if (patchState.ConcurrencyToken != entity.ConcurrencyToken)
+        if (command.ConcurrencyToken != entity.ConcurrencyToken)
         {
             return Result<PositionCategoryResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
         }
@@ -736,9 +733,7 @@ internal static class PositionDescriptionCatalogItemPatchApplier
             state.Code,
             state.Name,
             state.Description,
-            state.SortOrder,
-            state.ConcurrencyToken,
-            state.ConcurrencyTokenTouched);
+            state.SortOrder);
 
         return errors.Count == 0
             ? Result.Success()
@@ -811,14 +806,9 @@ internal static class PositionDescriptionCatalogItemPatchApplier
 
         if (PositionDescriptionCatalogPatchApplier.IsSegment(property, "concurrencyToken"))
         {
-            if (isRemove)
-            {
-                return PositionDescriptionCatalogPatchApplier.ValidationFailure(path, "ConcurrencyToken cannot be removed.");
-            }
-
-            state.ConcurrencyToken = PositionDescriptionCatalogPatchApplier.ReadRequiredGuid(value, path);
-            state.ConcurrencyTokenTouched = true;
-            return Result.Success();
+            return PositionDescriptionCatalogPatchApplier.ValidationFailure(
+                path,
+                "ConcurrencyToken cannot be set via the patch document; send the current token in the If-Match header.");
         }
 
         return PositionDescriptionCatalogPatchApplier.ValidationFailure(path, $"Unsupported patch path '{path}'.");
@@ -836,9 +826,7 @@ internal static class PositionCategoryClassificationPatchApplier
             state.Code,
             state.Name,
             state.Description,
-            state.SortOrder,
-            state.ConcurrencyToken,
-            state.ConcurrencyTokenTouched);
+            state.SortOrder);
 
         PositionDescriptionCatalogPatchValidation.AddRequiredGuid(errors, "positionFunctionTypePublicId", state.PositionFunctionTypePublicId);
         PositionDescriptionCatalogPatchValidation.AddRequiredGuid(errors, "positionContractTypePublicId", state.PositionContractTypePublicId);
@@ -954,14 +942,9 @@ internal static class PositionCategoryClassificationPatchApplier
 
         if (PositionDescriptionCatalogPatchApplier.IsSegment(property, "concurrencyToken"))
         {
-            if (isRemove)
-            {
-                return PositionDescriptionCatalogPatchApplier.ValidationFailure(path, "ConcurrencyToken cannot be removed.");
-            }
-
-            state.ConcurrencyToken = PositionDescriptionCatalogPatchApplier.ReadRequiredGuid(value, path);
-            state.ConcurrencyTokenTouched = true;
-            return Result.Success();
+            return PositionDescriptionCatalogPatchApplier.ValidationFailure(
+                path,
+                "ConcurrencyToken cannot be set via the patch document; send the current token in the If-Match header.");
         }
 
         return PositionDescriptionCatalogPatchApplier.ValidationFailure(path, $"Unsupported patch path '{path}'.");
@@ -979,9 +962,7 @@ internal static class PositionCategoryPatchApplier
             state.Code,
             state.Name,
             state.Description,
-            state.SortOrder,
-            state.ConcurrencyToken,
-            state.ConcurrencyTokenTouched);
+            state.SortOrder);
 
         PositionDescriptionCatalogPatchValidation.AddRequiredGuid(errors, "classificationPublicId", state.ClassificationPublicId);
 
@@ -1069,14 +1050,9 @@ internal static class PositionCategoryPatchApplier
 
         if (PositionDescriptionCatalogPatchApplier.IsSegment(property, "concurrencyToken"))
         {
-            if (isRemove)
-            {
-                return PositionDescriptionCatalogPatchApplier.ValidationFailure(path, "ConcurrencyToken cannot be removed.");
-            }
-
-            state.ConcurrencyToken = PositionDescriptionCatalogPatchApplier.ReadRequiredGuid(value, path);
-            state.ConcurrencyTokenTouched = true;
-            return Result.Success();
+            return PositionDescriptionCatalogPatchApplier.ValidationFailure(
+                path,
+                "ConcurrencyToken cannot be set via the patch document; send the current token in the If-Match header.");
         }
 
         return PositionDescriptionCatalogPatchApplier.ValidationFailure(path, $"Unsupported patch path '{path}'.");
@@ -1085,31 +1061,13 @@ internal static class PositionCategoryPatchApplier
 
 internal static class PositionDescriptionCatalogPatchValidation
 {
-    public static bool ContainsConcurrencyToken(IReadOnlyCollection<PositionDescriptionCatalogPatchOperation>? operations) =>
-        operations is not null &&
-        operations.Any(static operation =>
-            !string.Equals(operation.Op, "remove", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(operation.Path) &&
-            string.Equals(operation.Path.Trim(), "/concurrencyToken", StringComparison.OrdinalIgnoreCase));
-
     public static Dictionary<string, string[]> ValidateCommon(
         string code,
         string name,
         string? description,
-        int sortOrder,
-        Guid concurrencyToken,
-        bool concurrencyTokenTouched)
+        int sortOrder)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-
-        if (!concurrencyTokenTouched)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken is required."];
-        }
-        else if (concurrencyToken == Guid.Empty)
-        {
-            errors["concurrencyToken"] = ["ConcurrencyToken must be a valid UUID."];
-        }
 
         if (string.IsNullOrWhiteSpace(code))
         {

@@ -102,9 +102,9 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         {
             Content = CreateJsonPatchContent(
                 new { op = "replace", path = "/name", value = (object)"Frecuencia parcheada" },
-                new { op = "replace", path = "/isActive", value = (object)false },
-                new { op = "replace", path = "/concurrencyToken", value = (object)frequency.ConcurrencyToken.ToString() })
+                new { op = "replace", path = "/isActive", value = (object)false })
         };
+        frequencyPatchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{frequency.ConcurrencyToken}\"");
 
         var frequencyPatchResponse = await client.SendAsync(frequencyPatchRequest);
         frequencyPatchResponse.EnsureSuccessStatusCode();
@@ -132,9 +132,9 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         {
             Content = CreateJsonPatchContent(
                 new { op = "replace", path = "/name", value = (object)"Clasificacion parcheada" },
-                new { op = "replace", path = "/sortOrder", value = (object)25 },
-                new { op = "replace", path = "/concurrencyToken", value = (object)classification.ConcurrencyToken.ToString() })
+                new { op = "replace", path = "/sortOrder", value = (object)25 })
         };
+        classificationPatchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{classification.ConcurrencyToken}\"");
 
         var classificationPatchResponse = await client.SendAsync(classificationPatchRequest);
         classificationPatchResponse.EnsureSuccessStatusCode();
@@ -152,9 +152,9 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         {
             Content = CreateJsonPatchContent(
                 new { op = "replace", path = "/name", value = (object)"Categoria parcheada" },
-                new { op = "replace", path = "/isActive", value = (object)false },
-                new { op = "replace", path = "/concurrencyToken", value = (object)category.ConcurrencyToken.ToString() })
+                new { op = "replace", path = "/isActive", value = (object)false })
         };
+        categoryPatchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{category.ConcurrencyToken}\"");
 
         var categoryPatchResponse = await client.SendAsync(categoryPatchRequest);
         categoryPatchResponse.EnsureSuccessStatusCode();

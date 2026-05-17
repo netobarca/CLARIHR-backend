@@ -1,5 +1,7 @@
 using Asp.Versioning;
+using System.ComponentModel.DataAnnotations;
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
@@ -36,6 +38,7 @@ public sealed class PositionDescriptionCatalogItemsController(
         [FromQuery] bool? isActive,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
+        [Range(1, PositionDescriptionCatalogValidationRules.MaxPageSize)]
         [FromQuery] int pageSize = PositionDescriptionCatalogValidationRules.DefaultPageSize,
         [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
@@ -112,6 +115,12 @@ public sealed class PositionDescriptionCatalogItemsController(
             `application/json-patch+json`) to a catalog item of the given
             `{catalogType}`.
 
+            **Full replacement**: there is intentionally **no `PUT`** endpoint
+            for this resource — `POST` creates and this PATCH is the single
+            mutation verb. A full-field replacement is expressed as a JSON Patch
+            with `replace` operations for each member. A `PUT` request returns
+            `405 Method Not Allowed` by design.
+
             **Deletion / soft-delete**: there is intentionally **no `DELETE`**
             endpoint for this resource. Deactivation ("soft-delete") and
             reactivation are performed through this PATCH by replacing the
@@ -119,12 +128,13 @@ public sealed class PositionDescriptionCatalogItemsController(
             `[{ "op": "replace", "path": "/isActive", "value": false }]`.
             A `DELETE` request returns `405 Method Not Allowed` by design.
 
-            The document must also include a non-remove operation for
-            `/concurrencyToken` carrying the current token to prevent lost updates.
+            Requires the `If-Match` header with the current `concurrencyToken`
+            to prevent lost updates.
             """)]
     public async Task<ActionResult<PositionDescriptionCatalogItemResponse>> Patch(
         PositionDescriptionCatalogType catalogType,
         Guid positionDescriptionCatalogItemPublicId,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] JsonPatchDocument<PatchPositionDescriptionCatalogItemRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
@@ -132,6 +142,7 @@ public sealed class PositionDescriptionCatalogItemsController(
             new PatchPositionDescriptionCatalogItemCommand(
                 positionDescriptionCatalogItemPublicId,
                 catalogType,
+                concurrencyToken,
                 JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new PositionDescriptionCatalogPatchOperation(op, path, from, value))),
             cancellationToken);
 
@@ -153,6 +164,5 @@ public sealed class PositionDescriptionCatalogItemsController(
         public string? Description { get; set; }
         public int SortOrder { get; set; }
         public bool IsActive { get; set; } = true;
-        public Guid ConcurrencyToken { get; set; }
     }
 }
