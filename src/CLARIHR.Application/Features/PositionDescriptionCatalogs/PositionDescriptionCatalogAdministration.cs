@@ -100,15 +100,6 @@ public sealed record CreatePositionDescriptionCatalogItemCommand(
     int SortOrder)
     : ICommand<PositionDescriptionCatalogItemResponse>;
 
-public sealed record UpdatePositionDescriptionCatalogItemCommand(
-    Guid ItemId,
-    string Code,
-    string Name,
-    string? Description,
-    int SortOrder,
-    Guid ConcurrencyToken)
-    : ICommand<PositionDescriptionCatalogItemResponse>;
-
 public sealed record SearchPositionCategoryClassificationsQuery(
     Guid CompanyId,
     Guid? PositionFunctionTypeId,
@@ -135,18 +126,6 @@ public sealed record CreatePositionCategoryClassificationCommand(
     int SortOrder)
     : ICommand<PositionCategoryClassificationResponse>;
 
-public sealed record UpdatePositionCategoryClassificationCommand(
-    Guid ClassificationId,
-    string Code,
-    string Name,
-    string? Description,
-    Guid PositionFunctionTypeId,
-    Guid PositionContractTypeId,
-    Guid OrgUnitTypeId,
-    int SortOrder,
-    Guid ConcurrencyToken)
-    : ICommand<PositionCategoryClassificationResponse>;
-
 public sealed record SearchPositionCategoriesQuery(
     Guid CompanyId,
     Guid? ClassificationId,
@@ -167,16 +146,6 @@ public sealed record CreatePositionCategoryCommand(
     string? Description,
     Guid ClassificationId,
     int SortOrder)
-    : ICommand<PositionCategoryResponse>;
-
-public sealed record UpdatePositionCategoryCommand(
-    Guid CategoryId,
-    string Code,
-    string Name,
-    string? Description,
-    Guid ClassificationId,
-    int SortOrder,
-    Guid ConcurrencyToken)
     : ICommand<PositionCategoryResponse>;
 
 internal sealed class SearchPositionDescriptionCatalogItemsQueryValidator : AbstractValidator<SearchPositionDescriptionCatalogItemsQuery>
@@ -211,23 +180,6 @@ internal sealed class CreatePositionDescriptionCatalogItemCommandValidator : Abs
         RuleFor(command => command.CatalogType)
             .Must(PositionDescriptionCatalogErrors.IsSimpleCatalogType)
             .WithMessage("Unsupported catalog type.");
-    }
-}
-
-internal sealed class UpdatePositionDescriptionCatalogItemCommandValidator : AbstractValidator<UpdatePositionDescriptionCatalogItemCommand>
-{
-    public UpdatePositionDescriptionCatalogItemCommandValidator()
-    {
-        RuleFor(command => command.ItemId).NotEmpty();
-        RuleFor(command => command.Code)
-            .NotEmpty()
-            .MaximumLength(50)
-            .Must(PositionDescriptionCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
-        RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
-        RuleFor(command => command.Description).MaximumLength(500);
-        RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -269,26 +221,6 @@ internal sealed class CreatePositionCategoryClassificationCommandValidator : Abs
     }
 }
 
-internal sealed class UpdatePositionCategoryClassificationCommandValidator : AbstractValidator<UpdatePositionCategoryClassificationCommand>
-{
-    public UpdatePositionCategoryClassificationCommandValidator()
-    {
-        RuleFor(command => command.ClassificationId).NotEmpty();
-        RuleFor(command => command.Code)
-            .NotEmpty()
-            .MaximumLength(50)
-            .Must(PositionDescriptionCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
-        RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
-        RuleFor(command => command.Description).MaximumLength(500);
-        RuleFor(command => command.PositionFunctionTypeId).NotEmpty();
-        RuleFor(command => command.PositionContractTypeId).NotEmpty();
-        RuleFor(command => command.OrgUnitTypeId).NotEmpty();
-        RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
-    }
-}
-
 internal sealed class SearchPositionCategoriesQueryValidator : AbstractValidator<SearchPositionCategoriesQuery>
 {
     public SearchPositionCategoriesQueryValidator()
@@ -320,24 +252,6 @@ internal sealed class CreatePositionCategoryCommandValidator : AbstractValidator
         RuleFor(command => command.Description).MaximumLength(500);
         RuleFor(command => command.ClassificationId).NotEmpty();
         RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
-    }
-}
-
-internal sealed class UpdatePositionCategoryCommandValidator : AbstractValidator<UpdatePositionCategoryCommand>
-{
-    public UpdatePositionCategoryCommandValidator()
-    {
-        RuleFor(command => command.CategoryId).NotEmpty();
-        RuleFor(command => command.Code)
-            .NotEmpty()
-            .MaximumLength(50)
-            .Must(PositionDescriptionCatalogValidationRules.IsValidCode)
-            .WithMessage("Code format is invalid.");
-        RuleFor(command => command.Name).NotEmpty().MaximumLength(150);
-        RuleFor(command => command.Description).MaximumLength(500);
-        RuleFor(command => command.ClassificationId).NotEmpty();
-        RuleFor(command => command.SortOrder).GreaterThanOrEqualTo(0);
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -484,86 +398,6 @@ internal sealed class CreatePositionDescriptionCatalogItemCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<PositionDescriptionCatalogItemResponse>.Success(response);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
-internal sealed class UpdatePositionDescriptionCatalogItemCommandHandler(
-    IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository,
-    ITenantContext tenantContext,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdatePositionDescriptionCatalogItemCommand, PositionDescriptionCatalogItemResponse>
-{
-    public async Task<Result<PositionDescriptionCatalogItemResponse>> Handle(
-        UpdatePositionDescriptionCatalogItemCommand command,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authResult.IsFailure)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(authResult.Error);
-        }
-
-        var entity = await repository.GetCatalogItemByIdAsync(command.ItemId, cancellationToken);
-        if (entity is null)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(
-                await repository.ExistsCatalogItemOutsideTenantAsync(command.ItemId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionDescriptionCatalogErrors.CatalogItemNotFound);
-        }
-
-        if (entity.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
-        }
-
-        var normalizedCode = command.Code.Trim().ToUpperInvariant();
-        if (await repository.CatalogItemCodeExistsAsync(entity.TenantId, entity.CatalogType, normalizedCode, entity.Id, cancellationToken))
-        {
-            return Result<PositionDescriptionCatalogItemResponse>.Failure(PositionDescriptionCatalogErrors.CatalogCodeConflict);
-        }
-
-        var before = await repository.GetCatalogItemResponseByIdAsync(entity.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Catalog item response could not be resolved before update.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            entity.Update(command.Code, command.Name, command.Description, command.SortOrder);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            PositionDescriptionCatalogCacheInvalidation.InvalidateSimple(repository, entity.TenantId, entity.CatalogType);
-
-            var after = await repository.GetCatalogItemResponseByIdAsync(entity.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Catalog item response could not be resolved after update.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PositionDescriptionCatalogItemUpdated,
-                    AuditEntityTypes.PositionDescriptionCatalogItem,
-                    entity.PublicId,
-                    entity.Code,
-                    AuditActions.Update,
-                    $"Updated position description catalog item {entity.Code} ({entity.CatalogType}).",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PositionDescriptionCatalogItemResponse>.Success(after);
         }
         catch
         {
@@ -765,129 +599,6 @@ internal sealed class CreatePositionCategoryClassificationCommandHandler(
     }
 }
 
-internal sealed class UpdatePositionCategoryClassificationCommandHandler(
-    IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository,
-    ITenantContext tenantContext,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdatePositionCategoryClassificationCommand, PositionCategoryClassificationResponse>
-{
-    public async Task<Result<PositionCategoryClassificationResponse>> Handle(
-        UpdatePositionCategoryClassificationCommand command,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authResult.IsFailure)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(authResult.Error);
-        }
-
-        var entity = await repository.GetClassificationByIdAsync(command.ClassificationId, cancellationToken);
-        if (entity is null)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(
-                await repository.ExistsClassificationOutsideTenantAsync(command.ClassificationId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionDescriptionCatalogErrors.ClassificationNotFound);
-        }
-
-        if (entity.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
-        }
-
-        var positionFunctionLookup = await repository.GetActiveCatalogReferenceAsync(
-            entity.TenantId,
-            PositionDescriptionCatalogType.PositionFunctionType,
-            command.PositionFunctionTypeId,
-            cancellationToken);
-        var contractTypeLookup = await repository.GetActiveCatalogReferenceAsync(
-            entity.TenantId,
-            PositionDescriptionCatalogType.PositionContractType,
-            command.PositionContractTypeId,
-            cancellationToken);
-        var orgUnitTypeLookup = await repository.GetActiveOrgUnitTypeReferenceAsync(
-            entity.TenantId,
-            command.OrgUnitTypeId,
-            cancellationToken);
-
-        if (positionFunctionLookup is null || contractTypeLookup is null)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(PositionDescriptionCatalogErrors.RelatedCatalogItemNotFound);
-        }
-
-        if (orgUnitTypeLookup is null)
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(PositionDescriptionCatalogErrors.OrgUnitTypeNotFound);
-        }
-
-        var normalizedCode = command.Code.Trim().ToUpperInvariant();
-        if (await repository.ClassificationCodeExistsAsync(entity.TenantId, normalizedCode, entity.Id, cancellationToken))
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(PositionDescriptionCatalogErrors.ClassificationCodeConflict);
-        }
-
-        if (await repository.ClassificationAxesExistsAsync(
-                entity.TenantId,
-                positionFunctionLookup.InternalId,
-                contractTypeLookup.InternalId,
-                orgUnitTypeLookup.InternalId,
-                entity.Id,
-                cancellationToken))
-        {
-            return Result<PositionCategoryClassificationResponse>.Failure(PositionDescriptionCatalogErrors.ClassificationDuplicateAxes);
-        }
-
-        var before = await repository.GetClassificationResponseByIdAsync(entity.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Classification response could not be resolved before update.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            entity.Update(
-                command.Code,
-                command.Name,
-                command.Description,
-                positionFunctionLookup.InternalId,
-                contractTypeLookup.InternalId,
-                orgUnitTypeLookup.InternalId,
-                command.SortOrder);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            PositionDescriptionCatalogCacheInvalidation.InvalidateClassificationAndDependents(repository, entity.TenantId);
-
-            var after = await repository.GetClassificationResponseByIdAsync(entity.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Classification response could not be resolved after update.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PositionCategoryClassificationUpdated,
-                    AuditEntityTypes.PositionCategoryClassification,
-                    entity.PublicId,
-                    entity.Code,
-                    AuditActions.Update,
-                    $"Updated position category classification {entity.Code}.",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PositionCategoryClassificationResponse>.Success(after);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
 internal sealed class SearchPositionCategoriesQueryHandler(
     IPositionDescriptionCatalogAuthorizationService authorizationService,
     IPositionDescriptionCatalogRepository repository,
@@ -1040,95 +751,6 @@ internal sealed class CreatePositionCategoryCommandHandler(
 
             await transaction.CommitAsync(cancellationToken);
             return Result<PositionCategoryResponse>.Success(response);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
-    }
-}
-
-internal sealed class UpdatePositionCategoryCommandHandler(
-    IPositionDescriptionCatalogAuthorizationService authorizationService,
-    IPositionDescriptionCatalogRepository repository,
-    ITenantContext tenantContext,
-    IAuditService auditService,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdatePositionCategoryCommand, PositionCategoryResponse>
-{
-    public async Task<Result<PositionCategoryResponse>> Handle(
-        UpdatePositionCategoryCommand command,
-        CancellationToken cancellationToken)
-    {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PositionCategoryResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authResult.IsFailure)
-        {
-            return Result<PositionCategoryResponse>.Failure(authResult.Error);
-        }
-
-        var entity = await repository.GetCategoryByIdAsync(command.CategoryId, cancellationToken);
-        if (entity is null)
-        {
-            return Result<PositionCategoryResponse>.Failure(
-                await repository.ExistsCategoryOutsideTenantAsync(command.CategoryId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionDescriptionCatalogErrors.CategoryNotFound);
-        }
-
-        if (entity.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PositionCategoryResponse>.Failure(PositionDescriptionCatalogErrors.ConcurrencyConflict);
-        }
-
-        var classificationEntity = await repository.GetClassificationByIdAsync(command.ClassificationId, cancellationToken);
-        if (classificationEntity is null)
-        {
-            return Result<PositionCategoryResponse>.Failure(
-                await repository.ExistsClassificationOutsideTenantAsync(command.ClassificationId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PositionDescriptionCatalogErrors.ClassificationNotFound);
-        }
-
-        var normalizedCode = command.Code.Trim().ToUpperInvariant();
-        if (await repository.CategoryCodeExistsAsync(entity.TenantId, normalizedCode, entity.Id, cancellationToken))
-        {
-            return Result<PositionCategoryResponse>.Failure(PositionDescriptionCatalogErrors.CategoryCodeConflict);
-        }
-
-        var before = await repository.GetCategoryResponseByIdAsync(entity.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Category response could not be resolved before update.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            entity.Update(command.Code, command.Name, command.Description, classificationEntity.Id, command.SortOrder);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            repository.InvalidateCategoryCache(entity.TenantId);
-
-            var after = await repository.GetCategoryResponseByIdAsync(entity.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Category response could not be resolved after update.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PositionCategoryUpdated,
-                    AuditEntityTypes.PositionCategory,
-                    entity.PublicId,
-                    entity.Code,
-                    AuditActions.Update,
-                    $"Updated position category {entity.Code}.",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PositionCategoryResponse>.Success(after);
         }
         catch
         {

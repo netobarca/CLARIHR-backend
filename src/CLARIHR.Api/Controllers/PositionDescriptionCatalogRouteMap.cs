@@ -25,6 +25,13 @@ internal static class PositionDescriptionCatalogRouteMap
     private static readonly Lazy<IReadOnlyDictionary<PositionDescriptionCatalogType, string>> CatalogTypeSlugs =
         new(() => CatalogTypes.ToDictionary(kvp => kvp.Value, kvp => kvp.Key));
 
+    /// <summary>
+    /// The accepted <c>{catalogType}</c> route slugs, in canonical order. Single source
+    /// of truth for the OpenAPI enum surfaced by <c>CatalogTypeSlugOperationFilter</c>
+    /// so the documented contract cannot drift from the resolver (debt §3.6 / §6.2).
+    /// </summary>
+    internal static IReadOnlyList<string> Slugs { get; } = [.. CatalogTypes.Keys];
+
     public static bool TryResolve(string? slug, out PositionDescriptionCatalogType catalogType)
     {
         catalogType = default;

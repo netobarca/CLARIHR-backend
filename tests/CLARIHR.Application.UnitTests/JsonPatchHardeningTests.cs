@@ -1,9 +1,11 @@
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text.Json;
 using CLARIHR.Api.Controllers;
 using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs;
+using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Domain.JobProfiles;
 using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
@@ -34,6 +36,7 @@ public sealed class JsonPatchHardeningTests
 
         var positionCategoryResult = positionCategoryValidator.Validate(new PatchPositionCategoryCommand(
             CategoryId: Guid.NewGuid(),
+            ConcurrencyToken: Guid.NewGuid(),
             Operations: CreatePositionCategoryOperations(JsonPatchHardening.MaxOperationsPerDocument + 1)));
 
         Assert.Contains(jobCatalogResult.Errors, static error => error.ErrorMessage == JsonPatchHardening.MaxOperationsMessage);
@@ -65,6 +68,39 @@ public sealed class JsonPatchHardeningTests
         }
     }
 
+    /// <summary>
+    /// Defense-in-depth guard for technical-debt §4.2: the paginated list endpoints of the
+    /// PositionDescriptionCatalog controllers must constrain <c>pageSize</c> at the controller
+    /// boundary via <c>[Range(1, MaxPageSize)]</c>, not rely solely on the handler validator.
+    /// Fails the build if the annotation is removed (the exact regression the finding warns about).
+    /// </summary>
+    [Fact]
+    public void PositionCatalogListEndpoints_ShouldDeclarePageSizeRange()
+    {
+        Type[] controllers =
+        [
+            typeof(PositionCategoriesController),
+            typeof(PositionCategoryClassificationsController),
+            typeof(PositionDescriptionCatalogItemsController),
+        ];
+
+        foreach (var controller in controllers)
+        {
+            var listAction = controller.GetMethod("Get", BindingFlags.Instance | BindingFlags.Public);
+            Assert.True(listAction is not null, $"{controller.Name} must expose a list 'Get' action.");
+
+            var pageSize = listAction!.GetParameters().SingleOrDefault(parameter => parameter.Name == "pageSize");
+            Assert.True(pageSize is not null, $"{controller.Name}.Get must have a 'pageSize' parameter.");
+
+            var range = pageSize!.GetCustomAttribute<RangeAttribute>();
+            Assert.True(
+                range is not null,
+                $"{controller.Name}.Get 'pageSize' must declare [Range] (defense-in-depth, debt §4.2).");
+            Assert.Equal(1, Convert.ToInt32(range!.Minimum));
+            Assert.Equal(PositionDescriptionCatalogValidationRules.MaxPageSize, Convert.ToInt32(range.Maximum));
+        }
+    }
+
     private static IReadOnlyCollection<JobCatalogItemPatchOperation> CreateJobCatalogOperations(int count)
         => Enumerable.Range(0, count)
             .Select(index => new JobCatalogItemPatchOperation(
@@ -84,23 +120,11 @@ public sealed class JsonPatchHardeningTests
             .ToArray();
 
     private static IReadOnlyCollection<PositionDescriptionCatalogPatchOperation> CreatePositionCategoryOperations(int count)
-    {
-        var operations = new List<PositionDescriptionCatalogPatchOperation>(count)
-        {
-            new(
-                "replace",
-                "/concurrencyToken",
-                From: null,
-                JsonSerializer.SerializeToElement(Guid.NewGuid().ToString("D")))
-        };
-
-        operations.AddRange(Enumerable.Range(1, count - 1)
+        => Enumerable.Range(0, count)
             .Select(index => new PositionDescriptionCatalogPatchOperation(
                 "replace",
                 "/name",
                 From: null,
-                JsonSerializer.SerializeToElement($"value-{index}"))));
-
-        return operations;
-    }
+                JsonSerializer.SerializeToElement($"value-{index}")))
+            .ToArray();
 }
