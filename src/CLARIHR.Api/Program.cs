@@ -226,6 +226,16 @@ builder.Services.AddAuthorization(options =>
             JobProfilePermissionCodes.Admin,
             JobProfilePermissionCodes.ManageAdministration)));
 
+    // Catalog writes gate on the CatalogAdmin scope (mirrors EnsureCanManageCatalogsAsync),
+    // NOT the generic JobProfilePolicies.Manage — keeping the declarative policy a superset
+    // of the handler gate so a JobCatalogs.Admin-only admin is not falsely 403'd.
+    options.AddPolicy(JobProfilePolicies.ManageCatalogs, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            JobProfilePermissionCodes.CatalogAdmin,
+            JobProfilePermissionCodes.ManageAdministration)));
+
     options.AddPolicy(PositionDescriptionCatalogPolicies.Read, policyBuilder => policyBuilder
         .Combine(policy)
         .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(

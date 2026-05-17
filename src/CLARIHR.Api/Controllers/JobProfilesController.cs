@@ -25,7 +25,7 @@ namespace CLARIHR.Api.Controllers;
 [Consumes("application/json")]
 [Produces("application/json")]
 [Tags("Job Profiles")]
-// AuthZ (defense-in-depth): GET→JobProfilePolicies.Read, POST/PUT/PATCH/DELETE→JobProfilePolicies.Manage — assigned centrally by AuthorizationPolicyConvention.
+[AuthorizationPolicySet(JobProfilePolicies.Read, JobProfilePolicies.Manage)]
 public sealed class JobProfilesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
@@ -38,7 +38,7 @@ public sealed class JobProfilesController(
         Description = """
             Returns a paginated list of job profiles for the specified company.
 
-            Supports optional filtering by `status`, `orgUnitId` and `salaryClass`,
+            Supports optional filtering by `status`, `orgUnitId` and `salaryClassPublicId`,
             plus a free-text query (`q`) matched against code and title.
             Set `includeAllowedActions=true` to include, per item, the set of
             operations the current user is authorized to perform on it.
@@ -47,7 +47,7 @@ public sealed class JobProfilesController(
         Guid companyId,
         [FromQuery] JobProfileStatus? status,
         [FromQuery] Guid? orgUnitId,
-        [FromQuery] Guid? salaryClass,
+        [FromQuery] Guid? salaryClassId,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
         [Range(1, JobProfileValidationRules.MaxPageSize)]
@@ -56,7 +56,7 @@ public sealed class JobProfilesController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new SearchJobProfilesQuery(companyId, status, orgUnitId, salaryClass, search, page, pageSize, includeAllowedActions),
+            new SearchJobProfilesQuery(companyId, status, orgUnitId, salaryClassId, search, page, pageSize, includeAllowedActions),
             cancellationToken);
 
         return this.ToActionResult(result);

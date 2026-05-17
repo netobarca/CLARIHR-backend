@@ -31,6 +31,11 @@ public sealed class AuthorizationPolicyOperationFilter : IOperationFilter
                 JobProfilePermissionCodes.Admin,
                 JobProfilePermissionCodes.ManageAdministration,
             ],
+            [JobProfilePolicies.ManageCatalogs] =
+            [
+                JobProfilePermissionCodes.CatalogAdmin,
+                JobProfilePermissionCodes.ManageAdministration,
+            ],
             [PositionDescriptionCatalogPolicies.Read] =
             [
                 PositionDescriptionCatalogPermissionCodes.Read,

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using CLARIHR.Application.Abstractions.Authentication;
 using CLARIHR.Application.Abstractions.CompetencyFramework;
 using CLARIHR.Application.Abstractions.CostCenters;
@@ -224,11 +225,14 @@ internal sealed class CreateReportExportJobCommandHandler(
             return Result<ReportExportJobResponse>.Failure(ReportPolicyErrors.FormatNotSupported);
         }
 
+        var effectiveParametersJson = await BuildEffectiveParametersAsync(
+            normalizedResourceKey, command.CompanyId, command.ParametersJson, cancellationToken);
+
         var job = ReportExportJob.Create(
             command.CompanyId,
             normalizedResourceKey,
             normalizedFormat,
-            string.IsNullOrWhiteSpace(command.ParametersJson) ? "{}" : command.ParametersJson,
+            effectiveParametersJson,
             currentUserService.UserId!,
             dateTimeProvider.UtcNow);
 
@@ -254,6 +258,46 @@ internal sealed class CreateReportExportJobCommandHandler(
             ReportExportResources.JobProfilePdf => jobProfileAuthorizationService.EnsureCanReadAsync(companyId, cancellationToken),
             _ => Task.FromResult(Result.Failure(ReportPolicyErrors.ResourceNotSupported))
         };
+
+    /// <summary>
+    /// Returns the parameter payload persisted on the job. For the job-profile
+    /// PDF it stamps the server-controlled <c>includeCompensation</c> flag:
+    /// salary data (PII) is only embedded in the exported document when the
+    /// requester can manage profiles (same RBAC bar that gates compensation
+    /// writes). The decision is taken here — where the user/JWT context exists —
+    /// because the export worker has none. Any client-supplied
+    /// <c>includeCompensation</c> is overridden. See technical-debt doc 01 §N2.
+    /// </summary>
+    private async Task<string> BuildEffectiveParametersAsync(
+        string normalizedResourceKey,
+        Guid companyId,
+        string? parametersJson,
+        CancellationToken cancellationToken)
+    {
+        if (normalizedResourceKey != ReportExportResources.JobProfilePdf)
+        {
+            return string.IsNullOrWhiteSpace(parametersJson) ? "{}" : parametersJson;
+        }
+
+        JsonObject root;
+        try
+        {
+            root = string.IsNullOrWhiteSpace(parametersJson)
+                ? []
+                : JsonNode.Parse(parametersJson) as JsonObject ?? [];
+        }
+        catch (JsonException)
+        {
+            root = [];
+        }
+
+        var canViewCompensation = await jobProfileAuthorizationService
+            .EnsureCanManageProfilesAsync(companyId, cancellationToken);
+
+        root["includeCompensation"] = canViewCompensation.IsSuccess;
+
+        return root.ToJsonString();
+    }
 }
 
 internal sealed class SearchReportExportJobsQueryHandler(

@@ -94,6 +94,8 @@ El sistema maneja información sensible de RRHH y debe proteger:
 - Usar `AsNoTracking()` en queries de lectura cuando aplique.
 - Evitar N+1, full scans evitables y consultas sin estrategia.
 - No introducir carga pesada en request/response si puede resolverse mejor.
+- Listados no calculan dependencias por ítem; `hasDependents` en detalle vía proyección SQL `EXISTS`. Ver `project-foundation.md §12.7`.
+- Búsqueda free-text impone longitud mínima de `q` y declara supuesto de escala (LIKE '%x%' no-sargable). Ver `project-foundation.md §12.8`.
 
 ## 4.6 Documentación
 - No duplicar documentación existente.

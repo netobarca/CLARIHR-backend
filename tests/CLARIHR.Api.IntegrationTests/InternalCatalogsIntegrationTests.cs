@@ -166,6 +166,178 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         Assert.NotEqual(category.ConcurrencyToken, patchedCategory.ConcurrencyToken);
     }
 
+    // Documents the current verb contract of the 3 position-description-catalog
+    // flat resource routes: there is intentionally NO DELETE (debt §3.2, Opción B —
+    // soft-delete via PATCH replace /isActive) and NO PUT (debt §3.3, Opción A —
+    // PATCH-only). Both verbs must return 405. If PUT/DELETE is ever added the
+    // contract changes and this test fails, forcing a conscious decision.
+    [Theory]
+    [InlineData("DELETE", "/api/v1/position-categories/11111111-1111-1111-1111-111111111111")]
+    [InlineData("PUT", "/api/v1/position-categories/11111111-1111-1111-1111-111111111111")]
+    [InlineData("DELETE", "/api/v1/position-category-classifications/11111111-1111-1111-1111-111111111111")]
+    [InlineData("PUT", "/api/v1/position-category-classifications/11111111-1111-1111-1111-111111111111")]
+    [InlineData("DELETE", "/api/v1/position-description-catalogs/frequencies/items/11111111-1111-1111-1111-111111111111")]
+    [InlineData("PUT", "/api/v1/position-description-catalogs/frequencies/items/11111111-1111-1111-1111-111111111111")]
+    public async Task PositionDescriptionCatalogs_FlatResourceRoutes_ShouldReturn405_ForDeleteAndPut(
+        string verb, string route)
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        using var request = new HttpRequestMessage(new HttpMethod(verb), route);
+
+        var response = await client.SendAsync(request);
+
+        // Authenticated admin client → the only reason for non-200 is the verb
+        // genuinely not being mapped (405), not auth/tenant.
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+    }
+
+    // Regression guard for the N+1 remediation (ADR-0001, project-foundation §12.7):
+    // 1. With includeAllowedActions=true the 3 catalog list endpoints still return a
+    //    populated `allowedActions` object (contract preserved, field not nulled).
+    // 2. Listings no longer gate by dependency: an in-use classification still reports
+    //    canInactivate=true in the list (advisory hint only).
+    // 3. Enforcement is intact server-side: PATCH inactivation of that in-use
+    //    classification returns 409, independent of the list flag.
+    [Fact]
+    public async Task PositionDescriptionCatalogs_ListWithAllowedActions_ShouldNotGateByDependency_ButPatchStillEnforces()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+        var companyId = scenario.TenantId;
+
+        var orgUnitType = await EnsureOrgUnitTypeAsync(client, companyId, "ORG-DEP");
+        var functionType = await EnsurePositionDescriptionCatalogItemAsync(client, companyId, "position-function-types", "FUNC-DEP");
+        var contractType = await EnsurePositionDescriptionCatalogItemAsync(client, companyId, "position-contract-types", "CON-DEP");
+        var classification = await EnsurePositionCategoryClassificationAsync(
+            client,
+            companyId,
+            "CLASS-DEP",
+            functionType.Id,
+            contractType.Id,
+            orgUnitType.Id);
+        // Category referencing the classification => the classification is now "in use".
+        await EnsurePositionCategoryAsync(client, companyId, "CAT-DEP", classification.Id);
+
+        // (1) allowedActions populated on all three list endpoints with the flag on.
+        var functionItem = await GetListItemWithAllowedActionsAsync(
+            client,
+            $"/api/v1/companies/{companyId}/position-description-catalogs/position-function-types/items?page=1&pageSize=100&q={Uri.EscapeDataString("FUNC-DEP")}&includeAllowedActions=true",
+            "FUNC-DEP");
+        AssertAllowedActionsShape(functionItem);
+
+        var classificationItem = await GetListItemWithAllowedActionsAsync(
+            client,
+            $"/api/v1/companies/{companyId}/position-category-classifications?page=1&pageSize=100&q={Uri.EscapeDataString("CLASS-DEP")}&includeAllowedActions=true",
+            "CLASS-DEP");
+        AssertAllowedActionsShape(classificationItem);
+
+        var categoryItem = await GetListItemWithAllowedActionsAsync(
+            client,
+            $"/api/v1/companies/{companyId}/position-categories?page=1&pageSize=100&q={Uri.EscapeDataString("CAT-DEP")}&includeAllowedActions=true",
+            "CAT-DEP");
+        AssertAllowedActionsShape(categoryItem);
+
+        // (2) In-use classification still reports canInactivate=true in the list
+        //     (dependency gating removed from listings — advisory hint only).
+        var classificationAllowedActions = classificationItem.GetProperty("allowedActions");
+        Assert.True(classificationAllowedActions.GetProperty("canInactivate").GetBoolean());
+
+        // Contract: without the flag, allowedActions is absent/null.
+        var withoutFlagResponse = await client.GetAsync(
+            $"/api/v1/companies/{companyId}/position-category-classifications?page=1&pageSize=100&q={Uri.EscapeDataString("CLASS-DEP")}");
+        withoutFlagResponse.EnsureSuccessStatusCode();
+        using (var withoutFlagDocument = JsonDocument.Parse(await withoutFlagResponse.Content.ReadAsStringAsync()))
+        {
+            var firstItem = withoutFlagDocument.RootElement.GetProperty("items")[0];
+            var hasAllowedActions = firstItem.TryGetProperty("allowedActions", out var allowedActions)
+                && allowedActions.ValueKind != JsonValueKind.Null;
+            Assert.False(hasAllowedActions);
+        }
+
+        // (3) Server-side enforcement intact: PATCH inactivation of the in-use
+        //     classification returns 409, regardless of the list advisory hint.
+        using var inactivateRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/position-category-classifications/{classification.Id}")
+        {
+            Content = CreateJsonPatchContent(
+                new { op = "replace", path = "/isActive", value = (object)false })
+        };
+        inactivateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{classification.ConcurrencyToken}\"");
+
+        var inactivateResponse = await client.SendAsync(inactivateRequest);
+        Assert.Equal(HttpStatusCode.Conflict, inactivateResponse.StatusCode);
+    }
+
+    private async Task<JsonElement> GetListItemWithAllowedActionsAsync(HttpClient client, string url, string code)
+    {
+        var response = await client.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var match = document.RootElement
+            .GetProperty("items")
+            .EnumerateArray()
+            .Single(item => item.GetProperty("code").GetString() == code);
+
+        return match.Clone();
+    }
+
+    private static void AssertAllowedActionsShape(JsonElement item)
+    {
+        Assert.True(item.TryGetProperty("allowedActions", out var allowedActions));
+        Assert.Equal(JsonValueKind.Object, allowedActions.ValueKind);
+        Assert.True(allowedActions.TryGetProperty("canEdit", out _));
+        Assert.True(allowedActions.TryGetProperty("reasons", out var reasons));
+        Assert.Equal(JsonValueKind.Array, reasons.ValueKind);
+    }
+
+    // Regression guard for the P2 remediation (ADR-0002, project-foundation §12.8):
+    // a non-empty `q` shorter than the minimum length is rejected with 400 before
+    // touching cache/DB; empty/whitespace `q` stays "no filter" (200).
+    [Theory]
+    [InlineData("&q=a", HttpStatusCode.BadRequest)]
+    [InlineData("&q=%20", HttpStatusCode.OK)]   // whitespace => no filter
+    [InlineData("&q=ab", HttpStatusCode.OK)]
+    [InlineData("", HttpStatusCode.OK)]          // no q => no filter
+    public async Task PositionCategories_Search_ShouldEnforceMinimumQueryLength(
+        string queryString, HttpStatusCode expectedStatus)
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var response = await client.GetAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-categories?page=1&pageSize=20{queryString}");
+
+        Assert.Equal(expectedStatus, response.StatusCode);
+    }
+
+    // Regression guard for the P4 remediation (ADR-0004): after consolidating the
+    // double classification resolution into a single entity lookup + null-check,
+    // creating a category with a non-existent classification still returns
+    // ClassificationNotFound (existence semantics preserved).
+    [Fact]
+    public async Task PositionCategories_Create_WithUnknownClassification_ShouldReturnNotFound()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateJobProfileAdminContext(scenario));
+
+        var response = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/position-categories",
+            new
+            {
+                code = "CAT-NOCLASS",
+                name = "CAT-NOCLASS",
+                description = (string?)null,
+                classificationPublicId = Guid.NewGuid(), // does not exist
+                sortOrder = 10
+            });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Fact]
     public async Task JobProfiles_CreateAndUpdate_WithSearchRequirements_ShouldPopulateGlobalInternalCatalogs()
     {

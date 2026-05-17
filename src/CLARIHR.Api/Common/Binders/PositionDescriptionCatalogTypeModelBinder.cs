@@ -2,6 +2,9 @@ using CLARIHR.Api.Controllers;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace CLARIHR.Api.Common.Binders;
 
@@ -23,6 +26,16 @@ internal sealed class PositionDescriptionCatalogTypeModelBinder : IModelBinder
         }
         else
         {
+            var logger = bindingContext.HttpContext.RequestServices?
+                .GetService<ILogger<PositionDescriptionCatalogTypeModelBinder>>()
+                ?? NullLogger<PositionDescriptionCatalogTypeModelBinder>.Instance;
+            var request = bindingContext.HttpContext.Request;
+            logger.LogWarning(
+                "Rejected {Method} {Path}: unknown catalog type slug '{Slug}' (client may be using a deprecated or invalid slug).",
+                request.Method,
+                request.Path.Value,
+                value);
+
             bindingContext.ModelState.TryAddModelError(
                 bindingContext.ModelName,
                 PositionDescriptionCatalogErrors.InvalidCatalogType.Message);

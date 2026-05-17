@@ -21,7 +21,7 @@ public static class ReportPolicyErrors
 
     public static readonly Error ExportLimitExceeded = new(
         "REPORT_EXPORT_LIMIT_EXCEEDED",
-        "The requested export exceeds the maximum allowed row count.",
+        "The requested export exceeds an enforced size limit (row count or document size).",
         ErrorType.PayloadTooLarge);
 
     public static readonly Error ExportJobNotFound = new(

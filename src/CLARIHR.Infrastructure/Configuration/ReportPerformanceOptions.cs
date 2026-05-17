@@ -22,6 +22,16 @@ public sealed class ReportPerformanceOptions
 
     public int MaxDiagramNodes { get; init; } = 5_000;
 
+    /// <summary>
+    /// Maximum rendered document size (bytes) a single export artifact may reach
+    /// before generation fails fast with a typed limit error — checked at the
+    /// generator, ahead of the downstream storage cap
+    /// (<c>Storage:Purposes:ReportExport:MaxSizeBytes</c>). Defense in depth for a
+    /// pathological document (technical-debt doc 01 §3.3). Default 50 MB: well
+    /// above any legitimate profile PDF, comfortably below the 100 MB storage cap.
+    /// </summary>
+    public long MaxDocumentBytes { get; init; } = 52_428_800;
+
     public int NormalizedMaxSynchronousExportRows => Math.Max(1, MaxSynchronousExportRows);
 
     public int NormalizedMaxAsyncExportRows => Math.Max(NormalizedMaxSynchronousExportRows, MaxAsyncExportRows);
@@ -39,4 +49,6 @@ public sealed class ReportPerformanceOptions
     public TimeSpan NormalizedArtifactRetention => TimeSpan.FromHours(Math.Max(1, ArtifactRetentionHours));
 
     public int NormalizedMaxDiagramNodes => Math.Max(1, MaxDiagramNodes);
+
+    public long NormalizedMaxDocumentBytes => Math.Max(1, MaxDocumentBytes);
 }

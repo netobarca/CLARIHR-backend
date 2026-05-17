@@ -1,0 +1,145 @@
+using System.Reflection;
+using System.Text.RegularExpressions;
+using CLARIHR.Api.Common.Conventions;
+using CLARIHR.Application.Abstractions.JobProfiles;
+using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
+using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
+
+namespace CLARIHR.Application.UnitTests;
+
+/// <summary>
+/// §S1 guardrail (finding §J1 root cause): the authorization-policy convention is
+/// drift-proof by construction — every in-scope controller declares its policy pair via
+/// <see cref="AuthorizationPolicySetAttribute"/>. These tests close the residual drift
+/// (a new in-scope controller that forgets the marker and would silently inherit the
+/// bare authenticated <c>FallbackPolicy</c>) using only reflection — no hand-maintained
+/// controller list, no IL inspection.
+///
+/// <para>Source A (independent "ought"): a domain is governed iff some CQRS handler in
+/// <c>CLARIHR.Application</c> injects its precise authorization service. This is derived,
+/// not enumerated, so it cannot drift out of sync with the handlers it mirrors.</para>
+/// </summary>
+public sealed class AuthorizationPolicyConventionGovernanceTests
+{
+    private static readonly Assembly ApplicationAssembly = typeof(IQuery<>).Assembly;
+    private static readonly Assembly ApiAssembly = typeof(AuthorizationPolicySetAttribute).Assembly;
+
+    private static readonly Regex GovernedFamilyRegex =
+        new(@"^(JobProfile|JobCatalog|PositionCategor|PositionDescriptionCatalog)", RegexOptions.Compiled);
+
+    private static readonly HashSet<string> JobProfilePolicyNames = new(StringComparer.Ordinal)
+    {
+        JobProfilePolicies.Read,
+        JobProfilePolicies.Manage,
+        JobProfilePolicies.ManageCatalogs,
+    };
+
+    private static readonly HashSet<string> PositionDescriptionCatalogPolicyNames = new(StringComparer.Ordinal)
+    {
+        PositionDescriptionCatalogPolicies.Read,
+        PositionDescriptionCatalogPolicies.Manage,
+    };
+
+    private static IReadOnlyList<(Type Controller, AuthorizationPolicySetAttribute? Marker)> Controllers() =>
+        ApiAssembly.GetTypes()
+            .Where(static type =>
+                type.IsClass &&
+                !type.IsAbstract &&
+                type.Namespace == "CLARIHR.Api.Controllers" &&
+                type.Name.EndsWith("Controller", StringComparison.Ordinal))
+            .Select(static type => (type, type.GetCustomAttribute<AuthorizationPolicySetAttribute>()))
+            .ToArray();
+
+    private static bool AnyHandlerInjects(Type authorizationService) =>
+        ApplicationAssembly.GetTypes()
+            .Where(static type =>
+                type is { IsClass: true, IsAbstract: false } &&
+                type.GetInterfaces().Any(static @interface => @interface.IsGenericType &&
+                    (@interface.GetGenericTypeDefinition() == typeof(ICommandHandler<,>) ||
+                     @interface.GetGenericTypeDefinition() == typeof(IQueryHandler<,>))))
+            .SelectMany(static type => type.GetConstructors(
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+            .SelectMany(static constructor => constructor.GetParameters())
+            .Any(parameter => authorizationService.IsAssignableFrom(parameter.ParameterType));
+
+    /// <summary>
+    /// Inv-1 — every domain gated by a precise handler-layer authorization service has at
+    /// least one controller declaring that domain's declarative policy pair. Catches an
+    /// entire feature area shipping with zero declarative defense-in-depth.
+    /// </summary>
+    [Fact]
+    public void EveryAuthzGovernedDomain_HasAtLeastOneMarkedController()
+    {
+        var controllers = Controllers();
+
+        if (AnyHandlerInjects(typeof(IJobProfileAuthorizationService)))
+        {
+            Assert.Contains(controllers, entry => entry.Marker is not null &&
+                JobProfilePolicyNames.Contains(entry.Marker.ReadPolicy) &&
+                JobProfilePolicyNames.Contains(entry.Marker.ManagePolicy));
+        }
+
+        if (AnyHandlerInjects(typeof(IPositionDescriptionCatalogAuthorizationService)))
+        {
+            Assert.Contains(controllers, entry => entry.Marker is not null &&
+                PositionDescriptionCatalogPolicyNames.Contains(entry.Marker.ReadPolicy) &&
+                PositionDescriptionCatalogPolicyNames.Contains(entry.Marker.ManagePolicy));
+        }
+    }
+
+    /// <summary>
+    /// Inv-2 — the §J1 catcher. Every controller in a policy-governed feature family
+    /// (JobProfile / JobCatalog / PositionDescriptionCatalog) MUST carry the marker, so a
+    /// newly added one cannot silently fall back to the authenticated-only FallbackPolicy
+    /// the way <c>JobCatalogsController</c> did when it was missing from the old dictionary.
+    /// This is a structural pattern, not a hand-maintained enumeration.
+    /// </summary>
+    [Fact]
+    public void EveryGovernedFamilyController_DeclaresPolicySetMarker()
+    {
+        var unmarked = Controllers()
+            .Where(entry => GovernedFamilyRegex.IsMatch(entry.Controller.Name) && entry.Marker is null)
+            .Select(static entry => entry.Controller.Name)
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(
+            unmarked.Length == 0,
+            "Finding §J1/§S1: controllers in a policy-governed family must declare " +
+            "[AuthorizationPolicySet] or they silently inherit the bare authenticated " +
+            "FallbackPolicy (no per-permission gate). Missing the marker:\n  " +
+            string.Join("\n  ", unmarked));
+    }
+
+    /// <summary>
+    /// Inv-3 — every declared marker references a real policy-name constant from the
+    /// canonical <c>*Policies</c> classes (no typo, no orphan policy name).
+    /// </summary>
+    [Fact]
+    public void EveryMarker_ReferencesCanonicalPolicyConstants()
+    {
+        var valid = new HashSet<string>(StringComparer.Ordinal);
+        valid.UnionWith(JobProfilePolicyNames);
+        valid.UnionWith(PositionDescriptionCatalogPolicyNames);
+
+        var invalid = Controllers()
+            .Where(static entry => entry.Marker is not null)
+            .SelectMany(static entry => new[]
+            {
+                (entry.Controller.Name, Policy: entry.Marker!.ReadPolicy),
+                (entry.Controller.Name, Policy: entry.Marker!.ManagePolicy),
+            })
+            .Where(pair => !valid.Contains(pair.Policy))
+            .Select(static pair => $"{pair.Name} -> '{pair.Policy}'")
+            .OrderBy(static entry => entry, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(
+            invalid.Length == 0,
+            "[AuthorizationPolicySet] must reference a constant from JobProfilePolicies / " +
+            "PositionDescriptionCatalogPolicies. Offending:\n  " +
+            string.Join("\n  ", invalid));
+    }
+}

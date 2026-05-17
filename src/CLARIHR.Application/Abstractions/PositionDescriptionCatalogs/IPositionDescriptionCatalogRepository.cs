@@ -101,8 +101,6 @@ public interface IPositionDescriptionCatalogRepository
 
     Task<bool> HasJobProfilesUsingCategoryAsync(long categoryId, CancellationToken cancellationToken);
 
-    Task<bool> HasClassificationsUsingOrgUnitTypeAsync(long orgUnitTypeCatalogItemId, CancellationToken cancellationToken);
-
     Task<bool> HasJobProfilesUsingCatalogItemAsync(long catalogItemId, CancellationToken cancellationToken);
 
     Task<bool> HasClassificationsUsingCatalogItemAsync(long catalogItemId, CancellationToken cancellationToken);
@@ -115,11 +113,7 @@ public interface IPositionDescriptionCatalogRepository
 
     Task<long?> ResolvePositionCategoryIdAsync(Guid tenantId, Guid positionCategoryId, CancellationToken cancellationToken);
 
-    Task<PositionSlotContractTypeLookup?> GetPositionSlotContractTypeLookupAsync(Guid tenantId, Guid positionSlotId, CancellationToken cancellationToken);
-
     Task<string?> ResolveSalaryClassCodeByCatalogIdAsync(Guid tenantId, Guid salaryClassId, CancellationToken cancellationToken);
-
-    Task<Guid?> ResolveSalaryClassCatalogIdByCodeAsync(Guid tenantId, string salaryClassCode, CancellationToken cancellationToken);
 
     void InvalidateSimpleCatalogCache(Guid tenantId, PositionDescriptionCatalogType catalogType);
 

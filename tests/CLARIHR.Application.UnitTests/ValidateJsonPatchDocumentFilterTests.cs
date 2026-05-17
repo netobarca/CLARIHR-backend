@@ -6,30 +6,37 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Routing;
-using MvcProblemDetailsFactory = Microsoft.AspNetCore.Mvc.Infrastructure.ProblemDetailsFactory;
 
 namespace CLARIHR.Application.UnitTests;
 
 public sealed class ValidateJsonPatchDocumentFilterTests
 {
     [Fact]
-    public void OnActionExecuting_WhenJsonPatchBodyIsNull_ShouldReturn400ProblemDetails()
+    public void OnActionExecuting_WhenJsonPatchBodyIsNull_ShouldReturn400WithStandardProblemShape()
     {
-        var filter = new ValidateJsonPatchDocumentFilter(new TestProblemDetailsFactory());
+        var filter = new ValidateJsonPatchDocumentFilter();
         var context = CreateContext(typeof(JsonPatchDocument<TestPatchRequest>), argumentValue: null, includeArgument: false);
 
         filter.OnActionExecuting(context);
 
-        var result = Assert.IsType<BadRequestObjectResult>(context.Result);
-        var problemDetails = Assert.IsType<ProblemDetails>(result.Value);
+        // Project-standard shape (CLARIHR.Api.Common.ProblemDetailsFactory), not
+        // the framework factory: ObjectResult(400) carrying a ValidationProblemDetails
+        // with the typed `code` / `traceId` extensions. (technical-debt JP §8.2)
+        var result = Assert.IsType<ObjectResult>(context.Result);
         Assert.Equal(StatusCodes.Status400BadRequest, result.StatusCode);
-        Assert.Equal("Invalid patch document.", problemDetails.Detail);
+
+        var problemDetails = Assert.IsType<ValidationProblemDetails>(result.Value);
+        Assert.Equal(StatusCodes.Status400BadRequest, problemDetails.Status);
+        Assert.Equal("common.validation", Assert.Contains("code", problemDetails.Extensions));
+        Assert.Contains("traceId", problemDetails.Extensions);
+        Assert.Contains("body", problemDetails.Errors);
+        Assert.Contains("The request body is invalid.", problemDetails.Errors["body"]);
     }
 
     [Fact]
     public void OnActionExecuting_WhenJsonPatchBodyExists_ShouldContinue()
     {
-        var filter = new ValidateJsonPatchDocumentFilter(new TestProblemDetailsFactory());
+        var filter = new ValidateJsonPatchDocumentFilter();
         var context = CreateContext(
             typeof(JsonPatchDocument<TestPatchRequest>),
             new JsonPatchDocument<TestPatchRequest>());
@@ -42,7 +49,7 @@ public sealed class ValidateJsonPatchDocumentFilterTests
     [Fact]
     public void OnActionExecuting_WhenBodyParameterIsNotJsonPatch_ShouldIgnoreIt()
     {
-        var filter = new ValidateJsonPatchDocumentFilter(new TestProblemDetailsFactory());
+        var filter = new ValidateJsonPatchDocumentFilter();
         var context = CreateContext(typeof(TestPatchRequest), argumentValue: null, includeArgument: false);
 
         filter.OnActionExecuting(context);
@@ -86,40 +93,4 @@ public sealed class ValidateJsonPatchDocumentFilterTests
     }
 
     private sealed class TestPatchRequest;
-
-    private sealed class TestProblemDetailsFactory : MvcProblemDetailsFactory
-    {
-        public override ProblemDetails CreateProblemDetails(
-            HttpContext httpContext,
-            int? statusCode = null,
-            string? title = null,
-            string? type = null,
-            string? detail = null,
-            string? instance = null)
-            => new()
-            {
-                Status = statusCode,
-                Title = title,
-                Type = type,
-                Detail = detail,
-                Instance = instance
-            };
-
-        public override ValidationProblemDetails CreateValidationProblemDetails(
-            HttpContext httpContext,
-            ModelStateDictionary modelStateDictionary,
-            int? statusCode = null,
-            string? title = null,
-            string? type = null,
-            string? detail = null,
-            string? instance = null)
-            => new(modelStateDictionary)
-            {
-                Status = statusCode,
-                Title = title,
-                Type = type,
-                Detail = detail,
-                Instance = instance
-            };
-    }
 }
