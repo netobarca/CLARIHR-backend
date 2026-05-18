@@ -39,6 +39,13 @@ internal sealed class PositionDescriptionCatalogTypeModelBinder : IModelBinder
             bindingContext.ModelState.TryAddModelError(
                 bindingContext.ModelName,
                 PositionDescriptionCatalogErrors.InvalidCatalogType.Message);
+
+            // §S5: report an explicit binding FAILURE, not merely "no result"
+            // (parity with IfMatchModelBinder). Today [ApiController] still
+            // auto-400s via the ModelState error, but signalling Failed() keeps
+            // the contract correct even if auto-400 is ever scoped off, and
+            // removes the divergence from the sibling binder.
+            bindingContext.Result = ModelBindingResult.Failed();
         }
 
         return Task.CompletedTask;

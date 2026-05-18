@@ -288,6 +288,46 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<UnhandledExceptionMiddleware>();
+// §S2: endpoint-routing short-circuits (404 unmatched path, 405 unmapped verb)
+// return with an EMPTY body — no framework or domain ProblemDetails factory runs,
+// so an SDK client parsing `code` gets nothing. Re-emit the standard
+// {status,code,traceId,title} envelope for those status codes, but only when the
+// body really is empty and nothing has started writing (never overwrite a
+// response a handler/filter already produced). Thrown exceptions still flow
+// through UnhandledExceptionMiddleware above; this only covers the
+// non-exception, empty-body status codes that bypass every other error path.
+app.UseStatusCodePages(async statusCodeContext =>
+{
+    var context = statusCodeContext.HttpContext;
+    var response = context.Response;
+
+    if (response.HasStarted ||
+        response.ContentLength is > 0 ||
+        !string.IsNullOrEmpty(response.ContentType))
+    {
+        return;
+    }
+
+    Error? error = response.StatusCode switch
+    {
+        StatusCodes.Status404NotFound => ErrorCatalog.NotFound,
+        StatusCodes.Status405MethodNotAllowed => ErrorCatalog.MethodNotAllowed,
+        _ => null
+    };
+
+    if (error is null)
+    {
+        return;
+    }
+
+    var problemDetails = ProblemDetailsFactory.CreateProblemDetails(context, error);
+    await response.WriteAsJsonAsync(
+        problemDetails,
+        problemDetails.GetType(),
+        options: null,
+        contentType: "application/problem+json",
+        context.RequestAborted);
+});
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();

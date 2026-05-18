@@ -69,6 +69,7 @@ internal static class ProblemDetailsFactory
             ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
             ErrorType.Forbidden => StatusCodes.Status403Forbidden,
             ErrorType.NotFound => StatusCodes.Status404NotFound,
+            ErrorType.MethodNotAllowed => StatusCodes.Status405MethodNotAllowed,
             ErrorType.Conflict => StatusCodes.Status409Conflict,
             ErrorType.TooManyRequests => StatusCodes.Status429TooManyRequests,
             ErrorType.PayloadTooLarge => StatusCodes.Status413PayloadTooLarge,

@@ -8,6 +8,14 @@ internal static class ETagHeader
 
     public static string Format(string opaqueTag) => $"\"{opaqueTag}\"";
 
+    // §S4: an aggregate/list ETag is hashed over an order-dependent enumeration,
+    // so a non-deterministic ORDER BY on equal sort keys can yield a different
+    // hash for two logically identical pages. That is a WEAK validator and must
+    // be advertised as such (`W/`) — otherwise a caller treats it as strong and
+    // a spurious 200 (instead of 304) looks like a correctness bug. Strong
+    // ETags remain reserved for the single-entity ConcurrencyToken path.
+    public static string FormatWeak(string opaqueTag) => $"W/\"{opaqueTag}\"";
+
     public static bool Matches(string? ifNoneMatch, string currentETag)
     {
         if (string.IsNullOrWhiteSpace(ifNoneMatch))

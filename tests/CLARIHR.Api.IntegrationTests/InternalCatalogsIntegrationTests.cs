@@ -191,6 +191,18 @@ public sealed class InternalCatalogsIntegrationTests(IntegrationTestWebApplicati
         // Authenticated admin client → the only reason for non-200 is the verb
         // genuinely not being mapped (405), not auth/tenant.
         Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+
+        // §S2: the 405 must NOT have an empty body — endpoint-routing
+        // short-circuits bypass MVC, so UseStatusCodePages re-emits the standard
+        // ProblemDetails envelope. Assert the SDK-parseable contract (code +
+        // traceId + status), closing the doc `03` §9.3 residual.
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("common.method_not_allowed", body.RootElement.GetProperty("code").GetString());
+        Assert.Equal(405, body.RootElement.GetProperty("status").GetInt32());
+        Assert.False(
+            string.IsNullOrWhiteSpace(body.RootElement.GetProperty("traceId").GetString()),
+            "405 ProblemDetails must carry a non-empty traceId.");
     }
 
     // Regression guard for the N+1 remediation (ADR-0001, project-foundation §12.7):

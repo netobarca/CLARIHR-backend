@@ -39,6 +39,27 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
 
             Assert.DoesNotContain("internalId", propertyNames, StringComparer.OrdinalIgnoreCase);
 
+            // §S6: the legacy checks below are NAME-pattern only. PublicContractNaming
+            // renames/suppresses Guid ids exclusively, so a surrogate integer
+            // (`long Id`, `int CategoryId`) would be neither renamed nor caught by
+            // name — a raw enumeration/IDOR leak (foundation §10.3). Make the
+            // guardrail TYPE-aware: no public schema property may be an integer
+            // (int32/int64, nullable or not) AND carry an identifier-shaped name.
+            // A non-enum integer named like an id is itself the defect.
+            foreach (var property in properties.EnumerateObject())
+            {
+                if (!IsIdentifierLikeName(property.Name) || IsEnumSchema(property.Value))
+                {
+                    continue;
+                }
+
+                Assert.False(
+                    IsIntegerSchema(property.Value),
+                    $"Schema '{schema.Name}' exposes integer identifier-shaped property " +
+                    $"'{property.Name}' (foundation §10.3 / doc `06` §S6: surrogate " +
+                    "integer id leak — keep the BIGINT internal, expose the Guid publicId).");
+            }
+
             foreach (var propertyName in propertyNames.Where(IsIdentifierName))
             {
                 Assert.True(
@@ -325,6 +346,55 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
     private static bool IsIdentifierName(string? name) =>
         !string.IsNullOrWhiteSpace(name) &&
         name.EndsWith("Id", StringComparison.Ordinal);
+
+    // §S6: covers both scalar (`*Id`/`id`) and collection (`*Ids`/`ids`)
+    // identifier shapes — the surrogate-integer leak vector for either form.
+    private static bool IsIdentifierLikeName(string? name) =>
+        !string.IsNullOrWhiteSpace(name) &&
+        (name.EndsWith("Id", StringComparison.Ordinal) ||
+         name.EndsWith("Ids", StringComparison.Ordinal) ||
+         name.Equals("id", StringComparison.Ordinal) ||
+         name.Equals("ids", StringComparison.Ordinal));
+
+    private static bool IsIntegerSchema(JsonElement schema)
+    {
+        if (schema.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        // Direct integer property, or a nullable wrapper (OpenAPI 3.1 style:
+        // "type": ["integer","null"]) / array-of-integer collection id.
+        if (schema.TryGetProperty("type", out var type))
+        {
+            if (type.ValueKind == JsonValueKind.String &&
+                type.GetString() == "integer")
+            {
+                return true;
+            }
+
+            if (type.ValueKind == JsonValueKind.Array &&
+                type.EnumerateArray().Any(entry =>
+                    entry.ValueKind == JsonValueKind.String &&
+                    entry.GetString() == "integer"))
+            {
+                return true;
+            }
+
+            if (type.ValueKind == JsonValueKind.String &&
+                type.GetString() == "array" &&
+                schema.TryGetProperty("items", out var items))
+            {
+                return IsIntegerSchema(items);
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsEnumSchema(JsonElement schema) =>
+        schema.ValueKind == JsonValueKind.Object &&
+        schema.TryGetProperty("enum", out _);
 
     private static bool IsPublicIdentifierName(string name) =>
         name.Equals("publicId", StringComparison.Ordinal) ||

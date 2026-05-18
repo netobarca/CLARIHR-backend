@@ -13,5 +13,6 @@ public enum ErrorType
     Unexpected = 9,
     PayloadTooLarge = 10,
     Gone = 11,
-    ServiceUnavailable = 12
+    ServiceUnavailable = 12,
+    MethodNotAllowed = 13
 }
