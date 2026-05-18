@@ -17,6 +17,11 @@ public static class ErrorCatalog
         "The requested resource was not found.",
         ErrorType.NotFound);
 
+    public static readonly Error MethodNotAllowed = new(
+        "common.method_not_allowed",
+        "The HTTP method is not supported for this resource.",
+        ErrorType.MethodNotAllowed);
+
     public static readonly Error Conflict = new(
         "common.conflict",
         "The request conflicts with the current state of the resource.",

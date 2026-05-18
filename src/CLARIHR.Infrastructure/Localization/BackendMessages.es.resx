@@ -904,6 +904,9 @@
   <data name="common.conflict" xml:space="preserve">
     <value>La solicitud entra en conflicto con the current state of the resource.</value>
   </data>
+  <data name="common.method_not_allowed" xml:space="preserve">
+    <value>El método HTTP no es compatible con este recurso.</value>
+  </data>
   <data name="common.not_found" xml:space="preserve">
     <value>No se pudo encontrar el recurso solicitado.</value>
   </data>

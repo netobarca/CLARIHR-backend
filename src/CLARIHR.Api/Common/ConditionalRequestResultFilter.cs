@@ -13,9 +13,22 @@ public sealed class ConditionalRequestResultFilter : IAsyncResultFilter
 {
     public async Task OnResultExecutionAsync(ResultExecutingContext context, ResultExecutionDelegate next)
     {
+        var request = context.HttpContext.Request;
+
+        // §S3: the aggregate (list) ETag is the only expensive validator —
+        // SHA-256 over one allocated GUID string per item on every list read.
+        // Its sole purpose is to answer a conditional GET, so computing it when
+        // the client did NOT send If-None-Match (and it is not a HEAD probe) is
+        // pure CPU/alloc waste on the read hot path with zero caching benefit.
+        // Gate the aggregate path on an actual conditional request; the
+        // single-entity path stays unconditional (formatting a Guid is cheap).
+        var conditionalRequested =
+            !string.IsNullOrEmpty(request.Headers.IfNoneMatch.ToString()) ||
+            HttpMethods.IsHead(request.Method);
+
         if (!IsConditionalReadCandidate(context) ||
             context.Result is not ObjectResult { Value: not null } objectResult ||
-            !TryBuildHeaders(objectResult.Value, out var eTag, out var lastModifiedUtc))
+            !TryBuildHeaders(objectResult.Value, conditionalRequested, out var eTag, out var lastModifiedUtc))
         {
             await next();
             return;
@@ -28,7 +41,7 @@ public sealed class ConditionalRequestResultFilter : IAsyncResultFilter
             response.Headers[HeaderNames.LastModified] = FormatHttpDate(lastModifiedUtc.Value);
         }
 
-        if (ETagHeader.Matches(context.HttpContext.Request.Headers.IfNoneMatch.ToString(), eTag))
+        if (ETagHeader.Matches(request.Headers.IfNoneMatch.ToString(), eTag))
         {
             response.StatusCode = StatusCodes.Status304NotModified;
             context.Cancel = true;
@@ -54,13 +67,27 @@ public sealed class ConditionalRequestResultFilter : IAsyncResultFilter
         };
     }
 
-    private static bool TryBuildHeaders(object value, out string eTag, out DateTimeOffset? lastModifiedUtc)
+    private static bool TryBuildHeaders(
+        object value,
+        bool conditionalRequested,
+        out string eTag,
+        out DateTimeOffset? lastModifiedUtc)
     {
         if (TryReadDirectMetadata(value, out var directToken, out lastModifiedUtc) &&
             directToken is Guid token)
         {
             eTag = ETagHeader.Format(token);
             return true;
+        }
+
+        // §S3: only the single-entity branch above is cheap enough to run
+        // unconditionally. Skip the per-item aggregate hash entirely unless the
+        // client is actually making a conditional request (or a HEAD probe).
+        if (!conditionalRequested)
+        {
+            eTag = string.Empty;
+            lastModifiedUtc = null;
+            return false;
         }
 
         if (TryReadPagedItems(value, out var pagedItems, out var pageMetadata))
@@ -151,7 +178,8 @@ public sealed class ConditionalRequestResultFilter : IAsyncResultFilter
             return false;
         }
 
-        eTag = ETagHeader.Format(ComputeStableHash(components));
+        // §S4: order-dependent aggregate hash → advertise as a weak validator.
+        eTag = ETagHeader.FormatWeak(ComputeStableHash(components));
         return true;
     }
 
