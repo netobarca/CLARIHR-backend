@@ -3,6 +3,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
+using CLARIHR.Application.Features.PositionSlots.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -75,6 +76,8 @@ public sealed class ProblemDetailsAuthorizationMiddlewareResultHandler : IAuthor
                 or JobProfilePolicies.ManageCatalogs => JobProfileErrors.Forbidden,
             PositionDescriptionCatalogPolicies.Read or PositionDescriptionCatalogPolicies.Manage =>
                 PositionDescriptionCatalogErrors.Forbidden,
+            PositionSlotPolicies.Read or PositionSlotPolicies.Manage =>
+                PositionSlotErrors.Forbidden,
             _ => ErrorCatalog.Forbidden
         };
     }
