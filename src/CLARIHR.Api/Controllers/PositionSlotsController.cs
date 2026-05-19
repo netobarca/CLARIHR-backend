@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Xml;
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
@@ -18,6 +19,7 @@ namespace CLARIHR.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[AuthorizationPolicySet(PositionSlotPolicies.Read, PositionSlotPolicies.Manage)]
 public sealed class PositionSlotsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
