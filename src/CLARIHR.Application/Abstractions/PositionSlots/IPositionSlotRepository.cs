@@ -38,6 +38,8 @@ public interface IPositionSlotRepository
 
     Task<PositionSlotResponse?> GetResponseByIdAsync(Guid slotId, CancellationToken cancellationToken);
 
+    Task<int> CountSlotsAsync(Guid tenantId, CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PositionSlotGraphNodeData>> GetGraphNodesAsync(Guid tenantId, CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PositionSlotExportRow>> GetExportRowsAsync(
