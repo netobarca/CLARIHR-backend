@@ -79,7 +79,8 @@ public sealed class PositionSlotDomainTests
 
         slot.ChangeStatus(PositionSlotStatus.Suspended);
 
-        Assert.Throws<InvalidOperationException>(() => slot.UpdateOccupancy(1));
+        var exception = Assert.Throws<PositionSlotDomainException>(() => slot.UpdateOccupancy(1));
+        Assert.Equal(PositionSlotDomainErrorCode.SuspendedOccupancyConflict, exception.Code);
     }
 
     [Fact]
