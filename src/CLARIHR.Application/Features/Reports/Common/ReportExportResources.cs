@@ -26,9 +26,6 @@ public static class ReportExportResources
             JobProfileCompetencyMatrix or
             JobProfilePdf;
 
-    public static bool IsDocumentResource(string normalizedResourceKey) =>
-        normalizedResourceKey is JobProfilePdf;
-
     public static string Normalize(string resourceKey) =>
         resourceKey.Trim().ToUpperInvariant();
 }
