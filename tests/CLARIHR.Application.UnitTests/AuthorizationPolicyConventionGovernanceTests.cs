@@ -3,9 +3,11 @@ using System.Text.RegularExpressions;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
+using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
+using CLARIHR.Application.Features.PositionSlots.Common;
 
 namespace CLARIHR.Application.UnitTests;
 
@@ -27,7 +29,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     private static readonly Assembly ApiAssembly = typeof(AuthorizationPolicySetAttribute).Assembly;
 
     private static readonly Regex GovernedFamilyRegex =
-        new(@"^(JobProfile|JobCatalog|PositionCategor|PositionDescriptionCatalog)", RegexOptions.Compiled);
+        new(@"^(JobProfile|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot)", RegexOptions.Compiled);
 
     private static readonly HashSet<string> JobProfilePolicyNames = new(StringComparer.Ordinal)
     {
@@ -40,6 +42,12 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     {
         PositionDescriptionCatalogPolicies.Read,
         PositionDescriptionCatalogPolicies.Manage,
+    };
+
+    private static readonly HashSet<string> PositionSlotPolicyNames = new(StringComparer.Ordinal)
+    {
+        PositionSlotPolicies.Read,
+        PositionSlotPolicies.Manage,
     };
 
     private static IReadOnlyList<(Type Controller, AuthorizationPolicySetAttribute? Marker)> Controllers() =>
@@ -87,6 +95,13 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
                 PositionDescriptionCatalogPolicyNames.Contains(entry.Marker.ReadPolicy) &&
                 PositionDescriptionCatalogPolicyNames.Contains(entry.Marker.ManagePolicy));
         }
+
+        if (AnyHandlerInjects(typeof(IPositionSlotAuthorizationService)))
+        {
+            Assert.Contains(controllers, entry => entry.Marker is not null &&
+                PositionSlotPolicyNames.Contains(entry.Marker.ReadPolicy) &&
+                PositionSlotPolicyNames.Contains(entry.Marker.ManagePolicy));
+        }
     }
 
     /// <summary>
@@ -99,6 +114,10 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     [Fact]
     public void EveryGovernedFamilyController_DeclaresPolicySetMarker()
     {
+        // Sentinel: a future controller rename (or a regex typo) that makes the family
+        // filter match zero controllers must fail loudly, not pass vacuously.
+        Assert.Contains(Controllers(), entry => GovernedFamilyRegex.IsMatch(entry.Controller.Name));
+
         var unmarked = Controllers()
             .Where(entry => GovernedFamilyRegex.IsMatch(entry.Controller.Name) && entry.Marker is null)
             .Select(static entry => entry.Controller.Name)
@@ -123,6 +142,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         var valid = new HashSet<string>(StringComparer.Ordinal);
         valid.UnionWith(JobProfilePolicyNames);
         valid.UnionWith(PositionDescriptionCatalogPolicyNames);
+        valid.UnionWith(PositionSlotPolicyNames);
 
         var invalid = Controllers()
             .Where(static entry => entry.Marker is not null)
@@ -139,7 +159,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         Assert.True(
             invalid.Length == 0,
             "[AuthorizationPolicySet] must reference a constant from JobProfilePolicies / " +
-            "PositionDescriptionCatalogPolicies. Offending:\n  " +
+            "PositionDescriptionCatalogPolicies / PositionSlotPolicies. Offending:\n  " +
             string.Join("\n  ", invalid));
     }
 }

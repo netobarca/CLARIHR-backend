@@ -1,5 +1,6 @@
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
+using CLARIHR.Application.Features.PositionSlots.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -46,6 +47,17 @@ public sealed class AuthorizationPolicyOperationFilter : IOperationFilter
             [
                 PositionDescriptionCatalogPermissionCodes.Admin,
                 PositionDescriptionCatalogPermissionCodes.ManageAdministration,
+            ],
+            [PositionSlotPolicies.Read] =
+            [
+                PositionSlotPermissionCodes.Read,
+                PositionSlotPermissionCodes.Admin,
+                PositionSlotPermissionCodes.ManageAdministration,
+            ],
+            [PositionSlotPolicies.Manage] =
+            [
+                PositionSlotPermissionCodes.Admin,
+                PositionSlotPermissionCodes.ManageAdministration,
             ],
         };
 
