@@ -14,6 +14,7 @@ using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Domain.PositionSlots;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace CLARIHR.Api.Controllers;
 
@@ -25,11 +26,13 @@ public sealed class PositionSlotsController(
     IQueryDispatcher queryDispatcher,
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
+    [EnableRateLimiting(PositionSlotRateLimitPolicies.Search)]
     [HttpGet("api/v1/companies/{companyId:guid}/position-slots")]
     [ProducesResponseType<PagedResponse<PositionSlotListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<PagedResponse<PositionSlotListItemResponse>>> Search(
         Guid companyId,
         [FromQuery] PositionSlotStatus? status,
@@ -71,12 +74,14 @@ public sealed class PositionSlotsController(
         return this.ToActionResult(result);
     }
 
+    [EnableRateLimiting(PositionSlotRateLimitPolicies.Export)]
     [HttpGet("api/v1/companies/{companyId:guid}/position-slots/graph")]
     [ProducesResponseType<PositionSlotGraphResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<PositionSlotGraphResponse>> Graph(
         Guid companyId,
         [FromQuery] Guid? rootId,
@@ -91,6 +96,7 @@ public sealed class PositionSlotsController(
         return this.ToActionResult(result);
     }
 
+    [EnableRateLimiting(PositionSlotRateLimitPolicies.Export)]
     [HttpGet("api/v1/companies/{companyId:guid}/position-slots/diagram-export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -98,6 +104,7 @@ public sealed class PositionSlotsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> DiagramExport(
         Guid companyId,
         [FromQuery] string format = "graphml",
@@ -168,12 +175,14 @@ public sealed class PositionSlotsController(
         return this.ToActionResult(Result<PositionSlotGraphResponse>.Failure(PositionSlotErrors.DiagramFormatInvalid)).Result!;
     }
 
+    [EnableRateLimiting(PositionSlotRateLimitPolicies.Export)]
     [HttpGet("api/v1/companies/{companyId:guid}/position-slots/export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Export(
         Guid companyId,
         [FromQuery] string format = "xlsx",
