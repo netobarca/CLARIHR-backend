@@ -184,12 +184,16 @@ public sealed class PositionSlot : TenantEntity
         {
             if (directDependencyPositionSlotId.HasValue && directDependencyPositionSlotId.Value == Id)
             {
-                throw new InvalidOperationException("A position slot cannot depend directly on itself.");
+                throw new PositionSlotDomainException(
+                    PositionSlotDomainErrorCode.DirectDependencySelfReference,
+                    "A position slot cannot depend directly on itself.");
             }
 
             if (functionalDependencyPositionSlotId.HasValue && functionalDependencyPositionSlotId.Value == Id)
             {
-                throw new InvalidOperationException("A position slot cannot depend functionally on itself.");
+                throw new PositionSlotDomainException(
+                    PositionSlotDomainErrorCode.FunctionalDependencySelfReference,
+                    "A position slot cannot depend functionally on itself.");
             }
         }
 
@@ -202,7 +206,9 @@ public sealed class PositionSlot : TenantEntity
     {
         if (Status == PositionSlotStatus.Suspended)
         {
-            throw new InvalidOperationException("Suspended position slots cannot update occupancy.");
+            throw new PositionSlotDomainException(
+                PositionSlotDomainErrorCode.SuspendedOccupancyConflict,
+                "Suspended position slots cannot update occupancy.");
         }
 
         ValidateCapacity(MaxEmployees, occupiedEmployees);
@@ -242,17 +248,23 @@ public sealed class PositionSlot : TenantEntity
     {
         if (maxEmployees < 1)
         {
-            throw new InvalidOperationException("MaxEmployees must be greater than or equal to one.");
+            throw new PositionSlotDomainException(
+                PositionSlotDomainErrorCode.MaxEmployeesInvalid,
+                "MaxEmployees must be greater than or equal to one.");
         }
 
         if (occupiedEmployees < 0)
         {
-            throw new InvalidOperationException("OccupiedEmployees must be greater than or equal to zero.");
+            throw new PositionSlotDomainException(
+                PositionSlotDomainErrorCode.OccupiedEmployeesNegative,
+                "OccupiedEmployees must be greater than or equal to zero.");
         }
 
         if (occupiedEmployees > maxEmployees)
         {
-            throw new InvalidOperationException("OccupiedEmployees cannot be greater than MaxEmployees.");
+            throw new PositionSlotDomainException(
+                PositionSlotDomainErrorCode.OccupiedExceedsCapacity,
+                "OccupiedEmployees cannot be greater than MaxEmployees.");
         }
     }
 
@@ -260,12 +272,16 @@ public sealed class PositionSlot : TenantEntity
     {
         if (effectiveFromUtc == default)
         {
-            throw new InvalidOperationException("EffectiveFromUtc is required.");
+            throw new PositionSlotDomainException(
+                PositionSlotDomainErrorCode.EffectiveFromRequired,
+                "EffectiveFromUtc is required.");
         }
 
         if (effectiveToUtc.HasValue && effectiveToUtc.Value < effectiveFromUtc)
         {
-            throw new InvalidOperationException("EffectiveToUtc cannot be less than EffectiveFromUtc.");
+            throw new PositionSlotDomainException(
+                PositionSlotDomainErrorCode.EffectiveDateRangeInvalid,
+                "EffectiveToUtc cannot be less than EffectiveFromUtc.");
         }
     }
 
