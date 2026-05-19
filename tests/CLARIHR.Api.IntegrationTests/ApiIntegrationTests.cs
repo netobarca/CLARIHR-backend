@@ -2064,6 +2064,27 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task PositionSlots_Export_ShouldRateLimit()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePositionSlotAdminContext(scenario));
+
+        HttpResponseMessage? lastResponse = null;
+        for (var index = 0; index < 11; index++)
+        {
+            lastResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/position-slots/export?format=csv");
+            if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(lastResponse);
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastResponse!.StatusCode);
+        await AssertProblemDetailsAsync(lastResponse, HttpStatusCode.TooManyRequests, "common.too_many_requests");
+    }
+
+    [Fact]
     public async Task PersonnelFiles_Lifecycle_ShouldRateLimit()
     {
         var scenario = await factory.ResetDatabaseAsync();

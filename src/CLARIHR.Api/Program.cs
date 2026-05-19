@@ -200,6 +200,12 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("personnel-files-create", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Create:PermitLimit", 20));
     options.AddPolicy("personnel-files-search", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Search:PermitLimit", 120));
     options.AddPolicy("personnel-files-lifecycle", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Lifecycle:PermitLimit", 30));
+
+    // Position Slots: tight limiter for the unbounded-cost generators (export /
+    // diagram-export / full-tenant graph) — same abuse class as personnel-files-search,
+    // sensitive HR data — plus a generous limiter for the paged search/list.
+    options.AddPolicy(PositionSlotRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PositionSlots:Export:PermitLimit", 10));
+    options.AddPolicy(PositionSlotRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PositionSlots:Search:PermitLimit", 120));
 });
 builder.Services.AddAuthorization(options =>
 {
