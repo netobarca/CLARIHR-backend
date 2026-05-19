@@ -521,7 +521,7 @@ El **v1** de esta sección entró sin PR (no se puede seguir una estrategia inex
 1. ✅ Labels `status:available|claimed|in-pr|done` + `tech-debt` creados.
 2. ✅ 14 Issues creados (1 por ítem abierto de doc `08` §5): `#6 §PS2`, `#7 §PS3`, `#8 §PS4`, `#9 §PS5`, `#10 §PS6`, `#11 §PS7`, `#12 §PS8`, `#13 §X-OPENAPI`, `#14 §X-VER`, `#15 §X-ISP`, `#16 §X-LOG`, `#17 §X-TEST1`, `#18 §X-TEST2`, `#19 §1-bis` — todos `status:available` + `tech-debt`, con file set.
 3. ✅ Workflow CI `.github/workflows/ci.yml` (job `build-and-unit`: build + unit suite + guardrails) — verde en `master`. Integración NO es gate (testcontainers + el fallo pre-existente `JobProfiles_Compensation_…` la harían roja siempre); se corre local (§16.5). `.github/pull_request_template.md` añadido.
-4. ❌ **Branch protection NO aplicable**: GitHub responde `403 Upgrade to GitHub Pro or make this repository public`. El repo es **privado en plan free** (owner tipo `User`) → la protección de ramas (clásica y rulesets) **no está disponible**. **No** se hará público (backend RRHH sensible). Decisión del usuario: (a) GitHub Pro/Team → entonces ejecutar el comando de §16.9; o (b) operar con **enforcement por convención + señal CI** (esta §16, no bloqueante server-side) hasta el upgrade.
+4. 🔒 **Branch protection — decisión ZANJADA: IGNORADA (2026-05-20)**. GitHub devolvió `403 Upgrade to GitHub Pro or make this repository public` (repo **privado en plan free**, owner tipo `User` → protección de ramas/rulesets no disponible). **No** se hará público (backend RRHH sensible) **ni** se subirá de plan por esto. Enforcement = **convención + señal CI** (§16.12), aceptado como **permanente por ahora**. **No re-proponer** branch protection ni upgrade de plan; §16.11 queda solo como referencia latente por si el plan cambiara.
 5. ⏳ `CODEOWNERS` no añadido (un solo maintainer; sería ruido). Plantilla de PR ✅ (punto 3).
 
 ### 16.11 Comando para habilitar branch protection (cuando el plan lo permita)
@@ -532,4 +532,4 @@ JSON
 ```
 
 ### 16.12 Enforcement vigente (plan free privado)
-Mientras no haya branch protection server-side, "1 PR por finding / no push directo a `master`" es **disciplina documentada + señal CI**, no un gate bloqueante. Toda sesión Claude DEBE seguir §16.1–§16.6 igual; el CI corre en cada push/PR y reporta verde/rojo (revisarlo antes de mergear) pero GitHub no impide técnicamente un push directo. Riesgo asumido y registrado hasta el upgrade de plan.
+Mientras no haya branch protection server-side, "1 PR por cambio / no push directo a `master`" es **disciplina documentada + señal CI**, no un gate bloqueante. Toda sesión Claude DEBE seguir §16.1–§16.8 igual; el CI corre en cada push/PR y reporta verde/rojo (revisarlo antes de mergear) pero GitHub no impide técnicamente un push directo. Riesgo **aceptado de forma permanente** (decisión §16.10: no se persigue branch protection ni upgrade de plan).
