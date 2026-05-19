@@ -10,6 +10,7 @@ using CLARIHR.Application;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
+using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Infrastructure;
 using CLARIHR.Infrastructure.Configuration;
@@ -250,6 +251,21 @@ builder.Services.AddAuthorization(options =>
             context,
             PositionDescriptionCatalogPermissionCodes.Admin,
             PositionDescriptionCatalogPermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(PositionSlotPolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PositionSlotPermissionCodes.Read,
+            PositionSlotPermissionCodes.Admin,
+            PositionSlotPermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(PositionSlotPolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PositionSlotPermissionCodes.Admin,
+            PositionSlotPermissionCodes.ManageAdministration)));
 });
 
 // Emit the standard ProblemDetails contract (code/traceId/localized title) on policy-layer
