@@ -5,6 +5,7 @@ using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.Reports;
 using CLARIHR.Infrastructure.Configuration;
+using CLARIHR.Infrastructure.Reports;
 using CLARIHR.Infrastructure.Reports.Handlers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
