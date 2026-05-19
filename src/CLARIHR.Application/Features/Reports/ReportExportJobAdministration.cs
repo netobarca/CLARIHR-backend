@@ -112,10 +112,7 @@ internal sealed class CreateReportExportJobCommandValidator : AbstractValidator<
         }
 
         var normalizedResourceKey = ReportExportResources.Normalize(command.ResourceKey);
-        var isDocumentResource = ReportExportResources.IsDocumentResource(normalizedResourceKey);
-        var isPdfFormat = normalizedFormat == ReportExportFormats.Pdf;
-
-        return isDocumentResource == isPdfFormat;
+        return ReportExportResourceFormatCompatibility.IsCompatible(normalizedResourceKey, normalizedFormat);
     }
 
     private static bool BeValidJsonObject(string? parametersJson)
