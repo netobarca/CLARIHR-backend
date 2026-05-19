@@ -50,7 +50,10 @@ public sealed class JobProfilePdfExportHandlerLimitTests
             job, destination, parameters.RootElement, CancellationToken.None);
 
         Assert.Equal(1, result.RowCount);
-        Assert.EndsWith(".pdf", result.FileName, StringComparison.Ordinal);
+        // §7.1: filename is derived from the profile's code + title slug,
+        // not the job's GUID. Default payload uses code "MGR-001" and title
+        // "Gerente de Desarrollo".
+        Assert.Equal("job-profile-mgr-001-gerente-de-desarrollo.pdf", result.FileName);
     }
 
     private static JobProfilePdfExportHandler CreateHandler(int renderedBytes, long maxDocumentBytes)
