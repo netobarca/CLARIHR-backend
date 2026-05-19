@@ -175,6 +175,37 @@ public sealed class JobProfilePdfExportIntegrationTests(ReportExportIntegrationT
             "A profile manager must keep salary data in the exported document.");
     }
 
+    [Fact]
+    public async Task PostJob_WhenRequesterCannotManageProfiles_ForcesIncludeCompensationFalseEvenWithCasedKey()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                JobProfilePermissionCodes.Read));
+
+        // §N3: the client tries to bypass the server-controlled stamp by sending
+        // a differently-cased key ("IncludeCompensation") that a case-sensitive
+        // JsonObject would not overwrite.
+        var response = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs",
+            new
+            {
+                resourceKey = "JOB_PROFILE_PDF",
+                format = "pdf",
+                parameters = new { jobProfileId = Guid.NewGuid(), IncludeCompensation = true }
+            });
+
+        response.EnsureSuccessStatusCode();
+        var queued = await response.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
+        Assert.NotNull(queued);
+
+        Assert.Equal(1, await ReadIncludeCompensationKeyCountAsync(queued.Id));
+        Assert.False(await ReadIncludeCompensationAsync(queued.Id),
+            "§N3: a cased-key variant must not survive the server stamp nor satisfy the worker gate.");
+    }
+
     private async Task<bool> ReadIncludeCompensationAsync(Guid jobPublicId)
     {
         using var scope = factory.Services.CreateScope();
@@ -186,6 +217,29 @@ public sealed class JobProfilePdfExportIntegrationTests(ReportExportIntegrationT
         using var document = JsonDocument.Parse(job.ParametersJson);
         return document.RootElement.TryGetProperty("includeCompensation", out var flag)
             && flag.ValueKind == JsonValueKind.True;
+    }
+
+    // §N3: after the request-side stamp there must be exactly one property whose
+    // name is "includeCompensation" ignoring case — no surviving cased variant.
+    private async Task<int> ReadIncludeCompensationKeyCountAsync(Guid jobPublicId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var job = await dbContext.ReportExportJobs
+            .IgnoreQueryFilters()
+            .SingleAsync(item => item.PublicId == jobPublicId);
+
+        using var document = JsonDocument.Parse(job.ParametersJson);
+        var count = 0;
+        foreach (var property in document.RootElement.EnumerateObject())
+        {
+            if (string.Equals(property.Name, "includeCompensation", StringComparison.OrdinalIgnoreCase))
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private async Task ProcessAllPendingJobsAsync()

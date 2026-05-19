@@ -7,9 +7,10 @@ namespace CLARIHR.Application.UnitTests;
 
 /// <summary>
 /// Confidentiality coverage for the job-profile PDF salary gate
-/// (technical-debt doc 01 §N2). Proves the gate is fail-closed and that
+/// (technical-debt doc 01 §N2 / §N3). Proves the gate is fail-closed and that
 /// excluded salary data is physically removed from the payload — so it never
-/// reaches the renderer / PDF bytes — rather than masked.
+/// reaches the renderer / PDF bytes — rather than masked. §N3: also proves the
+/// gate resists JSON key-casing variants (exact, case-sensitive read).
 /// </summary>
 public sealed class JobProfileCompensationGateTests
 {
@@ -19,6 +20,13 @@ public sealed class JobProfileCompensationGateTests
     [InlineData("{\"includeCompensation\":null}")]
     [InlineData("{\"includeCompensation\":\"nonsense\"}")]
     [InlineData("{\"other\":1}")]
+    // §N3: a client-supplied key with a different casing must NOT satisfy the
+    // gate (exact, case-sensitive read). Includes the legacy/attack shape where
+    // the request-side stamp left both keys: the canonical false must win.
+    [InlineData("{\"IncludeCompensation\":true,\"includeCompensation\":false}")]
+    [InlineData("{\"IncludeCompensation\":true}")]
+    [InlineData("{\"INCLUDECOMPENSATION\":true}")]
+    [InlineData("{\"includecompensation\":true}")]
     public void Apply_WhenFlagNotExplicitlyTrue_StripsSalaryData(string parametersJson)
     {
         var payload = BuildPayloadWithCompensation();
