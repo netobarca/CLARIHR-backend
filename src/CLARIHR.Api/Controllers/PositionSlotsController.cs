@@ -81,6 +81,7 @@ public sealed class PositionSlotsController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
     public async Task<ActionResult<PositionSlotGraphResponse>> Graph(
         Guid companyId,
@@ -90,7 +91,12 @@ public sealed class PositionSlotsController(
         CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(
-            new GetPositionSlotGraphQuery(companyId, rootId, depth, includeFunctional),
+            new GetPositionSlotGraphQuery(
+                companyId,
+                rootId,
+                depth,
+                includeFunctional,
+                reportExportDeliveryService.MaxDiagramNodes),
             cancellationToken);
 
         return this.ToActionResult(result);
@@ -114,17 +120,17 @@ public sealed class PositionSlotsController(
         CancellationToken cancellationToken = default)
     {
         var graphResult = await queryDispatcher.SendAsync(
-            new GetPositionSlotGraphQuery(companyId, rootId, depth, includeFunctional),
+            new GetPositionSlotGraphQuery(
+                companyId,
+                rootId,
+                depth,
+                includeFunctional,
+                reportExportDeliveryService.MaxDiagramNodes),
             cancellationToken);
 
         if (graphResult.IsFailure)
         {
             return this.ToActionResult(Result<PositionSlotGraphResponse>.Failure(graphResult.Error)).Result!;
-        }
-
-        if (graphResult.Value.Nodes.Count > reportExportDeliveryService.MaxDiagramNodes)
-        {
-            return CLARIHR.Api.Common.ProblemDetailsFactory.Create(HttpContext, ReportPolicyErrors.ExportLimitExceeded);
         }
 
         if (string.Equals(format, "graphml", StringComparison.OrdinalIgnoreCase))

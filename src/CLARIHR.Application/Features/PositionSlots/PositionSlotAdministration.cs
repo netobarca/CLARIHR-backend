@@ -13,6 +13,7 @@ using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
+using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Domain.PositionSlots;
 using FluentValidation;
 
@@ -193,7 +194,8 @@ public sealed record GetPositionSlotGraphQuery(
     Guid CompanyId,
     Guid? RootId,
     int? Depth,
-    bool IncludeFunctional)
+    bool IncludeFunctional,
+    int MaxNodes)
     : IQuery<PositionSlotGraphResponse>;
 
 public sealed record GetPositionSlotExportRowsQuery(
@@ -302,6 +304,7 @@ internal sealed class GetPositionSlotGraphQueryValidator : AbstractValidator<Get
         RuleFor(query => query.Depth)
             .InclusiveBetween(1, PositionSlotValidationRules.MaxGraphDepth)
             .When(static query => query.Depth.HasValue);
+        RuleFor(query => query.MaxNodes).GreaterThan(0);
     }
 }
 
@@ -520,6 +523,15 @@ internal sealed class GetPositionSlotGraphQueryHandler(
         if (authorizationResult.IsFailure)
         {
             return Result<PositionSlotGraphResponse>.Failure(authorizationResult.Error);
+        }
+
+        // §PS4: cap the tenant-wide full-scan BEFORE loading the wide join.
+        // Without this guard, a tenant with a pathological slot count would
+        // pay an unbounded LEFT-JOIN-of-8-tables read on the request path.
+        var slotCount = await repository.CountSlotsAsync(query.CompanyId, cancellationToken);
+        if (slotCount > query.MaxNodes)
+        {
+            return Result<PositionSlotGraphResponse>.Failure(ReportPolicyErrors.ExportLimitExceeded);
         }
 
         var nodes = await repository.GetGraphNodesAsync(query.CompanyId, cancellationToken);
