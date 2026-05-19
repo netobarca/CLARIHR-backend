@@ -32,7 +32,11 @@ internal sealed class JobProfilePdfRenderer : IDocumentPdfRenderer<JobProfilePri
         ArgumentNullException.ThrowIfNull(destination);
 
         var document = _mapper.Map(payload);
-        _renderer.Render(document, destination);
-        return Task.CompletedTask;
+
+        // QuestPDF 2024.12.3 only exposes a synchronous GeneratePdf; offload the
+        // CPU-bound render to the thread pool so the worker's pipeline thread
+        // isn't blocked (technical-debt doc 01 §5.1). Replace with a native
+        // GeneratePdfAsync when QuestPDF (or a successor library) ships one.
+        return Task.Run(() => _renderer.Render(document, destination), cancellationToken);
     }
 }
