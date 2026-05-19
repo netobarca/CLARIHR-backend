@@ -26,7 +26,7 @@ internal sealed class JobProfilePdfRenderer : IDocumentPdfRenderer<JobProfilePri
         _renderer = renderer;
     }
 
-    public Task RenderAsync(JobProfilePrintResponse payload, Stream destination, CancellationToken cancellationToken)
+    public async Task RenderAsync(JobProfilePrintResponse payload, Stream destination, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(payload);
         ArgumentNullException.ThrowIfNull(destination);
@@ -37,6 +37,13 @@ internal sealed class JobProfilePdfRenderer : IDocumentPdfRenderer<JobProfilePri
         // CPU-bound render to the thread pool so the worker's pipeline thread
         // isn't blocked (technical-debt doc 01 §5.1). Replace with a native
         // GeneratePdfAsync when QuestPDF (or a successor library) ships one.
-        return Task.Run(() => _renderer.Render(document, destination), cancellationToken);
+        await Task.Run(() => _renderer.Render(document, destination), cancellationToken);
+
+        // Task.Run only honors the token before the action starts; QuestPDF does
+        // not honor cancellation mid-render. Re-check after the render so a
+        // token signal that arrived mid-render still surfaces as
+        // OperationCanceledException and the worker marks the job cancelled
+        // instead of writing the wasted bytes downstream (doc 01 §5.2).
+        cancellationToken.ThrowIfCancellationRequested();
     }
 }
