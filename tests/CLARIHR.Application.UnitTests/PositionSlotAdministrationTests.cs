@@ -296,6 +296,9 @@ public sealed class PositionSlotAdministrationTests
         public Task<Result> EnsureCanManageAsync(Guid companyId, CancellationToken cancellationToken) =>
             Task.FromResult(Result.Success());
 
+        public Task<Result<PositionSlotAccess>> EvaluateAccessAsync(Guid companyId, CancellationToken cancellationToken) =>
+            Task.FromResult(Result<PositionSlotAccess>.Success(new PositionSlotAccess(CanRead: true, CanManage: true)));
+
         public Error TenantMismatch(RbacPermissionAction action) => PositionSlotErrors.Forbidden;
     }
 
