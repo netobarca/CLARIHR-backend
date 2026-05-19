@@ -465,68 +465,71 @@ docs/
 
 ## 16. Estrategia de branching para sesiones Claude concurrentes
 
-> **Propósito**: permitir que **más de una sesión de Claude** trabaje el backlog en paralelo (p. ej. doc `08` §5) **sin choques de trabajo ni conflictos de merge**. Esta sección es la fuente canónica del flujo git multi-sesión. Decidida 2026-05-19 (trunk-based · 1 finding = 1 PR · claim vía Issue+labels · `master` protegido).
+> **Propósito**: permitir que **varias sesiones de Claude** trabajen en paralelo **aisladas por feature/dominio** (p. ej. una sesión JobProfile, otra PersonnelFiles, otra PersonnelFileInterest) sin choques. Fuente canónica del flujo git. **Modelo v2 (2026-05-20): trunk-based, solo `master`, producción por tag/Release manual.** Reemplaza el v1 "1 finding = 1 PR + file-set" (ver §16.10).
 
 ### 16.1 Modelo
-- **Trunk-based**. `master` = única rama de larga vida, **protegida**, siempre desplegable. Sin `develop`.
-- **1 finding / HU = 1 rama corta = 1 PR** (coincide con el flujo PR #4/#5).
-- Naming: `fix/<id>-<kebab-slug>` (deuda) · `feat/<id>-<slug>` (HU). Ej.: `fix/ps2-search-minlength-guard`. `<id>` en minúsculas sin `§`.
+- **Trunk-based. Una sola rama de larga vida: `master`.** Sin `develop`, sin ramas de entorno (`dev/qa/uat/staging`): no aportan (no hay infra detrás) y generan merge-hell.
+- `master` **= entorno DEV**: cada push a `master` auto-despliega a Azure `apiclarihrdev` (workflow `master_apiclarihrdev.yml` existente).
+- **Producción = deploy manual desde un tag/Release inmutable** de un `master` verde (§16.7). El entorno es asunto de *deploy*, no de *rama*.
+- **1 sesión = 1 feature/dominio = ramas cortas** → PR → `master`. Sesiones en dominios distintos tocan carpetas distintas → colisión ~nula por construcción.
 
-### 16.2 Claim atómico (anti doble-trabajo)
-Cada ítem del backlog tiene **un GitHub Issue**. Ciclo de labels: `status:available` → `status:claimed` → `status:in-pr` → `status:done` (issue cerrado).
+### 16.2 Naming de ramas
+`<tipo>/<dominio>/<slug-kebab>` — `<tipo>` ∈ `feat|fix|perf|refactor|chore|docs`; `<dominio>` ∈ `jobprofile | personnel-files | personnel-file-interest | position | reports | process | …`.
+Ej.: `feat/personnel-files/interest-capture` · `fix/position/ps2-search-minlength` · `docs/process/branching-strategy-trunk`.
 
-Protocolo **obligatorio** antes de tocar código:
-1. `gh issue list --label status:available` → elegir uno.
+### 16.3 Claim por Issue (anti doble-trabajo entre sesiones)
+Para trabajo de backlog rastreado (p. ej. doc `08`), cada ítem tiene **un GitHub Issue** con ciclo `status:available → status:claimed → status:in-pr → status:done`. Antes de ramificar:
+1. `gh issue list --label status:available`.
 2. `gh issue edit <n> --add-assignee @me --remove-label status:available --add-label status:claimed`.
-3. **Releer** el issue (`gh issue view <n>`): si ya estaba claimed/asignado por otra sesión (carrera) → abandonar y elegir otro. El estado en GitHub es atómico: el primero que edita gana; la 2ª sesión ve el estado y se retira.
-4. Solo entonces: `git fetch origin && git checkout -b fix/<id>-<slug> origin/master`.
+3. **Releer** (`gh issue view <n>`): si otra sesión ganó la carrera (assignee/label ya puesto) → tomar otro. El estado GitHub es el lock atómico.
+4. `git fetch origin && git checkout -b <tipo>/<dominio>/<slug> origin/master`.
 
-Nunca crear rama ni editar código de un finding sin su issue en `status:claimed` asignado a la sesión.
+Features nuevas sin issue de backlog: crear el issue (o usar el de la HU) y seguir igual. No iniciar trabajo de un ítem rastreado sin su issue `status:claimed` propio.
 
-### 16.3 Aislamiento por archivo-caliente (anti conflicto-de-merge)
-- El **cuerpo del Issue DEBE listar el _file set_** (columna "Dónde" del doc `08`).
-- **Exclusión mutua**: NO reclamar un finding cuyo file set **intersecte** el de cualquier issue actualmente `status:claimed` o `status:in-pr`. Elegir otro de set disjunto.
-- Archivos de alta contención y política:
-  - `PositionSlotsController.cs` → §X-OPENAPI, §X-VER, §PS7 → **serializar**; preferible una sola sesión haga §X-OPENAPI+§X-VER juntos (cluster doc `08`).
-  - `PositionSlotAdministration.cs` → §PS2, §PS4, §PS5 → 1 a la vez.
-  - `PositionSlotRepository.cs` → §PS3, §PS4.
-  - `PositionSlot.cs` (Domain) → §PS5, §PS6.
-  - `ApiIntegrationTests.cs` → casi todos añaden tests: bloque contiguo nombrado por el finding + **rebase de `origin/master` justo antes del push** (conflicto "ambos añadieron método" → conservar ambos).
-- Ejemplo de sets disjuntos paralelizables hoy: §PS3 (repo) ‖ §PS6 (domain) ‖ §X-LOG (binder) ‖ §X-TEST2 (test nuevo).
+### 16.4 Aislamiento (guía blanda — degradado en v2)
+Con sesiones por dominio distinto el solapamiento es casi nulo, así que **NO** se exige el "file-set por issue" del v1. Única verificación ligera: si tu cambio toca un **archivo cross-cutting compartido** (`Program.cs`, `AGENTS.md`, `Directory.*.props`, `src/**/Common/*`, `*GuardrailsTests*`, o el doc `08`), comprueba que ningún otro issue `status:claimed`/`status:in-pr` lo toque; si choca, coordina/serializa. Entre dominios distintos no aplica.
 
-### 16.4 Doc `08` (fuera de git → last-write-wins silencioso)
+### 16.5 Doc `08` (fuera de git → last-write-wins silencioso)
 `docs/technical-debt/Position/08-…md` **no está en git**; dos sesiones editándolo se pisan sin aviso. Regla: lo edita **solo la sesión cuyo PR acaba de mergear**, **un finding a la vez**, inmediatamente tras el merge. Edits mínimos: flip de la fila en §5 + banner en §2/§3 + **append** de su subsección en §7 (nunca reescribir §7 ajeno). Si otra sesión está en su post-merge doc-update, esperar.
 
-### 16.5 Reglas de PR
+### 16.6 Reglas de PR
 - Ramificar siempre de `origin/master` **fresco**; antes del PR: `git fetch && git rebase origin/master`, resolver.
 - **Atómico**: solo los archivos del finding (disciplina §X-AUTHZ/§X-RATE/§PS1: diff mínimo, sin refactors no pedidos).
 - **Verde local obligatorio** antes del PR: `dotnet build CLARIHR.slnx` 0/0 + unit suite + guardrails + integración dirigida del finding (+ sanity red→verde si añade guardrail).
-- `gh pr create` enlazando el issue (`Closes #<n>`), título convencional, cuerpo con qué/verificación; issue → `status:in-pr`.
+- `gh pr create` enlazando el issue de backlog si aplica (`Closes #<n>`), título convencional, cuerpo con qué/verificación; issue → `status:in-pr`.
 - Merge `--no-ff` (o squash) a `master`; issue → `status:done` + cerrar; rama borrada.
 - `master`: push directo **prohibido por convención**; todo entra por PR con CI verde. (En plan free privado GitHub no puede *forzar* esto server-side — ver §16.10; la regla es obligatoria igual.)
 
-### 16.6 Etiqueta multi-sesión
+### 16.7 Promoción a Producción (manual, por tag/Release)
+`master` despliega solo a DEV (`apiclarihrdev`). Producción la despliega **el usuario, manualmente** (no automatizado). Anclar SIEMPRE el deploy a un **tag inmutable**, nunca a "lo último de master":
+1. Elegir un `master` verde (CI `build-and-unit` ✅): `git checkout master && git pull`.
+2. Tag + Release: `git tag -a vX.Y.Z -m "prod: <resumen>" && git push origin vX.Y.Z` · `gh release create vX.Y.Z --notes "SHA · qué va · issues #…"`.
+3. Desplegar manualmente **ese SHA/artefacto** a prod (proceso actual del usuario).
+4. **Rollback** = re-desplegar el tag/Release anterior. No crear rama `production` (un tag es inmutable, trazable y sin merge/divergencia). Futuro opcional: `workflow_dispatch` que despliegue un tag elegido.
+
+### 16.8 Etiqueta multi-sesión
 - Una sesión **nunca** toca archivos fuera del file set de su issue claimed.
 - Sets relevantes ocupados → no forzar: reportar/esperar o tomar un finding disjunto.
 - `git fetch` antes de cualquier rebase/push; **jamás** `push --force` a `master`; `--force-with-lease` solo a la propia rama de finding.
 - Abandonar un finding → revertir la rama y devolver el issue a `status:available` (quitar assignee/label).
 
-### 16.7 Bootstrap
-Esta sección es el arranque de la estrategia y por necesidad se introduce sin PR previo (no se puede seguir una estrategia que aún no existe). A partir de su adopción, todo cambio —incluida la edición de este archivo— sigue §16.1–§16.6.
+### 16.9 Bootstrap
+El **v1** de esta sección entró sin PR (no se puede seguir una estrategia inexistente). El **v2** (este modelo) entró **vía PR**, dogfooding §16.6. Todo cambio futuro —incluida esta sección— sigue §16.1–§16.8.
 
-### 16.8 Estado de aplicación al remoto (2026-05-19)
+### 16.10 Estado de aplicación al remoto
+0. ✅ Modelo revisado a **v2** 2026-05-20 (trunk · `<tipo>/<dominio>/<slug>` · prod por tag/Release manual · file-set v1 degradado a guía §16.4). v1 era "1 finding=1 PR + file-set exclusión".
 1. ✅ Labels `status:available|claimed|in-pr|done` + `tech-debt` creados.
 2. ✅ 14 Issues creados (1 por ítem abierto de doc `08` §5): `#6 §PS2`, `#7 §PS3`, `#8 §PS4`, `#9 §PS5`, `#10 §PS6`, `#11 §PS7`, `#12 §PS8`, `#13 §X-OPENAPI`, `#14 §X-VER`, `#15 §X-ISP`, `#16 §X-LOG`, `#17 §X-TEST1`, `#18 §X-TEST2`, `#19 §1-bis` — todos `status:available` + `tech-debt`, con file set.
 3. ✅ Workflow CI `.github/workflows/ci.yml` (job `build-and-unit`: build + unit suite + guardrails) — verde en `master`. Integración NO es gate (testcontainers + el fallo pre-existente `JobProfiles_Compensation_…` la harían roja siempre); se corre local (§16.5). `.github/pull_request_template.md` añadido.
 4. ❌ **Branch protection NO aplicable**: GitHub responde `403 Upgrade to GitHub Pro or make this repository public`. El repo es **privado en plan free** (owner tipo `User`) → la protección de ramas (clásica y rulesets) **no está disponible**. **No** se hará público (backend RRHH sensible). Decisión del usuario: (a) GitHub Pro/Team → entonces ejecutar el comando de §16.9; o (b) operar con **enforcement por convención + señal CI** (esta §16, no bloqueante server-side) hasta el upgrade.
 5. ⏳ `CODEOWNERS` no añadido (un solo maintainer; sería ruido). Plantilla de PR ✅ (punto 3).
 
-### 16.9 Comando para habilitar branch protection (cuando el plan lo permita)
+### 16.11 Comando para habilitar branch protection (cuando el plan lo permita)
 ```
 gh api -X PUT repos/netobarca/CLARIHR-backend/branches/master/protection --input - <<'JSON'
 {"required_status_checks":{"strict":true,"contexts":["build-and-unit"]},"enforce_admins":true,"required_pull_request_reviews":{"required_approving_review_count":0},"restrictions":null,"allow_force_pushes":false,"allow_deletions":false,"required_conversation_resolution":true}
 JSON
 ```
 
-### 16.10 Enforcement vigente (plan free privado)
+### 16.12 Enforcement vigente (plan free privado)
 Mientras no haya branch protection server-side, "1 PR por finding / no push directo a `master`" es **disciplina documentada + señal CI**, no un gate bloqueante. Toda sesión Claude DEBE seguir §16.1–§16.6 igual; el CI corre en cada push/PR y reporta verde/rojo (revisarlo antes de mergear) pero GitHub no impide técnicamente un push directo. Riesgo asumido y registrado hasta el upgrade de plan.
