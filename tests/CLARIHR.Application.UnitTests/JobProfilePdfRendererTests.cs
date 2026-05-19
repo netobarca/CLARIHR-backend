@@ -1,4 +1,5 @@
 using System.Text;
+using CLARIHR.Application.Abstractions.Reports.Documents;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Infrastructure.Reports.Documents;
@@ -23,6 +24,26 @@ public sealed class JobProfilePdfRendererTests
         await renderer.RenderAsync(payload, stream, CancellationToken.None);
 
         AssertValidPdf(stream);
+    }
+
+    [Fact]
+    public async Task RenderAsync_WhenTokenIsCancelledDuringRender_ShouldThrowOperationCanceled()
+    {
+        // §5.2: QuestPDF's GeneratePdf doesn't honor cancellation mid-render.
+        // The renderer must re-check the token after the inner Render returns
+        // so a mid-render cancellation still surfaces as OCE and the worker
+        // marks the job cancelled (instead of uploading the wasted bytes).
+        using var cts = new CancellationTokenSource();
+        var cancellingRenderer = new CancellingDocumentModelRenderer(cts);
+        var renderer = new JobProfilePdfRenderer(new JobProfileDocumentMapper(), cancellingRenderer);
+        var payload = BuildPayload(BuildEmptyProfile());
+
+        await using var stream = new MemoryStream();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => renderer.RenderAsync(payload, stream, cts.Token));
+
+        Assert.True(cancellingRenderer.RenderInvoked, "Inner renderer should have run to completion before the post-render cancellation check.");
     }
 
     [Fact]
@@ -195,5 +216,19 @@ public sealed class JobProfilePdfRendererTests
                 ResolvedEffectiveFromUtc: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                 ResolvedEffectiveToUtc: null)
         };
+    }
+
+    private sealed class CancellingDocumentModelRenderer(CancellationTokenSource cts) : IDocumentModelRenderer
+    {
+        public bool RenderInvoked { get; private set; }
+
+        public void Render(DocumentModel document, Stream destination)
+        {
+            // Simulate QuestPDF: ignore cancellation, run to completion, but the
+            // token gets signaled mid-render. The renderer-under-test must
+            // re-check the token after we return.
+            cts.Cancel();
+            RenderInvoked = true;
+        }
     }
 }
