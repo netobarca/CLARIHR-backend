@@ -1,3 +1,4 @@
+using CLARIHR.Infrastructure.CatalogTypes;
 using CLARIHR.Infrastructure.LegalRepresentatives;
 using CLARIHR.Infrastructure.PositionDescriptionCatalogs;
 using CLARIHR.Infrastructure.Persistence;
@@ -29,11 +30,13 @@ public static class StartupInitializationExtensions
                 var positionTitleCatalogSeedService = scope.ServiceProvider.GetRequiredService<LegalRepresentativePositionTitleCatalogSeedService>();
                 var representationTypeCatalogSeedService = scope.ServiceProvider.GetRequiredService<LegalRepresentativeRepresentationTypeCatalogSeedService>();
                 var positionDescriptionCatalogSeedService = scope.ServiceProvider.GetRequiredService<PositionDescriptionCatalogSeedService>();
+                var catalogTypeDescriptorSeedService = scope.ServiceProvider.GetRequiredService<CatalogTypeDescriptorSeedService>();
                 var planEntitlementService = scope.ServiceProvider.GetRequiredService<IPlanEntitlementService>();
 
                 await dbContext.Database.MigrateAsync(cancellationToken);
                 await positionTitleCatalogSeedService.EnsureSeededAsync(cancellationToken);
                 await representationTypeCatalogSeedService.EnsureSeededAsync(cancellationToken);
+                await catalogTypeDescriptorSeedService.EnsureSeededAsync(cancellationToken);
                 await planEntitlementService.EnsureSystemPlanDefaultsAsync(cancellationToken);
 
                 if (isDevelopment)

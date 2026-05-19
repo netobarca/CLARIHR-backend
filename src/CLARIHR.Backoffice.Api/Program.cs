@@ -104,6 +104,11 @@ public partial class Program
 
             options.DefaultPolicy = policy;
             options.FallbackPolicy = policy;
+
+            // Explicit registration for the named policy that the Backoffice catalog
+            // controllers reference via [Authorize(Policy = "PlatformOperator")].
+            // Equivalent to the default policy; fixes a latent "policy not found" gap.
+            options.AddPolicy("PlatformOperator", policy);
         });
 
         ConfigureAuthentication(builder.Services);

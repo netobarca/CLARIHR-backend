@@ -1408,6 +1408,12 @@
   <data name="DOCUMENT_TYPE_CATALOG_CODE_CONFLICT" xml:space="preserve">
     <value>Otro elemento del catalogo de tipos de documento ya usa el codigo solicitado.</value>
   </data>
+  <data name="JOB_PROFILE_CATALOG_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>No se pudo encontrar el tipo de catalogo de perfil de puesto solicitado.</value>
+  </data>
+  <data name="JOB_PROFILE_CATALOG_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Otro tipo de catalogo de perfil de puesto ya usa el codigo solicitado.</value>
+  </data>
   <data name="DOCUMENT_TYPE_CATALOG_ITEM_IN_USE" xml:space="preserve">
     <value>El elemento del catalogo de tipos de documento esta en uso y no puede ser inactivado.</value>
   </data>

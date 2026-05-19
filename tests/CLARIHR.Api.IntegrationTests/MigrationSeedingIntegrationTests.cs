@@ -1,6 +1,8 @@
+using CLARIHR.Application.Features.JobProfileCatalogTypes;
 using CLARIHR.Application.Features.Provisioning.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.LegalRepresentatives;
+using CLARIHR.Infrastructure.CatalogTypes;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -121,5 +123,50 @@ public sealed class MigrationSeedingIntegrationTests(IntegrationTestWebApplicati
             .ToListAsync();
         Assert.Equal(LegalRepresentativeRepresentationTypeCatalog.Items.Count, seededRepresentationTypes.Count);
         Assert.All(LegalRepresentativeRepresentationTypeCatalog.Items, item => Assert.Contains(item.Code, seededRepresentationTypes));
+    }
+
+    // §D6 (doc technical-debt/07): the catalog-type registry is populated ONLY by
+    // CatalogTypeDescriptorSeedService at app startup — the migration/reset path
+    // does not seed it. If EnsureSeededAsync regresses, the catalog manifest
+    // silently degrades (every field isActive:false → frontend hides all catalog
+    // fields with no error). This exercises EnsureSeededAsync directly against real
+    // Postgres: it must fully populate the registry, be idempotent, and its new
+    // post-seed fail-fast must pass on a correct seed (it throws otherwise).
+    [Fact]
+    public async Task EnsureSeededAsync_ShouldPopulateEveryCanonicalType_AndBeIdempotent()
+    {
+        _ = await factory.ResetDatabaseAsync();
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var seedService = scope.ServiceProvider
+            .GetRequiredService<CatalogTypeDescriptorSeedService>();
+
+        // Precondition: the reset path does NOT seed catalog types — this is the
+        // exact silent-degradation state §D6 guards against.
+        Assert.Empty(await dbContext.CatalogTypeDescriptors.AsNoTracking().ToListAsync());
+
+        // First run seeds everything; the post-seed fail-fast must not throw.
+        await seedService.EnsureSeededAsync(CancellationToken.None);
+
+        var afterFirst = await dbContext.CatalogTypeDescriptors
+            .AsNoTracking()
+            .Select(item => item.NormalizedCode)
+            .ToListAsync();
+        Assert.Equal(JobProfileCatalogBindingMap.CanonicalTypes.Count, afterFirst.Count);
+        Assert.All(
+            JobProfileCatalogBindingMap.CanonicalTypes,
+            definition => Assert.Contains(
+                definition.RegistryCode.Trim().ToUpperInvariant(),
+                afterFirst));
+
+        // Second run must be idempotent: no duplicates, fail-fast still passes.
+        await seedService.EnsureSeededAsync(CancellationToken.None);
+
+        var afterSecond = await dbContext.CatalogTypeDescriptors
+            .AsNoTracking()
+            .Select(item => item.NormalizedCode)
+            .ToListAsync();
+        Assert.Equal(JobProfileCatalogBindingMap.CanonicalTypes.Count, afterSecond.Count);
     }
 }

@@ -15,6 +15,7 @@ using CLARIHR.Application.Abstractions.OrgUnits;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
 using CLARIHR.Application.Abstractions.EducationCatalogs;
 using CLARIHR.Application.Abstractions.DocumentTypeCatalogs;
+using CLARIHR.Application.Abstractions.CatalogTypes;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Platform;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
@@ -147,6 +148,7 @@ public static class DependencyInjection
         services.AddScoped<IPositionDescriptionCatalogRepository, PositionDescriptionCatalogRepository>();
         services.AddScoped<IPositionDescriptionCatalogAuthorizationService, PositionDescriptionCatalogAuthorizationService>();
         services.AddScoped<PositionDescriptionCatalogSeedService>();
+        services.AddScoped<CatalogTypes.CatalogTypeDescriptorSeedService>();
         services.AddScoped<IPositionSlotRepository, PositionSlotRepository>();
         services.AddScoped<IPositionSlotAuthorizationService, PositionSlotAuthorizationService>();
         services.AddScoped<ICostCenterRepository, CostCenterRepository>();
@@ -160,6 +162,7 @@ public static class DependencyInjection
         services.AddScoped<IPersonnelFileRepository, PersonnelFileRepository>();
         services.AddScoped<IEducationCatalogRepository, EducationCatalogRepository>();
         services.AddScoped<IDocumentTypeCatalogRepository, DocumentTypeCatalogs.DocumentTypeCatalogRepository>();
+        services.AddScoped<ICatalogTypeDescriptorRepository, CatalogTypes.CatalogTypeDescriptorRepository>();
         services.AddScoped<IPersonnelFileProfilePhotoService, PersonnelFileProfilePhotoService>();
         services.AddScoped<IPersonnelFileEmployeeRepository, PersonnelFileEmployeeRepository>();
         services.AddScoped<IPersonnelFileAuthorizationService, PersonnelFileAuthorizationService>();

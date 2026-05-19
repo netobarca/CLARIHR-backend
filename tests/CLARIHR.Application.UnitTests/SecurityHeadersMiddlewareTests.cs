@@ -39,5 +39,9 @@ public sealed class SecurityHeadersMiddlewareTests
         Assert.Equal("no-store", context.Response.Headers.CacheControl.ToString());
         Assert.Equal("no-cache", context.Response.Headers.Pragma.ToString());
         Assert.Equal("0", context.Response.Headers.Expires.ToString());
+
+        // Defense-in-depth for bearer-token-bound / tenant-specific API bodies
+        // (§D2). Locked here so the Vary signal cannot silently regress.
+        Assert.Equal("Authorization", context.Response.Headers.Vary.ToString());
     }
 }

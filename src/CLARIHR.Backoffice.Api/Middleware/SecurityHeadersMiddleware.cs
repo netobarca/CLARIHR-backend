@@ -13,6 +13,11 @@ internal sealed class SecurityHeadersMiddleware(RequestDelegate next)
             context.Response.Headers["Cache-Control"] = "no-store";
             context.Response.Headers["Pragma"] = "no-cache";
             context.Response.Headers["Expires"] = "0";
+
+            // Defense-in-depth: API representations are bearer-token bound. no-store
+            // already forbids storage; Vary keeps even a non-conformant cache that
+            // ignores no-store from serving one principal's body to another.
+            context.Response.Headers["Vary"] = "Authorization";
         }
 
         await next(context);
