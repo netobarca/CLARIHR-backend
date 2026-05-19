@@ -266,7 +266,10 @@ internal sealed class CreateReportExportJobCommandHandler(
     /// requester can manage profiles (same RBAC bar that gates compensation
     /// writes). The decision is taken here — where the user/JWT context exists —
     /// because the export worker has none. Any client-supplied
-    /// <c>includeCompensation</c> is overridden. See technical-debt doc 01 §N2.
+    /// <c>includeCompensation</c> is overridden — including keys with a
+    /// different casing, which a case-sensitive <see cref="JsonObject"/> would
+    /// otherwise keep as a second property and let win the worker's
+    /// case-insensitive read. See technical-debt doc 01 §N2 / §N3.
     /// </summary>
     private async Task<string> BuildEffectiveParametersAsync(
         string normalizedResourceKey,
@@ -293,6 +296,25 @@ internal sealed class CreateReportExportJobCommandHandler(
 
         var canViewCompensation = await jobProfileAuthorizationService
             .EnsureCanManageProfilesAsync(companyId, cancellationToken);
+
+        // §N3: JsonObject lookup is case-sensitive, so the canonical set below
+        // would NOT overwrite a client-supplied key with a different casing
+        // (e.g. "IncludeCompensation"); it would survive as a second property
+        // and win the worker gate's case-insensitive read. Strip every
+        // case-insensitive variant first so the stamped key is the only one.
+        var compensationKeyVariants = new List<string>();
+        foreach (var property in root)
+        {
+            if (string.Equals(property.Key, "includeCompensation", StringComparison.OrdinalIgnoreCase))
+            {
+                compensationKeyVariants.Add(property.Key);
+            }
+        }
+
+        foreach (var key in compensationKeyVariants)
+        {
+            root.Remove(key);
+        }
 
         root["includeCompensation"] = canViewCompensation.IsSuccess;
 

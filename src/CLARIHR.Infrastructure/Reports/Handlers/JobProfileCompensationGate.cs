@@ -16,12 +16,19 @@ namespace CLARIHR.Infrastructure.Reports.Handlers;
 /// before this control existed, or a tampered payload) excludes it. The data is
 /// removed from the payload — not masked — so the mapper omits the whole
 /// "Compensación" section and the salary never reaches the PDF bytes.
+/// <para>
+/// §N3: the flag is read with <see cref="ReportExportParameters.ReadBoolExact"/>
+/// (exact, case-sensitive match), not the case-insensitive / first-match
+/// <c>ReadBool</c> helper. A client-supplied key with a different casing can
+/// therefore never satisfy the gate, even if one slipped past the request-side
+/// stamping or rode along on a job queued before the §N3 fix.
+/// </para>
 /// </remarks>
 internal static class JobProfileCompensationGate
 {
     public static JobProfilePrintResponse Apply(JobProfilePrintResponse payload, JsonElement parameters)
     {
-        if (ReportExportParameters.ReadBool(parameters, "includeCompensation") == true)
+        if (ReportExportParameters.ReadBoolExact(parameters, "includeCompensation") == true)
         {
             return payload;
         }

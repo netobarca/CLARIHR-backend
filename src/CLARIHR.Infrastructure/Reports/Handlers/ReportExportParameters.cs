@@ -68,6 +68,32 @@ internal static class ReportExportParameters
         };
     }
 
+    /// <summary>
+    /// Reads a boolean using an <b>exact, case-sensitive (ordinal)</b> property
+    /// match — unlike <see cref="ReadBool"/>, which resolves via the shared
+    /// case-insensitive / first-match <see cref="TryGetProperty"/> helper.
+    /// This is the security-sensitive reader for server-controlled flags
+    /// (technical-debt doc 01 §N3): it must not be aliased nor case-insensitive,
+    /// so a client-supplied key with a different casing can never be picked up
+    /// instead of the canonical server-stamped one (and a job queued before the
+    /// §N3 fix, carrying both keys, resolves to the canonical one — fail-closed).
+    /// </summary>
+    public static bool? ReadBoolExact(JsonElement parameters, string name)
+    {
+        if (!parameters.TryGetProperty(name, out var value))
+        {
+            return null;
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String when bool.TryParse(value.GetString(), out var parsed) => parsed,
+            _ => null
+        };
+    }
+
     public static int? ReadInt(JsonElement parameters, params string[] names)
     {
         if (!TryGetProperty(parameters, out var value, names))

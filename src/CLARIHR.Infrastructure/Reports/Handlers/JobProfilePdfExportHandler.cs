@@ -25,7 +25,9 @@ internal sealed class JobProfilePdfExportHandler(
         JsonElement parameters,
         CancellationToken cancellationToken)
     {
-        var jobProfileId = ReportExportParameters.RequireGuid(parameters, "jobProfilePublicId");
+        // §N4: clients/UI send "jobProfileId"; accept it as an alias of the
+        // canonical "jobProfilePublicId" (error message keeps names[0]).
+        var jobProfileId = ReportExportParameters.RequireGuid(parameters, "jobProfilePublicId", "jobProfileId");
 
         var payload = await jobProfileRepository.GetPrintByIdAsync(jobProfileId, cancellationToken);
         if (payload is null)
