@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.Reports.Documents;
@@ -97,10 +99,83 @@ internal sealed class JobProfilePdfExportHandler(
                 _performanceOptions.NormalizedMaxDocumentBytes);
         }
 
-        var fileName = $"job-profile-{job.PublicId:N}.pdf";
+        var fileName = BuildFileName(payload.Profile, job.PublicId);
         return new ReportExportGeneratedFile(
             RowCount: 1,
             FileName: fileName,
             ContentType: ReportExportFormats.GetContentType(ReportExportFormats.Pdf));
+    }
+
+    // User-friendly filename (technical-debt doc 01 §7.1): the previous GUID-only
+    // name (`job-profile-{guid}.pdf`) forced every client to override it from
+    // metadata they had to fetch separately. Build a slug from the profile's
+    // Code + Title so direct downloads land with a recognizable filename, and
+    // fall back to the job's public id when both fields slugify to empty (e.g.
+    // all-non-ASCII title with no code) so we never produce `job-profile-.pdf`.
+    private static string BuildFileName(JobProfileResponse profile, Guid jobPublicId)
+    {
+        const int CodeSlugMaxLength = 40;
+        const int TitleSlugMaxLength = 80;
+
+        var codeSlug = Slugify(profile.Code, CodeSlugMaxLength);
+        var titleSlug = Slugify(profile.Title, TitleSlugMaxLength);
+
+        var slug = (codeSlug.Length, titleSlug.Length) switch
+        {
+            (0, 0) => jobPublicId.ToString("N"),
+            (0, _) => titleSlug,
+            (_, 0) => codeSlug,
+            _ => $"{codeSlug}-{titleSlug}"
+        };
+
+        return $"job-profile-{slug}.pdf";
+    }
+
+    private static string Slugify(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var decomposed = value.Normalize(NormalizationForm.FormD);
+        var ascii = new StringBuilder(decomposed.Length);
+        foreach (var character in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
+            {
+                ascii.Append(character);
+            }
+        }
+
+        var slug = new StringBuilder(ascii.Length);
+        foreach (var character in ascii.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant())
+        {
+            if ((character >= 'a' && character <= 'z') || (character >= '0' && character <= '9'))
+            {
+                slug.Append(character);
+            }
+            else if (slug.Length > 0 && slug[^1] != '-')
+            {
+                slug.Append('-');
+            }
+        }
+
+        while (slug.Length > 0 && slug[^1] == '-')
+        {
+            slug.Length--;
+        }
+
+        if (slug.Length > maxLength)
+        {
+            slug.Length = maxLength;
+        }
+
+        while (slug.Length > 0 && slug[^1] == '-')
+        {
+            slug.Length--;
+        }
+
+        return slug.ToString();
     }
 }
