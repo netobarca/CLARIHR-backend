@@ -432,10 +432,10 @@ internal sealed class SearchPositionSlotsQueryHandler(
         SearchPositionSlotsQuery query,
         CancellationToken cancellationToken)
     {
-        var authorizationResult = await authorizationService.EnsureCanReadAsync(query.CompanyId, cancellationToken);
-        if (authorizationResult.IsFailure)
+        var access = await authorizationService.EvaluateAccessAsync(query.CompanyId, cancellationToken);
+        if (access.IsFailure)
         {
-            return Result<PagedResponse<PositionSlotListItemResponse>>.Failure(authorizationResult.Error);
+            return Result<PagedResponse<PositionSlotListItemResponse>>.Failure(access.Error);
         }
 
         var response = await repository.SearchAsync(
@@ -455,7 +455,7 @@ internal sealed class SearchPositionSlotsQueryHandler(
             return Result<PagedResponse<PositionSlotListItemResponse>>.Success(response);
         }
 
-        var canManage = (await authorizationService.EnsureCanManageAsync(query.CompanyId, cancellationToken)).IsSuccess;
+        var canManage = access.Value.CanManage;
         var items = response.Items
             .Select(item => PositionSlotPolicyAdapter.ApplyAllowedActions(item, resourceActionPolicyService, canManage))
             .ToArray();
@@ -481,17 +481,16 @@ internal sealed class GetPositionSlotByIdQueryHandler(
             return Result<PositionSlotResponse>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
-        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
+        var access = await authorizationService.EvaluateAccessAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (access.IsFailure)
         {
-            return Result<PositionSlotResponse>.Failure(authorizationResult.Error);
+            return Result<PositionSlotResponse>.Failure(access.Error);
         }
 
         var response = await repository.GetResponseByIdAsync(query.PositionSlotId, cancellationToken);
         if (response is not null)
         {
-            var canManage = (await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken)).IsSuccess;
-            response = PositionSlotPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, canManage);
+            response = PositionSlotPolicyAdapter.ApplyAllowedActions(response, resourceActionPolicyService, access.Value.CanManage);
             return Result<PositionSlotResponse>.Success(response);
         }
 
