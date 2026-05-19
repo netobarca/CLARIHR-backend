@@ -1161,10 +1161,7 @@ internal sealed class UpdatePositionSlotOccupancyCommandHandler(
         catch (InvalidOperationException exception)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return Result<PositionSlotResponse>.Failure(
-                exception.Message.Contains("Suspended", StringComparison.OrdinalIgnoreCase)
-                    ? PositionSlotErrors.SuspendedOccupancyConflict
-                    : PositionSlotErrors.CapacityRuleViolation);
+            return Result<PositionSlotResponse>.Failure(PositionSlotCommandSupport.MapDomainValidation(exception));
         }
         catch
         {
@@ -1391,29 +1388,28 @@ internal static class PositionSlotGraphBuilder
 
 internal static class PositionSlotCommandSupport
 {
-    public static Error MapDomainValidation(InvalidOperationException exception)
+    // §PS5: dispatch on the typed domain error code, not on Message text.
+    // A reword/localization of the domain message no longer reclassifies errors
+    // — the contract is PositionSlotDomainErrorCode. Untyped
+    // InvalidOperationException (would be a domain bug — no code attached)
+    // falls back to CapacityRuleViolation, matching the pre-§PS5 default.
+    public static Error MapDomainValidation(InvalidOperationException exception) =>
+        exception is PositionSlotDomainException domain
+            ? MapByCode(domain.Code)
+            : PositionSlotErrors.CapacityRuleViolation;
+
+    private static Error MapByCode(PositionSlotDomainErrorCode code) => code switch
     {
-        if (exception.Message.Contains("date", StringComparison.OrdinalIgnoreCase))
-        {
-            return PositionSlotErrors.EffectiveDatesInvalid;
-        }
-
-        if (exception.Message.Contains("OccupiedEmployees", StringComparison.OrdinalIgnoreCase) ||
-            exception.Message.Contains("MaxEmployees", StringComparison.OrdinalIgnoreCase) ||
-            exception.Message.Contains("occupancy", StringComparison.OrdinalIgnoreCase))
-        {
-            return PositionSlotErrors.CapacityRuleViolation;
-        }
-
-        if (exception.Message.Contains("Vacant", StringComparison.OrdinalIgnoreCase) ||
-            exception.Message.Contains("Occupied status", StringComparison.OrdinalIgnoreCase) ||
-            exception.Message.Contains("status", StringComparison.OrdinalIgnoreCase))
-        {
-            return PositionSlotErrors.StatusConflict;
-        }
-
-        return PositionSlotErrors.CapacityRuleViolation;
-    }
+        PositionSlotDomainErrorCode.EffectiveFromRequired => PositionSlotErrors.EffectiveDatesInvalid,
+        PositionSlotDomainErrorCode.EffectiveDateRangeInvalid => PositionSlotErrors.EffectiveDatesInvalid,
+        PositionSlotDomainErrorCode.MaxEmployeesInvalid => PositionSlotErrors.CapacityRuleViolation,
+        PositionSlotDomainErrorCode.OccupiedEmployeesNegative => PositionSlotErrors.CapacityRuleViolation,
+        PositionSlotDomainErrorCode.OccupiedExceedsCapacity => PositionSlotErrors.CapacityRuleViolation,
+        PositionSlotDomainErrorCode.SuspendedOccupancyConflict => PositionSlotErrors.SuspendedOccupancyConflict,
+        PositionSlotDomainErrorCode.DirectDependencySelfReference => PositionSlotErrors.DependencySelfReference,
+        PositionSlotDomainErrorCode.FunctionalDependencySelfReference => PositionSlotErrors.DependencySelfReference,
+        _ => throw new ArgumentOutOfRangeException(nameof(code), code, "Unmapped PositionSlotDomainErrorCode — add a branch here.")
+    };
 
     public static async Task<Result<PositionSlotJobProfileLookup>> ResolveJobProfileLookupAsync(
         Guid tenantId,
