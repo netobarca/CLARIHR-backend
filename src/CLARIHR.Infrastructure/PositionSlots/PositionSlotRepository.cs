@@ -169,6 +169,12 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                 row.Slot.ModifiedUtc))
             .SingleOrDefaultAsync(cancellationToken);
 
+    public Task<int> CountSlotsAsync(Guid tenantId, CancellationToken cancellationToken) =>
+        dbContext.Set<PositionSlot>()
+            .AsNoTracking()
+            .Where(slot => slot.TenantId == tenantId)
+            .CountAsync(cancellationToken);
+
     public async Task<IReadOnlyCollection<PositionSlotGraphNodeData>> GetGraphNodesAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         var nodes = await BuildJoinedQuery()
