@@ -274,7 +274,10 @@ internal sealed class SearchPositionSlotsQueryValidator : AbstractValidator<Sear
         RuleFor(query => query.ContractTypeId)
             .NotEqual(Guid.Empty)
             .When(static query => query.ContractTypeId.HasValue);
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(PositionSlotValidationRules.MaxSearchLength)
+            .Must(PositionSlotValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {PositionSlotValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PositionSlotValidationRules.MaxPageSize);
     }
@@ -319,7 +322,10 @@ internal sealed class GetPositionSlotExportRowsQueryValidator : AbstractValidato
         RuleFor(query => query.ContractTypeId)
             .NotEqual(Guid.Empty)
             .When(static query => query.ContractTypeId.HasValue);
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(PositionSlotValidationRules.MaxSearchLength)
+            .Must(PositionSlotValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {PositionSlotValidationRules.MinSearchLength} characters when provided.");
     }
 }
 

@@ -10,6 +10,19 @@ public static partial class PositionSlotValidationRules
     public const int MaxPageSize = 100;
     public const int MaxGraphDepth = 15;
 
+    // Free-text search guardrail (§PS2): the repository fans a non-sargable LIKE '%x%'
+    // across 7+ Normalized* columns on a 6-table join, in both Search and Export.
+    // Aligned with the PDC §P2 precedent (MinSearchLength: 2) — see
+    // project-foundation.md §12.8 / ADR-0002.
+    public const int MinSearchLength = 2;
+    public const int MaxSearchLength = 150;
+
+    // Empty/whitespace search means "no filter" (the repository skips the predicate
+    // via !string.IsNullOrWhiteSpace), so it is valid; otherwise enforce the minimum
+    // length on the trimmed term.
+    public static bool IsValidSearchLength(string? search) =>
+        string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
+
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
 
