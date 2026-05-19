@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using CLARIHR.Application.Abstractions.JobProfiles;
 using CLARIHR.Application.Abstractions.Reports.Documents;
@@ -6,6 +7,8 @@ using CLARIHR.Application.Features.Reports;
 using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Domain.Reports;
 using CLARIHR.Infrastructure.Configuration;
+using CLARIHR.Infrastructure.Reports.Documents;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace CLARIHR.Infrastructure.Reports.Handlers;
@@ -13,8 +16,10 @@ namespace CLARIHR.Infrastructure.Reports.Handlers;
 internal sealed class JobProfilePdfExportHandler(
     IJobProfileRepository jobProfileRepository,
     IDocumentPdfRenderer<JobProfilePrintResponse> jobProfilePdfRenderer,
-    IOptions<ReportPerformanceOptions> performanceOptions) : IReportExportHandler
+    IOptions<ReportPerformanceOptions> performanceOptions,
+    ILogger<JobProfilePdfExportHandler> logger) : IReportExportHandler
 {
+    private const string RendererName = nameof(JobProfilePdfRenderer);
     private readonly ReportPerformanceOptions _performanceOptions = performanceOptions.Value;
 
     public string ResourceKey => ReportExportResources.JobProfilePdf;
@@ -46,7 +51,38 @@ internal sealed class JobProfilePdfExportHandler(
         // requester was authorized for it at request time. Fail-closed.
         payload = JobProfileCompensationGate.Apply(payload, parameters);
 
+        // Document Generation subdomain telemetry (doc 01 §6.1): emit dedicated
+        // render_started / render_succeeded events with renderer + duration +
+        // size dimensions so dashboards can compute renderer-specific p95s
+        // independently of the generic Job* events (which lose this signal
+        // because row_count is always 1 for PDF and artifact_size_bytes is
+        // measured post-upload, not post-render).
+        logger.LogInformation(
+            ReportExportTelemetryEvents.PdfRenderStarted,
+            "Job-profile PDF render started. job_id {job_id} tenant_id {tenant_id} job_profile_id {job_profile_id} resource_key {resource_key} renderer {renderer} outcome {outcome}",
+            job.PublicId,
+            job.TenantId,
+            jobProfileId,
+            job.ResourceKey,
+            RendererName,
+            "render_started");
+
+        var renderStopwatch = Stopwatch.StartNew();
         await jobProfilePdfRenderer.RenderAsync(payload, destination, cancellationToken);
+        renderStopwatch.Stop();
+
+        var pdfSizeBytes = destination.CanSeek ? destination.Length : 0L;
+        logger.LogInformation(
+            ReportExportTelemetryEvents.PdfRenderSucceeded,
+            "Job-profile PDF render succeeded. job_id {job_id} tenant_id {tenant_id} job_profile_id {job_profile_id} resource_key {resource_key} renderer {renderer} render_duration_ms {render_duration_ms} pdf_size_bytes {pdf_size_bytes} outcome {outcome}",
+            job.PublicId,
+            job.TenantId,
+            jobProfileId,
+            job.ResourceKey,
+            RendererName,
+            renderStopwatch.ElapsedMilliseconds,
+            pdfSizeBytes,
+            "render_succeeded");
 
         // Defense in depth (doc 01 §3.3): reject a pathological document with a
         // typed limit error *before* the downstream upload, instead of letting
