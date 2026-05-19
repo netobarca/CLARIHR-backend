@@ -1,0 +1,38 @@
+name: CI
+
+# Required status check for branch protection on `master` (AGENTS.md §16.5/§16.8).
+# Deterministic gate = build + unit suite (the unit suite includes the drift-proof
+# guardrails: AuthorizationPolicyConventionGovernanceTests, RateLimitingGovernanceTests).
+# Integration tests are NOT a required gate on purpose: they need Docker/testcontainers
+# and include a known pre-existing failure
+# (JobProfiles_Compensation_WithTabulatorRangeOverlappingProfileRange) that would block
+# every PR. Integration is run locally per the strategy ("verde local obligatorio").
+
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    branches: [ master ]
+
+jobs:
+  build-and-unit:
+    name: build-and-unit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Restore
+        run: dotnet restore CLARIHR.slnx
+
+      - name: Build
+        run: dotnet build CLARIHR.slnx -c Release --no-restore
+
+      - name: Unit tests + guardrails
+        run: dotnet test tests/CLARIHR.Application.UnitTests -c Release --no-build
