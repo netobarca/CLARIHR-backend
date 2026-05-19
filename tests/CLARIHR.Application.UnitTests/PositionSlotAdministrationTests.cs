@@ -444,6 +444,9 @@ public sealed class PositionSlotAdministrationTests
             return Task.FromResult<PositionSlotResponse?>(response);
         }
 
+        public Task<int> CountSlotsAsync(Guid tenantId, CancellationToken cancellationToken) =>
+            Task.FromResult(_slots.Values.Count(slot => slot.TenantId == tenantId));
+
         public Task<IReadOnlyCollection<PositionSlotGraphNodeData>> GetGraphNodesAsync(Guid tenantId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
