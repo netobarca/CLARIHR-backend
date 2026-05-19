@@ -503,7 +503,7 @@ Nunca crear rama ni editar código de un finding sin su issue en `status:claimed
 - **Verde local obligatorio** antes del PR: `dotnet build CLARIHR.slnx` 0/0 + unit suite + guardrails + integración dirigida del finding (+ sanity red→verde si añade guardrail).
 - `gh pr create` enlazando el issue (`Closes #<n>`), título convencional, cuerpo con qué/verificación; issue → `status:in-pr`.
 - Merge `--no-ff` (o squash) a `master`; issue → `status:done` + cerrar; rama borrada.
-- `master` **protegido**: push directo prohibido; todo entra por PR que pase los checks.
+- `master`: push directo **prohibido por convención**; todo entra por PR con CI verde. (En plan free privado GitHub no puede *forzar* esto server-side — ver §16.10; la regla es obligatoria igual.)
 
 ### 16.6 Etiqueta multi-sesión
 - Una sesión **nunca** toca archivos fuera del file set de su issue claimed.
@@ -514,9 +514,19 @@ Nunca crear rama ni editar código de un finding sin su issue en `status:claimed
 ### 16.7 Bootstrap
 Esta sección es el arranque de la estrategia y por necesidad se introduce sin PR previo (no se puede seguir una estrategia que aún no existe). A partir de su adopción, todo cambio —incluida la edición de este archivo— sigue §16.1–§16.6.
 
-### 16.8 Checklist para APLICAR al remoto (pendiente de aprobación; no ejecutado aún)
-1. Crear labels `status:available|claimed|in-pr|done`.
-2. Crear 1 Issue por ítem abierto de doc `08` §5 (§PS2, §PS3, §PS4, §PS5, §PS6, §PS7, §1-bis, §X-OPENAPI, §X-VER, §X-ISP, §X-LOG, §X-TEST1, §X-TEST2) con su file set + `status:available`.
-3. Añadir workflow CI mínimo (GitHub Actions): build + unit + guardrails (+ integración) — requisito para "required checks".
-4. Habilitar branch protection en `master`: requerir PR, prohibir push directo y force-push, requerir el check de CI verde.
-5. (Opcional) `CODEOWNERS` + plantilla de PR que enlace el issue.
+### 16.8 Estado de aplicación al remoto (2026-05-19)
+1. ✅ Labels `status:available|claimed|in-pr|done` + `tech-debt` creados.
+2. ✅ 14 Issues creados (1 por ítem abierto de doc `08` §5): `#6 §PS2`, `#7 §PS3`, `#8 §PS4`, `#9 §PS5`, `#10 §PS6`, `#11 §PS7`, `#12 §PS8`, `#13 §X-OPENAPI`, `#14 §X-VER`, `#15 §X-ISP`, `#16 §X-LOG`, `#17 §X-TEST1`, `#18 §X-TEST2`, `#19 §1-bis` — todos `status:available` + `tech-debt`, con file set.
+3. ✅ Workflow CI `.github/workflows/ci.yml` (job `build-and-unit`: build + unit suite + guardrails) — verde en `master`. Integración NO es gate (testcontainers + el fallo pre-existente `JobProfiles_Compensation_…` la harían roja siempre); se corre local (§16.5). `.github/pull_request_template.md` añadido.
+4. ❌ **Branch protection NO aplicable**: GitHub responde `403 Upgrade to GitHub Pro or make this repository public`. El repo es **privado en plan free** (owner tipo `User`) → la protección de ramas (clásica y rulesets) **no está disponible**. **No** se hará público (backend RRHH sensible). Decisión del usuario: (a) GitHub Pro/Team → entonces ejecutar el comando de §16.9; o (b) operar con **enforcement por convención + señal CI** (esta §16, no bloqueante server-side) hasta el upgrade.
+5. ⏳ `CODEOWNERS` no añadido (un solo maintainer; sería ruido). Plantilla de PR ✅ (punto 3).
+
+### 16.9 Comando para habilitar branch protection (cuando el plan lo permita)
+```
+gh api -X PUT repos/netobarca/CLARIHR-backend/branches/master/protection --input - <<'JSON'
+{"required_status_checks":{"strict":true,"contexts":["build-and-unit"]},"enforce_admins":true,"required_pull_request_reviews":{"required_approving_review_count":0},"restrictions":null,"allow_force_pushes":false,"allow_deletions":false,"required_conversation_resolution":true}
+JSON
+```
+
+### 16.10 Enforcement vigente (plan free privado)
+Mientras no haya branch protection server-side, "1 PR por finding / no push directo a `master`" es **disciplina documentada + señal CI**, no un gate bloqueante. Toda sesión Claude DEBE seguir §16.1–§16.6 igual; el CI corre en cada push/PR y reporta verde/rojo (revisarlo antes de mergear) pero GitHub no impide técnicamente un push directo. Riesgo asumido y registrado hasta el upgrade de plan.
