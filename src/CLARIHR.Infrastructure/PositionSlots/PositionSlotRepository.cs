@@ -1,8 +1,13 @@
+using System.Linq.Expressions;
 using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.PositionSlots;
-using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Domain.IdentityAccess;
+using CLARIHR.Domain.JobProfiles;
+using CLARIHR.Domain.Locations;
+using CLARIHR.Domain.OrgUnits;
+using CLARIHR.Domain.PositionDescriptionCatalogs;
+using CLARIHR.Domain.PositionSlots;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -73,217 +78,117 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var query =
-            from slot in dbContext.Set<PositionSlot>().AsNoTracking()
-            join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
-            join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
-            join role in dbContext.IamRoles.AsNoTracking() on slot.RoleId equals role.Id into roleGroup
-            from role in roleGroup.DefaultIfEmpty()
-            join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
-            from workCenter in workCenterGroup.DefaultIfEmpty()
-            join positionCategory in dbContext.PositionCategories.AsNoTracking()
-                on jobProfile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
-            from positionCategory in positionCategoryGroup.DefaultIfEmpty()
-            join classification in dbContext.PositionCategoryClassifications.AsNoTracking()
-                on positionCategory.PositionCategoryClassificationId equals classification.Id into classificationGroup
-            from classification in classificationGroup.DefaultIfEmpty()
-            join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
-                on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
-            from contractType in contractTypeGroup.DefaultIfEmpty()
-            where slot.TenantId == tenantId
-            select new
-            {
-                Slot = slot,
-                JobProfile = jobProfile,
-                Role = role,
-                OrgUnit = orgUnit,
-                WorkCenter = workCenter,
-                PositionCategory = positionCategory,
-                Classification = classification,
-                ContractType = contractType
-            };
-
-        if (status.HasValue)
-        {
-            query = query.Where(item => item.Slot.Status == status.Value);
-        }
-
-        if (jobProfileId.HasValue)
-        {
-            query = query.Where(item => item.JobProfile.PublicId == jobProfileId.Value);
-        }
-
-        if (contractTypeId.HasValue)
-        {
-            query = query.Where(item => item.ContractType != null && item.ContractType.PublicId == contractTypeId.Value);
-        }
-
-        if (orgUnitId.HasValue)
-        {
-            query = query.Where(item => item.OrgUnit.PublicId == orgUnitId.Value);
-        }
-
-        if (workCenterId.HasValue)
-        {
-            query = query.Where(item => item.WorkCenter != null && item.WorkCenter.PublicId == workCenterId.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
-            query = query.Where(item =>
-                item.Slot.NormalizedCode.Contains(normalizedSearch) ||
-                (item.Slot.Title != null && item.Slot.Title.ToUpper().Contains(normalizedSearch)) ||
-                item.JobProfile.NormalizedCode.Contains(normalizedSearch) ||
-                item.JobProfile.NormalizedTitle.Contains(normalizedSearch) ||
-                item.OrgUnit.NormalizedCode.Contains(normalizedSearch) ||
-                item.OrgUnit.NormalizedName.Contains(normalizedSearch) ||
-                (item.WorkCenter != null &&
-                 (item.WorkCenter.NormalizedCode.Contains(normalizedSearch) || item.WorkCenter.NormalizedName.Contains(normalizedSearch))));
-        }
+        var query = BuildJoinedQuery().Where(row => row.Slot.TenantId == tenantId);
+        query = ApplyListFilters(query, status, jobProfileId, contractTypeId, orgUnitId, workCenterId);
+        query = ApplySearchFilter(query, search);
 
         var totalCount = await query.CountAsync(cancellationToken);
         var items = await query
-            .OrderBy(item => item.Slot.Code)
-            .ThenBy(item => item.Slot.Title)
+            .OrderBy(row => row.Slot.Code)
+            .ThenBy(row => row.Slot.Title)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(item => new PositionSlotListItemResponse(
-                item.Slot.PublicId,
-                item.Slot.Code,
-                item.Slot.Title,
-                item.Slot.Status,
-                item.JobProfile.PublicId,
-                item.JobProfile.Code,
-                item.JobProfile.Title,
-                item.Role != null ? item.Role.PublicId : null,
-                item.Role != null ? item.Role.Name : null,
-                item.OrgUnit.PublicId,
-                item.OrgUnit.Code,
-                item.OrgUnit.Name,
-                item.WorkCenter != null ? item.WorkCenter.PublicId : null,
-                item.WorkCenter != null ? item.WorkCenter.Code : null,
-                item.WorkCenter != null ? item.WorkCenter.Name : null,
-                item.PositionCategory != null ? item.PositionCategory.Code : null,
-                item.PositionCategory != null ? item.PositionCategory.Name : null,
-                item.Classification != null ? item.Classification.Code : null,
-                item.Classification != null ? item.Classification.Name : null,
-                item.ContractType != null ? item.ContractType.PublicId : null,
-                item.ContractType != null ? item.ContractType.Code : null,
-                item.ContractType != null ? item.ContractType.Name : null,
-                item.Slot.MaxEmployees,
-                item.Slot.OccupiedEmployees,
-                item.Slot.EffectiveFromUtc,
-                item.Slot.EffectiveToUtc,
-                item.Slot.IsActive,
-                item.Slot.ConcurrencyToken,
-                item.Slot.CreatedUtc,
-                item.Slot.ModifiedUtc))
+            .Select(row => new PositionSlotListItemResponse(
+                row.Slot.PublicId,
+                row.Slot.Code,
+                row.Slot.Title,
+                row.Slot.Status,
+                row.JobProfile.PublicId,
+                row.JobProfile.Code,
+                row.JobProfile.Title,
+                row.Role != null ? row.Role.PublicId : null,
+                row.Role != null ? row.Role.Name : null,
+                row.OrgUnit.PublicId,
+                row.OrgUnit.Code,
+                row.OrgUnit.Name,
+                row.WorkCenter != null ? row.WorkCenter.PublicId : null,
+                row.WorkCenter != null ? row.WorkCenter.Code : null,
+                row.WorkCenter != null ? row.WorkCenter.Name : null,
+                row.PositionCategory != null ? row.PositionCategory.Code : null,
+                row.PositionCategory != null ? row.PositionCategory.Name : null,
+                row.Classification != null ? row.Classification.Code : null,
+                row.Classification != null ? row.Classification.Name : null,
+                row.ContractType != null ? row.ContractType.PublicId : null,
+                row.ContractType != null ? row.ContractType.Code : null,
+                row.ContractType != null ? row.ContractType.Name : null,
+                row.Slot.MaxEmployees,
+                row.Slot.OccupiedEmployees,
+                row.Slot.EffectiveFromUtc,
+                row.Slot.EffectiveToUtc,
+                row.Slot.IsActive,
+                row.Slot.ConcurrencyToken,
+                row.Slot.CreatedUtc,
+                row.Slot.ModifiedUtc))
             .ToListAsync(cancellationToken);
 
         return new PagedResponse<PositionSlotListItemResponse>(items, pageNumber, pageSize, totalCount);
     }
 
     public Task<PositionSlotResponse?> GetResponseByIdAsync(Guid slotId, CancellationToken cancellationToken) =>
-        (from slot in dbContext.Set<PositionSlot>().AsNoTracking()
-         join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
-         join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
-         join role in dbContext.IamRoles.AsNoTracking() on slot.RoleId equals role.Id into roleGroup
-         from role in roleGroup.DefaultIfEmpty()
-         join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
-         from workCenter in workCenterGroup.DefaultIfEmpty()
-         join directDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.DirectDependencyPositionSlotId equals directDependency.Id into directGroup
-         from directDependency in directGroup.DefaultIfEmpty()
-         join functionalDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.FunctionalDependencyPositionSlotId equals functionalDependency.Id into functionalGroup
-         from functionalDependency in functionalGroup.DefaultIfEmpty()
-         join positionCategory in dbContext.PositionCategories.AsNoTracking()
-            on jobProfile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
-         from positionCategory in positionCategoryGroup.DefaultIfEmpty()
-         join classification in dbContext.PositionCategoryClassifications.AsNoTracking()
-            on positionCategory.PositionCategoryClassificationId equals classification.Id into classificationGroup
-         from classification in classificationGroup.DefaultIfEmpty()
-         join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
-            on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
-         from contractType in contractTypeGroup.DefaultIfEmpty()
-         where slot.PublicId == slotId
-         select new PositionSlotResponse(
-             slot.PublicId,
-             slot.TenantId,
-             slot.Code,
-             slot.Title,
-             slot.Status,
-             jobProfile.PublicId,
-             jobProfile.Code,
-             jobProfile.Title,
-             role != null ? role.PublicId : null,
-             role != null ? role.Name : null,
-             orgUnit.PublicId,
-             orgUnit.Code,
-             orgUnit.Name,
-             workCenter != null ? workCenter.PublicId : null,
-             workCenter != null ? workCenter.Code : null,
-             workCenter != null ? workCenter.Name : null,
-             orgUnit.CostCenterCode,
-             directDependency != null ? directDependency.PublicId : null,
-             directDependency != null ? directDependency.Code : null,
-             functionalDependency != null ? functionalDependency.PublicId : null,
-             functionalDependency != null ? functionalDependency.Code : null,
-             positionCategory != null ? positionCategory.PublicId : null,
-             positionCategory != null ? positionCategory.Code : null,
-             positionCategory != null ? positionCategory.Name : null,
-             classification != null ? classification.PublicId : null,
-             classification != null ? classification.Code : null,
-             classification != null ? classification.Name : null,
-             contractType != null ? contractType.PublicId : null,
-             contractType != null ? contractType.Code : null,
-             contractType != null ? contractType.Name : null,
-             slot.MaxEmployees,
-             slot.OccupiedEmployees,
-             slot.EffectiveFromUtc,
-             slot.EffectiveToUtc,
-             slot.Notes,
-             slot.IsActive,
-             slot.ConcurrencyToken,
-             slot.CreatedUtc,
-             slot.ModifiedUtc))
-        .SingleOrDefaultAsync(cancellationToken);
+        BuildJoinedQuery()
+            .Where(row => row.Slot.PublicId == slotId)
+            .Select(row => new PositionSlotResponse(
+                row.Slot.PublicId,
+                row.Slot.TenantId,
+                row.Slot.Code,
+                row.Slot.Title,
+                row.Slot.Status,
+                row.JobProfile.PublicId,
+                row.JobProfile.Code,
+                row.JobProfile.Title,
+                row.Role != null ? row.Role.PublicId : null,
+                row.Role != null ? row.Role.Name : null,
+                row.OrgUnit.PublicId,
+                row.OrgUnit.Code,
+                row.OrgUnit.Name,
+                row.WorkCenter != null ? row.WorkCenter.PublicId : null,
+                row.WorkCenter != null ? row.WorkCenter.Code : null,
+                row.WorkCenter != null ? row.WorkCenter.Name : null,
+                row.OrgUnit.CostCenterCode,
+                row.DirectDependency != null ? row.DirectDependency.PublicId : null,
+                row.DirectDependency != null ? row.DirectDependency.Code : null,
+                row.FunctionalDependency != null ? row.FunctionalDependency.PublicId : null,
+                row.FunctionalDependency != null ? row.FunctionalDependency.Code : null,
+                row.PositionCategory != null ? row.PositionCategory.PublicId : null,
+                row.PositionCategory != null ? row.PositionCategory.Code : null,
+                row.PositionCategory != null ? row.PositionCategory.Name : null,
+                row.Classification != null ? row.Classification.PublicId : null,
+                row.Classification != null ? row.Classification.Code : null,
+                row.Classification != null ? row.Classification.Name : null,
+                row.ContractType != null ? row.ContractType.PublicId : null,
+                row.ContractType != null ? row.ContractType.Code : null,
+                row.ContractType != null ? row.ContractType.Name : null,
+                row.Slot.MaxEmployees,
+                row.Slot.OccupiedEmployees,
+                row.Slot.EffectiveFromUtc,
+                row.Slot.EffectiveToUtc,
+                row.Slot.Notes,
+                row.Slot.IsActive,
+                row.Slot.ConcurrencyToken,
+                row.Slot.CreatedUtc,
+                row.Slot.ModifiedUtc))
+            .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<PositionSlotGraphNodeData>> GetGraphNodesAsync(Guid tenantId, CancellationToken cancellationToken)
     {
-        var nodes = await
-            (from slot in dbContext.Set<PositionSlot>().AsNoTracking()
-             join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
-             join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
-             join role in dbContext.IamRoles.AsNoTracking() on slot.RoleId equals role.Id into roleGroup
-             from role in roleGroup.DefaultIfEmpty()
-             join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
-            from workCenter in workCenterGroup.DefaultIfEmpty()
-             join positionCategory in dbContext.PositionCategories.AsNoTracking()
-                on jobProfile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
-             from positionCategory in positionCategoryGroup.DefaultIfEmpty()
-             join classification in dbContext.PositionCategoryClassifications.AsNoTracking()
-                on positionCategory.PositionCategoryClassificationId equals classification.Id into classificationGroup
-             from classification in classificationGroup.DefaultIfEmpty()
-             join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
-                on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
-             from contractType in contractTypeGroup.DefaultIfEmpty()
-             where slot.TenantId == tenantId
-             select new PositionSlotGraphNodeData(
-                 slot.Id,
-                 slot.PublicId,
-                 slot.Code,
-                 slot.Title ?? jobProfile.Title,
-                 slot.Status,
-                 jobProfile.PublicId,
-                 orgUnit.PublicId,
-                 workCenter != null ? workCenter.PublicId : null,
-                 slot.DirectDependencyPositionSlotId,
-                 null,
-                 slot.FunctionalDependencyPositionSlotId,
-                 null,
-                 contractType != null ? contractType.PublicId : null,
-                 contractType != null ? contractType.Code : null,
-                 slot.IsActive))
+        var nodes = await BuildJoinedQuery()
+            .Where(row => row.Slot.TenantId == tenantId)
+            .Select(row => new PositionSlotGraphNodeData(
+                row.Slot.Id,
+                row.Slot.PublicId,
+                row.Slot.Code,
+                row.Slot.Title ?? row.JobProfile.Title,
+                row.Slot.Status,
+                row.JobProfile.PublicId,
+                row.OrgUnit.PublicId,
+                row.WorkCenter != null ? row.WorkCenter.PublicId : null,
+                row.Slot.DirectDependencyPositionSlotId,
+                null,
+                row.Slot.FunctionalDependencyPositionSlotId,
+                null,
+                row.ContractType != null ? row.ContractType.PublicId : null,
+                row.ContractType != null ? row.ContractType.Code : null,
+                row.Slot.IsActive))
             .ToListAsync(cancellationToken);
 
         var idByInternalId = nodes.ToDictionary(static node => node.InternalId, static node => node.Id);
@@ -312,122 +217,51 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
         int? maxRows,
         CancellationToken cancellationToken)
     {
-        var query =
-            from slot in dbContext.Set<PositionSlot>().AsNoTracking()
-            join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
-            join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
-            join role in dbContext.IamRoles.AsNoTracking() on slot.RoleId equals role.Id into roleGroup
-            from role in roleGroup.DefaultIfEmpty()
-            join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
-            from workCenter in workCenterGroup.DefaultIfEmpty()
-            join directDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.DirectDependencyPositionSlotId equals directDependency.Id into directGroup
-            from directDependency in directGroup.DefaultIfEmpty()
-            join functionalDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.FunctionalDependencyPositionSlotId equals functionalDependency.Id into functionalGroup
-            from functionalDependency in functionalGroup.DefaultIfEmpty()
-            join positionCategory in dbContext.PositionCategories.AsNoTracking()
-                on jobProfile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
-            from positionCategory in positionCategoryGroup.DefaultIfEmpty()
-            join classification in dbContext.PositionCategoryClassifications.AsNoTracking()
-                on positionCategory.PositionCategoryClassificationId equals classification.Id into classificationGroup
-            from classification in classificationGroup.DefaultIfEmpty()
-            join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
-                on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
-            from contractType in contractTypeGroup.DefaultIfEmpty()
-            where slot.TenantId == tenantId
-            select new
-            {
-                Slot = slot,
-                JobProfile = jobProfile,
-                Role = role,
-                OrgUnit = orgUnit,
-                WorkCenter = workCenter,
-                DirectDependency = directDependency,
-                FunctionalDependency = functionalDependency,
-                PositionCategory = positionCategory,
-                Classification = classification,
-                ContractType = contractType
-            };
-
-        if (status.HasValue)
-        {
-            query = query.Where(item => item.Slot.Status == status.Value);
-        }
-
-        if (jobProfileId.HasValue)
-        {
-            query = query.Where(item => item.JobProfile.PublicId == jobProfileId.Value);
-        }
-
-        if (contractTypeId.HasValue)
-        {
-            query = query.Where(item => item.ContractType != null && item.ContractType.PublicId == contractTypeId.Value);
-        }
-
-        if (orgUnitId.HasValue)
-        {
-            query = query.Where(item => item.OrgUnit.PublicId == orgUnitId.Value);
-        }
-
-        if (workCenterId.HasValue)
-        {
-            query = query.Where(item => item.WorkCenter != null && item.WorkCenter.PublicId == workCenterId.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var normalizedSearch = search.Trim().ToUpperInvariant();
-            query = query.Where(item =>
-                item.Slot.NormalizedCode.Contains(normalizedSearch) ||
-                (item.Slot.Title != null && item.Slot.Title.ToUpper().Contains(normalizedSearch)) ||
-                item.JobProfile.NormalizedCode.Contains(normalizedSearch) ||
-                item.JobProfile.NormalizedTitle.Contains(normalizedSearch) ||
-                item.OrgUnit.NormalizedCode.Contains(normalizedSearch) ||
-                item.OrgUnit.NormalizedName.Contains(normalizedSearch) ||
-                (item.WorkCenter != null &&
-                 (item.WorkCenter.NormalizedCode.Contains(normalizedSearch) || item.WorkCenter.NormalizedName.Contains(normalizedSearch))));
-        }
+        var query = BuildJoinedQuery().Where(row => row.Slot.TenantId == tenantId);
+        query = ApplyListFilters(query, status, jobProfileId, contractTypeId, orgUnitId, workCenterId);
+        query = ApplySearchFilter(query, search);
 
         var ordered = query
-            .OrderBy(item => item.Slot.Code)
-            .ThenBy(item => item.Slot.Title);
+            .OrderBy(row => row.Slot.Code)
+            .ThenBy(row => row.Slot.Title);
 
-        var limited = ordered.AsQueryable();
+        IQueryable<SlotJoinedRow> limited = ordered;
         if (maxRows.HasValue)
         {
             limited = limited.Take(maxRows.Value);
         }
 
         return await limited
-            .Select(item => new PositionSlotExportRow(
-                item.Slot.PublicId,
-                item.Slot.Code,
-                item.Slot.Title,
-                item.Slot.Status,
-                item.JobProfile.Code,
-                item.JobProfile.Title,
-                item.Role != null ? item.Role.PublicId : null,
-                item.Role != null ? item.Role.Name : null,
-                item.OrgUnit.Code,
-                item.OrgUnit.Name,
-                item.WorkCenter != null ? item.WorkCenter.Code : null,
-                item.WorkCenter != null ? item.WorkCenter.Name : null,
-                item.OrgUnit.CostCenterCode,
-                item.DirectDependency != null ? item.DirectDependency.Code : null,
-                item.FunctionalDependency != null ? item.FunctionalDependency.Code : null,
-                item.PositionCategory != null ? item.PositionCategory.Code : null,
-                item.PositionCategory != null ? item.PositionCategory.Name : null,
-                item.Classification != null ? item.Classification.Code : null,
-                item.Classification != null ? item.Classification.Name : null,
-                item.ContractType != null ? item.ContractType.PublicId : null,
-                item.ContractType != null ? item.ContractType.Code : null,
-                item.ContractType != null ? item.ContractType.Name : null,
-                item.Slot.MaxEmployees,
-                item.Slot.OccupiedEmployees,
-                item.Slot.EffectiveFromUtc,
-                item.Slot.EffectiveToUtc,
-                item.Slot.IsActive,
-                item.Slot.CreatedUtc,
-                item.Slot.ModifiedUtc))
+            .Select(row => new PositionSlotExportRow(
+                row.Slot.PublicId,
+                row.Slot.Code,
+                row.Slot.Title,
+                row.Slot.Status,
+                row.JobProfile.Code,
+                row.JobProfile.Title,
+                row.Role != null ? row.Role.PublicId : null,
+                row.Role != null ? row.Role.Name : null,
+                row.OrgUnit.Code,
+                row.OrgUnit.Name,
+                row.WorkCenter != null ? row.WorkCenter.Code : null,
+                row.WorkCenter != null ? row.WorkCenter.Name : null,
+                row.OrgUnit.CostCenterCode,
+                row.DirectDependency != null ? row.DirectDependency.Code : null,
+                row.FunctionalDependency != null ? row.FunctionalDependency.Code : null,
+                row.PositionCategory != null ? row.PositionCategory.Code : null,
+                row.PositionCategory != null ? row.PositionCategory.Name : null,
+                row.Classification != null ? row.Classification.Code : null,
+                row.Classification != null ? row.Classification.Name : null,
+                row.ContractType != null ? row.ContractType.PublicId : null,
+                row.ContractType != null ? row.ContractType.Code : null,
+                row.ContractType != null ? row.ContractType.Name : null,
+                row.Slot.MaxEmployees,
+                row.Slot.OccupiedEmployees,
+                row.Slot.EffectiveFromUtc,
+                row.Slot.EffectiveToUtc,
+                row.Slot.IsActive,
+                row.Slot.CreatedUtc,
+                row.Slot.ModifiedUtc))
             .ToArrayAsync(cancellationToken);
     }
 
@@ -461,4 +295,124 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
              contractType != null ? contractType.Code : null,
              contractType != null ? contractType.Name : null))
         .SingleOrDefaultAsync(cancellationToken);
+
+    // §PS3: single source of truth for the wide slot join. The 4 read endpoints
+    // (Search / GetById / GraphNodes / Export) previously duplicated this ~8-table
+    // shape with subtle drift risk (e.g., a future tenant-filter change had to be
+    // mirrored in 4 places). Dependencies are LEFT JOIN-ed so EF prunes them out
+    // of projections that don't reference them.
+    private IQueryable<SlotJoinedRow> BuildJoinedQuery() =>
+        from slot in dbContext.Set<PositionSlot>().AsNoTracking()
+        join jobProfile in dbContext.JobProfiles.AsNoTracking() on slot.JobProfileId equals jobProfile.Id
+        join orgUnit in dbContext.OrgUnits.AsNoTracking() on jobProfile.OrgUnitId equals orgUnit.Id
+        join role in dbContext.IamRoles.AsNoTracking() on slot.RoleId equals role.Id into roleGroup
+        from role in roleGroup.DefaultIfEmpty()
+        join workCenter in dbContext.WorkCenters.AsNoTracking() on slot.WorkCenterId equals workCenter.Id into workCenterGroup
+        from workCenter in workCenterGroup.DefaultIfEmpty()
+        join directDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.DirectDependencyPositionSlotId equals directDependency.Id into directGroup
+        from directDependency in directGroup.DefaultIfEmpty()
+        join functionalDependency in dbContext.Set<PositionSlot>().AsNoTracking() on slot.FunctionalDependencyPositionSlotId equals functionalDependency.Id into functionalGroup
+        from functionalDependency in functionalGroup.DefaultIfEmpty()
+        join positionCategory in dbContext.PositionCategories.AsNoTracking()
+            on jobProfile.PositionCategoryId equals positionCategory.Id into positionCategoryGroup
+        from positionCategory in positionCategoryGroup.DefaultIfEmpty()
+        join classification in dbContext.PositionCategoryClassifications.AsNoTracking()
+            on positionCategory.PositionCategoryClassificationId equals classification.Id into classificationGroup
+        from classification in classificationGroup.DefaultIfEmpty()
+        join contractType in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
+            on classification.PositionContractCatalogItemId equals contractType.Id into contractTypeGroup
+        from contractType in contractTypeGroup.DefaultIfEmpty()
+        select new SlotJoinedRow
+        {
+            Slot = slot,
+            JobProfile = jobProfile,
+            OrgUnit = orgUnit,
+            Role = role,
+            WorkCenter = workCenter,
+            DirectDependency = directDependency,
+            FunctionalDependency = functionalDependency,
+            PositionCategory = positionCategory,
+            Classification = classification,
+            ContractType = contractType
+        };
+
+    private static IQueryable<SlotJoinedRow> ApplyListFilters(
+        IQueryable<SlotJoinedRow> query,
+        PositionSlotStatus? status,
+        Guid? jobProfileId,
+        Guid? contractTypeId,
+        Guid? orgUnitId,
+        Guid? workCenterId)
+    {
+        if (status.HasValue)
+        {
+            query = query.Where(row => row.Slot.Status == status.Value);
+        }
+
+        if (jobProfileId.HasValue)
+        {
+            query = query.Where(row => row.JobProfile.PublicId == jobProfileId.Value);
+        }
+
+        if (contractTypeId.HasValue)
+        {
+            query = query.Where(row => row.ContractType != null && row.ContractType.PublicId == contractTypeId.Value);
+        }
+
+        if (orgUnitId.HasValue)
+        {
+            query = query.Where(row => row.OrgUnit.PublicId == orgUnitId.Value);
+        }
+
+        if (workCenterId.HasValue)
+        {
+            query = query.Where(row => row.WorkCenter != null && row.WorkCenter.PublicId == workCenterId.Value);
+        }
+
+        return query;
+    }
+
+    private static IQueryable<SlotJoinedRow> ApplySearchFilter(IQueryable<SlotJoinedRow> query, string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return query;
+        }
+
+        var normalizedSearch = search.Trim().ToUpperInvariant();
+        return query.Where(MatchesNormalizedSearch(normalizedSearch));
+    }
+
+    // §PS3 + §PS2: single source of truth for the free-text predicate (multi-column
+    // LIKE '%x%') previously duplicated verbatim in Search and Export. The min-length
+    // guard lives in the validators (PositionSlotAdministration.cs).
+    private static Expression<Func<SlotJoinedRow, bool>> MatchesNormalizedSearch(string normalizedSearch) =>
+        row =>
+            row.Slot.NormalizedCode.Contains(normalizedSearch) ||
+            (row.Slot.Title != null && row.Slot.Title.ToUpper().Contains(normalizedSearch)) ||
+            row.JobProfile.NormalizedCode.Contains(normalizedSearch) ||
+            row.JobProfile.NormalizedTitle.Contains(normalizedSearch) ||
+            row.OrgUnit.NormalizedCode.Contains(normalizedSearch) ||
+            row.OrgUnit.NormalizedName.Contains(normalizedSearch) ||
+            (row.WorkCenter != null &&
+             (row.WorkCenter.NormalizedCode.Contains(normalizedSearch) || row.WorkCenter.NormalizedName.Contains(normalizedSearch)));
+
+    // Plain class with init properties (NOT a positional record): EF Core can
+    // translate property access on a MemberInit-constructed object via the
+    // pending-selector rewrite, but cannot see through a positional-record
+    // constructor — using `new SlotJoinedRow(...)` broke composition of `.Where`
+    // / `.Select` over the joined query.
+    private sealed class SlotJoinedRow
+    {
+        public required PositionSlot Slot { get; init; }
+        public required JobProfile JobProfile { get; init; }
+        public required OrgUnit OrgUnit { get; init; }
+        public required IamRole? Role { get; init; }
+        public required WorkCenter? WorkCenter { get; init; }
+        public required PositionSlot? DirectDependency { get; init; }
+        public required PositionSlot? FunctionalDependency { get; init; }
+        public required PositionCategory? PositionCategory { get; init; }
+        public required PositionCategoryClassification? Classification { get; init; }
+        public required PositionDescriptionCatalogItem? ContractType { get; init; }
+    }
 }
