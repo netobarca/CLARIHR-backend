@@ -14,4 +14,10 @@ internal static class ReportExportTelemetryEvents
     public static readonly EventId JobClaimConflict = new(40008, "report_export_job_claim_conflict");
     public static readonly EventId ArtifactExpired = new(40009, "report_export_artifact_expired");
     public static readonly EventId ArtifactDeleteFailed = new(40010, "report_export_artifact_delete_failed");
+
+    // Document Generation subdomain (technical-debt doc 01 §6.1). Distinct from
+    // the generic Job* events so dashboards can compute renderer-specific p95s
+    // (render_duration_ms) and size distributions (pdf_size_bytes) per resource.
+    public static readonly EventId PdfRenderStarted = new(40011, "report_export_pdf_render_started");
+    public static readonly EventId PdfRenderSucceeded = new(40012, "report_export_pdf_render_succeeded");
 }
