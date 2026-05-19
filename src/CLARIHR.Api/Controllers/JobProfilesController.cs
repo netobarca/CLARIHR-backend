@@ -10,6 +10,7 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CompetencyFramework;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.JobProfileCatalogTypes;
 using CLARIHR.Domain.JobProfiles;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
@@ -30,6 +31,46 @@ public sealed class JobProfilesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
+    [HttpGet("job-profiles/catalog-manifest")]
+    [ProducesResponseType<JobProfileCatalogManifestResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get the Job Profile catalog manifest",
+        Description = """
+            Returns the catalog keys the frontend must send for each Job Profile and
+            sub-resource field, so they are discovered instead of hardcoded.
+
+            Grouped by sub-resource; sub-resources without catalogs are returned with
+            an empty `fields` list. Each field carries the `slug` to put in the URL,
+            the catalog `family`, an `apiEndpointTemplate` and `isActive`.
+
+            `apiEndpointTemplate`: when the caller's token carries a tenant, the
+            `{companyId}` segment is already resolved to that tenant server-side and
+            the URL is ready to call; only when there is no tenant on the token is the
+            literal `{companyId}` placeholder returned for the client to substitute.
+
+            `isActive`: when `false` the catalog was retired in the backoffice and the
+            field should be hidden or made read-only without requiring a deploy.
+            """)]
+    public async Task<ActionResult<JobProfileCatalogManifestResponse>> GetCatalogManifest(
+        CancellationToken cancellationToken = default)
+    {
+        // §D3 (doc technical-debt/07): NO ETag/304 here by deliberate decision, not
+        // an oversight — do not "fix" by wiring ConditionalRequestResultFilter.
+        // SecurityHeadersMiddleware sends Cache-Control: no-store on every /api/*
+        // response, so the client never stores a copy to revalidate and the 304
+        // path is unreachable: an ETag would be dead weight. The manifest is also a
+        // tiny, code-bounded payload (~27 fixed catalog types). The won't-fix
+        // rationale is locked to its precondition by
+        // CatalogManifestConditionalCachingDecisionTests — if the global no-store
+        // is ever dropped, that guardrail goes red and forces revisiting §D3.
+        var result = await queryDispatcher.SendAsync(
+            new GetJobProfileCatalogManifestQuery(),
+            cancellationToken);
+
+        return this.ToActionResult(result);
+    }
+
     [HttpGet("companies/{companyId:guid}/job-profiles")]
     [ProducesResponseType<PagedResponse<JobProfileListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]

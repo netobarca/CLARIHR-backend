@@ -1408,6 +1408,12 @@
   <data name="DOCUMENT_TYPE_CATALOG_CODE_CONFLICT" xml:space="preserve">
     <value>Another document type catalog item already uses the requested code.</value>
   </data>
+  <data name="JOB_PROFILE_CATALOG_TYPE_NOT_FOUND" xml:space="preserve">
+    <value>The requested Job Profile catalog type could not be found.</value>
+  </data>
+  <data name="JOB_PROFILE_CATALOG_TYPE_CODE_CONFLICT" xml:space="preserve">
+    <value>Another Job Profile catalog type already uses the requested code.</value>
+  </data>
   <data name="DOCUMENT_TYPE_CATALOG_ITEM_IN_USE" xml:space="preserve">
     <value>The document type catalog item is in use and cannot be inactivated.</value>
   </data>

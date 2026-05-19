@@ -5,6 +5,7 @@ using CLARIHR.Application.Abstractions.Time;
 using CLARIHR.Domain.Auditing;
 using CLARIHR.Domain.Auth;
 using CLARIHR.Domain.Banks;
+using CLARIHR.Domain.CatalogTypes;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Common;
 using CLARIHR.Domain.CompetencyFramework;
@@ -289,6 +290,9 @@ public sealed class ApplicationDbContext(
 
     // Document type system-wide catalog DbSet (global, no country scope)
     public DbSet<DocumentTypeCatalogItem> DocumentTypeCatalogItems => Set<DocumentTypeCatalogItem>();
+
+    // Job Profile catalog type registry (global, no tenant/country scope)
+    public DbSet<CatalogTypeDescriptor> CatalogTypeDescriptors => Set<CatalogTypeDescriptor>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
