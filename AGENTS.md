@@ -460,3 +460,63 @@ docs/
   decisions/                  <-- (Manejado externamente)
     ADR-XXXX.md
 ```
+
+---
+
+## 16. Estrategia de branching para sesiones Claude concurrentes
+
+> **Propósito**: permitir que **más de una sesión de Claude** trabaje el backlog en paralelo (p. ej. doc `08` §5) **sin choques de trabajo ni conflictos de merge**. Esta sección es la fuente canónica del flujo git multi-sesión. Decidida 2026-05-19 (trunk-based · 1 finding = 1 PR · claim vía Issue+labels · `master` protegido).
+
+### 16.1 Modelo
+- **Trunk-based**. `master` = única rama de larga vida, **protegida**, siempre desplegable. Sin `develop`.
+- **1 finding / HU = 1 rama corta = 1 PR** (coincide con el flujo PR #4/#5).
+- Naming: `fix/<id>-<kebab-slug>` (deuda) · `feat/<id>-<slug>` (HU). Ej.: `fix/ps2-search-minlength-guard`. `<id>` en minúsculas sin `§`.
+
+### 16.2 Claim atómico (anti doble-trabajo)
+Cada ítem del backlog tiene **un GitHub Issue**. Ciclo de labels: `status:available` → `status:claimed` → `status:in-pr` → `status:done` (issue cerrado).
+
+Protocolo **obligatorio** antes de tocar código:
+1. `gh issue list --label status:available` → elegir uno.
+2. `gh issue edit <n> --add-assignee @me --remove-label status:available --add-label status:claimed`.
+3. **Releer** el issue (`gh issue view <n>`): si ya estaba claimed/asignado por otra sesión (carrera) → abandonar y elegir otro. El estado en GitHub es atómico: el primero que edita gana; la 2ª sesión ve el estado y se retira.
+4. Solo entonces: `git fetch origin && git checkout -b fix/<id>-<slug> origin/master`.
+
+Nunca crear rama ni editar código de un finding sin su issue en `status:claimed` asignado a la sesión.
+
+### 16.3 Aislamiento por archivo-caliente (anti conflicto-de-merge)
+- El **cuerpo del Issue DEBE listar el _file set_** (columna "Dónde" del doc `08`).
+- **Exclusión mutua**: NO reclamar un finding cuyo file set **intersecte** el de cualquier issue actualmente `status:claimed` o `status:in-pr`. Elegir otro de set disjunto.
+- Archivos de alta contención y política:
+  - `PositionSlotsController.cs` → §X-OPENAPI, §X-VER, §PS7 → **serializar**; preferible una sola sesión haga §X-OPENAPI+§X-VER juntos (cluster doc `08`).
+  - `PositionSlotAdministration.cs` → §PS2, §PS4, §PS5 → 1 a la vez.
+  - `PositionSlotRepository.cs` → §PS3, §PS4.
+  - `PositionSlot.cs` (Domain) → §PS5, §PS6.
+  - `ApiIntegrationTests.cs` → casi todos añaden tests: bloque contiguo nombrado por el finding + **rebase de `origin/master` justo antes del push** (conflicto "ambos añadieron método" → conservar ambos).
+- Ejemplo de sets disjuntos paralelizables hoy: §PS3 (repo) ‖ §PS6 (domain) ‖ §X-LOG (binder) ‖ §X-TEST2 (test nuevo).
+
+### 16.4 Doc `08` (fuera de git → last-write-wins silencioso)
+`docs/technical-debt/Position/08-…md` **no está en git**; dos sesiones editándolo se pisan sin aviso. Regla: lo edita **solo la sesión cuyo PR acaba de mergear**, **un finding a la vez**, inmediatamente tras el merge. Edits mínimos: flip de la fila en §5 + banner en §2/§3 + **append** de su subsección en §7 (nunca reescribir §7 ajeno). Si otra sesión está en su post-merge doc-update, esperar.
+
+### 16.5 Reglas de PR
+- Ramificar siempre de `origin/master` **fresco**; antes del PR: `git fetch && git rebase origin/master`, resolver.
+- **Atómico**: solo los archivos del finding (disciplina §X-AUTHZ/§X-RATE/§PS1: diff mínimo, sin refactors no pedidos).
+- **Verde local obligatorio** antes del PR: `dotnet build CLARIHR.slnx` 0/0 + unit suite + guardrails + integración dirigida del finding (+ sanity red→verde si añade guardrail).
+- `gh pr create` enlazando el issue (`Closes #<n>`), título convencional, cuerpo con qué/verificación; issue → `status:in-pr`.
+- Merge `--no-ff` (o squash) a `master`; issue → `status:done` + cerrar; rama borrada.
+- `master` **protegido**: push directo prohibido; todo entra por PR que pase los checks.
+
+### 16.6 Etiqueta multi-sesión
+- Una sesión **nunca** toca archivos fuera del file set de su issue claimed.
+- Sets relevantes ocupados → no forzar: reportar/esperar o tomar un finding disjunto.
+- `git fetch` antes de cualquier rebase/push; **jamás** `push --force` a `master`; `--force-with-lease` solo a la propia rama de finding.
+- Abandonar un finding → revertir la rama y devolver el issue a `status:available` (quitar assignee/label).
+
+### 16.7 Bootstrap
+Esta sección es el arranque de la estrategia y por necesidad se introduce sin PR previo (no se puede seguir una estrategia que aún no existe). A partir de su adopción, todo cambio —incluida la edición de este archivo— sigue §16.1–§16.6.
+
+### 16.8 Checklist para APLICAR al remoto (pendiente de aprobación; no ejecutado aún)
+1. Crear labels `status:available|claimed|in-pr|done`.
+2. Crear 1 Issue por ítem abierto de doc `08` §5 (§PS2, §PS3, §PS4, §PS5, §PS6, §PS7, §1-bis, §X-OPENAPI, §X-VER, §X-ISP, §X-LOG, §X-TEST1, §X-TEST2) con su file set + `status:available`.
+3. Añadir workflow CI mínimo (GitHub Actions): build + unit + guardrails (+ integración) — requisito para "required checks".
+4. Habilitar branch protection en `master`: requerir PR, prohibir push directo y force-push, requerir el check de CI verde.
+5. (Opcional) `CODEOWNERS` + plantilla de PR que enlace el issue.
