@@ -11,9 +11,10 @@ public sealed class PdfRenderingOptions
     public const string SectionName = "Reporting:Pdf";
 
     /// <summary>
-    /// PDF engine key. Must be one of <see cref="PdfEngines"/>. Defaults to
-    /// <see cref="PdfEngines.QuestPdf"/> (the only engine implemented today).
-    /// An unknown value fails fast at startup.
+    /// PDF engine key. Must be one of <see cref="PdfEngines"/>. The code default is
+    /// <see cref="PdfEngines.QuestPdf"/> (safe in-process fallback when config is
+    /// absent — e.g. tests); production <c>appsettings.json</c> selects
+    /// <see cref="PdfEngines.Gotenberg"/>. An unknown value fails fast at startup.
     /// </summary>
     public string Engine { get; init; } = PdfEngines.QuestPdf;
 
@@ -28,11 +29,13 @@ public sealed class PdfRenderingOptions
 /// </summary>
 public static class PdfEngines
 {
-    /// <summary>QuestPDF (Lato embedded, cross-platform) — the default, implemented today.</summary>
+    /// <summary>QuestPDF (Lato embedded, cross-platform), in-process. Fallback engine.</summary>
     public const string QuestPdf = "QuestPdf";
 
-    // Future engines — implement IDocumentModelRenderer + register in
-    // DocumentPdfRenderingRegistration, then expose the key here:
-    //   public const string Gotenberg = "Gotenberg"; // Apache-2.0, HTML→PDF over HTTP
-    //   public const string IText = "IText";          // ⚠ AGPL/commercial license
+    /// <summary>Gotenberg (Apache-2.0): HTML→PDF over HTTP via Chromium. No PDF-library license. Default in production.</summary>
+    public const string Gotenberg = "Gotenberg";
+
+    // To add another (e.g. iText — ⚠ AGPL/commercial license): implement
+    // IDocumentModelRenderer, add a key here, and register it in
+    // DocumentPdfRenderingRegistration.
 }
