@@ -715,6 +715,9 @@
   <data name="POSITION_SLOT_STATUS_CONFLICT" xml:space="preserve">
     <value>El cambio de estado solicitado no esta permitido para la ocupacion actual.</value>
   </data>
+  <data name="POSITION_SLOT_STATUS_OCCUPANCY_MISMATCH" xml:space="preserve">
+    <value>Los empleados ocupados deben coincidir con el estado de la plaza: vacante requiere cero, ocupada requiere al menos uno.</value>
+  </data>
   <data name="POSITION_SLOT_SUSPENDED_OCCUPANCY_CONFLICT" xml:space="preserve">
     <value>Las plazas suspendidas no pueden actualizar ocupacion.</value>
   </data>

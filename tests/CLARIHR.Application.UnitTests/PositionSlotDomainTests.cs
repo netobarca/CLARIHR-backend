@@ -84,6 +84,54 @@ public sealed class PositionSlotDomainTests
     }
 
     [Fact]
+    public void PositionSlot_Create_WhenVacantWithOccupants_ShouldThrowStatusOccupancyMismatch()
+    {
+        var exception = Assert.Throws<PositionSlotDomainException>(() => PositionSlot.Create(
+            code: "PS-001",
+            title: "Plaza",
+            jobProfileId: 1,
+            roleId: null,
+            workCenterId: null,
+            directDependencyPositionSlotId: null,
+            functionalDependencyPositionSlotId: null,
+            status: PositionSlotStatus.Vacant,
+            maxEmployees: 5,
+            occupiedEmployees: 3,
+            isFixedTerm: false,
+            effectiveFromUtc: DateTime.UtcNow.Date,
+            effectiveToUtc: null,
+            notes: null));
+
+        // §PS6: create no longer silently coerces occupancy to 0 — it rejects the contradiction.
+        Assert.Equal(PositionSlotDomainErrorCode.StatusOccupancyMismatch, exception.Code);
+    }
+
+    [Fact]
+    public void PositionSlot_Create_WhenOccupiedWithZeroOccupants_ShouldThrowStatusOccupancyMismatch()
+    {
+        var exception = Assert.Throws<PositionSlotDomainException>(() => PositionSlot.Create(
+            code: "PS-001",
+            title: "Plaza",
+            jobProfileId: 1,
+            roleId: null,
+            workCenterId: null,
+            directDependencyPositionSlotId: null,
+            functionalDependencyPositionSlotId: null,
+            status: PositionSlotStatus.Occupied,
+            maxEmployees: 5,
+            occupiedEmployees: 0,
+            isFixedTerm: false,
+            effectiveFromUtc: DateTime.UtcNow.Date,
+            effectiveToUtc: null,
+            notes: null));
+
+        // §PS6: create no longer silently coerces occupancy to 1 — it rejects the contradiction.
+        Assert.Equal(PositionSlotDomainErrorCode.StatusOccupancyMismatch, exception.Code);
+    }
+
+    // §PS6: ChangeStatus is a status-only transition (no caller-supplied occupancy to
+    // contradict), so it KEEPS the intentional auto-correction — distinct from Create.
+    [Fact]
     public void PositionSlot_ChangeStatus_ShouldAutoCorrectOccupancy()
     {
         var slot = PositionSlot.Create(
