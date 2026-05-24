@@ -7,12 +7,15 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace CLARIHR.Application.UnitTests;
 
 /// <summary>
-/// §J3 guardrail (OpenAPI contract, 🟡 media). Mirrors the §6.1/§6.2 remediation that
-/// gave the 10 JobProfile controllers class-level [Tags("Job Profiles")] + a
-/// [SwaggerOperation] on every action but missed JobCatalogsController (Swagger then
-/// rendered an orphan "JobCatalogs" group with 5 undocumented endpoints). Structural
-/// pattern (namespace + name regex), not a hand-maintained list, so a new family
-/// controller cannot silently regress the contract.
+/// §J3 / §X-OPENAPI guardrail (OpenAPI contract, 🟠/🟡 media). Mirrors the §6.1/§6.2
+/// remediation that gave the 10 JobProfile controllers class-level [Tags("Job Profiles")]
+/// + a [SwaggerOperation] on every action but missed JobCatalogsController (Swagger then
+/// rendered an orphan "JobCatalogs" group with 5 undocumented endpoints), and was widened
+/// for §X-OPENAPI to also enforce the PositionSlots controller (the structural outlier of
+/// the Position feature, which mirrored §X-AUTHZ/§X-RATE but had not yet received the
+/// OpenAPI parity). Structural pattern (namespace + name regex per family → expected tag),
+/// not a hand-maintained list, so a new family controller cannot silently regress the
+/// contract. To enroll another family, add a row to <see cref="Families"/>.
 ///
 /// <para>[SwaggerOperation] is the NuGet Swashbuckle type (transitive via CLARIHR.Api),
 /// compile-referenced like §J2's RangeAttribute. [Tags] is the ASP.NET endpoint-metadata
@@ -20,26 +23,47 @@ namespace CLARIHR.Application.UnitTests;
 /// Web SDK's implicit usings, NOT compile-available in this non-Web unit project — so it
 /// is matched by simple type name and its <c>Tags</c> list read via reflection (the
 /// §J1 framework-type-avoidance technique; namespace-agnostic and compiles
-/// unconditionally). Scope: JobProfile/JobCatalog family only.</para>
+/// unconditionally).</para>
 /// </summary>
 public sealed class OpenApiContractGuardrailsTests
 {
-    private const string ExpectedTag = "Job Profiles";
     private const string TagsAttributeSimpleName = "TagsAttribute";
 
     private static readonly Assembly ApiAssembly = typeof(AuthorizationPolicySetAttribute).Assembly;
 
-    private static readonly Regex JobProfileFamilyRegex =
-        new(@"^(JobProfile|JobCatalog)", RegexOptions.Compiled);
+    /// <summary>
+    /// Controller families enforced by this guardrail: a name-prefix regex paired with the
+    /// single OpenAPI tag every controller in that family must declare (so Swagger
+    /// consolidates them into one group instead of orphan per-controller groups).
+    /// </summary>
+    private static readonly (string Label, Regex Family, string ExpectedTag)[] Families =
+    [
+        ("JobProfile/JobCatalog", new Regex(@"^(JobProfile|JobCatalog)", RegexOptions.Compiled), "Job Profiles"),
+        ("PositionSlot", new Regex(@"^PositionSlot", RegexOptions.Compiled), "Position Slots"),
+    ];
 
-    private static IReadOnlyList<Type> FamilyControllers() =>
+    public static TheoryData<string> FamilyLabels()
+    {
+        var data = new TheoryData<string>();
+        foreach (var family in Families)
+        {
+            data.Add(family.Label);
+        }
+
+        return data;
+    }
+
+    private static (string Label, Regex Family, string ExpectedTag) Family(string label) =>
+        Families.Single(family => family.Label == label);
+
+    private static IReadOnlyList<Type> FamilyControllers(Regex family) =>
         ApiAssembly.GetTypes()
-            .Where(static type =>
+            .Where(type =>
                 type.IsClass &&
                 !type.IsAbstract &&
                 type.Namespace == "CLARIHR.Api.Controllers" &&
                 type.Name.EndsWith("Controller", StringComparison.Ordinal) &&
-                JobProfileFamilyRegex.IsMatch(type.Name))
+                family.IsMatch(type.Name))
             .OrderBy(static type => type.Name, StringComparer.Ordinal)
             .ToArray();
 
@@ -69,48 +93,55 @@ public sealed class OpenApiContractGuardrailsTests
             .ToArray();
     }
 
-    [Fact]
-    public void JobProfileFamily_ExposesControllersWithActions()
+    [Theory]
+    [MemberData(nameof(FamilyLabels))]
+    public void Family_ExposesControllersWithActions(string label)
     {
-        var actionCount = FamilyControllers().Sum(controller => Actions(controller).Count);
+        var family = Family(label);
+        var actionCount = FamilyControllers(family.Family).Sum(controller => Actions(controller).Count);
         Assert.True(
             actionCount > 0,
-            "Expected actions across the JobProfile/JobCatalog family. Zero means the " +
-            "namespace/name filter drifted and the §J3 guardrail would silently pass.");
+            $"Expected actions across the {family.Label} family. Zero means the namespace/name " +
+            "filter drifted (or the family was renamed) and the §J3/§X-OPENAPI guardrail would " +
+            "silently pass — the zero-match sentinel.");
     }
 
-    [Fact]
-    public void EveryJobProfileFamilyController_DeclaresJobProfilesTag()
+    [Theory]
+    [MemberData(nameof(FamilyLabels))]
+    public void EveryFamilyController_DeclaresExpectedTag(string label)
     {
+        var family = Family(label);
         var violations = new List<string>();
-        foreach (var controller in FamilyControllers())
+        foreach (var controller in FamilyControllers(family.Family))
         {
             var tags = ReadTags(controller);
             if (tags is null)
             {
                 violations.Add($"{controller.Name}: missing class-level [Tags].");
             }
-            else if (!tags.Contains(ExpectedTag, StringComparer.Ordinal))
+            else if (!tags.Contains(family.ExpectedTag, StringComparer.Ordinal))
             {
                 violations.Add(
                     $"{controller.Name}: [Tags] is [{string.Join(", ", tags)}], expected " +
-                    $"to contain \"{ExpectedTag}\".");
+                    $"to contain \"{family.ExpectedTag}\".");
             }
         }
 
         Assert.True(
             violations.Count == 0,
-            "Finding §J3 (§6.1): every JobProfile/JobCatalog controller must carry " +
-            "class-level [Tags(\"Job Profiles\")] so Swagger consolidates them into one " +
+            $"Finding §J3/§X-OPENAPI (§6.1): every {family.Label} controller must carry " +
+            $"class-level [Tags(\"{family.ExpectedTag}\")] so Swagger consolidates them into one " +
             "group instead of an orphan group. Offending:\n  " +
             string.Join("\n  ", violations.OrderBy(static v => v, StringComparer.Ordinal)));
     }
 
-    [Fact]
-    public void EveryJobProfileFamilyAction_DeclaresSwaggerOperationSummaryAndDescription()
+    [Theory]
+    [MemberData(nameof(FamilyLabels))]
+    public void EveryFamilyAction_DeclaresSwaggerOperationSummaryAndDescription(string label)
     {
+        var family = Family(label);
         var violations = new List<string>();
-        foreach (var controller in FamilyControllers())
+        foreach (var controller in FamilyControllers(family.Family))
         {
             foreach (var action in Actions(controller))
             {
@@ -136,7 +167,7 @@ public sealed class OpenApiContractGuardrailsTests
 
         Assert.True(
             violations.Count == 0,
-            "Finding §J3 (§6.2): every JobProfile/JobCatalog action must declare " +
+            $"Finding §J3/§X-OPENAPI (§6.2): every {family.Label} action must declare " +
             "[SwaggerOperation(Summary, Description)] so the OpenAPI contract documents " +
             "it. Offending:\n  " +
             string.Join("\n  ", violations.OrderBy(static v => v, StringComparer.Ordinal)));

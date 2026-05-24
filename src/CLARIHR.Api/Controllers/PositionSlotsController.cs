@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -15,11 +16,15 @@ using CLARIHR.Domain.PositionSlots;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
+[Route("api/v{version:apiVersion}")]
+[Tags("Position Slots")]
 [AuthorizationPolicySet(PositionSlotPolicies.Read, PositionSlotPolicies.Manage)]
 public sealed class PositionSlotsController(
     ICommandDispatcher commandDispatcher,
@@ -27,12 +32,19 @@ public sealed class PositionSlotsController(
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
     [EnableRateLimiting(PositionSlotRateLimitPolicies.Search)]
-    [HttpGet("api/v1/companies/{companyId:guid}/position-slots")]
+    [HttpGet("companies/{companyId:guid}/position-slots")]
     [ProducesResponseType<PagedResponse<PositionSlotListItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "List position slots for a company",
+        Description = """
+            Returns a paginated list of position slots for the company, filterable by
+            `status`, `jobProfileId`, `orgUnitId`, `workCenterId`, `contractTypeId` and
+            free-text `q` (minimum 2 characters). The owning company is validated against
+            the authenticated tenant. Set `includeAllowedActions=true` to receive per-item
+            read/manage flags. Rate-limited per user+tenant.
+            """)]
     public async Task<ActionResult<PagedResponse<PositionSlotListItemResponse>>> Search(
         Guid companyId,
         [FromQuery] PositionSlotStatus? status,
@@ -63,11 +75,16 @@ public sealed class PositionSlotsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/position-slots/{id:guid}")]
+    [HttpGet("position-slots/{id:guid}")]
     [ProducesResponseType<PositionSlotResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a position slot by id",
+        Description = """
+            Returns a single position slot by its public id. The owning company is
+            resolved from the authenticated tenant; a slot belonging to another tenant
+            yields `404`. The `concurrencyToken` is emitted as the `ETag` header.
+            """)]
     public async Task<ActionResult<PositionSlotResponse>> GetById(Guid id, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetPositionSlotByIdQuery(id), cancellationToken);
@@ -75,14 +92,20 @@ public sealed class PositionSlotsController(
     }
 
     [EnableRateLimiting(PositionSlotRateLimitPolicies.Export)]
-    [HttpGet("api/v1/companies/{companyId:guid}/position-slots/graph")]
+    [HttpGet("companies/{companyId:guid}/position-slots/graph")]
     [ProducesResponseType<PositionSlotGraphResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.NotFound)]
+    [SwaggerOperation(
+        Summary = "Get the position slots dependency graph (JSON)",
+        Description = """
+            Returns the nodes and edges of the position slots dependency graph for the
+            company as JSON, optionally scoped to a `rootId`, a `depth` and whether to
+            include functional dependencies. The result is capped at the configured
+            maximum node count — exceeding it yields `413 Payload Too Large`. Rate-limited
+            per user+tenant under the export policy.
+            """)]
     public async Task<ActionResult<PositionSlotGraphResponse>> Graph(
         Guid companyId,
         [FromQuery] Guid? rootId,
@@ -103,14 +126,20 @@ public sealed class PositionSlotsController(
     }
 
     [EnableRateLimiting(PositionSlotRateLimitPolicies.Export)]
-    [HttpGet("api/v1/companies/{companyId:guid}/position-slots/diagram-export")]
+    [HttpGet("companies/{companyId:guid}/position-slots/diagram-export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.NotFound)]
+    [SwaggerOperation(
+        Summary = "Export the position slots diagram",
+        Description = """
+            Exports the position slots dependency graph as a downloadable file in the
+            requested `format` (`graphml`, `json` or `dot`; an unknown format yields
+            `400`). Scope is controllable via `rootId`, `depth` and `includeFunctional`.
+            The result is capped at the configured maximum node count (`413` if exceeded)
+            and the export is audited. Rate-limited per user+tenant under the export policy.
+            """)]
     public async Task<IActionResult> DiagramExport(
         Guid companyId,
         [FromQuery] string format = "graphml",
@@ -182,13 +211,20 @@ public sealed class PositionSlotsController(
     }
 
     [EnableRateLimiting(PositionSlotRateLimitPolicies.Export)]
-    [HttpGet("api/v1/companies/{companyId:guid}/position-slots/export")]
+    [HttpGet("companies/{companyId:guid}/position-slots/export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "Export position slots as a report",
+        Description = """
+            Exports the filtered position slots as a downloadable report in the requested
+            `format` (e.g. `xlsx`, `csv`; an unknown format yields `400`). The same filters
+            as the list endpoint apply (`status`, `jobProfileId`, `orgUnitId`,
+            `workCenterId`, `contractTypeId`, free-text `q`). The export is bounded by the
+            synchronous read limit, audited, and rate-limited per user+tenant.
+            """)]
     public async Task<IActionResult> Export(
         Guid companyId,
         [FromQuery] string format = "xlsx",
@@ -231,14 +267,17 @@ public sealed class PositionSlotsController(
             cancellationToken);
     }
 
-    [HttpPost("api/v1/companies/{companyId:guid}/position-slots")]
+    [HttpPost("companies/{companyId:guid}/position-slots")]
     [ProducesResponseType<PositionSlotResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Create a position slot",
+        Description = """
+            Creates a position slot under the company and returns `201 Created`. The slot
+            references a job profile and optionally a role, work center and direct/functional
+            dependency slots (by public id). Business-rule violations (e.g. duplicate code,
+            dependency cycle) yield `409`/`422`. Domain capacity/date rules are validated.
+            """)]
     public async Task<ActionResult<PositionSlotResponse>> Create(
         Guid companyId,
         [FromBody] CreatePositionSlotRequest request,
@@ -267,14 +306,17 @@ public sealed class PositionSlotsController(
             : StatusCode(StatusCodes.Status201Created, result.Value);
     }
 
-    [HttpPut("api/v1/position-slots/{id:guid}")]
+    [HttpPut("position-slots/{id:guid}")]
     [ProducesResponseType<PositionSlotResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Update a position slot",
+        Description = """
+            Replaces the editable fields of a position slot (code, title, job profile,
+            role, work center, capacity, effective dates, notes). Requires the current
+            `concurrencyToken`; a stale token yields `409 CONCURRENCY_CONFLICT`. Domain
+            capacity/date violations yield `422`.
+            """)]
     public async Task<ActionResult<PositionSlotResponse>> Update(
         Guid id,
         [FromBody] UpdatePositionSlotRequest request,
@@ -298,13 +340,16 @@ public sealed class PositionSlotsController(
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("api/v1/position-slots/{id:guid}/status")]
+    [HttpPatch("position-slots/{id:guid}/status")]
     [ProducesResponseType<PositionSlotResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Change a position slot's status",
+        Description = """
+            Transitions the slot status (e.g. Vacant/Occupied/Suspended). Requires the
+            current `concurrencyToken`; a stale token yields `409 CONCURRENCY_CONFLICT`.
+            Occupancy is reconciled with the target status by the domain.
+            """)]
     public async Task<ActionResult<PositionSlotResponse>> UpdateStatus(
         Guid id,
         [FromBody] UpdatePositionSlotStatusRequest request,
@@ -317,13 +362,16 @@ public sealed class PositionSlotsController(
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("api/v1/position-slots/{id:guid}/dependencies")]
+    [HttpPatch("position-slots/{id:guid}/dependencies")]
     [ProducesResponseType<PositionSlotResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Update a position slot's dependencies",
+        Description = """
+            Sets the direct and/or functional dependency slots (by public id). A change
+            that would introduce a dependency cycle yields `409`. Requires the current
+            `concurrencyToken`; a stale token yields `409 CONCURRENCY_CONFLICT`.
+            """)]
     public async Task<ActionResult<PositionSlotResponse>> UpdateDependencies(
         Guid id,
         [FromBody] UpdatePositionSlotDependenciesRequest request,
@@ -340,14 +388,16 @@ public sealed class PositionSlotsController(
         return this.ToActionResult(result);
     }
 
-    [HttpPatch("api/v1/position-slots/{id:guid}/occupancy")]
+    [HttpPatch("position-slots/{id:guid}/occupancy")]
     [ProducesResponseType<PositionSlotResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Update a position slot's occupancy",
+        Description = """
+            Sets the number of occupied employees for the slot. A value exceeding the
+            slot's capacity yields `422`. Requires the current `concurrencyToken`; a
+            stale token yields `409 CONCURRENCY_CONFLICT`.
+            """)]
     public async Task<ActionResult<PositionSlotResponse>> UpdateOccupancy(
         Guid id,
         [FromBody] UpdatePositionSlotOccupancyRequest request,
