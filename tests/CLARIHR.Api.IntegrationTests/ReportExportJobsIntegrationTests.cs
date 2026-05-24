@@ -180,7 +180,9 @@ public sealed class ReportExportIntegrationTestWebApplicationFactory : WebApplic
                 ["Authentication:Jwt:PlatformAudience"] = "clarihr-platform-integration",
                 ["Authentication:Jwt:SigningKey"] = "clarihr-integration-signing-key-2026",
                 ["Authentication:Jwt:AccessTokenExpirationMinutes"] = "15",
-                ["Authentication:Jwt:RefreshTokenExpirationDays"] = "14"
+                ["Authentication:Jwt:RefreshTokenExpirationDays"] = "14",
+                // Render in-process for tests (no Gotenberg service needed); prod uses Gotenberg (§4.2).
+                ["Reporting:Pdf:Engine"] = "QuestPdf"
             });
         });
 
