@@ -105,6 +105,13 @@ public static class PositionSlotErrors
         "The requested status change is not allowed for the current occupancy.",
         ErrorType.Conflict);
 
+    // §PS6: create rejects a contradictory status+occupancy pair instead of silently
+    // coercing. Validation of the submitted payload → 422 (not a conflict with state).
+    public static readonly Error StatusOccupancyMismatch = new(
+        "POSITION_SLOT_STATUS_OCCUPANCY_MISMATCH",
+        "Occupied employees must match the position slot status: vacant requires zero, occupied requires at least one.",
+        ErrorType.UnprocessableEntity);
+
     public static readonly Error SuspendedOccupancyConflict = new(
         "POSITION_SLOT_SUSPENDED_OCCUPANCY_CONFLICT",
         "Suspended position slots cannot update occupancy.",
