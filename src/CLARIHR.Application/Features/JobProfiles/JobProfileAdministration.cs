@@ -867,7 +867,7 @@ internal sealed class CreateJobProfileCommandHandler(
     IJobProfileRepository repository,
     IJobCatalogRepository catalogRepository,
     IInternalCatalogRepository internalCatalogRepository,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    IPositionCatalogLookup positionDescriptionCatalogRepository,
     ISalaryTabulatorRepository salaryTabulatorRepository,
     IAuditService auditService,
     IPlatformAuditService platformAuditService,
@@ -1104,7 +1104,7 @@ internal sealed class UpdateJobProfileCommandHandler(
     IJobProfileRepository repository,
     IJobCatalogRepository catalogRepository,
     IInternalCatalogRepository internalCatalogRepository,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    IPositionCatalogLookup positionDescriptionCatalogRepository,
     ISalaryTabulatorRepository salaryTabulatorRepository,
     IAuditService auditService,
     IPlatformAuditService platformAuditService,
@@ -1377,7 +1377,7 @@ internal sealed class UpdateJobProfileCommandHandler(
 internal sealed class PatchJobProfileCommandHandler(
     IJobProfileAuthorizationService authorizationService,
     IJobProfileRepository repository,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    IPositionCatalogLookup positionDescriptionCatalogRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -2152,7 +2152,7 @@ internal static class JobProfileMutationMapper
         IJobProfileRepository profileRepository,
         IJobCatalogRepository catalogRepository,
         IInternalCatalogRepository internalCatalogRepository,
-        IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        IPositionCatalogLookup positionDescriptionCatalogRepository,
         ISalaryTabulatorRepository salaryTabulatorRepository,
         Guid actorUserPublicId,
         IDateTimeProvider dateTimeProvider,
@@ -2198,7 +2198,7 @@ internal static class JobProfileMutationMapper
         IJobProfileRepository profileRepository,
         IJobCatalogRepository catalogRepository,
         IInternalCatalogRepository internalCatalogRepository,
-        IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        IPositionCatalogLookup positionDescriptionCatalogRepository,
         ISalaryTabulatorRepository salaryTabulatorRepository,
         Guid actorUserPublicId,
         IDateTimeProvider dateTimeProvider,
@@ -2253,7 +2253,7 @@ internal static class JobProfileMutationMapper
         IJobProfileRepository profileRepository,
         IJobCatalogRepository catalogRepository,
         IInternalCatalogRepository internalCatalogRepository,
-        IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        IPositionCatalogLookup positionDescriptionCatalogRepository,
         ISalaryTabulatorRepository salaryTabulatorRepository,
         Guid actorUserPublicId,
         IDateTimeProvider dateTimeProvider,
@@ -2958,7 +2958,7 @@ internal static class JobProfileCommandSupport
     public static async Task<Result<long?>> ResolvePositionCategoryInternalIdAsync(
         Guid tenantId,
         Guid? positionCategoryId,
-        IPositionDescriptionCatalogRepository repository,
+        IPositionCatalogLookup repository,
         RbacPermissionAction action,
         CancellationToken cancellationToken)
     {
@@ -2984,7 +2984,7 @@ internal static class JobProfileCommandSupport
         Guid? catalogItemId,
         PositionDescriptionCatalogType catalogType,
         Error notFoundError,
-        IPositionDescriptionCatalogRepository repository,
+        IPositionCatalogLookup repository,
         RbacPermissionAction action,
         CancellationToken cancellationToken)
     {

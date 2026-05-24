@@ -361,9 +361,6 @@ public sealed class PositionSlotAdministrationTests
                 slot.NormalizedCode == normalizedCode &&
                 (!excludingSlotId.HasValue || slot.Id != excludingSlotId.Value)));
 
-        public Task<long?> ResolveJobProfileIdAsync(Guid tenantId, Guid jobProfileId, CancellationToken cancellationToken) =>
-            Task.FromResult(_lookupsByPublicId.TryGetValue(jobProfileId, out var lookup) ? (long?)lookup.InternalJobProfileId : null);
-
         public Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken) =>
             Task.FromResult(false);
 

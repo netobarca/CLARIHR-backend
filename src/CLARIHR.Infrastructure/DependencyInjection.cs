@@ -144,6 +144,9 @@ public static class DependencyInjection
         services.AddScoped<IJobProfileCompensationRepository, JobProfileCompensationRepository>();
         services.AddScoped<IJobProfileAuthorizationService, JobProfileAuthorizationService>();
         services.AddScoped<IPositionDescriptionCatalogRepository, PositionDescriptionCatalogRepository>();
+        // §X-ISP: the narrow lookup role resolves to the same scoped repository instance,
+        // so cross-context consumers (JobProfiles, SalaryTabulator) inject only what they use.
+        services.AddScoped<IPositionCatalogLookup>(sp => sp.GetRequiredService<IPositionDescriptionCatalogRepository>());
         services.AddScoped<IPositionDescriptionCatalogAuthorizationService, PositionDescriptionCatalogAuthorizationService>();
         services.AddScoped<PositionDescriptionCatalogSeedService>();
         services.AddScoped<CatalogTypes.CatalogTypeDescriptorSeedService>();

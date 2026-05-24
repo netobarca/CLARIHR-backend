@@ -243,7 +243,7 @@ internal sealed class AddJobProfileRequirementCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    IPositionCatalogLookup positionDescriptionCatalogRepository,
     IJobCatalogRepository catalogRepository,
     IInternalCatalogRepository internalCatalogRepository,
     ICurrentUserService currentUserService,
@@ -358,7 +358,7 @@ internal sealed class UpdateJobProfileRequirementCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    IPositionCatalogLookup positionDescriptionCatalogRepository,
     IJobCatalogRepository catalogRepository,
     IInternalCatalogRepository internalCatalogRepository,
     ICurrentUserService currentUserService,
@@ -488,7 +488,7 @@ internal sealed class PatchJobProfileRequirementCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    IPositionCatalogLookup positionDescriptionCatalogRepository,
     IJobCatalogRepository catalogRepository,
     IInternalCatalogRepository internalCatalogRepository,
     ICurrentUserService currentUserService,
@@ -970,7 +970,7 @@ internal static class JobProfileRequirementCommandSupport
     public static async Task<Result<long?>> ResolveRequirementTypeInternalIdAsync(
         Guid tenantId,
         Guid? requirementTypeCatalogItemPublicId,
-        IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        IPositionCatalogLookup positionDescriptionCatalogRepository,
         CancellationToken cancellationToken) =>
         await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
             tenantId,

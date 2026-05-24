@@ -215,7 +215,7 @@ internal sealed class AddJobProfileFunctionCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository)
+    IPositionCatalogLookup positionDescriptionCatalogRepository)
     : ICommandHandler<AddJobProfileFunctionCommand, JobProfileFunctionResponse>
 {
     public async Task<Result<JobProfileFunctionResponse>> Handle(AddJobProfileFunctionCommand command, CancellationToken cancellationToken)
@@ -301,7 +301,7 @@ internal sealed class UpdateJobProfileFunctionCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository)
+    IPositionCatalogLookup positionDescriptionCatalogRepository)
     : ICommandHandler<UpdateJobProfileFunctionCommand, JobProfileFunctionResponse>
 {
     public async Task<Result<JobProfileFunctionResponse>> Handle(UpdateJobProfileFunctionCommand command, CancellationToken cancellationToken)
@@ -402,7 +402,7 @@ internal sealed class PatchJobProfileFunctionCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository)
+    IPositionCatalogLookup positionDescriptionCatalogRepository)
     : ICommandHandler<PatchJobProfileFunctionCommand, JobProfileFunctionResponse>
 {
     public async Task<Result<JobProfileFunctionResponse>> Handle(PatchJobProfileFunctionCommand command, CancellationToken cancellationToken)
@@ -839,7 +839,7 @@ internal static class JobProfileFunctionCommandSupport
     public static async Task<Result<long?>> ResolveFrequencyInternalIdAsync(
         Guid tenantId,
         Guid? frequencyCatalogItemPublicId,
-        IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        IPositionCatalogLookup positionDescriptionCatalogRepository,
         CancellationToken cancellationToken) =>
         await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
             tenantId,
