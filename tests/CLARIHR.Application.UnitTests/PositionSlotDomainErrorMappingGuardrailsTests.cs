@@ -21,6 +21,7 @@ public sealed class PositionSlotDomainErrorMappingGuardrailsTests
         { PositionSlotDomainErrorCode.OccupiedEmployeesNegative, PositionSlotErrors.CapacityRuleViolation.Code },
         { PositionSlotDomainErrorCode.OccupiedExceedsCapacity, PositionSlotErrors.CapacityRuleViolation.Code },
         { PositionSlotDomainErrorCode.SuspendedOccupancyConflict, PositionSlotErrors.SuspendedOccupancyConflict.Code },
+        { PositionSlotDomainErrorCode.StatusOccupancyMismatch, PositionSlotErrors.StatusOccupancyMismatch.Code },
         { PositionSlotDomainErrorCode.DirectDependencySelfReference, PositionSlotErrors.DependencySelfReference.Code },
         { PositionSlotDomainErrorCode.FunctionalDependencySelfReference, PositionSlotErrors.DependencySelfReference.Code },
     };
