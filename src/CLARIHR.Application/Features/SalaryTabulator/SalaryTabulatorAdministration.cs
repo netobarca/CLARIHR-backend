@@ -399,7 +399,7 @@ internal sealed class SalaryTabulatorChangeRequestItemInputValidator : AbstractV
 internal sealed class SearchSalaryTabulatorLinesQueryHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
     ISalaryTabulatorRepository repository,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    IPositionCatalogLookup positionDescriptionCatalogRepository,
     IResourceActionPolicyService resourceActionPolicyService)
     : IQueryHandler<SearchSalaryTabulatorLinesQuery, PagedResponse<SalaryTabulatorLineListItemResponse>>
 {
@@ -492,7 +492,7 @@ internal sealed class GetSalaryTabulatorLineByIdQueryHandler(
 internal sealed class ExportSalaryTabulatorLinesQueryHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
     ISalaryTabulatorRepository repository,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository)
+    IPositionCatalogLookup positionDescriptionCatalogRepository)
     : IQueryHandler<ExportSalaryTabulatorLinesQuery, IReadOnlyCollection<SalaryTabulatorLineExportRow>>
 {
     public async Task<Result<IReadOnlyCollection<SalaryTabulatorLineExportRow>>> Handle(
@@ -1009,7 +1009,7 @@ internal static class SalaryTabulatorPolicyAdapter
 internal sealed class CreateSalaryTabulatorChangeRequestCommandHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
     ISalaryTabulatorRepository repository,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    IPositionCatalogLookup positionDescriptionCatalogRepository,
     ICurrentUserService currentUserService,
     IDateTimeProvider dateTimeProvider,
     IAuditService auditService,
@@ -1096,7 +1096,7 @@ internal sealed class CreateSalaryTabulatorChangeRequestCommandHandler(
 internal sealed class UpdateSalaryTabulatorChangeRequestCommandHandler(
     ISalaryTabulatorAuthorizationService authorizationService,
     ISalaryTabulatorRepository repository,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    IPositionCatalogLookup positionDescriptionCatalogRepository,
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
@@ -1585,7 +1585,7 @@ internal static class SalaryTabulatorCommandSupport
         DateTime effectiveFromUtc,
         IReadOnlyCollection<SalaryTabulatorChangeRequestItemInput> inputs,
         ISalaryTabulatorRepository repository,
-        IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        IPositionCatalogLookup positionDescriptionCatalogRepository,
         CancellationToken cancellationToken)
     {
         if (inputs.Count == 0)

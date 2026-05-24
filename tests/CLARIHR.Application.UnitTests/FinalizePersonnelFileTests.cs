@@ -444,8 +444,6 @@ public sealed class FinalizePersonnelFileTests
 
         public Task<bool> CodeExistsAsync(Guid tenantId, string normalizedCode, long? excludingSlotId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<long?> ResolveJobProfileIdAsync(Guid tenantId, Guid jobProfileId, CancellationToken cancellationToken) => throw new NotSupportedException();
-
         public Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<long?> ResolveWorkCenterIdAsync(Guid tenantId, Guid workCenterId, CancellationToken cancellationToken) => throw new NotSupportedException();
