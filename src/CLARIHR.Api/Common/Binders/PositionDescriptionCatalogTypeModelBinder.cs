@@ -10,6 +10,12 @@ namespace CLARIHR.Api.Common.Binders;
 
 internal sealed class PositionDescriptionCatalogTypeModelBinder : IModelBinder
 {
+    // §X-LOG: cap the client-controlled slug before it reaches a Warning log line so a
+    // single bad request cannot write an arbitrarily long attacker-controlled string to
+    // the logs (log-volume/noise hardening). Valid slugs are short (≤ ~30 chars), so 64
+    // preserves all diagnostic value while bounding the worst case.
+    private const int MaxLoggedSlugLength = 64;
+
     public Task BindModelAsync(ModelBindingContext bindingContext)
     {
         var valueProviderResult = bindingContext.ValueProvider.GetValue(bindingContext.ModelName);
@@ -34,7 +40,7 @@ internal sealed class PositionDescriptionCatalogTypeModelBinder : IModelBinder
                 "Rejected {Method} {Path}: unknown catalog type slug '{Slug}' (client may be using a deprecated or invalid slug).",
                 request.Method,
                 request.Path.Value,
-                value);
+                Truncate(value));
 
             bindingContext.ModelState.TryAddModelError(
                 bindingContext.ModelName,
@@ -50,4 +56,11 @@ internal sealed class PositionDescriptionCatalogTypeModelBinder : IModelBinder
 
         return Task.CompletedTask;
     }
+
+    // internal for unit-test reach (InternalsVisibleTo CLARIHR.Application.UnitTests);
+    // the non-Web unit project can exercise the hardening without MVC binding plumbing.
+    internal static string? Truncate(string? value) =>
+        value is { Length: > MaxLoggedSlugLength }
+            ? string.Concat(value.AsSpan(0, MaxLoggedSlugLength), "…")
+            : value;
 }
