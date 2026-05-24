@@ -20,7 +20,6 @@ internal sealed class AzureBlobStorageProvider(
         CreateUploadSessionProviderCommand command,
         CancellationToken cancellationToken)
     {
-        var delegationKey = await clientFactory.GetUserDelegationKeyAsync(cancellationToken);
         var expiresOn = DateTimeOffset.UtcNow.AddMinutes(_options.UploadUrlExpirationMinutes);
 
         var sasBuilder = new BlobSasBuilder
@@ -35,15 +34,9 @@ internal sealed class AzureBlobStorageProvider(
         sasBuilder.SetPermissions(BlobSasPermissions.Create | BlobSasPermissions.Write);
         sasBuilder.ContentType = command.ContentType;
 
-        var sasToken = sasBuilder
-            .ToSasQueryParameters(delegationKey, clientFactory.AccountName)
-            .ToString();
+        var sasToken = await BuildSasTokenAsync(sasBuilder, cancellationToken);
 
-        var blobUri = new UriBuilder(_options.BlobEndpoint)
-        {
-            Path = $"{command.ContainerName}/{command.ObjectKey}",
-            Query = sasToken
-        };
+        var blobUri = new UriBuilder(BlobUri(command.ContainerName, command.ObjectKey)) { Query = sasToken };
 
         var requiredHeaders = new Dictionary<string, string>
         {
@@ -61,7 +54,6 @@ internal sealed class AzureBlobStorageProvider(
         CreateReadSessionCommand command,
         CancellationToken cancellationToken)
     {
-        var delegationKey = await clientFactory.GetUserDelegationKeyAsync(cancellationToken);
         var expiresOn = DateTimeOffset.UtcNow.AddMinutes(_options.ReadUrlExpirationMinutes);
 
         var sasBuilder = new BlobSasBuilder
@@ -75,19 +67,32 @@ internal sealed class AzureBlobStorageProvider(
 
         sasBuilder.SetPermissions(BlobSasPermissions.Read);
 
-        var sasToken = sasBuilder
-            .ToSasQueryParameters(delegationKey, clientFactory.AccountName)
-            .ToString();
+        var sasToken = await BuildSasTokenAsync(sasBuilder, cancellationToken);
 
-        var blobUri = new UriBuilder(_options.BlobEndpoint)
-        {
-            Path = $"{command.ContainerName}/{command.ObjectKey}",
-            Query = sasToken
-        };
+        var blobUri = new UriBuilder(BlobUri(command.ContainerName, command.ObjectKey)) { Query = sasToken };
 
         return new CreateReadSessionResult(
             blobUri.Uri.ToString(),
             expiresOn.UtcDateTime);
+    }
+
+    // Build the blob URL via the SDK so it is correct for both Azure (account in the
+    // host) and Azurite / path-style endpoints (account in the path) — §3.5. The manual
+    // UriBuilder(BlobEndpoint){ Path = … } dropped the account path segment on Azurite.
+    private Uri BlobUri(string containerName, string objectKey) =>
+        clientFactory.Client.GetBlobContainerClient(containerName).GetBlobClient(objectKey).Uri;
+
+    private async Task<string> BuildSasTokenAsync(BlobSasBuilder sasBuilder, CancellationToken cancellationToken)
+    {
+        // §3.5: with a Shared Key (Azurite / local dev) sign the SAS with the account
+        // key; otherwise use a user-delegation key (AAD-backed — managed identity in prod).
+        if (clientFactory.SharedKeyCredential is { } sharedKey)
+        {
+            return sasBuilder.ToSasQueryParameters(sharedKey).ToString();
+        }
+
+        var delegationKey = await clientFactory.GetUserDelegationKeyAsync(cancellationToken);
+        return sasBuilder.ToSasQueryParameters(delegationKey, clientFactory.AccountName).ToString();
     }
 
     public async Task<bool> ExistsAsync(string containerName, string objectKey, CancellationToken cancellationToken)
