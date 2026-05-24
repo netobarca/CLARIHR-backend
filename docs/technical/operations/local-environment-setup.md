@@ -42,9 +42,11 @@ La plantilla ya apunta a los servicios de `docker compose`, así que **con esos 
 
 | Servicio | Puerto | Imagen | Reemplaza en prod a |
 |---|---|---|---|
-| `postgres` | `localhost:5432` | `postgres:16` | PostgreSQL gestionado |
+| `postgres` | `localhost:5433` | `postgres:16` | PostgreSQL gestionado |
 | `azurite` | `localhost:10000` | `mcr.microsoft.com/azure-storage/azurite` | Azure Blob Storage |
 | `gotenberg` | `localhost:3000` | `gotenberg/gotenberg:8` | Gotenberg desplegado |
+
+> **Postgres en el puerto host `5433` (no `5432`)**: a propósito, para no chocar con un PostgreSQL local que muchos devs ya corren en `5432` (p. ej. Postgres.app). El contenedor internamente sigue en 5432; solo cambia el puerto publicado al host (por eso la connection string usa `Port=5433`). Si el volumen quedó inicializado por una corrida vieja sin el rol `clarihr`, resetéalo: `docker compose down -v && docker compose up -d`.
 
 ---
 
@@ -59,7 +61,7 @@ La plantilla ya apunta a los servicios de `docker compose`, así que **con esos 
 
 | Propiedad | Qué es | Valor LOCAL (de dónde) | Valor PROD (de dónde) |
 |---|---|---|---|
-| `Database:ConnectionString` | Cadena PostgreSQL | Compose: `Host=localhost;Port=5432;Database=clarihr_dev;Username=clarihr;Password=clarihr` (ver `docker-compose.yml`) | Servidor PostgreSQL gestionado. Host/usuario/clave desde el portal del proveedor (Azure DB for PostgreSQL → *Connection strings*) o el secret store. **No reutilizar la credencial expuesta en §N1 — rotarla.** |
+| `Database:ConnectionString` | Cadena PostgreSQL | Compose: `Host=localhost;Port=5433;Database=clarihr_dev;Username=clarihr;Password=clarihr` (ver `docker-compose.yml`) | Servidor PostgreSQL gestionado. Host/usuario/clave desde el portal del proveedor (Azure DB for PostgreSQL → *Connection strings*) o el secret store. **No reutilizar la credencial expuesta en §N1 — rotarla.** |
 | `Authentication:Jwt:SigningKey` | Clave de firma de JWT (HS256, ≥32 chars) | Placeholder local-only de la plantilla | Generar secreto fuerte: `openssl rand -base64 48`. Guardar en App Service *Application settings* / secret store. **Único por entorno; nunca reutilizar el de §N1.** |
 | `Authentication:Jwt:Issuer` / `Audience` / `PlatformAudience` | Emisor/audiencias del token | `clarihr-local` / `clarihr-platform-local` | Valores del entorno (p. ej. `clarihr` / `clarihr-platform`). No son secretos. |
 | `Authentication:Google:ClientId` | OAuth de Google | Vacío (o tu client de pruebas vía User Secrets) | Google Cloud Console → *APIs & Services → Credentials → OAuth 2.0 Client IDs*. **Rotar el client id expuesto en §N1.** |

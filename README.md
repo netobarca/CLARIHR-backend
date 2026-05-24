@@ -17,7 +17,7 @@ dotnet run --project src/CLARIHR.Api
 
 | Servicio | Puerto | Para qué | Config |
 |---|---|---|---|
-| `postgres` | `localhost:5432` | Base de datos | `Database:ConnectionString` |
+| `postgres` | `localhost:5433` | Base de datos | `Database:ConnectionString` |
 | `azurite` | `localhost:10000` | Emulador Azure Blob (Shared Key) para exportaciones | `Storage:AzureBlob` |
 | `gotenberg` | `localhost:3000` | Render HTML→PDF | `Reporting:Pdf:Engine=Gotenberg` |
 
