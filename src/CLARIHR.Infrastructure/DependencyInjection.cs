@@ -77,8 +77,6 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
-
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<JwtTokenOptions>(configuration.GetSection(JwtTokenOptions.SectionName));
         services.Configure<PasswordResetOptions>(configuration.GetSection(PasswordResetOptions.SectionName));
@@ -183,9 +181,9 @@ public static class DependencyInjection
         services.AddScoped<IReportExportHandler, JobProfilePdfExportHandler>();
         services.AddScoped<IReportExportJobGenerator, ReportExportJobGenerator>();
         services.AddScoped<IReportExportJobProcessor, ReportExportJobProcessor>();
-        services.AddScoped<IJobProfileDocumentMapper, JobProfileDocumentMapper>();
-        services.AddScoped<IDocumentModelRenderer, QuestPdfDocumentRenderer>();
-        services.AddScoped<IDocumentPdfRenderer<JobProfilePrintResponse>, JobProfilePdfRenderer>();
+        // PDF rendering engine is selected from config (Reporting:Pdf:Engine);
+        // QuestPDF today, swappable without touching document logic (doc 01 §4.2).
+        services.AddDocumentPdfRendering(configuration);
         services.AddScoped<IResourceActionPolicyService, ResourceActionPolicyService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IExternalAuthProviderService, GoogleExternalAuthProviderService>();
