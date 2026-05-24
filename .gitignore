@@ -7,3 +7,11 @@ logs/
 publish/
 .claude/
 *.lscache
+
+# §N1 — never version environment/secret config. Use the committed *.example
+# templates + `dotnet user-secrets` (local) or env vars / App Service settings (prod).
+# See docs/technical/operations/local-environment-setup.md.
+appsettings.Development.json
+appsettings.*.Development.json
+appsettings.Production.json
+appsettings.*.local.json
