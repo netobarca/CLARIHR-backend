@@ -33,13 +33,6 @@ internal sealed class PositionSlotRepository(ApplicationDbContext dbContext) : I
                     (!excludingSlotId.HasValue || slot.Id != excludingSlotId.Value),
             cancellationToken);
 
-    public Task<long?> ResolveJobProfileIdAsync(Guid tenantId, Guid jobProfileId, CancellationToken cancellationToken) =>
-        dbContext.JobProfiles
-            .AsNoTracking()
-            .Where(profile => profile.TenantId == tenantId && profile.PublicId == jobProfileId)
-            .Select(profile => (long?)profile.Id)
-            .SingleOrDefaultAsync(cancellationToken);
-
     public Task<bool> JobProfileExistsOutsideTenantAsync(Guid jobProfileId, CancellationToken cancellationToken) =>
         dbContext.JobProfiles
             // Intentional tenant filter bypass: checks cross-tenant existence only for tenant-mismatch errors.

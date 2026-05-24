@@ -9,7 +9,7 @@ namespace CLARIHR.Infrastructure.Reports.Handlers;
 
 internal sealed class SalaryTabulatorExportHandler(
     ISalaryTabulatorRepository salaryTabulatorRepository,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+    IPositionCatalogLookup positionDescriptionCatalogRepository,
     ReportExportRowWriter rowWriter) : IReportExportHandler
 {
     public string ResourceKey => ReportExportResources.SalaryTabulator;
