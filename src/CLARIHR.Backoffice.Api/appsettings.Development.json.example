@@ -1,6 +1,6 @@
 {
   "Database": {
-    "ConnectionString": "Host=localhost;Port=5432;Database=clarihr_dev;Username=clarihr;Password=clarihr"
+    "ConnectionString": "Host=localhost;Port=5433;Database=clarihr_dev;Username=clarihr;Password=clarihr"
   },
   "Authentication": {
     "Google": {

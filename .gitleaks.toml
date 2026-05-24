@@ -1,0 +1,24 @@
+# gitleaks config for CLARIHR (§N1 — secret-scan CI gate).
+# The CI scans the WORKING TREE (--no-git), so it catches secrets added to files
+# without failing on the not-yet-purged historical commits (history purge is a
+# separate one-time operation — see docs/technical/operations/local-environment-setup.md).
+
+title = "CLARIHR secret-scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secret local-dev values and build artifacts."
+
+# Build output, runtime logs, VCS internals — local artifacts, never committed.
+paths = [
+  '''(^|/)(bin|obj|publish|logs|\.git)(/|$)''',
+]
+
+regexes = [
+  # Azurite's documented well-known account key — public constant, not a secret.
+  '''Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==''',
+  # Local-only JWT signing key placeholder (clearly non-production).
+  '''local-development-only-not-a-secret-override-in-production-0001''',
+]
