@@ -1406,6 +1406,7 @@ internal static class PositionSlotCommandSupport
         PositionSlotDomainErrorCode.OccupiedEmployeesNegative => PositionSlotErrors.CapacityRuleViolation,
         PositionSlotDomainErrorCode.OccupiedExceedsCapacity => PositionSlotErrors.CapacityRuleViolation,
         PositionSlotDomainErrorCode.SuspendedOccupancyConflict => PositionSlotErrors.SuspendedOccupancyConflict,
+        PositionSlotDomainErrorCode.StatusOccupancyMismatch => PositionSlotErrors.StatusOccupancyMismatch,
         PositionSlotDomainErrorCode.DirectDependencySelfReference => PositionSlotErrors.DependencySelfReference,
         PositionSlotDomainErrorCode.FunctionalDependencySelfReference => PositionSlotErrors.DependencySelfReference,
         _ => throw new ArgumentOutOfRangeException(nameof(code), code, "Unmapped PositionSlotDomainErrorCode — add a branch here.")

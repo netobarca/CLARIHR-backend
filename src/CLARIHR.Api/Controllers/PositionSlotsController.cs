@@ -262,7 +262,20 @@ public sealed class PositionSlotsController(
             AuditEntityTypes.PositionSlot,
             ReportExportResources.PositionSlots,
             "Exported position slots report.",
-            new { status, jobProfileId, orgUnitId, workCenterId, contractTypeId, q = search },
+            // §PS7: record the audit filters under the SAME public-contract keys the async
+            // export handler reads (jobProfilePublicId/…/search) and the wire query string
+            // uses, so the metadata is consistent with the job parameter contract
+            // ([[publicid-auto-transform-mechanism]]) and would replay correctly if ever
+            // fed to a ReportExportJob.
+            new
+            {
+                status,
+                jobProfilePublicId = jobProfileId,
+                orgUnitPublicId = orgUnitId,
+                workCenterPublicId = workCenterId,
+                contractTypePublicId = contractTypeId,
+                search,
+            },
             PositionSlotErrors.ExportFormatInvalid,
             cancellationToken);
     }

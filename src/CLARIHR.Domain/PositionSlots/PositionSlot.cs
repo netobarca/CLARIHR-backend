@@ -54,9 +54,11 @@ public sealed class PositionSlot : TenantEntity
         EffectiveFromUtc = effectiveFromUtc;
         EffectiveToUtc = effectiveToUtc;
         Notes = PositionSlotNormalization.CleanOptional(notes);
-        
-        EnsureStatusConsistency();
-        ValidateCapacity(MaxEmployees, OccupiedEmployees);
+
+        // §PS6: on create the caller supplies BOTH status and occupancy, so a
+        // contradiction is rejected (not silently coerced) — the persisted value can no
+        // longer diverge from what the client sent.
+        ValidateStatusOccupancyConsistency(Status, OccupiedEmployees);
 
         IsActive = Status != PositionSlotStatus.Suspended;
         ConcurrencyToken = Guid.NewGuid();
@@ -285,6 +287,35 @@ public sealed class PositionSlot : TenantEntity
         }
     }
 
+    // §PS6: validation counterpart used on CREATE, where the caller supplies both the
+    // status and the occupancy. A contradictory pair is rejected so the persisted value
+    // cannot silently differ from the request.
+    private static void ValidateStatusOccupancyConsistency(PositionSlotStatus status, int occupiedEmployees)
+    {
+        if (status == PositionSlotStatus.Vacant && occupiedEmployees != 0)
+        {
+            throw new PositionSlotDomainException(
+                PositionSlotDomainErrorCode.StatusOccupancyMismatch,
+                "A vacant position slot must have zero occupied employees.");
+        }
+
+        if (status == PositionSlotStatus.Occupied && occupiedEmployees == 0)
+        {
+            throw new PositionSlotDomainException(
+                PositionSlotDomainErrorCode.StatusOccupancyMismatch,
+                "An occupied position slot must have at least one occupied employee.");
+        }
+    }
+
+    /// <summary>
+    /// §PS6: INTENTIONAL coercion for the status-only <see cref="ChangeStatus"/>
+    /// transition. The caller changes only the status (the <c>/status</c> endpoint
+    /// carries no occupancy), so there is no caller-supplied occupancy value to
+    /// contradict — the occupancy is reconciled to match the new status:
+    /// <c>Vacant</c> ⇒ 0 occupants, <c>Occupied</c> ⇒ at least 1, <c>Suspended</c>
+    /// leaves occupancy untouched. Create instead uses
+    /// <see cref="ValidateStatusOccupancyConsistency"/> and rejects contradictions.
+    /// </summary>
     private void EnsureStatusConsistency()
     {
         if (Status == PositionSlotStatus.Vacant && OccupiedEmployees != 0)

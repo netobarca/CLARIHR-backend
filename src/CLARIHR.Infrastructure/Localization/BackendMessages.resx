@@ -715,6 +715,9 @@
   <data name="POSITION_SLOT_STATUS_CONFLICT" xml:space="preserve">
     <value>The requested status change is not allowed for the current occupancy.</value>
   </data>
+  <data name="POSITION_SLOT_STATUS_OCCUPANCY_MISMATCH" xml:space="preserve">
+    <value>Occupied employees must match the position slot status: vacant requires zero, occupied requires at least one.</value>
+  </data>
   <data name="POSITION_SLOT_SUSPENDED_OCCUPANCY_CONFLICT" xml:space="preserve">
     <value>Suspended position slots cannot update occupancy.</value>
   </data>
