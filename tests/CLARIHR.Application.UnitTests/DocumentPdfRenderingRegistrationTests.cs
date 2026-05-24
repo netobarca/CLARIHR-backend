@@ -34,6 +34,16 @@ public sealed class DocumentPdfRenderingRegistrationTests
         Assert.IsType<QuestPdfDocumentRenderer>(provider.GetRequiredService<IDocumentModelRenderer>());
     }
 
+    [Theory]
+    [InlineData("Gotenberg")]
+    [InlineData("gotenberg")]  // case-insensitive
+    public void AddDocumentPdfRendering_WithGotenbergEngine_ResolvesGotenberg(string engine)
+    {
+        using var provider = BuildProvider(engine);
+
+        Assert.IsType<GotenbergDocumentRenderer>(provider.GetRequiredService<IDocumentModelRenderer>());
+    }
+
     [Fact]
     public void AddDocumentPdfRendering_WiresEngineAgnosticSeam()
     {
@@ -47,11 +57,12 @@ public sealed class DocumentPdfRenderingRegistrationTests
     [Fact]
     public void AddDocumentPdfRendering_WithUnknownEngine_FailsFast()
     {
-        // A not-yet-implemented engine must fail at startup, not silently fall back.
-        var ex = Assert.Throws<InvalidOperationException>(() => BuildProvider("Gotenberg"));
+        // A not-yet-implemented engine (iText) must fail at startup, not silently fall back.
+        var ex = Assert.Throws<InvalidOperationException>(() => BuildProvider("iText"));
 
-        Assert.Contains("Gotenberg", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("iText", ex.Message, StringComparison.Ordinal);
         Assert.Contains(PdfEngines.QuestPdf, ex.Message, StringComparison.Ordinal);
+        Assert.Contains(PdfEngines.Gotenberg, ex.Message, StringComparison.Ordinal);
     }
 
     private static ServiceProvider BuildProvider(string? engine)
