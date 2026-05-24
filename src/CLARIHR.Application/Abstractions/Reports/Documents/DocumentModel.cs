@@ -56,10 +56,14 @@ public sealed record BulletListBlock(IReadOnlyList<BulletItem> Items) : Document
 public sealed record BulletItem(string Text, string? Notes);
 
 /// <summary>
-/// Renders a <see cref="DocumentModel"/> into a concrete output format.
-/// One implementation per format keeps the document logic single-sourced.
+/// Renders a <see cref="DocumentModel"/> into a concrete output format. One
+/// implementation per engine/format keeps the document logic single-sourced and
+/// the PDF engine swappable (technical-debt doc 01 §4.2). The contract is async
+/// so that an out-of-process engine (e.g. Gotenberg over HTTP) fits without
+/// blocking; a CPU-bound engine like QuestPDF offloads its synchronous render to
+/// the thread pool inside its own implementation.
 /// </summary>
 public interface IDocumentModelRenderer
 {
-    void Render(DocumentModel document, Stream destination);
+    Task RenderAsync(DocumentModel document, Stream destination, CancellationToken cancellationToken);
 }
