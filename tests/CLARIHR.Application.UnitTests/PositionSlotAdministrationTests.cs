@@ -77,6 +77,176 @@ public sealed class PositionSlotAdministrationTests
         Assert.DoesNotContain(result.Errors, static error => string.IsNullOrWhiteSpace(error.PropertyName));
     }
 
+    // §X-TEST2: validator coverage for the mutation commands beyond Create
+    // (Update / Status / Dependencies / Occupancy) — previously only exercised e2e.
+
+    private static UpdatePositionSlotCommand ValidUpdateCommand() => new(
+        PositionSlotId: Guid.Parse("50505050-5050-5050-5050-505050505050"),
+        Code: "PS-UPD",
+        Title: "Plaza",
+        JobProfileId: Guid.Parse("60606060-6060-6060-6060-606060606060"),
+        RoleId: null,
+        WorkCenterId: null,
+        MaxEmployees: 2,
+        EffectiveFromUtc: new DateTime(2026, 4, 7, 0, 0, 0, DateTimeKind.Utc),
+        EffectiveToUtc: null,
+        Notes: null,
+        ConcurrencyToken: Guid.Parse("70707070-7070-7070-7070-707070707070"));
+
+    [Fact]
+    public void UpdateValidator_WithValidCommand_ShouldPass()
+    {
+        var result = new UpdatePositionSlotCommandValidator().TestValidate(ValidUpdateCommand());
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void UpdateValidator_WhenConcurrencyTokenEmpty_ShouldAttachErrorToConcurrencyToken()
+    {
+        var result = new UpdatePositionSlotCommandValidator()
+            .TestValidate(ValidUpdateCommand() with { ConcurrencyToken = Guid.Empty });
+        result.ShouldHaveValidationErrorFor(command => command.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void UpdateValidator_WhenMaxEmployeesBelowOne_ShouldAttachErrorToMaxEmployees()
+    {
+        var result = new UpdatePositionSlotCommandValidator()
+            .TestValidate(ValidUpdateCommand() with { MaxEmployees = 0 });
+        result.ShouldHaveValidationErrorFor(command => command.MaxEmployees);
+    }
+
+    [Fact]
+    public void UpdateValidator_WhenEffectiveToBeforeEffectiveFrom_ShouldAttachErrorToEffectiveToUtc()
+    {
+        var result = new UpdatePositionSlotCommandValidator().TestValidate(
+            ValidUpdateCommand() with
+            {
+                EffectiveFromUtc = new DateTime(2026, 4, 8, 0, 0, 0, DateTimeKind.Utc),
+                EffectiveToUtc = new DateTime(2026, 4, 7, 0, 0, 0, DateTimeKind.Utc)
+            });
+        result.ShouldHaveValidationErrorFor(command => command.EffectiveToUtc)
+            .WithErrorMessage("EffectiveToUtc must be greater than or equal to EffectiveFromUtc.");
+    }
+
+    [Fact]
+    public void UpdateValidator_WhenCodeFormatInvalid_ShouldAttachErrorToCode()
+    {
+        var result = new UpdatePositionSlotCommandValidator()
+            .TestValidate(ValidUpdateCommand() with { Code = "  not valid!  " });
+        result.ShouldHaveValidationErrorFor(command => command.Code);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void StatusValidator_RequiresPositionSlotIdAndConcurrencyToken(bool clearConcurrencyToken)
+    {
+        var command = new UpdatePositionSlotStatusCommand(
+            PositionSlotId: clearConcurrencyToken ? Guid.Parse("80808080-8080-8080-8080-808080808080") : Guid.Empty,
+            Status: PositionSlotStatus.Vacant,
+            ConcurrencyToken: clearConcurrencyToken ? Guid.Empty : Guid.Parse("90909090-9090-9090-9090-909090909090"));
+
+        var result = new UpdatePositionSlotStatusCommandValidator().TestValidate(command);
+
+        if (clearConcurrencyToken)
+        {
+            result.ShouldHaveValidationErrorFor(command => command.ConcurrencyToken);
+        }
+        else
+        {
+            result.ShouldHaveValidationErrorFor(command => command.PositionSlotId);
+        }
+    }
+
+    [Fact]
+    public void StatusValidator_WithValidCommand_ShouldPass()
+    {
+        var command = new UpdatePositionSlotStatusCommand(
+            Guid.Parse("80808080-8080-8080-8080-808080808080"),
+            PositionSlotStatus.Suspended,
+            Guid.Parse("90909090-9090-9090-9090-909090909090"));
+
+        new UpdatePositionSlotStatusCommandValidator().TestValidate(command).ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void DependenciesValidator_WhenDependencyIsEmptyGuid_ShouldAttachError()
+    {
+        var command = new UpdatePositionSlotDependenciesCommand(
+            PositionSlotId: Guid.Parse("80808080-8080-8080-8080-808080808080"),
+            DirectDependencyPositionSlotId: Guid.Empty,
+            FunctionalDependencyPositionSlotId: null,
+            ConcurrencyToken: Guid.Parse("90909090-9090-9090-9090-909090909090"));
+
+        var result = new UpdatePositionSlotDependenciesCommandValidator().TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(command => command.DirectDependencyPositionSlotId);
+    }
+
+    [Fact]
+    public void DependenciesValidator_WhenConcurrencyTokenEmpty_ShouldAttachError()
+    {
+        var command = new UpdatePositionSlotDependenciesCommand(
+            PositionSlotId: Guid.Parse("80808080-8080-8080-8080-808080808080"),
+            DirectDependencyPositionSlotId: null,
+            FunctionalDependencyPositionSlotId: null,
+            ConcurrencyToken: Guid.Empty);
+
+        var result = new UpdatePositionSlotDependenciesCommandValidator().TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(command => command.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void DependenciesValidator_WithNullDependencies_ShouldPass()
+    {
+        var command = new UpdatePositionSlotDependenciesCommand(
+            PositionSlotId: Guid.Parse("80808080-8080-8080-8080-808080808080"),
+            DirectDependencyPositionSlotId: null,
+            FunctionalDependencyPositionSlotId: null,
+            ConcurrencyToken: Guid.Parse("90909090-9090-9090-9090-909090909090"));
+
+        new UpdatePositionSlotDependenciesCommandValidator().TestValidate(command).ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void OccupancyValidator_WhenOccupiedEmployeesNegative_ShouldAttachError()
+    {
+        var command = new UpdatePositionSlotOccupancyCommand(
+            PositionSlotId: Guid.Parse("80808080-8080-8080-8080-808080808080"),
+            OccupiedEmployees: -1,
+            ConcurrencyToken: Guid.Parse("90909090-9090-9090-9090-909090909090"));
+
+        var result = new UpdatePositionSlotOccupancyCommandValidator().TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(command => command.OccupiedEmployees);
+    }
+
+    [Fact]
+    public void OccupancyValidator_WhenConcurrencyTokenEmpty_ShouldAttachError()
+    {
+        var command = new UpdatePositionSlotOccupancyCommand(
+            PositionSlotId: Guid.Parse("80808080-8080-8080-8080-808080808080"),
+            OccupiedEmployees: 1,
+            ConcurrencyToken: Guid.Empty);
+
+        var result = new UpdatePositionSlotOccupancyCommandValidator().TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(command => command.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void OccupancyValidator_WithValidCommand_ShouldPass()
+    {
+        var command = new UpdatePositionSlotOccupancyCommand(
+            Guid.Parse("80808080-8080-8080-8080-808080808080"),
+            OccupiedEmployees: 2,
+            Guid.Parse("90909090-9090-9090-9090-909090909090"));
+
+        new UpdatePositionSlotOccupancyCommandValidator().TestValidate(command).ShouldNotHaveAnyValidationErrors();
+    }
+
     [Fact]
     public async Task Create_WhenJobProfileDoesNotResolveContractType_ShouldCreateIndefiniteSlot()
     {
