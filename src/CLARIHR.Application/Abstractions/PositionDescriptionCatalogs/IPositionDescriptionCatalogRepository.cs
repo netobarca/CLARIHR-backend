@@ -4,7 +4,10 @@ using CLARIHR.Domain.PositionDescriptionCatalogs;
 
 namespace CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 
-public interface IPositionDescriptionCatalogRepository
+// §X-ISP: extends the narrow IPositionCatalogLookup role (GetActiveCatalogReference,
+// Exists*OutsideTenant, ResolvePositionCategoryId, ResolveSalaryClassCodeByCatalogId)
+// so cross-context consumers depend on that role, not on this full surface.
+public interface IPositionDescriptionCatalogRepository : IPositionCatalogLookup
 {
     void AddCatalogItem(PositionDescriptionCatalogItem item);
 
@@ -18,11 +21,7 @@ public interface IPositionDescriptionCatalogRepository
 
     Task<PositionCategory?> GetCategoryByIdAsync(Guid categoryId, CancellationToken cancellationToken);
 
-    Task<bool> ExistsCatalogItemOutsideTenantAsync(Guid itemId, CancellationToken cancellationToken);
-
     Task<bool> ExistsClassificationOutsideTenantAsync(Guid classificationId, CancellationToken cancellationToken);
-
-    Task<bool> ExistsCategoryOutsideTenantAsync(Guid categoryId, CancellationToken cancellationToken);
 
     Task<bool> CatalogItemCodeExistsAsync(
         Guid tenantId,
@@ -86,12 +85,6 @@ public interface IPositionDescriptionCatalogRepository
 
     Task<PositionCategoryResponse?> GetCategoryResponseByIdAsync(Guid categoryId, CancellationToken cancellationToken);
 
-    Task<CatalogReferenceInternal?> GetActiveCatalogReferenceAsync(
-        Guid tenantId,
-        PositionDescriptionCatalogType catalogType,
-        Guid catalogItemId,
-        CancellationToken cancellationToken);
-
     Task<CatalogReferenceInternal?> GetActiveOrgUnitTypeReferenceAsync(
         Guid tenantId,
         Guid orgUnitTypeId,
@@ -110,10 +103,6 @@ public interface IPositionDescriptionCatalogRepository
     Task<bool> HasRequirementsUsingRequirementTypeAsync(long requirementTypeCatalogItemId, CancellationToken cancellationToken);
 
     Task<bool> HasWorkConditionsUsingWorkConditionTypeAsync(long workConditionTypeCatalogItemId, CancellationToken cancellationToken);
-
-    Task<long?> ResolvePositionCategoryIdAsync(Guid tenantId, Guid positionCategoryId, CancellationToken cancellationToken);
-
-    Task<string?> ResolveSalaryClassCodeByCatalogIdAsync(Guid tenantId, Guid salaryClassId, CancellationToken cancellationToken);
 
     void InvalidateSimpleCatalogCache(Guid tenantId, PositionDescriptionCatalogType catalogType);
 

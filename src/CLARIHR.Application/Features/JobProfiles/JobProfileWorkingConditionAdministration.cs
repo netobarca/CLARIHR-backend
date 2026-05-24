@@ -224,7 +224,7 @@ internal sealed class AddJobProfileWorkingConditionCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
     IJobCatalogRepository catalogRepository,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository)
+    IPositionCatalogLookup positionDescriptionCatalogRepository)
     : ICommandHandler<AddJobProfileWorkingConditionCommand, JobProfileWorkingConditionResponse>
 {
     public async Task<Result<JobProfileWorkingConditionResponse>> Handle(AddJobProfileWorkingConditionCommand command, CancellationToken cancellationToken)
@@ -328,7 +328,7 @@ internal sealed class UpdateJobProfileWorkingConditionCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
     IJobCatalogRepository catalogRepository,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository)
+    IPositionCatalogLookup positionDescriptionCatalogRepository)
     : ICommandHandler<UpdateJobProfileWorkingConditionCommand, JobProfileWorkingConditionResponse>
 {
     public async Task<Result<JobProfileWorkingConditionResponse>> Handle(UpdateJobProfileWorkingConditionCommand command, CancellationToken cancellationToken)
@@ -447,7 +447,7 @@ internal sealed class PatchJobProfileWorkingConditionCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
     IJobCatalogRepository catalogRepository,
-    IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository)
+    IPositionCatalogLookup positionDescriptionCatalogRepository)
     : ICommandHandler<PatchJobProfileWorkingConditionCommand, JobProfileWorkingConditionResponse>
 {
     public async Task<Result<JobProfileWorkingConditionResponse>> Handle(PatchJobProfileWorkingConditionCommand command, CancellationToken cancellationToken)
@@ -660,7 +660,7 @@ internal static class JobProfileWorkingConditionCommandSupport
     public static async Task<Result<long?>> ResolveWorkConditionTypeInternalIdAsync(
         Guid tenantId,
         Guid? workConditionTypeCatalogItemPublicId,
-        IPositionDescriptionCatalogRepository positionDescriptionCatalogRepository,
+        IPositionCatalogLookup positionDescriptionCatalogRepository,
         CancellationToken cancellationToken) =>
         await JobProfileCommandSupport.ResolvePositionDescriptionCatalogItemInternalIdAsync(
             tenantId,
