@@ -16,6 +16,16 @@ internal sealed class QuestPdfDocumentRenderer : IDocumentModelRenderer
     private const string AccentColorHex = "#1F3A8A";
     private const string MutedColorHex = "#6B7280";
 
+    // §4.1 (technical-debt doc 01): render with a font that ships *embedded* with
+    // QuestPDF instead of a Microsoft font like Calibri. Calibri is absent on Linux
+    // container base images, so QuestPDF would fall back silently to a different
+    // face — yielding different layout metrics dev↔prod. Lato is bundled with the
+    // QuestPDF package (and copied into the publish output) and auto-registered, so
+    // it renders identically on every OS without installing any system font. The
+    // Linux container still needs the native libfontconfig1 library (installed in
+    // the repo Dockerfile); the typeface itself no longer depends on the host OS.
+    private const string DefaultFontFamily = Fonts.Lato;
+
     public void Render(DocumentModel document, Stream destination)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -28,7 +38,7 @@ internal sealed class QuestPdfDocumentRenderer : IDocumentModelRenderer
                 page.Margin(36);
                 page.Size(PageSizes.Letter);
                 page.PageColor(Colors.White);
-                page.DefaultTextStyle(text => text.FontSize(10).FontFamily(Fonts.Calibri));
+                page.DefaultTextStyle(text => text.FontSize(10).FontFamily(DefaultFontFamily));
 
                 page.Header().Element(header => ComposeHeader(header, document));
                 page.Content().Element(content => ComposeContent(content, document));
