@@ -1,0 +1,118 @@
+{
+  "Database": {
+    "ConnectionString": "Host=localhost;Port=5432;Database=clarihr_dev;Username=clarihr;Password=clarihr"
+  },
+  "Authentication": {
+    "Google": {
+      "ClientId": ""
+    },
+    "Jwt": {
+      "Issuer": "clarihr-local",
+      "Audience": "clarihr-local",
+      "PlatformAudience": "clarihr-platform-local",
+      "SigningKey": "local-development-only-not-a-secret-override-in-production-0001",
+      "AccessTokenExpirationMinutes": 15,
+      "RefreshTokenExpirationDays": 14
+    },
+    "PasswordReset": {
+      "FrontendResetUrl": "http://localhost:3000/reset-password",
+      "TokenLifetimeMinutes": 15,
+      "RequestCooldownMinutes": 2
+    }
+  },
+  "Caching": {
+    "FieldPermissions": {
+      "Mode": "MemoryOnly",
+      "EntryTtlMinutes": 10
+    }
+  },
+  "Companies": {
+    "Ownership": {
+      "MaxOwnedActiveCompanies": 2
+    }
+  },
+
+  "Storage": {
+    "DefaultProvider": "AzureBlob",
+    "AzureBlob": {
+      "AccountName": "devstoreaccount1",
+      "AccountKey": "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==",
+      "BlobEndpoint": "http://127.0.0.1:10000/devstoreaccount1",
+      "DefaultContainer": "clarihr-files",
+      "UploadUrlExpirationMinutes": 10,
+      "ReadUrlExpirationMinutes": 15,
+      "UseManagedIdentity": false
+    },
+    "Purposes": {
+      "ProfileImage": {
+        "MaxSizeBytes": 5242880,
+        "AllowedContentTypes": [
+          "image/jpeg",
+          "image/png",
+          "image/webp"
+        ],
+        "AllowedExtensions": [
+          ".jpg",
+          ".jpeg",
+          ".png",
+          ".webp"
+        ],
+        "DefaultProvider": "AzureBlob",
+        "RequiresMalwareScan": false,
+        "ContainerOverride": "clarihr-profile-images"
+      },
+      "PersonnelDocument": {
+        "MaxSizeBytes": 10485760,
+        "AllowedContentTypes": [
+          "application/pdf",
+          "image/jpeg",
+          "image/png",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ],
+        "AllowedExtensions": [
+          ".pdf",
+          ".jpg",
+          ".jpeg",
+          ".png",
+          ".docx"
+        ],
+        "DefaultProvider": "AzureBlob",
+        "RequiresMalwareScan": false,
+        "ContainerOverride": "clarihr-personnel-documents"
+      },
+      "ReportExport": {
+        "MaxSizeBytes": 104857600,
+        "AllowedContentTypes": [ "application/pdf", "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ],
+        "AllowedExtensions": [ ".pdf", ".csv", ".xlsx" ],
+        "DefaultProvider": "AzureBlob",
+        "RequiresMalwareScan": false,
+        "ContainerOverride": "clarihr-report-exports"
+      }
+    },
+    "Cleanup": {
+      "IntervalMinutes": 30,
+      "BatchSize": 100,
+      "RetentionHours": 24
+    }
+  },
+  "Reporting": {
+    "Performance": {
+      "MaxSynchronousExportRows": 5000,
+      "MaxAsyncExportRows": 100000,
+      "ExportBatchSize": 1000,
+      "WorkerBatchSize": 2,
+      "WorkerPollIntervalSeconds": 15,
+      "ClaimLeaseMinutes": 15,
+      "MaxAttempts": 3,
+      "ArtifactRetentionHours": 24,
+      "MaxDiagramNodes": 5000
+    }
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
