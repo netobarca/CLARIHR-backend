@@ -244,13 +244,14 @@ public sealed class JobProfilePdfRendererTests
     {
         public bool RenderInvoked { get; private set; }
 
-        public void Render(DocumentModel document, Stream destination)
+        public Task RenderAsync(DocumentModel document, Stream destination, CancellationToken cancellationToken)
         {
             // Simulate QuestPDF: ignore cancellation, run to completion, but the
             // token gets signaled mid-render. The renderer-under-test must
             // re-check the token after we return.
             cts.Cancel();
             RenderInvoked = true;
+            return Task.CompletedTask;
         }
     }
 }

@@ -33,17 +33,16 @@ internal sealed class JobProfilePdfRenderer : IDocumentPdfRenderer<JobProfilePri
 
         var document = _mapper.Map(payload);
 
-        // QuestPDF 2024.12.3 only exposes a synchronous GeneratePdf; offload the
-        // CPU-bound render to the thread pool so the worker's pipeline thread
-        // isn't blocked (technical-debt doc 01 §5.1). Replace with a native
-        // GeneratePdfAsync when QuestPDF (or a successor library) ships one.
-        await Task.Run(() => _renderer.Render(document, destination), cancellationToken);
+        // The engine adapter owns how it renders: QuestPDF offloads its
+        // synchronous GeneratePdf to the thread pool, an HTTP engine would do
+        // real async I/O (technical-debt doc 01 §4.2/§5.1).
+        await _renderer.RenderAsync(document, destination, cancellationToken);
 
-        // Task.Run only honors the token before the action starts; QuestPDF does
-        // not honor cancellation mid-render. Re-check after the render so a
-        // token signal that arrived mid-render still surfaces as
-        // OperationCanceledException and the worker marks the job cancelled
-        // instead of writing the wasted bytes downstream (doc 01 §5.2).
+        // Engine-agnostic safety net: some engines (QuestPDF) don't honor
+        // cancellation mid-render. Re-check after the render so a token signal
+        // that arrived mid-render still surfaces as OperationCanceledException
+        // and the worker marks the job cancelled instead of writing the wasted
+        // bytes downstream (doc 01 §5.2).
         cancellationToken.ThrowIfCancellationRequested();
     }
 }
