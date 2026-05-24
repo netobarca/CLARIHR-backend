@@ -1,0 +1,27 @@
+# Local development services for CLARIHR.
+#
+# Gotenberg (Apache-2.0) is the PDF rendering engine for Job Profile exports
+# (Reporting:Pdf:Engine=Gotenberg — technical-debt doc 01 §4.2). It renders
+# HTML→PDF via Chromium, so no PDF-library license is involved.
+#
+#   docker compose up -d gotenberg     # start the renderer on http://localhost:3000
+#
+# The API resolves Reporting:Pdf:Gotenberg:BaseUrl to reach it. To run the API in
+# QuestPDF mode instead (no service needed), set Reporting:Pdf:Engine=QuestPdf.
+services:
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: clarihr-gotenberg
+    command:
+      - gotenberg
+      - --chromium-disable-javascript=true
+      - --chromium-allow-list=file:///tmp/.*
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  # §3.5 (onboarding): an Azurite blob emulator could be added here so local
+  # exports work without Azure. Out of scope for the Gotenberg migration.
+  # azurite:
+  #   image: mcr.microsoft.com/azure-storage/azurite
+  #   ports: ["10000:10000"]
