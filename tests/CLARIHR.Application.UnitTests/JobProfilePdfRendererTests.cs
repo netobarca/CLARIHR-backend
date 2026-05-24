@@ -73,6 +73,28 @@ public sealed class JobProfilePdfRendererTests
         AssertValidPdf(stream);
     }
 
+    [Fact]
+    public async Task RenderAsync_ShouldEmbedBundledFont_NotAnOsDependentFont()
+    {
+        // §4.1: the PDF must render with a font bundled by QuestPDF (Lato), never a
+        // host-OS font like Calibri that is absent on Linux base images and would
+        // fall back silently — producing different layout metrics dev↔prod. QuestPDF
+        // embeds a subset of the face and names it in the PDF's font dictionary, so a
+        // regression to a non-bundled font (or broken font bundling) is detectable.
+        // Smoke-level layout guard, aligned with §8.3.
+        var renderer = new JobProfilePdfRenderer();
+        var payload = BuildPayload(profile: BuildRichProfile());
+
+        await using var stream = new MemoryStream();
+        await renderer.RenderAsync(payload, stream, CancellationToken.None);
+
+        AssertValidPdf(stream);
+
+        // Latin1 maps bytes 1:1 to chars, so an ASCII font name in the raw PDF is found verbatim.
+        var content = Encoding.Latin1.GetString(stream.ToArray());
+        Assert.Contains("Lato", content, StringComparison.Ordinal);
+    }
+
     private static void AssertValidPdf(MemoryStream stream)
     {
         var bytes = stream.ToArray();

@@ -6,3 +6,8 @@
 
 tests/
 docs/
+publish/
+
+Dockerfile
+.dockerignore
+**/*.user
