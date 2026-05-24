@@ -18,6 +18,15 @@ public sealed class AzureBlobProviderOptions
 {
     public string AccountName { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Shared Key for the storage account. When set, the provider authenticates with
+    /// a <c>StorageSharedKeyCredential</c> and signs SAS with the account key instead
+    /// of a user-delegation key — the path that lets local dev run against the Azurite
+    /// emulator (technical-debt doc 01 §3.5). Leave empty in production, which uses
+    /// managed identity / <c>DefaultAzureCredential</c> + user-delegation SAS.
+    /// </summary>
+    public string AccountKey { get; init; } = string.Empty;
+
     public string BlobEndpoint { get; init; } = string.Empty;
 
     public string DefaultContainer { get; init; } = string.Empty;

@@ -1,5 +1,6 @@
 using Azure.Core;
 using Azure.Identity;
+using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using CLARIHR.Infrastructure.Files.Configuration;
@@ -14,6 +15,7 @@ internal sealed class BlobServiceClientFactory : IDisposable
 
     private readonly AzureBlobProviderOptions _options;
     private readonly BlobServiceClient? _client;
+    private readonly StorageSharedKeyCredential? _sharedKeyCredential;
     private readonly SemaphoreSlim _delegationKeyLock = new(1, 1);
     private UserDelegationKey? _cachedDelegationKey;
     private DateTimeOffset _cachedDelegationKeyExpiresOn;
@@ -28,6 +30,15 @@ internal sealed class BlobServiceClientFactory : IDisposable
             return;
         }
 
+        if (!string.IsNullOrWhiteSpace(_options.AccountKey))
+        {
+            // Shared Key auth (local dev / Azurite emulator — §3.5). No managed identity
+            // and no user-delegation SAS, which the emulator doesn't support by default.
+            _sharedKeyCredential = new StorageSharedKeyCredential(_options.AccountName, _options.AccountKey);
+            _client = new BlobServiceClient(new Uri(_options.BlobEndpoint), _sharedKeyCredential);
+            return;
+        }
+
         TokenCredential credential = _options.UseManagedIdentity
             ? new ManagedIdentityCredential()
             : new DefaultAzureCredential();
@@ -36,6 +47,12 @@ internal sealed class BlobServiceClientFactory : IDisposable
     }
 
     public bool IsConfigured => _client is not null;
+
+    /// <summary>
+    /// Non-null when the account is configured with a Shared Key (<see cref="AzureBlobProviderOptions.AccountKey"/>).
+    /// Callers sign SAS with this instead of a user-delegation key (which requires AAD).
+    /// </summary>
+    public StorageSharedKeyCredential? SharedKeyCredential => _sharedKeyCredential;
 
     public BlobServiceClient Client =>
         _client ?? throw new InvalidOperationException(

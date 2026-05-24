@@ -1,14 +1,38 @@
 # Local development services for CLARIHR.
 #
-# Gotenberg (Apache-2.0) is the PDF rendering engine for Job Profile exports
-# (Reporting:Pdf:Engine=Gotenberg — technical-debt doc 01 §4.2). It renders
-# HTML→PDF via Chromium, so no PDF-library license is involved.
+#   docker compose up -d        # start all three (storage, db, PDF renderer)
 #
-#   docker compose up -d gotenberg     # start the renderer on http://localhost:3000
+# After `dotnet ef database update`, the API run in the Development environment
+# (appsettings.Development.json — no secrets, points here) can export PDFs/CSVs
+# locally without any Azure dependency. See README "Local development".
 #
-# The API resolves Reporting:Pdf:Gotenberg:BaseUrl to reach it. To run the API in
-# QuestPDF mode instead (no service needed), set Reporting:Pdf:Engine=QuestPdf.
+# - postgres  : application database (Database:ConnectionString → localhost:5432)
+# - azurite   : Azure Blob emulator for file storage (Storage:AzureBlob, Shared Key) — §3.5
+# - gotenberg : HTML→PDF renderer (Reporting:Pdf:Engine=Gotenberg) — §4.2
 services:
+  postgres:
+    image: postgres:16
+    container_name: clarihr-postgres
+    environment:
+      POSTGRES_USER: clarihr
+      POSTGRES_PASSWORD: clarihr
+      POSTGRES_DB: clarihr_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - clarihr-pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: clarihr-azurite
+    command: "azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck"
+    ports:
+      - "10000:10000"
+    volumes:
+      - clarihr-azurite:/data
+    restart: unless-stopped
+
   gotenberg:
     image: gotenberg/gotenberg:8
     container_name: clarihr-gotenberg
@@ -20,8 +44,6 @@ services:
       - "3000:3000"
     restart: unless-stopped
 
-  # §3.5 (onboarding): an Azurite blob emulator could be added here so local
-  # exports work without Azure. Out of scope for the Gotenberg migration.
-  # azurite:
-  #   image: mcr.microsoft.com/azure-storage/azurite
-  #   ports: ["10000:10000"]
+volumes:
+  clarihr-pgdata:
+  clarihr-azurite:
