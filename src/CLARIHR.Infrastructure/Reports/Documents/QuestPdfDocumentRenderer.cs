@@ -26,7 +26,7 @@ internal sealed class QuestPdfDocumentRenderer : IDocumentModelRenderer
     // the repo Dockerfile); the typeface itself no longer depends on the host OS.
     private const string DefaultFontFamily = Fonts.Lato;
 
-    public void Render(DocumentModel document, Stream destination)
+    public async Task RenderAsync(DocumentModel document, Stream destination, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(destination);
@@ -46,7 +46,11 @@ internal sealed class QuestPdfDocumentRenderer : IDocumentModelRenderer
             });
         });
 
-        pdf.GeneratePdf(destination);
+        // QuestPDF 2024.12.3 only exposes a synchronous GeneratePdf; offload the
+        // CPU-bound render to the thread pool so the caller's pipeline thread is
+        // not blocked (technical-debt doc 01 §5.1). An out-of-process engine
+        // (e.g. Gotenberg over HTTP) would do real async I/O here instead.
+        await Task.Run(() => pdf.GeneratePdf(destination), cancellationToken);
     }
 
     private static void ComposeHeader(IContainer container, DocumentModel document)
