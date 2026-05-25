@@ -533,3 +533,81 @@ JSON
 
 ### 16.12 Enforcement vigente (plan free privado)
 Mientras no haya branch protection server-side, "1 PR por cambio / no push directo a `master`" es **disciplina documentada + señal CI**, no un gate bloqueante. Toda sesión Claude DEBE seguir §16.1–§16.8 igual; el CI corre en cada push/PR y reporta verde/rojo (revisarlo antes de mergear) pero GitHub no impide técnicamente un push directo. Riesgo **aceptado de forma permanente** (decisión §16.10: no se persigue branch protection ni upgrade de plan).
+
+---
+
+## 17. Auditoría de deuda técnica y remediación de controladores
+
+> **Propósito**: codificar —de forma permanente y *del equipo*, no de una sesión— **cómo** se remedió la deuda en JobProfile, Position/PositionSlots y Reports/Export, para (a) impedir que reaparezca en desarrollo nuevo y (b) auditar el resto de controladores de forma **incremental** sin tener que reexplicarlo en cada sesión. Esta sección es **lectura obligatoria** antes de auditar o remediar cualquier controlador. El enforcement real vive en los *guardrails* (tests en CI, §17.3); esta sección es el mapa que conecta cada lección con su guardrail y con cómo extenderlo.
+
+### 17.1 Cuándo aplica
+Aplicar esta sección antes de:
+- tocar un `[AuthorizationPolicySet]`, `AddPolicy`, rate limit, contrato OpenAPI, paginación, token de concurrencia;
+- exponer cualquier endpoint con PII / datos salariales / datos sensibles;
+- auditar por deuda técnica un controlador (nuevo o existente);
+- cerrar un finding (§J / §S / §PS / §X-…).
+
+### 17.2 Playbook de remediación (receta fija)
+Todo finding se remedia con los **mismos 5 pasos**:
+
+1. **Analizar contra el código, no contra el texto del finding.** La acción literal del finding puede estar mal (§J1 propuso una política que causaba regresión). Verificar el comportamiento real y corregir el finding si hace falta.
+2. **Espejar exactamente la remediación previa más cercana.** Misma forma, mismo orden de `using`, mismos constructos. **Diff mínimo**: nada de refactors no pedidos ni tocar otros módulos.
+3. **Mantener sincronizadas las dos capas de enforcement.** El límite/permiso del borde (anotación de controller / política declarativa) debe ser **superset (≥)** del gate del handler. Si la política es *más estricta* que el gate, un usuario legítimo recibe un **403 falso**. ⚠️ La relación de superset **NO la verifica ningún guardrail**: es punto de revisión **MANUAL** (ver §17.6).
+4. **Añadir un guardrail estructural drift-proof** (no una lista mantenida a mano): un test que reflexiona sobre el assembly, filtra la **familia por regex**, agrega todas las violaciones en un solo `Assert`, y lleva un **centinela zero-match** que falla ruidosamente si el filtro no matchea ningún controller. Espejar el guardrail existente más cercano (§17.3).
+5. **Verificar**: `dotnet build CLARIHR.slnx` 0/0 → correr el guardrail nuevo → sanity **rojo → restaurar → verde** que prueba que el guardrail ata el finding → suite unitaria completa + integración dirigida sin regresión.
+
+**Alcance**: cada guardrail se limita al módulo del finding. Otros módulos con la misma brecha son **findings separados** — no arreglarlos ni fallar por ellos en el mismo PR.
+
+### 17.3 Catálogo de categorías ↔ regla ↔ guardrail
+Cada categoría de deuda ya remediada, su regla invariante, y el test que la enforce. Para **extenderla a un controlador nuevo**: ampliar el **regex de familia** del guardrail (no duplicar el test) y añadir su centinela zero-match.
+
+| Categoría | Regla invariante | Guardrail que la enforce (en CI) |
+|---|---|---|
+| **AUTHZ (dos capas)** | Todo controller de familia gobernada lleva `[AuthorizationPolicySet(read, manage)]`; la convención asigna Read→GET/HEAD, Manage→resto. Política declarativa **⊇** gate del handler `EnsureCan*`. | `AuthorizationPolicyConventionGovernanceTests` (unit Inv-1..3 + zero-match) · `AuthorizationPolicyConventionGuardrailsIntegrationTests` (Inv-4 verb→policy en pipeline vivo, Inv-5 política registrada). **Superset = revisión manual, sin guardrail.** |
+| **RATE LIMIT** | Endpoints costosos (export, search, graph) llevan `[EnableRateLimiting]` con partición user/tenant. | `RateLimitingGovernanceTests` (Inv-R1/R2/R3 + zero-match). |
+| **OPENAPI / VERSIONING** | Cada controller con `[ApiVersion("1.0")]` + ruta versionada + `[Tags]` + `[ProducesStandardErrors]` + `[SwaggerOperation]`; tag esperado por familia. | `OpenApiContractGuardrailsTests` (unit, tabla `Families` regex→tag + zero-match por familia) · `OpenApiContractGuardrailsIntegrationTests`. |
+| **PAGINACIÓN** | Todo listado declara `[Range(1, MaxPageSize)]` en `pageSize`; el `[Range]` max == max del validator. | `PaginationRangeGuardrailsTests`. |
+| **CONCURRENCY TOKEN** | Entidades con update optimista declaran `.IsConcurrencyToken()`; conflicto → `CONCURRENCY_CONFLICT`. | `ConcurrencyTokenMappingGuardrailsTests`. |
+| **CATÁLOGO SYSTEM-SCOPED** | Los catálogos de tipo son **globales** (system-scoped), NO tenant-scoped; su caché global **no** es violación §12.5. | `CatalogTypeDescriptorSystemScopingGuardrailsTests` · `CatalogTypeDescriptorCacheFreshnessGuardrailsTests`. |
+| **PUBLIC ID EN EL WIRE** | Params Guid `*Id` se exponen como `*PublicId` automáticamente; los query params lo respetan. Nombrar en C# `*Id`, nunca `*PublicId`. | `QueryParameterPublicIdGuardrailsTests`. |
+| **EXCEPCIONES DE DOMINIO TIPADAS** | Errores de negocio vía excepción tipada + enum (no match por mensaje), mapeados a code/HTTP. | `PositionSlotDomainErrorMappingGuardrailsTests`. |
+| **CAP DE GRAFO / AMPLIFICACIÓN** | Operaciones que expanden grafos topan nodos para evitar DoS. | `PositionSlotGraphCapGuardrailsTests`. |
+| **EXPORT / REPORTS** | Formatos de recurso compatibles; gobernanza de export jobs; params del job async vienen del cliente verbatim. | `ReportExportGovernanceTests` · `ReportExportResourceFormatCompatibilityGuardrailsTests`. |
+| **TENANT SCOPE** | `IgnoreQueryFilters` solo donde está justificado y gobernado. | `IgnoreQueryFiltersGovernanceTests`. |
+| **BINDING DE CATÁLOGO** | Mapa de binding JobProfile↔catálogo completo y consistente. | `JobProfileCatalogBindingMapGuardrailsTests`. |
+| **GATE DE CAMPO SENSIBLE** | Campos salariales (compensación) detrás de gate de permiso a nivel campo. | `JobProfileCompensationGateGuardrailsTests`. |
+| **CONTRATO PÚBLICO** | Superficie pública estable; sin fugas accidentales. | `PublicContractGuardrailsIntegrationTests`. |
+
+### 17.4 Checklist de auditoría por controlador
+Aplicar incrementalmente a cada controlador (uno a la vez). Por cada uno, verificar:
+
+- [ ] **Autz**: ¿lleva `[AuthorizationPolicySet]`? ¿la política declarativa es **⊇** del gate `EnsureCan*` del handler para cada verbo? (revisión manual del superset).
+- [ ] **Tenant**: toda lectura/escritura filtra por `TenantId`; sin `IgnoreQueryFilters` injustificado.
+- [ ] **Rate limit**: endpoints costosos (export/search/graph/listados pesados) con `[EnableRateLimiting]`.
+- [ ] **Paginación**: listados con `[Range(1, MaxPageSize)]`; sin listados sin paginar.
+- [ ] **OpenAPI**: `[ApiVersion]` + ruta versionada + `[Tags]` + `[ProducesStandardErrors]` + `[SwaggerOperation]`.
+- [ ] **Errores**: `Result` + `ProblemDetails`; conflictos de negocio → 409; excepciones de dominio tipadas (no match por mensaje); sin stack traces.
+- [ ] **Concurrency**: entidades con update optimista → `.IsConcurrencyToken()`.
+- [ ] **PII / sensibles**: campos salariales/PII tras gate; logs de input acotados en longitud (anti-volumen).
+- [ ] **Wire contract**: params Guid nombrados `*Id` en C# (se renderizan `*PublicId`); proyección a DTO en queries.
+- [ ] **Rendimiento**: `AsNoTracking()` en lecturas, sin N+1, sin includes innecesarios, búsquedas free-text con longitud mínima de `q`.
+- [ ] **Guardrail**: para cada brecha cerrada, ¿existe/se amplió el guardrail drift-proof con su centinela zero-match?
+
+### 17.5 Reglas de extensión de los guardrails
+Al traer un controlador nuevo bajo un guardrail existente:
+- **Ampliar el regex de familia** del guardrail; **no** duplicar el test.
+- Incluir **siempre** un centinela zero-match (un filtro que matchea 0 controllers debe fallar ruidosamente, no pasar en verde).
+- Para `[Tags]`, reflexionar por **simple-name** (`Name == "TagsAttribute"`): es `Microsoft.AspNetCore.Http.TagsAttribute`, no un atributo propio.
+- Espejar el guardrail más cercano (el §X-AUTHZ de PositionSlots es la plantilla de referencia para ampliar familia + sentinel).
+- Probar el sanity **rojo→verde** del regex ampliado antes del PR.
+
+### 17.6 Invariantes ya zanjadas (NO re-litigar en auditoría)
+Estas decisiones están cerradas; no marcarlas como hallazgo ni proponer migrarlas:
+- **HTTP 409** es la convención app-wide para conflictos de **regla de negocio**. NO migrar a 422. Solo `CONCURRENCY_CONFLICT` = concurrencia.
+- **Catálogo de tipos system-scoped**: su caché global **no** es violación de tenant-scope §12.5.
+- **Naming**: parámetros C# se llaman `*Id` (Guid) y se renderizan `*PublicId` en el wire automáticamente; no renombrar a `*PublicId` en C#.
+- **Superset authz** (capa declarativa ⊇ gate del handler): es revisión **MANUAL** — ningún guardrail lo verifica.
+- **Features futuras no construidas NO son deuda**: reclasificar a roadmap; no marcar 🔴/🟠 ni como vulnerabilidad.
+- **Test de integración pre-existente que falla en HEAD limpio**: `JobProfiles_Compensation_WithTabulatorRangeOverlappingProfileRange` — ignorar, no perseguir.
+- **Position technical debt = 0**: los 22 ítems de docs `03/05/08/09` están cerrados y verificados en `master` (PRs #29/#31/#34/#35/#37). No re-flag.
+- **Findings rastreados**: 1 GitHub Issue + labels `status:available→claimed→in-pr→done` (§16.3). Branching = §16.
