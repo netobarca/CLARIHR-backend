@@ -190,7 +190,7 @@ public sealed class PersonnelFilesController(
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new UpdatePersonnelFilePersonalInfoCommand(
+            new UpdatePersonnelFileCommand(
                 publicId,
                 request.RecordType,
                 request.FirstName,

@@ -570,7 +570,7 @@ public sealed record CreatePersonnelFileCommand(
     Guid? AssignedPositionSlotId)
     : ICommand<PersonnelFileShellResponse>;
 
-public sealed record UpdatePersonnelFilePersonalInfoCommand(
+public sealed record UpdatePersonnelFileCommand(
     Guid PersonnelFileId,
     PersonnelFileRecordType RecordType,
     string FirstName,
@@ -1003,7 +1003,10 @@ internal sealed class SearchPersonnelFilesQueryValidator : AbstractValidator<Sea
     public SearchPersonnelFilesQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(PersonnelFileValidationRules.MaxSearchLength)
+            .Must(PersonnelFileValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {PersonnelFileValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.MaritalStatus).MaximumLength(80);
         RuleFor(query => query.Nationality).MaximumLength(120);
         RuleFor(query => query.Profession).MaximumLength(120);
@@ -1199,7 +1202,10 @@ internal sealed class ExportPersonnelFilesQueryValidator : AbstractValidator<Exp
     public ExportPersonnelFilesQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(PersonnelFileValidationRules.MaxSearchLength)
+            .Must(PersonnelFileValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {PersonnelFileValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.MaritalStatus).MaximumLength(80);
         RuleFor(query => query.Nationality).MaximumLength(120);
         RuleFor(query => query.Profession).MaximumLength(120);
@@ -1223,7 +1229,10 @@ internal sealed class DynamicQueryPersonnelFilesQueryValidator : AbstractValidat
     public DynamicQueryPersonnelFilesQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(PersonnelFileValidationRules.MaxSearchLength)
+            .Must(PersonnelFileValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {PersonnelFileValidationRules.MinSearchLength} characters when provided.");
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, PersonnelFileValidationRules.MaxPageSize);
 
@@ -1277,7 +1286,10 @@ internal sealed class GetPersonnelFilesAnalyticsSummaryQueryValidator : Abstract
     public GetPersonnelFilesAnalyticsSummaryQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
-        RuleFor(query => query.Search).MaximumLength(150);
+        RuleFor(query => query.Search)
+            .MaximumLength(PersonnelFileValidationRules.MaxSearchLength)
+            .Must(PersonnelFileValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {PersonnelFileValidationRules.MinSearchLength} characters when provided.");
     }
 }
 
@@ -1351,9 +1363,9 @@ internal sealed class CreatePersonnelFileCommandValidator : AbstractValidator<Cr
     }
 }
 
-internal sealed class UpdatePersonnelFilePersonalInfoCommandValidator : AbstractValidator<UpdatePersonnelFilePersonalInfoCommand>
+internal sealed class UpdatePersonnelFileCommandValidator : AbstractValidator<UpdatePersonnelFileCommand>
 {
-    public UpdatePersonnelFilePersonalInfoCommandValidator()
+    public UpdatePersonnelFileCommandValidator()
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.FirstName)
@@ -3660,17 +3672,17 @@ internal sealed class CreatePersonnelFileCommandHandler(
             personnelFile.ModifiedUtc);
 }
 
-internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
+internal sealed class UpdatePersonnelFileCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
     IAuditService auditService,
     IPersonnelFileProfilePhotoService profilePhotoService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdatePersonnelFilePersonalInfoCommand, PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>
+    : ICommandHandler<UpdatePersonnelFileCommand, PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>
 {
     public async Task<Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>> Handle(
-        UpdatePersonnelFilePersonalInfoCommand command,
+        UpdatePersonnelFileCommand command,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
@@ -3703,37 +3715,88 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
             return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(PersonnelFileErrors.RecordTypeTransitionNotAllowed);
         }
 
+        // PUT never changes the active state (that is PATCH's job), so pass the current value
+        // as the desired one (no toggle) and always log PersonnelFileUpdated.
+        var applyResult = await ReplacePersonnelFileSectionCommandHandlerBase.ApplyPersonalInfoAsync(
+            personnelFile,
+            command,
+            desiredIsActive: personnelFile.IsActive,
+            static file => (
+                AuditEventTypes.PersonnelFileUpdated,
+                AuditActions.Update,
+                $"Updated personnel file {file.FullName} personal info."),
+            repository,
+            profilePhotoService,
+            auditService,
+            unitOfWork,
+            cancellationToken);
 
+        return applyResult.IsSuccess
+            ? Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Success(
+                ReplacePersonnelFileSectionCommandHandlerBase.CreateSectionResult(personnelFile, applyResult.Value))
+            : Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(applyResult.Error);
+    }
+}
 
+internal abstract class ReplacePersonnelFileSectionCommandHandlerBase
+{
+    internal static PersonnelFileSectionResult<TSection> CreateSectionResult<TSection>(
+        PersonnelFile personnelFile,
+        TSection data) =>
+        new(data, personnelFile.ConcurrencyToken, personnelFile.ModifiedUtc);
+
+    /// <summary>
+    /// Shared personal-info mutation flow used by both the PUT
+    /// (<see cref="UpdatePersonnelFileCommandHandler"/>) and the PATCH
+    /// (<see cref="PatchPersonnelFileCommandHandler"/>) handlers, so the catalog-code
+    /// validation + profile-photo write plan + transactional <c>UpdatePersonalInfo</c> +
+    /// audit + persistence live in one place. The caller has already loaded the entity and
+    /// checked tenant / concurrency / record-type. <paramref name="desiredIsActive"/> drives
+    /// the optional lifecycle toggle (PUT passes the current value = no-op; PATCH passes the
+    /// patched value). <paramref name="auditFactory"/> is invoked <b>after</b> the mutation so
+    /// each caller emits its own audit descriptor against the post-mutation entity (PUT logs
+    /// <c>PersonnelFileUpdated</c>; PATCH logs the lifecycle-transition event).
+    /// </summary>
+    internal static async Task<Result<PersonnelFilePersonalInfoResponse>> ApplyPersonalInfoAsync(
+        PersonnelFile personnelFile,
+        UpdatePersonnelFileCommand values,
+        bool desiredIsActive,
+        Func<PersonnelFile, (string EventType, string Action, string Summary)> auditFactory,
+        IPersonnelFileRepository repository,
+        IPersonnelFileProfilePhotoService profilePhotoService,
+        IAuditService auditService,
+        IUnitOfWork unitOfWork,
+        CancellationToken cancellationToken)
+    {
         var personalInfoCatalogValidation = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
             repository,
             personnelFile.TenantId,
-            command.MaritalStatusCode,
-            command.ProfessionCode,
-            command.BirthCountryCode,
-            command.BirthDepartmentCode,
-            command.BirthMunicipalityCode,
+            values.MaritalStatusCode,
+            values.ProfessionCode,
+            values.BirthCountryCode,
+            values.BirthDepartmentCode,
+            values.BirthMunicipalityCode,
             cancellationToken);
         if (personalInfoCatalogValidation != Error.None)
         {
-            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(personalInfoCatalogValidation);
+            return Result<PersonnelFilePersonalInfoResponse>.Failure(personalInfoCatalogValidation);
         }
 
         var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
             personnelFile.TenantId,
             personnelFile.PublicId,
-            command.PhotoFilePublicId,
+            values.PhotoFilePublicId,
             personnelFile.PhotoFilePublicId,
             cancellationToken);
         if (photoWritePlanResult.IsFailure)
         {
-            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(photoWritePlanResult.Error);
+            return Result<PersonnelFilePersonalInfoResponse>.Failure(photoWritePlanResult.Error);
         }
 
         var photoWritePlan = photoWritePlanResult.Value;
 
         var before = await repository.GetPersonalInfoAsync(personnelFile.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Personnel file personal info could not be resolved before update.");
+            ?? throw new InvalidOperationException("Personnel file personal info could not be resolved before the update.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -3741,43 +3804,56 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
             try
             {
                 personnelFile.UpdatePersonalInfo(
-                    command.RecordType,
-                    command.FirstName,
-                    command.LastName,
-                    command.BirthDate,
-                    command.MaritalStatusCode,
-                    command.ProfessionCode,
-                    command.Nationality,
-                    command.PersonalEmail,
-                    command.InstitutionalEmail,
-                    command.PersonalPhone,
-                    command.InstitutionalPhone,
-                    command.BirthCountryCode,
-                    command.BirthDepartmentCode,
-                    command.BirthMunicipalityCode,
+                    values.RecordType,
+                    values.FirstName,
+                    values.LastName,
+                    values.BirthDate,
+                    values.MaritalStatusCode,
+                    values.ProfessionCode,
+                    values.Nationality,
+                    values.PersonalEmail,
+                    values.InstitutionalEmail,
+                    values.PersonalPhone,
+                    values.InstitutionalPhone,
+                    values.BirthCountryCode,
+                    values.BirthDepartmentCode,
+                    values.BirthMunicipalityCode,
                     photoWritePlan.PersistedPhotoFilePublicId,
-                    command.OrgUnitId,
-                    command.AssignedPositionSlotId);
+                    values.OrgUnitId,
+                    values.AssignedPositionSlotId);
             }
             catch (InvalidOperationException)
             {
                 await profilePhotoService.CleanupAfterPersistenceFailureAsync(photoWritePlan, cancellationToken);
-                return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Failure(PersonnelFileErrors.ProvisioningFieldsLocked);
+                return Result<PersonnelFilePersonalInfoResponse>.Failure(PersonnelFileErrors.ProvisioningFieldsLocked);
+            }
+
+            if (desiredIsActive != personnelFile.IsActive)
+            {
+                if (desiredIsActive)
+                {
+                    personnelFile.Activate();
+                }
+                else
+                {
+                    personnelFile.Inactivate();
+                }
             }
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetPersonalInfoAsync(personnelFile.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Personnel file personal info could not be resolved after update.");
+                ?? throw new InvalidOperationException("Personnel file personal info could not be resolved after the update.");
 
+            var (eventType, action, summary) = auditFactory(personnelFile);
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    AuditEventTypes.PersonnelFileUpdated,
+                    eventType,
                     AuditEntityTypes.PersonnelFile,
                     personnelFile.PublicId,
                     personnelFile.FullName,
-                    AuditActions.Update,
-                    $"Updated personnel file {personnelFile.FullName} personal info.",
+                    action,
+                    summary,
                     Before: new
                     {
                         personnelFileId = personnelFile.PublicId,
@@ -3798,8 +3874,7 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
             await transaction.CommitAsync(cancellationToken);
             await profilePhotoService.CleanupAfterPersistenceSuccessAsync(photoWritePlan, cancellationToken);
 
-            return Result<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>.Success(
-                ReplacePersonnelFileSectionCommandHandlerBase.CreateSectionResult(personnelFile, after));
+            return Result<PersonnelFilePersonalInfoResponse>.Success(after);
         }
         catch
         {
@@ -3808,14 +3883,6 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandHandler(
             throw;
         }
     }
-}
-
-internal abstract class ReplacePersonnelFileSectionCommandHandlerBase
-{
-    internal static PersonnelFileSectionResult<TSection> CreateSectionResult<TSection>(
-        PersonnelFile personnelFile,
-        TSection data) =>
-        new(data, personnelFile.ConcurrencyToken, personnelFile.ModifiedUtc);
 
     protected static async Task<(Result<PersonnelFileSectionResult<TSection>>? Failure, PersonnelFile? File)> LoadForUpdateAsync<TSection>(
         Guid personnelFileId,
@@ -8186,7 +8253,7 @@ internal sealed class PatchPersonnelFileCommandHandler(
         // Reuse the canonical personal-info validation rules (name/phone/code formats,
         // record-type position-slot rules) on the patched result so PATCH and PUT validate
         // identically, instead of maintaining a parallel rule set.
-        var candidate = new UpdatePersonnelFilePersonalInfoCommand(
+        var candidate = new UpdatePersonnelFileCommand(
             command.PersonnelFileId,
             state.RecordType,
             state.FirstName,
@@ -8207,128 +8274,32 @@ internal sealed class PatchPersonnelFileCommandHandler(
             state.AssignedPositionSlotPublicId,
             command.ConcurrencyToken);
 
-        var validation = new UpdatePersonnelFilePersonalInfoCommandValidator().Validate(candidate);
+        var validation = new UpdatePersonnelFileCommandValidator().Validate(candidate);
         if (!validation.IsValid)
         {
             return Result<PersonnelFilePersonalInfoResponse>.Failure(
                 ErrorCatalog.Validation(ToValidationDictionary(validation.Errors)));
         }
 
-        var personalInfoCatalogValidation = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
+        // The unified PATCH absorbs the retired /activate and /inactivate endpoints: toggling
+        // `isActive` drives the lifecycle transition, which selects the audit event below.
+        // Capture the pre-mutation state so the post-mutation auditFactory can classify it.
+        var wasActive = personnelFile.IsActive;
+        return await ReplacePersonnelFileSectionCommandHandlerBase.ApplyPersonalInfoAsync(
+            personnelFile,
+            candidate,
+            desiredIsActive: state.IsActive,
+            file => (wasActive, file.IsActive) switch
+            {
+                (false, true) => (AuditEventTypes.PersonnelFileActivated, AuditActions.Reactivate, $"Activated personnel file {file.FullName}."),
+                (true, false) => (AuditEventTypes.PersonnelFileInactivated, AuditActions.Deactivate, $"Inactivated personnel file {file.FullName}."),
+                _ => (AuditEventTypes.PersonnelFileUpdated, AuditActions.Update, $"Patched personnel file {file.FullName}."),
+            },
             repository,
-            personnelFile.TenantId,
-            state.MaritalStatusCode,
-            state.ProfessionCode,
-            state.BirthCountryCode,
-            state.BirthDepartmentCode,
-            state.BirthMunicipalityCode,
+            profilePhotoService,
+            auditService,
+            unitOfWork,
             cancellationToken);
-        if (personalInfoCatalogValidation != Error.None)
-        {
-            return Result<PersonnelFilePersonalInfoResponse>.Failure(personalInfoCatalogValidation);
-        }
-
-        var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
-            personnelFile.TenantId,
-            personnelFile.PublicId,
-            state.PhotoFilePublicId,
-            personnelFile.PhotoFilePublicId,
-            cancellationToken);
-        if (photoWritePlanResult.IsFailure)
-        {
-            return Result<PersonnelFilePersonalInfoResponse>.Failure(photoWritePlanResult.Error);
-        }
-
-        var photoWritePlan = photoWritePlanResult.Value;
-
-        var before = await repository.GetPersonalInfoAsync(personnelFile.PublicId, cancellationToken)
-            ?? throw new InvalidOperationException("Personnel file personal info could not be resolved before patch.");
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            try
-            {
-                personnelFile.UpdatePersonalInfo(
-                    state.RecordType,
-                    state.FirstName,
-                    state.LastName,
-                    state.BirthDate,
-                    state.MaritalStatusCode,
-                    state.ProfessionCode,
-                    state.Nationality,
-                    state.PersonalEmail,
-                    state.InstitutionalEmail,
-                    state.PersonalPhone,
-                    state.InstitutionalPhone,
-                    state.BirthCountryCode,
-                    state.BirthDepartmentCode,
-                    state.BirthMunicipalityCode,
-                    photoWritePlan.PersistedPhotoFilePublicId,
-                    state.OrgUnitPublicId,
-                    state.AssignedPositionSlotPublicId);
-            }
-            catch (InvalidOperationException)
-            {
-                await profilePhotoService.CleanupAfterPersistenceFailureAsync(photoWritePlan, cancellationToken);
-                return Result<PersonnelFilePersonalInfoResponse>.Failure(PersonnelFileErrors.ProvisioningFieldsLocked);
-            }
-
-            // The unified PATCH absorbs the retired /activate and /inactivate endpoints:
-            // toggling the `isActive` member drives the lifecycle transition.
-            if (state.IsActive != personnelFile.IsActive)
-            {
-                if (state.IsActive)
-                {
-                    personnelFile.Activate();
-                }
-                else
-                {
-                    personnelFile.Inactivate();
-                }
-            }
-
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var after = await repository.GetPersonalInfoAsync(personnelFile.PublicId, cancellationToken)
-                ?? throw new InvalidOperationException("Personnel file personal info could not be resolved after patch.");
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PersonnelFileUpdated,
-                    AuditEntityTypes.PersonnelFile,
-                    personnelFile.PublicId,
-                    personnelFile.FullName,
-                    AuditActions.Update,
-                    $"Patched personnel file {personnelFile.FullName}.",
-                    Before: new
-                    {
-                        personnelFileId = personnelFile.PublicId,
-                        section = PersonnelFilePrintSections.PersonalInfo,
-                        data = before
-                    },
-                    After: new
-                    {
-                        personnelFileId = personnelFile.PublicId,
-                        section = PersonnelFilePrintSections.PersonalInfo,
-                        data = after,
-                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
-                        modifiedAtUtc = personnelFile.ModifiedUtc
-                    }),
-                cancellationToken);
-
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            await profilePhotoService.CleanupAfterPersistenceSuccessAsync(photoWritePlan, cancellationToken);
-
-            return Result<PersonnelFilePersonalInfoResponse>.Success(after);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            await profilePhotoService.CleanupAfterPersistenceFailureAsync(photoWritePlan, cancellationToken);
-            throw;
-        }
     }
 
     // Mirror the FluentValidation→ProblemDetails mapping used by the dispatcher
