@@ -13,6 +13,7 @@ using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.PositionDescriptionCatalogs;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionDescriptionCatalogs;
@@ -223,7 +224,6 @@ internal sealed class AddJobProfileWorkingConditionCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
-    IJobCatalogRepository catalogRepository,
     IPositionCatalogLookup positionDescriptionCatalogRepository)
     : ICommandHandler<AddJobProfileWorkingConditionCommand, JobProfileWorkingConditionResponse>
 {
@@ -260,7 +260,7 @@ internal sealed class AddJobProfileWorkingConditionCommandHandler(
             return Result<JobProfileWorkingConditionResponse>.Failure(workConditionTypeInternalIdResult.Error);
         }
 
-        var catalogItemResult = await ResolveCatalogItemAsync(command.CatalogItemPublicId, catalogRepository, cancellationToken);
+        var catalogItemResult = await ResolveWorkConditionCatalogReferenceAsync(tenantContext.TenantId.Value, command.CatalogItemPublicId, positionDescriptionCatalogRepository, cancellationToken);
         if (catalogItemResult.IsFailure)
         {
             return Result<JobProfileWorkingConditionResponse>.Failure(catalogItemResult.Error);
@@ -280,8 +280,7 @@ internal sealed class AddJobProfileWorkingConditionCommandHandler(
         {
             var workingCondition = JobProfileWorkingCondition.Create(
                 workConditionTypeInternalIdResult.Value,
-                catalogItemResult.Value?.Id,
-                catalogItemResult.Value,
+                catalogItemResult.Value?.InternalId,
                 name,
                 command.Notes,
                 command.SortOrder);
@@ -327,7 +326,6 @@ internal sealed class UpdateJobProfileWorkingConditionCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
-    IJobCatalogRepository catalogRepository,
     IPositionCatalogLookup positionDescriptionCatalogRepository)
     : ICommandHandler<UpdateJobProfileWorkingConditionCommand, JobProfileWorkingConditionResponse>
 {
@@ -375,7 +373,7 @@ internal sealed class UpdateJobProfileWorkingConditionCommandHandler(
             return Result<JobProfileWorkingConditionResponse>.Failure(workConditionTypeInternalIdResult.Error);
         }
 
-        var catalogItemResult = await ResolveCatalogItemAsync(command.CatalogItemPublicId, catalogRepository, cancellationToken);
+        var catalogItemResult = await ResolveWorkConditionCatalogReferenceAsync(tenantContext.TenantId.Value, command.CatalogItemPublicId, positionDescriptionCatalogRepository, cancellationToken);
         if (catalogItemResult.IsFailure)
         {
             return Result<JobProfileWorkingConditionResponse>.Failure(catalogItemResult.Error);
@@ -398,8 +396,7 @@ internal sealed class UpdateJobProfileWorkingConditionCommandHandler(
         {
             workingCondition.Update(
                 workConditionTypeInternalIdResult.Value,
-                catalogItemResult.Value?.Id,
-                catalogItemResult.Value,
+                catalogItemResult.Value?.InternalId,
                 name,
                 command.Notes,
                 command.SortOrder);
@@ -446,7 +443,6 @@ internal sealed class PatchJobProfileWorkingConditionCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork,
-    IJobCatalogRepository catalogRepository,
     IPositionCatalogLookup positionDescriptionCatalogRepository)
     : ICommandHandler<PatchJobProfileWorkingConditionCommand, JobProfileWorkingConditionResponse>
 {
@@ -514,7 +510,7 @@ internal sealed class PatchJobProfileWorkingConditionCommandHandler(
             return Result<JobProfileWorkingConditionResponse>.Failure(workConditionTypeInternalIdResult.Error);
         }
 
-        var catalogItemResult = await ResolveCatalogItemAsync(patchState.CatalogItemPublicId, catalogRepository, cancellationToken);
+        var catalogItemResult = await ResolveWorkConditionCatalogReferenceAsync(tenantContext.TenantId.Value, patchState.CatalogItemPublicId, positionDescriptionCatalogRepository, cancellationToken);
         if (catalogItemResult.IsFailure)
         {
             return Result<JobProfileWorkingConditionResponse>.Failure(catalogItemResult.Error);
@@ -534,8 +530,7 @@ internal sealed class PatchJobProfileWorkingConditionCommandHandler(
         {
             workingCondition.Update(
                 workConditionTypeInternalIdResult.Value,
-                catalogItemResult.Value?.Id,
-                catalogItemResult.Value,
+                catalogItemResult.Value?.InternalId,
                 name,
                 patchState.Notes,
                 patchState.SortOrder);
@@ -671,20 +666,31 @@ internal static class JobProfileWorkingConditionCommandSupport
             RbacPermissionAction.Update,
             cancellationToken);
 
-    public static async Task<Result<JobCatalogItem?>> ResolveCatalogItemAsync(
+    public static async Task<Result<CatalogReferenceInternal?>> ResolveWorkConditionCatalogReferenceAsync(
+        Guid tenantId,
         Guid? catalogItemPublicId,
-        IJobCatalogRepository catalogRepository,
+        IPositionCatalogLookup positionDescriptionCatalogRepository,
         CancellationToken cancellationToken)
     {
         if (!catalogItemPublicId.HasValue)
         {
-            return Result<JobCatalogItem?>.Success(null);
+            return Result<CatalogReferenceInternal?>.Success(null);
         }
 
-        var catalogItem = await catalogRepository.GetByIdAsync(catalogItemPublicId.Value, cancellationToken);
-        return catalogItem is null
-            ? Result<JobCatalogItem?>.Failure(JobProfileErrors.CatalogItemNotFound)
-            : Result<JobCatalogItem?>.Success(catalogItem);
+        var reference = await positionDescriptionCatalogRepository.GetActiveCatalogReferenceAsync(
+            tenantId,
+            PositionDescriptionCatalogType.WorkCondition,
+            catalogItemPublicId.Value,
+            cancellationToken);
+        if (reference is not null)
+        {
+            return Result<CatalogReferenceInternal?>.Success(reference);
+        }
+
+        return Result<CatalogReferenceInternal?>.Failure(
+            await positionDescriptionCatalogRepository.ExistsCatalogItemOutsideTenantAsync(catalogItemPublicId.Value, cancellationToken)
+                ? PositionDescriptionCatalogErrors.TenantMismatch(RbacPermissionAction.Update)
+                : PositionDescriptionCatalogErrors.WorkConditionNotFound);
     }
 }
 

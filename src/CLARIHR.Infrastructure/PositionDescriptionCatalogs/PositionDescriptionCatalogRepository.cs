@@ -470,6 +470,9 @@ internal sealed class PositionDescriptionCatalogRepository(
     public Task<bool> HasWorkConditionsUsingWorkConditionTypeAsync(long workConditionTypeCatalogItemId, CancellationToken cancellationToken) =>
         dbContext.JobProfileWorkingConditions.AnyAsync(item => item.WorkConditionTypeCatalogItemId == workConditionTypeCatalogItemId, cancellationToken);
 
+    public Task<bool> HasWorkConditionsUsingWorkConditionAsync(long workConditionCatalogItemId, CancellationToken cancellationToken) =>
+        dbContext.JobProfileWorkingConditions.AnyAsync(item => item.CatalogItemId == workConditionCatalogItemId, cancellationToken);
+
     public Task<long?> ResolvePositionCategoryIdAsync(Guid tenantId, Guid positionCategoryId, CancellationToken cancellationToken) =>
         dbContext.PositionCategories
             .AsNoTracking()

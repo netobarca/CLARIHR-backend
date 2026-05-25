@@ -600,7 +600,7 @@ internal sealed class JobProfileWorkingConditionConfiguration : IEntityTypeConfi
         builder.HasIndex(item => new { item.TenantId, item.JobProfileId, item.SortOrder })
             .HasDatabaseName("ix_job_profile_working_conditions__tenant_profile_sort");
 
-        builder.HasOne(item => item.CatalogItem)
+        builder.HasOne<PositionDescriptionCatalogItem>()
             .WithMany()
             .HasForeignKey(item => item.CatalogItemId)
             .OnDelete(DeleteBehavior.Restrict)
