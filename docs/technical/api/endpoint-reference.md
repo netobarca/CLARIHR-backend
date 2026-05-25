@@ -98,9 +98,9 @@ Los exportes sincronos existentes conservan su request shape, pero ahora aplican
 
 Para exportes grandes, los clientes deben usar jobs asincronos persistidos. El limite asincrono por job es `100,000` filas, los artefactos se almacenan en Azure Blob Storage y expiran despues de `24` horas. Si Blob Storage no esta configurado, crear un job responde `503 REPORT_EXPORT_STORAGE_NOT_CONFIGURED`.
 
-Recursos soportados por jobs asincronos: `PERSONNEL_FILES`, `PERSONNEL_FILE_PERSONNEL_ACTIONS`, `PERSONNEL_FILE_PAYROLL_TRANSACTIONS`, `ORG_UNITS`, `POSITION_SLOTS`, `SALARY_TABULATOR`, `COST_CENTERS`, `LEGAL_REPRESENTATIVES` y `JOB_PROFILE_COMPETENCY_MATRIX`.
+Recursos soportados por jobs asincronos: `PERSONNEL_FILES`, `PERSONNEL_FILE_PERSONNEL_ACTIONS`, `PERSONNEL_FILE_PAYROLL_TRANSACTIONS`, `ORG_UNITS`, `POSITION_SLOTS`, `SALARY_TABULATOR`, `COST_CENTERS`, `LEGAL_REPRESENTATIVES`, `JOB_PROFILE_COMPETENCY_MATRIX` y `JOB_PROFILE_PDF`. El `resourceKey` es case-insensitive en el request y se normaliza a mayusculas. Los primeros nueve son recursos tabulares y aceptan `csv`, `xlsx` o `json`; `JOB_PROFILE_PDF` es un recurso documental y acepta unicamente `pdf` (renderiza el perfil de cargo como documento PDF via worker). Un par recurso/formato incompatible se rechaza al crear el job.
 
-Exenciones observables: el export de un unico `JOB_PROFILE` sigue siendo sincrono por ser single-resource; los diagram exports de `ORG_UNITS` y `POSITION_SLOTS` siguen siendo sincronos, pero rechazan grafos con mas de `5,000` nodos con `413 REPORT_EXPORT_LIMIT_EXCEEDED`.
+Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (JSON/print) se conserva por ser single-resource y es distinto de `JOB_PROFILE_PDF`, que es el job asincrono que renderiza el documento PDF; los diagram exports de `ORG_UNITS` y `POSITION_SLOTS` siguen siendo sincronos, pero rechazan grafos con mas de `5,000` nodos con `413 REPORT_EXPORT_LIMIT_EXCEEDED`.
 
 ## 3. Inventario de modulos
 
@@ -432,6 +432,7 @@ Comportamiento observable:
 Endpoints:
 
 - `POST /api/v1/companies/{companyPublicId}/report-export-jobs`
+- `POST /api/v1/companies/{companyPublicId}/job-profiles/{jobProfilePublicId}/exports/pdf` (atajo de `JOB_PROFILE_PDF`)
 - `GET /api/v1/companies/{companyPublicId}/report-export-jobs?pageNumber&pageSize&status`
 - `GET /api/v1/report-export-jobs/{jobPublicId}`
 - `GET /api/v1/report-export-jobs/{jobPublicId}/download`
@@ -449,6 +450,20 @@ Request de creacion:
   }
 }
 ```
+
+Recurso `JOB_PROFILE_PDF` (documental): el unico parametro de cliente es `jobProfileId` (el public id del perfil de cargo; se acepta el alias `jobProfilePublicId`), el `format` debe ser `pdf`, y `includeCompensation` es server-controlled — el backend lo estampa segun el RBAC del solicitante (solo embebe datos salariales/PII en el documento si el usuario puede gestionar perfiles, el mismo nivel que las escrituras de compensacion) e ignora cualquier valor enviado por el cliente, incluso con casing distinto.
+
+```json
+{
+  "resourceKey": "JOB_PROFILE_PDF",
+  "format": "pdf",
+  "parameters": {
+    "jobProfileId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+  }
+}
+```
+
+Como atajo, `POST /api/v1/companies/{companyPublicId}/job-profiles/{jobProfilePublicId}/exports/pdf` crea el mismo job sin body: el backend fija `resourceKey=JOB_PROFILE_PDF`, `format=pdf` y `parameters.jobProfileId` desde la ruta. Aplica el mismo comando, RBAC (incluida la compuerta de compensacion) y contrato `202` que el endpoint generico.
 
 Comportamiento observable:
 
