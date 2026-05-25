@@ -92,7 +92,39 @@ La plantilla ya apunta a los servicios de `docker compose`, así que **con esos 
 
 ---
 
-## 5. Relación con §N1 (incidente de seguridad)
+## 5. Troubleshooting de arranque
+
+Errores típicos al hacer `dotnet run` en una máquina recién clonada o tras limpiar la config local.
+
+### 5.1 `No database provider has been configured for this DbContext`
+Excepción no controlada al iniciar (en `StartupInitializationExtensions.InitializeInfrastructureAsync` → `MigrateAsync`).
+
+- **Causa**: `Database:ConnectionString` llegó **vacío**. `PostgreSqlOptionsConfigurator.Configure` hace `return` silencioso si la cadena está vacía/null → el `DbContext` queda **sin proveedor** y al migrar en el arranque lanza esto. El `appsettings.json` base trae la cadena vacía a propósito (§N1); el valor real debe venir de tu config local.
+- **Causa habitual**: no creaste `appsettings.Development.json` desde la plantilla (§2 paso 3), o lo creaste pero `Database:ConnectionString` quedó vacío y tampoco está en User Secrets.
+- **Fix** (cualquiera de los dos):
+  ```bash
+  # Opción A — crear la config local desde la plantilla (recomendado, restaura TODO)
+  cp src/CLARIHR.Api/appsettings.Development.json.example src/CLARIHR.Api/appsettings.Development.json
+
+  # Opción B — solo la cadena, vía User Secrets
+  dotnet user-secrets --project src/CLARIHR.Api \
+    set "Database:ConnectionString" "Host=localhost;Port=5433;Database=clarihr_dev;Username=clarihr;Password=clarihr"
+  ```
+- Verifica además que Postgres esté arriba: `docker compose up -d` y `docker ps` (contenedor `clarihr-postgres` en `5433`).
+
+> **Ojo con configs parciales**: si tienes algunas claves en User Secrets y otras no, es fácil dejar huecos (p. ej. la cadena de DB o `Storage:AzureBlob:*` sin setear). La **Opción A** evita esto porque la plantilla trae el set completo y funcional; User Secrets/variables de entorno solo deberían usarse para *sobrescribir* secretos reales (§3), no para armar la config base pieza por pieza.
+
+### 5.2 Warning `JWT authentication is not fully configured`
+- **Causa**: faltan una o más de `Authentication:Jwt:Issuer` / `Audience` / `PlatformAudience` / `SigningKey`. La app **arranca igual** (es Warning, no error), pero la autenticación queda a medias — endpoints que validan tokens de plataforma (`PlatformAudience`) fallarán.
+- **Fix**: usar la Opción A de §5.1 (la plantilla los trae todos), o setear los faltantes en User Secrets. `PlatformAudience` local = `clarihr-platform-local`.
+
+### 5.3 Errores 5xx en subida/descarga de archivos o export de reportes
+- **Causa**: `Storage:AzureBlob:AccountName` / `AccountKey` / `BlobEndpoint` vacíos → el proveedor de Blob no se configura contra Azurite. El `appsettings.json` base los trae vacíos con `UseManagedIdentity=true` (modo prod); en local necesitas los valores de Azurite con `UseManagedIdentity=false`.
+- **Fix**: Opción A de §5.1 (la plantilla ya apunta a Azurite) y `docker compose up -d` para tener el contenedor `azurite` en `10000`.
+
+---
+
+## 6. Relación con §N1 (incidente de seguridad)
 
 Este documento + el `.gitignore` + las plantillas resuelven la parte **estructural** de §N1 (dejar de versionar secretos + gate de CI `secret-scan`). **Queda pendiente, como acción operativa tuya**:
 
