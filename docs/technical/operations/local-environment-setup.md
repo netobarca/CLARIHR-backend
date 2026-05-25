@@ -47,6 +47,8 @@ La plantilla ya apunta a los servicios de `docker compose`, así que **con esos 
 | `gotenberg` | `localhost:3000` | `gotenberg/gotenberg:8` | Gotenberg desplegado |
 
 > **Postgres en el puerto host `5433` (no `5432`)**: a propósito, para no chocar con un PostgreSQL local que muchos devs ya corren en `5432` (p. ej. Postgres.app). El contenedor internamente sigue en 5432; solo cambia el puerto publicado al host (por eso la connection string usa `Port=5433`). Si el volumen quedó inicializado por una corrida vieja sin el rol `clarihr`, resetéalo: `docker compose down -v && docker compose up -d`.
+>
+> **Un solo Postgres**: los integration tests usan **este mismo** Postgres de compose (crean DBs efímeras `clarihr_integration_tests_*` y las eliminan al terminar). No necesitas un PostgreSQL nativo en el host — **solo Docker**. (Para CI, sobreescribe con `CLARIHR_INTEGRATION_TEST_CONNECTION_STRING`.)
 
 ---
 
