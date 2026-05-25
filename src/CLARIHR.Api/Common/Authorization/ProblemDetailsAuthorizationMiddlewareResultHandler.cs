@@ -2,6 +2,7 @@ using CLARIHR.Api.Common;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using Microsoft.AspNetCore.Authorization;
@@ -78,6 +79,8 @@ public sealed class ProblemDetailsAuthorizationMiddlewareResultHandler : IAuthor
                 PositionDescriptionCatalogErrors.Forbidden,
             PositionSlotPolicies.Read or PositionSlotPolicies.Manage =>
                 PositionSlotErrors.Forbidden,
+            PersonnelFilePolicies.Read or PersonnelFilePolicies.Manage =>
+                PersonnelFileErrors.Forbidden,
             _ => ErrorCatalog.Forbidden
         };
     }

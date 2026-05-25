@@ -34,7 +34,7 @@ public sealed class CreatePersonnelFileRequest
         AdditionalProperties?.Keys.Any(static key => key.Equals("items", StringComparison.OrdinalIgnoreCase)) == true;
 }
 
-public sealed record UpdatePersonnelFilePersonalInfoRequest(
+public sealed record UpdatePersonnelFileRequest(
     PersonnelFileRecordType RecordType,
     string FirstName,
     string LastName,
@@ -51,8 +51,34 @@ public sealed record UpdatePersonnelFilePersonalInfoRequest(
     string? BirthMunicipalityCode,
     Guid? PhotoFilePublicId,
     Guid? OrgUnitPublicId,
-    Guid? AssignedPositionSlotPublicId,
-    Guid ConcurrencyToken);
+    Guid? AssignedPositionSlotPublicId);
+
+/// <summary>
+/// JSON Patch (RFC 6902) target for <c>PATCH /personnel-files/{publicId}</c>. The patchable
+/// members are the core personal-info fields plus <c>isActive</c>; the concurrency token is
+/// supplied via the <c>If-Match</c> header, not the document body.
+/// </summary>
+public sealed class PatchPersonnelFileRequest
+{
+    public PersonnelFileRecordType RecordType { get; set; }
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public DateTime BirthDate { get; set; }
+    public string? MaritalStatusCode { get; set; }
+    public string? ProfessionCode { get; set; }
+    public string? Nationality { get; set; }
+    public string? PersonalEmail { get; set; }
+    public string? InstitutionalEmail { get; set; }
+    public string? PersonalPhone { get; set; }
+    public string? InstitutionalPhone { get; set; }
+    public string? BirthCountryCode { get; set; }
+    public string? BirthDepartmentCode { get; set; }
+    public string? BirthMunicipalityCode { get; set; }
+    public Guid? PhotoFilePublicId { get; set; }
+    public Guid? OrgUnitPublicId { get; set; }
+    public Guid? AssignedPositionSlotPublicId { get; set; }
+    public bool IsActive { get; set; }
+}
 
 public sealed record FinalizePersonnelFileRequest(Guid ConcurrencyToken, bool? CreateUserAccount);
 
