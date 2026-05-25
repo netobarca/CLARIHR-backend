@@ -7565,19 +7565,32 @@ components:
       properties:
         resourceKey:
           type: string
+          enum:
+            - PERSONNEL_FILES
+            - PERSONNEL_FILE_PERSONNEL_ACTIONS
+            - PERSONNEL_FILE_PAYROLL_TRANSACTIONS
+            - ORG_UNITS
+            - POSITION_SLOTS
+            - SALARY_TABULATOR
+            - COST_CENTERS
+            - LEGAL_REPRESENTATIVES
+            - JOB_PROFILE_COMPETENCY_MATRIX
+            - JOB_PROFILE_PDF
           example: PERSONNEL_FILES
-          description: Supported export resource key.
+          description: Supported export resource key (case-insensitive on input, normalized to upper-case). The valid format depends on the resource - every resource accepts the tabular formats (csv, xlsx, json) except JOB_PROFILE_PDF, a document resource that accepts only pdf.
         format:
           type: string
           enum:
             - csv
             - xlsx
             - json
+            - pdf
           example: xlsx
+          description: Output format. csv/xlsx/json are the tabular formats; pdf is valid only for document resources (JOB_PROFILE_PDF). An incompatible resource/format pair is rejected at creation.
         parameters:
           type: object
           additionalProperties: true
-          description: Filter/sort parameters for the selected resource. Raw parameters are not returned by status endpoints.
+          description: Filter/sort parameters for the selected resource. Raw parameters are not returned by status endpoints. For JOB_PROFILE_PDF the only client parameter is jobProfileId (the job profile public id; alias jobProfilePublicId accepted) and includeCompensation is server-controlled (any client-supplied value is ignored).
           example:
             isActive: true
             sortBy: createdUtc
