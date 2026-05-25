@@ -432,7 +432,6 @@ Comportamiento observable:
 Endpoints:
 
 - `POST /api/v1/companies/{companyPublicId}/report-export-jobs`
-- `POST /api/v1/companies/{companyPublicId}/job-profiles/{jobProfilePublicId}/exports/pdf` (atajo de `JOB_PROFILE_PDF`)
 - `GET /api/v1/companies/{companyPublicId}/report-export-jobs?pageNumber&pageSize&status`
 - `GET /api/v1/report-export-jobs/{jobPublicId}`
 - `GET /api/v1/report-export-jobs/{jobPublicId}/download`
@@ -462,8 +461,6 @@ Recurso `JOB_PROFILE_PDF` (documental): el unico parametro de cliente es `jobPro
   }
 }
 ```
-
-Como atajo, `POST /api/v1/companies/{companyPublicId}/job-profiles/{jobProfilePublicId}/exports/pdf` crea el mismo job sin body: el backend fija `resourceKey=JOB_PROFILE_PDF`, `format=pdf` y `parameters.jobProfileId` desde la ruta. Aplica el mismo comando, RBAC (incluida la compuerta de compensacion) y contrato `202` que el endpoint generico.
 
 Comportamiento observable:
 

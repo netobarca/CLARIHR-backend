@@ -49,36 +49,6 @@ public sealed class ReportExportJobsController(
             : Accepted($"/api/v1/report-export-jobs/{result.Value.Id:D}", result.Value);
     }
 
-    // §7.2: thin shortcut over the generic create command. The server fills
-    // resourceKey/format/parameters so clients don't hand-craft them; same command,
-    // RBAC (incl. the compensation gate) and 202 contract as the generic endpoint.
-    [HttpPost("api/v1/companies/{companyId:guid}/job-profiles/{jobProfileId:guid}/exports/pdf")]
-    [ProducesResponseType<ReportExportJobResponse>(StatusCodes.Status202Accepted)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable)]
-    public async Task<IActionResult> CreateJobProfilePdfExport(
-        Guid companyId,
-        Guid jobProfileId,
-        CancellationToken cancellationToken = default)
-    {
-        var parameters = JsonSerializer.Serialize(new { jobProfileId });
-
-        var result = await commandDispatcher.SendAsync(
-            new CreateReportExportJobCommand(
-                companyId,
-                ReportExportResources.JobProfilePdf,
-                ReportExportFormats.Pdf,
-                parameters),
-            cancellationToken);
-
-        return result.IsFailure
-            ? this.ToActionResult(Result<ReportExportJobResponse>.Failure(result.Error)).Result!
-            : Accepted($"/api/v1/report-export-jobs/{result.Value.Id:D}", result.Value);
-    }
-
     [HttpGet("api/v1/companies/{companyId:guid}/report-export-jobs")]
     [ProducesResponseType<PagedResponse<ReportExportJobResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
