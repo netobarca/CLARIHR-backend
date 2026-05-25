@@ -1967,37 +1967,49 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task PersonnelFiles_LifecycleEndpoints_ShouldReturnShellPayload()
+    public async Task PersonnelFiles_PatchIsActive_ShouldTogglePersonnelFileState()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
         var created = await CreateBarePersonnelFileAsync(client, scenario.TenantId, "Lucia", "Reyes");
 
-        var inactivateResponse = await client.PatchAsJsonAsync($"/api/v1/personnel-files/{created.Id}/inactivate", new
+        using var inactivateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/personnel-files/{created.Id}")
         {
-            concurrencyToken = created.ConcurrencyToken
-        });
+            Content = new StringContent(
+                "[{\"op\":\"replace\",\"path\":\"/isActive\",\"value\":false}]",
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        inactivateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{created.ConcurrencyToken}\"");
+        var inactivateResponse = await client.SendAsync(inactivateRequest);
         inactivateResponse.EnsureSuccessStatusCode();
 
         using var inactivateDocument = JsonDocument.Parse(await inactivateResponse.Content.ReadAsStringAsync());
         var inactivated = inactivateDocument.RootElement;
+        Assert.False(inactivated.GetProperty("isActive").GetBoolean());
         Assert.True(inactivated.TryGetProperty("lifecycleStatus", out _));
         Assert.True(inactivated.TryGetProperty("concurrencyToken", out var inactivatedToken));
-        Assert.False(inactivated.TryGetProperty("firstName", out _));
+        // The unified PATCH returns the personal-info projection (carries the edited fields),
+        // not the lightweight shell, so the caller can re-render without an extra fetch.
+        Assert.True(inactivated.TryGetProperty("firstName", out _));
         Assert.False(inactivated.TryGetProperty("documents", out _));
-        Assert.False(inactivated.GetProperty("isActive").GetBoolean());
 
-        var activateResponse = await client.PatchAsJsonAsync($"/api/v1/personnel-files/{created.Id}/activate", new
+        using var activateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/personnel-files/{created.Id}")
         {
-            concurrencyToken = inactivatedToken.GetGuid()
-        });
+            Content = new StringContent(
+                "[{\"op\":\"replace\",\"path\":\"/isActive\",\"value\":true}]",
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        activateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{inactivatedToken.GetGuid()}\"");
+        var activateResponse = await client.SendAsync(activateRequest);
         activateResponse.EnsureSuccessStatusCode();
 
         using var activateDocument = JsonDocument.Parse(await activateResponse.Content.ReadAsStringAsync());
         var activated = activateDocument.RootElement;
         Assert.True(activated.GetProperty("isActive").GetBoolean());
-        Assert.False(activated.TryGetProperty("firstName", out _));
+        Assert.True(activated.TryGetProperty("firstName", out _));
         Assert.False(activated.TryGetProperty("documents", out _));
     }
 
@@ -2095,10 +2107,15 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         for (var index = 0; index < 31; index++)
         {
-            lastResponse = await client.PatchAsJsonAsync($"/api/v1/personnel-files/{created.Id}/inactivate", new
+            using var request = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/personnel-files/{created.Id}")
             {
-                concurrencyToken = Guid.NewGuid()
-            });
+                Content = new StringContent(
+                    "[{\"op\":\"replace\",\"path\":\"/isActive\",\"value\":false}]",
+                    Encoding.UTF8,
+                    "application/json-patch+json")
+            };
+            request.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+            lastResponse = await client.SendAsync(request);
 
             if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
             {

@@ -9,6 +9,7 @@ using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Domain.Auth;
@@ -272,6 +273,24 @@ builder.Services.AddAuthorization(options =>
             context,
             PositionSlotPermissionCodes.Admin,
             PositionSlotPermissionCodes.ManageAdministration)));
+
+    // Personnel Files — declarative policies kept a superset of the precise
+    // PersonnelFileAuthorizationService handler gate (EnsureCanReadAsync /
+    // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.
+    options.AddPolicy(PersonnelFilePolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.Read,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(PersonnelFilePolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            PersonnelFilePermissionCodes.Admin,
+            PersonnelFilePermissionCodes.ManageAdministration)));
 });
 
 // Emit the standard ProblemDetails contract (code/traceId/localized title) on policy-layer

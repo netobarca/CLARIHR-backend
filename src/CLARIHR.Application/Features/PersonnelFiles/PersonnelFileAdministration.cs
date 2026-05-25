@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Banks;
 using CLARIHR.Application.Abstractions.Authentication;
@@ -23,6 +24,7 @@ using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using FluentValidation;
+using FluentValidation.Results;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
 
@@ -590,6 +592,18 @@ public sealed record UpdatePersonnelFilePersonalInfoCommand(
     Guid ConcurrencyToken)
     : ICommand<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>;
 
+public sealed record PersonnelFilePatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFileCommand(
+    Guid PersonnelFileId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFilePatchOperation> Operations)
+    : ICommand<PersonnelFilePersonalInfoResponse>;
+
 public sealed record AddPersonnelFileIdentificationCommand(
     Guid PersonnelFileId,
     IdentificationInput Identification)
@@ -839,12 +853,6 @@ public sealed record InactivatePersonnelFileDocumentCommand(
     Guid DocumentPublicId,
     Guid ConcurrencyToken)
     : ICommand<PersonnelFileDocumentMetadataResponse>;
-
-public sealed record ActivatePersonnelFileCommand(Guid PersonnelFileId, Guid ConcurrencyToken)
-    : ICommand<PersonnelFileShellResponse>;
-
-public sealed record InactivatePersonnelFileCommand(Guid PersonnelFileId, Guid ConcurrencyToken)
-    : ICommand<PersonnelFileShellResponse>;
 
 public sealed record AddPersonnelFileDocumentCommand(
     Guid PersonnelFileId,
@@ -1404,6 +1412,16 @@ internal sealed class UpdatePersonnelFilePersonalInfoCommandValidator : Abstract
     }
 }
 
+internal sealed class PatchPersonnelFileCommandValidator : AbstractValidator<PatchPersonnelFileCommand>
+{
+    public PatchPersonnelFileCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+    }
+}
+
 internal sealed class AddPersonnelFileIdentificationCommandValidator : AbstractValidator<AddPersonnelFileIdentificationCommand>
 {
     public AddPersonnelFileIdentificationCommandValidator()
@@ -1790,24 +1808,6 @@ internal sealed class DeletePersonnelFileReferenceCommandValidator : AbstractVal
     {
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.ReferencePublicId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
-    }
-}
-
-internal sealed class ActivatePersonnelFileCommandValidator : AbstractValidator<ActivatePersonnelFileCommand>
-{
-    public ActivatePersonnelFileCommandValidator()
-    {
-        RuleFor(command => command.PersonnelFileId).NotEmpty();
-        RuleFor(command => command.ConcurrencyToken).NotEmpty();
-    }
-}
-
-internal sealed class InactivatePersonnelFileCommandValidator : AbstractValidator<InactivatePersonnelFileCommand>
-{
-    public InactivatePersonnelFileCommandValidator()
-    {
-        RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
@@ -8131,48 +8131,34 @@ internal sealed class DeletePersonnelFileReferenceCommandHandler(
     }
 }
 
-internal sealed class ActivatePersonnelFileCommandHandler(
+internal sealed class PatchPersonnelFileCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
     IAuditService auditService,
+    IPersonnelFileProfilePhotoService profilePhotoService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<ActivatePersonnelFileCommand, PersonnelFileShellResponse>
+    : ICommandHandler<PatchPersonnelFileCommand, PersonnelFilePersonalInfoResponse>
 {
-    private sealed record PersonnelFileLifecycleAuditSnapshot(
-        Guid PublicId,
-        Guid CompanyId,
-        PersonnelFileRecordType RecordType,
-        PersonnelFileLifecycleStatus LifecycleStatus,
-        string FullName,
-        Guid? PhotoFilePublicId,
-        bool IsActive,
-        Guid? OrgUnitId,
-        Guid? AssignedPositionSlotId,
-        Guid? LinkedUserId,
-        Guid ConcurrencyToken,
-        DateTime CreatedAtUtc,
-        DateTime? ModifiedAtUtc);
-
-    public async Task<Result<PersonnelFileShellResponse>> Handle(
-        ActivatePersonnelFileCommand command,
+    public async Task<Result<PersonnelFilePersonalInfoResponse>> Handle(
+        PatchPersonnelFileCommand command,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<PersonnelFileShellResponse>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PersonnelFilePersonalInfoResponse>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<PersonnelFileShellResponse>.Failure(authorizationResult.Error);
+            return Result<PersonnelFilePersonalInfoResponse>.Failure(authorizationResult.Error);
         }
 
         var personnelFile = await repository.GetForAccessCheckAsync(command.PersonnelFileId, cancellationToken);
         if (personnelFile is null)
         {
-            return Result<PersonnelFileShellResponse>.Failure(
+            return Result<PersonnelFilePersonalInfoResponse>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : PersonnelFileErrors.NotFound);
@@ -8180,193 +8166,500 @@ internal sealed class ActivatePersonnelFileCommandHandler(
 
         if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileShellResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<PersonnelFilePersonalInfoResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
-        var before = CreateAuditSnapshot(personnelFile);
+        // Seed the patch state from the current entity so unspecified members keep their
+        // values, then apply the RFC 6902 operations (root-path members only).
+        var state = PersonnelFilePatchState.From(personnelFile);
+        var applyResult = PersonnelFilePatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFilePersonalInfoResponse>.Failure(applyResult.Error);
+        }
+
+        if (personnelFile.RecordType != state.RecordType)
+        {
+            return Result<PersonnelFilePersonalInfoResponse>.Failure(PersonnelFileErrors.RecordTypeTransitionNotAllowed);
+        }
+
+        // Reuse the canonical personal-info validation rules (name/phone/code formats,
+        // record-type position-slot rules) on the patched result so PATCH and PUT validate
+        // identically, instead of maintaining a parallel rule set.
+        var candidate = new UpdatePersonnelFilePersonalInfoCommand(
+            command.PersonnelFileId,
+            state.RecordType,
+            state.FirstName,
+            state.LastName,
+            state.BirthDate,
+            state.MaritalStatusCode,
+            state.ProfessionCode,
+            state.Nationality,
+            state.PersonalEmail,
+            state.InstitutionalEmail,
+            state.PersonalPhone,
+            state.InstitutionalPhone,
+            state.BirthCountryCode,
+            state.BirthDepartmentCode,
+            state.BirthMunicipalityCode,
+            state.PhotoFilePublicId,
+            state.OrgUnitPublicId,
+            state.AssignedPositionSlotPublicId,
+            command.ConcurrencyToken);
+
+        var validation = new UpdatePersonnelFilePersonalInfoCommandValidator().Validate(candidate);
+        if (!validation.IsValid)
+        {
+            return Result<PersonnelFilePersonalInfoResponse>.Failure(
+                ErrorCatalog.Validation(ToValidationDictionary(validation.Errors)));
+        }
+
+        var personalInfoCatalogValidation = await PersonnelReferenceCatalogValidation.ValidatePersonalInfoCodesAsync(
+            repository,
+            personnelFile.TenantId,
+            state.MaritalStatusCode,
+            state.ProfessionCode,
+            state.BirthCountryCode,
+            state.BirthDepartmentCode,
+            state.BirthMunicipalityCode,
+            cancellationToken);
+        if (personalInfoCatalogValidation != Error.None)
+        {
+            return Result<PersonnelFilePersonalInfoResponse>.Failure(personalInfoCatalogValidation);
+        }
+
+        var photoWritePlanResult = await profilePhotoService.PrepareWriteAsync(
+            personnelFile.TenantId,
+            personnelFile.PublicId,
+            state.PhotoFilePublicId,
+            personnelFile.PhotoFilePublicId,
+            cancellationToken);
+        if (photoWritePlanResult.IsFailure)
+        {
+            return Result<PersonnelFilePersonalInfoResponse>.Failure(photoWritePlanResult.Error);
+        }
+
+        var photoWritePlan = photoWritePlanResult.Value;
+
+        var before = await repository.GetPersonalInfoAsync(personnelFile.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Personnel file personal info could not be resolved before patch.");
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            personnelFile.Activate();
+            try
+            {
+                personnelFile.UpdatePersonalInfo(
+                    state.RecordType,
+                    state.FirstName,
+                    state.LastName,
+                    state.BirthDate,
+                    state.MaritalStatusCode,
+                    state.ProfessionCode,
+                    state.Nationality,
+                    state.PersonalEmail,
+                    state.InstitutionalEmail,
+                    state.PersonalPhone,
+                    state.InstitutionalPhone,
+                    state.BirthCountryCode,
+                    state.BirthDepartmentCode,
+                    state.BirthMunicipalityCode,
+                    photoWritePlan.PersistedPhotoFilePublicId,
+                    state.OrgUnitPublicId,
+                    state.AssignedPositionSlotPublicId);
+            }
+            catch (InvalidOperationException)
+            {
+                await profilePhotoService.CleanupAfterPersistenceFailureAsync(photoWritePlan, cancellationToken);
+                return Result<PersonnelFilePersonalInfoResponse>.Failure(PersonnelFileErrors.ProvisioningFieldsLocked);
+            }
+
+            // The unified PATCH absorbs the retired /activate and /inactivate endpoints:
+            // toggling the `isActive` member drives the lifecycle transition.
+            if (state.IsActive != personnelFile.IsActive)
+            {
+                if (state.IsActive)
+                {
+                    personnelFile.Activate();
+                }
+                else
+                {
+                    personnelFile.Inactivate();
+                }
+            }
+
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var after = CreateAuditSnapshot(personnelFile);
-            var shellResponse = CreateShellResponse(personnelFile);
+            var after = await repository.GetPersonalInfoAsync(personnelFile.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Personnel file personal info could not be resolved after patch.");
 
             await auditService.LogAsync(
                 new AuditLogEntry(
-                    AuditEventTypes.PersonnelFileActivated,
+                    AuditEventTypes.PersonnelFileUpdated,
                     AuditEntityTypes.PersonnelFile,
                     personnelFile.PublicId,
                     personnelFile.FullName,
-                    AuditActions.Reactivate,
-                    $"Activated personnel file {personnelFile.FullName}.",
-                    Before: before,
-                    After: after),
+                    AuditActions.Update,
+                    $"Patched personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.PersonalInfo,
+                        data = before
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.PersonalInfo,
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
                 cancellationToken);
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<PersonnelFileShellResponse>.Success(shellResponse);
+            await profilePhotoService.CleanupAfterPersistenceSuccessAsync(photoWritePlan, cancellationToken);
+
+            return Result<PersonnelFilePersonalInfoResponse>.Success(after);
         }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
+            await profilePhotoService.CleanupAfterPersistenceFailureAsync(photoWritePlan, cancellationToken);
             throw;
         }
     }
 
-    private static PersonnelFileShellResponse CreateShellResponse(PersonnelFile personnelFile) =>
-        new(
-            personnelFile.PublicId,
-            personnelFile.TenantId,
-            personnelFile.RecordType,
-            personnelFile.LifecycleStatus,
-            personnelFile.FullName,
-            personnelFile.PhotoFilePublicId?.ToString(),
-            personnelFile.IsActive,
-            personnelFile.OrgUnitPublicId,
-            personnelFile.AssignedPositionSlotPublicId,
-            personnelFile.LinkedUserPublicId,
-            personnelFile.ConcurrencyToken,
-            personnelFile.CreatedUtc,
-            personnelFile.ModifiedUtc);
-
-    private static PersonnelFileLifecycleAuditSnapshot CreateAuditSnapshot(PersonnelFile personnelFile) =>
-        new(
-            personnelFile.PublicId,
-            personnelFile.TenantId,
-            personnelFile.RecordType,
-            personnelFile.LifecycleStatus,
-            personnelFile.FullName,
-            personnelFile.PhotoFilePublicId,
-            personnelFile.IsActive,
-            personnelFile.OrgUnitPublicId,
-            personnelFile.AssignedPositionSlotPublicId,
-            personnelFile.LinkedUserPublicId,
-            personnelFile.ConcurrencyToken,
-            personnelFile.CreatedUtc,
-            personnelFile.ModifiedUtc);
+    // Mirror the FluentValidation→ProblemDetails mapping used by the dispatcher
+    // (RequestDispatcher.ToDictionary) so manually-run validation yields the same contract.
+    private static IReadOnlyDictionary<string, string[]> ToValidationDictionary(IEnumerable<ValidationFailure> failures) =>
+        failures
+            .GroupBy(
+                static failure => JsonNamingPolicy.CamelCase.ConvertName(failure.PropertyName),
+                static failure => failure.ErrorMessage)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.Distinct(StringComparer.Ordinal).ToArray(),
+                StringComparer.Ordinal);
 }
 
-internal sealed class InactivatePersonnelFileCommandHandler(
-    IPersonnelFileAuthorizationService authorizationService,
-    IPersonnelFileRepository repository,
-    IAuditService auditService,
-    ITenantContext tenantContext,
-    IUnitOfWork unitOfWork)
-    : ICommandHandler<InactivatePersonnelFileCommand, PersonnelFileShellResponse>
+internal sealed class PersonnelFilePatchState
 {
-    private sealed record PersonnelFileLifecycleAuditSnapshot(
-        Guid PublicId,
-        Guid CompanyId,
-        PersonnelFileRecordType RecordType,
-        PersonnelFileLifecycleStatus LifecycleStatus,
-        string FullName,
-        Guid? PhotoFilePublicId,
-        bool IsActive,
-        Guid? OrgUnitId,
-        Guid? AssignedPositionSlotId,
-        Guid? LinkedUserId,
-        Guid ConcurrencyToken,
-        DateTime CreatedAtUtc,
-        DateTime? ModifiedAtUtc);
-
-    public async Task<Result<PersonnelFileShellResponse>> Handle(
-        InactivatePersonnelFileCommand command,
-        CancellationToken cancellationToken)
+    private PersonnelFilePatchState(PersonnelFile file)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileShellResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileShellResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForAccessCheckAsync(command.PersonnelFileId, cancellationToken);
-        if (personnelFile is null)
-        {
-            return Result<PersonnelFileShellResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
-        }
-
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
-        {
-            return Result<PersonnelFileShellResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
-        }
-
-        var before = CreateAuditSnapshot(personnelFile);
-
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            personnelFile.Inactivate();
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            var after = CreateAuditSnapshot(personnelFile);
-            var shellResponse = CreateShellResponse(personnelFile);
-
-            await auditService.LogAsync(
-                new AuditLogEntry(
-                    AuditEventTypes.PersonnelFileInactivated,
-                    AuditEntityTypes.PersonnelFile,
-                    personnelFile.PublicId,
-                    personnelFile.FullName,
-                    AuditActions.Deactivate,
-                    $"Inactivated personnel file {personnelFile.FullName}.",
-                    Before: before,
-                    After: after),
-                cancellationToken);
-
-            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            return Result<PersonnelFileShellResponse>.Success(shellResponse);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(cancellationToken);
-            throw;
-        }
+        RecordType = file.RecordType;
+        FirstName = file.FirstName;
+        LastName = file.LastName;
+        BirthDate = file.BirthDate;
+        MaritalStatusCode = file.MaritalStatus;
+        ProfessionCode = file.Profession;
+        Nationality = file.Nationality;
+        PersonalEmail = file.PersonalEmail;
+        InstitutionalEmail = file.InstitutionalEmail;
+        PersonalPhone = file.PersonalPhone;
+        InstitutionalPhone = file.InstitutionalPhone;
+        BirthCountryCode = file.BirthCountry;
+        BirthDepartmentCode = file.BirthDepartment;
+        BirthMunicipalityCode = file.BirthMunicipality;
+        PhotoFilePublicId = file.PhotoFilePublicId;
+        OrgUnitPublicId = file.OrgUnitPublicId;
+        AssignedPositionSlotPublicId = file.AssignedPositionSlotPublicId;
+        IsActive = file.IsActive;
     }
 
-    private static PersonnelFileShellResponse CreateShellResponse(PersonnelFile personnelFile) =>
-        new(
-            personnelFile.PublicId,
-            personnelFile.TenantId,
-            personnelFile.RecordType,
-            personnelFile.LifecycleStatus,
-            personnelFile.FullName,
-            personnelFile.PhotoFilePublicId?.ToString(),
-            personnelFile.IsActive,
-            personnelFile.OrgUnitPublicId,
-            personnelFile.AssignedPositionSlotPublicId,
-            personnelFile.LinkedUserPublicId,
-            personnelFile.ConcurrencyToken,
-            personnelFile.CreatedUtc,
-            personnelFile.ModifiedUtc);
+    public PersonnelFileRecordType RecordType { get; set; }
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
+    public DateTime BirthDate { get; set; }
+    public string? MaritalStatusCode { get; set; }
+    public string? ProfessionCode { get; set; }
+    public string? Nationality { get; set; }
+    public string? PersonalEmail { get; set; }
+    public string? InstitutionalEmail { get; set; }
+    public string? PersonalPhone { get; set; }
+    public string? InstitutionalPhone { get; set; }
+    public string? BirthCountryCode { get; set; }
+    public string? BirthDepartmentCode { get; set; }
+    public string? BirthMunicipalityCode { get; set; }
+    public Guid? PhotoFilePublicId { get; set; }
+    public Guid? OrgUnitPublicId { get; set; }
+    public Guid? AssignedPositionSlotPublicId { get; set; }
+    public bool IsActive { get; set; }
 
-    private static PersonnelFileLifecycleAuditSnapshot CreateAuditSnapshot(PersonnelFile personnelFile) =>
-        new(
-            personnelFile.PublicId,
-            personnelFile.TenantId,
-            personnelFile.RecordType,
-            personnelFile.LifecycleStatus,
-            personnelFile.FullName,
-            personnelFile.PhotoFilePublicId,
-            personnelFile.IsActive,
-            personnelFile.OrgUnitPublicId,
-            personnelFile.AssignedPositionSlotPublicId,
-            personnelFile.LinkedUserPublicId,
-            personnelFile.ConcurrencyToken,
-            personnelFile.CreatedUtc,
-            personnelFile.ModifiedUtc);
+    public static PersonnelFilePatchState From(PersonnelFile file) => new(file);
+}
+
+internal static class PersonnelFilePatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<PersonnelFilePatchOperation> operations, PersonnelFilePatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length == 0)
+            {
+                return ValidationFailure(operation.Path, "Patch path is required.");
+            }
+
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root patch paths are supported.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    private static Result ApplyOperation(string op, string property, JsonElement? value, PersonnelFilePatchState state, string path)
+    {
+        var isRemove = IsRemove(op);
+
+        if (IsSegment(property, "recordType"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "RecordType cannot be removed.")
+                : SetAndSucceed(() => state.RecordType = ReadRecordType(value, path));
+        }
+
+        if (IsSegment(property, "firstName"))
+        {
+            state.FirstName = isRemove ? string.Empty : ReadRequiredString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "lastName"))
+        {
+            state.LastName = isRemove ? string.Empty : ReadRequiredString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "birthDate"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "BirthDate cannot be removed.")
+                : SetAndSucceed(() => state.BirthDate = ReadRequiredDateTime(value, path));
+        }
+
+        if (IsSegment(property, "maritalStatusCode"))
+        {
+            state.MaritalStatusCode = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "professionCode"))
+        {
+            state.ProfessionCode = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "nationality"))
+        {
+            state.Nationality = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "personalEmail"))
+        {
+            state.PersonalEmail = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "institutionalEmail"))
+        {
+            state.InstitutionalEmail = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "personalPhone"))
+        {
+            state.PersonalPhone = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "institutionalPhone"))
+        {
+            state.InstitutionalPhone = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "birthCountryCode"))
+        {
+            state.BirthCountryCode = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "birthDepartmentCode"))
+        {
+            state.BirthDepartmentCode = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "birthMunicipalityCode"))
+        {
+            state.BirthMunicipalityCode = isRemove ? null : ReadNullableString(value, path);
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "photoFilePublicId", "photoFileId"))
+        {
+            state.PhotoFilePublicId = isRemove ? null : ReadNullableGuid(value, path);
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "orgUnitPublicId", "orgUnitId"))
+        {
+            state.OrgUnitPublicId = isRemove ? null : ReadNullableGuid(value, path);
+            return Result.Success();
+        }
+
+        if (IsAnySegment(property, "assignedPositionSlotPublicId", "assignedPositionSlotId"))
+        {
+            state.AssignedPositionSlotPublicId = isRemove ? null : ReadNullableGuid(value, path);
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "isActive"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "IsActive cannot be removed.")
+                : SetAndSucceed(() => state.IsActive = ReadBool(value, path));
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result SetAndSucceed(Action set)
+    {
+        set();
+        return Result.Success();
+    }
+
+    private static PersonnelFileRecordType ReadRecordType(JsonElement? value, string path)
+    {
+        var raw = ReadNullableString(value, path);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            throw new PersonnelFilePatchValueException(path, "RecordType is required.");
+        }
+
+        return Enum.TryParse<PersonnelFileRecordType>(raw, ignoreCase: true, out var parsed) &&
+               Enum.IsDefined(typeof(PersonnelFileRecordType), parsed)
+            ? parsed
+            : throw new PersonnelFilePatchValueException(path, $"RecordType '{raw}' is not a valid value.");
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsRemove(string op) => string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAnySegment(string actual, params string[] expected) =>
+        expected.Any(item => IsSegment(actual, item));
+
+    private static string ReadRequiredString(JsonElement? value, string path) =>
+        ReadNullableString(value, path) ?? string.Empty;
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new PersonnelFilePatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static Guid? ReadNullableGuid(JsonElement? value, string path)
+    {
+        var raw = ReadNullableString(value, path);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        return Guid.TryParse(raw, out var parsed)
+            ? parsed
+            : throw new PersonnelFilePatchValueException(path, "Value must be a valid UUID.");
+    }
+
+    private static DateTime ReadRequiredDateTime(JsonElement? value, string path)
+    {
+        if (!IsNull(value) &&
+            value!.Value.ValueKind == JsonValueKind.String &&
+            value.Value.TryGetDateTime(out var parsed))
+        {
+            return parsed;
+        }
+
+        throw new PersonnelFilePatchValueException(path, "Value must be a valid date-time string.");
+    }
+
+    private static bool ReadBool(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new PersonnelFilePatchValueException(path, "Value must be a boolean.");
+        }
+
+        return value!.Value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new PersonnelFilePatchValueException(path, "Value must be a boolean.")
+        };
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
+}
+
+internal sealed class PersonnelFilePatchValueException(string path, string message) : Exception(message)
+{
+    public string Path { get; } = path;
 }
 
 internal sealed class AddPersonnelFileDocumentCommandHandler(

@@ -1,4 +1,5 @@
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 using Microsoft.AspNetCore.Authorization;
@@ -58,6 +59,17 @@ public sealed class AuthorizationPolicyOperationFilter : IOperationFilter
             [
                 PositionSlotPermissionCodes.Admin,
                 PositionSlotPermissionCodes.ManageAdministration,
+            ],
+            [PersonnelFilePolicies.Read] =
+            [
+                PersonnelFilePermissionCodes.Read,
+                PersonnelFilePermissionCodes.Admin,
+                PersonnelFilePermissionCodes.ManageAdministration,
+            ],
+            [PersonnelFilePolicies.Manage] =
+            [
+                PersonnelFilePermissionCodes.Admin,
+                PersonnelFilePermissionCodes.ManageAdministration,
             ],
         };
 

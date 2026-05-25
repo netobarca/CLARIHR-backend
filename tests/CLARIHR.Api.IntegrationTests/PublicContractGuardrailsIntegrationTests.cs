@@ -263,8 +263,10 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
 
         Assert.True(paths.TryGetProperty("/api/v1/companies/{companyPublicId}/personnel-files", out var collectionPath));
         Assert.True(paths.TryGetProperty("/api/v1/personnel-files/{publicId}", out var shellPath));
-        Assert.True(paths.TryGetProperty("/api/v1/personnel-files/{publicId}/activate", out var activatePath));
-        Assert.True(paths.TryGetProperty("/api/v1/personnel-files/{publicId}/inactivate", out var inactivatePath));
+
+        // The former state-only PATCH endpoints were folded into the unified shell PATCH.
+        Assert.False(paths.TryGetProperty("/api/v1/personnel-files/{publicId}/activate", out _));
+        Assert.False(paths.TryGetProperty("/api/v1/personnel-files/{publicId}/inactivate", out _));
 
         var searchOperation = collectionPath.GetProperty("get");
         Assert.True(searchOperation.GetProperty("responses").TryGetProperty("429", out _));
@@ -306,19 +308,22 @@ public sealed class PublicContractGuardrailsIntegrationTests(IntegrationTestWebA
             .GetString();
         Assert.Contains("PersonnelFileShellResponse", shellResponseSchemaReference, StringComparison.Ordinal);
 
-        foreach (var lifecyclePath in new[] { activatePath, inactivatePath })
-        {
-            var patchOperation = lifecyclePath.GetProperty("patch");
-            Assert.True(patchOperation.GetProperty("responses").TryGetProperty("429", out _));
+        // The unified shell PATCH replaces /activate and /inactivate: it is rate-limited
+        // (429) and, like PUT, returns the updated personal information.
+        var shellPatchOperation = shellPath.GetProperty("patch");
+        Assert.True(shellPatchOperation.GetProperty("responses").TryGetProperty("429", out _));
 
-            var lifecycleResponseSchemaReference = patchOperation.GetProperty("responses")
+        foreach (var writeVerb in new[] { "put", "patch" })
+        {
+            var writeResponseSchemaReference = shellPath.GetProperty(writeVerb)
+                .GetProperty("responses")
                 .GetProperty("200")
                 .GetProperty("content")
                 .GetProperty("application/json")
                 .GetProperty("schema")
                 .GetProperty("$ref")
                 .GetString();
-            Assert.Contains("PersonnelFileShellResponse", lifecycleResponseSchemaReference, StringComparison.Ordinal);
+            Assert.Contains("PersonnelFilePersonalInfoResponse", writeResponseSchemaReference, StringComparison.Ordinal);
         }
     }
 
