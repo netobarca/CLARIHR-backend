@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.Tenancy;
@@ -60,56 +61,85 @@ public sealed class PersonnelFilesCoreCommandTests
     }
 
     [Fact]
-    public async Task Activate_WhenSuccessful_ShouldReturnShellWithoutLoadingFullResponse()
+    public async Task Patch_WhenSettingIsActiveFalse_ShouldInactivateAndReturnPersonalInfo()
     {
-        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Mario", "Lopez");
-        file.Inactivate();
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Lucia", "Perez");
         var repository = new TestPersonnelFileRepository(file);
         var auditService = new TestAuditService();
         var unitOfWork = new TestUnitOfWork();
-        var handler = new ActivatePersonnelFileCommandHandler(
+        var handler = new PatchPersonnelFileCommandHandler(
             new AllowPersonnelFileAuthorizationService(),
             repository,
             auditService,
+            new TestProfilePhotoService(),
             new FixedTenantContext(TenantId),
             unitOfWork);
 
         var result = await handler.Handle(
-            new ActivatePersonnelFileCommand(file.PublicId, file.ConcurrencyToken),
+            new PatchPersonnelFileCommand(
+                file.PublicId,
+                file.ConcurrencyToken,
+                [new PersonnelFilePatchOperation("replace", "/isActive", null, JsonSerializer.SerializeToElement(false))]),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(0, repository.GetResponseByIdCalls);
-        Assert.True(result.Value.IsActive);
+        Assert.False(result.Value.IsActive);
+        Assert.False(file.IsActive);
         Assert.Equal(file.PublicId, result.Value.Id);
         Assert.Equal(1, auditService.LogCalls);
         Assert.Equal(2, unitOfWork.SaveChangesCalls);
     }
 
     [Fact]
-    public async Task Inactivate_WhenSuccessful_ShouldReturnShellWithoutLoadingFullResponse()
+    public async Task Patch_WhenReplacingCoreField_ShouldUpdateAndKeepActiveState()
     {
-        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Lucia", "Perez");
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Mario", "Lopez");
         var repository = new TestPersonnelFileRepository(file);
         var auditService = new TestAuditService();
         var unitOfWork = new TestUnitOfWork();
-        var handler = new InactivatePersonnelFileCommandHandler(
+        var handler = new PatchPersonnelFileCommandHandler(
             new AllowPersonnelFileAuthorizationService(),
             repository,
             auditService,
+            new TestProfilePhotoService(),
             new FixedTenantContext(TenantId),
             unitOfWork);
 
         var result = await handler.Handle(
-            new InactivatePersonnelFileCommand(file.PublicId, file.ConcurrencyToken),
+            new PatchPersonnelFileCommand(
+                file.PublicId,
+                file.ConcurrencyToken,
+                [new PersonnelFilePatchOperation("replace", "/firstName", null, JsonSerializer.SerializeToElement("Mariano"))]),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(0, repository.GetResponseByIdCalls);
-        Assert.False(result.Value.IsActive);
-        Assert.Equal(file.PublicId, result.Value.Id);
-        Assert.Equal(1, auditService.LogCalls);
-        Assert.Equal(2, unitOfWork.SaveChangesCalls);
+        Assert.Equal("Mariano", result.Value.FirstName);
+        Assert.True(file.IsActive);
+        Assert.Equal("Mariano Lopez", file.FullName);
+    }
+
+    [Fact]
+    public async Task Patch_WhenConcurrencyTokenStale_ShouldReturnConflict()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Ada", "Lovelace");
+        var repository = new TestPersonnelFileRepository(file);
+        var handler = new PatchPersonnelFileCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            new TestAuditService(),
+            new TestProfilePhotoService(),
+            new FixedTenantContext(TenantId),
+            new TestUnitOfWork());
+
+        var result = await handler.Handle(
+            new PatchPersonnelFileCommand(
+                file.PublicId,
+                Guid.NewGuid(),
+                [new PersonnelFilePatchOperation("replace", "/isActive", null, JsonSerializer.SerializeToElement(false))]),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("CONCURRENCY_CONFLICT", result.Error.Code);
     }
 
     private static PersonnelFile CreatePersonnelFile(PersonnelFileRecordType recordType, string firstName, string lastName)
@@ -241,7 +271,43 @@ public sealed class PersonnelFilesCoreCommandTests
             throw new NotSupportedException();
         }
 
-        public Task<PersonnelFilePersonalInfoResponse?> GetPersonalInfoAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFilePersonalInfoResponse?> GetPersonalInfoAsync(Guid personnelFileId, CancellationToken cancellationToken) =>
+            Task.FromResult(
+                _files.TryGetValue(personnelFileId, out var file)
+                    ? new PersonnelFilePersonalInfoResponse(
+                        file.PublicId,
+                        file.TenantId,
+                        file.RecordType,
+                        file.LifecycleStatus,
+                        file.FirstName,
+                        file.LastName,
+                        file.FullName,
+                        file.BirthDate,
+                        0,
+                        file.MaritalStatus,
+                        null,
+                        file.Profession,
+                        null,
+                        file.Nationality,
+                        file.PersonalEmail,
+                        file.InstitutionalEmail,
+                        file.PersonalPhone,
+                        file.InstitutionalPhone,
+                        file.BirthCountry,
+                        null,
+                        file.BirthDepartment,
+                        null,
+                        file.BirthMunicipality,
+                        null,
+                        file.PhotoFilePublicId?.ToString(),
+                        file.OrgUnitPublicId,
+                        file.AssignedPositionSlotPublicId,
+                        file.LinkedUserPublicId,
+                        file.IsActive,
+                        file.ConcurrencyToken,
+                        file.CreatedUtc,
+                        file.ModifiedUtc)
+                    : null);
         public Task<IReadOnlyCollection<PersonnelFileIdentificationResponse>> GetIdentificationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileAddressResponse>> GetAddressesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>> GetEmergencyContactsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
