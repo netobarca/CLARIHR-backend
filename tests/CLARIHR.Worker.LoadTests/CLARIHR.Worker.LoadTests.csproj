@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- §8.2: worker PDF-render load harness. Run manually via `dotnet run`,
+       NOT part of `dotnet test` (it is an Exe that measures throughput/latency). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="QuestPDF" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CLARIHR.Application\CLARIHR.Application.csproj" />
+    <ProjectReference Include="..\..\src\CLARIHR.Infrastructure\CLARIHR.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
