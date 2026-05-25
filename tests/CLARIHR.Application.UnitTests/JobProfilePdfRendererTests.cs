@@ -3,6 +3,7 @@ using CLARIHR.Application.Abstractions.Reports.Documents;
 using CLARIHR.Application.Features.JobProfiles;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Infrastructure.Reports.Documents;
+using UglyToad.PdfPig;
 
 namespace CLARIHR.Application.UnitTests;
 
@@ -93,6 +94,56 @@ public sealed class JobProfilePdfRendererTests
         // Latin1 maps bytes 1:1 to chars, so an ASCII font name in the raw PDF is found verbatim.
         var content = Encoding.Latin1.GetString(stream.ToArray());
         Assert.Contains("Lato", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenderAsync_RichProfile_PdfContainsExpectedSectionsAndContent()
+    {
+        // §8.3: layout/content smoke. Extract the rendered PDF's text and assert the
+        // expected sections/fields/footer actually appear — so a renderer change that
+        // silently drops a section is caught (binary %PDF-/%%EOF validity cannot).
+        var renderer = new JobProfilePdfRenderer();
+        await using var stream = new MemoryStream();
+        await renderer.RenderAsync(BuildPayload(BuildRichProfile()), stream, CancellationToken.None);
+
+        var text = ExtractPdfText(stream.ToArray());
+
+        // NOTE: assert on tokens WITHOUT "ti"/"fi"/"ffi" — Lato renders those as
+        // ligature glyphs whose ToUnicode splits them on extraction (e.g. "Ejecutivo"
+        // → "Ejecu vo", "Activo" → "Ac vo"). So use "Clase salarial", not "Ejecutivo".
+        Assert.Contains("Gerente", text, StringComparison.Ordinal);        // header title
+        Assert.Contains("Desarrollo", text, StringComparison.Ordinal);
+        Assert.Contains("CLARIHR", text, StringComparison.Ordinal);        // footer
+        Assert.Contains("Funciones", text, StringComparison.Ordinal);      // section heading
+        Assert.Contains("Competencias", text, StringComparison.Ordinal);   // section heading
+        Assert.Contains("Pensamiento", text, StringComparison.Ordinal);    // competency content
+        Assert.Contains("Compensación", text, StringComparison.Ordinal);   // section heading
+        Assert.Contains("Clase salarial", text, StringComparison.Ordinal); // compensation content rendered
+    }
+
+    [Fact]
+    public async Task RenderAsync_EmptyProfile_RendersHeaderAndFooterButNoCompensation()
+    {
+        // §8.3 + §N2: an empty profile keeps header/footer but renders no compensation
+        // content (the mapper omits the section when there is none).
+        var renderer = new JobProfilePdfRenderer();
+        await using var stream = new MemoryStream();
+        await renderer.RenderAsync(BuildPayload(BuildEmptyProfile()), stream, CancellationToken.None);
+
+        var text = ExtractPdfText(stream.ToArray());
+
+        Assert.Contains("Gerente", text, StringComparison.Ordinal);              // header still renders
+        Assert.Contains("CLARIHR", text, StringComparison.Ordinal);              // footer still renders
+        Assert.DoesNotContain("Clase salarial", text, StringComparison.Ordinal); // compensation section omitted
+    }
+
+    // §8.3: extract the visible text of the PDF (words joined) so content assertions
+    // are robust to glyph spacing — vs. fragile pixel/hash golden files.
+    private static string ExtractPdfText(byte[] pdfBytes)
+    {
+        using var document = PdfDocument.Open(pdfBytes);
+        var words = document.GetPages().SelectMany(page => page.GetWords()).Select(word => word.Text);
+        return string.Join(" ", words);
     }
 
     private static void AssertValidPdf(MemoryStream stream)
