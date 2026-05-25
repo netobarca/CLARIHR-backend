@@ -9317,13 +9317,12 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{publicId}/activate:
-    patch:
+    put:
       tags:
         - personnel-files
-      operationId: ActivatePersonnelFile
-      summary: Activate a personnel file
-      description: Reactivates a previously inactive personnel file and returns the refreshed shell payload, including the new `concurrencyToken`.
+      operationId: UpdatePersonnelFile
+      summary: Update a personnel file
+      description: Replaces the core (personal-info) fields of the personnel file and returns the updated personal-info projection. Optimistic concurrency is supplied through `If-Match`. The active state is not changed here (use PATCH `/isActive`) and `recordType` cannot be transitioned. The request body matches the create payload (without `concurrencyToken`).
       security:
         - Bearer: []
       parameters:
@@ -9333,21 +9332,32 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current personnel file `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
+              $ref: '#/components/schemas/CreatePersonnelFileRequest'
       responses:
         '200':
-          description: Personnel file activated successfully.
+          description: Personnel file updated successfully.
+          headers:
+            ETag:
+              description: New personnel file concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileShellResponse'
+                $ref: '#/components/schemas/PersonnelFilePersonalInfoResponse'
         '400':
-          description: Validation error, such as a missing concurrency token.
+          description: Validation error, or missing/invalid `If-Match`.
           content:
             application/problem+json:
               schema:
@@ -9376,19 +9386,18 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-        '429':
-          description: Too many lifecycle transitions for the same tenant/user window.
+        '422':
+          description: Business-rule violation such as record-type transition or provisioning fields locked after completion.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{publicId}/inactivate:
     patch:
       tags:
         - personnel-files
-      operationId: InactivatePersonnelFile
-      summary: Inactivate a personnel file
-      description: Soft-inactivates the target personnel file and returns the refreshed shell payload, including the new `concurrencyToken`.
+      operationId: PatchPersonnelFile
+      summary: Partially update a personnel file
+      description: Applies a JSON Patch (RFC 6902) document. The body is a bare array of operations sent with the `application/json-patch+json` media type (not an object with `operations`). Patchable members are the core personal-info fields plus `isActive`; toggling `isActive` replaces the former `/activate` and `/inactivate` endpoints. `recordType` cannot be transitioned. Optimistic concurrency is supplied through `If-Match`; the request body is capped at 64 KiB.
       security:
         - Bearer: []
       parameters:
@@ -9398,21 +9407,34 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current personnel file `concurrencyToken`, preferably quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
-          application/json:
+          application/json-patch+json:
             schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
+              type: array
+              items:
+                $ref: '#/components/schemas/JsonPatchOperation'
       responses:
         '200':
-          description: Personnel file inactivated successfully.
+          description: Personnel file patched successfully.
+          headers:
+            ETag:
+              description: New personnel file concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileShellResponse'
+                $ref: '#/components/schemas/PersonnelFilePersonalInfoResponse'
         '400':
-          description: Validation error, such as a missing concurrency token.
+          description: Invalid JSON Patch document or unsupported patch path/operation.
           content:
             application/problem+json:
               schema:
@@ -9441,8 +9463,14 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation such as record-type transition or provisioning fields locked after completion.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '429':
-          description: Too many lifecycle transitions for the same tenant/user window.
+          description: Too many mutations for the same tenant/user window.
           content:
             application/problem+json:
               schema:
@@ -10704,70 +10732,6 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
           description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    put:
-      tags:
-        - personnel-file-personal-info
-      operationId: UpdatePersonnelFilePersonalInfo
-      summary: Replace the personal info block of a personnel file
-      description: Updates the scalar personal-info block. `recordType` cannot transition in this module. After completion, `institutionalEmail` and `assignedPositionSlotPublicId` become immutable.
-      security:
-        - Bearer: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PersonnelFileUpdatePersonalInfoRequest'
-      responses:
-        '200':
-          description: Personal info updated successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePersonalInfoResponse'
-        '400':
-          description: Validation error, such as missing concurrency token or malformed custom data.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Business conflict such as stale concurrency token or duplicated identification.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Business-rule violation, such as forbidden record type transition, locked provisioning fields or invalid record type and slot combination.
           content:
             application/problem+json:
               schema:

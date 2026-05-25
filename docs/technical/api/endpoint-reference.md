@@ -260,13 +260,12 @@ Core:
 - `POST /api/v1/companies/{companyPublicId}/personnel-files`
 - `GET /api/v1/companies/{companyPublicId}/personnel-files`
 - `GET /api/v1/personnel-files/{publicId}`
-- `PATCH /api/v1/personnel-files/{publicId}/activate`
-- `PATCH /api/v1/personnel-files/{publicId}/inactivate`
+- `PUT /api/v1/personnel-files/{publicId}`
+- `PATCH /api/v1/personnel-files/{publicId}` (JSON Patch RFC 6902; reemplaza a `/activate` e `/inactivate` vía `op replace /isActive`)
 
 Datos personales (`PersonnelFilePersonalInfoController`):
 
-- `GET /api/v1/personnel-files/{publicId}/personal-info`
-- `PUT /api/v1/personnel-files/{publicId}/personal-info`
+- `GET /api/v1/personnel-files/{publicId}/personal-info` (el `PUT` se reubicó al shell: `PUT /api/v1/personnel-files/{publicId}`)
 - `GET /api/v1/personnel-files/{publicId}/identifications`
 - `POST /api/v1/personnel-files/{publicId}/identifications`
 - `PUT /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
@@ -3213,15 +3212,15 @@ Route family:
 - `POST /api/v1/companies/{companyPublicId}/personnel-files`
 - `GET /api/v1/companies/{companyPublicId}/personnel-files`
 - `GET /api/v1/personnel-files/{publicId}`
-- `PATCH /api/v1/personnel-files/{publicId}/activate`
-- `PATCH /api/v1/personnel-files/{publicId}/inactivate`
+- `PUT /api/v1/personnel-files/{publicId}`
+- `PATCH /api/v1/personnel-files/{publicId}` (JSON Patch RFC 6902; reemplaza a `/activate` e `/inactivate` vía `op replace /isActive`)
 
 Uso principal:
 
 - abrir un expediente nuevo
 - listar expedientes del tenant
 - consultar el shell liviano del expediente
-- activar o inactivar logicamente el expediente
+- actualizar los datos del nucleo (`PUT`) y activar/inactivar logicamente (`PATCH` con `op replace /isActive`)
 
 Observaciones funcionales:
 
@@ -3252,8 +3251,7 @@ Este bloque agrupa cuatro controladores independientes que cubren el expediente 
 
 Route family:
 
-- `GET /api/v1/personnel-files/{publicId}/personal-info`
-- `PUT /api/v1/personnel-files/{publicId}/personal-info`
+- `GET /api/v1/personnel-files/{publicId}/personal-info` (el `PUT` se reubicó al shell: `PUT /api/v1/personnel-files/{publicId}`)
 - `GET /api/v1/personnel-files/{publicId}/identifications`
 - `POST /api/v1/personnel-files/{publicId}/identifications`
 - `PUT /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
