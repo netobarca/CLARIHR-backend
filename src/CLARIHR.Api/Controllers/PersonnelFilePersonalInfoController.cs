@@ -30,43 +30,9 @@ public sealed class PersonnelFilePersonalInfoController(
         return this.ToActionResult(result);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/personal-info")]
-    [ProducesResponseType<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse>>> UpdatePersonalInfo(
-        Guid publicId,
-        [FromBody] UpdatePersonnelFilePersonalInfoRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await commandDispatcher.SendAsync(
-            new UpdatePersonnelFilePersonalInfoCommand(
-                publicId,
-                request.RecordType,
-                request.FirstName,
-                request.LastName,
-                request.BirthDate,
-                request.MaritalStatusCode,
-                request.ProfessionCode,
-                request.Nationality,
-                request.PersonalEmail,
-                request.InstitutionalEmail,
-                request.PersonalPhone,
-                request.InstitutionalPhone,
-                request.BirthCountryCode,
-                request.BirthDepartmentCode,
-                request.BirthMunicipalityCode,
-                request.PhotoFilePublicId,
-                request.OrgUnitPublicId,
-                request.AssignedPositionSlotPublicId,
-                request.ConcurrencyToken),
-            cancellationToken);
-
-        return this.ToActionResult(result);
-    }
+    // Personal-info writes are served by the canonical shell endpoints
+    // PUT/PATCH /api/v1/personnel-files/{publicId} (PersonnelFilesController); this
+    // controller keeps only the GET section read plus the sub-resource collections.
 
     // ─── Identifications ──────────────────────────────────────────────────────
 

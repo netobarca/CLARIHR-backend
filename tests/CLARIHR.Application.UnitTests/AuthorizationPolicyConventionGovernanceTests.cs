@@ -2,10 +2,12 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Abstractions.JobProfiles;
+using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
 
@@ -48,6 +50,15 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     {
         PositionSlotPolicies.Read,
         PositionSlotPolicies.Manage,
+    };
+
+    // PersonnelFiles enrolls only its shell controller under the convention; the broader
+    // sub-resource family is not (yet) in GovernedFamilyRegex, so the marker may reference
+    // these constants but whole-family coverage is intentionally not required.
+    private static readonly HashSet<string> PersonnelFilePolicyNames = new(StringComparer.Ordinal)
+    {
+        PersonnelFilePolicies.Read,
+        PersonnelFilePolicies.Manage,
     };
 
     private static IReadOnlyList<(Type Controller, AuthorizationPolicySetAttribute? Marker)> Controllers() =>
@@ -102,6 +113,16 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
                 PositionSlotPolicyNames.Contains(entry.Marker.ReadPolicy) &&
                 PositionSlotPolicyNames.Contains(entry.Marker.ManagePolicy));
         }
+
+        // PersonnelFiles enrolls its shell controller (PersonnelFilesController); the broader
+        // sub-resource family stays handler-gated only, so this asserts "at least one marked
+        // controller", not whole-family coverage (PersonnelFile is absent from GovernedFamilyRegex).
+        if (AnyHandlerInjects(typeof(IPersonnelFileAuthorizationService)))
+        {
+            Assert.Contains(controllers, entry => entry.Marker is not null &&
+                PersonnelFilePolicyNames.Contains(entry.Marker.ReadPolicy) &&
+                PersonnelFilePolicyNames.Contains(entry.Marker.ManagePolicy));
+        }
     }
 
     /// <summary>
@@ -143,6 +164,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         valid.UnionWith(JobProfilePolicyNames);
         valid.UnionWith(PositionDescriptionCatalogPolicyNames);
         valid.UnionWith(PositionSlotPolicyNames);
+        valid.UnionWith(PersonnelFilePolicyNames);
 
         var invalid = Controllers()
             .Where(static entry => entry.Marker is not null)
@@ -159,7 +181,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         Assert.True(
             invalid.Length == 0,
             "[AuthorizationPolicySet] must reference a constant from JobProfilePolicies / " +
-            "PositionDescriptionCatalogPolicies / PositionSlotPolicies. Offending:\n  " +
+            "PositionDescriptionCatalogPolicies / PositionSlotPolicies / PersonnelFilePolicies. Offending:\n  " +
             string.Join("\n  ", invalid));
     }
 }
