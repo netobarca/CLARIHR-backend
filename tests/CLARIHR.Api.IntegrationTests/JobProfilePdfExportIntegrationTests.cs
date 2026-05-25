@@ -92,30 +92,6 @@ public sealed class JobProfilePdfExportIntegrationTests(ReportExportIntegrationT
     }
 
     [Fact]
-    public async Task PostShortcut_WhenJobProfilePdf_ShouldQueueSameJobAsGenericEndpoint()
-    {
-        // §7.2: the shortcut POST .../job-profiles/{id}/exports/pdf (no body) must
-        // produce the same queued JOB_PROFILE_PDF/pdf job as the generic endpoint.
-        var scenario = await factory.ResetDatabaseAsync();
-        using var client = factory.CreateClientFor(
-            TestUserContext.Authenticated(
-                scenario.ActorUserId,
-                scenario.TenantId,
-                JobProfilePermissionCodes.Read));
-
-        var response = await client.PostAsync(
-            $"/api/v1/companies/{scenario.TenantId}/job-profiles/{Guid.NewGuid()}/exports/pdf",
-            content: null);
-
-        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
-        var queued = await response.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
-        Assert.NotNull(queued);
-        Assert.Equal(ReportExportJobStatus.Queued, queued.Status);
-        Assert.Equal("JOB_PROFILE_PDF", queued.ResourceKey);
-        Assert.Equal("pdf", queued.Format);
-    }
-
-    [Fact]
     public async Task ExportJobProfilePdf_EndToEnd_SeedsProcessesAndDownloadsValidPdf()
     {
         // §8.1: the gap this closes — seed a REAL Job Profile, run the export through
@@ -133,10 +109,15 @@ public sealed class JobProfilePdfExportIntegrationTests(ReportExportIntegrationT
                 JobProfilePermissionCodes.Read,
                 JobProfilePermissionCodes.Admin));
 
-        // Create via the §7.2 shortcut (also exercises the real client contract).
-        var createResponse = await client.PostAsync(
-            $"/api/v1/companies/{scenario.TenantId}/job-profiles/{jobProfileId}/exports/pdf",
-            content: null);
+        // Create via the generic export endpoint (the only PDF entry point).
+        var createResponse = await client.PostJsonAsync(
+            $"/api/v1/companies/{scenario.TenantId}/report-export-jobs",
+            new
+            {
+                resourceKey = "JOB_PROFILE_PDF",
+                format = "pdf",
+                parameters = new { jobProfileId }
+            });
         createResponse.EnsureSuccessStatusCode();
         var queued = await createResponse.Content.ReadFromJsonAsync<ReportExportJobResponse>(JsonOptions);
         Assert.NotNull(queued);
