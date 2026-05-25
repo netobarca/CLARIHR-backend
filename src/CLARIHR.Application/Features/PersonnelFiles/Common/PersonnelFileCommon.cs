@@ -11,6 +11,21 @@ public static partial class PersonnelFileValidationRules
     public const int MaxPageSize = 100;
     public const int MaxDocumentFileSizeBytes = 10 * 1024 * 1024;
 
+    // Free-text search guardrail (§PF1): PersonnelFileRepository.ApplySearch fans a
+    // non-sargable LIKE '%x%' over NormalizedFullName (+ NormalizedIdentificationNumber when
+    // includeIdentificationMatch) across the 4 search surfaces (Search / Export /
+    // DynamicQuery / Analytics). Empty/whitespace `q` = "no filter" (valid); otherwise enforce
+    // a minimum trimmed length in the validator (rejected 400 before cache/DB). Threshold
+    // aligned with the PositionSlots §PS2 / PDC §P2 / Internal Catalogs precedent (2). Scale
+    // assumption: personnel files per tenant are bounded, so the (TenantId, …) scan + min
+    // length is acceptable; escalate to pg_trgm GIN + EF.Functions.ILike if the search p95 or
+    // rows/tenant exceed it. See project-foundation.md §12.8 / ADR-0002.
+    public const int MinSearchLength = 2;
+    public const int MaxSearchLength = 150;
+
+    public static bool IsValidSearchLength(string? search) =>
+        string.IsNullOrWhiteSpace(search) || search.Trim().Length >= MinSearchLength;
+
     public static readonly IReadOnlyDictionary<string, string> AllowedDocumentContentTypesByExtension =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {

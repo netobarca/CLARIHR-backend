@@ -87,6 +87,7 @@ public sealed class PersonnelFilesCoreCommandTests
         Assert.False(file.IsActive);
         Assert.Equal(file.PublicId, result.Value.Id);
         Assert.Equal(1, auditService.LogCalls);
+        Assert.Equal(AuditEventTypes.PersonnelFileInactivated, auditService.LastEntry!.EventType);
         Assert.Equal(2, unitOfWork.SaveChangesCalls);
     }
 
@@ -116,6 +117,36 @@ public sealed class PersonnelFilesCoreCommandTests
         Assert.Equal("Mariano", result.Value.FirstName);
         Assert.True(file.IsActive);
         Assert.Equal("Mariano Lopez", file.FullName);
+        Assert.Equal(AuditEventTypes.PersonnelFileUpdated, auditService.LastEntry!.EventType);
+    }
+
+    [Fact]
+    public async Task Patch_WhenSettingIsActiveTrue_ShouldActivateAndEmitActivatedEvent()
+    {
+        var file = CreatePersonnelFile(PersonnelFileRecordType.Candidate, "Mario", "Lopez");
+        file.Inactivate();
+        var repository = new TestPersonnelFileRepository(file);
+        var auditService = new TestAuditService();
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new PatchPersonnelFileCommandHandler(
+            new AllowPersonnelFileAuthorizationService(),
+            repository,
+            auditService,
+            new TestProfilePhotoService(),
+            new FixedTenantContext(TenantId),
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new PatchPersonnelFileCommand(
+                file.PublicId,
+                file.ConcurrencyToken,
+                [new PersonnelFilePatchOperation("replace", "/isActive", null, JsonSerializer.SerializeToElement(true))]),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value.IsActive);
+        Assert.True(file.IsActive);
+        Assert.Equal(AuditEventTypes.PersonnelFileActivated, auditService.LastEntry!.EventType);
     }
 
     [Fact]
@@ -185,15 +216,19 @@ public sealed class PersonnelFilesCoreCommandTests
     {
         public int LogCalls { get; private set; }
 
+        public AuditLogEntry? LastEntry { get; private set; }
+
         public Task LogAsync(AuditLogEntry entry, CancellationToken cancellationToken)
         {
             LogCalls++;
+            LastEntry = entry;
             return Task.CompletedTask;
         }
 
         public Task LogForTenantAsync(Guid tenantId, AuditLogEntry entry, CancellationToken cancellationToken)
         {
             LogCalls++;
+            LastEntry = entry;
             return Task.CompletedTask;
         }
     }

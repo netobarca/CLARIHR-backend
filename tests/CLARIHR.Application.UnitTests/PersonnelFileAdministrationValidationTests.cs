@@ -53,7 +53,7 @@ public sealed class PersonnelFileAdministrationValidationTests
     [Fact]
     public void UpdatePersonalInfoValidator_WhenEmployeeMissingAssignedPositionSlot_ShouldAttachErrorToPublicFieldKey()
     {
-        var validator = new UpdatePersonnelFilePersonalInfoCommandValidator();
+        var validator = new UpdatePersonnelFileCommandValidator();
         var command = CreateUpdateCommand(PersonnelFileRecordType.Employee, assignedPositionSlotId: null);
 
         var result = validator.TestValidate(command);
@@ -120,11 +120,11 @@ public sealed class PersonnelFileAdministrationValidationTests
             AssignedPositionSlotId: assignedPositionSlotId);
     }
 
-    private static UpdatePersonnelFilePersonalInfoCommand CreateUpdateCommand(
+    private static UpdatePersonnelFileCommand CreateUpdateCommand(
         PersonnelFileRecordType recordType,
         Guid? assignedPositionSlotId)
     {
-        return new UpdatePersonnelFilePersonalInfoCommand(
+        return new UpdatePersonnelFileCommand(
             PersonnelFileId: Guid.NewGuid(),
             RecordType: recordType,
             FirstName: "ElNombre",
