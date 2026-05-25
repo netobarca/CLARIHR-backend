@@ -11,7 +11,6 @@ public sealed class JobProfileWorkingCondition : TenantEntity
     private JobProfileWorkingCondition(
         long? workConditionTypeCatalogItemId,
         long? catalogItemId,
-        JobCatalogItem? catalogItem,
         string name,
         string? notes,
         int sortOrder)
@@ -22,8 +21,7 @@ public sealed class JobProfileWorkingCondition : TenantEntity
         }
 
         WorkConditionTypeCatalogItemId = workConditionTypeCatalogItemId;
-        CatalogItem = catalogItem;
-        CatalogItemId = catalogItem?.Id ?? catalogItemId;
+        CatalogItemId = catalogItemId;
         Name = JobProfileNormalization.Clean(name, nameof(name));
         Notes = JobProfileNormalization.CleanOptional(notes);
         SortOrder = sortOrder;
@@ -38,8 +36,6 @@ public sealed class JobProfileWorkingCondition : TenantEntity
 
     public long? CatalogItemId { get; private set; }
 
-    public JobCatalogItem? CatalogItem { get; private set; }
-
     public string Name { get; private set; } = string.Empty;
 
     public string? Notes { get; private set; }
@@ -51,16 +47,14 @@ public sealed class JobProfileWorkingCondition : TenantEntity
     public static JobProfileWorkingCondition Create(
         long? workConditionTypeCatalogItemId,
         long? catalogItemId,
-        JobCatalogItem? catalogItem,
         string name,
         string? notes,
         int sortOrder) =>
-        new(workConditionTypeCatalogItemId, catalogItemId, catalogItem, name, notes, sortOrder);
+        new(workConditionTypeCatalogItemId, catalogItemId, name, notes, sortOrder);
 
     public void Update(
         long? workConditionTypeCatalogItemId,
         long? catalogItemId,
-        JobCatalogItem? catalogItem,
         string name,
         string? notes,
         int sortOrder)
@@ -71,8 +65,7 @@ public sealed class JobProfileWorkingCondition : TenantEntity
         }
 
         WorkConditionTypeCatalogItemId = workConditionTypeCatalogItemId;
-        CatalogItem = catalogItem;
-        CatalogItemId = catalogItem?.Id ?? catalogItemId;
+        CatalogItemId = catalogItemId;
         Name = JobProfileNormalization.Clean(name, nameof(name));
         Notes = JobProfileNormalization.CleanOptional(notes);
         SortOrder = sortOrder;

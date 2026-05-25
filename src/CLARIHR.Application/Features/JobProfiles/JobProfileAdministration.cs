@@ -2492,31 +2492,31 @@ internal static class JobProfileMutationMapper
                 workConditionTypeCatalogItemId = workConditionTypeLookup.InternalId;
             }
 
-            var catalogResolution = await ResolveCatalogReferenceAsync(
-                tenantId,
-                JobCatalogCategory.WorkingCondition,
-                input.CatalogItemId,
-                input.CatalogCode,
-                input.CatalogName,
-                allowInlineCatalogCreate,
-                authorizationService,
-                catalogRepository,
-                createdCatalogItems,
-                categoryInvalidation,
-                cancellationToken);
-            if (catalogResolution.IsFailure)
+            long? workConditionCatalogItemId = null;
+            string? workConditionCatalogName = null;
+            if (input.CatalogItemId.HasValue)
             {
-                return Result<JobProfileMutation>.Failure(catalogResolution.Error);
+                var workConditionLookup = await positionDescriptionCatalogRepository.GetActiveCatalogReferenceAsync(
+                    tenantId,
+                    PositionDescriptionCatalogType.WorkCondition,
+                    input.CatalogItemId.Value,
+                    cancellationToken);
+                if (workConditionLookup is null)
+                {
+                    return Result<JobProfileMutation>.Failure(PositionDescriptionCatalogErrors.WorkConditionNotFound);
+                }
+
+                workConditionCatalogItemId = workConditionLookup.InternalId;
+                workConditionCatalogName = workConditionLookup.Name;
             }
 
             var name = string.IsNullOrWhiteSpace(input.Name)
-                ? catalogResolution.Value?.Name ?? string.Empty
+                ? workConditionCatalogName ?? string.Empty
                 : input.Name;
 
             workingConditionEntities.Add(JobProfileWorkingCondition.Create(
                 workConditionTypeCatalogItemId,
-                catalogResolution.Value?.Id,
-                catalogResolution.Value,
+                workConditionCatalogItemId,
                 name,
                 input.Notes,
                 input.SortOrder));

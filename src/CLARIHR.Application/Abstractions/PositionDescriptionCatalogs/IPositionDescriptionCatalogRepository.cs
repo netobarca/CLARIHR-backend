@@ -104,6 +104,8 @@ public interface IPositionDescriptionCatalogRepository : IPositionCatalogLookup
 
     Task<bool> HasWorkConditionsUsingWorkConditionTypeAsync(long workConditionTypeCatalogItemId, CancellationToken cancellationToken);
 
+    Task<bool> HasWorkConditionsUsingWorkConditionAsync(long workConditionCatalogItemId, CancellationToken cancellationToken);
+
     void InvalidateSimpleCatalogCache(Guid tenantId, PositionDescriptionCatalogType catalogType);
 
     void InvalidateClassificationCache(Guid tenantId);

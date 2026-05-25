@@ -37,11 +37,6 @@ internal sealed class JobCatalogRepository(
             return true;
         }
 
-        if (await dbContext.Set<Domain.JobProfiles.JobProfileWorkingCondition>().AnyAsync(item => item.CatalogItemId == catalogItemId, cancellationToken))
-        {
-            return true;
-        }
-
         if (await dbContext.Set<Domain.JobProfiles.JobProfileTraining>().AnyAsync(item => item.CatalogItemId == catalogItemId, cancellationToken))
         {
             return true;

@@ -853,6 +853,9 @@
   <data name="WORK_CONDITION_TYPE_NOT_FOUND" xml:space="preserve">
     <value>The requested work condition type could not be found.</value>
   </data>
+  <data name="WORK_CONDITION_NOT_FOUND" xml:space="preserve">
+    <value>The requested work condition could not be found.</value>
+  </data>
   <data name="account_companies.current_user.invalid" xml:space="preserve">
     <value>The current user context is invalid.</value>
   </data>
