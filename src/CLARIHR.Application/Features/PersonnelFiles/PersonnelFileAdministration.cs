@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Banks;
 using CLARIHR.Application.Abstractions.Authentication;
@@ -15,6 +16,7 @@ using CLARIHR.Application.Features.Files.Common;
 using CLARIHR.Domain.Files;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
@@ -27,6 +29,13 @@ using FluentValidation;
 using FluentValidation.Results;
 
 namespace CLARIHR.Application.Features.PersonnelFiles;
+
+/// <summary>
+/// Returned by sub-resource DELETE endpoints so the caller receives the parent
+/// personnel file's refreshed concurrency token without an extra round-trip,
+/// mirroring the JobProfile sub-resource canonical pattern.
+/// </summary>
+public sealed record PersonnelFileParentConcurrencyResult(Guid ParentConcurrencyToken);
 
 public sealed record PersonnelFileListItemResponse(
     Guid Id,
@@ -140,7 +149,7 @@ public sealed record PersonnelFileAssociationResponse(
     decimal? Payment);
 
 public sealed record PersonnelFileEducationResponse(
-    Guid Id,
+    Guid EducationPublicId,
     PersonnelEducationCatalogReferenceResponse Status,
     string? DegreeTitle,
     PersonnelEducationCatalogReferenceResponse StudyType,
@@ -154,18 +163,28 @@ public sealed record PersonnelFileEducationResponse(
     PersonnelEducationCatalogReferenceResponse? Shift,
     PersonnelEducationCatalogReferenceResponse? Modality,
     int? TotalSubjects,
-    int? ApprovedSubjects);
+    int? ApprovedSubjects,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => EducationPublicId;
+}
 
 public sealed record PersonnelFileLanguageResponse(
-    Guid Id,
+    Guid LanguagePublicId,
     string LanguageCode,
     string LevelCode,
     bool Speaks,
     bool Writes,
-    bool Reads);
+    bool Reads,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => LanguagePublicId;
+}
 
 public sealed record PersonnelFileTrainingResponse(
-    Guid Id,
+    Guid TrainingPublicId,
     string TrainingName,
     string TrainingTypeCode,
     string? Description,
@@ -181,10 +200,15 @@ public sealed record PersonnelFileTrainingResponse(
     decimal DurationValue,
     string DurationUnitCode,
     decimal? CostAmount,
-    string? CostCurrencyCode);
+    string? CostCurrencyCode,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => TrainingPublicId;
+}
 
 public sealed record PersonnelFilePreviousEmploymentResponse(
-    Guid PublicId,
+    Guid PreviousEmploymentPublicId,
     string Institution,
     string? Place,
     string? LastPosition,
@@ -196,10 +220,15 @@ public sealed record PersonnelFilePreviousEmploymentResponse(
     decimal? FirstSalaryAmount,
     decimal? LastSalaryAmount,
     decimal? AverageCommissionAmount,
-    string CurrencyCode);
+    string CurrencyCode,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => PreviousEmploymentPublicId;
+}
 
 public sealed record PersonnelFileReferenceResponse(
-    Guid PublicId,
+    Guid ReferencePublicId,
     string PersonName,
     string? Address,
     string Phone,
@@ -207,7 +236,12 @@ public sealed record PersonnelFileReferenceResponse(
     string? Occupation,
     string? Workplace,
     string? WorkPhone,
-    decimal KnownTimeYears);
+    decimal KnownTimeYears,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => ReferencePublicId;
+}
 
 public sealed record PersonnelFileDocumentMetadataResponse(
     Guid Id,
@@ -483,13 +517,28 @@ public sealed record GetPersonnelFileAssociationsQuery(Guid PersonnelFileId) : I
 
 public sealed record GetPersonnelFileEducationsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileEducationResponse>>;
 
+public sealed record GetPersonnelFileEducationByIdQuery(Guid PersonnelFileId, Guid EducationPublicId)
+    : IQuery<PersonnelFileEducationResponse>;
+
 public sealed record GetPersonnelFileLanguagesQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileLanguageResponse>>;
+
+public sealed record GetPersonnelFileLanguageByIdQuery(Guid PersonnelFileId, Guid LanguagePublicId)
+    : IQuery<PersonnelFileLanguageResponse>;
 
 public sealed record GetPersonnelFileTrainingsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileTrainingResponse>>;
 
+public sealed record GetPersonnelFileTrainingByIdQuery(Guid PersonnelFileId, Guid TrainingPublicId)
+    : IQuery<PersonnelFileTrainingResponse>;
+
 public sealed record GetPersonnelFilePreviousEmploymentsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>>;
 
+public sealed record GetPersonnelFilePreviousEmploymentByIdQuery(Guid PersonnelFileId, Guid PreviousEmploymentPublicId)
+    : IQuery<PersonnelFilePreviousEmploymentResponse>;
+
 public sealed record GetPersonnelFileReferencesQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileReferenceResponse>>;
+
+public sealed record GetPersonnelFileReferenceByIdQuery(Guid PersonnelFileId, Guid ReferencePublicId)
+    : IQuery<PersonnelFileReferenceResponse>;
 
 public sealed record GetPersonnelFileDocumentsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>>;
 
@@ -764,7 +813,20 @@ public sealed record DeletePersonnelFileEducationCommand(
     Guid PersonnelFileId,
     Guid EducationPublicId,
     Guid ConcurrencyToken)
-    : ICommand<bool>;
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFileEducationPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFileEducationCommand(
+    Guid PersonnelFileId,
+    Guid EducationPublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFileEducationPatchOperation> Operations)
+    : ICommand<PersonnelFileEducationResponse>;
 
 public sealed record AddPersonnelFileLanguageCommand(
     Guid PersonnelFileId,
@@ -782,7 +844,20 @@ public sealed record DeletePersonnelFileLanguageCommand(
     Guid PersonnelFileId,
     Guid LanguagePublicId,
     Guid ConcurrencyToken)
-    : ICommand<bool>;
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFileLanguagePatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFileLanguageCommand(
+    Guid PersonnelFileId,
+    Guid LanguagePublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFileLanguagePatchOperation> Operations)
+    : ICommand<PersonnelFileLanguageResponse>;
 
 public sealed record AddPersonnelFileTrainingCommand(
     Guid PersonnelFileId,
@@ -800,7 +875,20 @@ public sealed record DeletePersonnelFileTrainingCommand(
     Guid PersonnelFileId,
     Guid TrainingPublicId,
     Guid ConcurrencyToken)
-    : ICommand<bool>;
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFileTrainingPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFileTrainingCommand(
+    Guid PersonnelFileId,
+    Guid TrainingPublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFileTrainingPatchOperation> Operations)
+    : ICommand<PersonnelFileTrainingResponse>;
 
 public sealed record AddPersonnelFilePreviousEmploymentCommand(
     Guid PersonnelFileId,
@@ -818,7 +906,20 @@ public sealed record DeletePersonnelFilePreviousEmploymentCommand(
     Guid PersonnelFileId,
     Guid PreviousEmploymentPublicId,
     Guid ConcurrencyToken)
-    : ICommand<bool>;
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFilePreviousEmploymentPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFilePreviousEmploymentCommand(
+    Guid PersonnelFileId,
+    Guid PreviousEmploymentPublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFilePreviousEmploymentPatchOperation> Operations)
+    : ICommand<PersonnelFilePreviousEmploymentResponse>;
 
 public sealed record AddPersonnelFileReferenceCommand(
     Guid PersonnelFileId,
@@ -836,7 +937,20 @@ public sealed record DeletePersonnelFileReferenceCommand(
     Guid PersonnelFileId,
     Guid ReferencePublicId,
     Guid ConcurrencyToken)
-    : ICommand<bool>;
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFileReferencePatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFileReferenceCommand(
+    Guid PersonnelFileId,
+    Guid ReferencePublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFileReferencePatchOperation> Operations)
+    : ICommand<PersonnelFileReferenceResponse>;
 
 public sealed record UpdatePersonnelFileDocumentCommand(
     Guid PersonnelFileId,
@@ -1107,11 +1221,29 @@ internal sealed class GetPersonnelFileEducationsQueryValidator : AbstractValidat
     }
 }
 
+internal sealed class GetPersonnelFileEducationByIdQueryValidator : AbstractValidator<GetPersonnelFileEducationByIdQuery>
+{
+    public GetPersonnelFileEducationByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.EducationPublicId).NotEmpty();
+    }
+}
+
 internal sealed class GetPersonnelFileLanguagesQueryValidator : AbstractValidator<GetPersonnelFileLanguagesQuery>
 {
     public GetPersonnelFileLanguagesQueryValidator()
     {
         RuleFor(query => query.PersonnelFileId).NotEmpty();
+    }
+}
+
+internal sealed class GetPersonnelFileLanguageByIdQueryValidator : AbstractValidator<GetPersonnelFileLanguageByIdQuery>
+{
+    public GetPersonnelFileLanguageByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.LanguagePublicId).NotEmpty();
     }
 }
 
@@ -1123,6 +1255,15 @@ internal sealed class GetPersonnelFileTrainingsQueryValidator : AbstractValidato
     }
 }
 
+internal sealed class GetPersonnelFileTrainingByIdQueryValidator : AbstractValidator<GetPersonnelFileTrainingByIdQuery>
+{
+    public GetPersonnelFileTrainingByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.TrainingPublicId).NotEmpty();
+    }
+}
+
 internal sealed class GetPersonnelFilePreviousEmploymentsQueryValidator : AbstractValidator<GetPersonnelFilePreviousEmploymentsQuery>
 {
     public GetPersonnelFilePreviousEmploymentsQueryValidator()
@@ -1131,11 +1272,29 @@ internal sealed class GetPersonnelFilePreviousEmploymentsQueryValidator : Abstra
     }
 }
 
+internal sealed class GetPersonnelFilePreviousEmploymentByIdQueryValidator : AbstractValidator<GetPersonnelFilePreviousEmploymentByIdQuery>
+{
+    public GetPersonnelFilePreviousEmploymentByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.PreviousEmploymentPublicId).NotEmpty();
+    }
+}
+
 internal sealed class GetPersonnelFileReferencesQueryValidator : AbstractValidator<GetPersonnelFileReferencesQuery>
 {
     public GetPersonnelFileReferencesQueryValidator()
     {
         RuleFor(query => query.PersonnelFileId).NotEmpty();
+    }
+}
+
+internal sealed class GetPersonnelFileReferenceByIdQueryValidator : AbstractValidator<GetPersonnelFileReferenceByIdQuery>
+{
+    public GetPersonnelFileReferenceByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.ReferencePublicId).NotEmpty();
     }
 }
 
@@ -1704,6 +1863,25 @@ internal sealed class DeletePersonnelFileEducationCommandValidator : AbstractVal
     }
 }
 
+internal sealed class PatchPersonnelFileEducationCommandValidator : AbstractValidator<PatchPersonnelFileEducationCommand>
+{
+    public PatchPersonnelFileEducationCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.EducationPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
+    }
+}
+
 internal sealed class AddPersonnelFileLanguageCommandValidator : AbstractValidator<AddPersonnelFileLanguageCommand>
 {
     public AddPersonnelFileLanguageCommandValidator()
@@ -1731,6 +1909,25 @@ internal sealed class DeletePersonnelFileLanguageCommandValidator : AbstractVali
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.LanguagePublicId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchPersonnelFileLanguageCommandValidator : AbstractValidator<PatchPersonnelFileLanguageCommand>
+{
+    public PatchPersonnelFileLanguageCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.LanguagePublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -1764,6 +1961,25 @@ internal sealed class DeletePersonnelFileTrainingCommandValidator : AbstractVali
     }
 }
 
+internal sealed class PatchPersonnelFileTrainingCommandValidator : AbstractValidator<PatchPersonnelFileTrainingCommand>
+{
+    public PatchPersonnelFileTrainingCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.TrainingPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
+    }
+}
+
 internal sealed class AddPersonnelFilePreviousEmploymentCommandValidator : AbstractValidator<AddPersonnelFilePreviousEmploymentCommand>
 {
     public AddPersonnelFilePreviousEmploymentCommandValidator()
@@ -1794,6 +2010,25 @@ internal sealed class DeletePersonnelFilePreviousEmploymentCommandValidator : Ab
     }
 }
 
+internal sealed class PatchPersonnelFilePreviousEmploymentCommandValidator : AbstractValidator<PatchPersonnelFilePreviousEmploymentCommand>
+{
+    public PatchPersonnelFilePreviousEmploymentCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.PreviousEmploymentPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
+    }
+}
+
 internal sealed class AddPersonnelFileReferenceCommandValidator : AbstractValidator<AddPersonnelFileReferenceCommand>
 {
     public AddPersonnelFileReferenceCommandValidator()
@@ -1821,6 +2056,25 @@ internal sealed class DeletePersonnelFileReferenceCommandValidator : AbstractVal
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.ReferencePublicId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchPersonnelFileReferenceCommandValidator : AbstractValidator<PatchPersonnelFileReferenceCommand>
+{
+    public PatchPersonnelFileReferenceCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.ReferencePublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -2928,6 +3182,35 @@ internal sealed class GetPersonnelFileEducationsQueryHandler(
     }
 }
 
+internal sealed class GetPersonnelFileEducationByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext)
+    : GetPersonnelFileSectionQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileEducationByIdQuery, PersonnelFileEducationResponse>
+{
+    public async Task<Result<PersonnelFileEducationResponse>> Handle(
+        GetPersonnelFileEducationByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var failure = await EnsureCanReadAsync<PersonnelFileEducationResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            repository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await repository.GetEducationAsync(query.PersonnelFileId, query.EducationPublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFileEducationResponse>.Success(response);
+    }
+}
+
 internal sealed class GetPersonnelFileLanguagesQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
@@ -2952,6 +3235,35 @@ internal sealed class GetPersonnelFileLanguagesQueryHandler(
 
         var response = await repository.GetLanguagesAsync(query.PersonnelFileId, cancellationToken);
         return Result<IReadOnlyCollection<PersonnelFileLanguageResponse>>.Success(response);
+    }
+}
+
+internal sealed class GetPersonnelFileLanguageByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext)
+    : GetPersonnelFileSectionQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileLanguageByIdQuery, PersonnelFileLanguageResponse>
+{
+    public async Task<Result<PersonnelFileLanguageResponse>> Handle(
+        GetPersonnelFileLanguageByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var failure = await EnsureCanReadAsync<PersonnelFileLanguageResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            repository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await repository.GetLanguageAsync(query.PersonnelFileId, query.LanguagePublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFileLanguageResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFileLanguageResponse>.Success(response);
     }
 }
 
@@ -2982,6 +3294,35 @@ internal sealed class GetPersonnelFileTrainingsQueryHandler(
     }
 }
 
+internal sealed class GetPersonnelFileTrainingByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext)
+    : GetPersonnelFileSectionQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileTrainingByIdQuery, PersonnelFileTrainingResponse>
+{
+    public async Task<Result<PersonnelFileTrainingResponse>> Handle(
+        GetPersonnelFileTrainingByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var failure = await EnsureCanReadAsync<PersonnelFileTrainingResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            repository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await repository.GetTrainingAsync(query.PersonnelFileId, query.TrainingPublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFileTrainingResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFileTrainingResponse>.Success(response);
+    }
+}
+
 internal sealed class GetPersonnelFilePreviousEmploymentsQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
@@ -3009,6 +3350,35 @@ internal sealed class GetPersonnelFilePreviousEmploymentsQueryHandler(
     }
 }
 
+internal sealed class GetPersonnelFilePreviousEmploymentByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext)
+    : GetPersonnelFileSectionQueryHandlerBase,
+      IQueryHandler<GetPersonnelFilePreviousEmploymentByIdQuery, PersonnelFilePreviousEmploymentResponse>
+{
+    public async Task<Result<PersonnelFilePreviousEmploymentResponse>> Handle(
+        GetPersonnelFilePreviousEmploymentByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var failure = await EnsureCanReadAsync<PersonnelFilePreviousEmploymentResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            repository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await repository.GetPreviousEmploymentAsync(query.PersonnelFileId, query.PreviousEmploymentPublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFilePreviousEmploymentResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFilePreviousEmploymentResponse>.Success(response);
+    }
+}
+
 internal sealed class GetPersonnelFileReferencesQueryHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,
@@ -3033,6 +3403,35 @@ internal sealed class GetPersonnelFileReferencesQueryHandler(
 
         var response = await repository.GetReferencesAsync(query.PersonnelFileId, cancellationToken);
         return Result<IReadOnlyCollection<PersonnelFileReferenceResponse>>.Success(response);
+    }
+}
+
+internal sealed class GetPersonnelFileReferenceByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext)
+    : GetPersonnelFileSectionQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileReferenceByIdQuery, PersonnelFileReferenceResponse>
+{
+    public async Task<Result<PersonnelFileReferenceResponse>> Handle(
+        GetPersonnelFileReferenceByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var failure = await EnsureCanReadAsync<PersonnelFileReferenceResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            repository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await repository.GetReferenceAsync(query.PersonnelFileId, query.ReferencePublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFileReferenceResponse>.Success(response);
     }
 }
 
@@ -6682,7 +7081,13 @@ internal sealed class UpdatePersonnelFileEducationCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var education = personnelFile.Educations.FirstOrDefault(item => item.PublicId == command.EducationPublicId);
+        if (education is null)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (education.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
@@ -6767,21 +7172,21 @@ internal sealed class DeletePersonnelFileEducationCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<DeletePersonnelFileEducationCommand, bool>
+    : ICommandHandler<DeletePersonnelFileEducationCommand, PersonnelFileParentConcurrencyResult>
 {
-    public async Task<Result<bool>> Handle(
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
         DeletePersonnelFileEducationCommand command,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<bool>.Failure(authorizationResult.Error);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(authorizationResult.Error);
         }
 
         var personnelFile = await repository.GetForProfileSectionUpdateAsync(
@@ -6790,15 +7195,21 @@ internal sealed class DeletePersonnelFileEducationCommandHandler(
             cancellationToken);
         if (personnelFile is null)
         {
-            return Result<bool>.Failure(
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var education = personnelFile.Educations.FirstOrDefault(item => item.PublicId == command.EducationPublicId);
+        if (education is null)
         {
-            return Result<bool>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (education.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetEducationsAsync(personnelFile.PublicId, cancellationToken);
@@ -6837,11 +7248,12 @@ internal sealed class DeletePersonnelFileEducationCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<bool>.Success(true);
+            return Result<PersonnelFileParentConcurrencyResult>.Success(
+                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
         {
-            return Result<bool>.Failure(PersonnelFileErrors.NotFound);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
         catch
         {
@@ -6849,6 +7261,524 @@ internal sealed class DeletePersonnelFileEducationCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class PatchPersonnelFileEducationCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IEducationCatalogRepository educationCatalogRepository,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchPersonnelFileEducationCommand, PersonnelFileEducationResponse>
+{
+    public async Task<Result<PersonnelFileEducationResponse>> Handle(
+        PatchPersonnelFileEducationCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.Educations,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        var education = personnelFile.Educations.FirstOrDefault(item => item.PublicId == command.EducationPublicId);
+        if (education is null)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (education.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetEducationAsync(personnelFile.PublicId, command.EducationPublicId, cancellationToken);
+        if (before is null)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        var state = PersonnelFileEducationPatchState.From(before);
+        var applyResult = PersonnelFileEducationPatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFileEducationPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFileEducationResponse>.Success(before);
+        }
+
+        var input = state.ToInput();
+        var (catalogError, resolvedIds) = await AddPersonnelFileEducationCommandHandler.ResolveEducationCatalogIdsAsync(
+            input, educationCatalogRepository, repository, cancellationToken);
+        if (catalogError != Error.None)
+        {
+            return Result<PersonnelFileEducationResponse>.Failure(catalogError);
+        }
+
+        var beforeList = await repository.GetEducationsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.UpdateEducation(
+                command.EducationPublicId,
+                resolvedIds!.StatusId,
+                input.DegreeTitle,
+                resolvedIds.StudyTypeId,
+                resolvedIds.CareerId,
+                input.Institution,
+                input.CountryCode,
+                input.Specialty,
+                input.IsCurrentlyStudying,
+                input.StartDate,
+                input.EndDate,
+                resolvedIds.ShiftId,
+                resolvedIds.ModalityId,
+                input.TotalSubjects,
+                input.ApprovedSubjects);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var afterList = await repository.GetEducationsAsync(personnelFile.PublicId, cancellationToken);
+            var response = afterList.SingleOrDefault(item => item.Id == command.EducationPublicId)
+                ?? throw new InvalidOperationException("Personnel file education response could not be resolved after patch.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Patched education for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Educations,
+                        data = beforeList
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Educations,
+                        data = afterList,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileEducationResponse>.Success(response);
+        }
+        catch (InvalidOperationException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<PersonnelFileEducationResponse>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class PersonnelFileEducationPatchState
+{
+    public Guid StatusPublicId { get; set; }
+    public string? DegreeTitle { get; set; }
+    public Guid StudyTypePublicId { get; set; }
+    public Guid CareerPublicId { get; set; }
+    public string Institution { get; set; } = string.Empty;
+    public string CountryCode { get; set; } = string.Empty;
+    public string? Specialty { get; set; }
+    public bool IsCurrentlyStudying { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public Guid? ShiftPublicId { get; set; }
+    public Guid? ModalityPublicId { get; set; }
+    public int? TotalSubjects { get; set; }
+    public int? ApprovedSubjects { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFileEducationPatchState From(PersonnelFileEducationResponse response) =>
+        new()
+        {
+            StatusPublicId = response.Status.Id,
+            DegreeTitle = response.DegreeTitle,
+            StudyTypePublicId = response.StudyType.Id,
+            CareerPublicId = response.Career.Id,
+            Institution = response.Institution,
+            CountryCode = response.CountryCode,
+            Specialty = response.Specialty,
+            IsCurrentlyStudying = response.IsCurrentlyStudying,
+            StartDate = response.StartDate,
+            EndDate = response.EndDate,
+            ShiftPublicId = response.Shift?.Id,
+            ModalityPublicId = response.Modality?.Id,
+            TotalSubjects = response.TotalSubjects,
+            ApprovedSubjects = response.ApprovedSubjects
+        };
+
+    public EducationInput ToInput() =>
+        new(
+            StatusPublicId,
+            DegreeTitle,
+            StudyTypePublicId,
+            CareerPublicId,
+            Institution,
+            CountryCode,
+            Specialty,
+            IsCurrentlyStudying,
+            StartDate,
+            EndDate,
+            ShiftPublicId,
+            ModalityPublicId,
+            TotalSubjects,
+            ApprovedSubjects);
+}
+
+internal static class PersonnelFileEducationPatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<PersonnelFileEducationPatchOperation> operations, PersonnelFileEducationPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root education properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFileEducationPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (state.StatusPublicId == Guid.Empty)
+        {
+            errors["statusPublicId"] = ["StatusPublicId must be a valid UUID."];
+        }
+
+        if (state.StudyTypePublicId == Guid.Empty)
+        {
+            errors["studyTypePublicId"] = ["StudyTypePublicId must be a valid UUID."];
+        }
+
+        if (state.CareerPublicId == Guid.Empty)
+        {
+            errors["careerPublicId"] = ["CareerPublicId must be a valid UUID."];
+        }
+
+        if (state.ShiftPublicId == Guid.Empty)
+        {
+            errors["shiftPublicId"] = ["ShiftPublicId must be a valid UUID."];
+        }
+
+        if (state.ModalityPublicId == Guid.Empty)
+        {
+            errors["modalityPublicId"] = ["ModalityPublicId must be a valid UUID."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.Institution))
+        {
+            errors["institution"] = ["Institution is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.CountryCode))
+        {
+            errors["countryCode"] = ["CountryCode is required."];
+        }
+
+        if (!state.IsCurrentlyStudying && !state.EndDate.HasValue)
+        {
+            errors["endDate"] = ["EndDate is required when IsCurrentlyStudying is false."];
+        }
+
+        if (state.EndDate.HasValue && state.EndDate.Value.Date < state.StartDate.Date)
+        {
+            errors["endDate"] = ["EndDate cannot be earlier than StartDate."];
+        }
+
+        if (state.TotalSubjects is < 0)
+        {
+            errors["totalSubjects"] = ["TotalSubjects cannot be negative."];
+        }
+
+        if (state.ApprovedSubjects is < 0)
+        {
+            errors["approvedSubjects"] = ["ApprovedSubjects cannot be negative."];
+        }
+
+        if (state.TotalSubjects.HasValue && state.ApprovedSubjects.HasValue &&
+            state.ApprovedSubjects.Value > state.TotalSubjects.Value)
+        {
+            errors["approvedSubjects"] = ["ApprovedSubjects cannot be greater than TotalSubjects."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFileEducationPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsAnySegment(property, "statusPublicId", "statusId"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "StatusPublicId cannot be removed.")
+                : Mutate(state, () => state.StatusPublicId = ReadRequiredGuid(value, path));
+        }
+
+        if (IsSegment(property, "degreeTitle"))
+        {
+            return Mutate(state, () => state.DegreeTitle = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsAnySegment(property, "studyTypePublicId", "studyTypeId"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "StudyTypePublicId cannot be removed.")
+                : Mutate(state, () => state.StudyTypePublicId = ReadRequiredGuid(value, path));
+        }
+
+        if (IsAnySegment(property, "careerPublicId", "careerId"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "CareerPublicId cannot be removed.")
+                : Mutate(state, () => state.CareerPublicId = ReadRequiredGuid(value, path));
+        }
+
+        if (IsSegment(property, "institution"))
+        {
+            return Mutate(state, () => state.Institution = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "countryCode"))
+        {
+            return Mutate(state, () => state.CountryCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "specialty"))
+        {
+            return Mutate(state, () => state.Specialty = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "isCurrentlyStudying"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "IsCurrentlyStudying cannot be removed.")
+                : Mutate(state, () => state.IsCurrentlyStudying = ReadBool(value, path));
+        }
+
+        if (IsSegment(property, "startDate"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "StartDate cannot be removed.")
+                : Mutate(state, () => state.StartDate = ReadRequiredDateTime(value, path));
+        }
+
+        if (IsSegment(property, "endDate"))
+        {
+            return Mutate(state, () => state.EndDate = isRemove ? null : ReadRequiredDateTime(value, path));
+        }
+
+        if (IsAnySegment(property, "shiftPublicId", "shiftId"))
+        {
+            return Mutate(state, () => state.ShiftPublicId = isRemove ? null : ReadNullableGuid(value, path));
+        }
+
+        if (IsAnySegment(property, "modalityPublicId", "modalityId"))
+        {
+            return Mutate(state, () => state.ModalityPublicId = isRemove ? null : ReadNullableGuid(value, path));
+        }
+
+        if (IsSegment(property, "totalSubjects"))
+        {
+            return Mutate(state, () => state.TotalSubjects = isRemove ? null : ReadNullableInt(value, path));
+        }
+
+        if (IsSegment(property, "approvedSubjects"))
+        {
+            return Mutate(state, () => state.ApprovedSubjects = isRemove ? null : ReadNullableInt(value, path));
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFileEducationPatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAnySegment(string actual, params string[] expected) =>
+        expected.Any(item => IsSegment(actual, item));
+
+    private static string ReadRequiredString(JsonElement? value, string path) =>
+        ReadNullableString(value, path) ?? string.Empty;
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new PersonnelFilePatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static Guid ReadRequiredGuid(JsonElement? value, string path) =>
+        ReadNullableGuid(value, path)
+        ?? throw new PersonnelFilePatchValueException(path, "Value must be a valid UUID.");
+
+    private static Guid? ReadNullableGuid(JsonElement? value, string path)
+    {
+        var raw = ReadNullableString(value, path);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        return Guid.TryParse(raw, out var parsed)
+            ? parsed
+            : throw new PersonnelFilePatchValueException(path, "Value must be a valid UUID.");
+    }
+
+    private static DateTime ReadRequiredDateTime(JsonElement? value, string path)
+    {
+        if (!IsNull(value) &&
+            value!.Value.ValueKind == JsonValueKind.String &&
+            value.Value.TryGetDateTime(out var parsed))
+        {
+            return parsed;
+        }
+
+        throw new PersonnelFilePatchValueException(path, "Value must be a valid date-time string.");
+    }
+
+    private static bool ReadBool(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new PersonnelFilePatchValueException(path, "Value must be a boolean.");
+        }
+
+        return value!.Value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new PersonnelFilePatchValueException(path, "Value must be a boolean.")
+        };
+    }
+
+    private static int? ReadNullableInt(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        if (value!.Value.ValueKind == JsonValueKind.Number && value.Value.TryGetInt32(out var parsed))
+        {
+            return parsed;
+        }
+
+        var raw = value.Value.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
+        if (!string.IsNullOrWhiteSpace(raw) && int.TryParse(raw, out parsed))
+        {
+            return parsed;
+        }
+
+        throw new PersonnelFilePatchValueException(path, "Value must be an integer.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
 
 internal sealed class AddPersonnelFileLanguageCommandHandler(
@@ -7008,7 +7938,13 @@ internal sealed class UpdatePersonnelFileLanguageCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var language = personnelFile.Languages.FirstOrDefault(item => item.PublicId == command.LanguagePublicId);
+        if (language is null)
+        {
+            return Result<PersonnelFileLanguageResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (language.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<PersonnelFileLanguageResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
@@ -7101,21 +8037,21 @@ internal sealed class DeletePersonnelFileLanguageCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<DeletePersonnelFileLanguageCommand, bool>
+    : ICommandHandler<DeletePersonnelFileLanguageCommand, PersonnelFileParentConcurrencyResult>
 {
-    public async Task<Result<bool>> Handle(
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
         DeletePersonnelFileLanguageCommand command,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<bool>.Failure(authorizationResult.Error);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(authorizationResult.Error);
         }
 
         var personnelFile = await repository.GetForProfileSectionUpdateAsync(
@@ -7124,15 +8060,21 @@ internal sealed class DeletePersonnelFileLanguageCommandHandler(
             cancellationToken);
         if (personnelFile is null)
         {
-            return Result<bool>.Failure(
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var language = personnelFile.Languages.FirstOrDefault(item => item.PublicId == command.LanguagePublicId);
+        if (language is null)
         {
-            return Result<bool>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (language.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetLanguagesAsync(personnelFile.PublicId, cancellationToken);
@@ -7170,11 +8112,12 @@ internal sealed class DeletePersonnelFileLanguageCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<bool>.Success(true);
+            return Result<PersonnelFileParentConcurrencyResult>.Success(
+                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
         {
-            return Result<bool>.Failure(PersonnelFileErrors.NotFound);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
         catch
         {
@@ -7182,6 +8125,352 @@ internal sealed class DeletePersonnelFileLanguageCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class PatchPersonnelFileLanguageCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchPersonnelFileLanguageCommand, PersonnelFileLanguageResponse>
+{
+    public async Task<Result<PersonnelFileLanguageResponse>> Handle(
+        PatchPersonnelFileLanguageCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFileLanguageResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileLanguageResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.Languages,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileLanguageResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        var language = personnelFile.Languages.FirstOrDefault(item => item.PublicId == command.LanguagePublicId);
+        if (language is null)
+        {
+            return Result<PersonnelFileLanguageResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (language.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileLanguageResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetLanguageAsync(personnelFile.PublicId, command.LanguagePublicId, cancellationToken);
+        if (before is null)
+        {
+            return Result<PersonnelFileLanguageResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        var state = PersonnelFileLanguagePatchState.From(before);
+        var applyResult = PersonnelFileLanguagePatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFileLanguageResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFileLanguagePatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileLanguageResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFileLanguageResponse>.Success(before);
+        }
+
+        var input = state.ToInput();
+
+        var languageError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "languageCode",
+            PersonnelCurriculumCatalogCategories.Language,
+            input.LanguageCode,
+            cancellationToken);
+        if (languageError != Error.None)
+        {
+            return Result<PersonnelFileLanguageResponse>.Failure(languageError);
+        }
+
+        var levelError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "levelCode",
+            PersonnelCurriculumCatalogCategories.LanguageLevel,
+            input.LevelCode,
+            cancellationToken);
+        if (levelError != Error.None)
+        {
+            return Result<PersonnelFileLanguageResponse>.Failure(levelError);
+        }
+
+        var beforeList = await repository.GetLanguagesAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.UpdateLanguage(
+                command.LanguagePublicId,
+                input.LanguageCode,
+                input.LevelCode,
+                input.Speaks,
+                input.Writes,
+                input.Reads);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var afterList = await repository.GetLanguagesAsync(personnelFile.PublicId, cancellationToken);
+            var response = afterList.SingleOrDefault(item => item.Id == command.LanguagePublicId)
+                ?? throw new InvalidOperationException("Personnel file language response could not be resolved after patch.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Patched language for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Languages,
+                        data = beforeList
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Languages,
+                        data = afterList,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileLanguageResponse>.Success(response);
+        }
+        catch (InvalidOperationException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<PersonnelFileLanguageResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class PersonnelFileLanguagePatchState
+{
+    public string LanguageCode { get; set; } = string.Empty;
+    public string LevelCode { get; set; } = string.Empty;
+    public bool Speaks { get; set; }
+    public bool Writes { get; set; }
+    public bool Reads { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFileLanguagePatchState From(PersonnelFileLanguageResponse response) =>
+        new()
+        {
+            LanguageCode = response.LanguageCode,
+            LevelCode = response.LevelCode,
+            Speaks = response.Speaks,
+            Writes = response.Writes,
+            Reads = response.Reads
+        };
+
+    public LanguageInput ToInput() =>
+        new(LanguageCode, LevelCode, Speaks, Writes, Reads);
+}
+
+internal static class PersonnelFileLanguagePatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<PersonnelFileLanguagePatchOperation> operations, PersonnelFileLanguagePatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root language properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFileLanguagePatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.LanguageCode))
+        {
+            errors["languageCode"] = ["LanguageCode is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.LevelCode))
+        {
+            errors["levelCode"] = ["LevelCode is required."];
+        }
+
+        if (!state.Speaks && !state.Writes && !state.Reads)
+        {
+            errors["skills"] = ["At least one of speaks, writes or reads must be true."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFileLanguagePatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "languageCode"))
+        {
+            return Mutate(state, () => state.LanguageCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "levelCode"))
+        {
+            return Mutate(state, () => state.LevelCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "speaks"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "Speaks cannot be removed.")
+                : Mutate(state, () => state.Speaks = ReadBool(value, path));
+        }
+
+        if (IsSegment(property, "writes"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "Writes cannot be removed.")
+                : Mutate(state, () => state.Writes = ReadBool(value, path));
+        }
+
+        if (IsSegment(property, "reads"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "Reads cannot be removed.")
+                : Mutate(state, () => state.Reads = ReadBool(value, path));
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFileLanguagePatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadRequiredString(JsonElement? value, string path) =>
+        ReadNullableString(value, path) ?? string.Empty;
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new PersonnelFilePatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static bool ReadBool(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new PersonnelFilePatchValueException(path, "Value must be a boolean.");
+        }
+
+        return value!.Value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new PersonnelFilePatchValueException(path, "Value must be a boolean.")
+        };
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
 
 internal sealed class AddPersonnelFileTrainingCommandHandler(
@@ -7363,7 +8652,13 @@ internal sealed class UpdatePersonnelFileTrainingCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var training = personnelFile.Trainings.FirstOrDefault(item => item.PublicId == command.TrainingPublicId);
+        if (training is null)
+        {
+            return Result<PersonnelFileTrainingResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (training.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<PersonnelFileTrainingResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
@@ -7405,10 +8700,6 @@ internal sealed class UpdatePersonnelFileTrainingCommandHandler(
         if (currencyError != Error.None) return Result<PersonnelFileTrainingResponse>.Failure(currencyError);
 
         var before = await repository.GetTrainingsAsync(personnelFile.PublicId, cancellationToken);
-        if (!before.Any(i => i.Id == command.TrainingPublicId))
-        {
-            return Result<PersonnelFileTrainingResponse>.Failure(PersonnelFileErrors.NotFound);
-        }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -7485,21 +8776,21 @@ internal sealed class DeletePersonnelFileTrainingCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<DeletePersonnelFileTrainingCommand, bool>
+    : ICommandHandler<DeletePersonnelFileTrainingCommand, PersonnelFileParentConcurrencyResult>
 {
-    public async Task<Result<bool>> Handle(
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
         DeletePersonnelFileTrainingCommand command,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<bool>.Failure(authorizationResult.Error);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(authorizationResult.Error);
         }
 
         var personnelFile = await repository.GetForProfileSectionUpdateAsync(
@@ -7508,22 +8799,24 @@ internal sealed class DeletePersonnelFileTrainingCommandHandler(
             cancellationToken);
         if (personnelFile is null)
         {
-            return Result<bool>.Failure(
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var training = personnelFile.Trainings.FirstOrDefault(item => item.PublicId == command.TrainingPublicId);
+        if (training is null)
         {
-            return Result<bool>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (training.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetTrainingsAsync(personnelFile.PublicId, cancellationToken);
-        if (!before.Any(i => i.Id == command.TrainingPublicId))
-        {
-            return Result<bool>.Failure(PersonnelFileErrors.NotFound);
-        }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -7551,13 +8844,20 @@ internal sealed class DeletePersonnelFileTrainingCommandHandler(
                     {
                         personnelFileId = personnelFile.PublicId,
                         section = PersonnelFilePrintSections.Trainings,
-                        data = after
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
                     }),
                 cancellationToken);
 
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-
-            return Result<bool>.Success(true);
+            return Result<PersonnelFileParentConcurrencyResult>.Success(
+                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
         catch
         {
@@ -7565,6 +8865,533 @@ internal sealed class DeletePersonnelFileTrainingCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class PatchPersonnelFileTrainingCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchPersonnelFileTrainingCommand, PersonnelFileTrainingResponse>
+{
+    public async Task<Result<PersonnelFileTrainingResponse>> Handle(
+        PatchPersonnelFileTrainingCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFileTrainingResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileTrainingResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.Trainings,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileTrainingResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        var training = personnelFile.Trainings.FirstOrDefault(item => item.PublicId == command.TrainingPublicId);
+        if (training is null)
+        {
+            return Result<PersonnelFileTrainingResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (training.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileTrainingResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetTrainingAsync(personnelFile.PublicId, command.TrainingPublicId, cancellationToken);
+        if (before is null)
+        {
+            return Result<PersonnelFileTrainingResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        var state = PersonnelFileTrainingPatchState.From(before);
+        var applyResult = PersonnelFileTrainingPatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFileTrainingResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFileTrainingPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileTrainingResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFileTrainingResponse>.Success(before);
+        }
+
+        var input = state.ToInput();
+
+        var typeError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "trainingTypeCode",
+            PersonnelCurriculumCatalogCategories.TrainingType,
+            input.TrainingTypeCode,
+            cancellationToken);
+        if (typeError != Error.None) return Result<PersonnelFileTrainingResponse>.Failure(typeError);
+
+        var countryError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "countryCode",
+            PersonnelCurriculumCatalogCategories.Country,
+            input.CountryCode,
+            cancellationToken);
+        if (countryError != Error.None) return Result<PersonnelFileTrainingResponse>.Failure(countryError);
+
+        var durationUnitError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "durationUnitCode",
+            PersonnelCurriculumCatalogCategories.DurationUnit,
+            input.DurationUnitCode,
+            cancellationToken);
+        if (durationUnitError != Error.None) return Result<PersonnelFileTrainingResponse>.Failure(durationUnitError);
+
+        var currencyError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "costCurrencyCode",
+            PersonnelCurriculumCatalogCategories.Currency,
+            input.CostCurrencyCode ?? string.Empty,
+            cancellationToken);
+        if (currencyError != Error.None) return Result<PersonnelFileTrainingResponse>.Failure(currencyError);
+
+        var beforeList = await repository.GetTrainingsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.UpdateTraining(
+                command.TrainingPublicId,
+                input.TrainingName,
+                input.TrainingTypeCode,
+                input.Description,
+                input.Topic,
+                input.Institution,
+                input.Instructors,
+                input.Score,
+                input.StartDate,
+                input.EndDate,
+                input.IsInternal,
+                input.IsLocal,
+                input.CountryCode,
+                input.DurationValue,
+                input.DurationUnitCode,
+                input.CostAmount,
+                input.CostCurrencyCode);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var afterList = await repository.GetTrainingsAsync(personnelFile.PublicId, cancellationToken);
+            var response = afterList.SingleOrDefault(item => item.Id == command.TrainingPublicId)
+                ?? throw new InvalidOperationException("Personnel file training response could not be resolved after patch.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Patched training for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Trainings,
+                        data = beforeList
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.Trainings,
+                        data = afterList,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileTrainingResponse>.Success(response);
+        }
+        catch (InvalidOperationException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<PersonnelFileTrainingResponse>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class PersonnelFileTrainingPatchState
+{
+    public string TrainingName { get; set; } = string.Empty;
+    public string TrainingTypeCode { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? Topic { get; set; }
+    public string? Institution { get; set; }
+    public string? Instructors { get; set; }
+    public decimal? Score { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public bool IsInternal { get; set; }
+    public bool IsLocal { get; set; }
+    public string CountryCode { get; set; } = string.Empty;
+    public decimal DurationValue { get; set; }
+    public string DurationUnitCode { get; set; } = string.Empty;
+    public decimal? CostAmount { get; set; }
+    public string? CostCurrencyCode { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFileTrainingPatchState From(PersonnelFileTrainingResponse response) =>
+        new()
+        {
+            TrainingName = response.TrainingName,
+            TrainingTypeCode = response.TrainingTypeCode,
+            Description = response.Description,
+            Topic = response.Topic,
+            Institution = response.Institution,
+            Instructors = response.Instructors,
+            Score = response.Score,
+            StartDate = response.StartDate,
+            EndDate = response.EndDate,
+            IsInternal = response.IsInternal,
+            IsLocal = response.IsLocal,
+            CountryCode = response.CountryCode,
+            DurationValue = response.DurationValue,
+            DurationUnitCode = response.DurationUnitCode,
+            CostAmount = response.CostAmount,
+            CostCurrencyCode = response.CostCurrencyCode
+        };
+
+    public TrainingInput ToInput() =>
+        new(
+            TrainingName,
+            TrainingTypeCode,
+            Description,
+            Topic,
+            Institution,
+            Instructors,
+            Score,
+            StartDate,
+            EndDate,
+            IsInternal,
+            IsLocal,
+            CountryCode,
+            DurationValue,
+            DurationUnitCode,
+            CostAmount,
+            CostCurrencyCode);
+}
+
+internal static class PersonnelFileTrainingPatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<PersonnelFileTrainingPatchOperation> operations, PersonnelFileTrainingPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root training properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFileTrainingPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.TrainingName))
+        {
+            errors["trainingName"] = ["TrainingName is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.TrainingTypeCode))
+        {
+            errors["trainingTypeCode"] = ["TrainingTypeCode is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.CountryCode))
+        {
+            errors["countryCode"] = ["CountryCode is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.DurationUnitCode))
+        {
+            errors["durationUnitCode"] = ["DurationUnitCode is required."];
+        }
+
+        if (state.EndDate.HasValue && state.EndDate.Value.Date < state.StartDate.Date)
+        {
+            errors["endDate"] = ["EndDate cannot be earlier than StartDate."];
+        }
+
+        if (state.DurationValue <= 0)
+        {
+            errors["durationValue"] = ["DurationValue must be greater than zero."];
+        }
+
+        if (state.CostAmount is < 0)
+        {
+            errors["costAmount"] = ["CostAmount cannot be negative."];
+        }
+
+        if (state.CostAmount.HasValue && string.IsNullOrWhiteSpace(state.CostCurrencyCode))
+        {
+            errors["costCurrencyCode"] = ["CostCurrencyCode is required when CostAmount is provided."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFileTrainingPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "trainingName"))
+        {
+            return Mutate(state, () => state.TrainingName = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "trainingTypeCode"))
+        {
+            return Mutate(state, () => state.TrainingTypeCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "description"))
+        {
+            return Mutate(state, () => state.Description = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "topic"))
+        {
+            return Mutate(state, () => state.Topic = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "institution"))
+        {
+            return Mutate(state, () => state.Institution = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "instructors"))
+        {
+            return Mutate(state, () => state.Instructors = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "score"))
+        {
+            return Mutate(state, () => state.Score = isRemove ? null : ReadNullableDecimal(value, path));
+        }
+
+        if (IsSegment(property, "startDate"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "StartDate cannot be removed.")
+                : Mutate(state, () => state.StartDate = ReadRequiredDateTime(value, path));
+        }
+
+        if (IsSegment(property, "endDate"))
+        {
+            return Mutate(state, () => state.EndDate = isRemove ? null : ReadRequiredDateTime(value, path));
+        }
+
+        if (IsSegment(property, "isInternal"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "IsInternal cannot be removed.")
+                : Mutate(state, () => state.IsInternal = ReadBool(value, path));
+        }
+
+        if (IsSegment(property, "isLocal"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "IsLocal cannot be removed.")
+                : Mutate(state, () => state.IsLocal = ReadBool(value, path));
+        }
+
+        if (IsSegment(property, "countryCode"))
+        {
+            return Mutate(state, () => state.CountryCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "durationValue"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "DurationValue cannot be removed.")
+                : Mutate(state, () => state.DurationValue = ReadRequiredDecimal(value, path));
+        }
+
+        if (IsSegment(property, "durationUnitCode"))
+        {
+            return Mutate(state, () => state.DurationUnitCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "costAmount"))
+        {
+            return Mutate(state, () => state.CostAmount = isRemove ? null : ReadNullableDecimal(value, path));
+        }
+
+        if (IsSegment(property, "costCurrencyCode"))
+        {
+            return Mutate(state, () => state.CostCurrencyCode = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFileTrainingPatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadRequiredString(JsonElement? value, string path) =>
+        ReadNullableString(value, path) ?? string.Empty;
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new PersonnelFilePatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static DateTime ReadRequiredDateTime(JsonElement? value, string path)
+    {
+        if (!IsNull(value) &&
+            value!.Value.ValueKind == JsonValueKind.String &&
+            value.Value.TryGetDateTime(out var parsed))
+        {
+            return parsed;
+        }
+
+        throw new PersonnelFilePatchValueException(path, "Value must be a valid date-time string.");
+    }
+
+    private static bool ReadBool(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new PersonnelFilePatchValueException(path, "Value must be a boolean.");
+        }
+
+        return value!.Value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new PersonnelFilePatchValueException(path, "Value must be a boolean.")
+        };
+    }
+
+    private static decimal ReadRequiredDecimal(JsonElement? value, string path) =>
+        ReadNullableDecimal(value, path)
+        ?? throw new PersonnelFilePatchValueException(path, "Value must be a number.");
+
+    private static decimal? ReadNullableDecimal(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        if (value!.Value.ValueKind == JsonValueKind.Number && value.Value.TryGetDecimal(out var parsed))
+        {
+            return parsed;
+        }
+
+        var raw = value.Value.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
+        if (!string.IsNullOrWhiteSpace(raw) &&
+            decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out parsed))
+        {
+            return parsed;
+        }
+
+        throw new PersonnelFilePatchValueException(path, "Value must be a number.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
 
 internal sealed class AddPersonnelFilePreviousEmploymentCommandHandler(
@@ -7643,7 +9470,7 @@ internal sealed class AddPersonnelFilePreviousEmploymentCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetPreviousEmploymentsAsync(personnelFile.PublicId, cancellationToken);
-            var response = after.SingleOrDefault(r => r.PublicId == item.PublicId)
+            var response = after.SingleOrDefault(r => r.Id == item.PublicId)
                 ?? throw new InvalidOperationException("Personnel file previous employment response could not be resolved after creation.");
 
             await auditService.LogAsync(
@@ -7714,7 +9541,13 @@ internal sealed class UpdatePersonnelFilePreviousEmploymentCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var previousEmployment = personnelFile.PreviousEmployments.FirstOrDefault(item => item.PublicId == command.PreviousEmploymentPublicId);
+        if (previousEmployment is null)
+        {
+            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (previousEmployment.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<PersonnelFilePreviousEmploymentResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
@@ -7729,10 +9562,6 @@ internal sealed class UpdatePersonnelFilePreviousEmploymentCommandHandler(
         if (currencyError != Error.None) return Result<PersonnelFilePreviousEmploymentResponse>.Failure(currencyError);
 
         var before = await repository.GetPreviousEmploymentsAsync(personnelFile.PublicId, cancellationToken);
-        if (!before.Any(i => i.PublicId == command.PreviousEmploymentPublicId))
-        {
-            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(PersonnelFileErrors.NotFound);
-        }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -7762,7 +9591,7 @@ internal sealed class UpdatePersonnelFilePreviousEmploymentCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetPreviousEmploymentsAsync(personnelFile.PublicId, cancellationToken);
-            var response = after.SingleOrDefault(r => r.PublicId == command.PreviousEmploymentPublicId)
+            var response = after.SingleOrDefault(r => r.Id == command.PreviousEmploymentPublicId)
                 ?? throw new InvalidOperationException("Personnel file previous employment response could not be resolved after update.");
 
             await auditService.LogAsync(
@@ -7804,21 +9633,21 @@ internal sealed class DeletePersonnelFilePreviousEmploymentCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<DeletePersonnelFilePreviousEmploymentCommand, bool>
+    : ICommandHandler<DeletePersonnelFilePreviousEmploymentCommand, PersonnelFileParentConcurrencyResult>
 {
-    public async Task<Result<bool>> Handle(
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
         DeletePersonnelFilePreviousEmploymentCommand command,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<bool>.Failure(authorizationResult.Error);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(authorizationResult.Error);
         }
 
         var personnelFile = await repository.GetForProfileSectionUpdateAsync(
@@ -7827,22 +9656,24 @@ internal sealed class DeletePersonnelFilePreviousEmploymentCommandHandler(
             cancellationToken);
         if (personnelFile is null)
         {
-            return Result<bool>.Failure(
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var previousEmployment = personnelFile.PreviousEmployments.FirstOrDefault(item => item.PublicId == command.PreviousEmploymentPublicId);
+        if (previousEmployment is null)
         {
-            return Result<bool>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (previousEmployment.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetPreviousEmploymentsAsync(personnelFile.PublicId, cancellationToken);
-        if (!before.Any(i => i.PublicId == command.PreviousEmploymentPublicId))
-        {
-            return Result<bool>.Failure(PersonnelFileErrors.NotFound);
-        }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -7870,12 +9701,20 @@ internal sealed class DeletePersonnelFilePreviousEmploymentCommandHandler(
                     {
                         personnelFileId = personnelFile.PublicId,
                         section = PersonnelFilePrintSections.PreviousEmployments,
-                        data = after
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
                     }),
                 cancellationToken);
 
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<bool>.Success(true);
+            return Result<PersonnelFileParentConcurrencyResult>.Success(
+                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
         catch
         {
@@ -7883,6 +9722,435 @@ internal sealed class DeletePersonnelFilePreviousEmploymentCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class PatchPersonnelFilePreviousEmploymentCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchPersonnelFilePreviousEmploymentCommand, PersonnelFilePreviousEmploymentResponse>
+{
+    public async Task<Result<PersonnelFilePreviousEmploymentResponse>> Handle(
+        PatchPersonnelFilePreviousEmploymentCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.PreviousEmployments,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        var previousEmployment = personnelFile.PreviousEmployments.FirstOrDefault(item => item.PublicId == command.PreviousEmploymentPublicId);
+        if (previousEmployment is null)
+        {
+            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (previousEmployment.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetPreviousEmploymentAsync(personnelFile.PublicId, command.PreviousEmploymentPublicId, cancellationToken);
+        if (before is null)
+        {
+            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        var state = PersonnelFilePreviousEmploymentPatchState.From(before);
+        var applyResult = PersonnelFilePreviousEmploymentPatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFilePreviousEmploymentPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFilePreviousEmploymentResponse>.Success(before);
+        }
+
+        var input = state.ToInput();
+
+        var currencyError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "currencyCode",
+            PersonnelCurriculumCatalogCategories.Currency,
+            input.CurrencyCode,
+            cancellationToken);
+        if (currencyError != Error.None) return Result<PersonnelFilePreviousEmploymentResponse>.Failure(currencyError);
+
+        var beforeList = await repository.GetPreviousEmploymentsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.UpdatePreviousEmployment(
+                command.PreviousEmploymentPublicId,
+                input.Institution,
+                input.Place,
+                input.LastPosition,
+                input.ManagerName,
+                input.EntryDate,
+                input.RetirementDate,
+                input.CompanyPhone,
+                input.ExitReason,
+                input.FirstSalaryAmount,
+                input.LastSalaryAmount,
+                input.AverageCommissionAmount,
+                input.CurrencyCode);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var afterList = await repository.GetPreviousEmploymentsAsync(personnelFile.PublicId, cancellationToken);
+            var response = afterList.SingleOrDefault(item => item.Id == command.PreviousEmploymentPublicId)
+                ?? throw new InvalidOperationException("Personnel file previous employment response could not be resolved after patch.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Patched previous employment for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.PreviousEmployments,
+                        data = beforeList
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.PreviousEmployments,
+                        data = afterList,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFilePreviousEmploymentResponse>.Success(response);
+        }
+        catch (InvalidOperationException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<PersonnelFilePreviousEmploymentResponse>.Failure(PersonnelFileErrors.EffectiveDatesInvalid);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class PersonnelFilePreviousEmploymentPatchState
+{
+    public string Institution { get; set; } = string.Empty;
+    public string? Place { get; set; }
+    public string? LastPosition { get; set; }
+    public string? ManagerName { get; set; }
+    public DateTime EntryDate { get; set; }
+    public DateTime? RetirementDate { get; set; }
+    public string? CompanyPhone { get; set; }
+    public string? ExitReason { get; set; }
+    public decimal? FirstSalaryAmount { get; set; }
+    public decimal? LastSalaryAmount { get; set; }
+    public decimal? AverageCommissionAmount { get; set; }
+    public string CurrencyCode { get; set; } = string.Empty;
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFilePreviousEmploymentPatchState From(PersonnelFilePreviousEmploymentResponse response) =>
+        new()
+        {
+            Institution = response.Institution,
+            Place = response.Place,
+            LastPosition = response.LastPosition,
+            ManagerName = response.ManagerName,
+            EntryDate = response.EntryDate,
+            RetirementDate = response.RetirementDate,
+            CompanyPhone = response.CompanyPhone,
+            ExitReason = response.ExitReason,
+            FirstSalaryAmount = response.FirstSalaryAmount,
+            LastSalaryAmount = response.LastSalaryAmount,
+            AverageCommissionAmount = response.AverageCommissionAmount,
+            CurrencyCode = response.CurrencyCode
+        };
+
+    public PreviousEmploymentInput ToInput() =>
+        new(
+            Institution,
+            Place,
+            LastPosition,
+            ManagerName,
+            EntryDate,
+            RetirementDate,
+            CompanyPhone,
+            ExitReason,
+            FirstSalaryAmount,
+            LastSalaryAmount,
+            AverageCommissionAmount,
+            CurrencyCode);
+}
+
+internal static class PersonnelFilePreviousEmploymentPatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<PersonnelFilePreviousEmploymentPatchOperation> operations, PersonnelFilePreviousEmploymentPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root previous employment properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFilePreviousEmploymentPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.Institution))
+        {
+            errors["institution"] = ["Institution is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.CurrencyCode))
+        {
+            errors["currencyCode"] = ["CurrencyCode is required."];
+        }
+
+        if (state.RetirementDate.HasValue && state.RetirementDate.Value.Date < state.EntryDate.Date)
+        {
+            errors["retirementDate"] = ["RetirementDate cannot be earlier than EntryDate."];
+        }
+
+        if (state.FirstSalaryAmount is < 0)
+        {
+            errors["firstSalaryAmount"] = ["FirstSalaryAmount cannot be negative."];
+        }
+
+        if (state.LastSalaryAmount is < 0)
+        {
+            errors["lastSalaryAmount"] = ["LastSalaryAmount cannot be negative."];
+        }
+
+        if (state.AverageCommissionAmount is < 0)
+        {
+            errors["averageCommissionAmount"] = ["AverageCommissionAmount cannot be negative."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFilePreviousEmploymentPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "institution"))
+        {
+            return Mutate(state, () => state.Institution = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "place"))
+        {
+            return Mutate(state, () => state.Place = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "lastPosition"))
+        {
+            return Mutate(state, () => state.LastPosition = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "managerName"))
+        {
+            return Mutate(state, () => state.ManagerName = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "entryDate"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "EntryDate cannot be removed.")
+                : Mutate(state, () => state.EntryDate = ReadRequiredDateTime(value, path));
+        }
+
+        if (IsSegment(property, "retirementDate"))
+        {
+            return Mutate(state, () => state.RetirementDate = isRemove ? null : ReadRequiredDateTime(value, path));
+        }
+
+        if (IsSegment(property, "companyPhone"))
+        {
+            return Mutate(state, () => state.CompanyPhone = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "exitReason"))
+        {
+            return Mutate(state, () => state.ExitReason = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "firstSalaryAmount"))
+        {
+            return Mutate(state, () => state.FirstSalaryAmount = isRemove ? null : ReadNullableDecimal(value, path));
+        }
+
+        if (IsSegment(property, "lastSalaryAmount"))
+        {
+            return Mutate(state, () => state.LastSalaryAmount = isRemove ? null : ReadNullableDecimal(value, path));
+        }
+
+        if (IsSegment(property, "averageCommissionAmount"))
+        {
+            return Mutate(state, () => state.AverageCommissionAmount = isRemove ? null : ReadNullableDecimal(value, path));
+        }
+
+        if (IsSegment(property, "currencyCode"))
+        {
+            return Mutate(state, () => state.CurrencyCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFilePreviousEmploymentPatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadRequiredString(JsonElement? value, string path) =>
+        ReadNullableString(value, path) ?? string.Empty;
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new PersonnelFilePatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static DateTime ReadRequiredDateTime(JsonElement? value, string path)
+    {
+        if (!IsNull(value) &&
+            value!.Value.ValueKind == JsonValueKind.String &&
+            value.Value.TryGetDateTime(out var parsed))
+        {
+            return parsed;
+        }
+
+        throw new PersonnelFilePatchValueException(path, "Value must be a valid date-time string.");
+    }
+
+    private static decimal? ReadNullableDecimal(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        if (value!.Value.ValueKind == JsonValueKind.Number && value.Value.TryGetDecimal(out var parsed))
+        {
+            return parsed;
+        }
+
+        var raw = value.Value.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
+        if (!string.IsNullOrWhiteSpace(raw) &&
+            decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out parsed))
+        {
+            return parsed;
+        }
+
+        throw new PersonnelFilePatchValueException(path, "Value must be a number.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
 
 internal sealed class AddPersonnelFileReferenceCommandHandler(
@@ -7957,7 +10225,7 @@ internal sealed class AddPersonnelFileReferenceCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetReferencesAsync(personnelFile.PublicId, cancellationToken);
-            var response = after.SingleOrDefault(item => item.PublicId == reference.PublicId)
+            var response = after.SingleOrDefault(item => item.Id == reference.PublicId)
                 ?? throw new InvalidOperationException("Personnel file reference response could not be resolved after creation.");
 
             await auditService.LogAsync(
@@ -8029,7 +10297,13 @@ internal sealed class UpdatePersonnelFileReferenceCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var reference = personnelFile.References.FirstOrDefault(item => item.PublicId == command.ReferencePublicId);
+        if (reference is null)
+        {
+            return Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (reference.ConcurrencyToken != command.ConcurrencyToken)
         {
             return Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
@@ -8044,10 +10318,6 @@ internal sealed class UpdatePersonnelFileReferenceCommandHandler(
         if (typeError != Error.None) return Result<PersonnelFileReferenceResponse>.Failure(typeError);
 
         var before = await repository.GetReferencesAsync(personnelFile.PublicId, cancellationToken);
-        if (!before.Any(i => i.PublicId == command.ReferencePublicId))
-        {
-            return Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.NotFound);
-        }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -8073,7 +10343,7 @@ internal sealed class UpdatePersonnelFileReferenceCommandHandler(
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
             var after = await repository.GetReferencesAsync(personnelFile.PublicId, cancellationToken);
-            var response = after.SingleOrDefault(item => item.PublicId == command.ReferencePublicId)
+            var response = after.SingleOrDefault(item => item.Id == command.ReferencePublicId)
                 ?? throw new InvalidOperationException("Personnel file reference response could not be resolved after update.");
 
             await auditService.LogAsync(
@@ -8116,21 +10386,21 @@ internal sealed class DeletePersonnelFileReferenceCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<DeletePersonnelFileReferenceCommand, bool>
+    : ICommandHandler<DeletePersonnelFileReferenceCommand, PersonnelFileParentConcurrencyResult>
 {
-    public async Task<Result<bool>> Handle(
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
         DeletePersonnelFileReferenceCommand command,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<bool>.Failure(authorizationResult.Error);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(authorizationResult.Error);
         }
 
         var personnelFile = await repository.GetForProfileSectionUpdateAsync(
@@ -8139,22 +10409,24 @@ internal sealed class DeletePersonnelFileReferenceCommandHandler(
             cancellationToken);
         if (personnelFile is null)
         {
-            return Result<bool>.Failure(
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var reference = personnelFile.References.FirstOrDefault(item => item.PublicId == command.ReferencePublicId);
+        if (reference is null)
         {
-            return Result<bool>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (reference.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetReferencesAsync(personnelFile.PublicId, cancellationToken);
-        if (!before.Any(i => i.PublicId == command.ReferencePublicId))
-        {
-            return Result<bool>.Failure(PersonnelFileErrors.NotFound);
-        }
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -8182,13 +10454,20 @@ internal sealed class DeletePersonnelFileReferenceCommandHandler(
                     {
                         personnelFileId = personnelFile.PublicId,
                         section = PersonnelFilePrintSections.References,
-                        data = after
+                        data = after,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
                     }),
                 cancellationToken);
 
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-
-            return Result<bool>.Success(true);
+            return Result<PersonnelFileParentConcurrencyResult>.Success(
+                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
         catch
         {
@@ -8196,6 +10475,381 @@ internal sealed class DeletePersonnelFileReferenceCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class PatchPersonnelFileReferenceCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchPersonnelFileReferenceCommand, PersonnelFileReferenceResponse>
+{
+    public async Task<Result<PersonnelFileReferenceResponse>> Handle(
+        PatchPersonnelFileReferenceCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFileReferenceResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileReferenceResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.References,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileReferenceResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        var reference = personnelFile.References.FirstOrDefault(item => item.PublicId == command.ReferencePublicId);
+        if (reference is null)
+        {
+            return Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (reference.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetReferenceAsync(personnelFile.PublicId, command.ReferencePublicId, cancellationToken);
+        if (before is null)
+        {
+            return Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        var state = PersonnelFileReferencePatchState.From(before);
+        var applyResult = PersonnelFileReferencePatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFileReferenceResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFileReferencePatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileReferenceResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFileReferenceResponse>.Success(before);
+        }
+
+        var input = state.ToInput();
+
+        var typeError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
+            repository,
+            personnelFile.TenantId,
+            "referenceTypeCode",
+            PersonnelCurriculumCatalogCategories.ReferenceType,
+            input.ReferenceTypeCode,
+            cancellationToken);
+        if (typeError != Error.None) return Result<PersonnelFileReferenceResponse>.Failure(typeError);
+
+        var beforeList = await repository.GetReferencesAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.UpdateReference(
+                command.ReferencePublicId,
+                input.PersonName,
+                input.Address,
+                input.Phone,
+                input.ReferenceTypeCode,
+                input.Occupation,
+                input.Workplace,
+                input.WorkPhone,
+                input.KnownTimeYears);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var afterList = await repository.GetReferencesAsync(personnelFile.PublicId, cancellationToken);
+            var response = afterList.SingleOrDefault(item => item.Id == command.ReferencePublicId)
+                ?? throw new InvalidOperationException("Personnel file reference response could not be resolved after patch.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Patched reference for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.References,
+                        data = beforeList
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.References,
+                        data = afterList,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileReferenceResponse>.Success(response);
+        }
+        catch (InvalidOperationException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<PersonnelFileReferenceResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class PersonnelFileReferencePatchState
+{
+    public string PersonName { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string Phone { get; set; } = string.Empty;
+    public string ReferenceTypeCode { get; set; } = string.Empty;
+    public string? Occupation { get; set; }
+    public string? Workplace { get; set; }
+    public string? WorkPhone { get; set; }
+    public decimal KnownTimeYears { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFileReferencePatchState From(PersonnelFileReferenceResponse response) =>
+        new()
+        {
+            PersonName = response.PersonName,
+            Address = response.Address,
+            Phone = response.Phone,
+            ReferenceTypeCode = response.ReferenceTypeCode,
+            Occupation = response.Occupation,
+            Workplace = response.Workplace,
+            WorkPhone = response.WorkPhone,
+            KnownTimeYears = response.KnownTimeYears
+        };
+
+    public ReferenceInput ToInput() =>
+        new(
+            PersonName,
+            Address,
+            Phone,
+            ReferenceTypeCode,
+            Occupation,
+            Workplace,
+            WorkPhone,
+            KnownTimeYears);
+}
+
+internal static class PersonnelFileReferencePatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<PersonnelFileReferencePatchOperation> operations, PersonnelFileReferencePatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root reference properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFileReferencePatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.PersonName))
+        {
+            errors["personName"] = ["PersonName is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.Phone))
+        {
+            errors["phone"] = ["Phone is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.ReferenceTypeCode))
+        {
+            errors["referenceTypeCode"] = ["ReferenceTypeCode is required."];
+        }
+
+        if (state.KnownTimeYears < 0)
+        {
+            errors["knownTimeYears"] = ["KnownTimeYears cannot be negative."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFileReferencePatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "personName"))
+        {
+            return Mutate(state, () => state.PersonName = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "address"))
+        {
+            return Mutate(state, () => state.Address = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "phone"))
+        {
+            return Mutate(state, () => state.Phone = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "referenceTypeCode"))
+        {
+            return Mutate(state, () => state.ReferenceTypeCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "occupation"))
+        {
+            return Mutate(state, () => state.Occupation = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "workplace"))
+        {
+            return Mutate(state, () => state.Workplace = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "workPhone"))
+        {
+            return Mutate(state, () => state.WorkPhone = isRemove ? null : ReadNullableString(value, path));
+        }
+
+        if (IsSegment(property, "knownTimeYears"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "KnownTimeYears cannot be removed.")
+                : Mutate(state, () => state.KnownTimeYears = ReadRequiredDecimal(value, path));
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFileReferencePatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadRequiredString(JsonElement? value, string path) =>
+        ReadNullableString(value, path) ?? string.Empty;
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new PersonnelFilePatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static decimal ReadRequiredDecimal(JsonElement? value, string path) =>
+        ReadNullableDecimal(value, path)
+        ?? throw new PersonnelFilePatchValueException(path, "Value must be a number.");
+
+    private static decimal? ReadNullableDecimal(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        if (value!.Value.ValueKind == JsonValueKind.Number && value.Value.TryGetDecimal(out var parsed))
+        {
+            return parsed;
+        }
+
+        var raw = value.Value.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
+        if (!string.IsNullOrWhiteSpace(raw) &&
+            decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out parsed))
+        {
+            return parsed;
+        }
+
+        throw new PersonnelFilePatchValueException(path, "Value must be a number.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
 
 internal sealed class PatchPersonnelFileCommandHandler(

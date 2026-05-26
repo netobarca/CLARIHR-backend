@@ -91,20 +91,45 @@ public interface IPersonnelFileRepository
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
+    Task<PersonnelFileEducationResponse?> GetEducationAsync(
+        Guid personnelFileId,
+        Guid educationPublicId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileLanguageResponse>> GetLanguagesAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileLanguageResponse?> GetLanguageAsync(
+        Guid personnelFileId,
+        Guid languagePublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileTrainingResponse>> GetTrainingsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
+    Task<PersonnelFileTrainingResponse?> GetTrainingAsync(
+        Guid personnelFileId,
+        Guid trainingPublicId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>> GetPreviousEmploymentsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
+    Task<PersonnelFilePreviousEmploymentResponse?> GetPreviousEmploymentAsync(
+        Guid personnelFileId,
+        Guid previousEmploymentPublicId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileReferenceResponse>> GetReferencesAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileReferenceResponse?> GetReferenceAsync(
+        Guid personnelFileId,
+        Guid referencePublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> GetDocumentsAsync(

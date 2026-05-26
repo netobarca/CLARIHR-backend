@@ -400,7 +400,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                     item.LevelCode,
                     item.Speaks,
                     item.Writes,
-                    item.Reads))
+                    item.Reads,
+                    item.ConcurrencyToken))
                 .ToArray(),
             file.Trainings
                 .OrderByDescending(item => item.StartDate)
@@ -422,7 +423,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                     item.DurationValue,
                     item.DurationUnitCode,
                     item.CostAmount,
-                    item.CostCurrencyCode))
+                    item.CostCurrencyCode,
+                    item.ConcurrencyToken))
                 .ToArray(),
             file.PreviousEmployments
                 .OrderByDescending(item => item.EntryDate)
@@ -440,7 +442,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                     item.FirstSalaryAmount,
                     item.LastSalaryAmount,
                     item.AverageCommissionAmount,
-                    item.CurrencyCode))
+                    item.CurrencyCode,
+                    item.ConcurrencyToken))
                 .ToArray(),
             file.References
                 .OrderBy(item => item.PersonName)
@@ -453,7 +456,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                     item.Occupation,
                     item.Workplace,
                     item.WorkPhone,
-                    item.KnownTimeYears))
+                    item.KnownTimeYears,
+                    item.ConcurrencyToken))
                 .ToArray(),
             file.Documents
                 .OrderByDescending(item => item.CreatedUtc)
@@ -779,8 +783,59 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                         item.EducationModalityCatalogItem.IsActive)
                     : null,
                 item.TotalSubjects,
-                item.ApprovedSubjects))
+                item.ApprovedSubjects,
+                item.ConcurrencyToken))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileEducationResponse?> GetEducationAsync(
+        Guid personnelFileId,
+        Guid educationPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileEducation>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == educationPublicId)
+            .Select(item => new PersonnelFileEducationResponse(
+                item.PublicId,
+                new PersonnelEducationCatalogReferenceResponse(
+                    item.EducationStatusCatalogItem.PublicId,
+                    item.EducationStatusCatalogItem.Code,
+                    item.EducationStatusCatalogItem.Name,
+                    item.EducationStatusCatalogItem.IsActive),
+                item.DegreeTitle,
+                new PersonnelEducationCatalogReferenceResponse(
+                    item.EducationStudyTypeCatalogItem.PublicId,
+                    item.EducationStudyTypeCatalogItem.Code,
+                    item.EducationStudyTypeCatalogItem.Name,
+                    item.EducationStudyTypeCatalogItem.IsActive),
+                new PersonnelEducationCatalogReferenceResponse(
+                    item.EducationCareerCatalogItem.PublicId,
+                    item.EducationCareerCatalogItem.Code,
+                    item.EducationCareerCatalogItem.Name,
+                    item.EducationCareerCatalogItem.IsActive),
+                item.Institution,
+                item.CountryCode,
+                item.Specialty,
+                item.IsCurrentlyStudying,
+                item.StartDate,
+                item.EndDate,
+                item.EducationShiftCatalogItemId.HasValue
+                    ? new PersonnelEducationCatalogReferenceResponse(
+                        item.EducationShiftCatalogItem!.PublicId,
+                        item.EducationShiftCatalogItem.Code,
+                        item.EducationShiftCatalogItem.Name,
+                        item.EducationShiftCatalogItem.IsActive)
+                    : null,
+                item.EducationModalityCatalogItemId.HasValue
+                    ? new PersonnelEducationCatalogReferenceResponse(
+                        item.EducationModalityCatalogItem!.PublicId,
+                        item.EducationModalityCatalogItem.Code,
+                        item.EducationModalityCatalogItem.Name,
+                        item.EducationModalityCatalogItem.IsActive)
+                    : null,
+                item.TotalSubjects,
+                item.ApprovedSubjects,
+                item.ConcurrencyToken))
+            .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<PersonnelFileLanguageResponse>> GetLanguagesAsync(
         Guid personnelFileId,
@@ -795,8 +850,26 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 item.LevelCode,
                 item.Speaks,
                 item.Writes,
-                item.Reads))
+                item.Reads,
+                item.ConcurrencyToken))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileLanguageResponse?> GetLanguageAsync(
+        Guid personnelFileId,
+        Guid languagePublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileLanguage>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == languagePublicId)
+            .Select(item => new PersonnelFileLanguageResponse(
+                item.PublicId,
+                item.LanguageCode,
+                item.LevelCode,
+                item.Speaks,
+                item.Writes,
+                item.Reads,
+                item.ConcurrencyToken))
+            .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<PersonnelFileTrainingResponse>> GetTrainingsAsync(
         Guid personnelFileId,
@@ -823,8 +896,37 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 item.DurationValue,
                 item.DurationUnitCode,
                 item.CostAmount,
-                item.CostCurrencyCode))
+                item.CostCurrencyCode,
+                item.ConcurrencyToken))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileTrainingResponse?> GetTrainingAsync(
+        Guid personnelFileId,
+        Guid trainingPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileTraining>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == trainingPublicId)
+            .Select(item => new PersonnelFileTrainingResponse(
+                item.PublicId,
+                item.TrainingName,
+                item.TrainingTypeCode,
+                item.Description,
+                item.Topic,
+                item.Institution,
+                item.Instructors,
+                item.Score,
+                item.StartDate,
+                item.EndDate,
+                item.IsInternal,
+                item.IsLocal,
+                item.CountryCode,
+                item.DurationValue,
+                item.DurationUnitCode,
+                item.CostAmount,
+                item.CostCurrencyCode,
+                item.ConcurrencyToken))
+            .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>> GetPreviousEmploymentsAsync(
         Guid personnelFileId,
@@ -847,8 +949,33 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 item.FirstSalaryAmount,
                 item.LastSalaryAmount,
                 item.AverageCommissionAmount,
-                item.CurrencyCode))
+                item.CurrencyCode,
+                item.ConcurrencyToken))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFilePreviousEmploymentResponse?> GetPreviousEmploymentAsync(
+        Guid personnelFileId,
+        Guid previousEmploymentPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFilePreviousEmployment>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == previousEmploymentPublicId)
+            .Select(item => new PersonnelFilePreviousEmploymentResponse(
+                item.PublicId,
+                item.Institution,
+                item.Place,
+                item.LastPosition,
+                item.ManagerName,
+                item.EntryDate,
+                item.RetirementDate,
+                item.CompanyPhone,
+                item.ExitReason,
+                item.FirstSalaryAmount,
+                item.LastSalaryAmount,
+                item.AverageCommissionAmount,
+                item.CurrencyCode,
+                item.ConcurrencyToken))
+            .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<PersonnelFileReferenceResponse>> GetReferencesAsync(
         Guid personnelFileId,
@@ -866,8 +993,29 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 item.Occupation,
                 item.Workplace,
                 item.WorkPhone,
-                item.KnownTimeYears))
+                item.KnownTimeYears,
+                item.ConcurrencyToken))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileReferenceResponse?> GetReferenceAsync(
+        Guid personnelFileId,
+        Guid referencePublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileReference>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == referencePublicId)
+            .Select(item => new PersonnelFileReferenceResponse(
+                item.PublicId,
+                item.PersonName,
+                item.Address,
+                item.Phone,
+                item.ReferenceTypeCode,
+                item.Occupation,
+                item.Workplace,
+                item.WorkPhone,
+                item.KnownTimeYears,
+                item.ConcurrencyToken))
+            .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> GetDocumentsAsync(
         Guid personnelFileId,
@@ -2131,7 +2279,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                     item.EducationModalityCatalogItem.IsActive)
                 : null,
             item.TotalSubjects,
-            item.ApprovedSubjects);
+            item.ApprovedSubjects,
+            item.ConcurrencyToken);
 
     private async Task<Dictionary<string, string>> ResolveReferenceNamesByCodeAsync(
         string countryCode,

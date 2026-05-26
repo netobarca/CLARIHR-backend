@@ -607,8 +607,30 @@ public sealed record UpdateEducationRequest(
     Guid? ShiftPublicId,
     Guid? ModalityPublicId,
     int? TotalSubjects,
-    int? ApprovedSubjects,
-    Guid ConcurrencyToken);
+    int? ApprovedSubjects);
+
+/// <summary>
+/// Shape of the JSON Patch document body for <c>PATCH /personnel-files/{publicId}/educations/{educationPublicId}</c>.
+/// Only used to generate the OpenAPI schema; the operations are applied server-side by the
+/// education patch applier. Concurrency is carried by the <c>If-Match</c> header, not the body.
+/// </summary>
+public sealed class PatchEducationRequest
+{
+    public Guid StatusPublicId { get; set; }
+    public string? DegreeTitle { get; set; }
+    public Guid StudyTypePublicId { get; set; }
+    public Guid CareerPublicId { get; set; }
+    public string Institution { get; set; } = string.Empty;
+    public string CountryCode { get; set; } = string.Empty;
+    public string? Specialty { get; set; }
+    public bool IsCurrentlyStudying { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public Guid? ShiftPublicId { get; set; }
+    public Guid? ModalityPublicId { get; set; }
+    public int? TotalSubjects { get; set; }
+    public int? ApprovedSubjects { get; set; }
+}
 
 public sealed record AddLanguageRequest(
     string LanguageCode,
@@ -622,8 +644,16 @@ public sealed record UpdateLanguageRequest(
     string LevelCode,
     bool Speaks,
     bool Writes,
-    bool Reads,
-    Guid ConcurrencyToken);
+    bool Reads);
+
+public sealed class PatchLanguageRequest
+{
+    public string LanguageCode { get; set; } = string.Empty;
+    public string LevelCode { get; set; } = string.Empty;
+    public bool Speaks { get; set; }
+    public bool Writes { get; set; }
+    public bool Reads { get; set; }
+}
 
 public sealed record AddTrainingRequest(
     string TrainingName,
@@ -659,8 +689,27 @@ public sealed record UpdateTrainingRequest(
     decimal DurationValue,
     string DurationUnitCode,
     decimal? CostAmount,
-    string? CostCurrencyCode,
-    Guid ConcurrencyToken);
+    string? CostCurrencyCode);
+
+public sealed class PatchTrainingRequest
+{
+    public string TrainingName { get; set; } = string.Empty;
+    public string TrainingTypeCode { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? Topic { get; set; }
+    public string? Institution { get; set; }
+    public string? Instructors { get; set; }
+    public decimal? Score { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public bool IsInternal { get; set; }
+    public bool IsLocal { get; set; }
+    public string CountryCode { get; set; } = string.Empty;
+    public decimal DurationValue { get; set; }
+    public string DurationUnitCode { get; set; } = string.Empty;
+    public decimal? CostAmount { get; set; }
+    public string? CostCurrencyCode { get; set; }
+}
 
 public sealed record AddPreviousEmploymentRequest(
     string Institution,
@@ -688,8 +737,23 @@ public sealed record UpdatePreviousEmploymentRequest(
     decimal? FirstSalaryAmount,
     decimal? LastSalaryAmount,
     decimal? AverageCommissionAmount,
-    string CurrencyCode,
-    Guid ConcurrencyToken);
+    string CurrencyCode);
+
+public sealed class PatchPreviousEmploymentRequest
+{
+    public string Institution { get; set; } = string.Empty;
+    public string? Place { get; set; }
+    public string? LastPosition { get; set; }
+    public string? ManagerName { get; set; }
+    public DateTime EntryDate { get; set; }
+    public DateTime? RetirementDate { get; set; }
+    public string? CompanyPhone { get; set; }
+    public string? ExitReason { get; set; }
+    public decimal? FirstSalaryAmount { get; set; }
+    public decimal? LastSalaryAmount { get; set; }
+    public decimal? AverageCommissionAmount { get; set; }
+    public string CurrencyCode { get; set; } = string.Empty;
+}
 
 public sealed record AddReferenceRequest(
     string PersonName,
@@ -709,8 +773,19 @@ public sealed record UpdateReferenceRequest(
     string? Occupation,
     string? Workplace,
     string? WorkPhone,
-    decimal KnownTimeYears,
-    Guid ConcurrencyToken);
+    decimal KnownTimeYears);
+
+public sealed class PatchReferenceRequest
+{
+    public string PersonName { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string Phone { get; set; } = string.Empty;
+    public string ReferenceTypeCode { get; set; } = string.Empty;
+    public string? Occupation { get; set; }
+    public string? Workplace { get; set; }
+    public string? WorkPhone { get; set; }
+    public decimal KnownTimeYears { get; set; }
+}
 
 public sealed record DynamicPersonnelFileFilterRequest(
     string Field,

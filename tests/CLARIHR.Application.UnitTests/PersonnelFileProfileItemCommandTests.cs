@@ -262,11 +262,11 @@ public sealed class PersonnelFileProfileItemCommandTests
             new DeletePersonnelFileLanguageCommand(
                 personnelFile.PublicId,
                 language.PublicId,
-                personnelFile.ConcurrencyToken),
+                language.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.True(result.Value);
+        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
         Assert.Empty(personnelFile.Languages);
         Assert.Equal(2, repository.GetLanguagesCalls);
     }
@@ -322,7 +322,7 @@ public sealed class PersonnelFileProfileItemCommandTests
                 personnelFile.PublicId,
                 reference.PublicId,
                 new ReferenceInput("Juan Carlos Perez", "Col. Escalon", "+50370001234", "PROFESSIONAL", "Director", "Corp SA", null, 5),
-                personnelFile.ConcurrencyToken),
+                reference.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -363,11 +363,11 @@ public sealed class PersonnelFileProfileItemCommandTests
             new DeletePersonnelFileReferenceCommand(
                 personnelFile.PublicId,
                 reference.PublicId,
-                personnelFile.ConcurrencyToken),
+                reference.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.True(result.Value);
+        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
         Assert.Empty(personnelFile.References);
         Assert.Equal(2, repository.GetReferencesCalls);
     }
@@ -728,6 +728,10 @@ public sealed class PersonnelFileProfileItemCommandTests
                     item.Payment)).ToArray());
         }
         public Task<IReadOnlyCollection<PersonnelFileEducationResponse>> GetEducationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileEducationResponse?> GetEducationAsync(Guid personnelFileId, Guid educationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileLanguageResponse?> GetLanguageAsync(Guid personnelFileId, Guid languagePublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileLanguageResponse>> GetLanguagesAsync(Guid personnelFileId, CancellationToken cancellationToken)
         {
             GetLanguagesCalls++;
@@ -743,10 +747,14 @@ public sealed class PersonnelFileProfileItemCommandTests
                     item.LevelCode,
                     item.Speaks,
                     item.Writes,
-                    item.Reads)).ToArray());
+                    item.Reads,
+                    item.ConcurrencyToken)).ToArray());
         }
         public Task<IReadOnlyCollection<PersonnelFileTrainingResponse>> GetTrainingsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileTrainingResponse?> GetTrainingAsync(Guid personnelFileId, Guid trainingPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFilePreviousEmploymentResponse>> GetPreviousEmploymentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFilePreviousEmploymentResponse?> GetPreviousEmploymentAsync(Guid personnelFileId, Guid previousEmploymentPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileReferenceResponse?> GetReferenceAsync(Guid personnelFileId, Guid referencePublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileReferenceResponse>> GetReferencesAsync(Guid personnelFileId, CancellationToken cancellationToken)
         {
             GetReferencesCalls++;
@@ -765,7 +773,8 @@ public sealed class PersonnelFileProfileItemCommandTests
                     item.Occupation,
                     item.Workplace,
                     item.WorkPhone,
-                    item.KnownTimeYears)).ToArray());
+                    item.KnownTimeYears,
+                    item.ConcurrencyToken)).ToArray());
         }
         public Task<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> GetDocumentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PersonnelFileDocumentMetadataResponse?> GetDocumentMetadataByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
