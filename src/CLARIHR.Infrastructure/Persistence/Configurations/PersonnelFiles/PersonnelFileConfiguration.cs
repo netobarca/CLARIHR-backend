@@ -527,6 +527,7 @@ internal sealed class PersonnelFileEducationConfiguration : IEntityTypeConfigura
         builder.Property(item => item.EducationModalityCatalogItemId).HasColumnName("education_modality_catalog_item_id");
         builder.Property(item => item.TotalSubjects).HasColumnName("total_subjects");
         builder.Property(item => item.ApprovedSubjects).HasColumnName("approved_subjects");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -590,6 +591,7 @@ internal sealed class PersonnelFileLanguageConfiguration : IEntityTypeConfigurat
         builder.Property(item => item.Speaks).HasColumnName("speaks");
         builder.Property(item => item.Writes).HasColumnName("writes");
         builder.Property(item => item.Reads).HasColumnName("reads");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -645,6 +647,7 @@ internal sealed class PersonnelFileTrainingConfiguration : IEntityTypeConfigurat
         builder.Property(item => item.DurationUnitCode).HasColumnName("duration_unit_code").HasMaxLength(80);
         builder.Property(item => item.CostAmount).HasColumnName("cost_amount").HasPrecision(18, 2);
         builder.Property(item => item.CostCurrencyCode).HasColumnName("cost_currency_code").HasMaxLength(40);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -696,6 +699,7 @@ internal sealed class PersonnelFilePreviousEmploymentConfiguration : IEntityType
         builder.Property(item => item.LastSalaryAmount).HasColumnName("last_salary_amount").HasPrecision(18, 2);
         builder.Property(item => item.AverageCommissionAmount).HasColumnName("average_commission_amount").HasPrecision(18, 2);
         builder.Property(item => item.CurrencyCode).HasColumnName("currency_code").HasMaxLength(40);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -732,6 +736,7 @@ internal sealed class PersonnelFileReferenceConfiguration : IEntityTypeConfigura
         builder.Property(item => item.Workplace).HasColumnName("workplace").HasMaxLength(200);
         builder.Property(item => item.WorkPhone).HasColumnName("work_phone").HasMaxLength(40);
         builder.Property(item => item.KnownTimeYears).HasColumnName("known_time_years").HasPrecision(10, 2);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 

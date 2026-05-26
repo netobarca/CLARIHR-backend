@@ -40,6 +40,13 @@ public sealed class OpenApiContractGuardrailsTests
     [
         ("JobProfile/JobCatalog", new Regex(@"^(JobProfile|JobCatalog)", RegexOptions.Compiled), "Job Profiles"),
         ("PositionSlot", new Regex(@"^PositionSlot", RegexOptions.Compiled), "Position Slots"),
+        // PersonnelFileBackground is the first PersonnelFiles sub-resource controller brought
+        // fully canonical (GET/POST/PUT/PATCH/DELETE per sub-entity with per-item concurrency
+        // tokens). Enrolled here so an action that drops [SwaggerOperation] or the class that
+        // drops [Tags] fails loudly. The narrow ^PersonnelFileBackground regex matches only that
+        // controller; the shell + other PersonnelFile controllers stay out until they are
+        // canonicalised (then broaden this to ^PersonnelFile).
+        ("PersonnelFileBackground", new Regex(@"^PersonnelFileBackground", RegexOptions.Compiled), "Personnel Files"),
     ];
 
     public static TheoryData<string> FamilyLabels()
