@@ -1,0 +1,4859 @@
+openapi: 3.0.3
+info:
+  title: CLARIHR Backoffice API
+  version: 0.0-bootstrap
+  description: |
+    Platform/backoffice API contract (CLARIHR.Backoffice.Api): /api/platform/*. Core endpoints are in openapi.yaml.
+
+    Partial hand-maintained OpenAPI supplement for externally relevant core and backoffice
+    endpoints that need a checked-in contract before automated export/versioning is introduced.
+
+    The exhaustive contract is still generated at runtime by Swagger in Development
+    at /swagger/v1/swagger.json.
+
+    Public API contracts expose `publicId` or `<entity>PublicId`; internal `id` and
+    `internalId` never leave the backend. When a resource has business codes, the
+    public contract exposes `code` and `normalizedCode`, both normalized to uppercase.
+
+    Core API endpoints require tokens emitted with `client_type=core`. Platform
+    backoffice endpoints under `/api/platform/*` require tokens emitted with
+    `client_type=platform`.
+
+    All `/api` routes emit `Cache-Control: no-store`, `Pragma: no-cache`, and
+    `Expires: 0` to avoid caching sensitive HR or platform responses.
+servers:
+- url: /
+security:
+- Bearer: []
+tags:
+- name: platform-auth
+  description: Platform backoffice authentication and session lifecycle.
+- name: commercial-modules
+  description: Canonical commercial module catalog exposed to the platform backoffice.
+- name: commercial-addons
+  description: Global commercial add-on catalog administration from the platform backoffice.
+- name: commercial-plans
+  description: Global commercial plan catalog administration from the platform backoffice.
+- name: bank-catalogs
+  description: Global bank catalog administration in backoffice and company-scoped bank lookup in core.
+- name: platform-subscriptions
+  description: Global company subscription, plan-change and company add-on administration from the platform backoffice.
+- name: education-catalogs-backoffice
+  description: Full CRUD administration of system-wide education catalogs from the Platform Backoffice.
+paths:
+  /api/platform/auth/login:
+    post:
+      tags:
+      - platform-auth
+      operationId: PlatformLogin
+      summary: Login to the platform backoffice
+      description: Authenticates a local user linked to an active PlatformOperator and returns a token with `client_type=platform` and no tenant context.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformLoginRequest'
+      responses:
+        '200':
+          description: Platform session created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Invalid credentials.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated local user is not linked to an active platform operator.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/auth/refresh:
+    post:
+      tags:
+      - platform-auth
+      operationId: PlatformRefresh
+      summary: Refresh a platform backoffice session
+      description: Rotates a refresh token previously issued for the platform backoffice.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformRefreshTokenRequest'
+      responses:
+        '200':
+          description: Platform session refreshed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Invalid or expired refresh token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The user no longer has active platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/auth/logout:
+    post:
+      tags:
+      - platform-auth
+      operationId: PlatformLogout
+      summary: Logout from the platform backoffice
+      description: Revokes the current platform refresh token family for the authenticated platform user.
+      security:
+      - Bearer: []
+      responses:
+        '204':
+          description: Platform session revoked successfully.
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated token does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-addons:
+    get:
+      tags:
+      - commercial-addons
+      operationId: SearchCommercialAddons
+      summary: List global commercial add-ons
+      description: Returns the paged catalog of global commercial add-ons, including massive and specialized pricing models. Requires an authenticated platform token and does not depend on tenant context.
+      security:
+      - Bearer: []
+      parameters:
+      - name: type
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CommercialAddonType'
+      - name: billingModel
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CommercialAddonStatus'
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 150
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged commercial add-on summaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedCommercialAddonSummaryResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - commercial-addons
+      operationId: CreateCommercialAddon
+      summary: Create a global commercial add-on
+      description: Creates a reusable global commercial add-on for future company-level activation and billing. Supports massive pricing per active employee and specialized pricing per seat or volume. Requires an authenticated platform token with admin access and does not depend on tenant context.
+      security:
+      - Bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommercialAddonRequest'
+      responses:
+        '201':
+          description: Commercial add-on created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialAddonResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated add-on code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/bank-catalogs:
+    get:
+      tags:
+      - bank-catalogs
+      operationId: SearchBankCatalogItems
+      summary: List global bank catalog items by country
+      security:
+      - Bearer: []
+      parameters:
+      - name: countryCode
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 3
+      - name: isActive
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 150
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged global bank catalog items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedBankCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - bank-catalogs
+      operationId: CreateBankCatalogItem
+      summary: Create a global bank catalog item
+      security:
+      - Bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBankCatalogItemRequest'
+      responses:
+        '201':
+          description: Bank catalog item created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated bank code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/bank-catalogs/{publicId}:
+    get:
+      tags:
+      - bank-catalogs
+      operationId: GetBankCatalogItemById
+      summary: Get a global bank catalog item by public id
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Bank catalog item returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankCatalogItemResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested bank catalog item was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - bank-catalogs
+      operationId: UpdateBankCatalogItem
+      summary: Update a global bank catalog item
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBankCatalogItemRequest'
+      responses:
+        '200':
+          description: Bank catalog item updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested bank catalog item was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated code or stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/bank-catalogs/{publicId}/activate:
+    patch:
+      tags:
+      - bank-catalogs
+      operationId: ActivateBankCatalogItem
+      summary: Activate a global bank catalog item
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BankCatalogConcurrencyRequest'
+      responses:
+        '200':
+          description: Bank catalog item activated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested bank catalog item was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict or item already active.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/bank-catalogs/{publicId}/inactivate:
+    patch:
+      tags:
+      - bank-catalogs
+      operationId: InactivateBankCatalogItem
+      summary: Inactivate a global bank catalog item
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BankCatalogConcurrencyRequest'
+      responses:
+        '200':
+          description: Bank catalog item inactivated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested bank catalog item was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict or item already inactive.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-modules:
+    get:
+      tags:
+      - commercial-modules
+      operationId: GetCommercialModules
+      summary: List the canonical commercial module catalog
+      security:
+      - Bearer: []
+      responses:
+        '200':
+          description: Commercial modules returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommercialModuleResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-addons/{publicId}:
+    get:
+      tags:
+      - commercial-addons
+      operationId: GetCommercialAddonById
+      summary: Get a global commercial add-on by public id
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Commercial add-on detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialAddonResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - commercial-addons
+      operationId: UpdateCommercialAddon
+      summary: Update a global commercial add-on
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommercialAddonRequest'
+      responses:
+        '200':
+          description: Commercial add-on updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialAddonResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated code or concurrency conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-addons/{publicId}/activate:
+    patch:
+      tags:
+      - commercial-addons
+      operationId: ActivateCommercialAddon
+      summary: Activate a global commercial add-on
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommercialAddonConcurrencyRequest'
+      responses:
+        '200':
+          description: Commercial add-on activated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialAddonResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as concurrency conflict or already active state.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-addons/{publicId}/inactivate:
+    patch:
+      tags:
+      - commercial-addons
+      operationId: InactivateCommercialAddon
+      summary: Inactivate a global commercial add-on
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommercialAddonConcurrencyRequest'
+      responses:
+        '200':
+          description: Commercial add-on inactivated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialAddonResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as concurrency conflict or already inactive state.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-plans:
+    get:
+      tags:
+      - commercial-plans
+      operationId: SearchCommercialPlans
+      summary: List global commercial plans
+      description: Returns the paged catalog of global commercial plans. Requires an authenticated platform token, does not depend on tenant context, and includes the protected system plans `FREE` and `MASTER`.
+      security:
+      - Bearer: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CommercialPlanStatus'
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 150
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged commercial plan summaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedCommercialPlanSummaryResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - commercial-plans
+      operationId: CreateCommercialPlan
+      summary: Create a global commercial plan
+      description: Creates a reusable global commercial plan for future company subscriptions. Requires an authenticated platform token with admin access and does not depend on tenant context. System plans `FREE` and `MASTER` remain seeded and protected.
+      security:
+      - Bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommercialPlanRequest'
+      responses:
+        '201':
+          description: Commercial plan created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialPlanResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated plan code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-plans/{publicId}:
+    get:
+      tags:
+      - commercial-plans
+      operationId: GetCommercialPlanById
+      summary: Get a global commercial plan by public id
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Commercial plan detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialPlanResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - commercial-plans
+      operationId: UpdateCommercialPlan
+      summary: Update a global commercial plan
+      description: Updates the editable commercial metadata, modules, and limits for a global plan. For the protected system plan `MASTER`, the backend always persists the full commercial module catalog even if a smaller `moduleKeys` set is sent.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommercialPlanRequest'
+      responses:
+        '200':
+          description: Commercial plan updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialPlanResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated code, concurrency conflict, or protected system plan mutation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-plans/{publicId}/activate:
+    patch:
+      tags:
+      - commercial-plans
+      operationId: ActivateCommercialPlan
+      summary: Activate a global commercial plan
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommercialPlanConcurrencyRequest'
+      responses:
+        '200':
+          description: Commercial plan activated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialPlanResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as concurrency conflict or already active state.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/commercial-plans/{publicId}/inactivate:
+    patch:
+      tags:
+      - commercial-plans
+      operationId: InactivateCommercialPlan
+      summary: Inactivate a global commercial plan
+      description: Inactivates an editable commercial plan. Protected system plans such as `FREE` and `MASTER` cannot be inactivated.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommercialPlanConcurrencyRequest'
+      responses:
+        '200':
+          description: Commercial plan inactivated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommercialPlanResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as concurrency conflict, already inactive state, or protected system plan inactivation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription:
+    get:
+      tags:
+      - platform-subscriptions
+      operationId: GetPlatformCompanySubscription
+      summary: Get the company subscription overview
+      description: Returns the current non-scheduled company subscription plus the latest scheduled replacement when one exists.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Company subscription overview returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionOverviewResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - platform-subscriptions
+      operationId: ActivatePlatformCompanySubscription
+      summary: Activate or schedule a company subscription
+      description: Creates an active or scheduled company subscription linked to the selected commercial plan version.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertPlatformCompanySubscriptionRequest'
+      responses:
+        '200':
+          description: Company subscription created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as assigning an inactive plan, missing eligibility, or colliding with an existing scheduled subscription.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription/preview:
+    post:
+      tags:
+      - platform-subscriptions
+      operationId: PreviewPlatformCompanySubscription
+      summary: Preview a company subscription activation
+      description: Resolves the effective plan version, eligibility and initial status without mutating state.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertPlatformCompanySubscriptionRequest'
+      responses:
+        '200':
+          description: Company subscription preview returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionPreviewResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as inactive plan or missing effective version.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscriptions:
+    get:
+      tags:
+      - platform-subscriptions
+      operationId: SearchPlatformCompanySubscriptions
+      summary: List the company subscription history
+      description: Returns the paged subscription history for the requested company from the platform backoffice.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged company subscription history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPlatformCompanySubscriptionResponse'
+  /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status:
+    patch:
+      tags:
+      - platform-subscriptions
+      operationId: ChangePlatformCompanySubscriptionStatus
+      summary: Change the current status of a company subscription
+      description: Applies a manual status transition or schedules a suspended-to-active reactivation under the platform transition policy and stores a durable audit trail.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: subscriptionPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePlatformCompanySubscriptionStatusRequest'
+      responses:
+        '200':
+          description: Company subscription status changed or scheduled successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected subscription was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as an invalid transition, pending reactivation conflict, or reactivation after expiration.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status/preview:
+    post:
+      tags:
+      - platform-subscriptions
+      operationId: PreviewPlatformCompanySubscriptionStatusChange
+      summary: Preview a company subscription status change
+      description: Resolves eligibility and effective date for a suspended-to-active reactivation without mutating state.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: subscriptionPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePlatformCompanySubscriptionStatusRequest'
+      responses:
+        '200':
+          description: Company subscription status change preview returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionStatusChangePreviewResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected subscription was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as non-suspended status, pending reactivation conflict, or reactivation after expiration.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscriptions/{subscriptionPublicId}/status-history:
+    get:
+      tags:
+      - platform-subscriptions
+      operationId: SearchPlatformCompanySubscriptionStatusHistory
+      summary: List the status transition history for a company subscription
+      description: Returns the paged status transition history for the requested company subscription from the platform backoffice.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: subscriptionPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged company subscription status transition history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPlatformCompanySubscriptionStatusTransitionResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected subscription was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription/plan-changes/preview:
+    post:
+      tags:
+      - platform-subscriptions
+      operationId: PreviewPlatformCompanySubscriptionPlanChange
+      summary: Preview a company subscription plan change
+      description: Resolves the effective date, target plan snapshot and estimated next charge for a plan change without mutating state.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewPlatformCompanySubscriptionPlanChangeRequest'
+      responses:
+        '200':
+          description: Company subscription plan change preview returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionPlanChangePreviewResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company, current subscription or selected commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as invalid mode, invalid effective date or an existing pending plan change.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription/plan-changes:
+    post:
+      tags:
+      - platform-subscriptions
+      operationId: CreatePlatformCompanySubscriptionPlanChange
+      summary: Create a company subscription plan change
+      description: Creates an immediate or scheduled plan change request linked to the current company subscription.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlatformCompanySubscriptionPlanChangeRequest'
+      responses:
+        '200':
+          description: Company subscription plan change created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionPlanChangeResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company, current subscription or selected commercial plan was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as invalid mode, invalid effective date, missing reason or an existing pending plan change.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    get:
+      tags:
+      - platform-subscriptions
+      operationId: SearchPlatformCompanySubscriptionPlanChanges
+      summary: List company subscription plan changes
+      description: Returns the paged history of requested company subscription plan changes for the requested company.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged company subscription plan change history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPlatformCompanySubscriptionPlanChangeResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription/plan-changes/{planChangePublicId}/cancel:
+    patch:
+      tags:
+      - platform-subscriptions
+      operationId: CancelPlatformCompanySubscriptionPlanChange
+      summary: Cancel a scheduled company subscription plan change
+      description: Cancels a pending or scheduled plan change request that has not been applied yet.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: planChangePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelPlatformCompanySubscriptionPlanChangeRequest'
+      responses:
+        '200':
+          description: Company subscription plan change cancelled successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanySubscriptionPlanChangeResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected plan change was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as attempting to cancel an already applied or rejected plan change.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription/addons:
+    get:
+      tags:
+      - platform-subscriptions
+      operationId: SearchPlatformCompanyAddons
+      summary: List company commercial add-ons
+      description: Returns the paged current commercial add-ons for the requested company, including active and pending states.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CompanyAddonStatus'
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged company add-on state list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPlatformCompanyAddonResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription/addons/eligible:
+    get:
+      tags:
+      - platform-subscriptions
+      operationId: SearchPlatformCompanyEligibleAddons
+      summary: List eligible catalog add-ons for a company
+      description: Returns the paged global commercial add-on catalog filtered to the items that can be evaluated for the requested company.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: type
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/CommercialAddonType'
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged eligible commercial add-on catalog for the company.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPlatformCompanyEligibleAddonResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription/addon-changes/preview:
+    post:
+      tags:
+      - platform-subscriptions
+      operationId: PreviewPlatformCompanyAddonChange
+      summary: Preview a company add-on change
+      description: Resolves the effective date, resulting state and estimated next charge impact for a company add-on change without mutating state.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreviewPlatformCompanyAddonChangeRequest'
+      responses:
+        '200':
+          description: Company add-on change preview returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanyAddonChangePreviewResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company, current subscription or selected commercial add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as invalid action, invalid mode, invalid effective date, duplicate activation or pending conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription/addon-changes:
+    post:
+      tags:
+      - platform-subscriptions
+      operationId: CreatePlatformCompanyAddonChange
+      summary: Create a company add-on change
+      description: Creates an immediate or scheduled company add-on activation or deactivation request linked to the current subscription.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlatformCompanyAddonChangeRequest'
+      responses:
+        '200':
+          description: Company add-on change created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanyAddonChangeResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company, current subscription or selected commercial add-on was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as invalid action, invalid mode, invalid effective date, missing reason, duplicate activation or pending conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    get:
+      tags:
+      - platform-subscriptions
+      operationId: SearchPlatformCompanyAddonChanges
+      summary: List company add-on changes
+      description: Returns the paged commercial add-on change history for the requested company.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged company add-on change history.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPlatformCompanyAddonChangeResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/companies/{companyPublicId}/subscription/addon-changes/{addonChangePublicId}/cancel:
+    patch:
+      tags:
+      - platform-subscriptions
+      operationId: CancelPlatformCompanyAddonChange
+      summary: Cancel a scheduled company add-on change
+      description: Cancels a scheduled company add-on activation or deactivation request that has not been applied yet.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: addonChangePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelPlatformCompanyAddonChangeRequest'
+      responses:
+        '200':
+          description: Company add-on change cancelled successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCompanyAddonChangeResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company or selected add-on change was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as attempting to cancel an already applied or rejected add-on change.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/company-subscriptions:
+    get:
+      tags:
+      - platform-subscriptions
+      operationId: SearchPlatformCompanySubscriptionsGlobal
+      summary: List company subscriptions globally
+      description: Returns the paged global list of company subscriptions from the platform backoffice.
+      security:
+      - Bearer: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/SubscriptionStatus'
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged global company subscription list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPlatformCompanySubscriptionListItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/education-catalogs/{catalogKey}:
+    get:
+      tags:
+      - education-catalogs-backoffice
+      summary: Search education catalog items (backoffice)
+      description: |
+        Returns a paged list of education catalog items with full admin filters.
+        Requires PlatformOperator authorization.
+      operationId: SearchEducationCatalogItems
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: isActive
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: pageNumber
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+      responses:
+        '200':
+          description: Paged list of education catalog items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedResponseEducationCatalogItemResponse'
+        '400':
+          description: Invalid parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: PlatformOperator role required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Unknown catalogKey.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - education-catalogs-backoffice
+      summary: Create education catalog item
+      operationId: CreateEducationCatalogItem
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEducationCatalogItemRequest'
+      responses:
+        '201':
+          description: Item created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: PlatformOperator role required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Unknown catalogKey.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Code already exists in this catalog type.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/education-catalogs/{catalogKey}/{id}:
+    get:
+      tags:
+      - education-catalogs-backoffice
+      summary: Get education catalog item by id (backoffice)
+      operationId: GetEducationCatalogItemById
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Education catalog item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCatalogItemResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: PlatformOperator role required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Unknown catalogKey or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - education-catalogs-backoffice
+      summary: Update education catalog item
+      operationId: UpdateEducationCatalogItem
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEducationCatalogItemRequest'
+      responses:
+        '200':
+          description: Updated item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: PlatformOperator role required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Code conflict or concurrency token mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/education-catalogs/{catalogKey}/{id}/activate:
+    patch:
+      tags:
+      - education-catalogs-backoffice
+      summary: Activate education catalog item
+      operationId: ActivateEducationCatalogItem
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConcurrencyTokenRequest'
+      responses:
+        '200':
+          description: Activated item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCatalogItemResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: PlatformOperator role required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency token mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/education-catalogs/{catalogKey}/{id}/inactivate:
+    patch:
+      tags:
+      - education-catalogs-backoffice
+      summary: Inactivate education catalog item
+      operationId: InactivateEducationCatalogItem
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConcurrencyTokenRequest'
+      responses:
+        '200':
+          description: Inactivated item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCatalogItemResponse'
+        '401':
+          description: Authentication required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: PlatformOperator role required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency token mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+components:
+  securitySchemes:
+    Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    AuthProvider:
+      type: string
+      enum:
+      - Local
+      - Google
+      - Microsoft
+      - Apple
+    AuthResponse:
+      type: object
+      required:
+      - accessToken
+      - expiresIn
+      - user
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+          nullable: true
+        expiresIn:
+          type: integer
+          format: int32
+        user:
+          $ref: '#/components/schemas/UserDto'
+    BankCatalogConcurrencyRequest:
+      type: object
+      required:
+      - concurrencyToken
+      properties:
+        concurrencyToken:
+          type: string
+          format: uuid
+    BankCatalogItemResponse:
+      type: object
+      required:
+      - publicId
+      - countryCode
+      - code
+      - name
+      - isActive
+      - sortOrder
+      - concurrencyToken
+      - createdAtUtc
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        countryCode:
+          type: string
+          example: SV
+        code:
+          type: string
+          example: BANCO_AGRICOLA
+        name:
+          type: string
+          example: Banco Agricola
+        alias:
+          type: string
+          nullable: true
+        swiftCode:
+          type: string
+          nullable: true
+        routingCode:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+          format: int32
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    CancelPlatformCompanyAddonChangeRequest:
+      type: object
+      required:
+      - observations
+      properties:
+        observations:
+          type: string
+    CancelPlatformCompanySubscriptionPlanChangeRequest:
+      type: object
+      required:
+      - observations
+      properties:
+        observations:
+          type: string
+    ChangePlatformCompanySubscriptionStatusRequest:
+      type: object
+      required:
+      - targetStatus
+      - reasonCode
+      properties:
+        targetStatus:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        reasonCode:
+          $ref: '#/components/schemas/SubscriptionStatusChangeReasonCode'
+        observations:
+          type: string
+          nullable: true
+        effectiveDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+    CommercialAddonBillingModel:
+      type: string
+      enum:
+      - PerActiveEmployee
+      - PerSeat
+      - PerVolume
+    CommercialAddonConcurrencyRequest:
+      type: object
+      required:
+      - concurrencyToken
+      properties:
+        concurrencyToken:
+          type: string
+          format: uuid
+    CommercialAddonPeriodicity:
+      type: string
+      enum:
+      - Monthly
+      - Annual
+    CommercialAddonResponse:
+      type: object
+      required:
+      - publicId
+      - code
+      - name
+      - type
+      - billingModel
+      - measurementUnit
+      - unitPrice
+      - periodicity
+      - status
+      - moduleCount
+      - moduleKeys
+      - concurrencyToken
+      - createdAtUtc
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: ADDON-RECRUITING
+        name:
+          type: string
+          example: Recruiting ATS
+        description:
+          type: string
+          nullable: true
+        type:
+          $ref: '#/components/schemas/CommercialAddonType'
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+          example: recruiter seat
+        unitPrice:
+          type: number
+          format: decimal
+          example: 12.5
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+          example: 2
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+          example: 35.0
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        status:
+          $ref: '#/components/schemas/CommercialAddonStatus'
+        moduleCount:
+          type: integer
+          format: int32
+        moduleKeys:
+          type: array
+          items:
+            type: string
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    CommercialAddonStatus:
+      type: string
+      enum:
+      - Draft
+      - Active
+      - Inactive
+    CommercialAddonSummaryResponse:
+      type: object
+      required:
+      - publicId
+      - code
+      - name
+      - type
+      - billingModel
+      - measurementUnit
+      - unitPrice
+      - periodicity
+      - status
+      - moduleCount
+      - createdAtUtc
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: ADDON-RECRUITING
+        name:
+          type: string
+          example: Recruiting ATS
+        description:
+          type: string
+          nullable: true
+        type:
+          $ref: '#/components/schemas/CommercialAddonType'
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+          example: recruiter seat
+        unitPrice:
+          type: number
+          format: decimal
+          example: 12.5
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+          example: 2
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+          example: 35.0
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        status:
+          $ref: '#/components/schemas/CommercialAddonStatus'
+        moduleCount:
+          type: integer
+          format: int32
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    CommercialAddonType:
+      type: string
+      enum:
+      - Massive
+      - Specialized
+    CommercialModuleResponse:
+      type: object
+      required:
+      - key
+      - displayName
+      - description
+      properties:
+        key:
+          type: string
+          example: JOB_PROFILES
+        displayName:
+          type: string
+          example: Job Profiles
+        description:
+          type: string
+    CommercialPlanConcurrencyRequest:
+      type: object
+      required:
+      - concurrencyToken
+      properties:
+        concurrencyToken:
+          type: string
+          format: uuid
+    CommercialPlanLimitInput:
+      type: object
+      required:
+      - code
+      - value
+      properties:
+        code:
+          type: string
+          maxLength: 80
+          example: EMPLOYEES
+        value:
+          type: number
+          format: decimal
+          example: 25
+    CommercialPlanLimitResponse:
+      type: object
+      required:
+      - code
+      - normalizedCode
+      - value
+      properties:
+        code:
+          type: string
+          example: EMPLOYEES
+        normalizedCode:
+          type: string
+          example: EMPLOYEES
+        value:
+          type: number
+          format: decimal
+          example: 25
+    CommercialPlanResponse:
+      type: object
+      required:
+      - publicId
+      - code
+      - normalizedCode
+      - name
+      - baseMonthlyFee
+      - pricePerActiveEmployee
+      - currentVersionNumber
+      - currencyCode
+      - status
+      - isSystemPlan
+      - moduleCount
+      - moduleKeys
+      - concurrencyToken
+      - createdAtUtc
+      - limits
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: PRO
+        normalizedCode:
+          type: string
+          example: PRO
+        name:
+          type: string
+          example: Professional
+        description:
+          type: string
+          nullable: true
+        baseMonthlyFee:
+          type: number
+          format: decimal
+          example: 120.0
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 3.5
+        currentVersionNumber:
+          type: integer
+          format: int32
+          example: 1
+        currencyCode:
+          type: string
+          example: USD
+        status:
+          $ref: '#/components/schemas/CommercialPlanStatus'
+        isSystemPlan:
+          type: boolean
+        moduleCount:
+          type: integer
+          format: int32
+        moduleKeys:
+          type: array
+          items:
+            type: string
+        concurrencyToken:
+          type: string
+          format: uuid
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        limits:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommercialPlanLimitResponse'
+    CommercialPlanStatus:
+      type: string
+      enum:
+      - Draft
+      - Active
+      - Inactive
+    CommercialPlanSummaryResponse:
+      type: object
+      required:
+      - publicId
+      - code
+      - normalizedCode
+      - name
+      - baseMonthlyFee
+      - pricePerActiveEmployee
+      - currentVersionNumber
+      - currencyCode
+      - status
+      - isSystemPlan
+      - moduleCount
+      - createdAtUtc
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: PRO
+        normalizedCode:
+          type: string
+          example: PRO
+        name:
+          type: string
+          example: Professional
+        description:
+          type: string
+          nullable: true
+        baseMonthlyFee:
+          type: number
+          format: decimal
+          example: 120.0
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 3.5
+        currentVersionNumber:
+          type: integer
+          format: int32
+          example: 1
+        currencyCode:
+          type: string
+          example: USD
+        status:
+          $ref: '#/components/schemas/CommercialPlanStatus'
+        isSystemPlan:
+          type: boolean
+        moduleCount:
+          type: integer
+          format: int32
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    CompanyAddonStatus:
+      type: string
+      enum:
+      - Inactive
+      - PendingActivation
+      - Active
+      - PendingDeactivation
+    CompanyStatus:
+      type: string
+      enum:
+      - Active
+      - Suspended
+      - Archived
+    CompanySubscriptionPeriodicity:
+      type: string
+      enum:
+      - Monthly
+      - Annual
+    ConcurrencyTokenRequest:
+      type: object
+      required:
+      - concurrencyToken
+      properties:
+        concurrencyToken:
+          type: string
+          format: uuid
+    CreateBankCatalogItemRequest:
+      type: object
+      required:
+      - countryCode
+      - code
+      - name
+      - sortOrder
+      properties:
+        countryCode:
+          type: string
+          example: SV
+        code:
+          type: string
+          example: BANCO_AGRICOLA
+        name:
+          type: string
+          example: Banco Agricola
+        alias:
+          type: string
+          nullable: true
+        swiftCode:
+          type: string
+          nullable: true
+        routingCode:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          format: int32
+          minimum: 0
+    CreateCommercialAddonRequest:
+      type: object
+      required:
+      - code
+      - name
+      - type
+      - billingModel
+      - measurementUnit
+      - unitPrice
+      - moduleKeys
+      - periodicity
+      - status
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          example: ADDON-ATTENDANCE
+        name:
+          type: string
+          maxLength: 150
+          example: Attendance
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        type:
+          $ref: '#/components/schemas/CommercialAddonType'
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+          maxLength: 80
+          example: recruiter seat
+        unitPrice:
+          type: number
+          format: decimal
+          example: 12.5
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+          example: 2
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+          example: 35.0
+        moduleKeys:
+          type: array
+          items:
+            type: string
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        status:
+          $ref: '#/components/schemas/CommercialAddonStatus'
+    CreateCommercialPlanRequest:
+      type: object
+      required:
+      - code
+      - name
+      - baseMonthlyFee
+      - pricePerActiveEmployee
+      - status
+      - moduleKeys
+      - limits
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          example: PRO
+        name:
+          type: string
+          maxLength: 150
+          example: Professional
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        baseMonthlyFee:
+          type: number
+          format: decimal
+          example: 120.0
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 3.5
+        status:
+          $ref: '#/components/schemas/CommercialPlanStatus'
+        moduleKeys:
+          type: array
+          items:
+            type: string
+        limits:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommercialPlanLimitInput'
+    CreateEducationCatalogItemRequest:
+      type: object
+      required:
+      - code
+      - name
+      - sortOrder
+      properties:
+        code:
+          type: string
+          description: Unique business code within the catalog type (normalized to uppercase).
+        name:
+          type: string
+          description: Display name.
+        sortOrder:
+          type: integer
+          description: Display sort order.
+    CreatePlatformCompanyAddonChangeRequest:
+      type: object
+      required:
+      - commercialAddonId
+      - action
+      - mode
+      - reasonCode
+      properties:
+        commercialAddonId:
+          type: string
+          format: uuid
+        action:
+          $ref: '#/components/schemas/SubscriptionAddonChangeAction'
+        mode:
+          $ref: '#/components/schemas/SubscriptionAddonChangeMode'
+        requestedEffectiveDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        reasonCode:
+          $ref: '#/components/schemas/SubscriptionAddonChangeReasonCode'
+        observations:
+          type: string
+          nullable: true
+    CreatePlatformCompanySubscriptionPlanChangeRequest:
+      type: object
+      required:
+      - commercialPlanId
+      - mode
+      - reasonCode
+      properties:
+        commercialPlanId:
+          type: string
+          format: uuid
+        mode:
+          $ref: '#/components/schemas/SubscriptionPlanChangeMode'
+        requestedEffectiveDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        reasonCode:
+          $ref: '#/components/schemas/SubscriptionPlanChangeReasonCode'
+        observations:
+          type: string
+          nullable: true
+    EducationCatalogItemResponse:
+      type: object
+      description: Full projection of a system education catalog item for Backoffice consumers.
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        normalizedCode:
+          type: string
+        name:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+    PagedBankCatalogItemResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BankCatalogItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    PagedCommercialAddonSummaryResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommercialAddonSummaryResponse'
+        pageNumber:
+          type: integer
+          format: int32
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          example: 20
+        totalCount:
+          type: integer
+          format: int32
+          example: 2
+    PagedCommercialPlanSummaryResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommercialPlanSummaryResponse'
+        pageNumber:
+          type: integer
+          format: int32
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          example: 20
+        totalCount:
+          type: integer
+          format: int32
+          example: 2
+    PagedPlatformCompanyAddonChangeResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCompanyAddonChangeResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    PagedPlatformCompanyAddonResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCompanyAddonResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    PagedPlatformCompanyEligibleAddonResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCompanyEligibleAddonResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    PagedPlatformCompanySubscriptionListItemResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCompanySubscriptionListItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    PagedPlatformCompanySubscriptionPlanChangeResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCompanySubscriptionPlanChangeResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    PagedPlatformCompanySubscriptionResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+        pageNumber:
+          type: integer
+          format: int32
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          example: 20
+        totalCount:
+          type: integer
+          format: int32
+          example: 2
+    PagedPlatformCompanySubscriptionStatusTransitionResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCompanySubscriptionStatusTransitionResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    PagedResponseEducationCatalogItemResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EducationCatalogItemResponse'
+        pageNumber:
+          type: integer
+        pageSize:
+          type: integer
+        totalCount:
+          type: integer
+        totalPages:
+          type: integer
+    PlatformCompanyAddonChangePreviewResponse:
+      type: object
+      required:
+      - companyPublicId
+      - companyName
+      - companySlug
+      - currentSubscriptionPublicId
+      - commercialAddonPublicId
+      - addonCode
+      - addonName
+      - addonType
+      - billingModel
+      - measurementUnit
+      - unitPrice
+      - periodicity
+      - currencyCode
+      - action
+      - mode
+      - currentStatus
+      - resultingStatus
+      - effectiveDateUtc
+      - quantityBasis
+      - estimatedNextChargeImpact
+      - isEligible
+      - isInformationalEstimate
+      - ineligibilityReasons
+      - warnings
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        companySlug:
+          type: string
+        currentSubscriptionPublicId:
+          type: string
+          format: uuid
+        commercialAddonPublicId:
+          type: string
+          format: uuid
+        addonCode:
+          type: string
+        addonName:
+          type: string
+        addonType:
+          $ref: '#/components/schemas/CommercialAddonType'
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+        unitPrice:
+          type: number
+          format: decimal
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        currencyCode:
+          type: string
+        action:
+          $ref: '#/components/schemas/SubscriptionAddonChangeAction'
+        mode:
+          $ref: '#/components/schemas/SubscriptionAddonChangeMode'
+        currentStatus:
+          $ref: '#/components/schemas/CompanyAddonStatus'
+        resultingStatus:
+          $ref: '#/components/schemas/CompanyAddonStatus'
+        effectiveDateUtc:
+          type: string
+          format: date-time
+        quantityBasis:
+          type: integer
+          format: int32
+        estimatedNextChargeImpact:
+          type: number
+          format: decimal
+        isEligible:
+          type: boolean
+        isInformationalEstimate:
+          type: boolean
+        ineligibilityReasons:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+    PlatformCompanyAddonChangeResponse:
+      type: object
+      required:
+      - addonChangePublicId
+      - companyPublicId
+      - companySubscriptionPublicId
+      - commercialAddonPublicId
+      - addonCode
+      - addonName
+      - addonType
+      - billingModel
+      - measurementUnit
+      - unitPrice
+      - periodicity
+      - currencyCode
+      - action
+      - mode
+      - status
+      - reasonCode
+      - previousStatus
+      - resultingStatus
+      - requestedAtUtc
+      - effectiveDateUtc
+      - quantityBasis
+      - estimatedNextChargeImpact
+      properties:
+        addonChangePublicId:
+          type: string
+          format: uuid
+        companyPublicId:
+          type: string
+          format: uuid
+        companySubscriptionPublicId:
+          type: string
+          format: uuid
+        commercialAddonPublicId:
+          type: string
+          format: uuid
+        addonCode:
+          type: string
+        addonName:
+          type: string
+        addonType:
+          $ref: '#/components/schemas/CommercialAddonType'
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+        unitPrice:
+          type: number
+          format: decimal
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        currencyCode:
+          type: string
+        action:
+          $ref: '#/components/schemas/SubscriptionAddonChangeAction'
+        mode:
+          $ref: '#/components/schemas/SubscriptionAddonChangeMode'
+        status:
+          $ref: '#/components/schemas/SubscriptionAddonChangeStatus'
+        reasonCode:
+          $ref: '#/components/schemas/SubscriptionAddonChangeReasonCode'
+        previousStatus:
+          $ref: '#/components/schemas/CompanyAddonStatus'
+        resultingStatus:
+          $ref: '#/components/schemas/CompanyAddonStatus'
+        requestedAtUtc:
+          type: string
+          format: date-time
+        effectiveDateUtc:
+          type: string
+          format: date-time
+        requestedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        observations:
+          type: string
+          nullable: true
+        quantityBasis:
+          type: integer
+          format: int32
+        estimatedNextChargeImpact:
+          type: number
+          format: decimal
+        appliedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        appliedSubscriptionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        cancelledAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        cancelledByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        cancellationObservations:
+          type: string
+          nullable: true
+        rejectedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
+    PlatformCompanyAddonResponse:
+      type: object
+      required:
+      - companyAddonPublicId
+      - companyPublicId
+      - companySubscriptionPublicId
+      - commercialAddonPublicId
+      - addonCode
+      - addonName
+      - addonType
+      - billingModel
+      - measurementUnit
+      - unitPrice
+      - periodicity
+      - currencyCode
+      - status
+      - statusEffectiveDateUtc
+      - createdAtUtc
+      properties:
+        companyAddonPublicId:
+          type: string
+          format: uuid
+        companyPublicId:
+          type: string
+          format: uuid
+        companySubscriptionPublicId:
+          type: string
+          format: uuid
+        commercialAddonPublicId:
+          type: string
+          format: uuid
+        addonCode:
+          type: string
+        addonName:
+          type: string
+        addonType:
+          $ref: '#/components/schemas/CommercialAddonType'
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+        unitPrice:
+          type: number
+          format: decimal
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        currencyCode:
+          type: string
+        status:
+          $ref: '#/components/schemas/CompanyAddonStatus'
+        statusEffectiveDateUtc:
+          type: string
+          format: date-time
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PlatformCompanyEligibleAddonResponse:
+      type: object
+      required:
+      - commercialAddonPublicId
+      - addonCode
+      - addonName
+      - addonType
+      - billingModel
+      - measurementUnit
+      - unitPrice
+      - periodicity
+      - catalogStatus
+      - createdAtUtc
+      properties:
+        commercialAddonPublicId:
+          type: string
+          format: uuid
+        addonCode:
+          type: string
+        addonName:
+          type: string
+        description:
+          type: string
+          nullable: true
+        addonType:
+          $ref: '#/components/schemas/CommercialAddonType'
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+        unitPrice:
+          type: number
+          format: decimal
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        catalogStatus:
+          $ref: '#/components/schemas/CommercialAddonStatus'
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PlatformCompanySubscriptionListItemResponse:
+      type: object
+      required:
+      - companyPublicId
+      - companyName
+      - companySlug
+      - isBillable
+      - subscriptionPublicId
+      - commercialPlanPublicId
+      - commercialPlanVersionId
+      - planCode
+      - planName
+      - planVersionNumber
+      - startDateUtc
+      - statusChangedAtUtc
+      - currentStatusReasonCode
+      - currentStatusOrigin
+      - canOperate
+      - canGenerateCharges
+      - periodicity
+      - currencyCode
+      - status
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        companySlug:
+          type: string
+        isBillable:
+          type: boolean
+        subscriptionPublicId:
+          type: string
+          format: uuid
+        commercialPlanPublicId:
+          type: string
+          format: uuid
+        commercialPlanVersionId:
+          type: string
+          format: uuid
+        planCode:
+          type: string
+        planName:
+          type: string
+        planVersionNumber:
+          type: integer
+          format: int32
+        startDateUtc:
+          type: string
+          format: date-time
+        expiresAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        periodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+        currencyCode:
+          type: string
+        status:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        statusChangedAtUtc:
+          type: string
+          format: date-time
+        currentStatusReasonCode:
+          $ref: '#/components/schemas/SubscriptionStatusChangeReasonCode'
+        currentStatusOrigin:
+          $ref: '#/components/schemas/SubscriptionStatusChangeOrigin'
+        canOperate:
+          type: boolean
+        canGenerateCharges:
+          type: boolean
+    PlatformCompanySubscriptionOverviewResponse:
+      type: object
+      required:
+      - companyPublicId
+      - companyName
+      - companySlug
+      - companyStatus
+      - isBillable
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        companySlug:
+          type: string
+        companyStatus:
+          $ref: '#/components/schemas/CompanyStatus'
+        isBillable:
+          type: boolean
+        billableSinceUtc:
+          type: string
+          format: date-time
+          nullable: true
+        currentSubscription:
+          $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+          nullable: true
+        scheduledReplacement:
+          $ref: '#/components/schemas/PlatformCompanySubscriptionResponse'
+          nullable: true
+    PlatformCompanySubscriptionPendingStatusChangeResponse:
+      type: object
+      required:
+      - targetStatus
+      - effectiveDateUtc
+      - reasonCode
+      - requestedAtUtc
+      properties:
+        targetStatus:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        effectiveDateUtc:
+          type: string
+          format: date-time
+        reasonCode:
+          $ref: '#/components/schemas/SubscriptionStatusChangeReasonCode'
+        observations:
+          type: string
+          nullable: true
+        requestedAtUtc:
+          type: string
+          format: date-time
+        requestedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+    PlatformCompanySubscriptionPlanChangePreviewResponse:
+      type: object
+      required:
+      - companyPublicId
+      - companyName
+      - companySlug
+      - currentSubscriptionPublicId
+      - currentCommercialPlanPublicId
+      - currentCommercialPlanVersionPublicId
+      - currentPlanCode
+      - currentPlanName
+      - targetCommercialPlanPublicId
+      - targetCommercialPlanVersionPublicId
+      - targetPlanCode
+      - targetPlanName
+      - mode
+      - effectiveDateUtc
+      - activeEmployeeCount
+      - estimatedNextCharge
+      - isEligible
+      - ineligibilityReasons
+      - addonCompatibilityWarnings
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        companySlug:
+          type: string
+        currentSubscriptionPublicId:
+          type: string
+          format: uuid
+        currentCommercialPlanPublicId:
+          type: string
+          format: uuid
+        currentCommercialPlanVersionPublicId:
+          type: string
+          format: uuid
+        currentPlanCode:
+          type: string
+        currentPlanName:
+          type: string
+        currentPlanVersionNumber:
+          type: integer
+          format: int32
+        currentBaseMonthlyFee:
+          type: number
+          format: decimal
+        currentPricePerActiveEmployee:
+          type: number
+          format: decimal
+        currentPeriodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+        currentCurrencyCode:
+          type: string
+        targetCommercialPlanPublicId:
+          type: string
+          format: uuid
+        targetCommercialPlanVersionPublicId:
+          type: string
+          format: uuid
+        targetPlanCode:
+          type: string
+        targetPlanName:
+          type: string
+        targetPlanVersionNumber:
+          type: integer
+          format: int32
+        targetBaseMonthlyFee:
+          type: number
+          format: decimal
+        targetPricePerActiveEmployee:
+          type: number
+          format: decimal
+        targetPeriodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+        targetCurrencyCode:
+          type: string
+        mode:
+          $ref: '#/components/schemas/SubscriptionPlanChangeMode'
+        effectiveDateUtc:
+          type: string
+          format: date-time
+        activeEmployeeCount:
+          type: integer
+          format: int32
+        estimatedNextCharge:
+          type: number
+          format: decimal
+        isEligible:
+          type: boolean
+        ineligibilityReasons:
+          type: array
+          items:
+            type: string
+        addonCompatibilityWarnings:
+          type: array
+          items:
+            type: string
+    PlatformCompanySubscriptionPlanChangeResponse:
+      type: object
+      required:
+      - planChangePublicId
+      - companyPublicId
+      - currentSubscriptionPublicId
+      - currentCommercialPlanPublicId
+      - currentCommercialPlanVersionPublicId
+      - currentPlanCode
+      - currentPlanName
+      - targetCommercialPlanPublicId
+      - targetCommercialPlanVersionPublicId
+      - targetPlanCode
+      - targetPlanName
+      - mode
+      - status
+      - reasonCode
+      - requestedAtUtc
+      - effectiveDateUtc
+      - activeEmployeeCount
+      - estimatedNextCharge
+      properties:
+        planChangePublicId:
+          type: string
+          format: uuid
+        companyPublicId:
+          type: string
+          format: uuid
+        currentSubscriptionPublicId:
+          type: string
+          format: uuid
+        currentCommercialPlanPublicId:
+          type: string
+          format: uuid
+        currentCommercialPlanVersionPublicId:
+          type: string
+          format: uuid
+        currentPlanCode:
+          type: string
+        currentPlanName:
+          type: string
+        currentPlanVersionNumber:
+          type: integer
+          format: int32
+        currentBaseMonthlyFee:
+          type: number
+          format: decimal
+        currentPricePerActiveEmployee:
+          type: number
+          format: decimal
+        currentPeriodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+        currentCurrencyCode:
+          type: string
+        targetCommercialPlanPublicId:
+          type: string
+          format: uuid
+        targetCommercialPlanVersionPublicId:
+          type: string
+          format: uuid
+        targetPlanCode:
+          type: string
+        targetPlanName:
+          type: string
+        targetPlanVersionNumber:
+          type: integer
+          format: int32
+        targetBaseMonthlyFee:
+          type: number
+          format: decimal
+        targetPricePerActiveEmployee:
+          type: number
+          format: decimal
+        targetPeriodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+        targetCurrencyCode:
+          type: string
+        mode:
+          $ref: '#/components/schemas/SubscriptionPlanChangeMode'
+        status:
+          $ref: '#/components/schemas/SubscriptionPlanChangeStatus'
+        reasonCode:
+          $ref: '#/components/schemas/SubscriptionPlanChangeReasonCode'
+        requestedAtUtc:
+          type: string
+          format: date-time
+        effectiveDateUtc:
+          type: string
+          format: date-time
+        requestedByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        observations:
+          type: string
+          nullable: true
+        activeEmployeeCount:
+          type: integer
+          format: int32
+        estimatedNextCharge:
+          type: number
+          format: decimal
+        appliedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        appliedSubscriptionPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        cancelledAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        cancelledByUserPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        cancellationObservations:
+          type: string
+          nullable: true
+        rejectedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
+    PlatformCompanySubscriptionPreviewResponse:
+      type: object
+      required:
+      - companyPublicId
+      - companyName
+      - companySlug
+      - companyStatus
+      - isBillable
+      - commercialPlanPublicId
+      - commercialPlanVersionId
+      - planCode
+      - planName
+      - planVersionNumber
+      - baseMonthlyFee
+      - pricePerActiveEmployee
+      - periodicity
+      - currencyCode
+      - resolvedStatus
+      - startDateUtc
+      - canOperate
+      - canGenerateCharges
+      - isEligible
+      - ineligibilityReasons
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        companySlug:
+          type: string
+        companyStatus:
+          $ref: '#/components/schemas/CompanyStatus'
+        isBillable:
+          type: boolean
+        commercialPlanPublicId:
+          type: string
+          format: uuid
+        commercialPlanVersionId:
+          type: string
+          format: uuid
+        planCode:
+          type: string
+        planName:
+          type: string
+        planVersionNumber:
+          type: integer
+          format: int32
+        baseMonthlyFee:
+          type: number
+          format: decimal
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+        periodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+        currencyCode:
+          type: string
+        resolvedStatus:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        startDateUtc:
+          type: string
+          format: date-time
+        expiresAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        canOperate:
+          type: boolean
+        canGenerateCharges:
+          type: boolean
+        isEligible:
+          type: boolean
+        ineligibilityReasons:
+          type: array
+          items:
+            type: string
+    PlatformCompanySubscriptionResponse:
+      type: object
+      required:
+      - subscriptionPublicId
+      - companyPublicId
+      - commercialPlanPublicId
+      - commercialPlanVersionId
+      - planCode
+      - planName
+      - planVersionNumber
+      - baseMonthlyFee
+      - pricePerActiveEmployee
+      - periodicity
+      - currencyCode
+      - status
+      - startDateUtc
+      - statusChangedAtUtc
+      - currentStatusReasonCode
+      - currentStatusOrigin
+      - canOperate
+      - canGenerateCharges
+      - activatedByUserId
+      - activatedAtUtc
+      - createdAtUtc
+      properties:
+        subscriptionPublicId:
+          type: string
+          format: uuid
+        companyPublicId:
+          type: string
+          format: uuid
+        commercialPlanPublicId:
+          type: string
+          format: uuid
+        commercialPlanVersionId:
+          type: string
+          format: uuid
+        planCode:
+          type: string
+          example: FREE
+        planName:
+          type: string
+          example: Free
+        planVersionNumber:
+          type: integer
+          format: int32
+          example: 1
+        baseMonthlyFee:
+          type: number
+          format: decimal
+          example: 0
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 0
+        periodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+        currencyCode:
+          type: string
+          example: USD
+        status:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        startDateUtc:
+          type: string
+          format: date-time
+        expiresAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        endDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        statusChangedAtUtc:
+          type: string
+          format: date-time
+        currentStatusReasonCode:
+          $ref: '#/components/schemas/SubscriptionStatusChangeReasonCode'
+        currentStatusObservations:
+          type: string
+          nullable: true
+        currentStatusOrigin:
+          $ref: '#/components/schemas/SubscriptionStatusChangeOrigin'
+        canOperate:
+          type: boolean
+        canGenerateCharges:
+          type: boolean
+        pendingStatusChange:
+          $ref: '#/components/schemas/PlatformCompanySubscriptionPendingStatusChangeResponse'
+          nullable: true
+        activatedByUserId:
+          type: string
+          format: uuid
+        activatedAtUtc:
+          type: string
+          format: date-time
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PlatformCompanySubscriptionStatusChangePreviewResponse:
+      type: object
+      required:
+      - companyPublicId
+      - companyName
+      - companySlug
+      - companyStatus
+      - subscriptionPublicId
+      - currentStatus
+      - targetStatus
+      - effectiveDateUtc
+      - planCode
+      - planName
+      - planVersionNumber
+      - canOperate
+      - canGenerateCharges
+      - isEligible
+      - ineligibilityReasons
+      properties:
+        companyPublicId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        companySlug:
+          type: string
+        companyStatus:
+          $ref: '#/components/schemas/CompanyStatus'
+        subscriptionPublicId:
+          type: string
+          format: uuid
+        currentStatus:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        targetStatus:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        effectiveDateUtc:
+          type: string
+          format: date-time
+        planCode:
+          type: string
+        planName:
+          type: string
+        planVersionNumber:
+          type: integer
+          format: int32
+        expiresAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        canOperate:
+          type: boolean
+        canGenerateCharges:
+          type: boolean
+        isEligible:
+          type: boolean
+        ineligibilityReasons:
+          type: array
+          items:
+            type: string
+    PlatformCompanySubscriptionStatusTransitionResponse:
+      type: object
+      required:
+      - newStatus
+      - changedAtUtc
+      - origin
+      - reasonCode
+      properties:
+        previousStatus:
+          allOf:
+          - $ref: '#/components/schemas/SubscriptionStatus'
+          nullable: true
+        newStatus:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        changedAtUtc:
+          type: string
+          format: date-time
+        origin:
+          $ref: '#/components/schemas/SubscriptionStatusChangeOrigin'
+        actorUserId:
+          type: string
+          format: uuid
+          nullable: true
+        reasonCode:
+          $ref: '#/components/schemas/SubscriptionStatusChangeReasonCode'
+        observations:
+          type: string
+          nullable: true
+    PlatformLoginRequest:
+      type: object
+      required:
+      - email
+      - password
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        password:
+          type: string
+          maxLength: 100
+    PlatformRefreshTokenRequest:
+      type: object
+      required:
+      - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          maxLength: 2048
+    PreviewPlatformCompanyAddonChangeRequest:
+      type: object
+      required:
+      - commercialAddonId
+      - action
+      - mode
+      properties:
+        commercialAddonId:
+          type: string
+          format: uuid
+        action:
+          $ref: '#/components/schemas/SubscriptionAddonChangeAction'
+        mode:
+          $ref: '#/components/schemas/SubscriptionAddonChangeMode'
+        requestedEffectiveDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PreviewPlatformCompanySubscriptionPlanChangeRequest:
+      type: object
+      required:
+      - commercialPlanId
+      - mode
+      properties:
+        commercialPlanId:
+          type: string
+          format: uuid
+        mode:
+          $ref: '#/components/schemas/SubscriptionPlanChangeMode'
+        requestedEffectiveDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+    ProblemDetailItem:
+      type: object
+      properties:
+        resourceKey:
+          type: string
+          nullable: true
+        action:
+          type: string
+          nullable: true
+        fieldKey:
+          type: string
+          nullable: true
+        endpoint:
+          type: string
+          nullable: true
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        status:
+          type: integer
+          format: int32
+          nullable: true
+        detail:
+          type: string
+          nullable: true
+        instance:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        traceId:
+          type: string
+          nullable: true
+          description: Correlation identifier that links the error response with server logs.
+        errors:
+          type: object
+          nullable: true
+          description: Field-level validation messages. Present when `code` is `common.validation`.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        details:
+          type: array
+          nullable: true
+          description: Optional structured metadata returned by some authorization or policy failures.
+          items:
+            $ref: '#/components/schemas/ProblemDetailItem'
+    SubscriptionAddonChangeAction:
+      type: string
+      enum:
+      - Activate
+      - Deactivate
+    SubscriptionAddonChangeMode:
+      type: string
+      enum:
+      - Immediate
+      - SpecificDate
+      - NextBillingCycle
+    SubscriptionAddonChangeReasonCode:
+      type: string
+      enum:
+      - CustomerRequest
+      - FunctionalExpansion
+      - CostReduction
+      - CommercialMigration
+      - CommercialTrial
+      - OperationalCorrection
+    SubscriptionAddonChangeStatus:
+      type: string
+      enum:
+      - Scheduled
+      - Applied
+      - Cancelled
+      - Rejected
+    SubscriptionPlanChangeMode:
+      type: string
+      enum:
+      - Immediate
+      - SpecificDate
+      - NextBillingCycle
+    SubscriptionPlanChangeReasonCode:
+      type: string
+      enum:
+      - UpgradeCommercial
+      - DowngradeRequestedByCustomer
+      - CommercialStrategyMigration
+      - OperationalCorrection
+      - LegacyToNewPlan
+      - Other
+    SubscriptionPlanChangeStatus:
+      type: string
+      enum:
+      - Pending
+      - Scheduled
+      - Applied
+      - Cancelled
+      - Rejected
+    SubscriptionStatus:
+      type: string
+      enum:
+      - Draft
+      - Scheduled
+      - Trial
+      - Active
+      - Suspended
+      - Cancelled
+      - Expired
+    SubscriptionStatusChangeOrigin:
+      type: string
+      enum:
+      - PlatformOperator
+      - SystemProcess
+    SubscriptionStatusChangeReasonCode:
+      type: string
+      enum:
+      - InitialAssignment
+      - ManualActivation
+      - ActivationScheduled
+      - ScheduledStartReached
+      - TrialEnded
+      - ExpirationReached
+      - ManualSuspension
+      - PaymentDelinquency
+      - CustomerRequest
+      - CommercialCancellation
+      - AuthorizedReactivation
+      - SubscriptionReplacement
+      - LegacyMigration
+    UpdateBankCatalogItemRequest:
+      allOf:
+      - $ref: '#/components/schemas/CreateBankCatalogItemRequest'
+      - type: object
+        required:
+        - concurrencyToken
+        properties:
+          concurrencyToken:
+            type: string
+            format: uuid
+    UpdateCommercialAddonRequest:
+      type: object
+      required:
+      - code
+      - name
+      - type
+      - billingModel
+      - measurementUnit
+      - unitPrice
+      - moduleKeys
+      - periodicity
+      - concurrencyToken
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          example: ADDON-ATTENDANCE
+        name:
+          type: string
+          maxLength: 150
+          example: Attendance Plus
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        type:
+          $ref: '#/components/schemas/CommercialAddonType'
+        billingModel:
+          $ref: '#/components/schemas/CommercialAddonBillingModel'
+        measurementUnit:
+          type: string
+          maxLength: 80
+          example: vacante
+        unitPrice:
+          type: number
+          format: decimal
+          example: 1.5
+        minimumQuantity:
+          type: integer
+          format: int32
+          nullable: true
+        minimumMonthlyFee:
+          type: number
+          format: decimal
+          nullable: true
+        moduleKeys:
+          type: array
+          items:
+            type: string
+        periodicity:
+          $ref: '#/components/schemas/CommercialAddonPeriodicity'
+        concurrencyToken:
+          type: string
+          format: uuid
+    UpdateCommercialPlanRequest:
+      type: object
+      required:
+      - code
+      - name
+      - baseMonthlyFee
+      - pricePerActiveEmployee
+      - moduleKeys
+      - limits
+      - concurrencyToken
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          example: PRO
+        name:
+          type: string
+          maxLength: 150
+          example: Professional Plus
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+        baseMonthlyFee:
+          type: number
+          format: decimal
+          example: 180.0
+        pricePerActiveEmployee:
+          type: number
+          format: decimal
+          example: 4.0
+        moduleKeys:
+          type: array
+          items:
+            type: string
+        limits:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommercialPlanLimitInput'
+        concurrencyToken:
+          type: string
+          format: uuid
+    UpdateEducationCatalogItemRequest:
+      type: object
+      required:
+      - code
+      - name
+      - sortOrder
+      - concurrencyToken
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        sortOrder:
+          type: integer
+        concurrencyToken:
+          type: string
+          format: uuid
+    UpsertPlatformCompanySubscriptionRequest:
+      type: object
+      required:
+      - commercialPlanId
+      - startDateUtc
+      - periodicity
+      properties:
+        commercialPlanId:
+          type: string
+          format: uuid
+        startDateUtc:
+          type: string
+          format: date-time
+        expiresAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        periodicity:
+          $ref: '#/components/schemas/CompanySubscriptionPeriodicity'
+    UserDto:
+      type: object
+      required:
+      - publicId
+      - email
+      - firstName
+      - lastName
+      - authProvider
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        authProvider:
+          $ref: '#/components/schemas/AuthProvider'

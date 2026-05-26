@@ -286,25 +286,35 @@ Datos personales (`PersonnelFilePersonalInfoController`):
 Antecedentes (`PersonnelFileBackgroundController`):
 
 - `GET /api/v1/personnel-files/{publicId}/educations`
+- `GET /api/v1/personnel-files/{publicId}/educations/{educationPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/educations`
-- `PUT /api/v1/personnel-files/{publicId}/educations/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/educations/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/educations/{educationPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/educations/{educationPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/educations/{educationPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/languages`
+- `GET /api/v1/personnel-files/{publicId}/languages/{languagePublicId}`
 - `POST /api/v1/personnel-files/{publicId}/languages`
-- `PUT /api/v1/personnel-files/{publicId}/languages/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/languages/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/languages/{languagePublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/languages/{languagePublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/languages/{languagePublicId}`
 - `GET /api/v1/personnel-files/{publicId}/trainings`
+- `GET /api/v1/personnel-files/{publicId}/trainings/{trainingPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/trainings`
-- `PUT /api/v1/personnel-files/{publicId}/trainings/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/trainings/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/trainings/{trainingPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/trainings/{trainingPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/trainings/{trainingPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/previous-employments`
+- `GET /api/v1/personnel-files/{publicId}/previous-employments/{previousEmploymentPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/previous-employments`
-- `PUT /api/v1/personnel-files/{publicId}/previous-employments/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/previous-employments/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/previous-employments/{previousEmploymentPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/previous-employments/{previousEmploymentPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/previous-employments/{previousEmploymentPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/references`
+- `GET /api/v1/personnel-files/{publicId}/references/{referencePublicId}`
 - `POST /api/v1/personnel-files/{publicId}/references`
-- `PUT /api/v1/personnel-files/{publicId}/references/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/references/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/references/{referencePublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/references/{referencePublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/references/{referencePublicId}`
 
 Intereses (`PersonnelFileInterestsController`):
 
@@ -3274,25 +3284,35 @@ Route family:
 Route family:
 
 - `GET /api/v1/personnel-files/{publicId}/educations`
+- `GET /api/v1/personnel-files/{publicId}/educations/{educationPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/educations`
-- `PUT /api/v1/personnel-files/{publicId}/educations/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/educations/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/educations/{educationPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/educations/{educationPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/educations/{educationPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/languages`
+- `GET /api/v1/personnel-files/{publicId}/languages/{languagePublicId}`
 - `POST /api/v1/personnel-files/{publicId}/languages`
-- `PUT /api/v1/personnel-files/{publicId}/languages/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/languages/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/languages/{languagePublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/languages/{languagePublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/languages/{languagePublicId}`
 - `GET /api/v1/personnel-files/{publicId}/trainings`
+- `GET /api/v1/personnel-files/{publicId}/trainings/{trainingPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/trainings`
-- `PUT /api/v1/personnel-files/{publicId}/trainings/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/trainings/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/trainings/{trainingPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/trainings/{trainingPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/trainings/{trainingPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/previous-employments`
+- `GET /api/v1/personnel-files/{publicId}/previous-employments/{previousEmploymentPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/previous-employments`
-- `PUT /api/v1/personnel-files/{publicId}/previous-employments/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/previous-employments/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/previous-employments/{previousEmploymentPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/previous-employments/{previousEmploymentPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/previous-employments/{previousEmploymentPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/references`
+- `GET /api/v1/personnel-files/{publicId}/references/{referencePublicId}`
 - `POST /api/v1/personnel-files/{publicId}/references`
-- `PUT /api/v1/personnel-files/{publicId}/references/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/references/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/references/{referencePublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/references/{referencePublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/references/{referencePublicId}`
 
 ##### Intereses — `PersonnelFileInterestsController`
 
