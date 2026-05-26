@@ -1604,6 +1604,7 @@ public sealed class PersonnelFileEducation : TenantEntity
         EducationModalityCatalogItemId = educationModalityCatalogItemId;
         TotalSubjects = totalSubjects;
         ApprovedSubjects = approvedSubjects;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -1647,6 +1648,8 @@ public sealed class PersonnelFileEducation : TenantEntity
     public int? TotalSubjects { get; private set; }
 
     public int? ApprovedSubjects { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileEducation Create(
         long educationStatusCatalogItemId,
@@ -1759,6 +1762,7 @@ public sealed class PersonnelFileEducation : TenantEntity
         EducationModalityCatalogItemId = educationModalityCatalogItemId;
         TotalSubjects = totalSubjects;
         ApprovedSubjects = approvedSubjects;
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 
@@ -1786,6 +1790,7 @@ public sealed class PersonnelFileLanguage : TenantEntity
         Speaks = speaks;
         Writes = writes;
         Reads = reads;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -1801,6 +1806,8 @@ public sealed class PersonnelFileLanguage : TenantEntity
     public bool Writes { get; private set; }
 
     public bool Reads { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileLanguage Create(
         string languageCode,
@@ -1827,6 +1834,7 @@ public sealed class PersonnelFileLanguage : TenantEntity
         Speaks = speaks;
         Writes = writes;
         Reads = reads;
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 
@@ -1891,6 +1899,7 @@ public sealed class PersonnelFileTraining : TenantEntity
         DurationUnitCode = PersonnelFileNormalization.Clean(durationUnitCode, nameof(durationUnitCode));
         CostAmount = costAmount;
         CostCurrencyCode = PersonnelFileNormalization.CleanOptional(costCurrencyCode);
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -1928,6 +1937,8 @@ public sealed class PersonnelFileTraining : TenantEntity
     public decimal? CostAmount { get; private set; }
 
     public string? CostCurrencyCode { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileTraining Create(
         string trainingName,
@@ -2018,6 +2029,7 @@ public sealed class PersonnelFileTraining : TenantEntity
         DurationUnitCode = PersonnelFileNormalization.Clean(durationUnitCode, nameof(durationUnitCode));
         CostAmount = costAmount;
         CostCurrencyCode = PersonnelFileNormalization.CleanOptional(costCurrencyCode);
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 
@@ -2074,6 +2086,7 @@ public sealed class PersonnelFilePreviousEmployment : TenantEntity
         LastSalaryAmount = lastSalaryAmount;
         AverageCommissionAmount = averageCommissionAmount;
         CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode));
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -2103,6 +2116,8 @@ public sealed class PersonnelFilePreviousEmployment : TenantEntity
     public decimal? AverageCommissionAmount { get; private set; }
 
     public string CurrencyCode { get; private set; } = string.Empty;
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFilePreviousEmployment Create(
         string institution,
@@ -2177,6 +2192,7 @@ public sealed class PersonnelFilePreviousEmployment : TenantEntity
         LastSalaryAmount = lastSalaryAmount;
         AverageCommissionAmount = averageCommissionAmount;
         CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode));
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 
@@ -2210,6 +2226,7 @@ public sealed class PersonnelFileReference : TenantEntity
         Workplace = PersonnelFileNormalization.CleanOptional(workplace);
         WorkPhone = PersonnelFileNormalization.CleanOptional(workPhone);
         KnownTimeYears = knownTimeYears;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -2231,6 +2248,8 @@ public sealed class PersonnelFileReference : TenantEntity
     public string? WorkPhone { get; private set; }
 
     public decimal KnownTimeYears { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileReference Create(
         string personName,
@@ -2266,6 +2285,7 @@ public sealed class PersonnelFileReference : TenantEntity
         Workplace = PersonnelFileNormalization.CleanOptional(workplace);
         WorkPhone = PersonnelFileNormalization.CleanOptional(workPhone);
         KnownTimeYears = knownTimeYears;
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 

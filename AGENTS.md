@@ -434,7 +434,8 @@ docs/
       project-foundation.md
     api/
       endpoint-reference.md
-      openapi.yaml
+      openapi.yaml            <-- Core API contract (CLARIHR.Api): /api/v1, /api/account, /api/audit, /api/auth
+      openapi-backoffice.yaml <-- Backoffice/platform API contract (CLARIHR.Backoffice.Api): /api/platform/*
     security/
     performance/
     operations/
@@ -608,6 +609,6 @@ Estas decisiones están cerradas; no marcarlas como hallazgo ni proponer migrarl
 - **Naming**: parámetros C# se llaman `*Id` (Guid) y se renderizan `*PublicId` en el wire automáticamente; no renombrar a `*PublicId` en C#.
 - **Superset authz** (capa declarativa ⊇ gate del handler): es revisión **MANUAL** — ningún guardrail lo verifica.
 - **Features futuras no construidas NO son deuda**: reclasificar a roadmap; no marcar 🔴/🟠 ni como vulnerabilidad.
-- **Test de integración pre-existente que falla en HEAD limpio**: `JobProfiles_Compensation_WithTabulatorRangeOverlappingProfileRange` — ignorar, no perseguir.
+- **`JobProfiles_Compensation_WithTabulatorRangeOverlappingProfileRange`**: ya NO es un known-failure. Era un bug de **datos del test** (usaba un código de clase salarial de 1 carácter `"A"`, y el helper lo manda como `q=A`, violando la longitud mínima 2 de búsqueda de catálogos → 400 en el setup). Corregido a un código ≥2 chars; el test pasa.
 - **Position technical debt = 0**: los 22 ítems de docs `03/05/08/09` están cerrados y verificados en `master` (PRs #29/#31/#34/#35/#37). No re-flag.
 - **Findings rastreados**: 1 GitHub Issue + labels `status:available→claimed→in-pr→done` (§16.3). Branching = §16.

@@ -3,6 +3,7 @@ using System;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CLARIHR.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260526181139_AddConcurrencyTokenToPersonnelFileBackgroundEntities")]
+    partial class AddConcurrencyTokenToPersonnelFileBackgroundEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -15998,7 +16001,7 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CLARIHR.Domain.JobProfiles.JobProfileWorkingCondition", b =>
                 {
-                    b.HasOne("CLARIHR.Domain.PositionDescriptionCatalogs.PositionDescriptionCatalogItem", null)
+                    b.HasOne("CLARIHR.Domain.JobProfiles.JobCatalogItem", "CatalogItem")
                         .WithMany()
                         .HasForeignKey("CatalogItemId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -16016,6 +16019,8 @@ namespace CLARIHR.Infrastructure.Persistence.Migrations
                         .HasForeignKey("WorkConditionTypeCatalogItemId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_job_profile_working_conditions__work_condition_type_catalog_item");
+
+                    b.Navigation("CatalogItem");
 
                     b.Navigation("JobProfile");
                 });
