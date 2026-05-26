@@ -626,6 +626,7 @@ internal sealed class TestPositionDescriptionCatalogRepository : IPositionDescri
     public Task<bool> HasFunctionsUsingFrequencyAsync(long frequencyCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasRequirementsUsingRequirementTypeAsync(long requirementTypeCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<bool> HasWorkConditionsUsingWorkConditionTypeAsync(long workConditionTypeCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
+    public Task<bool> HasWorkConditionsUsingWorkConditionAsync(long workConditionCatalogItemId, CancellationToken cancellationToken) => Task.FromResult(false);
     public Task<long?> ResolvePositionCategoryIdAsync(Guid tenantId, Guid positionCategoryId, CancellationToken cancellationToken) => Task.FromResult((long?)1);
     public Task<string?> ResolveSalaryClassCodeByCatalogIdAsync(Guid tenantId, Guid salaryClassId, CancellationToken cancellationToken) => throw new NotImplementedException();
     public void InvalidateSimpleCatalogCache(Guid tenantId, PositionDescriptionCatalogType catalogType) { }

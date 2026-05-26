@@ -920,7 +920,6 @@ public sealed class JobProfileCollectionAdministrationTests
             _auditService,
             _tenantContext,
             _unitOfWork,
-            _catalogRepository,
             _positionDescriptionCatalogRepository);
 
         var result = await handler.Handle(
@@ -965,8 +964,8 @@ public sealed class JobProfileCollectionAdministrationTests
     {
         var profile = JobProfile.Create("JP-001", "Title");
         profile.SetTenantId(_tenantId);
-        profile.AddWorkingCondition(JobProfileWorkingCondition.Create(null, null, null, "Hybrid", null, 1));
-        profile.AddWorkingCondition(JobProfileWorkingCondition.Create(null, null, null, "Remote", null, 2));
+        profile.AddWorkingCondition(JobProfileWorkingCondition.Create(null, null, "Hybrid", null, 1));
+        profile.AddWorkingCondition(JobProfileWorkingCondition.Create(null, null, "Remote", null, 2));
         var profileId = profile.PublicId;
         _profileRepository.Profiles[profileId] = profile;
 

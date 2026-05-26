@@ -135,6 +135,11 @@ public static class PositionDescriptionCatalogErrors
         "The requested work condition type could not be found.",
         ErrorType.NotFound);
 
+    public static readonly Error WorkConditionNotFound = new(
+        "WORK_CONDITION_NOT_FOUND",
+        "The requested work condition could not be found.",
+        ErrorType.NotFound);
+
     public static Error TenantMismatch(RbacPermissionAction action) =>
         AuthorizationErrors.TenantMismatch(PositionDescriptionCatalogPermissionCodes.ResourceKey, action);
 

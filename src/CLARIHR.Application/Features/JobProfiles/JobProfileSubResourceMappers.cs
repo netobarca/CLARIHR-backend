@@ -70,7 +70,7 @@ internal static class JobProfileSubResourceMappers
         Guid? catalogItemId = null) =>
         new(
             workingCondition.PublicId,
-            workingCondition.CatalogItem?.PublicId ?? catalogItemId,
+            catalogItemId,
             workConditionTypeCatalogItemId,
             workingCondition.Name,
             workingCondition.Notes,

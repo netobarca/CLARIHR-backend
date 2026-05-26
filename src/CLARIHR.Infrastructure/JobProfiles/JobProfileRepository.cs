@@ -27,7 +27,6 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .Include(profile => profile.Benefits)
                 .ThenInclude(benefit => benefit.CatalogItem)
             .Include(profile => profile.WorkingConditions)
-                .ThenInclude(condition => condition.CatalogItem)
             .Include(profile => profile.DependentPositions)
                 .ThenInclude(position => position.DependentJobProfile)
             .SingleOrDefaultAsync(profile => profile.PublicId == profileId, cancellationToken);
@@ -844,7 +843,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
         var query =
             from condition in dbContext.Set<Domain.JobProfiles.JobProfileWorkingCondition>().AsNoTracking()
             where condition.JobProfileId == profileInternalId.Value
-            join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+            join catalogItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
                 on condition.CatalogItemId equals (long?)catalogItem.Id into catalogItems
             from catalogItem in catalogItems.DefaultIfEmpty()
             join workConditionTypeItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
@@ -878,7 +877,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
          join condition in dbContext.Set<Domain.JobProfiles.JobProfileWorkingCondition>().AsNoTracking()
              on profile.Id equals condition.JobProfileId
          where condition.PublicId == workingConditionId
-         join catalogItem in dbContext.JobCatalogItems.AsNoTracking()
+         join catalogItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
              on condition.CatalogItemId equals (long?)catalogItem.Id into catalogItems
          from catalogItem in catalogItems.DefaultIfEmpty()
          join workConditionTypeItem in dbContext.PositionDescriptionCatalogItems.AsNoTracking()
@@ -973,7 +972,6 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .Include(item => item.Benefits)
                 .ThenInclude(item => item.CatalogItem)
             .Include(item => item.WorkingConditions)
-                .ThenInclude(item => item.CatalogItem)
             .Include(item => item.DependentPositions)
                 .ThenInclude(item => item.DependentJobProfile)
             .SingleOrDefaultAsync(item => item.PublicId == profileId, cancellationToken);
@@ -1023,6 +1021,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
         foreach (var workingCondition in profile.WorkingConditions)
         {
             AddIfPresent(positionDescriptionCatalogItemIds, workingCondition.WorkConditionTypeCatalogItemId);
+            AddIfPresent(positionDescriptionCatalogItemIds, workingCondition.CatalogItemId);
         }
 
         var positionDescriptionCatalogLookup = positionDescriptionCatalogItemIds.Count == 0
@@ -1103,7 +1102,7 @@ internal sealed class JobProfileRepository(ApplicationDbContext dbContext) : IJo
             .ThenBy(item => item.Name)
             .Select(item => new JobProfileWorkingConditionResponse(
                 item.PublicId,
-                item.CatalogItem?.PublicId,
+                ResolveCatalogPublicId(item.CatalogItemId, positionDescriptionCatalogLookup),
                 ResolveCatalogPublicId(item.WorkConditionTypeCatalogItemId, positionDescriptionCatalogLookup),
                 item.Name,
                 item.Notes,

@@ -236,6 +236,7 @@ internal sealed class PatchPositionDescriptionCatalogItemCommandHandler(
             PositionDescriptionCatalogType.Frequency => repository.HasFunctionsUsingFrequencyAsync(entity.Id, cancellationToken),
             PositionDescriptionCatalogType.RequirementType => repository.HasRequirementsUsingRequirementTypeAsync(entity.Id, cancellationToken),
             PositionDescriptionCatalogType.WorkConditionType => repository.HasWorkConditionsUsingWorkConditionTypeAsync(entity.Id, cancellationToken),
+            PositionDescriptionCatalogType.WorkCondition => repository.HasWorkConditionsUsingWorkConditionAsync(entity.Id, cancellationToken),
             _ => repository.HasJobProfilesUsingCatalogItemAsync(entity.Id, cancellationToken)
         };
 
