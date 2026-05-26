@@ -3692,7 +3692,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var orgUnit = await CreateOrgUnitAsync(jobProfileClient, scenario.TenantId, "DIR-RANGE", "Unidad Rango", "Direccion");
         var positionCategory = await EnsureDefaultPositionCategoryAsync(jobProfileClient, scenario.TenantId);
-        var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "A");
+        var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "CLS-RANGE");
 
         var requestResponse = await requesterClient.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/salary-tabulator/change-requests", new
         {
