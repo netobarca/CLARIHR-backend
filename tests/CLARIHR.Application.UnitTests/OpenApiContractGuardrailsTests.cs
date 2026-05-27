@@ -40,14 +40,14 @@ public sealed class OpenApiContractGuardrailsTests
     [
         ("JobProfile/JobCatalog", new Regex(@"^(JobProfile|JobCatalog)", RegexOptions.Compiled), "Job Profiles"),
         ("PositionSlot", new Regex(@"^PositionSlot", RegexOptions.Compiled), "Position Slots"),
-        // PersonnelFileBackground, PersonnelFileInterests and PersonnelFilePersonalInfo are the
-        // PersonnelFiles sub-resource controllers brought fully canonical (GET/POST/PUT/PATCH/DELETE
-        // per sub-entity with per-item concurrency tokens). Enrolled here so an action that drops
-        // [SwaggerOperation] or a class that drops [Tags] fails loudly. The narrow
-        // ^PersonnelFile(Background|Interests|PersonalInfo) regex matches only those controllers; the
-        // shell + remaining PersonnelFile controllers stay out until they are canonicalised (then
+        // PersonnelFileBackground, PersonnelFileInterests, PersonnelFilePersonalInfo and
+        // PersonnelFileTalent are the PersonnelFiles sub-resource controllers brought fully canonical
+        // (GET/POST/PUT/PATCH/DELETE per sub-entity with per-item concurrency tokens). Enrolled here so
+        // an action that drops [SwaggerOperation] or a class that drops [Tags] fails loudly. The narrow
+        // ^PersonnelFile(Background|Interests|PersonalInfo|Talent) regex matches only those controllers;
+        // the shell + remaining PersonnelFile controllers stay out until they are canonicalised (then
         // broaden this to ^PersonnelFile).
-        ("PersonnelFileBackground/Interests/PersonalInfo", new Regex(@"^PersonnelFile(Background|Interests|PersonalInfo)", RegexOptions.Compiled), "Personnel Files"),
+        ("PersonnelFileBackground/Interests/PersonalInfo/Talent", new Regex(@"^PersonnelFile(Background|Interests|PersonalInfo|Talent)", RegexOptions.Compiled), "Personnel Files"),
     ];
 
     public static TheoryData<string> FamilyLabels()

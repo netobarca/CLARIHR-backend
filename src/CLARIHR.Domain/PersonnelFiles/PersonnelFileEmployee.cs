@@ -1230,6 +1230,7 @@ public sealed class PersonnelFilePerformanceEvaluation : TenantEntity
         DateTime? sourceSyncedUtc)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         EvaluatorName = PersonnelFileNormalization.Clean(evaluatorName, nameof(evaluatorName));
         EvaluationDateUtc = PersonnelFileNormalization.NormalizeDate(evaluationDateUtc);
         Score = score;
@@ -1260,6 +1261,8 @@ public sealed class PersonnelFilePerformanceEvaluation : TenantEntity
 
     public DateTime? SourceSyncedUtc { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public void Update(
@@ -1272,6 +1275,7 @@ public sealed class PersonnelFilePerformanceEvaluation : TenantEntity
         string? sourceReference,
         DateTime? sourceSyncedUtc)
     {
+        ConcurrencyToken = Guid.NewGuid();
         EvaluatorName = PersonnelFileNormalization.Clean(evaluatorName, nameof(evaluatorName));
         EvaluationDateUtc = PersonnelFileNormalization.NormalizeDate(evaluationDateUtc);
         Score = score;
@@ -1320,6 +1324,7 @@ public sealed class PersonnelFilePositionCompetencyResult : TenantEntity
         DateTime? sourceSyncedUtc)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         CompetencyCode = PersonnelFileNormalization.Clean(competencyCode, nameof(competencyCode));
         DesiredBehaviors = PersonnelFileNormalization.CleanOptional(desiredBehaviors);
         ExpectedScore = expectedScore;
@@ -1353,6 +1358,8 @@ public sealed class PersonnelFilePositionCompetencyResult : TenantEntity
 
     public DateTime? SourceSyncedUtc { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public void Update(
@@ -1366,6 +1373,7 @@ public sealed class PersonnelFilePositionCompetencyResult : TenantEntity
         string? sourceReference,
         DateTime? sourceSyncedUtc)
     {
+        ConcurrencyToken = Guid.NewGuid();
         CompetencyCode = PersonnelFileNormalization.Clean(competencyCode, nameof(competencyCode));
         DesiredBehaviors = PersonnelFileNormalization.CleanOptional(desiredBehaviors);
         ExpectedScore = expectedScore;
@@ -1416,6 +1424,7 @@ public sealed class PersonnelFileSelectionContest : TenantEntity
         DateTime? sourceSyncedUtc)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         ContestCode = PersonnelFileNormalization.Clean(contestCode, nameof(contestCode));
         ContestName = PersonnelFileNormalization.Clean(contestName, nameof(contestName));
         ContestDateUtc = PersonnelFileNormalization.NormalizeDate(contestDateUtc);
@@ -1446,6 +1455,8 @@ public sealed class PersonnelFileSelectionContest : TenantEntity
 
     public DateTime? SourceSyncedUtc { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public void Update(
@@ -1458,6 +1469,7 @@ public sealed class PersonnelFileSelectionContest : TenantEntity
         string? sourceReference,
         DateTime? sourceSyncedUtc)
     {
+        ConcurrencyToken = Guid.NewGuid();
         ContestCode = PersonnelFileNormalization.Clean(contestCode, nameof(contestCode));
         ContestName = PersonnelFileNormalization.Clean(contestName, nameof(contestName));
         ContestDateUtc = PersonnelFileNormalization.NormalizeDate(contestDateUtc);
@@ -1498,6 +1510,7 @@ public sealed class PersonnelFileCurricularCompetency : TenantEntity
         DateTime? sourceSyncedUtc)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         RequirementTypeCode = PersonnelFileNormalization.Clean(requirementTypeCode, nameof(requirementTypeCode));
         RequirementName = PersonnelFileNormalization.Clean(requirementName, nameof(requirementName));
         CompetencyDomain = PersonnelFileNormalization.Clean(competencyDomain, nameof(competencyDomain));
@@ -1531,6 +1544,8 @@ public sealed class PersonnelFileCurricularCompetency : TenantEntity
 
     public DateTime? SourceSyncedUtc { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public void Update(
@@ -1544,6 +1559,7 @@ public sealed class PersonnelFileCurricularCompetency : TenantEntity
         string? sourceReference,
         DateTime? sourceSyncedUtc)
     {
+        ConcurrencyToken = Guid.NewGuid();
         RequirementTypeCode = PersonnelFileNormalization.Clean(requirementTypeCode, nameof(requirementTypeCode));
         RequirementName = PersonnelFileNormalization.Clean(requirementName, nameof(requirementName));
         CompetencyDomain = PersonnelFileNormalization.Clean(competencyDomain, nameof(competencyDomain));

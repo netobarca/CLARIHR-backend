@@ -4951,8 +4951,8 @@ paths:
       tags:
       - personnel-files
       operationId: GetPersonnelFileEvaluations
-      summary: Get the evaluations section of a personnel file
-      description: Returns the performance evaluations collection. The personnel file must already be a completed employee record.
+      summary: List a personnel file's performance evaluations
+      description: Returns the full performance-evaluations collection. Each item carries its own concurrencyToken for use in the If-Match header of subsequent PUT/PATCH/DELETE requests. The personnel file must already be a completed employee record.
       security:
       - Bearer: []
       parameters:
@@ -4999,8 +4999,8 @@ paths:
       tags:
       - personnel-files
       operationId: AddPersonnelFileEvaluation
-      summary: Add a single evaluation to a personnel file
-      description: Creates a new performance evaluation item and returns the updated collection with the new personnel-file concurrency token.
+      summary: Add a performance evaluation to a personnel file
+      description: Creates a new performance evaluation item and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
       security:
       - Bearer: []
       parameters:
@@ -5017,12 +5017,12 @@ paths:
             schema:
               $ref: '#/components/schemas/AddPerformanceEvaluationRequest'
       responses:
-        '200':
-          description: Evaluation added successfully.
+        '201':
+          description: Evaluation created successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePerformanceEvaluationResponseCollection'
+                $ref: '#/components/schemas/PersonnelFilePerformanceEvaluationResponse'
         '400':
           description: Validation error.
           content:
@@ -5059,13 +5059,13 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{publicId}/evaluations/{itemPublicId}:
-    put:
+  /api/v1/personnel-files/{publicId}/evaluations/{evaluationPublicId}:
+    get:
       tags:
       - personnel-files
-      operationId: UpdatePersonnelFileEvaluation
-      summary: Update a single evaluation in a personnel file
-      description: Updates an existing performance evaluation item by its publicId and returns the updated collection with the new personnel-file concurrency token.
+      operationId: GetPersonnelFileEvaluationById
+      summary: Get a personnel file performance evaluation by id
+      description: Returns a single performance evaluation item. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests.
       security:
       - Bearer: []
       parameters:
@@ -5075,12 +5075,70 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: itemPublicId
+      - name: evaluationPublicId
         in: path
         required: true
         schema:
           type: string
           format: uuid
+      responses:
+        '200':
+          description: Evaluation returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePerformanceEvaluationResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - personnel-files
+      operationId: UpdatePersonnelFileEvaluation
+      summary: Replace a personnel file performance evaluation
+      description: Replaces all fields of an existing performance evaluation item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: evaluationPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the performance evaluation, quoted as an HTTP ETag.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -5093,7 +5151,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePerformanceEvaluationResponseCollection'
+                $ref: '#/components/schemas/PersonnelFilePerformanceEvaluationResponse'
         '400':
           description: Validation error.
           content:
@@ -5130,13 +5188,156 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFileEvaluation
+      summary: Patch a personnel file performance evaluation (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing performance evaluation item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: evaluationPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the performance evaluation, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchPerformanceEvaluationRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Evaluation patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePerformanceEvaluationResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFileEvaluation
+      summary: Remove a performance evaluation from a personnel file
+      description: Hard-deletes the specified performance evaluation item. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: evaluationPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the performance evaluation, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Evaluation deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/personnel-files/{publicId}/position-competency-results:
     get:
       tags:
       - personnel-files
       operationId: GetPersonnelFilePositionCompetencyResults
-      summary: Get the position-competency-results section of a personnel file
-      description: Returns the persisted position-competency results. The personnel file must already be a completed employee record.
+      summary: List a personnel file's position competency results
+      description: Returns the full position-competency-results collection. Each item carries its own concurrencyToken for use in the If-Match header of subsequent PUT/PATCH/DELETE requests. The personnel file must already be a completed employee record.
       security:
       - Bearer: []
       parameters:
@@ -5183,8 +5384,8 @@ paths:
       tags:
       - personnel-files
       operationId: AddPersonnelFilePositionCompetencyResult
-      summary: Add a single position-competency result to a personnel file
-      description: Creates a new position-competency result item and returns the updated collection with the new personnel-file concurrency token.
+      summary: Add a position competency result to a personnel file
+      description: Creates a new position competency result item and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
       security:
       - Bearer: []
       parameters:
@@ -5201,12 +5402,12 @@ paths:
             schema:
               $ref: '#/components/schemas/AddPositionCompetencyResultRequest'
       responses:
-        '200':
-          description: Position competency result added successfully.
+        '201':
+          description: Position competency result created successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePositionCompetencyResultResponseCollection'
+                $ref: '#/components/schemas/PersonnelFilePositionCompetencyResultResponse'
         '400':
           description: Validation error.
           content:
@@ -5243,13 +5444,13 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{publicId}/position-competency-results/{itemPublicId}:
-    put:
+  /api/v1/personnel-files/{publicId}/position-competency-results/{positionCompetencyResultPublicId}:
+    get:
       tags:
       - personnel-files
-      operationId: UpdatePersonnelFilePositionCompetencyResult
-      summary: Update a single position-competency result in a personnel file
-      description: Updates an existing position-competency result item by its publicId and returns the updated collection with the new personnel-file concurrency token.
+      operationId: GetPersonnelFilePositionCompetencyResultById
+      summary: Get a personnel file position competency result by id
+      description: Returns a single position competency result item. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests.
       security:
       - Bearer: []
       parameters:
@@ -5259,12 +5460,70 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: itemPublicId
+      - name: positionCompetencyResultPublicId
         in: path
         required: true
         schema:
           type: string
           format: uuid
+      responses:
+        '200':
+          description: Position competency result returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePositionCompetencyResultResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - personnel-files
+      operationId: UpdatePersonnelFilePositionCompetencyResult
+      summary: Replace a personnel file position competency result
+      description: Replaces all fields of an existing position competency result item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: positionCompetencyResultPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the position competency result, quoted as an HTTP ETag.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -5277,7 +5536,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePositionCompetencyResultResponseCollection'
+                $ref: '#/components/schemas/PersonnelFilePositionCompetencyResultResponse'
         '400':
           description: Validation error.
           content:
@@ -5314,13 +5573,156 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFilePositionCompetencyResult
+      summary: Patch a personnel file position competency result (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing position competency result item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: positionCompetencyResultPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the position competency result, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchPositionCompetencyResultRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Position competency result patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePositionCompetencyResultResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFilePositionCompetencyResult
+      summary: Remove a position competency result from a personnel file
+      description: Hard-deletes the specified position competency result item. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: positionCompetencyResultPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the position competency result, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Position competency result deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/personnel-files/{publicId}/selection-contests:
     get:
       tags:
       - personnel-files
       operationId: GetPersonnelFileSelectionContests
-      summary: Get the selection-contests section of a personnel file
-      description: Returns the selection contests collection. The personnel file must already be a completed employee record.
+      summary: List a personnel file's selection contests
+      description: Returns the full selection-contests collection. Each item carries its own concurrencyToken for use in the If-Match header of subsequent PUT/PATCH/DELETE requests. The personnel file must already be a completed employee record.
       security:
       - Bearer: []
       parameters:
@@ -5367,8 +5769,8 @@ paths:
       tags:
       - personnel-files
       operationId: AddPersonnelFileSelectionContest
-      summary: Add a single selection contest to a personnel file
-      description: Creates a new selection contest item and returns the updated collection with the new personnel-file concurrency token.
+      summary: Add a selection contest to a personnel file
+      description: Creates a new selection contest item and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
       security:
       - Bearer: []
       parameters:
@@ -5385,12 +5787,12 @@ paths:
             schema:
               $ref: '#/components/schemas/AddSelectionContestRequest'
       responses:
-        '200':
-          description: Selection contest added successfully.
+        '201':
+          description: Selection contest created successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileSelectionContestResponseCollection'
+                $ref: '#/components/schemas/PersonnelFileSelectionContestResponse'
         '400':
           description: Validation error.
           content:
@@ -5427,13 +5829,13 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{publicId}/selection-contests/{itemPublicId}:
-    put:
+  /api/v1/personnel-files/{publicId}/selection-contests/{selectionContestPublicId}:
+    get:
       tags:
       - personnel-files
-      operationId: UpdatePersonnelFileSelectionContest
-      summary: Update a single selection contest in a personnel file
-      description: Updates an existing selection contest item by its publicId and returns the updated collection with the new personnel-file concurrency token.
+      operationId: GetPersonnelFileSelectionContestById
+      summary: Get a personnel file selection contest by id
+      description: Returns a single selection contest item. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests.
       security:
       - Bearer: []
       parameters:
@@ -5443,12 +5845,70 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: itemPublicId
+      - name: selectionContestPublicId
         in: path
         required: true
         schema:
           type: string
           format: uuid
+      responses:
+        '200':
+          description: Selection contest returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileSelectionContestResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - personnel-files
+      operationId: UpdatePersonnelFileSelectionContest
+      summary: Replace a personnel file selection contest
+      description: Replaces all fields of an existing selection contest item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: selectionContestPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the selection contest, quoted as an HTTP ETag.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -5461,7 +5921,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileSelectionContestResponseCollection'
+                $ref: '#/components/schemas/PersonnelFileSelectionContestResponse'
         '400':
           description: Validation error.
           content:
@@ -5498,13 +5958,156 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFileSelectionContest
+      summary: Patch a personnel file selection contest (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing selection contest item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: selectionContestPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the selection contest, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchSelectionContestRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Selection contest patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileSelectionContestResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFileSelectionContest
+      summary: Remove a selection contest from a personnel file
+      description: Hard-deletes the specified selection contest item. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: selectionContestPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the selection contest, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Selection contest deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/personnel-files/{publicId}/curricular-competencies:
     get:
       tags:
       - personnel-files
       operationId: GetPersonnelFileCurricularCompetencies
-      summary: Get the curricular-competencies section of a personnel file
-      description: Returns the curricular competencies collection. The personnel file must already be a completed employee record.
+      summary: List a personnel file's curricular competencies
+      description: Returns the full curricular-competencies collection. Each item carries its own concurrencyToken for use in the If-Match header of subsequent PUT/PATCH/DELETE requests. The personnel file must already be a completed employee record.
       security:
       - Bearer: []
       parameters:
@@ -5551,8 +6154,8 @@ paths:
       tags:
       - personnel-files
       operationId: AddPersonnelFileCurricularCompetency
-      summary: Add a single curricular competency to a personnel file
-      description: Creates a new curricular competency item and returns the updated collection with the new personnel-file concurrency token.
+      summary: Add a curricular competency to a personnel file
+      description: Creates a new curricular competency item and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
       security:
       - Bearer: []
       parameters:
@@ -5569,12 +6172,12 @@ paths:
             schema:
               $ref: '#/components/schemas/AddCurricularCompetencyRequest'
       responses:
-        '200':
-          description: Curricular competency added successfully.
+        '201':
+          description: Curricular competency created successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileCurricularCompetencyResponseCollection'
+                $ref: '#/components/schemas/PersonnelFileCurricularCompetencyResponse'
         '400':
           description: Validation error.
           content:
@@ -5611,13 +6214,13 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{publicId}/curricular-competencies/{itemPublicId}:
-    put:
+  /api/v1/personnel-files/{publicId}/curricular-competencies/{curricularCompetencyPublicId}:
+    get:
       tags:
       - personnel-files
-      operationId: UpdatePersonnelFileCurricularCompetency
-      summary: Update a single curricular competency in a personnel file
-      description: Updates an existing curricular competency item by its publicId and returns the updated collection with the new personnel-file concurrency token.
+      operationId: GetPersonnelFileCurricularCompetencyById
+      summary: Get a personnel file curricular competency by id
+      description: Returns a single curricular competency item. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests.
       security:
       - Bearer: []
       parameters:
@@ -5627,12 +6230,70 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: itemPublicId
+      - name: curricularCompetencyPublicId
         in: path
         required: true
         schema:
           type: string
           format: uuid
+      responses:
+        '200':
+          description: Curricular competency returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileCurricularCompetencyResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - personnel-files
+      operationId: UpdatePersonnelFileCurricularCompetency
+      summary: Replace a personnel file curricular competency
+      description: Replaces all fields of an existing curricular competency item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: curricularCompetencyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the curricular competency, quoted as an HTTP ETag.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -5645,7 +6306,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileCurricularCompetencyResponseCollection'
+                $ref: '#/components/schemas/PersonnelFileCurricularCompetencyResponse'
         '400':
           description: Validation error.
           content:
@@ -5678,6 +6339,149 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFileCurricularCompetency
+      summary: Patch a personnel file curricular competency (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing curricular competency item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: curricularCompetencyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the curricular competency, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchCurricularCompetencyRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Curricular competency patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileCurricularCompetencyResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFileCurricularCompetency
+      summary: Remove a curricular competency from a personnel file
+      description: Hard-deletes the specified curricular competency item. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: curricularCompetencyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the curricular competency, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Curricular competency deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
           content:
             application/problem+json:
               schema:
@@ -9573,7 +10377,6 @@ components:
       - requirementTypeCode
       - requirementName
       - competencyDomain
-      - concurrencyToken
       properties:
         requirementTypeCode:
           type: string
@@ -9601,15 +10404,11 @@ components:
           type: string
           format: date-time
           nullable: true
-        concurrencyToken:
-          type: string
-          format: uuid
     AddPerformanceEvaluationRequest:
       type: object
       required:
       - evaluatorName
       - evaluationDateUtc
-      - concurrencyToken
       properties:
         evaluatorName:
           type: string
@@ -9636,14 +10435,10 @@ components:
           type: string
           format: date-time
           nullable: true
-        concurrencyToken:
-          type: string
-          format: uuid
     AddPositionCompetencyResultRequest:
       type: object
       required:
       - competencyCode
-      - concurrencyToken
       properties:
         competencyCode:
           type: string
@@ -9676,9 +10471,6 @@ components:
           type: string
           format: date-time
           nullable: true
-        concurrencyToken:
-          type: string
-          format: uuid
     AddSelectionContestRequest:
       type: object
       required:
@@ -9686,7 +10478,6 @@ components:
       - contestName
       - contestDateUtc
       - resultCode
-      - concurrencyToken
       properties:
         contestCode:
           type: string
@@ -9710,7 +10501,133 @@ components:
           type: string
           format: date-time
           nullable: true
-        concurrencyToken:
+    PatchPerformanceEvaluationRequest:
+      type: object
+      description: Mutable members of a performance evaluation targeted by RFC 6902 JSON Patch operations.
+      properties:
+        evaluatorName:
+          type: string
+        evaluationDateUtc:
+          type: string
+          format: date-time
+        score:
+          type: number
+          format: decimal
+          nullable: true
+        qualitativeScoreCode:
+          type: string
+          nullable: true
+        comment:
+          type: string
+          nullable: true
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PatchPositionCompetencyResultRequest:
+      type: object
+      description: Mutable members of a position competency result targeted by RFC 6902 JSON Patch operations.
+      properties:
+        competencyCode:
+          type: string
+        desiredBehaviors:
+          type: string
+          nullable: true
+        expectedScore:
+          type: number
+          format: decimal
+          nullable: true
+        achievedScore:
+          type: number
+          format: decimal
+          nullable: true
+        gapScore:
+          type: number
+          format: decimal
+          nullable: true
+        evaluationDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PatchSelectionContestRequest:
+      type: object
+      description: Mutable members of a selection contest targeted by RFC 6902 JSON Patch operations.
+      properties:
+        contestCode:
+          type: string
+        contestName:
+          type: string
+        contestDateUtc:
+          type: string
+          format: date-time
+        resultCode:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PatchCurricularCompetencyRequest:
+      type: object
+      description: Mutable members of a curricular competency targeted by RFC 6902 JSON Patch operations.
+      properties:
+        requirementTypeCode:
+          type: string
+        requirementName:
+          type: string
+        competencyDomain:
+          type: string
+        experienceTimeValue:
+          type: number
+          format: decimal
+          nullable: true
+        metricCode:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PersonnelFileParentConcurrencyResult:
+      type: object
+      description: Refreshed concurrency token of the parent personnel file, returned by sub-resource DELETE operations so the caller can keep mutating without an extra round-trip.
+      required:
+      - parentConcurrencyToken
+      properties:
+        parentConcurrencyToken:
           type: string
           format: uuid
     AllowedActionsResponse:
@@ -12092,12 +13009,13 @@ components:
     PersonnelFileCurricularCompetencyResponse:
       type: object
       required:
-      - id
+      - curricularCompetencyPublicId
       - requirementTypeCode
       - requirementName
       - competencyDomain
+      - concurrencyToken
       properties:
-        id:
+        curricularCompetencyPublicId:
           type: string
           format: uuid
         requirementTypeCode:
@@ -12126,6 +13044,9 @@ components:
           type: string
           format: date-time
           nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFileDocumentMetadataResponse:
       type: object
       required:
@@ -12652,11 +13573,12 @@ components:
     PersonnelFilePerformanceEvaluationResponse:
       type: object
       required:
-      - id
+      - evaluationPublicId
       - evaluatorName
       - evaluationDateUtc
+      - concurrencyToken
       properties:
-        id:
+        evaluationPublicId:
           type: string
           format: uuid
         evaluatorName:
@@ -12684,6 +13606,9 @@ components:
           type: string
           format: date-time
           nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFilePersonalInfoResponse:
       type: object
       required:
@@ -12804,10 +13729,11 @@ components:
     PersonnelFilePositionCompetencyResultResponse:
       type: object
       required:
-      - id
+      - positionCompetencyResultPublicId
       - competencyCode
+      - concurrencyToken
       properties:
-        id:
+        positionCompetencyResultPublicId:
           type: string
           format: uuid
         competencyCode:
@@ -12841,28 +13767,14 @@ components:
           type: string
           format: date-time
           nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFileRecordType:
       type: string
       enum:
       - Candidate
       - Employee
-    PersonnelFileSectionResultOfPersonnelFileCurricularCompetencyResponseCollection:
-      type: object
-      required:
-      - data
-      - personnelFileConcurrencyToken
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/PersonnelFileCurricularCompetencyResponse'
-        personnelFileConcurrencyToken:
-          type: string
-          format: uuid
-        modifiedAtUtc:
-          type: string
-          format: date-time
-          nullable: true
     PersonnelFileSectionResultOfPersonnelFileDocumentMetadataResponseCollection:
       type: object
       required:
@@ -12912,67 +13824,17 @@ components:
           type: string
           format: date-time
           nullable: true
-    PersonnelFileSectionResultOfPersonnelFilePerformanceEvaluationResponseCollection:
-      type: object
-      required:
-      - data
-      - personnelFileConcurrencyToken
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/PersonnelFilePerformanceEvaluationResponse'
-        personnelFileConcurrencyToken:
-          type: string
-          format: uuid
-        modifiedAtUtc:
-          type: string
-          format: date-time
-          nullable: true
-    PersonnelFileSectionResultOfPersonnelFilePositionCompetencyResultResponseCollection:
-      type: object
-      required:
-      - data
-      - personnelFileConcurrencyToken
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/PersonnelFilePositionCompetencyResultResponse'
-        personnelFileConcurrencyToken:
-          type: string
-          format: uuid
-        modifiedAtUtc:
-          type: string
-          format: date-time
-          nullable: true
-    PersonnelFileSectionResultOfPersonnelFileSelectionContestResponseCollection:
-      type: object
-      required:
-      - data
-      - personnelFileConcurrencyToken
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/PersonnelFileSelectionContestResponse'
-        personnelFileConcurrencyToken:
-          type: string
-          format: uuid
-        modifiedAtUtc:
-          type: string
-          format: date-time
-          nullable: true
     PersonnelFileSelectionContestResponse:
       type: object
       required:
-      - id
+      - selectionContestPublicId
       - contestCode
       - contestName
       - contestDateUtc
       - resultCode
+      - concurrencyToken
       properties:
-        id:
+        selectionContestPublicId:
           type: string
           format: uuid
         contestCode:
@@ -12997,6 +13859,9 @@ components:
           type: string
           format: date-time
           nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFileShellResponse:
       type: object
       required:
@@ -13539,7 +14404,6 @@ components:
       - requirementTypeCode
       - requirementName
       - competencyDomain
-      - concurrencyToken
       properties:
         requirementTypeCode:
           type: string
@@ -13567,9 +14431,6 @@ components:
           type: string
           format: date-time
           nullable: true
-        concurrencyToken:
-          type: string
-          format: uuid
     UpdateJobCatalogItemRequest:
       allOf:
       - $ref: '#/components/schemas/CreateJobCatalogItemRequest'
@@ -13584,7 +14445,6 @@ components:
       required:
       - evaluatorName
       - evaluationDateUtc
-      - concurrencyToken
       properties:
         evaluatorName:
           type: string
@@ -13611,9 +14471,6 @@ components:
           type: string
           format: date-time
           nullable: true
-        concurrencyToken:
-          type: string
-          format: uuid
     UpdatePersonnelFileEmployeeProfileRequest:
       type: object
       required:
@@ -13692,7 +14549,6 @@ components:
       type: object
       required:
       - competencyCode
-      - concurrencyToken
       properties:
         competencyCode:
           type: string
@@ -13725,9 +14581,6 @@ components:
           type: string
           format: date-time
           nullable: true
-        concurrencyToken:
-          type: string
-          format: uuid
     UpdateSelectionContestRequest:
       type: object
       required:
@@ -13735,7 +14588,6 @@ components:
       - contestName
       - contestDateUtc
       - resultCode
-      - concurrencyToken
       properties:
         contestCode:
           type: string
@@ -13759,9 +14611,6 @@ components:
           type: string
           format: date-time
           nullable: true
-        concurrencyToken:
-          type: string
-          format: uuid
     UpdateUserPreferencesRequest:
       type: object
       required:

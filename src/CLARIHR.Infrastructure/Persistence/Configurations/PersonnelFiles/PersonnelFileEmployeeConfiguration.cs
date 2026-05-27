@@ -517,6 +517,7 @@ internal sealed class PersonnelFilePerformanceEvaluationConfiguration : IEntityT
         builder.Property(item => item.SourceSystem).HasColumnName("source_system").HasMaxLength(80);
         builder.Property(item => item.SourceReference).HasColumnName("source_reference").HasMaxLength(120);
         builder.Property(item => item.SourceSyncedUtc).HasColumnName("source_synced_utc");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -552,6 +553,7 @@ internal sealed class PersonnelFilePositionCompetencyResultConfiguration : IEnti
         builder.Property(item => item.SourceSystem).HasColumnName("source_system").HasMaxLength(80);
         builder.Property(item => item.SourceReference).HasColumnName("source_reference").HasMaxLength(120);
         builder.Property(item => item.SourceSyncedUtc).HasColumnName("source_synced_utc");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -586,6 +588,7 @@ internal sealed class PersonnelFileSelectionContestConfiguration : IEntityTypeCo
         builder.Property(item => item.SourceSystem).HasColumnName("source_system").HasMaxLength(80);
         builder.Property(item => item.SourceReference).HasColumnName("source_reference").HasMaxLength(120);
         builder.Property(item => item.SourceSyncedUtc).HasColumnName("source_synced_utc");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -621,6 +624,7 @@ internal sealed class PersonnelFileCurricularCompetencyConfiguration : IEntityTy
         builder.Property(item => item.SourceSystem).HasColumnName("source_system").HasMaxLength(80);
         builder.Property(item => item.SourceReference).HasColumnName("source_reference").HasMaxLength(120);
         builder.Property(item => item.SourceSyncedUtc).HasColumnName("source_synced_utc");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 

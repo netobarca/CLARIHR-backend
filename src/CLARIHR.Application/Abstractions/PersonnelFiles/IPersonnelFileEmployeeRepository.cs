@@ -356,8 +356,18 @@ public interface IPersonnelFileEmployeeRepository
         DateTime? sourceSyncedUtc,
         CancellationToken cancellationToken);
 
+    Task<bool> DeletePerformanceEvaluationAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>> GetPerformanceEvaluationsAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFilePerformanceEvaluationResponse?> GetPerformanceEvaluationAsync(
+        Guid personnelFileId,
+        Guid evaluationPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>> AddPositionCompetencyResultAsync(
@@ -380,8 +390,18 @@ public interface IPersonnelFileEmployeeRepository
         DateTime? sourceSyncedUtc,
         CancellationToken cancellationToken);
 
+    Task<bool> DeletePositionCompetencyResultAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>> GetPositionCompetencyResultsAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFilePositionCompetencyResultResponse?> GetPositionCompetencyResultAsync(
+        Guid personnelFileId,
+        Guid positionCompetencyResultPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileSelectionContestResponse>> AddSelectionContestAsync(
@@ -403,8 +423,18 @@ public interface IPersonnelFileEmployeeRepository
         DateTime? sourceSyncedUtc,
         CancellationToken cancellationToken);
 
+    Task<bool> DeleteSelectionContestAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileSelectionContestResponse>> GetSelectionContestsAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileSelectionContestResponse?> GetSelectionContestAsync(
+        Guid personnelFileId,
+        Guid selectionContestPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>> AddCurricularCompetencyAsync(
@@ -427,7 +457,17 @@ public interface IPersonnelFileEmployeeRepository
         DateTime? sourceSyncedUtc,
         CancellationToken cancellationToken);
 
+    Task<bool> DeleteCurricularCompetencyAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>> GetCurricularCompetenciesAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileCurricularCompetencyResponse?> GetCurricularCompetencyAsync(
+        Guid personnelFileId,
+        Guid curricularCompetencyPublicId,
         CancellationToken cancellationToken);
 }

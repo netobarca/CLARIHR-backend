@@ -839,6 +839,18 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return Map(item);
     }
 
+    public async Task<bool> DeletePerformanceEvaluationAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFilePerformanceEvaluation>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return false;
+        dbContext.Set<PersonnelFilePerformanceEvaluation>().Remove(item);
+        return true;
+    }
+
     public async Task<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>> GetPerformanceEvaluationsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken) =>
@@ -848,6 +860,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .OrderByDescending(item => item.EvaluationDateUtc)
             .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFilePerformanceEvaluationResponse?> GetPerformanceEvaluationAsync(
+        Guid personnelFileId,
+        Guid evaluationPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFilePerformanceEvaluation>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == evaluationPublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>> AddPositionCompetencyResultAsync(
         long personnelFileInternalId,
@@ -885,6 +908,18 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return Map(item);
     }
 
+    public async Task<bool> DeletePositionCompetencyResultAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFilePositionCompetencyResult>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return false;
+        dbContext.Set<PersonnelFilePositionCompetencyResult>().Remove(item);
+        return true;
+    }
+
     public async Task<IReadOnlyCollection<PersonnelFilePositionCompetencyResultResponse>> GetPositionCompetencyResultsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken) =>
@@ -894,6 +929,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .OrderBy(item => item.CompetencyCode)
             .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFilePositionCompetencyResultResponse?> GetPositionCompetencyResultAsync(
+        Guid personnelFileId,
+        Guid positionCompetencyResultPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFilePositionCompetencyResult>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == positionCompetencyResultPublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFileSelectionContestResponse>> AddSelectionContestAsync(
         long personnelFileInternalId,
@@ -930,6 +976,18 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return Map(item);
     }
 
+    public async Task<bool> DeleteSelectionContestAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileSelectionContest>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return false;
+        dbContext.Set<PersonnelFileSelectionContest>().Remove(item);
+        return true;
+    }
+
     public async Task<IReadOnlyCollection<PersonnelFileSelectionContestResponse>> GetSelectionContestsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken) =>
@@ -939,6 +997,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .OrderByDescending(item => item.ContestDateUtc)
             .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileSelectionContestResponse?> GetSelectionContestAsync(
+        Guid personnelFileId,
+        Guid selectionContestPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileSelectionContest>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == selectionContestPublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>> AddCurricularCompetencyAsync(
         long personnelFileInternalId,
@@ -976,6 +1045,18 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return Map(item);
     }
 
+    public async Task<bool> DeleteCurricularCompetencyAsync(
+        Guid itemPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileCurricularCompetency>()
+            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return false;
+        dbContext.Set<PersonnelFileCurricularCompetency>().Remove(item);
+        return true;
+    }
+
     public async Task<IReadOnlyCollection<PersonnelFileCurricularCompetencyResponse>> GetCurricularCompetenciesAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken) =>
@@ -986,6 +1067,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .ThenBy(item => item.RequirementName)
             .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileCurricularCompetencyResponse?> GetCurricularCompetencyAsync(
+        Guid personnelFileId,
+        Guid curricularCompetencyPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileCurricularCompetency>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == curricularCompetencyPublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
 
     private async Task<IReadOnlyCollection<TResponse>> ReplaceSectionAsync<TEntity, TResponse>(
         long personnelFileInternalId,
@@ -1333,7 +1425,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.Comment,
             item.SourceSystem,
             item.SourceReference,
-            item.SourceSyncedUtc);
+            item.SourceSyncedUtc,
+            item.ConcurrencyToken);
 
     private static PersonnelFilePositionCompetencyResultResponse Map(PersonnelFilePositionCompetencyResult item) =>
         new(
@@ -1346,7 +1439,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.EvaluationDateUtc,
             item.SourceSystem,
             item.SourceReference,
-            item.SourceSyncedUtc);
+            item.SourceSyncedUtc,
+            item.ConcurrencyToken);
 
     private static PersonnelFileSelectionContestResponse Map(PersonnelFileSelectionContest item) =>
         new(
@@ -1358,7 +1452,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.Notes,
             item.SourceSystem,
             item.SourceReference,
-            item.SourceSyncedUtc);
+            item.SourceSyncedUtc,
+            item.ConcurrencyToken);
 
     private static PersonnelFileCurricularCompetencyResponse Map(PersonnelFileCurricularCompetency item) =>
         new(
@@ -1371,5 +1466,6 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.Notes,
             item.SourceSystem,
             item.SourceReference,
-            item.SourceSyncedUtc);
+            item.SourceSyncedUtc,
+            item.ConcurrencyToken);
 }

@@ -378,17 +378,29 @@ Compensation:
 Talent (`PersonnelFileTalentController`):
 
 - `GET /api/v1/personnel-files/{publicId}/evaluations`
+- `GET /api/v1/personnel-files/{publicId}/evaluations/{evaluationPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/evaluations`
-- `PUT /api/v1/personnel-files/{publicId}/evaluations/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/evaluations/{evaluationPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/evaluations/{evaluationPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/evaluations/{evaluationPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/position-competency-results`
+- `GET /api/v1/personnel-files/{publicId}/position-competency-results/{positionCompetencyResultPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/position-competency-results`
-- `PUT /api/v1/personnel-files/{publicId}/position-competency-results/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/position-competency-results/{positionCompetencyResultPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/position-competency-results/{positionCompetencyResultPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/position-competency-results/{positionCompetencyResultPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/selection-contests`
+- `GET /api/v1/personnel-files/{publicId}/selection-contests/{selectionContestPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/selection-contests`
-- `PUT /api/v1/personnel-files/{publicId}/selection-contests/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/selection-contests/{selectionContestPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/selection-contests/{selectionContestPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/selection-contests/{selectionContestPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/curricular-competencies`
+- `GET /api/v1/personnel-files/{publicId}/curricular-competencies/{curricularCompetencyPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/curricular-competencies`
-- `PUT /api/v1/personnel-files/{publicId}/curricular-competencies/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/curricular-competencies/{curricularCompetencyPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/curricular-competencies/{curricularCompetencyPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/curricular-competencies/{curricularCompetencyPublicId}`
 
 Documents and reporting:
 
@@ -3099,13 +3111,13 @@ Familias de rutas:
 - `/api/v1/personnel-files/{id}/medical-claims`
 - `/api/v1/personnel-files/{id}/bank-accounts`
 - `/api/v1/personnel-files/{publicId}/evaluations`
-- `/api/v1/personnel-files/{publicId}/evaluations/{itemPublicId}`
+- `/api/v1/personnel-files/{publicId}/evaluations/{evaluationPublicId}`
 - `/api/v1/personnel-files/{publicId}/position-competency-results`
-- `/api/v1/personnel-files/{publicId}/position-competency-results/{itemPublicId}`
+- `/api/v1/personnel-files/{publicId}/position-competency-results/{positionCompetencyResultPublicId}`
 - `/api/v1/personnel-files/{publicId}/selection-contests`
-- `/api/v1/personnel-files/{publicId}/selection-contests/{itemPublicId}`
+- `/api/v1/personnel-files/{publicId}/selection-contests/{selectionContestPublicId}`
 - `/api/v1/personnel-files/{publicId}/curricular-competencies`
-- `/api/v1/personnel-files/{publicId}/curricular-competencies/{itemPublicId}`
+- `/api/v1/personnel-files/{publicId}/curricular-competencies/{curricularCompetencyPublicId}`
 - `/api/v1/personnel-files/{id}/documents`
 - `/api/v1/personnel-files/{id}/observations`
 - `/api/v1/personnel-files/{id}/print`
@@ -3150,7 +3162,7 @@ En terminos de negocio, este bloque une dos mundos:
 - `print`, `export`, `personnel-actions/export` y `payroll-transactions/export` tambien generan auditoria.
 - La mayoria de escrituras por subseccion son de reemplazo total, no de merge parcial.
 - `GET /api/v1/personnel-files/{id}` ya no devuelve el agregado base completo; responde un shell liviano del expediente con metadatos, estado y `AllowedActions`.
-- Todas las escrituras por subseccion de `Profile`, `Employment`, `Compensation` y `Talent` usan el `ConcurrencyToken` del expediente padre y responden `PersonnelFileSectionResult<T>` con `data`, `personnelFileConcurrencyToken` y `modifiedAtUtc`.
+- Las escrituras por subseccion de `Profile`, `Employment` y `Compensation` usan el `ConcurrencyToken` del expediente padre y responden `PersonnelFileSectionResult<T>` con `data`, `personnelFileConcurrencyToken` y `modifiedAtUtc`. `Talent` ya no usa este patron: sus cuatro subrecursos exponen CRUD+PATCH atomico por item con `concurrencyToken` propio via `If-Match` (igual que `PersonalInfo`/`Background`/`Interests`).
 - El cliente ya no necesita releer `/api/v1/personnel-files/{id}` para encadenar mutaciones seccionales; puede usar el token devuelto por cada escritura.
 - Todo expediente nuevo nace con `LifecycleStatus = Draft`.
 - Si `RecordType = Employee`, `AssignedPositionSlotId` es obligatorio desde `create` y `personal-info`; si `RecordType = Candidate`, ese campo no se permite.
@@ -3495,17 +3507,29 @@ Observaciones funcionales:
 Route family:
 
 - `GET /api/v1/personnel-files/{publicId}/evaluations`
+- `GET /api/v1/personnel-files/{publicId}/evaluations/{evaluationPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/evaluations`
-- `PUT /api/v1/personnel-files/{publicId}/evaluations/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/evaluations/{evaluationPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/evaluations/{evaluationPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/evaluations/{evaluationPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/position-competency-results`
+- `GET /api/v1/personnel-files/{publicId}/position-competency-results/{positionCompetencyResultPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/position-competency-results`
-- `PUT /api/v1/personnel-files/{publicId}/position-competency-results/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/position-competency-results/{positionCompetencyResultPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/position-competency-results/{positionCompetencyResultPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/position-competency-results/{positionCompetencyResultPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/selection-contests`
+- `GET /api/v1/personnel-files/{publicId}/selection-contests/{selectionContestPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/selection-contests`
-- `PUT /api/v1/personnel-files/{publicId}/selection-contests/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/selection-contests/{selectionContestPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/selection-contests/{selectionContestPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/selection-contests/{selectionContestPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/curricular-competencies`
+- `GET /api/v1/personnel-files/{publicId}/curricular-competencies/{curricularCompetencyPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/curricular-competencies`
-- `PUT /api/v1/personnel-files/{publicId}/curricular-competencies/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/curricular-competencies/{curricularCompetencyPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/curricular-competencies/{curricularCompetencyPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/curricular-competencies/{curricularCompetencyPublicId}`
 
 Uso principal:
 
@@ -3514,11 +3538,13 @@ Uso principal:
 Observaciones funcionales:
 
 - Todo el bloque exige que el expediente sea `Employee` completado.
-- Todos los subrecursos de `Talent` usan CRUD atomico a nivel de item: `POST` crea un item individual, `PUT /{itemPublicId}` actualiza uno; en ambos casos el `ConcurrencyToken` del expediente padre viaja en el body del request.
-- No existe endpoint `DELETE` ni soft-delete para subrecursos de talento; estos registros se tratan como historico inmutable sin posibilidad de eliminacion ni desactivacion.
-- Los endpoints `GET` del bloque devuelven la coleccion completa del subrecurso; no hay paginacion.
-- `POST` responde `200` con `PersonnelFileSectionResult<T>` incluyendo la coleccion actualizada y el nuevo `personnelFileConcurrencyToken`.
-- `PUT /{itemPublicId}` responde `200` con `PersonnelFileSectionResult<T>` de la misma forma.
+- Los cuatro subrecursos (`evaluations`, `position-competency-results`, `selection-contests`, `curricular-competencies`) exponen el contrato CRUD+PATCH canonico por item, identico en forma a `PersonalInfo`/`Background`/`Interests`: `GET` lista, `GET /{entityPublicId}`, `POST`, `PUT /{entityPublicId}`, `PATCH /{entityPublicId}` y `DELETE /{entityPublicId}`.
+- Cada item lleva su propio `concurrencyToken`. `PUT`, `PATCH` y `DELETE` exigen `If-Match: "<concurrencyToken>"` del item (validado por el binder `[FromIfMatch]`); el token ya no viaja en el body.
+- `GET` de lista devuelve la coleccion completa del subrecurso (unico endpoint de listado, sin paginacion); `GET /{entityPublicId}` devuelve un item individual con su `concurrencyToken`.
+- `POST` responde `201 Created` con el item creado, `Location` apuntando al recurso y `ETag: "<concurrencyToken>"` inicial.
+- `PUT` y `PATCH` responden `200 OK` con el item actualizado y el nuevo `ETag`. `PATCH` consume `application/json-patch+json` (JSON Patch RFC 6902) y re-ejecuta la misma validacion de `Add`/`Update` (solo `NotEmpty`/longitud/normalizacion de fechas; no hay validacion de catalogo en `Talent`).
+- `DELETE` es hard delete (sin soft-delete): responde `200 OK` con `PersonnelFileParentConcurrencyResult` (`parentConcurrencyToken`), el token refrescado del expediente padre, para encadenar mutaciones sin un `GET` adicional.
+- Si el item referenciado por `{entityPublicId}` no existe, `GET /{entityPublicId}`, `PUT`, `PATCH` y `DELETE` responden `ITEM_NOT_FOUND` (`404`); el chequeo de existencia precede al de concurrencia, de modo que un item ausente nunca produce `CONCURRENCY_CONFLICT`.
 - `evaluations` mantiene resultados de evaluacion con score cuantitativo, score cualitativo y comentario.
 - `position-competency-results` mantiene resultados observados por `CompetencyCode`; el endpoint lee el estado persistido del expediente, no una recomputacion en vivo desde `CompetencyFramework`.
 - `selection-contests` registra resultados de concursos internos o externos.

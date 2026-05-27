@@ -350,8 +350,19 @@ public sealed record UpdatePerformanceEvaluationRequest(
     string? Comment,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc,
-    Guid ConcurrencyToken);
+    DateTime? SourceSyncedUtc);
+
+public sealed class PatchPerformanceEvaluationRequest
+{
+    public string EvaluatorName { get; set; } = string.Empty;
+    public DateTime EvaluationDateUtc { get; set; }
+    public decimal? Score { get; set; }
+    public string? QualitativeScoreCode { get; set; }
+    public string? Comment { get; set; }
+    public string? SourceSystem { get; set; }
+    public string? SourceReference { get; set; }
+    public DateTime? SourceSyncedUtc { get; set; }
+}
 
 public sealed record AddPositionCompetencyResultRequest(
     string CompetencyCode,
@@ -373,8 +384,20 @@ public sealed record UpdatePositionCompetencyResultRequest(
     DateTime? EvaluationDateUtc,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc,
-    Guid ConcurrencyToken);
+    DateTime? SourceSyncedUtc);
+
+public sealed class PatchPositionCompetencyResultRequest
+{
+    public string CompetencyCode { get; set; } = string.Empty;
+    public string? DesiredBehaviors { get; set; }
+    public decimal? ExpectedScore { get; set; }
+    public decimal? AchievedScore { get; set; }
+    public decimal? GapScore { get; set; }
+    public DateTime? EvaluationDateUtc { get; set; }
+    public string? SourceSystem { get; set; }
+    public string? SourceReference { get; set; }
+    public DateTime? SourceSyncedUtc { get; set; }
+}
 
 public sealed record AddSelectionContestRequest(
     string ContestCode,
@@ -394,8 +417,19 @@ public sealed record UpdateSelectionContestRequest(
     string? Notes,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc,
-    Guid ConcurrencyToken);
+    DateTime? SourceSyncedUtc);
+
+public sealed class PatchSelectionContestRequest
+{
+    public string ContestCode { get; set; } = string.Empty;
+    public string ContestName { get; set; } = string.Empty;
+    public DateTime ContestDateUtc { get; set; }
+    public string ResultCode { get; set; } = string.Empty;
+    public string? Notes { get; set; }
+    public string? SourceSystem { get; set; }
+    public string? SourceReference { get; set; }
+    public DateTime? SourceSyncedUtc { get; set; }
+}
 
 public sealed record AddCurricularCompetencyRequest(
     string RequirementTypeCode,
@@ -417,8 +451,20 @@ public sealed record UpdateCurricularCompetencyRequest(
     string? Notes,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc,
-    Guid ConcurrencyToken);
+    DateTime? SourceSyncedUtc);
+
+public sealed class PatchCurricularCompetencyRequest
+{
+    public string RequirementTypeCode { get; set; } = string.Empty;
+    public string RequirementName { get; set; } = string.Empty;
+    public string CompetencyDomain { get; set; } = string.Empty;
+    public decimal? ExperienceTimeValue { get; set; }
+    public string? MetricCode { get; set; }
+    public string? Notes { get; set; }
+    public string? SourceSystem { get; set; }
+    public string? SourceReference { get; set; }
+    public DateTime? SourceSyncedUtc { get; set; }
+}
 
 public sealed record AddIdentificationRequest(
     string IdentificationTypeCode,
