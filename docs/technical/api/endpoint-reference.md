@@ -354,17 +354,45 @@ Perfil financiero — Bank Accounts (`PersonnelFileCompensationController`):
 - `PATCH /api/v1/personnel-files/{publicId}/bank-accounts/{bankAccountPublicId}`
 - `DELETE /api/v1/personnel-files/{publicId}/bank-accounts/{bankAccountPublicId}`
 
-Employment:
+Employment (`PersonnelFileEmploymentController`) — sub-resource collections are canonical (GET list, GET by id, POST→201, PUT con `If-Match`, PATCH JSON Patch [incluye `isActive`], DELETE físico que devuelve el token del padre), salvo las excepciones anotadas.
 
+Lifecycle / secciones:
+
+- `GET /api/v1/personnel-files/{publicId}/employee-profile`
+- `PUT /api/v1/personnel-files/{publicId}/employee-profile` (sección 1:1; PUT usa `If-Match`)
 - `GET /api/v1/personnel-files/{publicId}/finalize/preview`
 - `PATCH /api/v1/personnel-files/{publicId}/finalize`
-- `GET /api/v1/personnel-files/{publicId}/employee-profile`
-- `PUT /api/v1/personnel-files/{publicId}/employee-profile`
+- `GET /api/v1/personnel-files/{publicId}/position-hierarchy` (read-only)
+
+Sub-recursos:
+
 - `GET /api/v1/personnel-files/{publicId}/employment-assignments`
+- `GET /api/v1/personnel-files/{publicId}/employment-assignments/{employmentAssignmentPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/employment-assignments`
+- `PUT /api/v1/personnel-files/{publicId}/employment-assignments/{employmentAssignmentPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/employment-assignments/{employmentAssignmentPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/employment-assignments/{employmentAssignmentPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/contract-history`
+- `GET /api/v1/personnel-files/{publicId}/contract-history/{contractHistoryPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/contract-history`
+- `PUT /api/v1/personnel-files/{publicId}/contract-history/{contractHistoryPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/contract-history/{contractHistoryPublicId}` (**sin DELETE** — registro histórico; isActive vía PATCH)
 - `GET /api/v1/personnel-files/{publicId}/authorization-substitutions`
+- `GET /api/v1/personnel-files/{publicId}/authorization-substitutions/{authorizationSubstitutionPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/authorization-substitutions`
+- `PUT /api/v1/personnel-files/{publicId}/authorization-substitutions/{authorizationSubstitutionPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/authorization-substitutions/{authorizationSubstitutionPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/authorization-substitutions/{authorizationSubstitutionPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/assets-accesses`
-- `GET /api/v1/personnel-files/{publicId}/personnel-actions`
+- `GET /api/v1/personnel-files/{publicId}/assets-accesses/{assetAccessPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/assets-accesses`
+- `PUT /api/v1/personnel-files/{publicId}/assets-accesses/{assetAccessPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/assets-accesses/{assetAccessPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/assets-accesses/{assetAccessPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/personnel-actions` (paginado + filtros/búsqueda)
+- `GET /api/v1/personnel-files/{publicId}/personnel-actions/export`
+- `GET /api/v1/personnel-files/{publicId}/personnel-actions/{personnelActionPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/personnel-actions` (**sin PUT/PATCH/DELETE** — bitácora de auditoría inmutable)
 
 Compensation (`PersonnelFileCompensationController`) — every sub-resource is canonical (GET list, GET by id, POST→201, PUT con `If-Match`, PATCH JSON Patch [incluye `isActive`], DELETE físico que devuelve el token del padre). `bank-accounts` se lista arriba en «Perfil financiero».
 

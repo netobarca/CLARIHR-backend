@@ -21,7 +21,7 @@ public interface IPersonnelFileEmployeeRepository
         CancellationToken cancellationToken);
 
     Task<PersonnelFileEmploymentAssignmentResponse?> UpdateEmploymentAssignmentAsync(
-        Guid itemPublicId,
+        Guid employmentAssignmentPublicId,
         Guid tenantId,
         string assignmentTypeCode,
         Guid? positionSlotPublicId,
@@ -31,17 +31,37 @@ public interface IPersonnelFileEmployeeRepository
         DateTime startDate,
         DateTime? endDate,
         bool isPrimary,
-        bool isActive,
         string? notes,
         CancellationToken cancellationToken);
 
-    Task<bool> DeactivateEmploymentAssignmentAsync(
-        Guid itemPublicId,
+    Task<PersonnelFileEmploymentAssignmentResponse?> PatchEmploymentAssignmentAsync(
+        Guid employmentAssignmentPublicId,
+        Guid tenantId,
+        string assignmentTypeCode,
+        Guid? positionSlotPublicId,
+        Guid? orgUnitPublicId,
+        Guid? workCenterPublicId,
+        Guid? costCenterPublicId,
+        DateTime startDate,
+        DateTime? endDate,
+        bool isPrimary,
+        string? notes,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken);
+
+    Task<bool> DeleteEmploymentAssignmentAsync(
+        Guid employmentAssignmentPublicId,
         Guid tenantId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileEmploymentAssignmentResponse>> GetEmploymentAssignmentsAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileEmploymentAssignmentResponse?> GetEmploymentAssignmentAsync(
+        Guid personnelFileId,
+        Guid employmentAssignmentPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> AddContractHistoryAsync(
@@ -51,23 +71,34 @@ public interface IPersonnelFileEmployeeRepository
         CancellationToken cancellationToken);
 
     Task<PersonnelFileContractHistoryResponse?> UpdateContractHistoryAsync(
-        Guid itemPublicId,
+        Guid contractHistoryPublicId,
         Guid tenantId,
         string contractTypeCode,
         DateTime contractDate,
         DateTime? contractEndDate,
         Guid? positionSlotPublicId,
-        bool isActive,
         string? notes,
         CancellationToken cancellationToken);
 
-    Task<bool> DeactivateContractHistoryAsync(
-        Guid itemPublicId,
+    Task<PersonnelFileContractHistoryResponse?> PatchContractHistoryAsync(
+        Guid contractHistoryPublicId,
         Guid tenantId,
+        string contractTypeCode,
+        DateTime contractDate,
+        DateTime? contractEndDate,
+        Guid? positionSlotPublicId,
+        string? notes,
+        bool isActive,
+        bool isActiveMutated,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileContractHistoryResponse>> GetContractHistoryAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileContractHistoryResponse?> GetContractHistoryAsync(
+        Guid personnelFileId,
+        Guid contractHistoryPublicId,
         CancellationToken cancellationToken);
 
     Task<PersonnelFilePositionHierarchyResponse> GetPositionHierarchyAsync(
@@ -211,19 +242,31 @@ public interface IPersonnelFileEmployeeRepository
         CancellationToken cancellationToken);
 
     Task<PersonnelFileAuthorizationSubstitutionResponse?> UpdateAuthorizationSubstitutionAsync(
-        Guid itemPublicId,
+        Guid authorizationSubstitutionPublicId,
         Guid tenantId,
         string substitutionTypeCode,
         Guid substitutePersonnelFilePublicId,
         string? substitutePositionTitle,
         DateTime startDate,
         DateTime? endDate,
-        bool isActive,
         string? notes,
         CancellationToken cancellationToken);
 
-    Task<bool> DeactivateAuthorizationSubstitutionAsync(
-        Guid itemPublicId,
+    Task<PersonnelFileAuthorizationSubstitutionResponse?> PatchAuthorizationSubstitutionAsync(
+        Guid authorizationSubstitutionPublicId,
+        Guid tenantId,
+        string substitutionTypeCode,
+        Guid substitutePersonnelFilePublicId,
+        string? substitutePositionTitle,
+        DateTime startDate,
+        DateTime? endDate,
+        string? notes,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken);
+
+    Task<bool> DeleteAuthorizationSubstitutionAsync(
+        Guid authorizationSubstitutionPublicId,
         Guid tenantId,
         CancellationToken cancellationToken);
 
@@ -231,8 +274,18 @@ public interface IPersonnelFileEmployeeRepository
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
+    Task<PersonnelFileAuthorizationSubstitutionResponse?> GetAuthorizationSubstitutionAsync(
+        Guid personnelFileId,
+        Guid authorizationSubstitutionPublicId,
+        CancellationToken cancellationToken);
+
     Task<PersonnelFilePersonnelActionResponse> AddPersonnelActionAsync(
         PersonnelFilePersonnelAction entity,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFilePersonnelActionResponse?> GetPersonnelActionAsync(
+        Guid personnelFileId,
+        Guid personnelActionPublicId,
         CancellationToken cancellationToken);
 
     Task<PagedResponse<PersonnelFilePersonnelActionResponse>> SearchPersonnelActionsAsync(
@@ -307,7 +360,7 @@ public interface IPersonnelFileEmployeeRepository
         CancellationToken cancellationToken);
 
     Task<PersonnelFileAssetAccessResponse?> UpdateAssetAccessAsync(
-        Guid itemPublicId,
+        Guid assetAccessPublicId,
         Guid tenantId,
         string assetTypeCode,
         string assetOrAccessName,
@@ -316,17 +369,36 @@ public interface IPersonnelFileEmployeeRepository
         DateTime? endDateUtc,
         DateTime? deliveryDateUtc,
         string? deliveryStatusCode,
-        bool isActive,
         string? notes,
         CancellationToken cancellationToken);
 
-    Task<bool> DeactivateAssetAccessAsync(
-        Guid itemPublicId,
+    Task<PersonnelFileAssetAccessResponse?> PatchAssetAccessAsync(
+        Guid assetAccessPublicId,
+        Guid tenantId,
+        string assetTypeCode,
+        string assetOrAccessName,
+        string? accessLevelCode,
+        DateTime startDateUtc,
+        DateTime? endDateUtc,
+        DateTime? deliveryDateUtc,
+        string? deliveryStatusCode,
+        string? notes,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken);
+
+    Task<bool> DeleteAssetAccessAsync(
+        Guid assetAccessPublicId,
         Guid tenantId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileAssetAccessResponse>> GetAssetsAccessesAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileAssetAccessResponse?> GetAssetAccessAsync(
+        Guid personnelFileId,
+        Guid assetAccessPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileInsuranceResponse>> AddInsuranceAsync(

@@ -206,6 +206,7 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         string? notes)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         AssignmentTypeCode = PersonnelFileNormalization.Clean(assignmentTypeCode, nameof(assignmentTypeCode));
         PositionSlotPublicId = positionSlotPublicId;
         OrgUnitPublicId = orgUnitPublicId;
@@ -242,6 +243,8 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
 
     public string? Notes { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public static PersonnelFileEmploymentAssignment Create(
@@ -276,9 +279,9 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         DateTime startDate,
         DateTime? endDate,
         bool isPrimary,
-        bool isActive,
         string? notes)
     {
+        ConcurrencyToken = Guid.NewGuid();
         AssignmentTypeCode = PersonnelFileNormalization.Clean(assignmentTypeCode, nameof(assignmentTypeCode));
         PositionSlotPublicId = positionSlotPublicId;
         OrgUnitPublicId = orgUnitPublicId;
@@ -287,11 +290,14 @@ public sealed class PersonnelFileEmploymentAssignment : TenantEntity
         StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
         EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
         IsPrimary = isPrimary;
-        IsActive = isActive;
         Notes = PersonnelFileNormalization.CleanOptional(notes);
     }
 
-    public void Deactivate() => IsActive = false;
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 }
 
 public sealed class PersonnelFileContractHistory : TenantEntity
@@ -309,6 +315,7 @@ public sealed class PersonnelFileContractHistory : TenantEntity
         string? notes)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         ContractTypeCode = PersonnelFileNormalization.Clean(contractTypeCode, nameof(contractTypeCode));
         ContractDate = PersonnelFileNormalization.NormalizeDate(contractDate);
         ContractEndDate = PersonnelFileNormalization.NormalizeDate(contractEndDate);
@@ -333,6 +340,8 @@ public sealed class PersonnelFileContractHistory : TenantEntity
 
     public string? Notes { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public static PersonnelFileContractHistory Create(
@@ -349,18 +358,21 @@ public sealed class PersonnelFileContractHistory : TenantEntity
         DateTime contractDate,
         DateTime? contractEndDate,
         Guid? positionSlotPublicId,
-        bool isActive,
         string? notes)
     {
+        ConcurrencyToken = Guid.NewGuid();
         ContractTypeCode = PersonnelFileNormalization.Clean(contractTypeCode, nameof(contractTypeCode));
         ContractDate = PersonnelFileNormalization.NormalizeDate(contractDate);
         ContractEndDate = PersonnelFileNormalization.NormalizeDate(contractEndDate);
         PositionSlotPublicId = positionSlotPublicId;
-        IsActive = isActive;
         Notes = PersonnelFileNormalization.CleanOptional(notes);
     }
 
-    public void Deactivate() => IsActive = false;
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 }
 
 public sealed class PersonnelFileSalaryItem : TenantEntity
@@ -618,6 +630,7 @@ public sealed class PersonnelFileAuthorizationSubstitution : TenantEntity
         string? notes)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         SubstitutionTypeCode = PersonnelFileNormalization.Clean(substitutionTypeCode, nameof(substitutionTypeCode));
         SubstitutePersonnelFilePublicId = substitutePersonnelFilePublicId;
         SubstitutePositionTitle = PersonnelFileNormalization.CleanOptional(substitutePositionTitle);
@@ -645,6 +658,8 @@ public sealed class PersonnelFileAuthorizationSubstitution : TenantEntity
 
     public string? Notes { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public static PersonnelFileAuthorizationSubstitution Create(
@@ -663,19 +678,22 @@ public sealed class PersonnelFileAuthorizationSubstitution : TenantEntity
         string? substitutePositionTitle,
         DateTime startDate,
         DateTime? endDate,
-        bool isActive,
         string? notes)
     {
+        ConcurrencyToken = Guid.NewGuid();
         SubstitutionTypeCode = PersonnelFileNormalization.Clean(substitutionTypeCode, nameof(substitutionTypeCode));
         SubstitutePersonnelFilePublicId = substitutePersonnelFilePublicId;
         SubstitutePositionTitle = PersonnelFileNormalization.CleanOptional(substitutePositionTitle);
         StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
         EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
-        IsActive = isActive;
         Notes = PersonnelFileNormalization.CleanOptional(notes);
     }
 
-    public void Deactivate() => IsActive = false;
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 }
 
 public sealed class PersonnelFilePersonnelAction : TenantEntity
@@ -697,6 +715,7 @@ public sealed class PersonnelFilePersonnelAction : TenantEntity
         bool isSystemGenerated)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         ActionTypeCode = PersonnelFileNormalization.Clean(actionTypeCode, nameof(actionTypeCode));
         ActionStatusCode = PersonnelFileNormalization.Clean(actionStatusCode, nameof(actionStatusCode));
         ActionDateUtc = PersonnelFileNormalization.NormalizeDate(actionDateUtc);
@@ -732,6 +751,8 @@ public sealed class PersonnelFilePersonnelAction : TenantEntity
     public string? CurrencyCode { get; private set; }
 
     public bool IsSystemGenerated { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
@@ -859,6 +880,7 @@ public sealed class PersonnelFileAssetAccess : TenantEntity
         string? notes)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         AssetTypeCode = PersonnelFileNormalization.Clean(assetTypeCode, nameof(assetTypeCode));
         AssetOrAccessName = PersonnelFileNormalization.Clean(assetOrAccessName, nameof(assetOrAccessName));
         AccessLevelCode = PersonnelFileNormalization.CleanOptional(accessLevelCode);
@@ -892,6 +914,8 @@ public sealed class PersonnelFileAssetAccess : TenantEntity
 
     public string? Notes { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public static PersonnelFileAssetAccess Create(
@@ -923,9 +947,9 @@ public sealed class PersonnelFileAssetAccess : TenantEntity
         DateTime? endDateUtc,
         DateTime? deliveryDateUtc,
         string? deliveryStatusCode,
-        bool isActive,
         string? notes)
     {
+        ConcurrencyToken = Guid.NewGuid();
         AssetTypeCode = PersonnelFileNormalization.Clean(assetTypeCode, nameof(assetTypeCode));
         AssetOrAccessName = PersonnelFileNormalization.Clean(assetOrAccessName, nameof(assetOrAccessName));
         AccessLevelCode = PersonnelFileNormalization.CleanOptional(accessLevelCode);
@@ -933,11 +957,14 @@ public sealed class PersonnelFileAssetAccess : TenantEntity
         EndDateUtc = PersonnelFileNormalization.NormalizeDate(endDateUtc);
         DeliveryDateUtc = PersonnelFileNormalization.NormalizeDate(deliveryDateUtc);
         DeliveryStatusCode = PersonnelFileNormalization.CleanOptional(deliveryStatusCode);
-        IsActive = isActive;
         Notes = PersonnelFileNormalization.CleanOptional(notes);
     }
 
-    public void Deactivate() => IsActive = false;
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 }
 
 public sealed class PersonnelFileInsurance : TenantEntity

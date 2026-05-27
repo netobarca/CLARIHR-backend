@@ -88,6 +88,7 @@ internal sealed class PersonnelFileEmploymentAssignmentConfiguration : IEntityTy
         builder.Property(item => item.IsPrimary).HasColumnName("is_primary");
         builder.Property(item => item.IsActive).HasColumnName("is_active");
         builder.Property(item => item.Notes).HasColumnName("notes").HasMaxLength(2000);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -123,6 +124,7 @@ internal sealed class PersonnelFileContractHistoryConfiguration : IEntityTypeCon
         builder.Property(item => item.ContractEndDate).HasColumnName("contract_end_date");
         builder.Property(item => item.PositionSlotPublicId).HasColumnName("position_slot_public_id");
         builder.Property(item => item.Notes).HasColumnName("notes").HasMaxLength(2000);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -267,6 +269,7 @@ internal sealed class PersonnelFileAuthorizationSubstitutionConfiguration : IEnt
         builder.Property(item => item.EndDate).HasColumnName("end_date");
         builder.Property(item => item.IsActive).HasColumnName("is_active");
         builder.Property(item => item.Notes).HasColumnName("notes").HasMaxLength(2000);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -303,6 +306,7 @@ internal sealed class PersonnelFilePersonnelActionConfiguration : IEntityTypeCon
         builder.Property(item => item.Amount).HasColumnName("amount").HasColumnType("numeric(18,2)");
         builder.Property(item => item.CurrencyCode).HasColumnName("currency_code").HasMaxLength(40);
         builder.Property(item => item.IsSystemGenerated).HasColumnName("is_system_generated");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -379,6 +383,7 @@ internal sealed class PersonnelFileAssetAccessConfiguration : IEntityTypeConfigu
         builder.Property(item => item.DeliveryStatusCode).HasColumnName("delivery_status_code").HasMaxLength(80);
         builder.Property(item => item.IsActive).HasColumnName("is_active");
         builder.Property(item => item.Notes).HasColumnName("notes").HasMaxLength(2000);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 

@@ -101,8 +101,7 @@ public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     Guid? CostCenterPublicId,
     DateTime? ContractStartDate,
     DateTime? ContractEndDate,
-    string? VacationConfigurationJson,
-    Guid ConcurrencyToken);
+    string? VacationConfigurationJson);
 
 public sealed record AddEmploymentAssignmentRequest(
     string AssignmentTypeCode,
@@ -125,9 +124,21 @@ public sealed record UpdateEmploymentAssignmentRequest(
     DateTime StartDate,
     DateTime? EndDate,
     bool IsPrimary,
-    bool IsActive,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
+
+public sealed class PatchEmploymentAssignmentRequest
+{
+    public string AssignmentTypeCode { get; set; } = string.Empty;
+    public Guid? PositionSlotId { get; set; }
+    public Guid? OrgUnitId { get; set; }
+    public Guid? WorkCenterId { get; set; }
+    public Guid? CostCenterId { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public bool IsPrimary { get; set; }
+    public string? Notes { get; set; }
+    public bool IsActive { get; set; }
+}
 
 public sealed record AddContractHistoryRequest(
     string ContractTypeCode,
@@ -142,9 +153,17 @@ public sealed record UpdateContractHistoryRequest(
     DateTime ContractDate,
     DateTime? ContractEndDate,
     Guid? PositionSlotPublicId,
-    bool IsActive,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
+
+public sealed class PatchContractHistoryRequest
+{
+    public string ContractTypeCode { get; set; } = string.Empty;
+    public DateTime ContractDate { get; set; }
+    public DateTime? ContractEndDate { get; set; }
+    public Guid? PositionSlotId { get; set; }
+    public string? Notes { get; set; }
+    public bool IsActive { get; set; }
+}
 
 public sealed record AddAuthorizationSubstitutionRequest(
     string SubstitutionTypeCode,
@@ -161,9 +180,18 @@ public sealed record UpdateAuthorizationSubstitutionRequest(
     string? SubstitutePositionTitle,
     DateTime StartDate,
     DateTime? EndDate,
-    bool IsActive,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
+
+public sealed class PatchAuthorizationSubstitutionRequest
+{
+    public string SubstitutionTypeCode { get; set; } = string.Empty;
+    public Guid SubstitutePersonnelFileId { get; set; }
+    public string? SubstitutePositionTitle { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public string? Notes { get; set; }
+    public bool IsActive { get; set; }
+}
 
 public sealed record AddAssetAccessRequest(
     string AssetTypeCode,
@@ -184,9 +212,20 @@ public sealed record UpdateAssetAccessRequest(
     DateTime? EndDateUtc,
     DateTime? DeliveryDateUtc,
     string? DeliveryStatusCode,
-    bool IsActive,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
+
+public sealed class PatchAssetAccessRequest
+{
+    public string AssetTypeCode { get; set; } = string.Empty;
+    public string AssetOrAccessName { get; set; } = string.Empty;
+    public string? AccessLevelCode { get; set; }
+    public DateTime StartDateUtc { get; set; }
+    public DateTime? EndDateUtc { get; set; }
+    public DateTime? DeliveryDateUtc { get; set; }
+    public string? DeliveryStatusCode { get; set; }
+    public string? Notes { get; set; }
+    public bool IsActive { get; set; }
+}
 
 public sealed record AddPersonnelActionRequest(
     string ActionTypeCode,
