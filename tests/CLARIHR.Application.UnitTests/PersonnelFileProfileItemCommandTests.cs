@@ -92,11 +92,11 @@ public sealed class PersonnelFileProfileItemCommandTests
             new DeletePersonnelFileBankAccountCommand(
                 personnelFile.PublicId,
                 bankAccount.PublicId,
-                personnelFile.ConcurrencyToken),
+                bankAccount.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.True(result.Value);
+        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
         Assert.Empty(personnelFile.BankAccounts);
         Assert.Equal(2, repository.GetBankAccountsCalls);
     }
@@ -721,7 +721,32 @@ public sealed class PersonnelFileProfileItemCommandTests
                     item.CurrencyCode,
                     item.AccountNumber,
                     item.AccountTypeCode,
-                    item.IsPrimary)).ToArray());
+                    item.IsPrimary,
+                    item.ConcurrencyToken)).ToArray());
+        }
+        public Task<PersonnelFileBankAccountResponse?> GetBankAccountAsync(Guid personnelFileId, Guid bankAccountPublicId, CancellationToken cancellationToken)
+        {
+            if (!_files.TryGetValue(personnelFileId, out var file))
+            {
+                return Task.FromResult<PersonnelFileBankAccountResponse?>(null);
+            }
+
+            var item = file.BankAccounts.FirstOrDefault(bankAccount => bankAccount.PublicId == bankAccountPublicId);
+            return Task.FromResult(item is null
+                ? null
+                : new PersonnelFileBankAccountResponse(
+                    item.PublicId,
+                    null,
+                    item.BankCode,
+                    null,
+                    null,
+                    null,
+                    null,
+                    item.CurrencyCode,
+                    item.AccountNumber,
+                    item.AccountTypeCode,
+                    item.IsPrimary,
+                    item.ConcurrencyToken));
         }
         public Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(Guid personnelFileId, CancellationToken cancellationToken)
         {

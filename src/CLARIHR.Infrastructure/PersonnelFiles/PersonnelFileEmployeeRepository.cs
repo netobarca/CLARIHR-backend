@@ -229,7 +229,26 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
     }
 
     public async Task<PersonnelFileSalaryItemResponse?> UpdateSalaryItemAsync(
-        Guid itemPublicId,
+        Guid salaryItemPublicId,
+        Guid tenantId,
+        string incomeTypeCode,
+        string salaryRubricCode,
+        string currencyCode,
+        string payPeriodCode,
+        decimal amount,
+        DateTime startDate,
+        DateTime? endDate,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileSalaryItem>()
+            .SingleOrDefaultAsync(x => x.PublicId == salaryItemPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(incomeTypeCode, salaryRubricCode, currencyCode, payPeriodCode, amount, startDate, endDate);
+        return Map(item);
+    }
+
+    public async Task<PersonnelFileSalaryItemResponse?> PatchSalaryItemAsync(
+        Guid salaryItemPublicId,
         Guid tenantId,
         string incomeTypeCode,
         string salaryRubricCode,
@@ -239,24 +258,30 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         DateTime startDate,
         DateTime? endDate,
         bool isActive,
+        bool isActiveMutated,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileSalaryItem>()
-            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.PublicId == salaryItemPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return null;
-        item.Update(incomeTypeCode, salaryRubricCode, currencyCode, payPeriodCode, amount, startDate, endDate, isActive);
+        item.Update(incomeTypeCode, salaryRubricCode, currencyCode, payPeriodCode, amount, startDate, endDate);
+        if (isActiveMutated)
+        {
+            item.SetActive(isActive);
+        }
+
         return Map(item);
     }
 
-    public async Task<bool> DeactivateSalaryItemAsync(
-        Guid itemPublicId,
+    public async Task<bool> DeleteSalaryItemAsync(
+        Guid salaryItemPublicId,
         Guid tenantId,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileSalaryItem>()
-            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.PublicId == salaryItemPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return false;
-        item.Deactivate();
+        dbContext.Set<PersonnelFileSalaryItem>().Remove(item);
         return true;
     }
 
@@ -270,6 +295,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .ThenBy(item => item.StartDate)
             .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileSalaryItemResponse?> GetSalaryItemAsync(
+        Guid personnelFileId,
+        Guid salaryItemPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileSalaryItem>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == salaryItemPublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>> AddAdditionalBenefitAsync(
         long personnelFileInternalId,
@@ -286,32 +322,54 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return all;
     }
 
-    public async Task<bool> UpdateAdditionalBenefitAsync(
-        Guid itemPublicId,
+    public async Task<PersonnelFileAdditionalBenefitResponse?> UpdateAdditionalBenefitAsync(
+        Guid additionalBenefitPublicId,
         Guid tenantId,
         string benefitTypeCode,
         DateTime? startDate,
         DateTime? endDate,
-        bool isActive,
         string? notes,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileAdditionalBenefit>()
-            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
-        if (item is null) return false;
-        item.Update(benefitTypeCode, startDate, endDate, isActive, notes);
-        return true;
+            .SingleOrDefaultAsync(x => x.PublicId == additionalBenefitPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(benefitTypeCode, startDate, endDate, notes);
+        return Map(item);
     }
 
-    public async Task<bool> DeactivateAdditionalBenefitAsync(
-        Guid itemPublicId,
+    public async Task<PersonnelFileAdditionalBenefitResponse?> PatchAdditionalBenefitAsync(
+        Guid additionalBenefitPublicId,
+        Guid tenantId,
+        string benefitTypeCode,
+        DateTime? startDate,
+        DateTime? endDate,
+        string? notes,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileAdditionalBenefit>()
+            .SingleOrDefaultAsync(x => x.PublicId == additionalBenefitPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(benefitTypeCode, startDate, endDate, notes);
+        if (isActiveMutated)
+        {
+            item.SetActive(isActive);
+        }
+
+        return Map(item);
+    }
+
+    public async Task<bool> DeleteAdditionalBenefitAsync(
+        Guid additionalBenefitPublicId,
         Guid tenantId,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileAdditionalBenefit>()
-            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.PublicId == additionalBenefitPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return false;
-        item.Deactivate();
+        dbContext.Set<PersonnelFileAdditionalBenefit>().Remove(item);
         return true;
     }
 
@@ -325,6 +383,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .ThenBy(item => item.BenefitTypeCode)
             .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileAdditionalBenefitResponse?> GetAdditionalBenefitAsync(
+        Guid personnelFileId,
+        Guid additionalBenefitPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileAdditionalBenefit>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == additionalBenefitPublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>> AddPaymentMethodAsync(
         long personnelFileInternalId,
@@ -341,34 +410,58 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return all;
     }
 
-    public async Task<bool> UpdatePaymentMethodAsync(
-        Guid itemPublicId,
+    public async Task<PersonnelFilePaymentMethodResponse?> UpdatePaymentMethodAsync(
+        Guid paymentMethodPublicId,
         Guid tenantId,
         string paymentMethodCode,
         Guid? bankAccountPublicId,
         bool isPrimary,
-        bool isActive,
         DateTime effectiveFromUtc,
         DateTime? effectiveToUtc,
         string? notes,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFilePaymentMethod>()
-            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
-        if (item is null) return false;
-        item.Update(paymentMethodCode, bankAccountPublicId, isPrimary, isActive, effectiveFromUtc, effectiveToUtc, notes);
-        return true;
+            .SingleOrDefaultAsync(x => x.PublicId == paymentMethodPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(paymentMethodCode, bankAccountPublicId, isPrimary, effectiveFromUtc, effectiveToUtc, notes);
+        return Map(item);
     }
 
-    public async Task<bool> DeactivatePaymentMethodAsync(
-        Guid itemPublicId,
+    public async Task<PersonnelFilePaymentMethodResponse?> PatchPaymentMethodAsync(
+        Guid paymentMethodPublicId,
+        Guid tenantId,
+        string paymentMethodCode,
+        Guid? bankAccountPublicId,
+        bool isPrimary,
+        DateTime effectiveFromUtc,
+        DateTime? effectiveToUtc,
+        string? notes,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFilePaymentMethod>()
+            .SingleOrDefaultAsync(x => x.PublicId == paymentMethodPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(paymentMethodCode, bankAccountPublicId, isPrimary, effectiveFromUtc, effectiveToUtc, notes);
+        if (isActiveMutated)
+        {
+            item.SetActive(isActive);
+        }
+
+        return Map(item);
+    }
+
+    public async Task<bool> DeletePaymentMethodAsync(
+        Guid paymentMethodPublicId,
         Guid tenantId,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFilePaymentMethod>()
-            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.PublicId == paymentMethodPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return false;
-        item.Deactivate();
+        dbContext.Set<PersonnelFilePaymentMethod>().Remove(item);
         return true;
     }
 
@@ -382,6 +475,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .ThenBy(item => item.EffectiveFromUtc)
             .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFilePaymentMethodResponse?> GetPaymentMethodAsync(
+        Guid personnelFileId,
+        Guid paymentMethodPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFilePaymentMethod>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == paymentMethodPublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>> AddAuthorizationSubstitutionAsync(
         long personnelFileInternalId,
@@ -525,16 +629,28 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return Task.FromResult(Map(entity));
     }
 
-    public async Task<bool> DeactivatePayrollTransactionAsync(
-        Guid itemPublicId,
-        Guid tenantId,
+    public async Task<PersonnelFilePayrollTransactionResponse?> GetPayrollTransactionAsync(
+        Guid personnelFileId,
+        Guid payrollTransactionPublicId,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFilePayrollTransaction>()
-            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
-        if (item is null) return false;
-        item.Deactivate();
-        return true;
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == payrollTransactionPublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
+
+    public async Task<PersonnelFilePayrollTransactionResponse?> PatchPayrollTransactionAsync(
+        Guid payrollTransactionPublicId,
+        Guid tenantId,
+        bool isActive,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFilePayrollTransaction>()
+            .SingleOrDefaultAsync(x => x.PublicId == payrollTransactionPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.SetActive(isActive);
+        return Map(item);
     }
 
     public async Task<PagedResponse<PersonnelFilePayrollTransactionResponse>> SearchPayrollTransactionsAsync(
@@ -681,8 +797,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return all.Select(Map).ToArray();
     }
 
-    public async Task<bool> UpdateInsuranceAsync(
-        Guid itemPublicId,
+    public async Task<PersonnelFileInsuranceResponse?> UpdateInsuranceAsync(
+        Guid insurancePublicId,
         Guid tenantId,
         string insuranceCode,
         decimal? employeeContribution,
@@ -691,39 +807,56 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         string? policyNumber,
         decimal? insuredAmount,
         string? currencyCode,
-        bool isActive,
         DateTime? startDateUtc,
         DateTime? endDateUtc,
-        IReadOnlyCollection<InsuranceBeneficiaryInput> beneficiaries,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileInsurance>()
             .Include(x => x.Beneficiaries)
-            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
-        if (item is null) return false;
-        item.Update(insuranceCode, employeeContribution, employerContribution, rangeCode, policyNumber, insuredAmount, currencyCode, isActive, startDateUtc, endDateUtc);
-        // Replace beneficiaries
-        dbContext.Set<PersonnelFileInsuranceBeneficiary>().RemoveRange(item.Beneficiaries);
-        var newBeneficiaries = beneficiaries.Select(b =>
-        {
-            var e = PersonnelFileInsuranceBeneficiary.Create(b.FullName, b.DocumentNumber, b.BirthDate, b.KinshipCode);
-            e.SetTenantId(tenantId);
-            e.BindToInsurance(item.Id);
-            return e;
-        }).ToArray();
-        dbContext.Set<PersonnelFileInsuranceBeneficiary>().AddRange(newBeneficiaries);
-        return true;
+            .SingleOrDefaultAsync(x => x.PublicId == insurancePublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(insuranceCode, employeeContribution, employerContribution, rangeCode, policyNumber, insuredAmount, currencyCode, startDateUtc, endDateUtc);
+        return Map(item);
     }
 
-    public async Task<bool> DeactivateInsuranceAsync(
-        Guid itemPublicId,
+    public async Task<PersonnelFileInsuranceResponse?> PatchInsuranceAsync(
+        Guid insurancePublicId,
+        Guid tenantId,
+        string insuranceCode,
+        decimal? employeeContribution,
+        decimal? employerContribution,
+        string? rangeCode,
+        string? policyNumber,
+        decimal? insuredAmount,
+        string? currencyCode,
+        DateTime? startDateUtc,
+        DateTime? endDateUtc,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileInsurance>()
+            .Include(x => x.Beneficiaries)
+            .SingleOrDefaultAsync(x => x.PublicId == insurancePublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(insuranceCode, employeeContribution, employerContribution, rangeCode, policyNumber, insuredAmount, currencyCode, startDateUtc, endDateUtc);
+        if (isActiveMutated)
+        {
+            item.SetActive(isActive);
+        }
+
+        return Map(item);
+    }
+
+    public async Task<bool> DeleteInsuranceAsync(
+        Guid insurancePublicId,
         Guid tenantId,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileInsurance>()
-            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.PublicId == insurancePublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return false;
-        item.Deactivate();
+        dbContext.Set<PersonnelFileInsurance>().Remove(item);
         return true;
     }
 
@@ -742,6 +875,138 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return items.Select(Map).ToArray();
     }
 
+    public async Task<PersonnelFileInsuranceResponse?> GetInsuranceAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileInsurance>()
+            .AsNoTracking()
+            .Include(x => x.Beneficiaries)
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == insurancePublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
+
+    public async Task<PersonnelFileInsuranceBeneficiaryResponse?> AddInsuranceBeneficiaryAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        Guid tenantId,
+        InsuranceBeneficiaryInput item,
+        CancellationToken cancellationToken)
+    {
+        var insurance = await dbContext.Set<PersonnelFileInsurance>()
+            .SingleOrDefaultAsync(
+                x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == insurancePublicId && x.TenantId == tenantId,
+                cancellationToken);
+        if (insurance is null) return null;
+
+        var entity = PersonnelFileInsuranceBeneficiary.Create(item.FullName, item.DocumentNumber, item.BirthDate, item.KinshipCode);
+        entity.SetTenantId(tenantId);
+        entity.BindToInsurance(insurance.Id);
+        dbContext.Set<PersonnelFileInsuranceBeneficiary>().Add(entity);
+        return Map(entity);
+    }
+
+    public async Task<IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse>> GetInsuranceBeneficiariesAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileInsuranceBeneficiary>()
+            .AsNoTracking()
+            .Where(item => item.Insurance.PersonnelFile.PublicId == personnelFileId && item.Insurance.PublicId == insurancePublicId)
+            .OrderByDescending(item => item.IsActive)
+            .ThenBy(item => item.FullName)
+            .Select(item => Map(item))
+            .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileInsuranceBeneficiaryResponse?> GetInsuranceBeneficiaryAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileInsuranceBeneficiary>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                x => x.Insurance.PersonnelFile.PublicId == personnelFileId
+                    && x.Insurance.PublicId == insurancePublicId
+                    && x.PublicId == beneficiaryPublicId,
+                cancellationToken);
+        return item is null ? null : Map(item);
+    }
+
+    public async Task<PersonnelFileInsuranceBeneficiaryResponse?> UpdateInsuranceBeneficiaryAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        Guid tenantId,
+        string fullName,
+        string? documentNumber,
+        DateTime? birthDate,
+        string kinshipCode,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileInsuranceBeneficiary>()
+            .SingleOrDefaultAsync(
+                x => x.Insurance.PersonnelFile.PublicId == personnelFileId
+                    && x.Insurance.PublicId == insurancePublicId
+                    && x.PublicId == beneficiaryPublicId
+                    && x.TenantId == tenantId,
+                cancellationToken);
+        if (item is null) return null;
+        item.Update(fullName, documentNumber, birthDate, kinshipCode);
+        return Map(item);
+    }
+
+    public async Task<PersonnelFileInsuranceBeneficiaryResponse?> PatchInsuranceBeneficiaryAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        Guid tenantId,
+        string fullName,
+        string? documentNumber,
+        DateTime? birthDate,
+        string kinshipCode,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileInsuranceBeneficiary>()
+            .SingleOrDefaultAsync(
+                x => x.Insurance.PersonnelFile.PublicId == personnelFileId
+                    && x.Insurance.PublicId == insurancePublicId
+                    && x.PublicId == beneficiaryPublicId
+                    && x.TenantId == tenantId,
+                cancellationToken);
+        if (item is null) return null;
+        item.Update(fullName, documentNumber, birthDate, kinshipCode);
+        if (isActiveMutated)
+        {
+            item.SetActive(isActive);
+        }
+
+        return Map(item);
+    }
+
+    public async Task<bool> DeleteInsuranceBeneficiaryAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileInsuranceBeneficiary>()
+            .SingleOrDefaultAsync(
+                x => x.Insurance.PersonnelFile.PublicId == personnelFileId
+                    && x.Insurance.PublicId == insurancePublicId
+                    && x.PublicId == beneficiaryPublicId
+                    && x.TenantId == tenantId,
+                cancellationToken);
+        if (item is null) return false;
+        dbContext.Set<PersonnelFileInsuranceBeneficiary>().Remove(item);
+        return true;
+    }
+
     public async Task<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>> AddMedicalClaimAsync(
         long personnelFileInternalId,
         Guid tenantId,
@@ -757,8 +1022,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         return all;
     }
 
-    public async Task<bool> UpdateMedicalClaimAsync(
-        Guid itemPublicId,
+    public async Task<PersonnelFileMedicalClaimResponse?> UpdateMedicalClaimAsync(
+        Guid medicalClaimPublicId,
         Guid tenantId,
         Guid? insurancePublicId,
         string? accountNumber,
@@ -776,21 +1041,53 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileMedicalClaim>()
-            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
-        if (item is null) return false;
+            .SingleOrDefaultAsync(x => x.PublicId == medicalClaimPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
         item.Update(insurancePublicId, accountNumber, claimTypeCode, diagnosis, claimAmount, currencyCode, paidAmount, responseTimeDays, notes, claimDateUtc, sourceSystem, sourceReference, sourceSyncedUtc);
-        return true;
+        return Map(item);
     }
 
-    public async Task<bool> DeactivateMedicalClaimAsync(
-        Guid itemPublicId,
+    public async Task<PersonnelFileMedicalClaimResponse?> PatchMedicalClaimAsync(
+        Guid medicalClaimPublicId,
+        Guid tenantId,
+        Guid? insurancePublicId,
+        string? accountNumber,
+        string claimTypeCode,
+        string? diagnosis,
+        decimal? claimAmount,
+        string? currencyCode,
+        decimal? paidAmount,
+        int? responseTimeDays,
+        string? notes,
+        DateTime claimDateUtc,
+        string? sourceSystem,
+        string? sourceReference,
+        DateTime? sourceSyncedUtc,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileMedicalClaim>()
+            .SingleOrDefaultAsync(x => x.PublicId == medicalClaimPublicId && x.TenantId == tenantId, cancellationToken);
+        if (item is null) return null;
+        item.Update(insurancePublicId, accountNumber, claimTypeCode, diagnosis, claimAmount, currencyCode, paidAmount, responseTimeDays, notes, claimDateUtc, sourceSystem, sourceReference, sourceSyncedUtc);
+        if (isActiveMutated)
+        {
+            item.SetActive(isActive);
+        }
+
+        return Map(item);
+    }
+
+    public async Task<bool> DeleteMedicalClaimAsync(
+        Guid medicalClaimPublicId,
         Guid tenantId,
         CancellationToken cancellationToken)
     {
         var item = await dbContext.Set<PersonnelFileMedicalClaim>()
-            .SingleOrDefaultAsync(x => x.PublicId == itemPublicId && x.TenantId == tenantId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.PublicId == medicalClaimPublicId && x.TenantId == tenantId, cancellationToken);
         if (item is null) return false;
-        item.Deactivate();
+        dbContext.Set<PersonnelFileMedicalClaim>().Remove(item);
         return true;
     }
 
@@ -803,6 +1100,17 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             .OrderByDescending(item => item.ClaimDateUtc)
             .Select(item => Map(item))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileMedicalClaimResponse?> GetMedicalClaimAsync(
+        Guid personnelFileId,
+        Guid medicalClaimPublicId,
+        CancellationToken cancellationToken)
+    {
+        var item = await dbContext.Set<PersonnelFileMedicalClaim>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PersonnelFile.PublicId == personnelFileId && x.PublicId == medicalClaimPublicId, cancellationToken);
+        return item is null ? null : Map(item);
+    }
 
     public async Task<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>> AddPerformanceEvaluationAsync(
         long personnelFileInternalId,
@@ -1296,7 +1604,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.Amount,
             item.StartDate,
             item.EndDate,
-            item.IsActive);
+            item.IsActive,
+            item.ConcurrencyToken);
 
     private static PersonnelFileAdditionalBenefitResponse Map(PersonnelFileAdditionalBenefit item) =>
         new(
@@ -1305,7 +1614,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.StartDate,
             item.EndDate,
             item.IsActive,
-            item.Notes);
+            item.Notes,
+            item.ConcurrencyToken);
 
     private static PersonnelFilePaymentMethodResponse Map(PersonnelFilePaymentMethod item) =>
         new(
@@ -1316,7 +1626,8 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.IsActive,
             item.EffectiveFromUtc,
             item.EffectiveToUtc,
-            item.Notes);
+            item.Notes,
+            item.ConcurrencyToken);
 
     private static PersonnelFileAuthorizationSubstitutionResponse Map(PersonnelFileAuthorizationSubstitution item) =>
         new(
@@ -1359,7 +1670,9 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.SourceReference,
             item.SourceSyncedUtc,
             item.CreatedUtc,
-            item.ModifiedUtc);
+            item.ModifiedUtc,
+            item.IsActive,
+            item.ConcurrencyToken);
 
     private static PersonnelFileAssetAccessResponse Map(PersonnelFileAssetAccess item) =>
         new(
@@ -1388,15 +1701,28 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.StartDateUtc,
             item.EndDateUtc,
             item.Beneficiaries
-                .OrderBy(beneficiary => beneficiary.FullName)
+                .OrderByDescending(beneficiary => beneficiary.IsActive)
+                .ThenBy(beneficiary => beneficiary.FullName)
                 .Select(beneficiary => new PersonnelFileInsuranceBeneficiaryResponse(
                     beneficiary.PublicId,
                     beneficiary.FullName,
                     beneficiary.DocumentNumber,
                     beneficiary.BirthDate,
                     beneficiary.KinshipCode,
-                    beneficiary.IsActive))
-                .ToArray());
+                    beneficiary.IsActive,
+                    beneficiary.ConcurrencyToken))
+                .ToArray(),
+            item.ConcurrencyToken);
+
+    private static PersonnelFileInsuranceBeneficiaryResponse Map(PersonnelFileInsuranceBeneficiary item) =>
+        new(
+            item.PublicId,
+            item.FullName,
+            item.DocumentNumber,
+            item.BirthDate,
+            item.KinshipCode,
+            item.IsActive,
+            item.ConcurrencyToken);
 
     private static PersonnelFileMedicalClaimResponse Map(PersonnelFileMedicalClaim item) =>
         new(
@@ -1413,7 +1739,9 @@ internal sealed class PersonnelFileEmployeeRepository(ApplicationDbContext dbCon
             item.ClaimDateUtc,
             item.SourceSystem,
             item.SourceReference,
-            item.SourceSyncedUtc);
+            item.SourceSyncedUtc,
+            item.IsActive,
+            item.ConcurrencyToken);
 
     private static PersonnelFilePerformanceEvaluationResponse Map(PersonnelFilePerformanceEvaluation item) =>
         new(

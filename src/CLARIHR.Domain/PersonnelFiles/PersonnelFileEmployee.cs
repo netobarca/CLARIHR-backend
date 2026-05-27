@@ -380,6 +380,7 @@ public sealed class PersonnelFileSalaryItem : TenantEntity
         bool isActive)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         IncomeTypeCode = PersonnelFileNormalization.Clean(incomeTypeCode, nameof(incomeTypeCode));
         SalaryRubricCode = PersonnelFileNormalization.Clean(salaryRubricCode, nameof(salaryRubricCode));
         CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode));
@@ -410,6 +411,8 @@ public sealed class PersonnelFileSalaryItem : TenantEntity
 
     public bool IsActive { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public void Update(
@@ -419,9 +422,9 @@ public sealed class PersonnelFileSalaryItem : TenantEntity
         string payPeriodCode,
         decimal amount,
         DateTime startDate,
-        DateTime? endDate,
-        bool isActive)
+        DateTime? endDate)
     {
+        ConcurrencyToken = Guid.NewGuid();
         IncomeTypeCode = PersonnelFileNormalization.Clean(incomeTypeCode, nameof(incomeTypeCode));
         SalaryRubricCode = PersonnelFileNormalization.Clean(salaryRubricCode, nameof(salaryRubricCode));
         CurrencyCode = PersonnelFileNormalization.Clean(currencyCode, nameof(currencyCode));
@@ -429,10 +432,13 @@ public sealed class PersonnelFileSalaryItem : TenantEntity
         Amount = amount;
         StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
         EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
-        IsActive = isActive;
     }
 
-    public void Deactivate() => IsActive = false;
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 
     public static PersonnelFileSalaryItem Create(
         string incomeTypeCode,
@@ -460,6 +466,7 @@ public sealed class PersonnelFileAdditionalBenefit : TenantEntity
         string? notes)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         BenefitTypeCode = PersonnelFileNormalization.Clean(benefitTypeCode, nameof(benefitTypeCode));
         StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
         EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
@@ -481,23 +488,28 @@ public sealed class PersonnelFileAdditionalBenefit : TenantEntity
 
     public string? Notes { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public void Update(
         string benefitTypeCode,
         DateTime? startDate,
         DateTime? endDate,
-        bool isActive,
         string? notes)
     {
+        ConcurrencyToken = Guid.NewGuid();
         BenefitTypeCode = PersonnelFileNormalization.Clean(benefitTypeCode, nameof(benefitTypeCode));
         StartDate = PersonnelFileNormalization.NormalizeDate(startDate);
         EndDate = PersonnelFileNormalization.NormalizeDate(endDate);
-        IsActive = isActive;
         Notes = PersonnelFileNormalization.CleanOptional(notes);
     }
 
-    public void Deactivate() => IsActive = false;
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 
     public static PersonnelFileAdditionalBenefit Create(
         string benefitTypeCode,
@@ -524,6 +536,7 @@ public sealed class PersonnelFilePaymentMethod : TenantEntity
         string? notes)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         PaymentMethodCode = PersonnelFileNormalization.Clean(paymentMethodCode, nameof(paymentMethodCode));
         BankAccountPublicId = bankAccountPublicId;
         IsPrimary = isPrimary;
@@ -551,27 +564,32 @@ public sealed class PersonnelFilePaymentMethod : TenantEntity
 
     public string? Notes { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public void Update(
         string paymentMethodCode,
         Guid? bankAccountPublicId,
         bool isPrimary,
-        bool isActive,
         DateTime effectiveFromUtc,
         DateTime? effectiveToUtc,
         string? notes)
     {
+        ConcurrencyToken = Guid.NewGuid();
         PaymentMethodCode = PersonnelFileNormalization.Clean(paymentMethodCode, nameof(paymentMethodCode));
         BankAccountPublicId = bankAccountPublicId;
         IsPrimary = isPrimary;
-        IsActive = isActive;
         EffectiveFromUtc = PersonnelFileNormalization.NormalizeDate(effectiveFromUtc);
         EffectiveToUtc = PersonnelFileNormalization.NormalizeDate(effectiveToUtc);
         Notes = PersonnelFileNormalization.CleanOptional(notes);
     }
 
-    public void Deactivate() => IsActive = false;
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 
     public static PersonnelFilePaymentMethod Create(
         string paymentMethodCode,
@@ -750,6 +768,7 @@ public sealed class PersonnelFilePayrollTransaction : TenantEntity
         DateTime? sourceSyncedUtc)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         TransactionTypeCode = PersonnelFileNormalization.Clean(transactionTypeCode, nameof(transactionTypeCode));
         TransactionDateUtc = PersonnelFileNormalization.NormalizeDate(transactionDateUtc);
         PayrollPeriodCode = PersonnelFileNormalization.Clean(payrollPeriodCode, nameof(payrollPeriodCode));
@@ -788,9 +807,15 @@ public sealed class PersonnelFilePayrollTransaction : TenantEntity
 
     public bool IsActive { get; private set; } = true;
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
-    public void Deactivate() => IsActive = false;
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 
     public static PersonnelFilePayrollTransaction Create(
         string transactionTypeCode,
@@ -936,6 +961,7 @@ public sealed class PersonnelFileInsurance : TenantEntity
         DateTime? endDateUtc)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         InsuranceCode = PersonnelFileNormalization.Clean(insuranceCode, nameof(insuranceCode));
         EmployeeContribution = employeeContribution;
         EmployerContribution = employerContribution;
@@ -974,6 +1000,8 @@ public sealed class PersonnelFileInsurance : TenantEntity
 
     public IReadOnlyCollection<PersonnelFileInsuranceBeneficiary> Beneficiaries => _beneficiaries;
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public void Update(
@@ -984,10 +1012,10 @@ public sealed class PersonnelFileInsurance : TenantEntity
         string? policyNumber,
         decimal? insuredAmount,
         string? currencyCode,
-        bool isActive,
         DateTime? startDateUtc,
         DateTime? endDateUtc)
     {
+        ConcurrencyToken = Guid.NewGuid();
         InsuranceCode = PersonnelFileNormalization.Clean(insuranceCode, nameof(insuranceCode));
         EmployeeContribution = employeeContribution;
         EmployerContribution = employerContribution;
@@ -995,12 +1023,15 @@ public sealed class PersonnelFileInsurance : TenantEntity
         PolicyNumber = PersonnelFileNormalization.CleanOptional(policyNumber);
         InsuredAmount = insuredAmount;
         CurrencyCode = PersonnelFileNormalization.CleanOptional(currencyCode);
-        IsActive = isActive;
         StartDateUtc = PersonnelFileNormalization.NormalizeDate(startDateUtc);
         EndDateUtc = PersonnelFileNormalization.NormalizeDate(endDateUtc);
     }
 
-    public void Deactivate() => IsActive = false;
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 
     public static PersonnelFileInsurance Create(
         string insuranceCode,
@@ -1024,16 +1055,6 @@ public sealed class PersonnelFileInsurance : TenantEntity
             isActive,
             startDateUtc,
             endDateUtc);
-
-    public void ReplaceBeneficiaries(IEnumerable<PersonnelFileInsuranceBeneficiary> beneficiaries)
-    {
-        _beneficiaries.Clear();
-        foreach (var beneficiary in beneficiaries)
-        {
-            beneficiary.SetTenantId(TenantId);
-            _beneficiaries.Add(beneficiary);
-        }
-    }
 }
 
 public sealed class PersonnelFileInsuranceBeneficiary : TenantEntity
@@ -1049,6 +1070,7 @@ public sealed class PersonnelFileInsuranceBeneficiary : TenantEntity
         string kinshipCode)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         FullName = PersonnelFileNormalization.Clean(fullName, nameof(fullName));
         DocumentNumber = PersonnelFileNormalization.CleanOptional(documentNumber);
         BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
@@ -1070,7 +1092,28 @@ public sealed class PersonnelFileInsuranceBeneficiary : TenantEntity
 
     public bool IsActive { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToInsurance(long insuranceId) => InsuranceId = insuranceId;
+
+    public void Update(
+        string fullName,
+        string? documentNumber,
+        DateTime? birthDate,
+        string kinshipCode)
+    {
+        ConcurrencyToken = Guid.NewGuid();
+        FullName = PersonnelFileNormalization.Clean(fullName, nameof(fullName));
+        DocumentNumber = PersonnelFileNormalization.CleanOptional(documentNumber);
+        BirthDate = PersonnelFileNormalization.NormalizeDate(birthDate);
+        KinshipCode = PersonnelFileNormalization.Clean(kinshipCode, nameof(kinshipCode));
+    }
+
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 
     public static PersonnelFileInsuranceBeneficiary Create(
         string fullName,
@@ -1102,6 +1145,7 @@ public sealed class PersonnelFileMedicalClaim : TenantEntity
         DateTime? sourceSyncedUtc)
     {
         PublicId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
         InsurancePublicId = insurancePublicId;
         AccountNumber = PersonnelFileNormalization.CleanOptional(accountNumber);
         ClaimTypeCode = PersonnelFileNormalization.Clean(claimTypeCode, nameof(claimTypeCode));
@@ -1149,6 +1193,8 @@ public sealed class PersonnelFileMedicalClaim : TenantEntity
 
     public bool IsActive { get; private set; } = true;
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public void BindToPersonnelFile(long personnelFileId) => PersonnelFileId = personnelFileId;
 
     public void Update(
@@ -1166,6 +1212,7 @@ public sealed class PersonnelFileMedicalClaim : TenantEntity
         string? sourceReference,
         DateTime? sourceSyncedUtc)
     {
+        ConcurrencyToken = Guid.NewGuid();
         InsurancePublicId = insurancePublicId;
         AccountNumber = PersonnelFileNormalization.CleanOptional(accountNumber);
         ClaimTypeCode = PersonnelFileNormalization.Clean(claimTypeCode, nameof(claimTypeCode));
@@ -1181,7 +1228,11 @@ public sealed class PersonnelFileMedicalClaim : TenantEntity
         SourceSyncedUtc = PersonnelFileNormalization.NormalizeDate(sourceSyncedUtc);
     }
 
-    public void Deactivate() => IsActive = false;
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ConcurrencyToken = Guid.NewGuid();
+    }
 
     public static PersonnelFileMedicalClaim Create(
         Guid? insurancePublicId,

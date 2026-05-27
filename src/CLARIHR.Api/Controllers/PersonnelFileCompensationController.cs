@@ -1,7 +1,10 @@
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Api.Contracts.PersonnelFiles;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.PersonnelFiles;
@@ -10,12 +13,16 @@ using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Domain.PersonnelFiles;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[Tags("Personnel Files")]
+[AuthorizationPolicySet(PersonnelFilePolicies.Read, PersonnelFilePolicies.Manage)]
 public sealed class PersonnelFileCompensationController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
@@ -24,10 +31,16 @@ public sealed class PersonnelFileCompensationController(
     // ─── Bank Accounts ────────────────────────────────────────────────────────
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/bank-accounts")]
+    [Produces("application/json")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileBankAccountResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List a personnel file's bank accounts",
+        Description = """
+            Returns every bank account recorded for the specified personnel file. Each item
+            carries its own `concurrencyToken`, required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelFileBankAccountResponse>>> GetBankAccounts(
         Guid publicId,
         CancellationToken cancellationToken = default)
@@ -36,13 +49,40 @@ public sealed class PersonnelFileCompensationController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/bank-accounts/{bankAccountPublicId:guid}")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileBankAccountResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a personnel file bank account by id",
+        Description = """
+            Returns a single bank account of the specified personnel file. The `concurrencyToken`
+            in the response is required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
+    public async Task<ActionResult<PersonnelFileBankAccountResponse>> GetBankAccountById(
+        Guid publicId,
+        Guid bankAccountPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelFileBankAccountByIdQuery(publicId, bankAccountPublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPost("api/v1/personnel-files/{publicId:guid}/bank-accounts")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
     [ProducesResponseType<PersonnelFileBankAccountResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Add a bank account to a personnel file",
+        Description = """
+            Creates a new bank account under the specified personnel file and returns it with a
+            `201 Created` response. The `Location` header points to the created resource and the
+            `ETag` header carries its initial `concurrencyToken`.
+            """)]
     public async Task<ActionResult<PersonnelFileBankAccountResponse>> AddBankAccount(
         Guid publicId,
         [FromBody] AddBankAccountRequest request,
@@ -59,70 +99,115 @@ public sealed class PersonnelFileCompensationController(
                     request.IsPrimary)),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(Result<PersonnelFileBankAccountResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetBankAccountById),
+            value => new { publicId, bankAccountPublicId = value.BankAccountPublicId },
+            value => value.ConcurrencyToken);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/bank-accounts/{itemPublicId:guid}")]
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/bank-accounts/{bankAccountPublicId:guid}")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
     [ProducesResponseType<PersonnelFileBankAccountResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Replace a personnel file bank account",
+        Description = """
+            Replaces all fields of an existing bank account. Requires the `If-Match` header with
+            the current `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
     public async Task<ActionResult<PersonnelFileBankAccountResponse>> UpdateBankAccount(
         Guid publicId,
-        Guid itemPublicId,
+        Guid bankAccountPublicId,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateBankAccountRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdatePersonnelFileBankAccountCommand(
                 publicId,
-                itemPublicId,
+                bankAccountPublicId,
                 new BankAccountInput(
                     request.BankPublicId,
                     request.CurrencyCode,
                     request.AccountNumber,
                     request.AccountTypeCode,
                     request.IsPrimary),
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpDelete("api/v1/personnel-files/{publicId:guid}/bank-accounts/{itemPublicId:guid}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> DeleteBankAccount(
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/bank-accounts/{bankAccountPublicId:guid}")]
+    [Consumes("application/json-patch+json")]
+    [Produces("application/json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
+    [ProducesResponseType<PersonnelFileBankAccountResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Patch a personnel file bank account",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to an existing bank account. Requires the `If-Match`
+            header with the current `concurrencyToken`; the new token is returned in the `ETag`
+            header. Mutable members are the bank account input fields.
+            """)]
+    public async Task<ActionResult<PersonnelFileBankAccountResponse>> PatchBankAccount(
         Guid publicId,
-        Guid itemPublicId,
-        [FromBody] ConcurrencyRequest request,
+        Guid bankAccountPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<PatchBankAccountRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new DeletePersonnelFileBankAccountCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            new PatchPersonnelFileBankAccountCommand(
+                publicId,
+                bankAccountPublicId,
+                concurrencyToken,
+                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new PersonnelFileBankAccountPatchOperation(op, path, from, value))),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(result).Result!
-            : NoContent();
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("api/v1/personnel-files/{publicId:guid}/bank-accounts/{bankAccountPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Remove a bank account from a personnel file",
+        Description = """
+            Deletes the specified bank account. Requires the `If-Match` header with the current
+            `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
+            so the caller can keep mutating without an extra round-trip.
+            """)]
+    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteBankAccount(
+        Guid publicId,
+        Guid bankAccountPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeletePersonnelFileBankAccountCommand(publicId, bankAccountPublicId, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
     // ─── Salary Items ─────────────────────────────────────────────────────────
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/salary-items")]
+    [Produces("application/json")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List a personnel file's salary items",
+        Description = """
+            Returns every salary item recorded for the specified personnel file. Each item
+            carries its own `concurrencyToken`, required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>> GetSalaryItems(
         Guid publicId,
         CancellationToken cancellationToken = default)
@@ -131,15 +216,41 @@ public sealed class PersonnelFileCompensationController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/salary-items/{salaryItemPublicId:guid}")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileSalaryItemResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a personnel file salary item by id",
+        Description = """
+            Returns a single salary item of the specified personnel file. The `concurrencyToken`
+            in the response is required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
+    public async Task<ActionResult<PersonnelFileSalaryItemResponse>> GetSalaryItemById(
+        Guid publicId,
+        Guid salaryItemPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelFileSalaryItemByIdQuery(publicId, salaryItemPublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPost("api/v1/personnel-files/{publicId:guid}/salary-items")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>> AddSalaryItem(
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileSalaryItemResponse>(StatusCodes.Status201Created)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Add a salary item to a personnel file",
+        Description = """
+            Creates a new salary item under the specified personnel file and returns it with a
+            `201 Created` response. The `Location` header points to the created resource and the
+            `ETag` header carries its initial `concurrencyToken`.
+            """)]
+    public async Task<ActionResult<PersonnelFileSalaryItemResponse>> AddSalaryItem(
         Guid publicId,
         [FromBody] AddSalaryItemRequest request,
         CancellationToken cancellationToken = default)
@@ -158,27 +269,36 @@ public sealed class PersonnelFileCompensationController(
                     request.IsActive)),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetSalaryItemById),
+            value => new { publicId, salaryItemPublicId = value.SalaryItemPublicId },
+            value => value.ConcurrencyToken);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/salary-items/{itemPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>> UpdateSalaryItem(
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/salary-items/{salaryItemPublicId:guid}")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileSalaryItemResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Replace a personnel file salary item",
+        Description = """
+            Replaces the business fields of an existing salary item. The active state is
+            preserved (it is mutated exclusively via `PATCH`). Requires the `If-Match` header
+            with the current `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFileSalaryItemResponse>> UpdateSalaryItem(
         Guid publicId,
-        Guid itemPublicId,
+        Guid salaryItemPublicId,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateSalaryItemRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdatePersonnelFileSalaryItemCommand(
                 publicId,
-                itemPublicId,
+                salaryItemPublicId,
                 new SalaryItemInput(
                     request.IncomeTypeCode,
                     request.SalaryRubricCode,
@@ -187,41 +307,81 @@ public sealed class PersonnelFileCompensationController(
                     request.Amount,
                     request.StartDate,
                     request.EndDate,
-                    request.IsActive),
-                request.ConcurrencyToken),
+                    IsActive: true),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/personnel-files/{publicId:guid}/salary-items/{itemPublicId:guid}/deactivate")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>> DeactivateSalaryItem(
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/salary-items/{salaryItemPublicId:guid}")]
+    [Consumes("application/json-patch+json")]
+    [Produces("application/json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
+    [ProducesResponseType<PersonnelFileSalaryItemResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Patch a personnel file salary item",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to an existing salary item. Supports the business
+            fields and the `isActive` flag. Requires the `If-Match` header with the current
+            `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFileSalaryItemResponse>> PatchSalaryItem(
         Guid publicId,
-        Guid itemPublicId,
-        [FromBody] ConcurrencyRequest request,
+        Guid salaryItemPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<PatchSalaryItemRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new DeactivatePersonnelFileSalaryItemCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            new PatchPersonnelFileSalaryItemCommand(
+                publicId,
+                salaryItemPublicId,
+                concurrencyToken,
+                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new PersonnelFileSalaryItemPatchOperation(op, path, from, value))),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("api/v1/personnel-files/{publicId:guid}/salary-items/{salaryItemPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Remove a salary item from a personnel file",
+        Description = """
+            Deletes the specified salary item. Requires the `If-Match` header with the current
+            `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
+            so the caller can keep mutating without an extra round-trip.
+            """)]
+    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteSalaryItem(
+        Guid publicId,
+        Guid salaryItemPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeletePersonnelFileSalaryItemCommand(publicId, salaryItemPublicId, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
     // ─── Additional Benefits ──────────────────────────────────────────────────
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/additional-benefits")]
+    [Produces("application/json")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List a personnel file's additional benefits",
+        Description = """
+            Returns every additional benefit recorded for the specified personnel file. Each item
+            carries its own `concurrencyToken`, required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>> GetAdditionalBenefits(
         Guid publicId,
         CancellationToken cancellationToken = default)
@@ -230,15 +390,41 @@ public sealed class PersonnelFileCompensationController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/additional-benefits/{additionalBenefitPublicId:guid}")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileAdditionalBenefitResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a personnel file additional benefit by id",
+        Description = """
+            Returns a single additional benefit of the specified personnel file. The `concurrencyToken`
+            in the response is required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
+    public async Task<ActionResult<PersonnelFileAdditionalBenefitResponse>> GetAdditionalBenefitById(
+        Guid publicId,
+        Guid additionalBenefitPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelFileAdditionalBenefitByIdQuery(publicId, additionalBenefitPublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPost("api/v1/personnel-files/{publicId:guid}/additional-benefits")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>> AddAdditionalBenefit(
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileAdditionalBenefitResponse>(StatusCodes.Status201Created)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Add an additional benefit to a personnel file",
+        Description = """
+            Creates a new additional benefit under the specified personnel file and returns it with a
+            `201 Created` response. The `Location` header points to the created resource and the
+            `ETag` header carries its initial `concurrencyToken`.
+            """)]
+    public async Task<ActionResult<PersonnelFileAdditionalBenefitResponse>> AddAdditionalBenefit(
         Guid publicId,
         [FromBody] AddAdditionalBenefitRequest request,
         CancellationToken cancellationToken = default)
@@ -254,67 +440,116 @@ public sealed class PersonnelFileCompensationController(
                     request.Notes)),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetAdditionalBenefitById),
+            value => new { publicId, additionalBenefitPublicId = value.AdditionalBenefitPublicId },
+            value => value.ConcurrencyToken);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/additional-benefits/{itemPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>> UpdateAdditionalBenefit(
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/additional-benefits/{additionalBenefitPublicId:guid}")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileAdditionalBenefitResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Replace a personnel file additional benefit",
+        Description = """
+            Replaces the business fields of an existing additional benefit. The active state is
+            preserved (it is mutated exclusively via `PATCH`). Requires the `If-Match` header
+            with the current `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFileAdditionalBenefitResponse>> UpdateAdditionalBenefit(
         Guid publicId,
-        Guid itemPublicId,
+        Guid additionalBenefitPublicId,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateAdditionalBenefitRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdatePersonnelFileAdditionalBenefitCommand(
                 publicId,
-                itemPublicId,
+                additionalBenefitPublicId,
                 new AdditionalBenefitInput(
                     request.BenefitTypeCode,
                     request.StartDate,
                     request.EndDate,
-                    request.IsActive,
+                    IsActive: true,
                     request.Notes),
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/personnel-files/{publicId:guid}/additional-benefits/{itemPublicId:guid}/deactivate")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>> DeactivateAdditionalBenefit(
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/additional-benefits/{additionalBenefitPublicId:guid}")]
+    [Consumes("application/json-patch+json")]
+    [Produces("application/json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
+    [ProducesResponseType<PersonnelFileAdditionalBenefitResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Patch a personnel file additional benefit",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to an existing additional benefit. Supports the business
+            fields and the `isActive` flag. Requires the `If-Match` header with the current
+            `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFileAdditionalBenefitResponse>> PatchAdditionalBenefit(
         Guid publicId,
-        Guid itemPublicId,
-        [FromBody] ConcurrencyRequest request,
+        Guid additionalBenefitPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<PatchAdditionalBenefitRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new DeactivatePersonnelFileAdditionalBenefitCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            new PatchPersonnelFileAdditionalBenefitCommand(
+                publicId,
+                additionalBenefitPublicId,
+                concurrencyToken,
+                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new PersonnelFileAdditionalBenefitPatchOperation(op, path, from, value))),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("api/v1/personnel-files/{publicId:guid}/additional-benefits/{additionalBenefitPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Remove an additional benefit from a personnel file",
+        Description = """
+            Deletes the specified additional benefit. Requires the `If-Match` header with the current
+            `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
+            so the caller can keep mutating without an extra round-trip.
+            """)]
+    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteAdditionalBenefit(
+        Guid publicId,
+        Guid additionalBenefitPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeletePersonnelFileAdditionalBenefitCommand(publicId, additionalBenefitPublicId, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
     // ─── Payment Methods ──────────────────────────────────────────────────────
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/payment-methods")]
+    [Produces("application/json")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List a personnel file's payment methods",
+        Description = """
+            Returns every payment method recorded for the specified personnel file. Each item
+            carries its own `concurrencyToken`, required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>> GetPaymentMethods(
         Guid publicId,
         CancellationToken cancellationToken = default)
@@ -323,15 +558,41 @@ public sealed class PersonnelFileCompensationController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/payment-methods/{paymentMethodPublicId:guid}")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFilePaymentMethodResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a personnel file payment method by id",
+        Description = """
+            Returns a single payment method of the specified personnel file. The `concurrencyToken`
+            in the response is required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
+    public async Task<ActionResult<PersonnelFilePaymentMethodResponse>> GetPaymentMethodById(
+        Guid publicId,
+        Guid paymentMethodPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelFilePaymentMethodByIdQuery(publicId, paymentMethodPublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPost("api/v1/personnel-files/{publicId:guid}/payment-methods")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>> AddPaymentMethod(
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFilePaymentMethodResponse>(StatusCodes.Status201Created)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Add a payment method to a personnel file",
+        Description = """
+            Creates a new payment method under the specified personnel file and returns it with a
+            `201 Created` response. The `Location` header points to the created resource and the
+            `ETag` header carries its initial `concurrencyToken`.
+            """)]
+    public async Task<ActionResult<PersonnelFilePaymentMethodResponse>> AddPaymentMethod(
         Guid publicId,
         [FromBody] AddPaymentMethodRequest request,
         CancellationToken cancellationToken = default)
@@ -349,59 +610,103 @@ public sealed class PersonnelFileCompensationController(
                     request.Notes)),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetPaymentMethodById),
+            value => new { publicId, paymentMethodPublicId = value.PaymentMethodPublicId },
+            value => value.ConcurrencyToken);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/payment-methods/{itemPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>> UpdatePaymentMethod(
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/payment-methods/{paymentMethodPublicId:guid}")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFilePaymentMethodResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Replace a personnel file payment method",
+        Description = """
+            Replaces the business fields of an existing payment method. The active state is
+            preserved (it is mutated exclusively via `PATCH`). Requires the `If-Match` header
+            with the current `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFilePaymentMethodResponse>> UpdatePaymentMethod(
         Guid publicId,
-        Guid itemPublicId,
+        Guid paymentMethodPublicId,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdatePaymentMethodRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdatePersonnelFilePaymentMethodCommand(
                 publicId,
-                itemPublicId,
+                paymentMethodPublicId,
                 new PaymentMethodInput(
                     request.PaymentMethodCode,
                     request.BankAccountPublicId,
                     request.IsPrimary,
-                    request.IsActive,
+                    IsActive: true,
                     request.EffectiveFromUtc,
                     request.EffectiveToUtc,
                     request.Notes),
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/personnel-files/{publicId:guid}/payment-methods/{itemPublicId:guid}/deactivate")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>> DeactivatePaymentMethod(
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/payment-methods/{paymentMethodPublicId:guid}")]
+    [Consumes("application/json-patch+json")]
+    [Produces("application/json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
+    [ProducesResponseType<PersonnelFilePaymentMethodResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Patch a personnel file payment method",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to an existing payment method. Supports the business
+            fields and the `isActive` flag. Requires the `If-Match` header with the current
+            `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFilePaymentMethodResponse>> PatchPaymentMethod(
         Guid publicId,
-        Guid itemPublicId,
-        [FromBody] ConcurrencyRequest request,
+        Guid paymentMethodPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<PatchPaymentMethodRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new DeactivatePersonnelFilePaymentMethodCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            new PatchPersonnelFilePaymentMethodCommand(
+                publicId,
+                paymentMethodPublicId,
+                concurrencyToken,
+                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new PersonnelFilePaymentMethodPatchOperation(op, path, from, value))),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("api/v1/personnel-files/{publicId:guid}/payment-methods/{paymentMethodPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Remove a payment method from a personnel file",
+        Description = """
+            Deletes the specified payment method. Requires the `If-Match` header with the current
+            `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
+            so the caller can keep mutating without an extra round-trip.
+            """)]
+    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeletePaymentMethod(
+        Guid publicId,
+        Guid paymentMethodPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeletePersonnelFilePaymentMethodCommand(publicId, paymentMethodPublicId, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
     // ─── Payroll Transactions ─────────────────────────────────────────────────
@@ -413,6 +718,13 @@ public sealed class PersonnelFileCompensationController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [SwaggerOperation(
+        Summary = "Search a personnel file's payroll transactions",
+        Description = """
+            Returns a paginated, filterable list of payroll transactions for the specified personnel
+            file. Supports date-range, type, status, and free-text (`q`) filters plus sorting. Each row
+            carries its own `concurrencyToken` for use in the `If-Match` header of a subsequent `PATCH`.
+            """)]
     public async Task<ActionResult<PagedResponse<PersonnelFilePayrollTransactionResponse>>> SearchPayrollTransactions(
         Guid publicId,
         [FromQuery] DateTime? fromUtc = null,
@@ -450,6 +762,13 @@ public sealed class PersonnelFileCompensationController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [SwaggerOperation(
+        Summary = "Export a personnel file's payroll transactions",
+        Description = """
+            Exports the filtered payroll transactions of the specified personnel file as a file
+            (default `xlsx`). Accepts the same date-range, type, status, free-text (`q`), and sorting
+            filters as the search endpoint.
+            """)]
     public async Task<IActionResult> ExportPayrollTransactions(
         Guid publicId,
         [FromQuery] string format = "xlsx",
@@ -494,14 +813,40 @@ public sealed class PersonnelFileCompensationController(
             cancellationToken);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/payroll-transactions/{payrollTransactionPublicId:guid}")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFilePayrollTransactionResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a personnel file payroll transaction by id",
+        Description = """
+            Returns a single payroll transaction of the specified personnel file. The `concurrencyToken`
+            in the response is required in the `If-Match` header of a subsequent `PATCH` request to
+            prevent lost updates.
+            """)]
+    public async Task<ActionResult<PersonnelFilePayrollTransactionResponse>> GetPayrollTransactionById(
+        Guid publicId,
+        Guid payrollTransactionPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelFilePayrollTransactionByIdQuery(publicId, payrollTransactionPublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPost("api/v1/personnel-files/{publicId:guid}/payroll-transactions")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
     [ProducesResponseType<PersonnelFilePayrollTransactionResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Add a payroll transaction to a personnel file",
+        Description = """
+            Creates a new payroll transaction under the specified personnel file and returns it with a
+            `201 Created` response. The `Location` header points to the created resource and the
+            `ETag` header carries its initial `concurrencyToken`.
+            """)]
     public async Task<ActionResult<PersonnelFilePayrollTransactionResponse>> AddPayrollTransaction(
         Guid publicId,
         [FromBody] AddPayrollTransactionRequest request,
@@ -523,39 +868,58 @@ public sealed class PersonnelFileCompensationController(
                     request.SourceSyncedUtc)),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(Result<PersonnelFilePayrollTransactionResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetPayrollTransactionById),
+            value => new { publicId, payrollTransactionPublicId = value.PayrollTransactionPublicId },
+            value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/personnel-files/{publicId:guid}/payroll-transactions/{itemPublicId:guid}/deactivate")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePayrollTransactionResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePayrollTransactionResponse>>>> DeactivatePayrollTransaction(
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/payroll-transactions/{payrollTransactionPublicId:guid}")]
+    [Consumes("application/json-patch+json")]
+    [Produces("application/json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
+    [ProducesResponseType<PersonnelFilePayrollTransactionResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Patch a personnel file payroll transaction",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to an existing payroll transaction. Supports only the
+            `isActive` flag (the business fields are an immutable audit record). Requires the `If-Match`
+            header with the current `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFilePayrollTransactionResponse>> PatchPayrollTransaction(
         Guid publicId,
-        Guid itemPublicId,
-        [FromBody] ConcurrencyRequest request,
+        Guid payrollTransactionPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<PatchPayrollTransactionRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new DeactivatePersonnelFilePayrollTransactionCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            new PatchPersonnelFilePayrollTransactionCommand(
+                publicId,
+                payrollTransactionPublicId,
+                concurrencyToken,
+                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new PersonnelFilePayrollTransactionPatchOperation(op, path, from, value))),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     // ─── Insurances ───────────────────────────────────────────────────────────
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/insurances")]
+    [Produces("application/json")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileInsuranceResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List a personnel file's insurances",
+        Description = """
+            Returns every insurance recorded for the specified personnel file, each with its
+            beneficiaries. Each insurance carries its own `concurrencyToken`, required in the
+            `If-Match` header of subsequent `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>> GetInsurances(
         Guid publicId,
         CancellationToken cancellationToken = default)
@@ -564,15 +928,42 @@ public sealed class PersonnelFileCompensationController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileInsuranceResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a personnel file insurance by id",
+        Description = """
+            Returns a single insurance of the specified personnel file, with its beneficiaries.
+            The `concurrencyToken` in the response is required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
+    public async Task<ActionResult<PersonnelFileInsuranceResponse>> GetInsuranceById(
+        Guid publicId,
+        Guid insurancePublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelFileInsuranceByIdQuery(publicId, insurancePublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPost("api/v1/personnel-files/{publicId:guid}/insurances")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>> AddInsurance(
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileInsuranceResponse>(StatusCodes.Status201Created)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Add an insurance to a personnel file",
+        Description = """
+            Creates a new insurance under the specified personnel file and returns it with a
+            `201 Created` response. Beneficiaries are managed separately via the nested
+            `beneficiaries` sub-resource. The `Location` header points to the created resource and
+            the `ETag` header carries its initial `concurrencyToken`.
+            """)]
+    public async Task<ActionResult<PersonnelFileInsuranceResponse>> AddInsurance(
         Guid publicId,
         [FromBody] AddInsuranceRequest request,
         CancellationToken cancellationToken = default)
@@ -590,35 +981,40 @@ public sealed class PersonnelFileCompensationController(
                     request.CurrencyCode,
                     request.IsActive,
                     request.StartDateUtc,
-                    request.EndDateUtc,
-                    request.Beneficiaries.Select(beneficiary => new InsuranceBeneficiaryInput(
-                        beneficiary.FullName,
-                        beneficiary.DocumentNumber,
-                        beneficiary.BirthDate,
-                        beneficiary.KinshipCode)).ToArray())),
+                    request.EndDateUtc)),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetInsuranceById),
+            value => new { publicId, insurancePublicId = value.InsurancePublicId },
+            value => value.ConcurrencyToken);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/insurances/{itemPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>> UpdateInsurance(
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileInsuranceResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Replace a personnel file insurance",
+        Description = """
+            Replaces the business fields of an existing insurance. The active state is
+            preserved (it is mutated exclusively via `PATCH`) and beneficiaries are managed via the
+            nested `beneficiaries` sub-resource. Requires the `If-Match` header with the current
+            `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFileInsuranceResponse>> UpdateInsurance(
         Guid publicId,
-        Guid itemPublicId,
+        Guid insurancePublicId,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateInsuranceRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdatePersonnelFileInsuranceCommand(
                 publicId,
-                itemPublicId,
+                insurancePublicId,
                 new InsuranceInput(
                     request.InsuranceCode,
                     request.EmployeeContribution,
@@ -627,48 +1023,260 @@ public sealed class PersonnelFileCompensationController(
                     request.PolicyNumber,
                     request.InsuredAmount,
                     request.CurrencyCode,
-                    request.IsActive,
+                    IsActive: true,
                     request.StartDateUtc,
-                    request.EndDateUtc,
-                    request.Beneficiaries.Select(beneficiary => new InsuranceBeneficiaryInput(
-                        beneficiary.FullName,
-                        beneficiary.DocumentNumber,
-                        beneficiary.BirthDate,
-                        beneficiary.KinshipCode)).ToArray()),
-                request.ConcurrencyToken),
+                    request.EndDateUtc),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/personnel-files/{publicId:guid}/insurances/{itemPublicId:guid}/deactivate")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>> DeactivateInsurance(
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}")]
+    [Consumes("application/json-patch+json")]
+    [Produces("application/json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
+    [ProducesResponseType<PersonnelFileInsuranceResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Patch a personnel file insurance",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to an existing insurance. Supports the business
+            fields and the `isActive` flag. Requires the `If-Match` header with the current
+            `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFileInsuranceResponse>> PatchInsurance(
         Guid publicId,
-        Guid itemPublicId,
-        [FromBody] ConcurrencyRequest request,
+        Guid insurancePublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<PatchInsuranceRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new DeactivatePersonnelFileInsuranceCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            new PatchPersonnelFileInsuranceCommand(
+                publicId,
+                insurancePublicId,
+                concurrencyToken,
+                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new PersonnelFileInsurancePatchOperation(op, path, from, value))),
             cancellationToken);
 
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}")]
+    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Remove an insurance from a personnel file",
+        Description = """
+            Deletes the specified insurance and its beneficiaries. Requires the `If-Match` header
+            with the current `concurrencyToken`. Returns the parent personnel file's refreshed
+            concurrency token so the caller can keep mutating without an extra round-trip.
+            """)]
+    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteInsurance(
+        Guid publicId,
+        Guid insurancePublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeletePersonnelFileInsuranceCommand(publicId, insurancePublicId, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
+    }
+
+    // ─── Insurance Beneficiaries ──────────────────────────────────────────────
+
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}/beneficiaries")]
+    [Produces("application/json")]
+    [ProducesResponseType<IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse>>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List an insurance's beneficiaries",
+        Description = """
+            Returns every beneficiary recorded for the specified insurance. Each beneficiary
+            carries its own `concurrencyToken`, required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
+    public async Task<ActionResult<IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse>>> GetInsuranceBeneficiaries(
+        Guid publicId,
+        Guid insurancePublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelFileInsuranceBeneficiariesQuery(publicId, insurancePublicId),
+            cancellationToken);
         return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}/beneficiaries/{beneficiaryPublicId:guid}")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileInsuranceBeneficiaryResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get an insurance beneficiary by id",
+        Description = """
+            Returns a single beneficiary of the specified insurance. The `concurrencyToken`
+            in the response is required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
+    public async Task<ActionResult<PersonnelFileInsuranceBeneficiaryResponse>> GetInsuranceBeneficiaryById(
+        Guid publicId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelFileInsuranceBeneficiaryByIdQuery(publicId, insurancePublicId, beneficiaryPublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpPost("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}/beneficiaries")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileInsuranceBeneficiaryResponse>(StatusCodes.Status201Created)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Add a beneficiary to an insurance",
+        Description = """
+            Creates a new beneficiary under the specified insurance and returns it with a
+            `201 Created` response. The `Location` header points to the created resource and the
+            `ETag` header carries its initial `concurrencyToken`.
+            """)]
+    public async Task<ActionResult<PersonnelFileInsuranceBeneficiaryResponse>> AddInsuranceBeneficiary(
+        Guid publicId,
+        Guid insurancePublicId,
+        [FromBody] AddInsuranceBeneficiaryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new AddPersonnelFileInsuranceBeneficiaryCommand(
+                publicId,
+                insurancePublicId,
+                new InsuranceBeneficiaryInput(
+                    request.FullName,
+                    request.DocumentNumber,
+                    request.BirthDate,
+                    request.KinshipCode)),
+            cancellationToken);
+
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetInsuranceBeneficiaryById),
+            value => new { publicId, insurancePublicId, beneficiaryPublicId = value.BeneficiaryPublicId },
+            value => value.ConcurrencyToken);
+    }
+
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}/beneficiaries/{beneficiaryPublicId:guid}")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileInsuranceBeneficiaryResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Replace an insurance beneficiary",
+        Description = """
+            Replaces the business fields of an existing beneficiary. The active state is
+            preserved (it is mutated exclusively via `PATCH`). Requires the `If-Match` header
+            with the current `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFileInsuranceBeneficiaryResponse>> UpdateInsuranceBeneficiary(
+        Guid publicId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] UpdateInsuranceBeneficiaryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new UpdatePersonnelFileInsuranceBeneficiaryCommand(
+                publicId,
+                insurancePublicId,
+                beneficiaryPublicId,
+                new InsuranceBeneficiaryInput(
+                    request.FullName,
+                    request.DocumentNumber,
+                    request.BirthDate,
+                    request.KinshipCode),
+                concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}/beneficiaries/{beneficiaryPublicId:guid}")]
+    [Consumes("application/json-patch+json")]
+    [Produces("application/json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
+    [ProducesResponseType<PersonnelFileInsuranceBeneficiaryResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Patch an insurance beneficiary",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to an existing beneficiary. Supports the business
+            fields and the `isActive` flag. Requires the `If-Match` header with the current
+            `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFileInsuranceBeneficiaryResponse>> PatchInsuranceBeneficiary(
+        Guid publicId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<PatchInsuranceBeneficiaryRequest> patchDoc,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new PatchPersonnelFileInsuranceBeneficiaryCommand(
+                publicId,
+                insurancePublicId,
+                beneficiaryPublicId,
+                concurrencyToken,
+                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new PersonnelFileInsuranceBeneficiaryPatchOperation(op, path, from, value))),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("api/v1/personnel-files/{publicId:guid}/insurances/{insurancePublicId:guid}/beneficiaries/{beneficiaryPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Remove a beneficiary from an insurance",
+        Description = """
+            Deletes the specified beneficiary. Requires the `If-Match` header with the current
+            `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
+            so the caller can keep mutating without an extra round-trip.
+            """)]
+    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteInsuranceBeneficiary(
+        Guid publicId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeletePersonnelFileInsuranceBeneficiaryCommand(publicId, insurancePublicId, beneficiaryPublicId, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
     // ─── Medical Claims ───────────────────────────────────────────────────────
 
     [HttpGet("api/v1/personnel-files/{publicId:guid}/medical-claims")]
+    [Produces("application/json")]
     [ProducesResponseType<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "List a personnel file's medical claims",
+        Description = """
+            Returns every medical claim recorded for the specified personnel file. Each item
+            carries its own `concurrencyToken`, required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>> GetMedicalClaims(
         Guid publicId,
         CancellationToken cancellationToken = default)
@@ -677,15 +1285,41 @@ public sealed class PersonnelFileCompensationController(
         return this.ToActionResult(result);
     }
 
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/medical-claims/{medicalClaimPublicId:guid}")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileMedicalClaimResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a personnel file medical claim by id",
+        Description = """
+            Returns a single medical claim of the specified personnel file. The `concurrencyToken`
+            in the response is required in the `If-Match` header of subsequent
+            `PUT`/`PATCH`/`DELETE` requests to prevent lost updates.
+            """)]
+    public async Task<ActionResult<PersonnelFileMedicalClaimResponse>> GetMedicalClaimById(
+        Guid publicId,
+        Guid medicalClaimPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelFileMedicalClaimByIdQuery(publicId, medicalClaimPublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPost("api/v1/personnel-files/{publicId:guid}/medical-claims")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>> AddMedicalClaim(
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileMedicalClaimResponse>(StatusCodes.Status201Created)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Add a medical claim to a personnel file",
+        Description = """
+            Creates a new medical claim under the specified personnel file and returns it with a
+            `201 Created` response. The `Location` header points to the created resource and the
+            `ETag` header carries its initial `concurrencyToken`.
+            """)]
+    public async Task<ActionResult<PersonnelFileMedicalClaimResponse>> AddMedicalClaim(
         Guid publicId,
         [FromBody] AddMedicalClaimRequest request,
         CancellationToken cancellationToken = default)
@@ -709,27 +1343,36 @@ public sealed class PersonnelFileCompensationController(
                     request.SourceSyncedUtc)),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetMedicalClaimById),
+            value => new { publicId, medicalClaimPublicId = value.MedicalClaimPublicId },
+            value => value.ConcurrencyToken);
     }
 
-    [HttpPut("api/v1/personnel-files/{publicId:guid}/medical-claims/{itemPublicId:guid}")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>> UpdateMedicalClaim(
+    [HttpPut("api/v1/personnel-files/{publicId:guid}/medical-claims/{medicalClaimPublicId:guid}")]
+    [Consumes("application/json")]
+    [Produces("application/json")]
+    [ProducesResponseType<PersonnelFileMedicalClaimResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Replace a personnel file medical claim",
+        Description = """
+            Replaces the business fields of an existing medical claim. The active state is
+            preserved (it is mutated exclusively via `PATCH`). Requires the `If-Match` header
+            with the current `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFileMedicalClaimResponse>> UpdateMedicalClaim(
         Guid publicId,
-        Guid itemPublicId,
+        Guid medicalClaimPublicId,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateMedicalClaimRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
             new UpdatePersonnelFileMedicalClaimCommand(
                 publicId,
-                itemPublicId,
+                medicalClaimPublicId,
                 new MedicalClaimInput(
                     request.InsurancePublicId,
                     request.AccountNumber,
@@ -744,30 +1387,65 @@ public sealed class PersonnelFileCompensationController(
                     request.SourceSystem,
                     request.SourceReference,
                     request.SourceSyncedUtc),
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/personnel-files/{publicId:guid}/medical-claims/{itemPublicId:guid}/deactivate")]
-    [ProducesResponseType<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>> DeactivateMedicalClaim(
+    [HttpPatch("api/v1/personnel-files/{publicId:guid}/medical-claims/{medicalClaimPublicId:guid}")]
+    [Consumes("application/json-patch+json")]
+    [Produces("application/json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
+    [ProducesResponseType<PersonnelFileMedicalClaimResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Patch a personnel file medical claim",
+        Description = """
+            Applies a JSON Patch document (RFC 6902, media type
+            `application/json-patch+json`) to an existing medical claim. Supports the business
+            fields and the `isActive` flag. Requires the `If-Match` header with the current
+            `concurrencyToken`; the new token is returned in the `ETag` header.
+            """)]
+    public async Task<ActionResult<PersonnelFileMedicalClaimResponse>> PatchMedicalClaim(
         Guid publicId,
-        Guid itemPublicId,
-        [FromBody] ConcurrencyRequest request,
+        Guid medicalClaimPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<PatchMedicalClaimRequest> patchDoc,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new DeactivatePersonnelFileMedicalClaimCommand(publicId, itemPublicId, request.ConcurrencyToken),
+            new PatchPersonnelFileMedicalClaimCommand(
+                publicId,
+                medicalClaimPublicId,
+                concurrencyToken,
+                JsonPatchOperationMapper.Map(patchDoc, static (op, path, from, value) => new PersonnelFileMedicalClaimPatchOperation(op, path, from, value))),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpDelete("api/v1/personnel-files/{publicId:guid}/medical-claims/{medicalClaimPublicId:guid}")]
+    [ProducesResponseType<PersonnelFileParentConcurrencyResult>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Remove a medical claim from a personnel file",
+        Description = """
+            Deletes the specified medical claim. Requires the `If-Match` header with the current
+            `concurrencyToken`. Returns the parent personnel file's refreshed concurrency token
+            so the caller can keep mutating without an extra round-trip.
+            """)]
+    public async Task<ActionResult<PersonnelFileParentConcurrencyResult>> DeleteMedicalClaim(
+        Guid publicId,
+        Guid medicalClaimPublicId,
+        [FromIfMatch] Guid concurrencyToken,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new DeletePersonnelFileMedicalClaimCommand(publicId, medicalClaimPublicId, concurrencyToken),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ParentConcurrencyToken);
     }
 
 }

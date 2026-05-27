@@ -160,6 +160,7 @@ internal sealed class PersonnelFileSalaryItemConfiguration : IEntityTypeConfigur
         builder.Property(item => item.StartDate).HasColumnName("start_date");
         builder.Property(item => item.EndDate).HasColumnName("end_date");
         builder.Property(item => item.IsActive).HasColumnName("is_active");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -190,6 +191,7 @@ internal sealed class PersonnelFileAdditionalBenefitConfiguration : IEntityTypeC
         builder.Property(item => item.EndDate).HasColumnName("end_date");
         builder.Property(item => item.IsActive).HasColumnName("is_active");
         builder.Property(item => item.Notes).HasColumnName("notes").HasMaxLength(2000);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -227,6 +229,7 @@ internal sealed class PersonnelFilePaymentMethodConfiguration : IEntityTypeConfi
         builder.Property(item => item.EffectiveFromUtc).HasColumnName("effective_from_utc");
         builder.Property(item => item.EffectiveToUtc).HasColumnName("effective_to_utc");
         builder.Property(item => item.Notes).HasColumnName("notes").HasMaxLength(2000);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -338,6 +341,7 @@ internal sealed class PersonnelFilePayrollTransactionConfiguration : IEntityType
         builder.Property(item => item.SourceSystem).HasColumnName("source_system").HasMaxLength(80);
         builder.Property(item => item.SourceReference).HasColumnName("source_reference").HasMaxLength(120);
         builder.Property(item => item.SourceSyncedUtc).HasColumnName("source_synced_utc");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -411,6 +415,7 @@ internal sealed class PersonnelFileInsuranceConfiguration : IEntityTypeConfigura
         builder.Property(item => item.IsActive).HasColumnName("is_active");
         builder.Property(item => item.StartDateUtc).HasColumnName("start_date_utc");
         builder.Property(item => item.EndDateUtc).HasColumnName("end_date_utc");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -450,6 +455,7 @@ internal sealed class PersonnelFileInsuranceBeneficiaryConfiguration : IEntityTy
         builder.Property(item => item.BirthDate).HasColumnName("birth_date");
         builder.Property(item => item.KinshipCode).HasColumnName("kinship_code").HasMaxLength(80);
         builder.Property(item => item.IsActive).HasColumnName("is_active");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -483,6 +489,7 @@ internal sealed class PersonnelFileMedicalClaimConfiguration : IEntityTypeConfig
         builder.Property(item => item.SourceSystem).HasColumnName("source_system").HasMaxLength(80);
         builder.Property(item => item.SourceReference).HasColumnName("source_reference").HasMaxLength(120);
         builder.Property(item => item.SourceSyncedUtc).HasColumnName("source_synced_utc");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 

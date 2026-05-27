@@ -435,6 +435,7 @@ internal sealed class PersonnelFileBankAccountConfiguration : IEntityTypeConfigu
         builder.Property(item => item.NormalizedAccountNumber).HasColumnName("normalized_account_number").HasMaxLength(80);
         builder.Property(item => item.AccountTypeCode).HasColumnName("account_type_code").HasMaxLength(80);
         builder.Property(item => item.IsPrimary).HasColumnName("is_primary");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 

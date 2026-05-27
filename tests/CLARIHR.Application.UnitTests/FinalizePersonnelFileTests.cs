@@ -539,6 +539,7 @@ public sealed class FinalizePersonnelFileTests
         public Task<PersonnelFileEmployeeRelationResponse?> GetEmployeeRelationAsync(Guid personnelFileId, Guid employeeRelationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileBankAccountResponse?> GetBankAccountAsync(Guid personnelFileId, Guid bankAccountPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 

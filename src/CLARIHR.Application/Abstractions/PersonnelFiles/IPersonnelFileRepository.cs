@@ -113,6 +113,11 @@ public interface IPersonnelFileRepository
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
+    Task<PersonnelFileBankAccountResponse?> GetBankAccountAsync(
+        Guid personnelFileId,
+        Guid bankAccountPublicId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken);

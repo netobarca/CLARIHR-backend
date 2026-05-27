@@ -199,12 +199,6 @@ public sealed record AddPersonnelActionRequest(
     decimal? Amount,
     string? CurrencyCode);
 
-public sealed record InsuranceBeneficiaryItemRequest(
-    string FullName,
-    string? DocumentNumber,
-    DateTime? BirthDate,
-    string KinshipCode);
-
 // ─── Atomic compensation request contracts ────────────────────────────────────
 
 public sealed record AddSalaryItemRequest(
@@ -224,9 +218,19 @@ public sealed record UpdateSalaryItemRequest(
     string PayPeriodCode,
     decimal Amount,
     DateTime StartDate,
-    DateTime? EndDate,
-    bool IsActive,
-    Guid ConcurrencyToken);
+    DateTime? EndDate);
+
+public sealed class PatchSalaryItemRequest
+{
+    public string IncomeTypeCode { get; set; } = string.Empty;
+    public string SalaryRubricCode { get; set; } = string.Empty;
+    public string CurrencyCode { get; set; } = string.Empty;
+    public string PayPeriodCode { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public bool IsActive { get; set; }
+}
 
 public sealed record AddAdditionalBenefitRequest(
     string BenefitTypeCode,
@@ -239,9 +243,16 @@ public sealed record UpdateAdditionalBenefitRequest(
     string BenefitTypeCode,
     DateTime? StartDate,
     DateTime? EndDate,
-    bool IsActive,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
+
+public sealed class PatchAdditionalBenefitRequest
+{
+    public string BenefitTypeCode { get; set; } = string.Empty;
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public bool IsActive { get; set; }
+    public string? Notes { get; set; }
+}
 
 public sealed record AddPaymentMethodRequest(
     string PaymentMethodCode,
@@ -256,11 +267,20 @@ public sealed record UpdatePaymentMethodRequest(
     string PaymentMethodCode,
     Guid? BankAccountPublicId,
     bool IsPrimary,
-    bool IsActive,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
-    string? Notes,
-    Guid ConcurrencyToken);
+    string? Notes);
+
+public sealed class PatchPaymentMethodRequest
+{
+    public string PaymentMethodCode { get; set; } = string.Empty;
+    public Guid? BankAccountPublicId { get; set; }
+    public bool IsPrimary { get; set; }
+    public bool IsActive { get; set; }
+    public DateTime EffectiveFromUtc { get; set; }
+    public DateTime? EffectiveToUtc { get; set; }
+    public string? Notes { get; set; }
+}
 
 public sealed record AddPayrollTransactionRequest(
     string TransactionTypeCode,
@@ -274,6 +294,11 @@ public sealed record AddPayrollTransactionRequest(
     string? SourceReference,
     DateTime? SourceSyncedUtc);
 
+public sealed class PatchPayrollTransactionRequest
+{
+    public bool IsActive { get; set; }
+}
+
 public sealed record AddInsuranceRequest(
     string InsuranceCode,
     decimal? EmployeeContribution,
@@ -284,8 +309,7 @@ public sealed record AddInsuranceRequest(
     string? CurrencyCode,
     bool IsActive,
     DateTime? StartDateUtc,
-    DateTime? EndDateUtc,
-    IReadOnlyCollection<InsuranceBeneficiaryItemRequest> Beneficiaries);
+    DateTime? EndDateUtc);
 
 public sealed record UpdateInsuranceRequest(
     string InsuranceCode,
@@ -295,11 +319,43 @@ public sealed record UpdateInsuranceRequest(
     string? PolicyNumber,
     decimal? InsuredAmount,
     string? CurrencyCode,
-    bool IsActive,
     DateTime? StartDateUtc,
-    DateTime? EndDateUtc,
-    IReadOnlyCollection<InsuranceBeneficiaryItemRequest> Beneficiaries,
-    Guid ConcurrencyToken);
+    DateTime? EndDateUtc);
+
+public sealed class PatchInsuranceRequest
+{
+    public string InsuranceCode { get; set; } = string.Empty;
+    public decimal? EmployeeContribution { get; set; }
+    public decimal? EmployerContribution { get; set; }
+    public string? RangeCode { get; set; }
+    public string? PolicyNumber { get; set; }
+    public decimal? InsuredAmount { get; set; }
+    public string? CurrencyCode { get; set; }
+    public DateTime? StartDateUtc { get; set; }
+    public DateTime? EndDateUtc { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public sealed record AddInsuranceBeneficiaryRequest(
+    string FullName,
+    string? DocumentNumber,
+    DateTime? BirthDate,
+    string KinshipCode);
+
+public sealed record UpdateInsuranceBeneficiaryRequest(
+    string FullName,
+    string? DocumentNumber,
+    DateTime? BirthDate,
+    string KinshipCode);
+
+public sealed class PatchInsuranceBeneficiaryRequest
+{
+    public string FullName { get; set; } = string.Empty;
+    public string? DocumentNumber { get; set; }
+    public DateTime? BirthDate { get; set; }
+    public string KinshipCode { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+}
 
 public sealed record AddMedicalClaimRequest(
     Guid? InsurancePublicId,
@@ -329,8 +385,25 @@ public sealed record UpdateMedicalClaimRequest(
     DateTime ClaimDateUtc,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc,
-    Guid ConcurrencyToken);
+    DateTime? SourceSyncedUtc);
+
+public sealed class PatchMedicalClaimRequest
+{
+    public Guid? InsurancePublicId { get; set; }
+    public string? AccountNumber { get; set; }
+    public string ClaimTypeCode { get; set; } = string.Empty;
+    public string? Diagnosis { get; set; }
+    public decimal? ClaimAmount { get; set; }
+    public string? CurrencyCode { get; set; }
+    public decimal? PaidAmount { get; set; }
+    public int? ResponseTimeDays { get; set; }
+    public string? Notes { get; set; }
+    public DateTime ClaimDateUtc { get; set; }
+    public string? SourceSystem { get; set; }
+    public string? SourceReference { get; set; }
+    public DateTime? SourceSyncedUtc { get; set; }
+    public bool IsActive { get; set; }
+}
 
 public sealed record AddPerformanceEvaluationRequest(
     string EvaluatorName,
@@ -650,8 +723,16 @@ public sealed record UpdateBankAccountRequest(
     string CurrencyCode,
     string AccountNumber,
     string AccountTypeCode,
-    bool IsPrimary,
-    Guid ConcurrencyToken);
+    bool IsPrimary);
+
+public sealed class PatchBankAccountRequest
+{
+    public Guid BankPublicId { get; set; }
+    public string CurrencyCode { get; set; } = string.Empty;
+    public string AccountNumber { get; set; } = string.Empty;
+    public string AccountTypeCode { get; set; } = string.Empty;
+    public bool IsPrimary { get; set; }
+}
 
 public sealed record AddAssociationRequest(
     string AssociationName,

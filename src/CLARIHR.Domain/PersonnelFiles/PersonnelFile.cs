@@ -1424,6 +1424,7 @@ public sealed class PersonnelFileBankAccount : TenantEntity
         NormalizedAccountNumber = PersonnelFileNormalization.NormalizeCode(accountNumber);
         AccountTypeCode = PersonnelFileNormalization.Clean(accountTypeCode, nameof(accountTypeCode));
         IsPrimary = isPrimary;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -1445,6 +1446,8 @@ public sealed class PersonnelFileBankAccount : TenantEntity
     public string AccountTypeCode { get; private set; } = string.Empty;
 
     public bool IsPrimary { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileBankAccount Create(
         long? bankCatalogItemId,
@@ -1470,6 +1473,7 @@ public sealed class PersonnelFileBankAccount : TenantEntity
         NormalizedAccountNumber = PersonnelFileNormalization.NormalizeCode(accountNumber);
         AccountTypeCode = PersonnelFileNormalization.Clean(accountTypeCode, nameof(accountTypeCode));
         IsPrimary = isPrimary;
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 

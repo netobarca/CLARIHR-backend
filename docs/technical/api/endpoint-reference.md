@@ -345,12 +345,14 @@ Intereses (`PersonnelFileInterestsController`):
 - `PATCH /api/v1/personnel-files/{publicId}/employee-relations/{employeeRelationPublicId}`
 - `DELETE /api/v1/personnel-files/{publicId}/employee-relations/{employeeRelationPublicId}`
 
-Perfil financiero (`PersonnelFileProfileController`):
+Perfil financiero — Bank Accounts (`PersonnelFileCompensationController`):
 
 - `GET /api/v1/personnel-files/{publicId}/bank-accounts`
+- `GET /api/v1/personnel-files/{publicId}/bank-accounts/{bankAccountPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/bank-accounts`
-- `PUT /api/v1/personnel-files/{publicId}/bank-accounts/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/bank-accounts/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/bank-accounts/{bankAccountPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/bank-accounts/{bankAccountPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/bank-accounts/{bankAccountPublicId}`
 
 Employment:
 
@@ -364,16 +366,49 @@ Employment:
 - `GET /api/v1/personnel-files/{publicId}/assets-accesses`
 - `GET /api/v1/personnel-files/{publicId}/personnel-actions`
 
-Compensation:
+Compensation (`PersonnelFileCompensationController`) — every sub-resource is canonical (GET list, GET by id, POST→201, PUT con `If-Match`, PATCH JSON Patch [incluye `isActive`], DELETE físico que devuelve el token del padre). `bank-accounts` se lista arriba en «Perfil financiero».
 
 - `GET /api/v1/personnel-files/{publicId}/salary-items`
-- `PUT /api/v1/personnel-files/{publicId}/salary-items`
+- `GET /api/v1/personnel-files/{publicId}/salary-items/{salaryItemPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/salary-items`
+- `PUT /api/v1/personnel-files/{publicId}/salary-items/{salaryItemPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/salary-items/{salaryItemPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/salary-items/{salaryItemPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/additional-benefits`
+- `GET /api/v1/personnel-files/{publicId}/additional-benefits/{additionalBenefitPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/additional-benefits`
+- `PUT /api/v1/personnel-files/{publicId}/additional-benefits/{additionalBenefitPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/additional-benefits/{additionalBenefitPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/additional-benefits/{additionalBenefitPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/payment-methods`
-- `GET /api/v1/personnel-files/{publicId}/insurances`
-- `GET /api/v1/personnel-files/{publicId}/medical-claims`
+- `GET /api/v1/personnel-files/{publicId}/payment-methods/{paymentMethodPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/payment-methods`
+- `PUT /api/v1/personnel-files/{publicId}/payment-methods/{paymentMethodPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/payment-methods/{paymentMethodPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/payment-methods/{paymentMethodPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/payroll-transactions` (paginado + filtros/búsqueda)
 - `GET /api/v1/personnel-files/{publicId}/payroll-transactions/export`
-- `PUT /api/v1/personnel-files/{publicId}/bank-accounts`
+- `GET /api/v1/personnel-files/{publicId}/payroll-transactions/{payrollTransactionPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/payroll-transactions`
+- `PATCH /api/v1/personnel-files/{publicId}/payroll-transactions/{payrollTransactionPublicId}` (solo `isActive`; **sin PUT ni DELETE** — registro de auditoría inmutable)
+- `GET /api/v1/personnel-files/{publicId}/insurances`
+- `GET /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}`
+- `POST /api/v1/personnel-files/{publicId}/insurances`
+- `PUT /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}`
+- `GET /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}/beneficiaries`
+- `GET /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}/beneficiaries/{beneficiaryPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}/beneficiaries`
+- `PUT /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}/beneficiaries/{beneficiaryPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}/beneficiaries/{beneficiaryPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}/beneficiaries/{beneficiaryPublicId}`
+- `GET /api/v1/personnel-files/{publicId}/medical-claims`
+- `GET /api/v1/personnel-files/{publicId}/medical-claims/{medicalClaimPublicId}`
+- `POST /api/v1/personnel-files/{publicId}/medical-claims`
+- `PUT /api/v1/personnel-files/{publicId}/medical-claims/{medicalClaimPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/medical-claims/{medicalClaimPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/medical-claims/{medicalClaimPublicId}`
 
 Talent (`PersonnelFileTalentController`):
 

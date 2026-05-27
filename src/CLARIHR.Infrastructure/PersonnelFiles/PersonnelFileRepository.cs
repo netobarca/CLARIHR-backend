@@ -380,7 +380,8 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                     item.CurrencyCode,
                     item.AccountNumber,
                     item.AccountTypeCode,
-                    item.IsPrimary))
+                    item.IsPrimary,
+                    item.ConcurrencyToken))
                 .ToArray(),
             file.Associations
                 .OrderBy(item => item.AssociationName)
@@ -859,8 +860,31 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 item.CurrencyCode,
                 item.AccountNumber,
                 item.AccountTypeCode,
-                item.IsPrimary))
+                item.IsPrimary,
+                item.ConcurrencyToken))
             .ToArrayAsync(cancellationToken);
+
+    public async Task<PersonnelFileBankAccountResponse?> GetBankAccountAsync(
+        Guid personnelFileId,
+        Guid bankAccountPublicId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Set<PersonnelFileBankAccount>()
+            .AsNoTracking()
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == bankAccountPublicId)
+            .Select(item => new PersonnelFileBankAccountResponse(
+                item.PublicId,
+                item.BankCatalogItem != null ? item.BankCatalogItem.PublicId : null,
+                item.BankCode,
+                item.BankCatalogItem != null ? item.BankCatalogItem.Name : null,
+                item.BankCatalogItem != null ? item.BankCatalogItem.Alias : null,
+                item.BankCatalogItem != null ? item.BankCatalogItem.SwiftCode : null,
+                item.BankCatalogItem != null ? item.BankCatalogItem.RoutingCode : null,
+                item.CurrencyCode,
+                item.AccountNumber,
+                item.AccountTypeCode,
+                item.IsPrimary,
+                item.ConcurrencyToken))
+            .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyCollection<Guid>> GetBankAccountIdsAsync(
         Guid personnelFileId,

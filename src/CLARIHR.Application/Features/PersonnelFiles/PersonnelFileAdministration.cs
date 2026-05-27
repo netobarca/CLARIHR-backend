@@ -157,7 +157,7 @@ public sealed record PersonnelFileEmployeeRelationResponse(
 }
 
 public sealed record PersonnelFileBankAccountResponse(
-    Guid Id,
+    Guid BankAccountPublicId,
     Guid? BankPublicId,
     string BankCode,
     string? BankName,
@@ -167,7 +167,12 @@ public sealed record PersonnelFileBankAccountResponse(
     string CurrencyCode,
     string AccountNumber,
     string AccountTypeCode,
-    bool IsPrimary);
+    bool IsPrimary,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => BankAccountPublicId;
+}
 
 public sealed record PersonnelFileAssociationResponse(
     Guid AssociationPublicId,
@@ -565,6 +570,9 @@ public sealed record GetPersonnelFileEmployeeRelationByIdQuery(Guid PersonnelFil
 
 public sealed record GetPersonnelFileBankAccountsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileBankAccountResponse>>;
 
+public sealed record GetPersonnelFileBankAccountByIdQuery(Guid PersonnelFileId, Guid BankAccountPublicId)
+    : IQuery<PersonnelFileBankAccountResponse>;
+
 public sealed record GetPersonnelFileAssociationsQuery(Guid PersonnelFileId) : IQuery<IReadOnlyCollection<PersonnelFileAssociationResponse>>;
 
 public sealed record GetPersonnelFileAssociationByIdQuery(Guid PersonnelFileId, Guid AssociationPublicId)
@@ -910,7 +918,20 @@ public sealed record DeletePersonnelFileBankAccountCommand(
     Guid PersonnelFileId,
     Guid BankAccountPublicId,
     Guid ConcurrencyToken)
-    : ICommand<bool>;
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFileBankAccountPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFileBankAccountCommand(
+    Guid PersonnelFileId,
+    Guid BankAccountPublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFileBankAccountPatchOperation> Operations)
+    : ICommand<PersonnelFileBankAccountResponse>;
 
 public sealed record AddPersonnelFileAssociationCommand(
     Guid PersonnelFileId,
@@ -2096,6 +2117,15 @@ internal sealed class PatchPersonnelFileEmployeeRelationCommandValidator : Abstr
     }
 }
 
+internal sealed class GetPersonnelFileBankAccountByIdQueryValidator : AbstractValidator<GetPersonnelFileBankAccountByIdQuery>
+{
+    public GetPersonnelFileBankAccountByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.BankAccountPublicId).NotEmpty();
+    }
+}
+
 internal sealed class AddPersonnelFileBankAccountCommandValidator : AbstractValidator<AddPersonnelFileBankAccountCommand>
 {
     public AddPersonnelFileBankAccountCommandValidator()
@@ -2123,6 +2153,25 @@ internal sealed class DeletePersonnelFileBankAccountCommandValidator : AbstractV
         RuleFor(command => command.PersonnelFileId).NotEmpty();
         RuleFor(command => command.BankAccountPublicId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchPersonnelFileBankAccountCommandValidator : AbstractValidator<PatchPersonnelFileBankAccountCommand>
+{
+    public PatchPersonnelFileBankAccountCommandValidator()
+    {
+        RuleFor(command => command.PersonnelFileId).NotEmpty();
+        RuleFor(command => command.BankAccountPublicId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -3641,6 +3690,35 @@ internal sealed class GetPersonnelFileBankAccountsQueryHandler(
 
         var response = await repository.GetBankAccountsAsync(query.PersonnelFileId, cancellationToken);
         return Result<IReadOnlyCollection<PersonnelFileBankAccountResponse>>.Success(response);
+    }
+}
+
+internal sealed class GetPersonnelFileBankAccountByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext)
+    : GetPersonnelFileSectionQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileBankAccountByIdQuery, PersonnelFileBankAccountResponse>
+{
+    public async Task<Result<PersonnelFileBankAccountResponse>> Handle(
+        GetPersonnelFileBankAccountByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var failure = await EnsureCanReadAsync<PersonnelFileBankAccountResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            repository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await repository.GetBankAccountAsync(query.PersonnelFileId, query.BankAccountPublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFileBankAccountResponse>.Success(response);
     }
 }
 
@@ -9124,14 +9202,15 @@ internal sealed class UpdatePersonnelFileBankAccountCommandHandler(
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var bankAccount = personnelFile.BankAccounts.FirstOrDefault(item => item.PublicId == command.BankAccountPublicId);
+        if (bankAccount is null)
         {
-            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
-        if (!personnelFile.BankAccounts.Any(i => i.PublicId == command.BankAccountPublicId))
+        if (bankAccount.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.NotFound);
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var companyCountryCode = await repository.GetCompanyCountryCodeAsync(personnelFile.TenantId, cancellationToken);
@@ -9218,21 +9297,21 @@ internal sealed class DeletePersonnelFileBankAccountCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<DeletePersonnelFileBankAccountCommand, bool>
+    : ICommandHandler<DeletePersonnelFileBankAccountCommand, PersonnelFileParentConcurrencyResult>
 {
-    public async Task<Result<bool>> Handle(
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
         DeletePersonnelFileBankAccountCommand command,
         CancellationToken cancellationToken)
     {
         if (!tenantContext.TenantId.HasValue)
         {
-            return Result<bool>.Failure(AuthorizationErrors.Unauthenticated);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
         }
 
         var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
         if (authorizationResult.IsFailure)
         {
-            return Result<bool>.Failure(authorizationResult.Error);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(authorizationResult.Error);
         }
 
         var personnelFile = await repository.GetForProfileSectionUpdateAsync(
@@ -9241,20 +9320,21 @@ internal sealed class DeletePersonnelFileBankAccountCommandHandler(
             cancellationToken);
         if (personnelFile is null)
         {
-            return Result<bool>.Failure(
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(
                 await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
                     ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
                     : PersonnelFileErrors.NotFound);
         }
 
-        if (personnelFile.ConcurrencyToken != command.ConcurrencyToken)
+        var bankAccount = personnelFile.BankAccounts.FirstOrDefault(item => item.PublicId == command.BankAccountPublicId);
+        if (bankAccount is null)
         {
-            return Result<bool>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
-        if (!personnelFile.BankAccounts.Any(i => i.PublicId == command.BankAccountPublicId))
+        if (bankAccount.ConcurrencyToken != command.ConcurrencyToken)
         {
-            return Result<bool>.Failure(PersonnelFileErrors.NotFound);
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         var before = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
@@ -9293,7 +9373,12 @@ internal sealed class DeletePersonnelFileBankAccountCommandHandler(
 
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return Result<bool>.Success(true);
+            return Result<PersonnelFileParentConcurrencyResult>.Success(
+                new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
         }
         catch
         {
@@ -9301,6 +9386,373 @@ internal sealed class DeletePersonnelFileBankAccountCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class PatchPersonnelFileBankAccountCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    IBankCatalogRepository bankCatalogRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchPersonnelFileBankAccountCommand, PersonnelFileBankAccountResponse>
+{
+    public async Task<Result<PersonnelFileBankAccountResponse>> Handle(
+        PatchPersonnelFileBankAccountCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(authorizationResult.Error);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+            command.PersonnelFileId,
+            PersonnelFileTrackedSection.BankAccounts,
+            cancellationToken);
+        if (personnelFile is null)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : PersonnelFileErrors.NotFound);
+        }
+
+        var bankAccount = personnelFile.BankAccounts.FirstOrDefault(item => item.PublicId == command.BankAccountPublicId);
+        if (bankAccount is null)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (bankAccount.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetBankAccountAsync(personnelFile.PublicId, command.BankAccountPublicId, cancellationToken);
+        if (before is null)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        var state = PersonnelFileBankAccountPatchState.From(before);
+        var applyResult = PersonnelFileBankAccountPatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFileBankAccountPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Success(before);
+        }
+
+        var input = state.ToInput();
+
+        var companyCountryCode = await repository.GetCompanyCountryCodeAsync(personnelFile.TenantId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(companyCountryCode))
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(ErrorCatalog.NotFound);
+        }
+
+        var bankLookup = await bankCatalogRepository.GetActiveLookupByCountryAsync(
+            companyCountryCode,
+            input.BankPublicId,
+            cancellationToken);
+        if (bankLookup is null)
+        {
+            return Result<PersonnelFileBankAccountResponse>.Failure(
+                ErrorCatalog.Validation(
+                    new Dictionary<string, string[]>
+                    {
+                        ["bankPublicId"] =
+                        [
+                            "BankPublicId must reference an active bank catalog item for the company country."
+                        ]
+                    }));
+        }
+
+        var beforeList = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            personnelFile.UpdateBankAccount(
+                command.BankAccountPublicId,
+                bankLookup.InternalId,
+                bankLookup.Code,
+                input.CurrencyCode,
+                input.AccountNumber,
+                input.AccountTypeCode,
+                input.IsPrimary);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var afterList = await repository.GetBankAccountsAsync(personnelFile.PublicId, cancellationToken);
+            var response = afterList.SingleOrDefault(item => item.Id == command.BankAccountPublicId)
+                ?? throw new InvalidOperationException("Personnel file bank account response could not be resolved after patch.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.PersonnelFileUpdated,
+                    AuditEntityTypes.PersonnelFile,
+                    personnelFile.PublicId,
+                    personnelFile.FullName,
+                    AuditActions.Update,
+                    $"Patched bank account for personnel file {personnelFile.FullName}.",
+                    Before: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.BankAccounts,
+                        data = beforeList
+                    },
+                    After: new
+                    {
+                        personnelFileId = personnelFile.PublicId,
+                        section = PersonnelFilePrintSections.BankAccounts,
+                        data = afterList,
+                        personnelFileConcurrencyToken = personnelFile.ConcurrencyToken,
+                        modifiedAtUtc = personnelFile.ModifiedUtc
+                    }),
+                cancellationToken);
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result<PersonnelFileBankAccountResponse>.Success(response);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<PersonnelFileBankAccountResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class PersonnelFileBankAccountPatchState
+{
+    public Guid BankPublicId { get; set; }
+    public string CurrencyCode { get; set; } = string.Empty;
+    public string AccountNumber { get; set; } = string.Empty;
+    public string AccountTypeCode { get; set; } = string.Empty;
+    public bool IsPrimary { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFileBankAccountPatchState From(PersonnelFileBankAccountResponse response) =>
+        new()
+        {
+            BankPublicId = response.BankPublicId ?? Guid.Empty,
+            CurrencyCode = response.CurrencyCode,
+            AccountNumber = response.AccountNumber,
+            AccountTypeCode = response.AccountTypeCode,
+            IsPrimary = response.IsPrimary
+        };
+
+    public BankAccountInput ToInput() =>
+        new(
+            BankPublicId,
+            CurrencyCode,
+            AccountNumber,
+            AccountTypeCode,
+            IsPrimary);
+}
+
+internal static class PersonnelFileBankAccountPatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<PersonnelFileBankAccountPatchOperation> operations, PersonnelFileBankAccountPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root bank account properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFileBankAccountPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (state.BankPublicId == Guid.Empty)
+        {
+            errors["bankPublicId"] = ["BankPublicId is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.CurrencyCode))
+        {
+            errors["currencyCode"] = ["CurrencyCode is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.AccountNumber))
+        {
+            errors["accountNumber"] = ["AccountNumber is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.AccountTypeCode))
+        {
+            errors["accountTypeCode"] = ["AccountTypeCode is required."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFileBankAccountPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "bankPublicId"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "BankPublicId cannot be removed.")
+                : Mutate(state, () => state.BankPublicId = ReadGuid(value, path));
+        }
+
+        if (IsSegment(property, "currencyCode"))
+        {
+            return Mutate(state, () => state.CurrencyCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "accountNumber"))
+        {
+            return Mutate(state, () => state.AccountNumber = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "accountTypeCode"))
+        {
+            return Mutate(state, () => state.AccountTypeCode = isRemove ? string.Empty : ReadRequiredString(value, path));
+        }
+
+        if (IsSegment(property, "isPrimary"))
+        {
+            return isRemove
+                ? ValidationFailure(path, "IsPrimary cannot be removed.")
+                : Mutate(state, () => state.IsPrimary = ReadBool(value, path));
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFileBankAccountPatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadRequiredString(JsonElement? value, string path) =>
+        ReadNullableString(value, path) ?? string.Empty;
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new PersonnelFilePatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static Guid ReadGuid(JsonElement? value, string path)
+    {
+        if (!IsNull(value) &&
+            value!.Value.ValueKind == JsonValueKind.String &&
+            value.Value.TryGetGuid(out var parsed))
+        {
+            return parsed;
+        }
+
+        throw new PersonnelFilePatchValueException(path, "Value must be a valid GUID string.");
+    }
+
+    private static bool ReadBool(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new PersonnelFilePatchValueException(path, "Value must be a boolean.");
+        }
+
+        return value!.Value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw new PersonnelFilePatchValueException(path, "Value must be a boolean.")
+        };
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
 
 internal sealed class AddPersonnelFileAssociationCommandHandler(

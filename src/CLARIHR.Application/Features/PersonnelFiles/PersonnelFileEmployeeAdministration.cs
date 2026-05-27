@@ -76,7 +76,7 @@ public sealed record PersonnelFilePositionHierarchySubordinateResponse(
     Guid? OrgUnitId);
 
 public sealed record PersonnelFileSalaryItemResponse(
-    Guid Id,
+    Guid SalaryItemPublicId,
     string IncomeTypeCode,
     string SalaryRubricCode,
     string CurrencyCode,
@@ -84,25 +84,40 @@ public sealed record PersonnelFileSalaryItemResponse(
     decimal Amount,
     DateTime StartDate,
     DateTime? EndDate,
-    bool IsActive);
+    bool IsActive,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => SalaryItemPublicId;
+}
 
 public sealed record PersonnelFileAdditionalBenefitResponse(
-    Guid Id,
+    Guid AdditionalBenefitPublicId,
     string BenefitTypeCode,
     DateTime? StartDate,
     DateTime? EndDate,
     bool IsActive,
-    string? Notes);
+    string? Notes,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => AdditionalBenefitPublicId;
+}
 
 public sealed record PersonnelFilePaymentMethodResponse(
-    Guid Id,
+    Guid PaymentMethodPublicId,
     string PaymentMethodCode,
     Guid? BankAccountId,
     bool IsPrimary,
     bool IsActive,
     DateTime EffectiveFromUtc,
     DateTime? EffectiveToUtc,
-    string? Notes);
+    string? Notes,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => PaymentMethodPublicId;
+}
 
 public sealed record PersonnelFileAuthorizationSubstitutionResponse(
     Guid Id,
@@ -145,7 +160,7 @@ public sealed record PersonnelFilePersonnelActionExportRow(
     DateTime? ModifiedAtUtc);
 
 public sealed record PersonnelFilePayrollTransactionResponse(
-    Guid Id,
+    Guid PayrollTransactionPublicId,
     string TransactionTypeCode,
     DateTime TransactionDateUtc,
     string PayrollPeriodCode,
@@ -157,7 +172,13 @@ public sealed record PersonnelFilePayrollTransactionResponse(
     string? SourceReference,
     DateTime? SourceSyncedUtc,
     DateTime CreatedAtUtc,
-    DateTime? ModifiedAtUtc);
+    DateTime? ModifiedAtUtc,
+    bool IsActive,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => PayrollTransactionPublicId;
+}
 
 public sealed record PersonnelFilePayrollTransactionExportRow(
     Guid Id,
@@ -187,15 +208,20 @@ public sealed record PersonnelFileAssetAccessResponse(
     string? Notes);
 
 public sealed record PersonnelFileInsuranceBeneficiaryResponse(
-    Guid Id,
+    Guid BeneficiaryPublicId,
     string FullName,
     string? DocumentNumber,
     DateTime? BirthDate,
     string KinshipCode,
-    bool IsActive);
+    bool IsActive,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => BeneficiaryPublicId;
+}
 
 public sealed record PersonnelFileInsuranceResponse(
-    Guid Id,
+    Guid InsurancePublicId,
     string InsuranceCode,
     decimal? EmployeeContribution,
     decimal? EmployerContribution,
@@ -206,10 +232,15 @@ public sealed record PersonnelFileInsuranceResponse(
     bool IsActive,
     DateTime? StartDateUtc,
     DateTime? EndDateUtc,
-    IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse> Beneficiaries);
+    IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse> Beneficiaries,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => InsurancePublicId;
+}
 
 public sealed record PersonnelFileMedicalClaimResponse(
-    Guid Id,
+    Guid MedicalClaimPublicId,
     Guid? InsuranceId,
     string? AccountNumber,
     string ClaimTypeCode,
@@ -222,7 +253,13 @@ public sealed record PersonnelFileMedicalClaimResponse(
     DateTime ClaimDateUtc,
     string? SourceSystem,
     string? SourceReference,
-    DateTime? SourceSyncedUtc);
+    DateTime? SourceSyncedUtc,
+    bool IsActive,
+    Guid ConcurrencyToken)
+{
+    [JsonIgnore]
+    public Guid Id => MedicalClaimPublicId;
+}
 
 public sealed record PersonnelFilePerformanceEvaluationResponse(
     Guid EvaluationPublicId,
@@ -395,23 +432,39 @@ public sealed record SalaryItemInput(
 public sealed record AddPersonnelFileSalaryItemCommand(
     Guid PersonnelFileId,
     SalaryItemInput Item)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>;
+    : ICommand<PersonnelFileSalaryItemResponse>;
 
 public sealed record UpdatePersonnelFileSalaryItemCommand(
     Guid PersonnelFileId,
-    Guid ItemPublicId,
+    Guid SalaryItemPublicId,
     SalaryItemInput Item,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>;
+    : ICommand<PersonnelFileSalaryItemResponse>;
 
-public sealed record DeactivatePersonnelFileSalaryItemCommand(
+public sealed record DeletePersonnelFileSalaryItemCommand(
     Guid PersonnelFileId,
-    Guid ItemPublicId,
+    Guid SalaryItemPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>;
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFileSalaryItemPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFileSalaryItemCommand(
+    Guid PersonnelFileId,
+    Guid SalaryItemPublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFileSalaryItemPatchOperation> Operations)
+    : ICommand<PersonnelFileSalaryItemResponse>;
 
 public sealed record GetPersonnelFileSalaryItemsQuery(Guid PersonnelFileId)
     : IQuery<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>;
+
+public sealed record GetPersonnelFileSalaryItemByIdQuery(Guid PersonnelFileId, Guid SalaryItemPublicId)
+    : IQuery<PersonnelFileSalaryItemResponse>;
 
 public sealed record AdditionalBenefitInput(
     string BenefitTypeCode,
@@ -423,23 +476,39 @@ public sealed record AdditionalBenefitInput(
 public sealed record AddPersonnelFileAdditionalBenefitCommand(
     Guid PersonnelFileId,
     AdditionalBenefitInput Item)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>;
+    : ICommand<PersonnelFileAdditionalBenefitResponse>;
 
 public sealed record UpdatePersonnelFileAdditionalBenefitCommand(
     Guid PersonnelFileId,
-    Guid ItemPublicId,
+    Guid AdditionalBenefitPublicId,
     AdditionalBenefitInput Item,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>;
+    : ICommand<PersonnelFileAdditionalBenefitResponse>;
 
-public sealed record DeactivatePersonnelFileAdditionalBenefitCommand(
+public sealed record DeletePersonnelFileAdditionalBenefitCommand(
     Guid PersonnelFileId,
-    Guid ItemPublicId,
+    Guid AdditionalBenefitPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>;
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFileAdditionalBenefitPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFileAdditionalBenefitCommand(
+    Guid PersonnelFileId,
+    Guid AdditionalBenefitPublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFileAdditionalBenefitPatchOperation> Operations)
+    : ICommand<PersonnelFileAdditionalBenefitResponse>;
 
 public sealed record GetPersonnelFileAdditionalBenefitsQuery(Guid PersonnelFileId)
     : IQuery<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>;
+
+public sealed record GetPersonnelFileAdditionalBenefitByIdQuery(Guid PersonnelFileId, Guid AdditionalBenefitPublicId)
+    : IQuery<PersonnelFileAdditionalBenefitResponse>;
 
 public sealed record PaymentMethodInput(
     string PaymentMethodCode,
@@ -453,23 +522,39 @@ public sealed record PaymentMethodInput(
 public sealed record AddPersonnelFilePaymentMethodCommand(
     Guid PersonnelFileId,
     PaymentMethodInput Item)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>;
+    : ICommand<PersonnelFilePaymentMethodResponse>;
 
 public sealed record UpdatePersonnelFilePaymentMethodCommand(
     Guid PersonnelFileId,
-    Guid ItemPublicId,
+    Guid PaymentMethodPublicId,
     PaymentMethodInput Item,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>;
+    : ICommand<PersonnelFilePaymentMethodResponse>;
 
-public sealed record DeactivatePersonnelFilePaymentMethodCommand(
+public sealed record DeletePersonnelFilePaymentMethodCommand(
     Guid PersonnelFileId,
-    Guid ItemPublicId,
+    Guid PaymentMethodPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>;
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFilePaymentMethodPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFilePaymentMethodCommand(
+    Guid PersonnelFileId,
+    Guid PaymentMethodPublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFilePaymentMethodPatchOperation> Operations)
+    : ICommand<PersonnelFilePaymentMethodResponse>;
 
 public sealed record GetPersonnelFilePaymentMethodsQuery(Guid PersonnelFileId)
     : IQuery<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>;
+
+public sealed record GetPersonnelFilePaymentMethodByIdQuery(Guid PersonnelFileId, Guid PaymentMethodPublicId)
+    : IQuery<PersonnelFilePaymentMethodResponse>;
 
 public sealed record AuthorizationSubstitutionInput(
     string SubstitutionTypeCode,
@@ -556,11 +641,21 @@ public sealed record AddPersonnelFilePayrollTransactionCommand(
     PayrollTransactionInput Item)
     : ICommand<PersonnelFilePayrollTransactionResponse>;
 
-public sealed record DeactivatePersonnelFilePayrollTransactionCommand(
+public sealed record GetPersonnelFilePayrollTransactionByIdQuery(Guid PersonnelFileId, Guid PayrollTransactionPublicId)
+    : IQuery<PersonnelFilePayrollTransactionResponse>;
+
+public sealed record PersonnelFilePayrollTransactionPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFilePayrollTransactionCommand(
     Guid PersonnelFileId,
-    Guid ItemPublicId,
-    Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePayrollTransactionResponse>>>;
+    Guid PayrollTransactionPublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFilePayrollTransactionPatchOperation> Operations)
+    : ICommand<PersonnelFilePayrollTransactionResponse>;
 
 public sealed record SearchPersonnelFilePayrollTransactionsQuery(
     Guid PersonnelFileId,
@@ -635,29 +730,90 @@ public sealed record InsuranceInput(
     string? CurrencyCode,
     bool IsActive,
     DateTime? StartDateUtc,
-    DateTime? EndDateUtc,
-    IReadOnlyCollection<InsuranceBeneficiaryInput> Beneficiaries);
+    DateTime? EndDateUtc);
 
 public sealed record AddPersonnelFileInsuranceCommand(
     Guid PersonnelFileId,
     InsuranceInput Item)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>;
+    : ICommand<PersonnelFileInsuranceResponse>;
 
 public sealed record UpdatePersonnelFileInsuranceCommand(
     Guid PersonnelFileId,
-    Guid ItemPublicId,
+    Guid InsurancePublicId,
     InsuranceInput Item,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>;
+    : ICommand<PersonnelFileInsuranceResponse>;
 
-public sealed record DeactivatePersonnelFileInsuranceCommand(
+public sealed record DeletePersonnelFileInsuranceCommand(
     Guid PersonnelFileId,
-    Guid ItemPublicId,
+    Guid InsurancePublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>;
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFileInsurancePatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFileInsuranceCommand(
+    Guid PersonnelFileId,
+    Guid InsurancePublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFileInsurancePatchOperation> Operations)
+    : ICommand<PersonnelFileInsuranceResponse>;
 
 public sealed record GetPersonnelFileInsurancesQuery(Guid PersonnelFileId)
     : IQuery<IReadOnlyCollection<PersonnelFileInsuranceResponse>>;
+
+public sealed record GetPersonnelFileInsuranceByIdQuery(Guid PersonnelFileId, Guid InsurancePublicId)
+    : IQuery<PersonnelFileInsuranceResponse>;
+
+// ─── Insurance Beneficiaries ──────────────────────────────────────────────────
+
+public sealed record AddPersonnelFileInsuranceBeneficiaryCommand(
+    Guid PersonnelFileId,
+    Guid InsurancePublicId,
+    InsuranceBeneficiaryInput Item)
+    : ICommand<PersonnelFileInsuranceBeneficiaryResponse>;
+
+public sealed record UpdatePersonnelFileInsuranceBeneficiaryCommand(
+    Guid PersonnelFileId,
+    Guid InsurancePublicId,
+    Guid BeneficiaryPublicId,
+    InsuranceBeneficiaryInput Item,
+    Guid ConcurrencyToken)
+    : ICommand<PersonnelFileInsuranceBeneficiaryResponse>;
+
+public sealed record DeletePersonnelFileInsuranceBeneficiaryCommand(
+    Guid PersonnelFileId,
+    Guid InsurancePublicId,
+    Guid BeneficiaryPublicId,
+    Guid ConcurrencyToken)
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFileInsuranceBeneficiaryPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFileInsuranceBeneficiaryCommand(
+    Guid PersonnelFileId,
+    Guid InsurancePublicId,
+    Guid BeneficiaryPublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryPatchOperation> Operations)
+    : ICommand<PersonnelFileInsuranceBeneficiaryResponse>;
+
+public sealed record GetPersonnelFileInsuranceBeneficiariesQuery(Guid PersonnelFileId, Guid InsurancePublicId)
+    : IQuery<IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse>>;
+
+public sealed record GetPersonnelFileInsuranceBeneficiaryByIdQuery(
+    Guid PersonnelFileId,
+    Guid InsurancePublicId,
+    Guid BeneficiaryPublicId)
+    : IQuery<PersonnelFileInsuranceBeneficiaryResponse>;
 
 public sealed record MedicalClaimInput(
     Guid? InsurancePublicId,
@@ -677,23 +833,39 @@ public sealed record MedicalClaimInput(
 public sealed record AddPersonnelFileMedicalClaimCommand(
     Guid PersonnelFileId,
     MedicalClaimInput Item)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>;
+    : ICommand<PersonnelFileMedicalClaimResponse>;
 
 public sealed record UpdatePersonnelFileMedicalClaimCommand(
     Guid PersonnelFileId,
-    Guid ItemPublicId,
+    Guid MedicalClaimPublicId,
     MedicalClaimInput Item,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>;
+    : ICommand<PersonnelFileMedicalClaimResponse>;
 
-public sealed record DeactivatePersonnelFileMedicalClaimCommand(
+public sealed record DeletePersonnelFileMedicalClaimCommand(
     Guid PersonnelFileId,
-    Guid ItemPublicId,
+    Guid MedicalClaimPublicId,
     Guid ConcurrencyToken)
-    : ICommand<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>;
+    : ICommand<PersonnelFileParentConcurrencyResult>;
+
+public sealed record PersonnelFileMedicalClaimPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchPersonnelFileMedicalClaimCommand(
+    Guid PersonnelFileId,
+    Guid MedicalClaimPublicId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<PersonnelFileMedicalClaimPatchOperation> Operations)
+    : ICommand<PersonnelFileMedicalClaimResponse>;
 
 public sealed record GetPersonnelFileMedicalClaimsQuery(Guid PersonnelFileId)
     : IQuery<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>;
+
+public sealed record GetPersonnelFileMedicalClaimByIdQuery(Guid PersonnelFileId, Guid MedicalClaimPublicId)
+    : IQuery<PersonnelFileMedicalClaimResponse>;
 
 public sealed record PerformanceEvaluationInput(
     string EvaluatorName,
@@ -1020,7 +1192,6 @@ internal sealed class InsuranceInputValidator : AbstractValidator<InsuranceInput
     public InsuranceInputValidator()
     {
         RuleFor(input => input.InsuranceCode).NotEmpty().MaximumLength(80);
-        RuleForEach(input => input.Beneficiaries).SetValidator(new InsuranceBeneficiaryInputValidator());
     }
 }
 
@@ -1158,19 +1329,38 @@ internal sealed class UpdatePersonnelFileSalaryItemCommandValidator : AbstractVa
     public UpdatePersonnelFileSalaryItemCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ItemPublicId).NotEmpty();
+        RuleFor(c => c.SalaryItemPublicId).NotEmpty();
         RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new SalaryItemInputValidator());
     }
 }
 
-internal sealed class DeactivatePersonnelFileSalaryItemCommandValidator : AbstractValidator<DeactivatePersonnelFileSalaryItemCommand>
+internal sealed class DeletePersonnelFileSalaryItemCommandValidator : AbstractValidator<DeletePersonnelFileSalaryItemCommand>
 {
-    public DeactivatePersonnelFileSalaryItemCommandValidator()
+    public DeletePersonnelFileSalaryItemCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ItemPublicId).NotEmpty();
+        RuleFor(c => c.SalaryItemPublicId).NotEmpty();
         RuleFor(c => c.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchPersonnelFileSalaryItemCommandValidator : AbstractValidator<PatchPersonnelFileSalaryItemCommand>
+{
+    public PatchPersonnelFileSalaryItemCommandValidator()
+    {
+        RuleFor(c => c.PersonnelFileId).NotEmpty();
+        RuleFor(c => c.SalaryItemPublicId).NotEmpty();
+        RuleFor(c => c.ConcurrencyToken).NotEmpty();
+        RuleFor(c => c.Operations).NotEmpty();
+        RuleFor(c => c.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(c => c.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -1179,6 +1369,15 @@ internal sealed class GetPersonnelFileSalaryItemsQueryValidator : AbstractValida
     public GetPersonnelFileSalaryItemsQueryValidator()
     {
         RuleFor(query => query.PersonnelFileId).NotEmpty();
+    }
+}
+
+internal sealed class GetPersonnelFileSalaryItemByIdQueryValidator : AbstractValidator<GetPersonnelFileSalaryItemByIdQuery>
+{
+    public GetPersonnelFileSalaryItemByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.SalaryItemPublicId).NotEmpty();
     }
 }
 
@@ -1196,19 +1395,38 @@ internal sealed class UpdatePersonnelFileAdditionalBenefitCommandValidator : Abs
     public UpdatePersonnelFileAdditionalBenefitCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ItemPublicId).NotEmpty();
+        RuleFor(c => c.AdditionalBenefitPublicId).NotEmpty();
         RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new AdditionalBenefitInputValidator());
     }
 }
 
-internal sealed class DeactivatePersonnelFileAdditionalBenefitCommandValidator : AbstractValidator<DeactivatePersonnelFileAdditionalBenefitCommand>
+internal sealed class DeletePersonnelFileAdditionalBenefitCommandValidator : AbstractValidator<DeletePersonnelFileAdditionalBenefitCommand>
 {
-    public DeactivatePersonnelFileAdditionalBenefitCommandValidator()
+    public DeletePersonnelFileAdditionalBenefitCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ItemPublicId).NotEmpty();
+        RuleFor(c => c.AdditionalBenefitPublicId).NotEmpty();
         RuleFor(c => c.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchPersonnelFileAdditionalBenefitCommandValidator : AbstractValidator<PatchPersonnelFileAdditionalBenefitCommand>
+{
+    public PatchPersonnelFileAdditionalBenefitCommandValidator()
+    {
+        RuleFor(c => c.PersonnelFileId).NotEmpty();
+        RuleFor(c => c.AdditionalBenefitPublicId).NotEmpty();
+        RuleFor(c => c.ConcurrencyToken).NotEmpty();
+        RuleFor(c => c.Operations).NotEmpty();
+        RuleFor(c => c.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(c => c.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -1217,6 +1435,15 @@ internal sealed class GetPersonnelFileAdditionalBenefitsQueryValidator : Abstrac
     public GetPersonnelFileAdditionalBenefitsQueryValidator()
     {
         RuleFor(query => query.PersonnelFileId).NotEmpty();
+    }
+}
+
+internal sealed class GetPersonnelFileAdditionalBenefitByIdQueryValidator : AbstractValidator<GetPersonnelFileAdditionalBenefitByIdQuery>
+{
+    public GetPersonnelFileAdditionalBenefitByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.AdditionalBenefitPublicId).NotEmpty();
     }
 }
 
@@ -1234,19 +1461,38 @@ internal sealed class UpdatePersonnelFilePaymentMethodCommandValidator : Abstrac
     public UpdatePersonnelFilePaymentMethodCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ItemPublicId).NotEmpty();
+        RuleFor(c => c.PaymentMethodPublicId).NotEmpty();
         RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new PaymentMethodInputValidator());
     }
 }
 
-internal sealed class DeactivatePersonnelFilePaymentMethodCommandValidator : AbstractValidator<DeactivatePersonnelFilePaymentMethodCommand>
+internal sealed class DeletePersonnelFilePaymentMethodCommandValidator : AbstractValidator<DeletePersonnelFilePaymentMethodCommand>
 {
-    public DeactivatePersonnelFilePaymentMethodCommandValidator()
+    public DeletePersonnelFilePaymentMethodCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ItemPublicId).NotEmpty();
+        RuleFor(c => c.PaymentMethodPublicId).NotEmpty();
         RuleFor(c => c.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchPersonnelFilePaymentMethodCommandValidator : AbstractValidator<PatchPersonnelFilePaymentMethodCommand>
+{
+    public PatchPersonnelFilePaymentMethodCommandValidator()
+    {
+        RuleFor(c => c.PersonnelFileId).NotEmpty();
+        RuleFor(c => c.PaymentMethodPublicId).NotEmpty();
+        RuleFor(c => c.ConcurrencyToken).NotEmpty();
+        RuleFor(c => c.Operations).NotEmpty();
+        RuleFor(c => c.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(c => c.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -1255,6 +1501,15 @@ internal sealed class GetPersonnelFilePaymentMethodsQueryValidator : AbstractVal
     public GetPersonnelFilePaymentMethodsQueryValidator()
     {
         RuleFor(query => query.PersonnelFileId).NotEmpty();
+    }
+}
+
+internal sealed class GetPersonnelFilePaymentMethodByIdQueryValidator : AbstractValidator<GetPersonnelFilePaymentMethodByIdQuery>
+{
+    public GetPersonnelFilePaymentMethodByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.PaymentMethodPublicId).NotEmpty();
     }
 }
 
@@ -1305,13 +1560,31 @@ internal sealed class AddPersonnelFilePayrollTransactionCommandValidator : Abstr
     }
 }
 
-internal sealed class DeactivatePersonnelFilePayrollTransactionCommandValidator : AbstractValidator<DeactivatePersonnelFilePayrollTransactionCommand>
+internal sealed class GetPersonnelFilePayrollTransactionByIdQueryValidator : AbstractValidator<GetPersonnelFilePayrollTransactionByIdQuery>
 {
-    public DeactivatePersonnelFilePayrollTransactionCommandValidator()
+    public GetPersonnelFilePayrollTransactionByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.PayrollTransactionPublicId).NotEmpty();
+    }
+}
+
+internal sealed class PatchPersonnelFilePayrollTransactionCommandValidator : AbstractValidator<PatchPersonnelFilePayrollTransactionCommand>
+{
+    public PatchPersonnelFilePayrollTransactionCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ItemPublicId).NotEmpty();
+        RuleFor(c => c.PayrollTransactionPublicId).NotEmpty();
         RuleFor(c => c.ConcurrencyToken).NotEmpty();
+        RuleFor(c => c.Operations).NotEmpty();
+        RuleFor(c => c.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(c => c.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -1367,19 +1640,38 @@ internal sealed class UpdatePersonnelFileInsuranceCommandValidator : AbstractVal
     public UpdatePersonnelFileInsuranceCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ItemPublicId).NotEmpty();
+        RuleFor(c => c.InsurancePublicId).NotEmpty();
         RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new InsuranceInputValidator());
     }
 }
 
-internal sealed class DeactivatePersonnelFileInsuranceCommandValidator : AbstractValidator<DeactivatePersonnelFileInsuranceCommand>
+internal sealed class DeletePersonnelFileInsuranceCommandValidator : AbstractValidator<DeletePersonnelFileInsuranceCommand>
 {
-    public DeactivatePersonnelFileInsuranceCommandValidator()
+    public DeletePersonnelFileInsuranceCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ItemPublicId).NotEmpty();
+        RuleFor(c => c.InsurancePublicId).NotEmpty();
         RuleFor(c => c.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchPersonnelFileInsuranceCommandValidator : AbstractValidator<PatchPersonnelFileInsuranceCommand>
+{
+    public PatchPersonnelFileInsuranceCommandValidator()
+    {
+        RuleFor(c => c.PersonnelFileId).NotEmpty();
+        RuleFor(c => c.InsurancePublicId).NotEmpty();
+        RuleFor(c => c.ConcurrencyToken).NotEmpty();
+        RuleFor(c => c.Operations).NotEmpty();
+        RuleFor(c => c.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(c => c.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -1388,6 +1680,87 @@ internal sealed class GetPersonnelFileInsurancesQueryValidator : AbstractValidat
     public GetPersonnelFileInsurancesQueryValidator()
     {
         RuleFor(query => query.PersonnelFileId).NotEmpty();
+    }
+}
+
+internal sealed class GetPersonnelFileInsuranceByIdQueryValidator : AbstractValidator<GetPersonnelFileInsuranceByIdQuery>
+{
+    public GetPersonnelFileInsuranceByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.InsurancePublicId).NotEmpty();
+    }
+}
+
+internal sealed class AddPersonnelFileInsuranceBeneficiaryCommandValidator : AbstractValidator<AddPersonnelFileInsuranceBeneficiaryCommand>
+{
+    public AddPersonnelFileInsuranceBeneficiaryCommandValidator()
+    {
+        RuleFor(c => c.PersonnelFileId).NotEmpty();
+        RuleFor(c => c.InsurancePublicId).NotEmpty();
+        RuleFor(c => c.Item).NotNull().SetValidator(new InsuranceBeneficiaryInputValidator());
+    }
+}
+
+internal sealed class UpdatePersonnelFileInsuranceBeneficiaryCommandValidator : AbstractValidator<UpdatePersonnelFileInsuranceBeneficiaryCommand>
+{
+    public UpdatePersonnelFileInsuranceBeneficiaryCommandValidator()
+    {
+        RuleFor(c => c.PersonnelFileId).NotEmpty();
+        RuleFor(c => c.InsurancePublicId).NotEmpty();
+        RuleFor(c => c.BeneficiaryPublicId).NotEmpty();
+        RuleFor(c => c.ConcurrencyToken).NotEmpty();
+        RuleFor(c => c.Item).NotNull().SetValidator(new InsuranceBeneficiaryInputValidator());
+    }
+}
+
+internal sealed class DeletePersonnelFileInsuranceBeneficiaryCommandValidator : AbstractValidator<DeletePersonnelFileInsuranceBeneficiaryCommand>
+{
+    public DeletePersonnelFileInsuranceBeneficiaryCommandValidator()
+    {
+        RuleFor(c => c.PersonnelFileId).NotEmpty();
+        RuleFor(c => c.InsurancePublicId).NotEmpty();
+        RuleFor(c => c.BeneficiaryPublicId).NotEmpty();
+        RuleFor(c => c.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchPersonnelFileInsuranceBeneficiaryCommandValidator : AbstractValidator<PatchPersonnelFileInsuranceBeneficiaryCommand>
+{
+    public PatchPersonnelFileInsuranceBeneficiaryCommandValidator()
+    {
+        RuleFor(c => c.PersonnelFileId).NotEmpty();
+        RuleFor(c => c.InsurancePublicId).NotEmpty();
+        RuleFor(c => c.BeneficiaryPublicId).NotEmpty();
+        RuleFor(c => c.ConcurrencyToken).NotEmpty();
+        RuleFor(c => c.Operations).NotEmpty();
+        RuleFor(c => c.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(c => c.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
+    }
+}
+
+internal sealed class GetPersonnelFileInsuranceBeneficiariesQueryValidator : AbstractValidator<GetPersonnelFileInsuranceBeneficiariesQuery>
+{
+    public GetPersonnelFileInsuranceBeneficiariesQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.InsurancePublicId).NotEmpty();
+    }
+}
+
+internal sealed class GetPersonnelFileInsuranceBeneficiaryByIdQueryValidator : AbstractValidator<GetPersonnelFileInsuranceBeneficiaryByIdQuery>
+{
+    public GetPersonnelFileInsuranceBeneficiaryByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.InsurancePublicId).NotEmpty();
+        RuleFor(query => query.BeneficiaryPublicId).NotEmpty();
     }
 }
 
@@ -1405,19 +1778,38 @@ internal sealed class UpdatePersonnelFileMedicalClaimCommandValidator : Abstract
     public UpdatePersonnelFileMedicalClaimCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ItemPublicId).NotEmpty();
+        RuleFor(c => c.MedicalClaimPublicId).NotEmpty();
         RuleFor(c => c.ConcurrencyToken).NotEmpty();
         RuleFor(c => c.Item).NotNull().SetValidator(new MedicalClaimInputValidator());
     }
 }
 
-internal sealed class DeactivatePersonnelFileMedicalClaimCommandValidator : AbstractValidator<DeactivatePersonnelFileMedicalClaimCommand>
+internal sealed class DeletePersonnelFileMedicalClaimCommandValidator : AbstractValidator<DeletePersonnelFileMedicalClaimCommand>
 {
-    public DeactivatePersonnelFileMedicalClaimCommandValidator()
+    public DeletePersonnelFileMedicalClaimCommandValidator()
     {
         RuleFor(c => c.PersonnelFileId).NotEmpty();
-        RuleFor(c => c.ItemPublicId).NotEmpty();
+        RuleFor(c => c.MedicalClaimPublicId).NotEmpty();
         RuleFor(c => c.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchPersonnelFileMedicalClaimCommandValidator : AbstractValidator<PatchPersonnelFileMedicalClaimCommand>
+{
+    public PatchPersonnelFileMedicalClaimCommandValidator()
+    {
+        RuleFor(c => c.PersonnelFileId).NotEmpty();
+        RuleFor(c => c.MedicalClaimPublicId).NotEmpty();
+        RuleFor(c => c.ConcurrencyToken).NotEmpty();
+        RuleFor(c => c.Operations).NotEmpty();
+        RuleFor(c => c.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(c => c.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -1426,6 +1818,15 @@ internal sealed class GetPersonnelFileMedicalClaimsQueryValidator : AbstractVali
     public GetPersonnelFileMedicalClaimsQueryValidator()
     {
         RuleFor(query => query.PersonnelFileId).NotEmpty();
+    }
+}
+
+internal sealed class GetPersonnelFileMedicalClaimByIdQueryValidator : AbstractValidator<GetPersonnelFileMedicalClaimByIdQuery>
+{
+    public GetPersonnelFileMedicalClaimByIdQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.MedicalClaimPublicId).NotEmpty();
     }
 }
 
@@ -2379,13 +2780,13 @@ internal sealed class AddPersonnelFileSalaryItemCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<AddPersonnelFileSalaryItemCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>
+      ICommandHandler<AddPersonnelFileSalaryItemCommand, PersonnelFileSalaryItemResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>> Handle(
+    public async Task<Result<PersonnelFileSalaryItemResponse>> Handle(
         AddPersonnelFileSalaryItemCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>(
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSalaryItemResponse>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
@@ -2399,7 +2800,7 @@ internal sealed class AddPersonnelFileSalaryItemCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileSalaryItemResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
         var entity = PersonnelFileSalaryItem.Create(
@@ -2414,7 +2815,9 @@ internal sealed class AddPersonnelFileSalaryItemCommandHandler(
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(personnelFile.TenantId);
 
-        var response = await employeeRepository.AddSalaryItemAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
+        var all = await employeeRepository.AddSalaryItemAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
+        var response = all.SingleOrDefault(item => item.Id == entity.PublicId)
+            ?? throw new InvalidOperationException("Personnel file salary item response could not be resolved after creation.");
         TouchPersonnelFile(personnelFile);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -2431,7 +2834,7 @@ internal sealed class AddPersonnelFileSalaryItemCommandHandler(
             throw;
         }
 
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>.Success(CreateSectionResult(personnelFile, response));
+        return Result<PersonnelFileSalaryItemResponse>.Success(response);
     }
 }
 
@@ -2443,15 +2846,15 @@ internal sealed class UpdatePersonnelFileSalaryItemCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<UpdatePersonnelFileSalaryItemCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>
+      ICommandHandler<UpdatePersonnelFileSalaryItemCommand, PersonnelFileSalaryItemResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>> Handle(
+    public async Task<Result<PersonnelFileSalaryItemResponse>> Handle(
         UpdatePersonnelFileSalaryItemCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>(
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSalaryItemResponse>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -2463,11 +2866,23 @@ internal sealed class UpdatePersonnelFileSalaryItemCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileSalaryItemResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
+        var existing = await employeeRepository.GetSalaryItemAsync(personnelFile.PublicId, command.SalaryItemPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileSalaryItemResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileSalaryItemResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
         var response = await employeeRepository.UpdateSalaryItemAsync(
-            command.ItemPublicId,
+            command.SalaryItemPublicId,
             personnelFile.TenantId,
             command.Item.IncomeTypeCode,
             command.Item.SalaryRubricCode,
@@ -2476,11 +2891,10 @@ internal sealed class UpdatePersonnelFileSalaryItemCommandHandler(
             command.Item.Amount,
             command.Item.StartDate,
             command.Item.EndDate,
-            command.Item.IsActive,
             cancellationToken);
         if (response is null)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<PersonnelFileSalaryItemResponse>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -2499,12 +2913,11 @@ internal sealed class UpdatePersonnelFileSalaryItemCommandHandler(
             throw;
         }
 
-        var allItems = await employeeRepository.GetSalaryItemsAsync(personnelFile.PublicId, cancellationToken);
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>.Success(CreateSectionResult(personnelFile, allItems));
+        return Result<PersonnelFileSalaryItemResponse>.Success(response);
     }
 }
 
-internal sealed class DeactivatePersonnelFileSalaryItemCommandHandler(
+internal sealed class PatchPersonnelFileSalaryItemCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
@@ -2512,15 +2925,15 @@ internal sealed class DeactivatePersonnelFileSalaryItemCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeactivatePersonnelFileSalaryItemCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>
+      ICommandHandler<PatchPersonnelFileSalaryItemCommand, PersonnelFileSalaryItemResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>> Handle(
-        DeactivatePersonnelFileSalaryItemCommand command,
+    public async Task<Result<PersonnelFileSalaryItemResponse>> Handle(
+        PatchPersonnelFileSalaryItemCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>(
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSalaryItemResponse>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
@@ -2532,13 +2945,55 @@ internal sealed class DeactivatePersonnelFileSalaryItemCommandHandler(
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileSalaryItemResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
-        var found = await employeeRepository.DeactivateSalaryItemAsync(command.ItemPublicId, personnelFile.TenantId, cancellationToken);
-        if (!found)
+        var existing = await employeeRepository.GetSalaryItemAsync(personnelFile.PublicId, command.SalaryItemPublicId, cancellationToken);
+        if (existing is null)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>.Failure(PersonnelFileErrors.ItemNotFound);
+            return Result<PersonnelFileSalaryItemResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileSalaryItemResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var state = PersonnelFileSalaryItemPatchState.From(existing);
+        var applyResult = PersonnelFileSalaryItemPatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFileSalaryItemResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFileSalaryItemPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileSalaryItemResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFileSalaryItemResponse>.Success(existing);
+        }
+
+        var input = state.ToInput();
+        var response = await employeeRepository.PatchSalaryItemAsync(
+            command.SalaryItemPublicId,
+            personnelFile.TenantId,
+            input.IncomeTypeCode,
+            input.SalaryRubricCode,
+            input.CurrencyCode,
+            input.PayPeriodCode,
+            input.Amount,
+            input.StartDate,
+            input.EndDate,
+            input.IsActive,
+            state.IsActiveMutated,
+            cancellationToken);
+        if (response is null)
+        {
+            return Result<PersonnelFileSalaryItemResponse>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
         TouchPersonnelFile(personnelFile);
@@ -2547,7 +3002,7 @@ internal sealed class DeactivatePersonnelFileSalaryItemCommandHandler(
         try
         {
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
-            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deactivated salary item for {personnelFile.FullName}.", null, cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched salary item for {personnelFile.FullName}.", response, cancellationToken);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -2557,8 +3012,76 @@ internal sealed class DeactivatePersonnelFileSalaryItemCommandHandler(
             throw;
         }
 
-        var allItems = await employeeRepository.GetSalaryItemsAsync(personnelFile.PublicId, cancellationToken);
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileSalaryItemResponse>>>.Success(CreateSectionResult(personnelFile, allItems));
+        return Result<PersonnelFileSalaryItemResponse>.Success(response);
+    }
+}
+
+internal sealed class DeletePersonnelFileSalaryItemCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : PersonnelFileEmployeeCommandHandlerBase,
+      ICommandHandler<DeletePersonnelFileSalaryItemCommand, PersonnelFileParentConcurrencyResult>
+{
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+        DeletePersonnelFileSalaryItemCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (!personnelFile!.IsCompletedEmployee)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        var existing = await employeeRepository.GetSalaryItemAsync(personnelFile.PublicId, command.SalaryItemPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var removed = await employeeRepository.DeleteSalaryItemAsync(command.SalaryItemPublicId, personnelFile.TenantId, cancellationToken);
+        if (!removed)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted salary item for {personnelFile.FullName}.", null, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileParentConcurrencyResult>.Success(
+            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
     }
 }
 
@@ -2590,6 +3113,213 @@ internal sealed class GetPersonnelFileSalaryItemsQueryHandler(
     }
 }
 
+internal sealed class GetPersonnelFileSalaryItemByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    ITenantContext tenantContext)
+    : PersonnelFileEmployeeReadQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileSalaryItemByIdQuery, PersonnelFileSalaryItemResponse>
+{
+    public async Task<Result<PersonnelFileSalaryItemResponse>> Handle(
+        GetPersonnelFileSalaryItemByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFileSalaryItemResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await employeeRepository.GetSalaryItemAsync(personnelFile!.PublicId, query.SalaryItemPublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFileSalaryItemResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFileSalaryItemResponse>.Success(response);
+    }
+}
+
+internal sealed class PersonnelFileSalaryItemPatchState
+{
+    public string IncomeTypeCode { get; set; } = string.Empty;
+    public string SalaryRubricCode { get; set; } = string.Empty;
+    public string CurrencyCode { get; set; } = string.Empty;
+    public string PayPeriodCode { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsActiveMutated { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFileSalaryItemPatchState From(PersonnelFileSalaryItemResponse response) =>
+        new()
+        {
+            IncomeTypeCode = response.IncomeTypeCode,
+            SalaryRubricCode = response.SalaryRubricCode,
+            CurrencyCode = response.CurrencyCode,
+            PayPeriodCode = response.PayPeriodCode,
+            Amount = response.Amount,
+            StartDate = response.StartDate,
+            EndDate = response.EndDate,
+            IsActive = response.IsActive
+        };
+
+    public SalaryItemInput ToInput() =>
+        new(
+            IncomeTypeCode,
+            SalaryRubricCode,
+            CurrencyCode,
+            PayPeriodCode,
+            Amount,
+            StartDate,
+            EndDate,
+            IsActive);
+}
+
+internal static class PersonnelFileSalaryItemPatchApplier
+{
+    public static Result Apply(IReadOnlyCollection<PersonnelFileSalaryItemPatchOperation> operations, PersonnelFileSalaryItemPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!PersonnelFileTalentPatch.SupportedOperations.Contains(op))
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = PersonnelFileTalentPatch.ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, "Only root salary item properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFileSalaryItemPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.IncomeTypeCode))
+        {
+            errors["incomeTypeCode"] = ["IncomeTypeCode is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.SalaryRubricCode))
+        {
+            errors["salaryRubricCode"] = ["SalaryRubricCode is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.CurrencyCode))
+        {
+            errors["currencyCode"] = ["CurrencyCode is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.PayPeriodCode))
+        {
+            errors["payPeriodCode"] = ["PayPeriodCode is required."];
+        }
+
+        if (state.Amount < 0)
+        {
+            errors["amount"] = ["Amount must be greater than or equal to 0."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFileSalaryItemPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "incomeTypeCode"))
+        {
+            return Mutate(state, () => state.IncomeTypeCode = isRemove ? string.Empty : PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "salaryRubricCode"))
+        {
+            return Mutate(state, () => state.SalaryRubricCode = isRemove ? string.Empty : PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "currencyCode"))
+        {
+            return Mutate(state, () => state.CurrencyCode = isRemove ? string.Empty : PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "payPeriodCode"))
+        {
+            return Mutate(state, () => state.PayPeriodCode = isRemove ? string.Empty : PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "amount"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "Amount cannot be removed.")
+                : Mutate(state, () => state.Amount = PersonnelFileTalentPatch.ReadRequiredDecimal(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "startDate"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "StartDate cannot be removed.")
+                : Mutate(state, () => state.StartDate = PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "endDate"))
+        {
+            return Mutate(state, () => state.EndDate = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "isActive"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "IsActive cannot be removed.")
+                : Mutate(state, () =>
+                {
+                    state.IsActive = PersonnelFileTalentPatch.ReadRequiredBoolean(value, path);
+                    state.IsActiveMutated = true;
+                });
+        }
+
+        return PersonnelFileTalentPatch.ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFileSalaryItemPatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
+    }
+}
+
 internal sealed class AddPersonnelFileAdditionalBenefitCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
@@ -2598,38 +3328,58 @@ internal sealed class AddPersonnelFileAdditionalBenefitCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<AddPersonnelFileAdditionalBenefitCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>
+      ICommandHandler<AddPersonnelFileAdditionalBenefitCommand, PersonnelFileAdditionalBenefitResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>> Handle(
+    public async Task<Result<PersonnelFileAdditionalBenefitResponse>> Handle(
         AddPersonnelFileAdditionalBenefitCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>(
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileAdditionalBenefitResponse>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
             cancellationToken);
-        if (failure is not null) { return failure; }
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
-        var entity = PersonnelFileAdditionalBenefit.Create(command.Item.BenefitTypeCode, command.Item.StartDate, command.Item.EndDate, command.Item.IsActive, command.Item.Notes);
+        var entity = PersonnelFileAdditionalBenefit.Create(
+            command.Item.BenefitTypeCode,
+            command.Item.StartDate,
+            command.Item.EndDate,
+            command.Item.IsActive,
+            command.Item.Notes);
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(personnelFile.TenantId);
 
-        var response = await employeeRepository.AddAdditionalBenefitAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
+        var all = await employeeRepository.AddAdditionalBenefitAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
+        var response = all.SingleOrDefault(item => item.Id == entity.PublicId)
+            ?? throw new InvalidOperationException("Personnel file additional benefit response could not be resolved after creation.");
         TouchPersonnelFile(personnelFile);
 
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Added additional benefit for {personnelFile.FullName}.", response, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Added additional benefit for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
 
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>.Success(CreateSectionResult(personnelFile, response));
+        return Result<PersonnelFileAdditionalBenefitResponse>.Success(response);
     }
 }
 
@@ -2641,40 +3391,75 @@ internal sealed class UpdatePersonnelFileAdditionalBenefitCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<UpdatePersonnelFileAdditionalBenefitCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>
+      ICommandHandler<UpdatePersonnelFileAdditionalBenefitCommand, PersonnelFileAdditionalBenefitResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>> Handle(
+    public async Task<Result<PersonnelFileAdditionalBenefitResponse>> Handle(
         UpdatePersonnelFileAdditionalBenefitCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>(
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileAdditionalBenefitResponse>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
             cancellationToken);
-        if (failure is not null) { return failure; }
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
-        var found = await employeeRepository.UpdateAdditionalBenefitAsync(command.ItemPublicId, personnelFile.TenantId, command.Item.BenefitTypeCode, command.Item.StartDate, command.Item.EndDate, command.Item.IsActive, command.Item.Notes, cancellationToken);
-        if (!found) { return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>.Failure(PersonnelFileErrors.ItemNotFound); }
+        var existing = await employeeRepository.GetAdditionalBenefitAsync(personnelFile.PublicId, command.AdditionalBenefitPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
+        var response = await employeeRepository.UpdateAdditionalBenefitAsync(
+            command.AdditionalBenefitPublicId,
+            personnelFile.TenantId,
+            command.Item.BenefitTypeCode,
+            command.Item.StartDate,
+            command.Item.EndDate,
+            command.Item.Notes,
+            cancellationToken);
+        if (response is null)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
 
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated additional benefit for {personnelFile.FullName}.", null, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        var allItems = await employeeRepository.GetAdditionalBenefitsAsync(personnelFile.PublicId, cancellationToken);
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>.Success(CreateSectionResult(personnelFile, allItems));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated additional benefit for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileAdditionalBenefitResponse>.Success(response);
     }
 }
 
-internal sealed class DeactivatePersonnelFileAdditionalBenefitCommandHandler(
+internal sealed class PatchPersonnelFileAdditionalBenefitCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
@@ -2682,36 +3467,160 @@ internal sealed class DeactivatePersonnelFileAdditionalBenefitCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeactivatePersonnelFileAdditionalBenefitCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>
+      ICommandHandler<PatchPersonnelFileAdditionalBenefitCommand, PersonnelFileAdditionalBenefitResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>> Handle(
-        DeactivatePersonnelFileAdditionalBenefitCommand command,
+    public async Task<Result<PersonnelFileAdditionalBenefitResponse>> Handle(
+        PatchPersonnelFileAdditionalBenefitCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>(
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileAdditionalBenefitResponse>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
             cancellationToken);
-        if (failure is not null) { return failure; }
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
-        var found = await employeeRepository.DeactivateAdditionalBenefitAsync(command.ItemPublicId, personnelFile.TenantId, cancellationToken);
-        if (!found) { return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>.Failure(PersonnelFileErrors.ItemNotFound); }
+        var existing = await employeeRepository.GetAdditionalBenefitAsync(personnelFile.PublicId, command.AdditionalBenefitPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var state = PersonnelFileAdditionalBenefitPatchState.From(existing);
+        var applyResult = PersonnelFileAdditionalBenefitPatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFileAdditionalBenefitPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Success(existing);
+        }
+
+        var input = state.ToInput();
+        var response = await employeeRepository.PatchAdditionalBenefitAsync(
+            command.AdditionalBenefitPublicId,
+            personnelFile.TenantId,
+            input.BenefitTypeCode,
+            input.StartDate,
+            input.EndDate,
+            input.Notes,
+            input.IsActive,
+            state.IsActiveMutated,
+            cancellationToken);
+        if (response is null)
+        {
+            return Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
 
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deactivated additional benefit for {personnelFile.FullName}.", null, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        var allItems = await employeeRepository.GetAdditionalBenefitsAsync(personnelFile.PublicId, cancellationToken);
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>>>.Success(CreateSectionResult(personnelFile, allItems));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched additional benefit for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileAdditionalBenefitResponse>.Success(response);
+    }
+}
+
+internal sealed class DeletePersonnelFileAdditionalBenefitCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : PersonnelFileEmployeeCommandHandlerBase,
+      ICommandHandler<DeletePersonnelFileAdditionalBenefitCommand, PersonnelFileParentConcurrencyResult>
+{
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+        DeletePersonnelFileAdditionalBenefitCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (!personnelFile!.IsCompletedEmployee)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        var existing = await employeeRepository.GetAdditionalBenefitAsync(personnelFile.PublicId, command.AdditionalBenefitPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var removed = await employeeRepository.DeleteAdditionalBenefitAsync(command.AdditionalBenefitPublicId, personnelFile.TenantId, cancellationToken);
+        if (!removed)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted additional benefit for {personnelFile.FullName}.", null, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileParentConcurrencyResult>.Success(
+            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
     }
 }
 
@@ -2743,6 +3652,165 @@ internal sealed class GetPersonnelFileAdditionalBenefitsQueryHandler(
     }
 }
 
+internal sealed class GetPersonnelFileAdditionalBenefitByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    ITenantContext tenantContext)
+    : PersonnelFileEmployeeReadQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileAdditionalBenefitByIdQuery, PersonnelFileAdditionalBenefitResponse>
+{
+    public async Task<Result<PersonnelFileAdditionalBenefitResponse>> Handle(
+        GetPersonnelFileAdditionalBenefitByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFileAdditionalBenefitResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await employeeRepository.GetAdditionalBenefitAsync(personnelFile!.PublicId, query.AdditionalBenefitPublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFileAdditionalBenefitResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFileAdditionalBenefitResponse>.Success(response);
+    }
+}
+
+internal sealed class PersonnelFileAdditionalBenefitPatchState
+{
+    public string BenefitTypeCode { get; set; } = string.Empty;
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public string? Notes { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsActiveMutated { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFileAdditionalBenefitPatchState From(PersonnelFileAdditionalBenefitResponse response) =>
+        new()
+        {
+            BenefitTypeCode = response.BenefitTypeCode,
+            StartDate = response.StartDate,
+            EndDate = response.EndDate,
+            Notes = response.Notes,
+            IsActive = response.IsActive
+        };
+
+    public AdditionalBenefitInput ToInput() =>
+        new(
+            BenefitTypeCode,
+            StartDate,
+            EndDate,
+            IsActive,
+            Notes);
+}
+
+internal static class PersonnelFileAdditionalBenefitPatchApplier
+{
+    public static Result Apply(IReadOnlyCollection<PersonnelFileAdditionalBenefitPatchOperation> operations, PersonnelFileAdditionalBenefitPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!PersonnelFileTalentPatch.SupportedOperations.Contains(op))
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = PersonnelFileTalentPatch.ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, "Only root additional benefit properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFileAdditionalBenefitPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.BenefitTypeCode))
+        {
+            errors["benefitTypeCode"] = ["BenefitTypeCode is required."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFileAdditionalBenefitPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "benefitTypeCode"))
+        {
+            return Mutate(state, () => state.BenefitTypeCode = isRemove ? string.Empty : PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "startDate"))
+        {
+            return Mutate(state, () => state.StartDate = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "endDate"))
+        {
+            return Mutate(state, () => state.EndDate = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "notes"))
+        {
+            return Mutate(state, () => state.Notes = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "isActive"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "IsActive cannot be removed.")
+                : Mutate(state, () =>
+                {
+                    state.IsActive = PersonnelFileTalentPatch.ReadRequiredBoolean(value, path);
+                    state.IsActiveMutated = true;
+                });
+        }
+
+        return PersonnelFileTalentPatch.ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFileAdditionalBenefitPatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
+    }
+}
+
 internal sealed class AddPersonnelFilePaymentMethodCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
@@ -2751,24 +3819,27 @@ internal sealed class AddPersonnelFilePaymentMethodCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<AddPersonnelFilePaymentMethodCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>
+      ICommandHandler<AddPersonnelFilePaymentMethodCommand, PersonnelFilePaymentMethodResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>> Handle(
+    public async Task<Result<PersonnelFilePaymentMethodResponse>> Handle(
         AddPersonnelFilePaymentMethodCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>(
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFilePaymentMethodResponse>(
             command.PersonnelFileId,
             Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
             cancellationToken);
-        if (failure is not null) { return failure; }
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFilePaymentMethodResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
         if (command.Item.BankAccountPublicId.HasValue)
@@ -2776,7 +3847,7 @@ internal sealed class AddPersonnelFilePaymentMethodCommandHandler(
             var bankAccountIds = (await personnelFileRepository.GetBankAccountIdsAsync(personnelFile.PublicId, cancellationToken)).ToHashSet();
             if (!bankAccountIds.Contains(command.Item.BankAccountPublicId.Value))
             {
-                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>.Failure(
+                return Result<PersonnelFilePaymentMethodResponse>.Failure(
                     ErrorCatalog.Validation(new Dictionary<string, string[]> { ["bankAccountPublicId"] = ["Bank account does not exist in this personnel file."] }));
             }
         }
@@ -2792,13 +3863,26 @@ internal sealed class AddPersonnelFilePaymentMethodCommandHandler(
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(personnelFile.TenantId);
 
-        var response = await employeeRepository.AddPaymentMethodAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
+        var all = await employeeRepository.AddPaymentMethodAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
+        var response = all.SingleOrDefault(item => item.Id == entity.PublicId)
+            ?? throw new InvalidOperationException("Personnel file payment method response could not be resolved after creation.");
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Added payment method for {personnelFile.FullName}.", response, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>.Success(CreateSectionResult(personnelFile, response));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Added payment method for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFilePaymentMethodResponse>.Success(response);
     }
 }
 
@@ -2810,24 +3894,38 @@ internal sealed class UpdatePersonnelFilePaymentMethodCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<UpdatePersonnelFilePaymentMethodCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>
+      ICommandHandler<UpdatePersonnelFilePaymentMethodCommand, PersonnelFilePaymentMethodResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>> Handle(
+    public async Task<Result<PersonnelFilePaymentMethodResponse>> Handle(
         UpdatePersonnelFilePaymentMethodCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>(
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFilePaymentMethodResponse>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
             cancellationToken);
-        if (failure is not null) { return failure; }
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFilePaymentMethodResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        var existing = await employeeRepository.GetPaymentMethodAsync(personnelFile.PublicId, command.PaymentMethodPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFilePaymentMethodResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFilePaymentMethodResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
         if (command.Item.BankAccountPublicId.HasValue)
@@ -2835,30 +3933,48 @@ internal sealed class UpdatePersonnelFilePaymentMethodCommandHandler(
             var bankAccountIds = (await personnelFileRepository.GetBankAccountIdsAsync(personnelFile.PublicId, cancellationToken)).ToHashSet();
             if (!bankAccountIds.Contains(command.Item.BankAccountPublicId.Value))
             {
-                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>.Failure(
+                return Result<PersonnelFilePaymentMethodResponse>.Failure(
                     ErrorCatalog.Validation(new Dictionary<string, string[]> { ["bankAccountPublicId"] = ["Bank account does not exist in this personnel file."] }));
             }
         }
 
-        var found = await employeeRepository.UpdatePaymentMethodAsync(
-            command.ItemPublicId, personnelFile.TenantId,
-            command.Item.PaymentMethodCode, command.Item.BankAccountPublicId,
-            command.Item.IsPrimary, command.Item.IsActive,
-            command.Item.EffectiveFromUtc, command.Item.EffectiveToUtc, command.Item.Notes,
+        // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
+        var response = await employeeRepository.UpdatePaymentMethodAsync(
+            command.PaymentMethodPublicId,
+            personnelFile.TenantId,
+            command.Item.PaymentMethodCode,
+            command.Item.BankAccountPublicId,
+            command.Item.IsPrimary,
+            command.Item.EffectiveFromUtc,
+            command.Item.EffectiveToUtc,
+            command.Item.Notes,
             cancellationToken);
-        if (!found) { return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>.Failure(PersonnelFileErrors.ItemNotFound); }
+        if (response is null)
+        {
+            return Result<PersonnelFilePaymentMethodResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
 
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated payment method for {personnelFile.FullName}.", null, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        var allItems = await employeeRepository.GetPaymentMethodsAsync(personnelFile.PublicId, cancellationToken);
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>.Success(CreateSectionResult(personnelFile, allItems));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated payment method for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFilePaymentMethodResponse>.Success(response);
     }
 }
 
-internal sealed class DeactivatePersonnelFilePaymentMethodCommandHandler(
+internal sealed class PatchPersonnelFilePaymentMethodCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
@@ -2866,36 +3982,172 @@ internal sealed class DeactivatePersonnelFilePaymentMethodCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeactivatePersonnelFilePaymentMethodCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>
+      ICommandHandler<PatchPersonnelFilePaymentMethodCommand, PersonnelFilePaymentMethodResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>> Handle(
-        DeactivatePersonnelFilePaymentMethodCommand command,
+    public async Task<Result<PersonnelFilePaymentMethodResponse>> Handle(
+        PatchPersonnelFilePaymentMethodCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>(
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFilePaymentMethodResponse>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
             cancellationToken);
-        if (failure is not null) { return failure; }
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFilePaymentMethodResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
-        var found = await employeeRepository.DeactivatePaymentMethodAsync(command.ItemPublicId, personnelFile.TenantId, cancellationToken);
-        if (!found) { return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>.Failure(PersonnelFileErrors.ItemNotFound); }
+        var existing = await employeeRepository.GetPaymentMethodAsync(personnelFile.PublicId, command.PaymentMethodPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFilePaymentMethodResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFilePaymentMethodResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var state = PersonnelFilePaymentMethodPatchState.From(existing);
+        var applyResult = PersonnelFilePaymentMethodPatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFilePaymentMethodResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFilePaymentMethodPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFilePaymentMethodResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFilePaymentMethodResponse>.Success(existing);
+        }
+
+        if (state.BankAccountPublicId.HasValue)
+        {
+            var bankAccountIds = (await personnelFileRepository.GetBankAccountIdsAsync(personnelFile.PublicId, cancellationToken)).ToHashSet();
+            if (!bankAccountIds.Contains(state.BankAccountPublicId.Value))
+            {
+                return Result<PersonnelFilePaymentMethodResponse>.Failure(
+                    ErrorCatalog.Validation(new Dictionary<string, string[]> { ["bankAccountPublicId"] = ["Bank account does not exist in this personnel file."] }));
+            }
+        }
+
+        var input = state.ToInput();
+        var response = await employeeRepository.PatchPaymentMethodAsync(
+            command.PaymentMethodPublicId,
+            personnelFile.TenantId,
+            input.PaymentMethodCode,
+            input.BankAccountPublicId,
+            input.IsPrimary,
+            input.EffectiveFromUtc,
+            input.EffectiveToUtc,
+            input.Notes,
+            input.IsActive,
+            state.IsActiveMutated,
+            cancellationToken);
+        if (response is null)
+        {
+            return Result<PersonnelFilePaymentMethodResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
 
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deactivated payment method for {personnelFile.FullName}.", null, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        var allItems = await employeeRepository.GetPaymentMethodsAsync(personnelFile.PublicId, cancellationToken);
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>>.Success(CreateSectionResult(personnelFile, allItems));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched payment method for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFilePaymentMethodResponse>.Success(response);
+    }
+}
+
+internal sealed class DeletePersonnelFilePaymentMethodCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : PersonnelFileEmployeeCommandHandlerBase,
+      ICommandHandler<DeletePersonnelFilePaymentMethodCommand, PersonnelFileParentConcurrencyResult>
+{
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+        DeletePersonnelFilePaymentMethodCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (!personnelFile!.IsCompletedEmployee)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        var existing = await employeeRepository.GetPaymentMethodAsync(personnelFile.PublicId, command.PaymentMethodPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var removed = await employeeRepository.DeletePaymentMethodAsync(command.PaymentMethodPublicId, personnelFile.TenantId, cancellationToken);
+        if (!removed)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted payment method for {personnelFile.FullName}.", null, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileParentConcurrencyResult>.Success(
+            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
     }
 }
 
@@ -2924,6 +4176,190 @@ internal sealed class GetPersonnelFilePaymentMethodsQueryHandler(
 
         var response = await employeeRepository.GetPaymentMethodsAsync(personnelFile!.PublicId, cancellationToken);
         return Result<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>>.Success(response);
+    }
+}
+
+internal sealed class GetPersonnelFilePaymentMethodByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    ITenantContext tenantContext)
+    : PersonnelFileEmployeeReadQueryHandlerBase,
+      IQueryHandler<GetPersonnelFilePaymentMethodByIdQuery, PersonnelFilePaymentMethodResponse>
+{
+    public async Task<Result<PersonnelFilePaymentMethodResponse>> Handle(
+        GetPersonnelFilePaymentMethodByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFilePaymentMethodResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await employeeRepository.GetPaymentMethodAsync(personnelFile!.PublicId, query.PaymentMethodPublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFilePaymentMethodResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFilePaymentMethodResponse>.Success(response);
+    }
+}
+
+internal sealed class PersonnelFilePaymentMethodPatchState
+{
+    public string PaymentMethodCode { get; set; } = string.Empty;
+    public Guid? BankAccountPublicId { get; set; }
+    public bool IsPrimary { get; set; }
+    public DateTime EffectiveFromUtc { get; set; }
+    public DateTime? EffectiveToUtc { get; set; }
+    public string? Notes { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsActiveMutated { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFilePaymentMethodPatchState From(PersonnelFilePaymentMethodResponse response) =>
+        new()
+        {
+            PaymentMethodCode = response.PaymentMethodCode,
+            BankAccountPublicId = response.BankAccountId,
+            IsPrimary = response.IsPrimary,
+            EffectiveFromUtc = response.EffectiveFromUtc,
+            EffectiveToUtc = response.EffectiveToUtc,
+            Notes = response.Notes,
+            IsActive = response.IsActive
+        };
+
+    public PaymentMethodInput ToInput() =>
+        new(
+            PaymentMethodCode,
+            BankAccountPublicId,
+            IsPrimary,
+            IsActive,
+            EffectiveFromUtc,
+            EffectiveToUtc,
+            Notes);
+}
+
+internal static class PersonnelFilePaymentMethodPatchApplier
+{
+    public static Result Apply(IReadOnlyCollection<PersonnelFilePaymentMethodPatchOperation> operations, PersonnelFilePaymentMethodPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!PersonnelFileTalentPatch.SupportedOperations.Contains(op))
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = PersonnelFileTalentPatch.ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, "Only root payment method properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFilePaymentMethodPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.PaymentMethodCode))
+        {
+            errors["paymentMethodCode"] = ["PaymentMethodCode is required."];
+        }
+
+        if (state.EffectiveToUtc.HasValue && state.EffectiveFromUtc > state.EffectiveToUtc.Value)
+        {
+            errors["effectiveFromUtc"] = ["EffectiveFromUtc must be on or before EffectiveToUtc."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFilePaymentMethodPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "paymentMethodCode"))
+        {
+            return Mutate(state, () => state.PaymentMethodCode = isRemove ? string.Empty : PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "bankAccountPublicId"))
+        {
+            return Mutate(state, () => state.BankAccountPublicId = isRemove ? null : PersonnelFileTalentPatch.ReadNullableGuid(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "isPrimary"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "IsPrimary cannot be removed.")
+                : Mutate(state, () => state.IsPrimary = PersonnelFileTalentPatch.ReadRequiredBoolean(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "effectiveFromUtc"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "EffectiveFromUtc cannot be removed.")
+                : Mutate(state, () => state.EffectiveFromUtc = PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "effectiveToUtc"))
+        {
+            return Mutate(state, () => state.EffectiveToUtc = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "notes"))
+        {
+            return Mutate(state, () => state.Notes = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "isActive"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "IsActive cannot be removed.")
+                : Mutate(state, () =>
+                {
+                    state.IsActive = PersonnelFileTalentPatch.ReadRequiredBoolean(value, path);
+                    state.IsActiveMutated = true;
+                });
+        }
+
+        return PersonnelFileTalentPatch.ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFilePaymentMethodPatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
     }
 }
 
@@ -3347,7 +4783,37 @@ internal sealed class AddPersonnelFilePayrollTransactionCommandHandler(
     }
 }
 
-internal sealed class DeactivatePersonnelFilePayrollTransactionCommandHandler(
+internal sealed class GetPersonnelFilePayrollTransactionByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    ITenantContext tenantContext)
+    : PersonnelFileEmployeeReadQueryHandlerBase,
+      IQueryHandler<GetPersonnelFilePayrollTransactionByIdQuery, PersonnelFilePayrollTransactionResponse>
+{
+    public async Task<Result<PersonnelFilePayrollTransactionResponse>> Handle(
+        GetPersonnelFilePayrollTransactionByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFilePayrollTransactionResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await employeeRepository.GetPayrollTransactionAsync(personnelFile!.PublicId, query.PayrollTransactionPublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFilePayrollTransactionResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFilePayrollTransactionResponse>.Success(response);
+    }
+}
+
+internal sealed class PatchPersonnelFilePayrollTransactionCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
@@ -3355,38 +4821,166 @@ internal sealed class DeactivatePersonnelFilePayrollTransactionCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeactivatePersonnelFilePayrollTransactionCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePayrollTransactionResponse>>>
+      ICommandHandler<PatchPersonnelFilePayrollTransactionCommand, PersonnelFilePayrollTransactionResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePayrollTransactionResponse>>>> Handle(
-        DeactivatePersonnelFilePayrollTransactionCommand command,
+    public async Task<Result<PersonnelFilePayrollTransactionResponse>> Handle(
+        PatchPersonnelFilePayrollTransactionCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePayrollTransactionResponse>>>(
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFilePayrollTransactionResponse>(
             command.PersonnelFileId,
-            command.ConcurrencyToken,
+            Guid.Empty,
             tenantContext,
             authorizationService,
             personnelFileRepository,
             cancellationToken);
-        if (failure is not null) { return failure; }
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePayrollTransactionResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFilePayrollTransactionResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
-        var found = await employeeRepository.DeactivatePayrollTransactionAsync(command.ItemPublicId, personnelFile.TenantId, cancellationToken);
-        if (!found) { return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePayrollTransactionResponse>>>.Failure(PersonnelFileErrors.ItemNotFound); }
+        var existing = await employeeRepository.GetPayrollTransactionAsync(personnelFile.PublicId, command.PayrollTransactionPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFilePayrollTransactionResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFilePayrollTransactionResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var state = PersonnelFilePayrollTransactionPatchState.From(existing);
+        var applyResult = PersonnelFilePayrollTransactionPatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFilePayrollTransactionResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFilePayrollTransactionPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFilePayrollTransactionResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFilePayrollTransactionResponse>.Success(existing);
+        }
+
+        var response = await employeeRepository.PatchPayrollTransactionAsync(
+            command.PayrollTransactionPublicId,
+            personnelFile.TenantId,
+            state.IsActive,
+            cancellationToken);
+        if (response is null)
+        {
+            return Result<PersonnelFilePayrollTransactionResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
 
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deactivated payroll transaction for {personnelFile.FullName}.", null, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        // Return current search results for consistency — caller should use Search endpoint for full listing
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePayrollTransactionResponse>>>.Success(
-            new PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFilePayrollTransactionResponse>>(
-                Array.Empty<PersonnelFilePayrollTransactionResponse>(), personnelFile.ConcurrencyToken, personnelFile.ModifiedUtc));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched payroll transaction for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFilePayrollTransactionResponse>.Success(response);
+    }
+}
+
+internal sealed class PersonnelFilePayrollTransactionPatchState
+{
+    public bool IsActive { get; set; }
+    public bool IsActiveMutated { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFilePayrollTransactionPatchState From(PersonnelFilePayrollTransactionResponse response) =>
+        new()
+        {
+            IsActive = response.IsActive
+        };
+}
+
+internal static class PersonnelFilePayrollTransactionPatchApplier
+{
+    public static Result Apply(IReadOnlyCollection<PersonnelFilePayrollTransactionPatchOperation> operations, PersonnelFilePayrollTransactionPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!PersonnelFileTalentPatch.SupportedOperations.Contains(op))
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = PersonnelFileTalentPatch.ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, "Only the root isActive property can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFilePayrollTransactionPatchState state) => Result.Success();
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFilePayrollTransactionPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "isActive"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "IsActive cannot be removed.")
+                : Mutate(state, () =>
+                {
+                    state.IsActive = PersonnelFileTalentPatch.ReadRequiredBoolean(value, path);
+                    state.IsActiveMutated = true;
+                });
+        }
+
+        return PersonnelFileTalentPatch.ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFilePayrollTransactionPatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
     }
 }
 
@@ -3686,53 +5280,63 @@ internal sealed class AddPersonnelFileInsuranceCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<AddPersonnelFileInsuranceCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>
+      ICommandHandler<AddPersonnelFileInsuranceCommand, PersonnelFileInsuranceResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>> Handle(
+    public async Task<Result<PersonnelFileInsuranceResponse>> Handle(
         AddPersonnelFileInsuranceCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>(
-            command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
-        if (failure is not null) { return failure; }
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileInsuranceResponse>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
-        }
-
-        var beneficiaries = command.Item.Beneficiaries.ToArray();
-        for (var i = 0; i < beneficiaries.Length; i++)
-        {
-            var kinshipValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
-                personnelFileRepository, personnelFile.TenantId,
-                $"item.beneficiaries[{i}].kinshipCode", beneficiaries[i].KinshipCode, cancellationToken);
-            if (kinshipValidation != Error.None)
-            {
-                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>.Failure(kinshipValidation);
-            }
+            return Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
         var insurance = PersonnelFileInsurance.Create(
-            command.Item.InsuranceCode, command.Item.EmployeeContribution, command.Item.EmployerContribution,
-            command.Item.RangeCode, command.Item.PolicyNumber, command.Item.InsuredAmount,
-            command.Item.CurrencyCode, command.Item.IsActive, command.Item.StartDateUtc, command.Item.EndDateUtc);
+            command.Item.InsuranceCode,
+            command.Item.EmployeeContribution,
+            command.Item.EmployerContribution,
+            command.Item.RangeCode,
+            command.Item.PolicyNumber,
+            command.Item.InsuredAmount,
+            command.Item.CurrencyCode,
+            command.Item.IsActive,
+            command.Item.StartDateUtc,
+            command.Item.EndDateUtc);
         insurance.BindToPersonnelFile(personnelFile.Id);
         insurance.SetTenantId(personnelFile.TenantId);
-        insurance.ReplaceBeneficiaries(beneficiaries.Select(b =>
-        {
-            var e = PersonnelFileInsuranceBeneficiary.Create(b.FullName, b.DocumentNumber, b.BirthDate, b.KinshipCode);
-            e.SetTenantId(personnelFile.TenantId);
-            return e;
-        }).ToArray());
 
-        var response = await employeeRepository.AddInsuranceAsync(personnelFile.Id, personnelFile.TenantId, insurance, cancellationToken);
+        var all = await employeeRepository.AddInsuranceAsync(personnelFile.Id, personnelFile.TenantId, insurance, cancellationToken);
+        var response = all.SingleOrDefault(item => item.Id == insurance.PublicId)
+            ?? throw new InvalidOperationException("Personnel file insurance response could not be resolved after creation.");
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Added insurance for {personnelFile.FullName}.", response, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>.Success(CreateSectionResult(personnelFile, response));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Added insurance for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileInsuranceResponse>.Success(response);
     }
 }
 
@@ -3744,52 +5348,80 @@ internal sealed class UpdatePersonnelFileInsuranceCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<UpdatePersonnelFileInsuranceCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>
+      ICommandHandler<UpdatePersonnelFileInsuranceCommand, PersonnelFileInsuranceResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>> Handle(
+    public async Task<Result<PersonnelFileInsuranceResponse>> Handle(
         UpdatePersonnelFileInsuranceCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>(
-            command.PersonnelFileId, command.ConcurrencyToken, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
-        if (failure is not null) { return failure; }
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileInsuranceResponse>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
-        var beneficiaries = command.Item.Beneficiaries.ToArray();
-        for (var i = 0; i < beneficiaries.Length; i++)
+        var existing = await employeeRepository.GetInsuranceAsync(personnelFile.PublicId, command.InsurancePublicId, cancellationToken);
+        if (existing is null)
         {
-            var kinshipValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
-                personnelFileRepository, personnelFile.TenantId,
-                $"item.beneficiaries[{i}].kinshipCode", beneficiaries[i].KinshipCode, cancellationToken);
-            if (kinshipValidation != Error.None)
-            {
-                return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>.Failure(kinshipValidation);
-            }
+            return Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.ItemNotFound);
         }
 
-        var found = await employeeRepository.UpdateInsuranceAsync(
-            command.ItemPublicId, personnelFile.TenantId,
-            command.Item.InsuranceCode, command.Item.EmployeeContribution, command.Item.EmployerContribution,
-            command.Item.RangeCode, command.Item.PolicyNumber, command.Item.InsuredAmount, command.Item.CurrencyCode,
-            command.Item.IsActive, command.Item.StartDateUtc, command.Item.EndDateUtc,
-            command.Item.Beneficiaries, cancellationToken);
-        if (!found) { return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>.Failure(PersonnelFileErrors.ItemNotFound); }
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
+        var response = await employeeRepository.UpdateInsuranceAsync(
+            command.InsurancePublicId,
+            personnelFile.TenantId,
+            command.Item.InsuranceCode,
+            command.Item.EmployeeContribution,
+            command.Item.EmployerContribution,
+            command.Item.RangeCode,
+            command.Item.PolicyNumber,
+            command.Item.InsuredAmount,
+            command.Item.CurrencyCode,
+            command.Item.StartDateUtc,
+            command.Item.EndDateUtc,
+            cancellationToken);
+        if (response is null)
+        {
+            return Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
 
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated insurance for {personnelFile.FullName}.", null, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        var allItems = await employeeRepository.GetInsurancesAsync(personnelFile.PublicId, cancellationToken);
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>.Success(CreateSectionResult(personnelFile, allItems));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated insurance for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileInsuranceResponse>.Success(response);
     }
 }
 
-internal sealed class DeactivatePersonnelFileInsuranceCommandHandler(
+internal sealed class PatchPersonnelFileInsuranceCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
@@ -3797,31 +5429,165 @@ internal sealed class DeactivatePersonnelFileInsuranceCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeactivatePersonnelFileInsuranceCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>
+      ICommandHandler<PatchPersonnelFileInsuranceCommand, PersonnelFileInsuranceResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>> Handle(
-        DeactivatePersonnelFileInsuranceCommand command,
+    public async Task<Result<PersonnelFileInsuranceResponse>> Handle(
+        PatchPersonnelFileInsuranceCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>(
-            command.PersonnelFileId, command.ConcurrencyToken, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
-        if (failure is not null) { return failure; }
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileInsuranceResponse>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
-        var found = await employeeRepository.DeactivateInsuranceAsync(command.ItemPublicId, personnelFile.TenantId, cancellationToken);
-        if (!found) { return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>.Failure(PersonnelFileErrors.ItemNotFound); }
+        var existing = await employeeRepository.GetInsuranceAsync(personnelFile.PublicId, command.InsurancePublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var state = PersonnelFileInsurancePatchState.From(existing);
+        var applyResult = PersonnelFileInsurancePatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFileInsuranceResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFileInsurancePatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileInsuranceResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFileInsuranceResponse>.Success(existing);
+        }
+
+        var input = state.ToInput();
+        var response = await employeeRepository.PatchInsuranceAsync(
+            command.InsurancePublicId,
+            personnelFile.TenantId,
+            input.InsuranceCode,
+            input.EmployeeContribution,
+            input.EmployerContribution,
+            input.RangeCode,
+            input.PolicyNumber,
+            input.InsuredAmount,
+            input.CurrencyCode,
+            input.StartDateUtc,
+            input.EndDateUtc,
+            state.IsActive,
+            state.IsActiveMutated,
+            cancellationToken);
+        if (response is null)
+        {
+            return Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
 
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deactivated insurance for {personnelFile.FullName}.", null, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        var allItems = await employeeRepository.GetInsurancesAsync(personnelFile.PublicId, cancellationToken);
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileInsuranceResponse>>>.Success(CreateSectionResult(personnelFile, allItems));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched insurance for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileInsuranceResponse>.Success(response);
+    }
+}
+
+internal sealed class DeletePersonnelFileInsuranceCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : PersonnelFileEmployeeCommandHandlerBase,
+      ICommandHandler<DeletePersonnelFileInsuranceCommand, PersonnelFileParentConcurrencyResult>
+{
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+        DeletePersonnelFileInsuranceCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (!personnelFile!.IsCompletedEmployee)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        var existing = await employeeRepository.GetInsuranceAsync(personnelFile.PublicId, command.InsurancePublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var removed = await employeeRepository.DeleteInsuranceAsync(command.InsurancePublicId, personnelFile.TenantId, cancellationToken);
+        if (!removed)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted insurance for {personnelFile.FullName}.", null, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileParentConcurrencyResult>.Success(
+            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
     }
 }
 
@@ -3853,6 +5619,732 @@ internal sealed class GetPersonnelFileInsurancesQueryHandler(
     }
 }
 
+internal sealed class GetPersonnelFileInsuranceByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    ITenantContext tenantContext)
+    : PersonnelFileEmployeeReadQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileInsuranceByIdQuery, PersonnelFileInsuranceResponse>
+{
+    public async Task<Result<PersonnelFileInsuranceResponse>> Handle(
+        GetPersonnelFileInsuranceByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFileInsuranceResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await employeeRepository.GetInsuranceAsync(personnelFile!.PublicId, query.InsurancePublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFileInsuranceResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFileInsuranceResponse>.Success(response);
+    }
+}
+
+internal sealed class PersonnelFileInsurancePatchState
+{
+    public string InsuranceCode { get; set; } = string.Empty;
+    public decimal? EmployeeContribution { get; set; }
+    public decimal? EmployerContribution { get; set; }
+    public string? RangeCode { get; set; }
+    public string? PolicyNumber { get; set; }
+    public decimal? InsuredAmount { get; set; }
+    public string? CurrencyCode { get; set; }
+    public DateTime? StartDateUtc { get; set; }
+    public DateTime? EndDateUtc { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsActiveMutated { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFileInsurancePatchState From(PersonnelFileInsuranceResponse response) =>
+        new()
+        {
+            InsuranceCode = response.InsuranceCode,
+            EmployeeContribution = response.EmployeeContribution,
+            EmployerContribution = response.EmployerContribution,
+            RangeCode = response.RangeCode,
+            PolicyNumber = response.PolicyNumber,
+            InsuredAmount = response.InsuredAmount,
+            CurrencyCode = response.CurrencyCode,
+            StartDateUtc = response.StartDateUtc,
+            EndDateUtc = response.EndDateUtc,
+            IsActive = response.IsActive
+        };
+
+    public InsuranceInput ToInput() =>
+        new(
+            InsuranceCode,
+            EmployeeContribution,
+            EmployerContribution,
+            RangeCode,
+            PolicyNumber,
+            InsuredAmount,
+            CurrencyCode,
+            IsActive,
+            StartDateUtc,
+            EndDateUtc);
+}
+
+internal static class PersonnelFileInsurancePatchApplier
+{
+    public static Result Apply(IReadOnlyCollection<PersonnelFileInsurancePatchOperation> operations, PersonnelFileInsurancePatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!PersonnelFileTalentPatch.SupportedOperations.Contains(op))
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = PersonnelFileTalentPatch.ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, "Only root insurance properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFileInsurancePatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.InsuranceCode))
+        {
+            errors["insuranceCode"] = ["InsuranceCode is required."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFileInsurancePatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "insuranceCode"))
+        {
+            return Mutate(state, () => state.InsuranceCode = isRemove ? string.Empty : PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "employeeContribution"))
+        {
+            return Mutate(state, () => state.EmployeeContribution = isRemove ? null : PersonnelFileTalentPatch.ReadNullableDecimal(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "employerContribution"))
+        {
+            return Mutate(state, () => state.EmployerContribution = isRemove ? null : PersonnelFileTalentPatch.ReadNullableDecimal(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "rangeCode"))
+        {
+            return Mutate(state, () => state.RangeCode = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "policyNumber"))
+        {
+            return Mutate(state, () => state.PolicyNumber = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "insuredAmount"))
+        {
+            return Mutate(state, () => state.InsuredAmount = isRemove ? null : PersonnelFileTalentPatch.ReadNullableDecimal(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "currencyCode"))
+        {
+            return Mutate(state, () => state.CurrencyCode = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "startDateUtc"))
+        {
+            return Mutate(state, () => state.StartDateUtc = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "endDateUtc"))
+        {
+            return Mutate(state, () => state.EndDateUtc = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "isActive"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "IsActive cannot be removed.")
+                : Mutate(state, () =>
+                {
+                    state.IsActive = PersonnelFileTalentPatch.ReadRequiredBoolean(value, path);
+                    state.IsActiveMutated = true;
+                });
+        }
+
+        return PersonnelFileTalentPatch.ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFileInsurancePatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
+    }
+}
+
+internal sealed class AddPersonnelFileInsuranceBeneficiaryCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : PersonnelFileEmployeeCommandHandlerBase,
+      ICommandHandler<AddPersonnelFileInsuranceBeneficiaryCommand, PersonnelFileInsuranceBeneficiaryResponse>
+{
+    public async Task<Result<PersonnelFileInsuranceBeneficiaryResponse>> Handle(
+        AddPersonnelFileInsuranceBeneficiaryCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileInsuranceBeneficiaryResponse>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (!personnelFile!.IsCompletedEmployee)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        var kinshipValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
+            personnelFileRepository, personnelFile.TenantId, "item.kinshipCode", command.Item.KinshipCode, cancellationToken);
+        if (kinshipValidation != Error.None)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(kinshipValidation);
+        }
+
+        var response = await employeeRepository.AddInsuranceBeneficiaryAsync(
+            personnelFile.PublicId, command.InsurancePublicId, personnelFile.TenantId, command.Item, cancellationToken);
+        if (response is null)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Added insurance beneficiary for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileInsuranceBeneficiaryResponse>.Success(response);
+    }
+}
+
+internal sealed class UpdatePersonnelFileInsuranceBeneficiaryCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : PersonnelFileEmployeeCommandHandlerBase,
+      ICommandHandler<UpdatePersonnelFileInsuranceBeneficiaryCommand, PersonnelFileInsuranceBeneficiaryResponse>
+{
+    public async Task<Result<PersonnelFileInsuranceBeneficiaryResponse>> Handle(
+        UpdatePersonnelFileInsuranceBeneficiaryCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileInsuranceBeneficiaryResponse>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (!personnelFile!.IsCompletedEmployee)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        var kinshipValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
+            personnelFileRepository, personnelFile.TenantId, "item.kinshipCode", command.Item.KinshipCode, cancellationToken);
+        if (kinshipValidation != Error.None)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(kinshipValidation);
+        }
+
+        var existing = await employeeRepository.GetInsuranceBeneficiaryAsync(
+            personnelFile.PublicId, command.InsurancePublicId, command.BeneficiaryPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var response = await employeeRepository.UpdateInsuranceBeneficiaryAsync(
+            personnelFile.PublicId,
+            command.InsurancePublicId,
+            command.BeneficiaryPublicId,
+            personnelFile.TenantId,
+            command.Item.FullName,
+            command.Item.DocumentNumber,
+            command.Item.BirthDate,
+            command.Item.KinshipCode,
+            cancellationToken);
+        if (response is null)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated insurance beneficiary for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileInsuranceBeneficiaryResponse>.Success(response);
+    }
+}
+
+internal sealed class PatchPersonnelFileInsuranceBeneficiaryCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : PersonnelFileEmployeeCommandHandlerBase,
+      ICommandHandler<PatchPersonnelFileInsuranceBeneficiaryCommand, PersonnelFileInsuranceBeneficiaryResponse>
+{
+    public async Task<Result<PersonnelFileInsuranceBeneficiaryResponse>> Handle(
+        PatchPersonnelFileInsuranceBeneficiaryCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileInsuranceBeneficiaryResponse>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (!personnelFile!.IsCompletedEmployee)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        var existing = await employeeRepository.GetInsuranceBeneficiaryAsync(
+            personnelFile.PublicId, command.InsurancePublicId, command.BeneficiaryPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var state = PersonnelFileInsuranceBeneficiaryPatchState.From(existing);
+        var applyResult = PersonnelFileInsuranceBeneficiaryPatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFileInsuranceBeneficiaryPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Success(existing);
+        }
+
+        if (state.KinshipCodeMutated)
+        {
+            var kinshipValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
+                personnelFileRepository, personnelFile.TenantId, "kinshipCode", state.KinshipCode, cancellationToken);
+            if (kinshipValidation != Error.None)
+            {
+                return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(kinshipValidation);
+            }
+        }
+
+        var input = state.ToInput();
+        var response = await employeeRepository.PatchInsuranceBeneficiaryAsync(
+            personnelFile.PublicId,
+            command.InsurancePublicId,
+            command.BeneficiaryPublicId,
+            personnelFile.TenantId,
+            input.FullName,
+            input.DocumentNumber,
+            input.BirthDate,
+            input.KinshipCode,
+            state.IsActive,
+            state.IsActiveMutated,
+            cancellationToken);
+        if (response is null)
+        {
+            return Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched insurance beneficiary for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileInsuranceBeneficiaryResponse>.Success(response);
+    }
+}
+
+internal sealed class DeletePersonnelFileInsuranceBeneficiaryCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : PersonnelFileEmployeeCommandHandlerBase,
+      ICommandHandler<DeletePersonnelFileInsuranceBeneficiaryCommand, PersonnelFileParentConcurrencyResult>
+{
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+        DeletePersonnelFileInsuranceBeneficiaryCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (!personnelFile!.IsCompletedEmployee)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        var existing = await employeeRepository.GetInsuranceBeneficiaryAsync(
+            personnelFile.PublicId, command.InsurancePublicId, command.BeneficiaryPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var removed = await employeeRepository.DeleteInsuranceBeneficiaryAsync(
+            personnelFile.PublicId, command.InsurancePublicId, command.BeneficiaryPublicId, personnelFile.TenantId, cancellationToken);
+        if (!removed)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted insurance beneficiary for {personnelFile.FullName}.", null, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileParentConcurrencyResult>.Success(
+            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
+    }
+}
+
+internal sealed class GetPersonnelFileInsuranceBeneficiariesQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    ITenantContext tenantContext)
+    : PersonnelFileEmployeeReadQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileInsuranceBeneficiariesQuery, IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse>>
+{
+    public async Task<Result<IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse>>> Handle(
+        GetPersonnelFileInsuranceBeneficiariesQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse>>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await employeeRepository.GetInsuranceBeneficiariesAsync(personnelFile!.PublicId, query.InsurancePublicId, cancellationToken);
+        return Result<IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse>>.Success(response);
+    }
+}
+
+internal sealed class GetPersonnelFileInsuranceBeneficiaryByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    ITenantContext tenantContext)
+    : PersonnelFileEmployeeReadQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileInsuranceBeneficiaryByIdQuery, PersonnelFileInsuranceBeneficiaryResponse>
+{
+    public async Task<Result<PersonnelFileInsuranceBeneficiaryResponse>> Handle(
+        GetPersonnelFileInsuranceBeneficiaryByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFileInsuranceBeneficiaryResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await employeeRepository.GetInsuranceBeneficiaryAsync(
+            personnelFile!.PublicId, query.InsurancePublicId, query.BeneficiaryPublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFileInsuranceBeneficiaryResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFileInsuranceBeneficiaryResponse>.Success(response);
+    }
+}
+
+internal sealed class PersonnelFileInsuranceBeneficiaryPatchState
+{
+    public string FullName { get; set; } = string.Empty;
+    public string? DocumentNumber { get; set; }
+    public DateTime? BirthDate { get; set; }
+    public string KinshipCode { get; set; } = string.Empty;
+    public bool KinshipCodeMutated { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsActiveMutated { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFileInsuranceBeneficiaryPatchState From(PersonnelFileInsuranceBeneficiaryResponse response) =>
+        new()
+        {
+            FullName = response.FullName,
+            DocumentNumber = response.DocumentNumber,
+            BirthDate = response.BirthDate,
+            KinshipCode = response.KinshipCode,
+            IsActive = response.IsActive
+        };
+
+    public InsuranceBeneficiaryInput ToInput() =>
+        new(
+            FullName,
+            DocumentNumber,
+            BirthDate,
+            KinshipCode);
+}
+
+internal static class PersonnelFileInsuranceBeneficiaryPatchApplier
+{
+    public static Result Apply(IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryPatchOperation> operations, PersonnelFileInsuranceBeneficiaryPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!PersonnelFileTalentPatch.SupportedOperations.Contains(op))
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = PersonnelFileTalentPatch.ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, "Only root insurance beneficiary properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFileInsuranceBeneficiaryPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.FullName))
+        {
+            errors["fullName"] = ["FullName is required."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.KinshipCode))
+        {
+            errors["kinshipCode"] = ["KinshipCode is required."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFileInsuranceBeneficiaryPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "fullName"))
+        {
+            return Mutate(state, () => state.FullName = isRemove ? string.Empty : PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "documentNumber"))
+        {
+            return Mutate(state, () => state.DocumentNumber = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "birthDate"))
+        {
+            return Mutate(state, () => state.BirthDate = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "kinshipCode"))
+        {
+            return Mutate(state, () =>
+            {
+                state.KinshipCode = isRemove ? string.Empty : PersonnelFileTalentPatch.ReadRequiredString(value, path);
+                state.KinshipCodeMutated = true;
+            });
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "isActive"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "IsActive cannot be removed.")
+                : Mutate(state, () =>
+                {
+                    state.IsActive = PersonnelFileTalentPatch.ReadRequiredBoolean(value, path);
+                    state.IsActiveMutated = true;
+                });
+        }
+
+        return PersonnelFileTalentPatch.ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFileInsuranceBeneficiaryPatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
+    }
+}
+
 internal sealed class AddPersonnelFileMedicalClaimCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
@@ -3861,36 +6353,66 @@ internal sealed class AddPersonnelFileMedicalClaimCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<AddPersonnelFileMedicalClaimCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>
+      ICommandHandler<AddPersonnelFileMedicalClaimCommand, PersonnelFileMedicalClaimResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>> Handle(
+    public async Task<Result<PersonnelFileMedicalClaimResponse>> Handle(
         AddPersonnelFileMedicalClaimCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>(
-            command.PersonnelFileId, Guid.Empty, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
-        if (failure is not null) { return failure; }
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileMedicalClaimResponse>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
         var entity = PersonnelFileMedicalClaim.Create(
-            command.Item.InsurancePublicId, command.Item.AccountNumber, command.Item.ClaimTypeCode,
-            command.Item.Diagnosis, command.Item.ClaimAmount, command.Item.CurrencyCode,
-            command.Item.PaidAmount, command.Item.ResponseTimeDays, command.Item.Notes,
-            command.Item.ClaimDateUtc, command.Item.SourceSystem, command.Item.SourceReference, command.Item.SourceSyncedUtc);
+            command.Item.InsurancePublicId,
+            command.Item.AccountNumber,
+            command.Item.ClaimTypeCode,
+            command.Item.Diagnosis,
+            command.Item.ClaimAmount,
+            command.Item.CurrencyCode,
+            command.Item.PaidAmount,
+            command.Item.ResponseTimeDays,
+            command.Item.Notes,
+            command.Item.ClaimDateUtc,
+            command.Item.SourceSystem,
+            command.Item.SourceReference,
+            command.Item.SourceSyncedUtc);
         entity.BindToPersonnelFile(personnelFile.Id);
         entity.SetTenantId(personnelFile.TenantId);
 
-        var response = await employeeRepository.AddMedicalClaimAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
+        var all = await employeeRepository.AddMedicalClaimAsync(personnelFile.Id, personnelFile.TenantId, entity, cancellationToken);
+        var response = all.SingleOrDefault(item => item.Id == entity.PublicId)
+            ?? throw new InvalidOperationException("Personnel file medical claim response could not be resolved after creation.");
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Added medical claim for {personnelFile.FullName}.", response, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>.Success(CreateSectionResult(personnelFile, response));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Added medical claim for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileMedicalClaimResponse>.Success(response);
     }
 }
 
@@ -3902,41 +6424,84 @@ internal sealed class UpdatePersonnelFileMedicalClaimCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<UpdatePersonnelFileMedicalClaimCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>
+      ICommandHandler<UpdatePersonnelFileMedicalClaimCommand, PersonnelFileMedicalClaimResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>> Handle(
+    public async Task<Result<PersonnelFileMedicalClaimResponse>> Handle(
         UpdatePersonnelFileMedicalClaimCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>(
-            command.PersonnelFileId, command.ConcurrencyToken, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
-        if (failure is not null) { return failure; }
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileMedicalClaimResponse>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
-        var found = await employeeRepository.UpdateMedicalClaimAsync(
-            command.ItemPublicId, personnelFile.TenantId,
-            command.Item.InsurancePublicId, command.Item.AccountNumber, command.Item.ClaimTypeCode,
-            command.Item.Diagnosis, command.Item.ClaimAmount, command.Item.CurrencyCode,
-            command.Item.PaidAmount, command.Item.ResponseTimeDays, command.Item.Notes,
-            command.Item.ClaimDateUtc, command.Item.SourceSystem, command.Item.SourceReference, command.Item.SourceSyncedUtc,
+        var existing = await employeeRepository.GetMedicalClaimAsync(personnelFile.PublicId, command.MedicalClaimPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        // PUT replaces business fields only; isActive is preserved (it is mutated exclusively via PATCH).
+        var response = await employeeRepository.UpdateMedicalClaimAsync(
+            command.MedicalClaimPublicId,
+            personnelFile.TenantId,
+            command.Item.InsurancePublicId,
+            command.Item.AccountNumber,
+            command.Item.ClaimTypeCode,
+            command.Item.Diagnosis,
+            command.Item.ClaimAmount,
+            command.Item.CurrencyCode,
+            command.Item.PaidAmount,
+            command.Item.ResponseTimeDays,
+            command.Item.Notes,
+            command.Item.ClaimDateUtc,
+            command.Item.SourceSystem,
+            command.Item.SourceReference,
+            command.Item.SourceSyncedUtc,
             cancellationToken);
-        if (!found) { return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>.Failure(PersonnelFileErrors.ItemNotFound); }
+        if (response is null)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
 
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated medical claim for {personnelFile.FullName}.", null, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        var allItems = await employeeRepository.GetMedicalClaimsAsync(personnelFile.PublicId, cancellationToken);
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>.Success(CreateSectionResult(personnelFile, allItems));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Updated medical claim for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileMedicalClaimResponse>.Success(response);
     }
 }
 
-internal sealed class DeactivatePersonnelFileMedicalClaimCommandHandler(
+internal sealed class PatchPersonnelFileMedicalClaimCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository personnelFileRepository,
     IPersonnelFileEmployeeRepository employeeRepository,
@@ -3944,31 +6509,169 @@ internal sealed class DeactivatePersonnelFileMedicalClaimCommandHandler(
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
     : PersonnelFileEmployeeCommandHandlerBase,
-      ICommandHandler<DeactivatePersonnelFileMedicalClaimCommand, PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>
+      ICommandHandler<PatchPersonnelFileMedicalClaimCommand, PersonnelFileMedicalClaimResponse>
 {
-    public async Task<Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>> Handle(
-        DeactivatePersonnelFileMedicalClaimCommand command,
+    public async Task<Result<PersonnelFileMedicalClaimResponse>> Handle(
+        PatchPersonnelFileMedicalClaimCommand command,
         CancellationToken cancellationToken)
     {
-        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>(
-            command.PersonnelFileId, command.ConcurrencyToken, tenantContext, authorizationService, personnelFileRepository, cancellationToken);
-        if (failure is not null) { return failure; }
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileMedicalClaimResponse>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
 
         if (!personnelFile!.IsCompletedEmployee)
         {
-            return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>.Failure(PersonnelFileErrors.StateRuleViolation);
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.StateRuleViolation);
         }
 
-        var found = await employeeRepository.DeactivateMedicalClaimAsync(command.ItemPublicId, personnelFile.TenantId, cancellationToken);
-        if (!found) { return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>.Failure(PersonnelFileErrors.ItemNotFound); }
+        var existing = await employeeRepository.GetMedicalClaimAsync(personnelFile.PublicId, command.MedicalClaimPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var state = PersonnelFileMedicalClaimPatchState.From(existing);
+        var applyResult = PersonnelFileMedicalClaimPatchApplier.Apply(command.Operations, state);
+        if (applyResult.IsFailure)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(applyResult.Error);
+        }
+
+        var validation = PersonnelFileMedicalClaimPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Success(existing);
+        }
+
+        var input = state.ToInput();
+        var response = await employeeRepository.PatchMedicalClaimAsync(
+            command.MedicalClaimPublicId,
+            personnelFile.TenantId,
+            input.InsurancePublicId,
+            input.AccountNumber,
+            input.ClaimTypeCode,
+            input.Diagnosis,
+            input.ClaimAmount,
+            input.CurrencyCode,
+            input.PaidAmount,
+            input.ResponseTimeDays,
+            input.Notes,
+            input.ClaimDateUtc,
+            input.SourceSystem,
+            input.SourceReference,
+            input.SourceSyncedUtc,
+            state.IsActive,
+            state.IsActiveMutated,
+            cancellationToken);
+        if (response is null)
+        {
+            return Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
 
         TouchPersonnelFile(personnelFile);
-        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try { _ = await unitOfWork.SaveChangesAsync(cancellationToken); await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deactivated medical claim for {personnelFile.FullName}.", null, cancellationToken); _ = await unitOfWork.SaveChangesAsync(cancellationToken); await transaction.CommitAsync(cancellationToken); }
-        catch { await transaction.RollbackAsync(cancellationToken); throw; }
 
-        var allItems = await employeeRepository.GetMedicalClaimsAsync(personnelFile.PublicId, cancellationToken);
-        return Result<PersonnelFileSectionResult<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>>.Success(CreateSectionResult(personnelFile, allItems));
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Patched medical claim for {personnelFile.FullName}.", response, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileMedicalClaimResponse>.Success(response);
+    }
+}
+
+internal sealed class DeletePersonnelFileMedicalClaimCommandHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : PersonnelFileEmployeeCommandHandlerBase,
+      ICommandHandler<DeletePersonnelFileMedicalClaimCommand, PersonnelFileParentConcurrencyResult>
+{
+    public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
+        DeletePersonnelFileMedicalClaimCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadForManageAsync<PersonnelFileParentConcurrencyResult>(
+            command.PersonnelFileId,
+            Guid.Empty,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        if (!personnelFile!.IsCompletedEmployee)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.StateRuleViolation);
+        }
+
+        var existing = await employeeRepository.GetMedicalClaimAsync(personnelFile.PublicId, command.MedicalClaimPublicId, cancellationToken);
+        if (existing is null)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        if (existing.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ConcurrencyConflict);
+        }
+
+        var removed = await employeeRepository.DeleteMedicalClaimAsync(command.MedicalClaimPublicId, personnelFile.TenantId, cancellationToken);
+        if (!removed)
+        {
+            return Result<PersonnelFileParentConcurrencyResult>.Failure(PersonnelFileErrors.ItemNotFound);
+        }
+
+        TouchPersonnelFile(personnelFile);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await PersonnelFileEmployeeAudits.LogUpdateAsync(auditService, personnelFile, $"Deleted medical claim for {personnelFile.FullName}.", null, cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return Result<PersonnelFileParentConcurrencyResult>.Success(
+            new PersonnelFileParentConcurrencyResult(personnelFile.ConcurrencyToken));
     }
 }
 
@@ -3997,6 +6700,238 @@ internal sealed class GetPersonnelFileMedicalClaimsQueryHandler(
 
         var response = await employeeRepository.GetMedicalClaimsAsync(personnelFile!.PublicId, cancellationToken);
         return Result<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>>.Success(response);
+    }
+}
+
+internal sealed class GetPersonnelFileMedicalClaimByIdQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository personnelFileRepository,
+    IPersonnelFileEmployeeRepository employeeRepository,
+    ITenantContext tenantContext)
+    : PersonnelFileEmployeeReadQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileMedicalClaimByIdQuery, PersonnelFileMedicalClaimResponse>
+{
+    public async Task<Result<PersonnelFileMedicalClaimResponse>> Handle(
+        GetPersonnelFileMedicalClaimByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (failure, personnelFile) = await LoadCompletedEmployeeForReadAsync<PersonnelFileMedicalClaimResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            personnelFileRepository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var response = await employeeRepository.GetMedicalClaimAsync(personnelFile!.PublicId, query.MedicalClaimPublicId, cancellationToken);
+        return response is null
+            ? Result<PersonnelFileMedicalClaimResponse>.Failure(PersonnelFileErrors.ItemNotFound)
+            : Result<PersonnelFileMedicalClaimResponse>.Success(response);
+    }
+}
+
+internal sealed class PersonnelFileMedicalClaimPatchState
+{
+    public Guid? InsurancePublicId { get; set; }
+    public string? AccountNumber { get; set; }
+    public string ClaimTypeCode { get; set; } = string.Empty;
+    public string? Diagnosis { get; set; }
+    public decimal? ClaimAmount { get; set; }
+    public string? CurrencyCode { get; set; }
+    public decimal? PaidAmount { get; set; }
+    public int? ResponseTimeDays { get; set; }
+    public string? Notes { get; set; }
+    public DateTime ClaimDateUtc { get; set; }
+    public string? SourceSystem { get; set; }
+    public string? SourceReference { get; set; }
+    public DateTime? SourceSyncedUtc { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsActiveMutated { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static PersonnelFileMedicalClaimPatchState From(PersonnelFileMedicalClaimResponse response) =>
+        new()
+        {
+            InsurancePublicId = response.InsuranceId,
+            AccountNumber = response.AccountNumber,
+            ClaimTypeCode = response.ClaimTypeCode,
+            Diagnosis = response.Diagnosis,
+            ClaimAmount = response.ClaimAmount,
+            CurrencyCode = response.CurrencyCode,
+            PaidAmount = response.PaidAmount,
+            ResponseTimeDays = response.ResponseTimeDays,
+            Notes = response.Notes,
+            ClaimDateUtc = response.ClaimDateUtc,
+            SourceSystem = response.SourceSystem,
+            SourceReference = response.SourceReference,
+            SourceSyncedUtc = response.SourceSyncedUtc,
+            IsActive = response.IsActive
+        };
+
+    public MedicalClaimInput ToInput() =>
+        new(
+            InsurancePublicId,
+            AccountNumber,
+            ClaimTypeCode,
+            Diagnosis,
+            ClaimAmount,
+            CurrencyCode,
+            PaidAmount,
+            ResponseTimeDays,
+            Notes,
+            ClaimDateUtc,
+            SourceSystem,
+            SourceReference,
+            SourceSyncedUtc);
+}
+
+internal static class PersonnelFileMedicalClaimPatchApplier
+{
+    public static Result Apply(IReadOnlyCollection<PersonnelFileMedicalClaimPatchOperation> operations, PersonnelFileMedicalClaimPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!PersonnelFileTalentPatch.SupportedOperations.Contains(op))
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = PersonnelFileTalentPatch.ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(operation.Path, "Only root medical claim properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (PersonnelFilePatchValueException exception)
+            {
+                return PersonnelFileTalentPatch.ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(PersonnelFileMedicalClaimPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.ClaimTypeCode))
+        {
+            errors["claimTypeCode"] = ["ClaimTypeCode is required."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        PersonnelFileMedicalClaimPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "insurancePublicId"))
+        {
+            return Mutate(state, () => state.InsurancePublicId = isRemove ? null : PersonnelFileTalentPatch.ReadNullableGuid(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "accountNumber"))
+        {
+            return Mutate(state, () => state.AccountNumber = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "claimTypeCode"))
+        {
+            return Mutate(state, () => state.ClaimTypeCode = isRemove ? string.Empty : PersonnelFileTalentPatch.ReadRequiredString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "diagnosis"))
+        {
+            return Mutate(state, () => state.Diagnosis = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "claimAmount"))
+        {
+            return Mutate(state, () => state.ClaimAmount = isRemove ? null : PersonnelFileTalentPatch.ReadNullableDecimal(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "currencyCode"))
+        {
+            return Mutate(state, () => state.CurrencyCode = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "paidAmount"))
+        {
+            return Mutate(state, () => state.PaidAmount = isRemove ? null : PersonnelFileTalentPatch.ReadNullableDecimal(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "responseTimeDays"))
+        {
+            return Mutate(state, () => state.ResponseTimeDays = isRemove ? null : PersonnelFileTalentPatch.ReadNullableInt(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "notes"))
+        {
+            return Mutate(state, () => state.Notes = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "claimDateUtc"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "ClaimDateUtc cannot be removed.")
+                : Mutate(state, () => state.ClaimDateUtc = PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "sourceSystem"))
+        {
+            return Mutate(state, () => state.SourceSystem = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "sourceReference"))
+        {
+            return Mutate(state, () => state.SourceReference = isRemove ? null : PersonnelFileTalentPatch.ReadNullableString(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "sourceSyncedUtc"))
+        {
+            return Mutate(state, () => state.SourceSyncedUtc = isRemove ? null : PersonnelFileTalentPatch.ReadRequiredDateTime(value, path));
+        }
+
+        if (PersonnelFileTalentPatch.IsSegment(property, "isActive"))
+        {
+            return isRemove
+                ? PersonnelFileTalentPatch.ValidationFailure(path, "IsActive cannot be removed.")
+                : Mutate(state, () =>
+                {
+                    state.IsActive = PersonnelFileTalentPatch.ReadRequiredBoolean(value, path);
+                    state.IsActiveMutated = true;
+                });
+        }
+
+        return PersonnelFileTalentPatch.ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static Result Mutate(PersonnelFileMedicalClaimPatchState state, Action apply)
+    {
+        apply();
+        state.HasMutation = true;
+        return Result.Success();
     }
 }
 
@@ -6220,6 +9155,54 @@ internal static class PersonnelFileTalentPatch
         }
 
         throw new PersonnelFilePatchValueException(path, "Value must be a number.");
+    }
+
+    public static decimal ReadRequiredDecimal(JsonElement? value, string path) =>
+        ReadNullableDecimal(value, path)
+            ?? throw new PersonnelFilePatchValueException(path, "Value must be a number.");
+
+    public static bool ReadRequiredBoolean(JsonElement? value, string path)
+    {
+        if (!IsNull(value) && value!.Value.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        {
+            return value.Value.GetBoolean();
+        }
+
+        throw new PersonnelFilePatchValueException(path, "Value must be a boolean.");
+    }
+
+    public static Guid? ReadNullableGuid(JsonElement? value, string path)
+    {
+        var raw = ReadNullableString(value, path);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        return Guid.TryParse(raw, out var parsed)
+            ? parsed
+            : throw new PersonnelFilePatchValueException(path, "Value must be a valid UUID.");
+    }
+
+    public static int? ReadNullableInt(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        if (value!.Value.ValueKind == JsonValueKind.Number && value.Value.TryGetInt32(out var parsed))
+        {
+            return parsed;
+        }
+
+        var raw = value.Value.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
+        if (!string.IsNullOrWhiteSpace(raw) && int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
+        {
+            return parsed;
+        }
+
+        throw new PersonnelFilePatchValueException(path, "Value must be an integer.");
     }
 
     public static Result ValidationFailure(string path, string message) =>

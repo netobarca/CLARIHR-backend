@@ -356,6 +356,7 @@ public sealed class PersonnelFilesCoreCommandTests
         public Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PersonnelFileEmployeeRelationResponse?> GetEmployeeRelationAsync(Guid personnelFileId, Guid employeeRelationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileBankAccountResponse?> GetBankAccountAsync(Guid personnelFileId, Guid bankAccountPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PersonnelFileAssociationResponse?> GetAssociationAsync(Guid personnelFileId, Guid associationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileEducationResponse>> GetEducationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();

@@ -1764,9 +1764,12 @@ paths:
   /api/v1/personnel-files/{publicId}/bank-accounts:
     get:
       tags:
-      - personnel-file-profile
-      summary: Get bank accounts
+      - personnel-files
       operationId: GetPersonnelFileBankAccounts
+      summary: List a personnel file's bank accounts
+      description: Returns the full bank-accounts collection. Each item carries its own concurrencyToken for use in the If-Match header of subsequent PUT/PATCH/DELETE requests. The personnel file must already be a completed employee record.
+      security:
+      - Bearer: []
       parameters:
       - name: publicId
         in: path
@@ -1776,18 +1779,45 @@ paths:
           format: uuid
       responses:
         '200':
-          description: OK
+          description: Bank accounts returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileBankAccountResponse'
         '401':
-          description: Unauthorized
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     post:
       tags:
-      - personnel-file-profile
-      summary: Add bank account
+      - personnel-files
       operationId: AddPersonnelFileBankAccount
+      summary: Add a bank account to a personnel file
+      description: Creates a new bank account item and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
+      security:
+      - Bearer: []
       parameters:
       - name: publicId
         in: path
@@ -1800,26 +1830,59 @@ paths:
         content:
           application/json:
             schema:
-              type: object
+              $ref: '#/components/schemas/AddBankAccountRequest'
       responses:
         '201':
-          description: Created
+          description: Bank account created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileBankAccountResponse'
         '400':
-          description: Bad Request
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '401':
-          description: Unauthorized
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '409':
-          description: Conflict
-  /api/v1/personnel-files/{publicId}/bank-accounts/{itemPublicId}:
-    put:
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/bank-accounts/{bankAccountPublicId}:
+    get:
       tags:
-      - personnel-file-profile
-      summary: Update bank account
-      operationId: UpdatePersonnelFileBankAccount
+      - personnel-files
+      operationId: GetPersonnelFileBankAccountById
+      summary: Get a personnel file bank account by id
+      description: Returns a single bank account item. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests.
+      security:
+      - Bearer: []
       parameters:
       - name: publicId
         in: path
@@ -1827,36 +1890,51 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: itemPublicId
+      - name: bankAccountPublicId
         in: path
         required: true
         schema:
           type: string
           format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
       responses:
         '200':
-          description: OK
-        '400':
-          description: Bad Request
+          description: Bank account returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileBankAccountResponse'
         '401':
-          description: Unauthorized
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
-        '409':
-          description: Conflict
-    delete:
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
       tags:
-      - personnel-file-profile
-      summary: Delete bank account
-      operationId: DeletePersonnelFileBankAccount
+      - personnel-files
+      operationId: UpdatePersonnelFileBankAccount
+      summary: Replace a personnel file bank account
+      description: Replaces all fields of an existing bank account item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
       parameters:
       - name: publicId
         in: path
@@ -1864,7 +1942,269 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: itemPublicId
+      - name: bankAccountPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the bank account, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBankAccountRequest'
+      responses:
+        '200':
+          description: Bank account updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileBankAccountResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFileBankAccount
+      summary: Patch a personnel file bank account (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing bank account item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: bankAccountPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the bank account, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchBankAccountRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Bank account patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileBankAccountResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFileBankAccount
+      summary: Remove a bank account from a personnel file
+      description: Hard-deletes the specified bank account item. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: bankAccountPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the bank account, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Bank account deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/salary-items:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFileSalaryItems
+      summary: List a personnel file's salary items
+      description: Returns the full salary-items collection. Each item carries its own concurrencyToken for use in the If-Match header of subsequent PUT/PATCH/DELETE requests. The personnel file must already be a completed employee record.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Salary items returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileSalaryItemResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - personnel-files
+      operationId: AddPersonnelFileSalaryItem
+      summary: Add a salary item to a personnel file
+      description: Creates a new salary item and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
         in: path
         required: true
         schema:
@@ -1875,18 +2215,2683 @@ paths:
         content:
           application/json:
             schema:
-              type: object
+              $ref: '#/components/schemas/AddSalaryItemRequest'
       responses:
-        '204':
-          description: No Content
+        '201':
+          description: Salary item created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileSalaryItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '401':
-          description: Unauthorized
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: Forbidden
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Not Found
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '409':
-          description: Conflict
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/salary-items/{salaryItemPublicId}:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFileSalaryItemById
+      summary: Get a personnel file salary item by id
+      description: Returns a single salary item. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: salaryItemPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Salary item returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileSalaryItemResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - personnel-files
+      operationId: UpdatePersonnelFileSalaryItem
+      summary: Replace a personnel file salary item
+      description: Replaces all fields of an existing salary item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: salaryItemPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the salary item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSalaryItemRequest'
+      responses:
+        '200':
+          description: Salary item updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileSalaryItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFileSalaryItem
+      summary: Patch a personnel file salary item (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing salary item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: salaryItemPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the salary item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchSalaryItemRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Salary item patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileSalaryItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFileSalaryItem
+      summary: Remove a salary item from a personnel file
+      description: Hard-deletes the specified salary item. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: salaryItemPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the salary item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Salary item deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/additional-benefits:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFileAdditionalBenefits
+      summary: List a personnel file's additional benefits
+      description: Returns the full additional-benefits collection. Each item carries its own concurrencyToken for use in the If-Match header of subsequent PUT/PATCH/DELETE requests. The personnel file must already be a completed employee record.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Additional benefits returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileAdditionalBenefitResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - personnel-files
+      operationId: AddPersonnelFileAdditionalBenefit
+      summary: Add an additional benefit to a personnel file
+      description: Creates a new additional benefit item and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddAdditionalBenefitRequest'
+      responses:
+        '201':
+          description: Additional benefit created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileAdditionalBenefitResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/additional-benefits/{additionalBenefitPublicId}:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFileAdditionalBenefitById
+      summary: Get a personnel file additional benefit by id
+      description: Returns a single additional benefit item. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: additionalBenefitPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Additional benefit returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileAdditionalBenefitResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - personnel-files
+      operationId: UpdatePersonnelFileAdditionalBenefit
+      summary: Replace a personnel file additional benefit
+      description: Replaces all fields of an existing additional benefit item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: additionalBenefitPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the additional benefit, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdditionalBenefitRequest'
+      responses:
+        '200':
+          description: Additional benefit updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileAdditionalBenefitResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFileAdditionalBenefit
+      summary: Patch a personnel file additional benefit (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing additional benefit item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: additionalBenefitPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the additional benefit, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchAdditionalBenefitRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Additional benefit patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileAdditionalBenefitResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFileAdditionalBenefit
+      summary: Remove an additional benefit from a personnel file
+      description: Hard-deletes the specified additional benefit item. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: additionalBenefitPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the additional benefit, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Additional benefit deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/payment-methods:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFilePaymentMethods
+      summary: List a personnel file's payment methods
+      description: Returns the full payment-methods collection. Each item carries its own concurrencyToken for use in the If-Match header of subsequent PUT/PATCH/DELETE requests. The personnel file must already be a completed employee record.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Payment methods returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFilePaymentMethodResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - personnel-files
+      operationId: AddPersonnelFilePaymentMethod
+      summary: Add a payment method to a personnel file
+      description: Creates a new payment method item and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddPaymentMethodRequest'
+      responses:
+        '201':
+          description: Payment method created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePaymentMethodResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/payment-methods/{paymentMethodPublicId}:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFilePaymentMethodById
+      summary: Get a personnel file payment method by id
+      description: Returns a single payment method item. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: paymentMethodPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Payment method returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePaymentMethodResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - personnel-files
+      operationId: UpdatePersonnelFilePaymentMethod
+      summary: Replace a personnel file payment method
+      description: Replaces all fields of an existing payment method item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: paymentMethodPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the payment method, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePaymentMethodRequest'
+      responses:
+        '200':
+          description: Payment method updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePaymentMethodResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFilePaymentMethod
+      summary: Patch a personnel file payment method (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing payment method item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: paymentMethodPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the payment method, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchPaymentMethodRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Payment method patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePaymentMethodResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFilePaymentMethod
+      summary: Remove a payment method from a personnel file
+      description: Hard-deletes the specified payment method item. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: paymentMethodPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the payment method, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Payment method deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/payroll-transactions:
+    get:
+      tags:
+      - personnel-files
+      operationId: SearchPersonnelFilePayrollTransactions
+      summary: Search a personnel file's payroll transactions
+      description: Returns a paged, filterable list of payroll transactions. Each item carries its own concurrencyToken. Payroll transactions are immutable audit records; only the isActive flag can be patched.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: fromUtc
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: toUtc
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: sortBy
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: sortDirection
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/PersonnelFileSortDirection'
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        '200':
+          description: Payroll transactions returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPersonnelFilePayrollTransactionResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - personnel-files
+      operationId: AddPersonnelFilePayrollTransaction
+      summary: Add a payroll transaction to a personnel file
+      description: Creates a new payroll transaction and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddPayrollTransactionRequest'
+      responses:
+        '201':
+          description: Payroll transaction created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePayrollTransactionResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/payroll-transactions/export:
+    get:
+      tags:
+      - personnel-files
+      operationId: ExportPersonnelFilePayrollTransactions
+      summary: Export a personnel file's payroll transactions
+      description: Exports the filtered payroll-transactions list as a downloadable file (CSV, XLSX or JSON depending on the format query parameter). Accepts the same filtering and sorting query parameters as the search endpoint.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: format
+        in: query
+        required: false
+        description: Export format. One of csv, xlsx or json.
+        schema:
+          type: string
+          default: xlsx
+      - name: fromUtc
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: toUtc
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: sortBy
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: sortDirection
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/PersonnelFileSortDirection'
+      responses:
+        '200':
+          description: Export artifact stream.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/payroll-transactions/{payrollTransactionPublicId}:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFilePayrollTransactionById
+      summary: Get a personnel file payroll transaction by id
+      description: Returns a single payroll transaction. The concurrencyToken in the response is required in the If-Match header of a subsequent PATCH request.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: payrollTransactionPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Payroll transaction returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePayrollTransactionResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFilePayrollTransaction
+      summary: Patch a personnel file payroll transaction (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing payroll transaction. Payroll transactions are immutable audit records; only the isActive flag is patchable. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: payrollTransactionPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the payroll transaction, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchPayrollTransactionRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Payroll transaction patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePayrollTransactionResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/insurances:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFileInsurances
+      summary: List a personnel file's insurances
+      description: Returns the full insurances collection. Each item carries its own concurrencyToken for use in the If-Match header of subsequent PUT/PATCH/DELETE requests, plus its nested beneficiaries. The personnel file must already be a completed employee record.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Insurances returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileInsuranceResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - personnel-files
+      operationId: AddPersonnelFileInsurance
+      summary: Add an insurance to a personnel file
+      description: Creates a new insurance item and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddInsuranceRequest'
+      responses:
+        '201':
+          description: Insurance created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileInsuranceResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFileInsuranceById
+      summary: Get a personnel file insurance by id
+      description: Returns a single insurance item with its nested beneficiaries. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: insurancePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Insurance returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileInsuranceResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - personnel-files
+      operationId: UpdatePersonnelFileInsurance
+      summary: Replace a personnel file insurance
+      description: Replaces all fields of an existing insurance item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: insurancePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the insurance, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInsuranceRequest'
+      responses:
+        '200':
+          description: Insurance updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileInsuranceResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFileInsurance
+      summary: Patch a personnel file insurance (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing insurance item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: insurancePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the insurance, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchInsuranceRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Insurance patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileInsuranceResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFileInsurance
+      summary: Remove an insurance from a personnel file
+      description: Hard-deletes the specified insurance item and its beneficiaries. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: insurancePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the insurance, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Insurance deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}/beneficiaries:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFileInsuranceBeneficiaries
+      summary: List an insurance's beneficiaries
+      description: Returns the full beneficiaries collection for the specified insurance. Each item carries its own concurrencyToken for use in the If-Match header of subsequent PUT/PATCH/DELETE requests.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: insurancePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Beneficiaries returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileInsuranceBeneficiaryResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or insurance not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - personnel-files
+      operationId: AddPersonnelFileInsuranceBeneficiary
+      summary: Add a beneficiary to an insurance
+      description: Creates a new beneficiary item under the specified insurance and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: insurancePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddInsuranceBeneficiaryRequest'
+      responses:
+        '201':
+          description: Beneficiary created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileInsuranceBeneficiaryResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or insurance not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/insurances/{insurancePublicId}/beneficiaries/{beneficiaryPublicId}:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFileInsuranceBeneficiaryById
+      summary: Get an insurance beneficiary by id
+      description: Returns a single beneficiary item. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: insurancePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: beneficiaryPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Beneficiary returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileInsuranceBeneficiaryResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file, insurance or beneficiary not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - personnel-files
+      operationId: UpdatePersonnelFileInsuranceBeneficiary
+      summary: Replace an insurance beneficiary
+      description: Replaces all fields of an existing beneficiary item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: insurancePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: beneficiaryPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the beneficiary, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInsuranceBeneficiaryRequest'
+      responses:
+        '200':
+          description: Beneficiary updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileInsuranceBeneficiaryResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file, insurance or beneficiary not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFileInsuranceBeneficiary
+      summary: Patch an insurance beneficiary (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing beneficiary item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: insurancePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: beneficiaryPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the beneficiary, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchInsuranceBeneficiaryRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Beneficiary patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileInsuranceBeneficiaryResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file, insurance or beneficiary not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFileInsuranceBeneficiary
+      summary: Remove a beneficiary from an insurance
+      description: Hard-deletes the specified beneficiary item. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: insurancePublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: beneficiaryPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the beneficiary, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Beneficiary deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file, insurance or beneficiary not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/medical-claims:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFileMedicalClaims
+      summary: List a personnel file's medical claims
+      description: Returns the full medical-claims collection. Each item carries its own concurrencyToken for use in the If-Match header of subsequent PUT/PATCH/DELETE requests. The personnel file must already be a completed employee record.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Medical claims returned successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonnelFileMedicalClaimResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - personnel-files
+      operationId: AddPersonnelFileMedicalClaim
+      summary: Add a medical claim to a personnel file
+      description: Creates a new medical claim item and returns it with a 201 Created response. The Location header points to the created resource and the ETag header carries its initial concurrencyToken.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMedicalClaimRequest'
+      responses:
+        '201':
+          description: Medical claim created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileMedicalClaimResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/medical-claims/{medicalClaimPublicId}:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFileMedicalClaimById
+      summary: Get a personnel file medical claim by id
+      description: Returns a single medical claim item. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: medicalClaimPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Medical claim returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileMedicalClaimResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - personnel-files
+      operationId: UpdatePersonnelFileMedicalClaim
+      summary: Replace a personnel file medical claim
+      description: Replaces all fields of an existing medical claim item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: medicalClaimPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the medical claim, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMedicalClaimRequest'
+      responses:
+        '200':
+          description: Medical claim updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileMedicalClaimResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFileMedicalClaim
+      summary: Patch a personnel file medical claim (RFC 6902 JSON Patch)
+      description: Applies an RFC 6902 JSON Patch document (media type application/json-patch+json) to an existing medical claim item. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: medicalClaimPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the medical claim, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchMedicalClaimRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Medical claim patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileMedicalClaimResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFileMedicalClaim
+      summary: Remove a medical claim from a personnel file
+      description: Hard-deletes the specified medical claim item. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: medicalClaimPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the medical claim, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Medical claim deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or item not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/audit/logs:
     get:
       tags:
@@ -10371,6 +13376,226 @@ components:
           type: boolean
           nullable: true
           description: Null means the onboarding flow did not specify a primary flag.
+    AddAdditionalBenefitRequest:
+      type: object
+      properties:
+        benefitTypeCode:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        isActive:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+    AddBankAccountRequest:
+      type: object
+      properties:
+        bankPublicId:
+          type: string
+          format: uuid
+        currencyCode:
+          type: string
+          nullable: true
+        accountNumber:
+          type: string
+          nullable: true
+        accountTypeCode:
+          type: string
+          nullable: true
+        isPrimary:
+          type: boolean
+    AddInsuranceBeneficiaryRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          nullable: true
+        documentNumber:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date-time
+          nullable: true
+        kinshipCode:
+          type: string
+          nullable: true
+    AddInsuranceRequest:
+      type: object
+      properties:
+        insuranceCode:
+          type: string
+          nullable: true
+        employeeContribution:
+          type: number
+          format: double
+          nullable: true
+        employerContribution:
+          type: number
+          format: double
+          nullable: true
+        rangeCode:
+          type: string
+          nullable: true
+        policyNumber:
+          type: string
+          nullable: true
+        insuredAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        startDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        endDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+    AddMedicalClaimRequest:
+      type: object
+      properties:
+        insurancePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        accountNumber:
+          type: string
+          nullable: true
+        claimTypeCode:
+          type: string
+          nullable: true
+        diagnosis:
+          type: string
+          nullable: true
+        claimAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        paidAmount:
+          type: number
+          format: double
+          nullable: true
+        responseTimeDays:
+          type: integer
+          format: int32
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        claimDateUtc:
+          type: string
+          format: date-time
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+    AddPaymentMethodRequest:
+      type: object
+      properties:
+        paymentMethodCode:
+          type: string
+          nullable: true
+        bankAccountPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        isPrimary:
+          type: boolean
+        isActive:
+          type: boolean
+        effectiveFromUtc:
+          type: string
+          format: date-time
+        effectiveToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    AddPayrollTransactionRequest:
+      type: object
+      properties:
+        transactionTypeCode:
+          type: string
+          nullable: true
+        transactionDateUtc:
+          type: string
+          format: date-time
+        payrollPeriodCode:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: double
+        currencyCode:
+          type: string
+          nullable: true
+        isDebit:
+          type: boolean
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+    AddSalaryItemRequest:
+      type: object
+      properties:
+        incomeTypeCode:
+          type: string
+          nullable: true
+        salaryRubricCode:
+          type: string
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        payPeriodCode:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: double
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        isActive:
+          type: boolean
     AddCurricularCompetencyRequest:
       type: object
       required:
@@ -10498,6 +13723,198 @@ components:
           type: string
           nullable: true
         sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PatchAdditionalBenefitRequest:
+      type: object
+      description: Mutable members of an additional benefit targeted by RFC 6902 JSON Patch operations.
+      properties:
+        benefitTypeCode:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    PatchBankAccountRequest:
+      type: object
+      description: Mutable members of a bank account targeted by RFC 6902 JSON Patch operations.
+      properties:
+        bankPublicId:
+          type: string
+          format: uuid
+        currencyCode:
+          type: string
+          nullable: true
+        accountNumber:
+          type: string
+          nullable: true
+        accountTypeCode:
+          type: string
+          nullable: true
+        isPrimary:
+          type: boolean
+    PatchInsuranceBeneficiaryRequest:
+      type: object
+      description: Mutable members of an insurance beneficiary targeted by RFC 6902 JSON Patch operations.
+      properties:
+        fullName:
+          type: string
+          nullable: true
+        documentNumber:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date-time
+          nullable: true
+        kinshipCode:
+          type: string
+          nullable: true
+    PatchInsuranceRequest:
+      type: object
+      description: Mutable members of an insurance targeted by RFC 6902 JSON Patch operations.
+      properties:
+        insuranceCode:
+          type: string
+          nullable: true
+        employeeContribution:
+          type: number
+          format: double
+          nullable: true
+        employerContribution:
+          type: number
+          format: double
+          nullable: true
+        rangeCode:
+          type: string
+          nullable: true
+        policyNumber:
+          type: string
+          nullable: true
+        insuredAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        startDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        endDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PatchMedicalClaimRequest:
+      type: object
+      description: Mutable members of a medical claim targeted by RFC 6902 JSON Patch operations.
+      properties:
+        insurancePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        accountNumber:
+          type: string
+          nullable: true
+        claimTypeCode:
+          type: string
+          nullable: true
+        diagnosis:
+          type: string
+          nullable: true
+        claimAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        paidAmount:
+          type: number
+          format: double
+          nullable: true
+        responseTimeDays:
+          type: integer
+          format: int32
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        claimDateUtc:
+          type: string
+          format: date-time
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PatchPaymentMethodRequest:
+      type: object
+      description: Mutable members of a payment method targeted by RFC 6902 JSON Patch operations.
+      properties:
+        paymentMethodCode:
+          type: string
+          nullable: true
+        bankAccountPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        isPrimary:
+          type: boolean
+        effectiveFromUtc:
+          type: string
+          format: date-time
+        effectiveToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    PatchPayrollTransactionRequest:
+      type: object
+      description: Mutable members of a payroll transaction targeted by RFC 6902 JSON Patch operations. Payroll transactions are immutable audit records; only the isActive flag is patchable.
+      properties:
+        isActive:
+          type: boolean
+    PatchSalaryItemRequest:
+      type: object
+      description: Mutable members of a salary item targeted by RFC 6902 JSON Patch operations.
+      properties:
+        incomeTypeCode:
+          type: string
+          nullable: true
+        salaryRubricCode:
+          type: string
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        payPeriodCode:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: double
+        startDate:
+          type: string
+          format: date-time
+        endDate:
           type: string
           format: date-time
           nullable: true
@@ -12688,6 +16105,27 @@ components:
         totalCount:
           type: integer
           format: int32
+    PagedPersonnelFilePayrollTransactionResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFilePayrollTransactionResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
     PagedPositionCategoryClassificationResponse:
       type: object
       properties:
@@ -12829,6 +16267,78 @@ components:
           concurrencyToken:
             type: string
             format: uuid
+    PersonnelFileAdditionalBenefitResponse:
+      type: object
+      required:
+      - additionalBenefitPublicId
+      - isActive
+      - concurrencyToken
+      properties:
+        additionalBenefitPublicId:
+          type: string
+          format: uuid
+        benefitTypeCode:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        isActive:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+    PersonnelFileBankAccountResponse:
+      type: object
+      required:
+      - bankAccountPublicId
+      - isPrimary
+      - concurrencyToken
+      properties:
+        bankAccountPublicId:
+          type: string
+          format: uuid
+        bankPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        bankCode:
+          type: string
+          nullable: true
+        bankName:
+          type: string
+          nullable: true
+        bankAlias:
+          type: string
+          nullable: true
+        swiftCode:
+          type: string
+          nullable: true
+        routingCode:
+          type: string
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        accountNumber:
+          type: string
+          nullable: true
+        accountTypeCode:
+          type: string
+          nullable: true
+        isPrimary:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFileAddressMutationRequest:
       type: object
       required:
@@ -13452,6 +16962,86 @@ components:
           nullable: true
         isPrimary:
           type: boolean
+    PersonnelFileInsuranceBeneficiaryResponse:
+      type: object
+      required:
+      - beneficiaryPublicId
+      - isActive
+      - concurrencyToken
+      properties:
+        beneficiaryPublicId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+          nullable: true
+        documentNumber:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date-time
+          nullable: true
+        kinshipCode:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+    PersonnelFileInsuranceResponse:
+      type: object
+      required:
+      - insurancePublicId
+      - isActive
+      - concurrencyToken
+      properties:
+        insurancePublicId:
+          type: string
+          format: uuid
+        insuranceCode:
+          type: string
+          nullable: true
+        employeeContribution:
+          type: number
+          format: double
+          nullable: true
+        employerContribution:
+          type: number
+          format: double
+          nullable: true
+        rangeCode:
+          type: string
+          nullable: true
+        policyNumber:
+          type: string
+          nullable: true
+        insuredAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        startDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        endDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        beneficiaries:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/PersonnelFileInsuranceBeneficiaryResponse'
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFileLifecycleStatus:
       type: string
       enum:
@@ -13519,6 +17109,66 @@ components:
           nullable: true
         allowedActions:
           $ref: '#/components/schemas/AllowedActionsResponse'
+    PersonnelFileMedicalClaimResponse:
+      type: object
+      required:
+      - medicalClaimPublicId
+      - claimDateUtc
+      - isActive
+      - concurrencyToken
+      properties:
+        medicalClaimPublicId:
+          type: string
+          format: uuid
+        insurancePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        accountNumber:
+          type: string
+          nullable: true
+        claimTypeCode:
+          type: string
+          nullable: true
+        diagnosis:
+          type: string
+          nullable: true
+        claimAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        paidAmount:
+          type: number
+          format: double
+          nullable: true
+        responseTimeDays:
+          type: integer
+          format: int32
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        claimDateUtc:
+          type: string
+          format: date-time
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFileObservationResponse:
       type: object
       required:
@@ -13541,18 +17191,19 @@ components:
     PersonnelFilePaymentMethodResponse:
       type: object
       required:
-      - id
-      - paymentMethodCode
+      - paymentMethodPublicId
       - isPrimary
       - isActive
       - effectiveFromUtc
+      - concurrencyToken
       properties:
-        id:
+        paymentMethodPublicId:
           type: string
           format: uuid
         paymentMethodCode:
           type: string
-        bankAccountId:
+          nullable: true
+        bankAccountPublicId:
           type: string
           format: uuid
           nullable: true
@@ -13570,6 +17221,65 @@ components:
         notes:
           type: string
           nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+    PersonnelFilePayrollTransactionResponse:
+      type: object
+      required:
+      - payrollTransactionPublicId
+      - transactionDateUtc
+      - amount
+      - isDebit
+      - createdAtUtc
+      - isActive
+      - concurrencyToken
+      properties:
+        payrollTransactionPublicId:
+          type: string
+          format: uuid
+        transactionTypeCode:
+          type: string
+          nullable: true
+        transactionDateUtc:
+          type: string
+          format: date-time
+        payrollPeriodCode:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: double
+        currencyCode:
+          type: string
+          nullable: true
+        isDebit:
+          type: boolean
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFilePerformanceEvaluationResponse:
       type: object
       required:
@@ -13775,6 +17485,45 @@ components:
       enum:
       - Candidate
       - Employee
+    PersonnelFileSalaryItemResponse:
+      type: object
+      required:
+      - salaryItemPublicId
+      - amount
+      - startDate
+      - isActive
+      - concurrencyToken
+      properties:
+        salaryItemPublicId:
+          type: string
+          format: uuid
+        incomeTypeCode:
+          type: string
+          nullable: true
+        salaryRubricCode:
+          type: string
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        payPeriodCode:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: double
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFileSectionResultOfPersonnelFileDocumentMetadataResponseCollection:
       type: object
       required:
@@ -14379,6 +18128,185 @@ components:
       enum:
       - Activate
       - Deactivate
+    UpdateAdditionalBenefitRequest:
+      type: object
+      properties:
+        benefitTypeCode:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    UpdateBankAccountRequest:
+      type: object
+      properties:
+        bankPublicId:
+          type: string
+          format: uuid
+        currencyCode:
+          type: string
+          nullable: true
+        accountNumber:
+          type: string
+          nullable: true
+        accountTypeCode:
+          type: string
+          nullable: true
+        isPrimary:
+          type: boolean
+    UpdateInsuranceBeneficiaryRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          nullable: true
+        documentNumber:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date-time
+          nullable: true
+        kinshipCode:
+          type: string
+          nullable: true
+    UpdateInsuranceRequest:
+      type: object
+      properties:
+        insuranceCode:
+          type: string
+          nullable: true
+        employeeContribution:
+          type: number
+          format: double
+          nullable: true
+        employerContribution:
+          type: number
+          format: double
+          nullable: true
+        rangeCode:
+          type: string
+          nullable: true
+        policyNumber:
+          type: string
+          nullable: true
+        insuredAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        startDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+        endDateUtc:
+          type: string
+          format: date-time
+          nullable: true
+    UpdateMedicalClaimRequest:
+      type: object
+      properties:
+        insurancePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        accountNumber:
+          type: string
+          nullable: true
+        claimTypeCode:
+          type: string
+          nullable: true
+        diagnosis:
+          type: string
+          nullable: true
+        claimAmount:
+          type: number
+          format: double
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        paidAmount:
+          type: number
+          format: double
+          nullable: true
+        responseTimeDays:
+          type: integer
+          format: int32
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        claimDateUtc:
+          type: string
+          format: date-time
+        sourceSystem:
+          type: string
+          nullable: true
+        sourceReference:
+          type: string
+          nullable: true
+        sourceSyncedUtc:
+          type: string
+          format: date-time
+          nullable: true
+    UpdatePaymentMethodRequest:
+      type: object
+      properties:
+        paymentMethodCode:
+          type: string
+          nullable: true
+        bankAccountPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        isPrimary:
+          type: boolean
+        effectiveFromUtc:
+          type: string
+          format: date-time
+        effectiveToUtc:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+    UpdateSalaryItemRequest:
+      type: object
+      properties:
+        incomeTypeCode:
+          type: string
+          nullable: true
+        salaryRubricCode:
+          type: string
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        payPeriodCode:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          format: double
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
     UpdateCompanyPreferencesRequest:
       type: object
       required:

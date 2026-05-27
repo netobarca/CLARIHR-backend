@@ -81,7 +81,19 @@ public interface IPersonnelFileEmployeeRepository
         CancellationToken cancellationToken);
 
     Task<PersonnelFileSalaryItemResponse?> UpdateSalaryItemAsync(
-        Guid itemPublicId,
+        Guid salaryItemPublicId,
+        Guid tenantId,
+        string incomeTypeCode,
+        string salaryRubricCode,
+        string currencyCode,
+        string payPeriodCode,
+        decimal amount,
+        DateTime startDate,
+        DateTime? endDate,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileSalaryItemResponse?> PatchSalaryItemAsync(
+        Guid salaryItemPublicId,
         Guid tenantId,
         string incomeTypeCode,
         string salaryRubricCode,
@@ -91,15 +103,21 @@ public interface IPersonnelFileEmployeeRepository
         DateTime startDate,
         DateTime? endDate,
         bool isActive,
+        bool isActiveMutated,
         CancellationToken cancellationToken);
 
-    Task<bool> DeactivateSalaryItemAsync(
-        Guid itemPublicId,
+    Task<bool> DeleteSalaryItemAsync(
+        Guid salaryItemPublicId,
         Guid tenantId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileSalaryItemResponse>> GetSalaryItemsAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileSalaryItemResponse?> GetSalaryItemAsync(
+        Guid personnelFileId,
+        Guid salaryItemPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>> AddAdditionalBenefitAsync(
@@ -108,23 +126,38 @@ public interface IPersonnelFileEmployeeRepository
         PersonnelFileAdditionalBenefit entity,
         CancellationToken cancellationToken);
 
-    Task<bool> UpdateAdditionalBenefitAsync(
-        Guid itemPublicId,
+    Task<PersonnelFileAdditionalBenefitResponse?> UpdateAdditionalBenefitAsync(
+        Guid additionalBenefitPublicId,
         Guid tenantId,
         string benefitTypeCode,
         DateTime? startDate,
         DateTime? endDate,
-        bool isActive,
         string? notes,
         CancellationToken cancellationToken);
 
-    Task<bool> DeactivateAdditionalBenefitAsync(
-        Guid itemPublicId,
+    Task<PersonnelFileAdditionalBenefitResponse?> PatchAdditionalBenefitAsync(
+        Guid additionalBenefitPublicId,
+        Guid tenantId,
+        string benefitTypeCode,
+        DateTime? startDate,
+        DateTime? endDate,
+        string? notes,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken);
+
+    Task<bool> DeleteAdditionalBenefitAsync(
+        Guid additionalBenefitPublicId,
         Guid tenantId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileAdditionalBenefitResponse>> GetAdditionalBenefitsAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileAdditionalBenefitResponse?> GetAdditionalBenefitAsync(
+        Guid personnelFileId,
+        Guid additionalBenefitPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>> AddPaymentMethodAsync(
@@ -133,25 +166,42 @@ public interface IPersonnelFileEmployeeRepository
         PersonnelFilePaymentMethod entity,
         CancellationToken cancellationToken);
 
-    Task<bool> UpdatePaymentMethodAsync(
-        Guid itemPublicId,
+    Task<PersonnelFilePaymentMethodResponse?> UpdatePaymentMethodAsync(
+        Guid paymentMethodPublicId,
         Guid tenantId,
         string paymentMethodCode,
         Guid? bankAccountPublicId,
         bool isPrimary,
-        bool isActive,
         DateTime effectiveFromUtc,
         DateTime? effectiveToUtc,
         string? notes,
         CancellationToken cancellationToken);
 
-    Task<bool> DeactivatePaymentMethodAsync(
-        Guid itemPublicId,
+    Task<PersonnelFilePaymentMethodResponse?> PatchPaymentMethodAsync(
+        Guid paymentMethodPublicId,
+        Guid tenantId,
+        string paymentMethodCode,
+        Guid? bankAccountPublicId,
+        bool isPrimary,
+        DateTime effectiveFromUtc,
+        DateTime? effectiveToUtc,
+        string? notes,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken);
+
+    Task<bool> DeletePaymentMethodAsync(
+        Guid paymentMethodPublicId,
         Guid tenantId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFilePaymentMethodResponse>> GetPaymentMethodsAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFilePaymentMethodResponse?> GetPaymentMethodAsync(
+        Guid personnelFileId,
+        Guid paymentMethodPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileAuthorizationSubstitutionResponse>> AddAuthorizationSubstitutionAsync(
@@ -214,9 +264,15 @@ public interface IPersonnelFileEmployeeRepository
         PersonnelFilePayrollTransaction entity,
         CancellationToken cancellationToken);
 
-    Task<bool> DeactivatePayrollTransactionAsync(
-        Guid itemPublicId,
+    Task<PersonnelFilePayrollTransactionResponse?> GetPayrollTransactionAsync(
+        Guid personnelFileId,
+        Guid payrollTransactionPublicId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFilePayrollTransactionResponse?> PatchPayrollTransactionAsync(
+        Guid payrollTransactionPublicId,
         Guid tenantId,
+        bool isActive,
         CancellationToken cancellationToken);
 
     Task<PagedResponse<PersonnelFilePayrollTransactionResponse>> SearchPayrollTransactionsAsync(
@@ -279,8 +335,8 @@ public interface IPersonnelFileEmployeeRepository
         PersonnelFileInsurance entity,
         CancellationToken cancellationToken);
 
-    Task<bool> UpdateInsuranceAsync(
-        Guid itemPublicId,
+    Task<PersonnelFileInsuranceResponse?> UpdateInsuranceAsync(
+        Guid insurancePublicId,
         Guid tenantId,
         string insuranceCode,
         decimal? employeeContribution,
@@ -289,19 +345,87 @@ public interface IPersonnelFileEmployeeRepository
         string? policyNumber,
         decimal? insuredAmount,
         string? currencyCode,
-        bool isActive,
         DateTime? startDateUtc,
         DateTime? endDateUtc,
-        IReadOnlyCollection<InsuranceBeneficiaryInput> beneficiaries,
         CancellationToken cancellationToken);
 
-    Task<bool> DeactivateInsuranceAsync(
-        Guid itemPublicId,
+    Task<PersonnelFileInsuranceResponse?> PatchInsuranceAsync(
+        Guid insurancePublicId,
+        Guid tenantId,
+        string insuranceCode,
+        decimal? employeeContribution,
+        decimal? employerContribution,
+        string? rangeCode,
+        string? policyNumber,
+        decimal? insuredAmount,
+        string? currencyCode,
+        DateTime? startDateUtc,
+        DateTime? endDateUtc,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken);
+
+    Task<bool> DeleteInsuranceAsync(
+        Guid insurancePublicId,
         Guid tenantId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileInsuranceResponse>> GetInsurancesAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileInsuranceResponse?> GetInsuranceAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileInsuranceBeneficiaryResponse?> AddInsuranceBeneficiaryAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        Guid tenantId,
+        InsuranceBeneficiaryInput item,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyCollection<PersonnelFileInsuranceBeneficiaryResponse>> GetInsuranceBeneficiariesAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileInsuranceBeneficiaryResponse?> GetInsuranceBeneficiaryAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileInsuranceBeneficiaryResponse?> UpdateInsuranceBeneficiaryAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        Guid tenantId,
+        string fullName,
+        string? documentNumber,
+        DateTime? birthDate,
+        string kinshipCode,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileInsuranceBeneficiaryResponse?> PatchInsuranceBeneficiaryAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        Guid tenantId,
+        string fullName,
+        string? documentNumber,
+        DateTime? birthDate,
+        string kinshipCode,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken);
+
+    Task<bool> DeleteInsuranceBeneficiaryAsync(
+        Guid personnelFileId,
+        Guid insurancePublicId,
+        Guid beneficiaryPublicId,
+        Guid tenantId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>> AddMedicalClaimAsync(
@@ -310,8 +434,8 @@ public interface IPersonnelFileEmployeeRepository
         PersonnelFileMedicalClaim entity,
         CancellationToken cancellationToken);
 
-    Task<bool> UpdateMedicalClaimAsync(
-        Guid itemPublicId,
+    Task<PersonnelFileMedicalClaimResponse?> UpdateMedicalClaimAsync(
+        Guid medicalClaimPublicId,
         Guid tenantId,
         Guid? insurancePublicId,
         string? accountNumber,
@@ -328,13 +452,38 @@ public interface IPersonnelFileEmployeeRepository
         DateTime? sourceSyncedUtc,
         CancellationToken cancellationToken);
 
-    Task<bool> DeactivateMedicalClaimAsync(
-        Guid itemPublicId,
+    Task<PersonnelFileMedicalClaimResponse?> PatchMedicalClaimAsync(
+        Guid medicalClaimPublicId,
+        Guid tenantId,
+        Guid? insurancePublicId,
+        string? accountNumber,
+        string claimTypeCode,
+        string? diagnosis,
+        decimal? claimAmount,
+        string? currencyCode,
+        decimal? paidAmount,
+        int? responseTimeDays,
+        string? notes,
+        DateTime claimDateUtc,
+        string? sourceSystem,
+        string? sourceReference,
+        DateTime? sourceSyncedUtc,
+        bool isActive,
+        bool isActiveMutated,
+        CancellationToken cancellationToken);
+
+    Task<bool> DeleteMedicalClaimAsync(
+        Guid medicalClaimPublicId,
         Guid tenantId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileMedicalClaimResponse>> GetMedicalClaimsAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileMedicalClaimResponse?> GetMedicalClaimAsync(
+        Guid personnelFileId,
+        Guid medicalClaimPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFilePerformanceEvaluationResponse>> AddPerformanceEvaluationAsync(
