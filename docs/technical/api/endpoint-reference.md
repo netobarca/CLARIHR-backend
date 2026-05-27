@@ -267,21 +267,29 @@ Datos personales (`PersonnelFilePersonalInfoController`):
 
 - `GET /api/v1/personnel-files/{publicId}/personal-info` (el `PUT` se reubicó al shell: `PUT /api/v1/personnel-files/{publicId}`)
 - `GET /api/v1/personnel-files/{publicId}/identifications`
+- `GET /api/v1/personnel-files/{publicId}/identifications/{identificationPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/identifications`
-- `PUT /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/identifications/{identificationPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/identifications/{identificationPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/identifications/{identificationPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/addresses`
+- `GET /api/v1/personnel-files/{publicId}/addresses/{addressPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/addresses`
-- `PUT /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/addresses/{addressPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/addresses/{addressPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/addresses/{addressPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/emergency-contacts`
+- `GET /api/v1/personnel-files/{publicId}/emergency-contacts/{emergencyContactPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/emergency-contacts`
-- `PUT /api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/emergency-contacts/{emergencyContactPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/emergency-contacts/{emergencyContactPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/emergency-contacts/{emergencyContactPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/family-members`
+- `GET /api/v1/personnel-files/{publicId}/family-members/{familyMemberPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/family-members`
-- `PUT /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/family-members/{familyMemberPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/family-members/{familyMemberPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/family-members/{familyMemberPublicId}`
 
 Antecedentes (`PersonnelFileBackgroundController`):
 
@@ -319,17 +327,23 @@ Antecedentes (`PersonnelFileBackgroundController`):
 Intereses (`PersonnelFileInterestsController`):
 
 - `GET /api/v1/personnel-files/{publicId}/hobbies`
+- `GET /api/v1/personnel-files/{publicId}/hobbies/{hobbyPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/hobbies`
-- `PUT /api/v1/personnel-files/{publicId}/hobbies/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/hobbies/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/hobbies/{hobbyPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/hobbies/{hobbyPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/hobbies/{hobbyPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/associations`
+- `GET /api/v1/personnel-files/{publicId}/associations/{associationPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/associations`
-- `PUT /api/v1/personnel-files/{publicId}/associations/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/associations/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/associations/{associationPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/associations/{associationPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/associations/{associationPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/employee-relations`
+- `GET /api/v1/personnel-files/{publicId}/employee-relations/{employeeRelationPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/employee-relations`
-- `PUT /api/v1/personnel-files/{publicId}/employee-relations/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/employee-relations/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/employee-relations/{employeeRelationPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/employee-relations/{employeeRelationPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/employee-relations/{employeeRelationPublicId}`
 
 Perfil financiero (`PersonnelFileProfileController`):
 
@@ -3263,21 +3277,29 @@ Route family:
 
 - `GET /api/v1/personnel-files/{publicId}/personal-info` (el `PUT` se reubicó al shell: `PUT /api/v1/personnel-files/{publicId}`)
 - `GET /api/v1/personnel-files/{publicId}/identifications`
+- `GET /api/v1/personnel-files/{publicId}/identifications/{identificationPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/identifications`
-- `PUT /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/identifications/{identificationPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/identifications/{identificationPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/identifications/{identificationPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/addresses`
+- `GET /api/v1/personnel-files/{publicId}/addresses/{addressPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/addresses`
-- `PUT /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/addresses/{addressPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/addresses/{addressPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/addresses/{addressPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/emergency-contacts`
+- `GET /api/v1/personnel-files/{publicId}/emergency-contacts/{emergencyContactPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/emergency-contacts`
-- `PUT /api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/emergency-contacts/{emergencyContactPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/emergency-contacts/{emergencyContactPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/emergency-contacts/{emergencyContactPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/family-members`
+- `GET /api/v1/personnel-files/{publicId}/family-members/{familyMemberPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/family-members`
-- `PUT /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/family-members/{familyMemberPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/family-members/{familyMemberPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/family-members/{familyMemberPublicId}`
 
 ##### Antecedentes — `PersonnelFileBackgroundController`
 
@@ -3319,17 +3341,23 @@ Route family:
 Route family:
 
 - `GET /api/v1/personnel-files/{publicId}/hobbies`
+- `GET /api/v1/personnel-files/{publicId}/hobbies/{hobbyPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/hobbies`
-- `PUT /api/v1/personnel-files/{publicId}/hobbies/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/hobbies/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/hobbies/{hobbyPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/hobbies/{hobbyPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/hobbies/{hobbyPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/associations`
+- `GET /api/v1/personnel-files/{publicId}/associations/{associationPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/associations`
-- `PUT /api/v1/personnel-files/{publicId}/associations/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/associations/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/associations/{associationPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/associations/{associationPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/associations/{associationPublicId}`
 - `GET /api/v1/personnel-files/{publicId}/employee-relations`
+- `GET /api/v1/personnel-files/{publicId}/employee-relations/{employeeRelationPublicId}`
 - `POST /api/v1/personnel-files/{publicId}/employee-relations`
-- `PUT /api/v1/personnel-files/{publicId}/employee-relations/{itemPublicId}`
-- `DELETE /api/v1/personnel-files/{publicId}/employee-relations/{itemPublicId}`
+- `PUT /api/v1/personnel-files/{publicId}/employee-relations/{employeeRelationPublicId}`
+- `PATCH /api/v1/personnel-files/{publicId}/employee-relations/{employeeRelationPublicId}`
+- `DELETE /api/v1/personnel-files/{publicId}/employee-relations/{employeeRelationPublicId}`
 
 ##### Perfil financiero — `PersonnelFileProfileController`
 

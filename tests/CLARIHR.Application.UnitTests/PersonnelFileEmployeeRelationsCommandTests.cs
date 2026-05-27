@@ -142,7 +142,8 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
             CancellationToken.None);
         Assert.True(addResult.IsSuccess);
 
-        var relationPublicId = personnelFile.EmployeeRelations.First().PublicId;
+        var relationEntity = personnelFile.EmployeeRelations.First();
+        var relationPublicId = relationEntity.PublicId;
 
         // Update
         var result = await updateHandler.Handle(
@@ -150,7 +151,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
                 personnelFile.PublicId,
                 relationPublicId,
                 new EmployeeRelationInput(newRelatedEmployee.PublicId, "Cousin"),
-                personnelFile.ConcurrencyToken),
+                relationEntity.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -196,14 +197,14 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
             CancellationToken.None);
         Assert.True(addResult.IsSuccess);
 
-        var relationPublicId = personnelFile.EmployeeRelations.First().PublicId;
+        var relationEntity = personnelFile.EmployeeRelations.First();
 
         var result = await updateHandler.Handle(
             new UpdatePersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                relationPublicId,
+                relationEntity.PublicId,
                 new EmployeeRelationInput(personnelFile.PublicId, "Sibling"),
-                personnelFile.ConcurrencyToken),
+                relationEntity.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -217,12 +218,22 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
         var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
         var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
+        var addHandler = CreateAddHandler(repository);
         var handler = CreateUpdateHandler(repository);
+
+        var addResult = await addHandler.Handle(
+            new AddPersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling")),
+            CancellationToken.None);
+        Assert.True(addResult.IsSuccess);
+
+        var relationPublicId = personnelFile.EmployeeRelations.First().PublicId;
 
         var result = await handler.Handle(
             new UpdatePersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                Guid.NewGuid(),
+                relationPublicId,
                 new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling"),
                 Guid.NewGuid()),
             CancellationToken.None);
@@ -249,16 +260,18 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
             CancellationToken.None);
         Assert.True(addResult.IsSuccess);
 
-        var relationPublicId = personnelFile.EmployeeRelations.First().PublicId;
+        var relationEntity = personnelFile.EmployeeRelations.First();
+        var relationPublicId = relationEntity.PublicId;
 
         var result = await deleteHandler.Handle(
             new DeletePersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
                 relationPublicId,
-                personnelFile.ConcurrencyToken),
+                relationEntity.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
+        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
         Assert.Empty(personnelFile.EmployeeRelations);
     }
 
@@ -284,13 +297,24 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
     public async Task Delete_WhenConcurrencyTokenDoesNotMatch_ShouldReturnConcurrencyConflict()
     {
         var personnelFile = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Ana", "Owner");
-        var repository = new TestPersonnelFileRepository(personnelFile);
+        var relatedEmployee = CreatePersonnelFile(PersonnelFileRecordType.Employee, "Luis", "Related");
+        var repository = new TestPersonnelFileRepository(personnelFile, relatedEmployee);
+        var addHandler = CreateAddHandler(repository);
         var handler = CreateDeleteHandler(repository);
+
+        var addResult = await addHandler.Handle(
+            new AddPersonnelFileEmployeeRelationCommand(
+                personnelFile.PublicId,
+                new EmployeeRelationInput(relatedEmployee.PublicId, "Sibling")),
+            CancellationToken.None);
+        Assert.True(addResult.IsSuccess);
+
+        var relationPublicId = personnelFile.EmployeeRelations.First().PublicId;
 
         var result = await handler.Handle(
             new DeletePersonnelFileEmployeeRelationCommand(
                 personnelFile.PublicId,
-                Guid.NewGuid(),
+                relationPublicId,
                 Guid.NewGuid()),
             CancellationToken.None);
 
@@ -417,13 +441,25 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
 
         public Task<IReadOnlyCollection<PersonnelFileIdentificationResponse>> GetIdentificationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<PersonnelFileIdentificationResponse?> GetIdentificationAsync(Guid personnelFileId, Guid identificationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<IReadOnlyCollection<PersonnelFileAddressResponse>> GetAddressesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileAddressResponse?> GetAddressAsync(Guid personnelFileId, Guid addressPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>> GetEmergencyContactsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<PersonnelFileEmergencyContactResponse?> GetEmergencyContactAsync(Guid personnelFileId, Guid emergencyContactPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>> GetFamilyMembersAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<PersonnelFileFamilyMemberResponse?> GetFamilyMemberAsync(Guid personnelFileId, Guid familyMemberPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<IReadOnlyCollection<PersonnelFileHobbyResponse>> GetHobbiesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileHobbyResponse?> GetHobbyAsync(Guid personnelFileId, Guid hobbyPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileEmployeeRelationResponse?> GetEmployeeRelationAsync(Guid personnelFileId, Guid employeeRelationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(Guid personnelFileId, CancellationToken cancellationToken)
         {
@@ -446,7 +482,8 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
                         relation.PublicId,
                         relatedEmployeePublicId,
                         relatedEmployeeFullName,
-                        relation.Relationship);
+                        relation.Relationship,
+                        relation.ConcurrencyToken);
                 })
                 .ToArray();
 
@@ -456,6 +493,8 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
         public Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileAssociationResponse?> GetAssociationAsync(Guid personnelFileId, Guid associationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<PersonnelFileEducationResponse>> GetEducationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 

@@ -1301,19 +1301,23 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var added = await addResponse.Content.ReadFromJsonAsync<PersonnelFileAddressItem>(JsonOptions);
         Assert.NotNull(added);
 
-        var shellAfterAdd = await GetPersonnelFileShellAsync(client, created.Id);
-        var updateResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/addresses/{added!.Id}", new
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/personnel-files/{created.Id}/addresses/{added!.Id}")
         {
-            addressLine = "Residencial San Benito",
-            country = "SV",
-            department = "SAN_SALVADOR",
-            municipality = "SAN_SALVADOR_CENTRO",
-            postalCode = "1101",
-            isCurrent = false,
-            concurrencyToken = shellAfterAdd.ConcurrencyToken
-        });
-
+            Content = JsonContent.Create(new
+            {
+                addressLine = "Residencial San Benito",
+                country = "SV",
+                department = "SAN_SALVADOR",
+                municipality = "SAN_SALVADOR_CENTRO",
+                postalCode = "1101",
+                isCurrent = false
+            })
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{added.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
         updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<PersonnelFileAddressItem>(JsonOptions);
+        Assert.NotNull(updated);
 
         var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/addresses");
         getResponse.EnsureSuccessStatusCode();
@@ -1322,13 +1326,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal("Residencial San Benito", address.AddressLine);
         Assert.False(address.IsCurrent);
 
-        var shellAfterUpdate = await GetPersonnelFileShellAsync(client, created.Id);
-        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/addresses/{added.Id}")
-        {
-            Content = JsonContent.Create(new { concurrencyToken = shellAfterUpdate.ConcurrencyToken })
-        };
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/addresses/{added.Id}");
+        deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated!.ConcurrencyToken}\"");
         var deleteResponse = await client.SendAsync(deleteRequest);
-        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
 
         var getAfterDeleteResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/addresses");
         getAfterDeleteResponse.EnsureSuccessStatusCode();
@@ -1365,18 +1366,22 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var added = await addResponse.Content.ReadFromJsonAsync<PersonnelFileEmergencyContactItem>(JsonOptions);
         Assert.NotNull(added);
 
-        var shellAfterAdd = await GetPersonnelFileShellAsync(client, created.Id);
-        var updateResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/emergency-contacts/{added!.Id}", new
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/personnel-files/{created.Id}/emergency-contacts/{added!.Id}")
         {
-            name = "Juan Molina",
-            relationship = "Padre",
-            phone = "+50370000021",
-            address = "Santa Tecla",
-            workplace = "Oficina",
-            concurrencyToken = shellAfterAdd.ConcurrencyToken
-        });
-
+            Content = JsonContent.Create(new
+            {
+                name = "Juan Molina",
+                relationship = "Padre",
+                phone = "+50370000021",
+                address = "Santa Tecla",
+                workplace = "Oficina"
+            })
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{added.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
         updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<PersonnelFileEmergencyContactItem>(JsonOptions);
+        Assert.NotNull(updated);
 
         var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/emergency-contacts");
         getResponse.EnsureSuccessStatusCode();
@@ -1385,13 +1390,10 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal("Juan Molina", contact.Name);
         Assert.Equal("Padre", contact.Relationship);
 
-        var shellAfterUpdate = await GetPersonnelFileShellAsync(client, created.Id);
-        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/emergency-contacts/{added.Id}")
-        {
-            Content = JsonContent.Create(new { concurrencyToken = shellAfterUpdate.ConcurrencyToken })
-        };
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/emergency-contacts/{added.Id}");
+        deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated!.ConcurrencyToken}\"");
         var deleteResponse = await client.SendAsync(deleteRequest);
-        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
 
         var getAfterDeleteResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/emergency-contacts");
         getAfterDeleteResponse.EnsureSuccessStatusCode();
@@ -1496,34 +1498,37 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var added = await addResponse.Content.ReadFromJsonAsync<PersonnelFileFamilyMemberItem>(JsonOptions);
         Assert.NotNull(added);
-        var shellAfterAdd = await GetPersonnelFileShellAsync(client, created.Id);
 
-        var updateResponse = await client.PutJsonAsync($"/api/v1/personnel-files/{created.Id}/family-members/{added!.Id}", new
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/personnel-files/{created.Id}/family-members/{added!.Id}")
         {
-            firstName = "Marcos",
-            lastName = "Molina",
-            kinshipCode = "UNKNOWN_KINSHIP",
-            nationality = "SV",
-            birthDate = new DateTime(2001, 1, 5),
-            sex = "Male",
-            maritalStatus = (string?)null,
-            occupation = (string?)null,
-            documentType = (string?)null,
-            documentNumber = (string?)null,
-            phone = (string?)null,
-            isStudying = false,
-            studyPlace = (string?)null,
-            academicLevel = (string?)null,
-            isBeneficiary = false,
-            isWorking = false,
-            workplace = (string?)null,
-            jobTitle = (string?)null,
-            workPhone = (string?)null,
-            salary = (decimal?)null,
-            isDeceased = false,
-            deceasedDate = (DateTime?)null,
-            concurrencyToken = shellAfterAdd.ConcurrencyToken
-        });
+            Content = JsonContent.Create(new
+            {
+                firstName = "Marcos",
+                lastName = "Molina",
+                kinshipCode = "UNKNOWN_KINSHIP",
+                nationality = "SV",
+                birthDate = new DateTime(2001, 1, 5),
+                sex = "Male",
+                maritalStatus = (string?)null,
+                occupation = (string?)null,
+                documentType = (string?)null,
+                documentNumber = (string?)null,
+                phone = (string?)null,
+                isStudying = false,
+                studyPlace = (string?)null,
+                academicLevel = (string?)null,
+                isBeneficiary = false,
+                isWorking = false,
+                workplace = (string?)null,
+                jobTitle = (string?)null,
+                workPhone = (string?)null,
+                salary = (decimal?)null,
+                isDeceased = false,
+                deceasedDate = (DateTime?)null
+            })
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{added.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
 
         await AssertProblemDetailsAsync(updateResponse, HttpStatusCode.BadRequest, "common.validation");
     }
@@ -1572,14 +1577,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var added = await addResponse.Content.ReadFromJsonAsync<PersonnelFileFamilyMemberItem>(JsonOptions);
         Assert.NotNull(added);
-        var shellAfterAdd = await GetPersonnelFileShellAsync(client, created.Id);
 
-        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/family-members/{added!.Id}")
-        {
-            Content = JsonContent.Create(new { concurrencyToken = shellAfterAdd.ConcurrencyToken })
-        };
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/family-members/{added!.Id}");
+        deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{added.ConcurrencyToken}\"");
         var deleteResponse = await client.SendAsync(deleteRequest);
-        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
 
         var getResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/family-members");
         getResponse.EnsureSuccessStatusCode();
@@ -7499,16 +7501,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         return refreshed!;
     }
 
-    private async Task<PersonnelFileShellItem> GetPersonnelFileShellAsync(HttpClient client, Guid personnelFileId)
-    {
-        var shellResponse = await client.GetAsync($"/api/v1/personnel-files/{personnelFileId}");
-        shellResponse.EnsureSuccessStatusCode();
-
-        var shell = await shellResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
-        Assert.NotNull(shell);
-        return shell!;
-    }
-
     private async Task<JobCatalogItemItem> CreateJobCatalogItemAsync(
         HttpClient client,
         Guid companyId,
@@ -8107,11 +8099,12 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid ConcurrencyToken);
 
     private sealed record PersonnelFileIdentificationItem(
-        Guid Id,
+        [property: JsonPropertyName("identificationPublicId")] Guid Id,
         string IdentificationTypeCode,
         string? IdentificationTypeName,
         string IdentificationNumber,
-        bool IsPrimary);
+        bool IsPrimary,
+        Guid ConcurrencyToken);
 
     private sealed record PersonnelReferenceCatalogLookupItem(
         Guid Id,
@@ -8201,28 +8194,31 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         decimal KnownTimeYears);
 
     private sealed record PersonnelFileFamilyMemberItem(
-        Guid Id,
+        [property: JsonPropertyName("familyMemberPublicId")] Guid Id,
         string FirstName,
         string LastName,
         string FullName,
-        string KinshipCode);
+        string KinshipCode,
+        Guid ConcurrencyToken);
 
     private sealed record PersonnelFileAddressItem(
-        Guid Id,
+        [property: JsonPropertyName("addressPublicId")] Guid Id,
         string AddressLine,
         string? Country,
         string? Department,
         string? Municipality,
         string? PostalCode,
-        bool IsCurrent);
+        bool IsCurrent,
+        Guid ConcurrencyToken);
 
     private sealed record PersonnelFileEmergencyContactItem(
-        Guid Id,
+        [property: JsonPropertyName("emergencyContactPublicId")] Guid Id,
         string Name,
         string Relationship,
         string Phone,
         string? Address,
-        string? Workplace);
+        string? Workplace,
+        Guid ConcurrencyToken);
 
     private sealed record PersonnelFileListProjectionItem(
         Guid Id,

@@ -59,24 +59,54 @@ public interface IPersonnelFileRepository
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
+    Task<PersonnelFileIdentificationResponse?> GetIdentificationAsync(
+        Guid personnelFileId,
+        Guid identificationPublicId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileAddressResponse>> GetAddressesAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileAddressResponse?> GetAddressAsync(
+        Guid personnelFileId,
+        Guid addressPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>> GetEmergencyContactsAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
+    Task<PersonnelFileEmergencyContactResponse?> GetEmergencyContactAsync(
+        Guid personnelFileId,
+        Guid emergencyContactPublicId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>> GetFamilyMembersAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileFamilyMemberResponse?> GetFamilyMemberAsync(
+        Guid personnelFileId,
+        Guid familyMemberPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileHobbyResponse>> GetHobbiesAsync(
         Guid personnelFileId,
         CancellationToken cancellationToken);
 
+    Task<PersonnelFileHobbyResponse?> GetHobbyAsync(
+        Guid personnelFileId,
+        Guid hobbyPublicId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileEmployeeRelationResponse?> GetEmployeeRelationAsync(
+        Guid personnelFileId,
+        Guid employeeRelationPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(
@@ -85,6 +115,11 @@ public interface IPersonnelFileRepository
 
     Task<IReadOnlyCollection<PersonnelFileAssociationResponse>> GetAssociationsAsync(
         Guid personnelFileId,
+        CancellationToken cancellationToken);
+
+    Task<PersonnelFileAssociationResponse?> GetAssociationAsync(
+        Guid personnelFileId,
+        Guid associationPublicId,
         CancellationToken cancellationToken);
 
     Task<IReadOnlyCollection<PersonnelFileEducationResponse>> GetEducationsAsync(

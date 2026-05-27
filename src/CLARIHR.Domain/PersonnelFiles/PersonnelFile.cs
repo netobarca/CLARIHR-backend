@@ -896,6 +896,7 @@ public sealed class PersonnelFileIdentification : TenantEntity
         ExpiryDate = PersonnelFileNormalization.NormalizeDate(expiryDate);
         Issuer = PersonnelFileNormalization.CleanOptional(issuer);
         IsPrimary = isPrimary;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -915,6 +916,8 @@ public sealed class PersonnelFileIdentification : TenantEntity
     public string? Issuer { get; private set; }
 
     public bool IsPrimary { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileIdentification Create(
         string identificationType,
@@ -945,6 +948,7 @@ public sealed class PersonnelFileIdentification : TenantEntity
         ExpiryDate = PersonnelFileNormalization.NormalizeDate(expiryDate);
         Issuer = PersonnelFileNormalization.CleanOptional(issuer);
         IsPrimary = isPrimary;
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 
@@ -969,6 +973,7 @@ public sealed class PersonnelFileAddress : TenantEntity
         Municipality = PersonnelFileNormalization.CleanOptional(municipality);
         PostalCode = PersonnelFileNormalization.CleanOptional(postalCode);
         IsCurrent = isCurrent;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -986,6 +991,8 @@ public sealed class PersonnelFileAddress : TenantEntity
     public string? PostalCode { get; private set; }
 
     public bool IsCurrent { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileAddress Create(
         string addressLine,
@@ -1010,6 +1017,7 @@ public sealed class PersonnelFileAddress : TenantEntity
         Municipality = PersonnelFileNormalization.CleanOptional(municipality);
         PostalCode = PersonnelFileNormalization.CleanOptional(postalCode);
         IsCurrent = isCurrent;
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 
@@ -1032,6 +1040,7 @@ public sealed class PersonnelFileEmergencyContact : TenantEntity
         Phone = PersonnelFileNormalization.Clean(phone, nameof(phone));
         Address = PersonnelFileNormalization.CleanOptional(address);
         Workplace = PersonnelFileNormalization.CleanOptional(workplace);
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -1047,6 +1056,8 @@ public sealed class PersonnelFileEmergencyContact : TenantEntity
     public string? Address { get; private set; }
 
     public string? Workplace { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileEmergencyContact Create(
         string name,
@@ -1068,6 +1079,7 @@ public sealed class PersonnelFileEmergencyContact : TenantEntity
         Phone = PersonnelFileNormalization.Clean(phone, nameof(phone));
         Address = PersonnelFileNormalization.CleanOptional(address);
         Workplace = PersonnelFileNormalization.CleanOptional(workplace);
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 
@@ -1142,6 +1154,7 @@ public sealed class PersonnelFileFamilyMember : TenantEntity
         Salary = salary;
         IsDeceased = isDeceased;
         DeceasedDate = PersonnelFileNormalization.NormalizeDate(deceasedDate);
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -1193,6 +1206,8 @@ public sealed class PersonnelFileFamilyMember : TenantEntity
     public bool IsDeceased { get; private set; }
 
     public DateTime? DeceasedDate { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileFamilyMember Create(
         string firstName,
@@ -1305,6 +1320,7 @@ public sealed class PersonnelFileFamilyMember : TenantEntity
         Salary = salary;
         IsDeceased = isDeceased;
         DeceasedDate = PersonnelFileNormalization.NormalizeDate(deceasedDate);
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 
@@ -1318,6 +1334,7 @@ public sealed class PersonnelFileHobby : TenantEntity
     {
         PublicId = Guid.NewGuid();
         HobbyName = PersonnelFileNormalization.Clean(hobbyName, nameof(hobbyName));
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -1326,12 +1343,15 @@ public sealed class PersonnelFileHobby : TenantEntity
 
     public string HobbyName { get; private set; } = string.Empty;
 
+    public Guid ConcurrencyToken { get; private set; }
+
     public static PersonnelFileHobby Create(string hobbyName) =>
         new(hobbyName);
 
     internal void Update(string hobbyName)
     {
         HobbyName = PersonnelFileNormalization.Clean(hobbyName, nameof(hobbyName));
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 
@@ -1351,6 +1371,7 @@ public sealed class PersonnelFileEmployeeRelation : TenantEntity
         PublicId = Guid.NewGuid();
         RelatedPersonnelFileId = relatedPersonnelFileId;
         Relationship = PersonnelFileNormalization.Clean(relationship, nameof(relationship));
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -1362,6 +1383,8 @@ public sealed class PersonnelFileEmployeeRelation : TenantEntity
     public PersonnelFile RelatedPersonnelFile { get; private set; } = null!;
 
     public string Relationship { get; private set; } = string.Empty;
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileEmployeeRelation Create(long relatedPersonnelFileId, string relationship) =>
         new(relatedPersonnelFileId, relationship);
@@ -1375,6 +1398,7 @@ public sealed class PersonnelFileEmployeeRelation : TenantEntity
 
         RelatedPersonnelFileId = relatedPersonnelFileId;
         Relationship = PersonnelFileNormalization.Clean(relationship, nameof(relationship));
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 
@@ -1473,6 +1497,7 @@ public sealed class PersonnelFileAssociation : TenantEntity
         JoinedDate = PersonnelFileNormalization.NormalizeDate(joinedDate);
         LeftDate = PersonnelFileNormalization.NormalizeDate(leftDate);
         Payment = payment;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long PersonnelFileId { get; private set; }
@@ -1488,6 +1513,8 @@ public sealed class PersonnelFileAssociation : TenantEntity
     public DateTime? LeftDate { get; private set; }
 
     public decimal? Payment { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static PersonnelFileAssociation Create(
         string associationName,
@@ -1514,6 +1541,7 @@ public sealed class PersonnelFileAssociation : TenantEntity
         JoinedDate = PersonnelFileNormalization.NormalizeDate(joinedDate);
         LeftDate = PersonnelFileNormalization.NormalizeDate(leftDate);
         Payment = payment;
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 

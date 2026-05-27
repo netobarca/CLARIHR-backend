@@ -1125,16 +1125,16 @@ paths:
   /api/v1/personnel-files/{publicId}/hobbies:
     get:
       tags:
-      - personnel-file-interests
-      summary: Get hobbies
-      operationId: GetPersonnelFileHobbies
+        - personnel-file-interests
+      summary: List hobbys of a personnel file
+      operationId: GetPersonnelFileHobbys
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: OK
@@ -1146,16 +1146,16 @@ paths:
           description: Not Found
     post:
       tags:
-      - personnel-file-interests
-      summary: Add hobby
+        - personnel-file-interests
+      summary: Add a hobby to a personnel file
       operationId: AddPersonnelFileHobby
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -1175,25 +1175,60 @@ paths:
           description: Not Found
         '409':
           description: Conflict
-  /api/v1/personnel-files/{publicId}/hobbies/{itemPublicId}:
+        '422':
+          description: Unprocessable Entity
+  /api/v1/personnel-files/{publicId}/hobbies/{hobbyPublicId}:
+    get:
+      tags:
+        - personnel-file-interests
+      summary: Get a personnel file hobby by id
+      operationId: GetPersonnelFileHobbyById
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: hobbyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
     put:
       tags:
-      - personnel-file-interests
-      summary: Update hobby
+        - personnel-file-interests
+      summary: Replace a personnel file hobby
       operationId: UpdatePersonnelFileHobby
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: hobbyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the hobby, quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -1213,33 +1248,85 @@ paths:
           description: Not Found
         '409':
           description: Conflict
-    delete:
+        '422':
+          description: Unprocessable Entity
+    patch:
       tags:
-      - personnel-file-interests
-      summary: Delete hobby
-      operationId: DeletePersonnelFileHobby
+        - personnel-file-interests
+      summary: Patch a personnel file hobby (RFC 6902 JSON Patch)
+      operationId: PatchPersonnelFileHobby
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: hobbyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the hobby, quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
-          application/json:
+          application/json-patch+json:
             schema:
-              type: object
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
       responses:
-        '204':
-          description: No Content
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+    delete:
+      tags:
+        - personnel-file-interests
+      summary: Remove a hobby from a personnel file
+      operationId: DeletePersonnelFileHobby
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: hobbyPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the hobby, quoted as an HTTP ETag.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
         '401':
           description: Unauthorized
         '403':
@@ -1251,16 +1338,16 @@ paths:
   /api/v1/personnel-files/{publicId}/associations:
     get:
       tags:
-      - personnel-file-interests
-      summary: Get associations
+        - personnel-file-interests
+      summary: List associations of a personnel file
       operationId: GetPersonnelFileAssociations
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: OK
@@ -1272,16 +1359,16 @@ paths:
           description: Not Found
     post:
       tags:
-      - personnel-file-interests
-      summary: Add association
+        - personnel-file-interests
+      summary: Add a association to a personnel file
       operationId: AddPersonnelFileAssociation
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -1301,25 +1388,60 @@ paths:
           description: Not Found
         '409':
           description: Conflict
-  /api/v1/personnel-files/{publicId}/associations/{itemPublicId}:
+        '422':
+          description: Unprocessable Entity
+  /api/v1/personnel-files/{publicId}/associations/{associationPublicId}:
+    get:
+      tags:
+        - personnel-file-interests
+      summary: Get a personnel file association by id
+      operationId: GetPersonnelFileAssociationById
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: associationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
     put:
       tags:
-      - personnel-file-interests
-      summary: Update association
+        - personnel-file-interests
+      summary: Replace a personnel file association
       operationId: UpdatePersonnelFileAssociation
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: associationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the association, quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -1339,33 +1461,85 @@ paths:
           description: Not Found
         '409':
           description: Conflict
-    delete:
+        '422':
+          description: Unprocessable Entity
+    patch:
       tags:
-      - personnel-file-interests
-      summary: Delete association
-      operationId: DeletePersonnelFileAssociation
+        - personnel-file-interests
+      summary: Patch a personnel file association (RFC 6902 JSON Patch)
+      operationId: PatchPersonnelFileAssociation
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: associationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the association, quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
-          application/json:
+          application/json-patch+json:
             schema:
-              type: object
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
       responses:
-        '204':
-          description: No Content
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+    delete:
+      tags:
+        - personnel-file-interests
+      summary: Remove a association from a personnel file
+      operationId: DeletePersonnelFileAssociation
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: associationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the association, quoted as an HTTP ETag.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
         '401':
           description: Unauthorized
         '403':
@@ -1377,16 +1551,16 @@ paths:
   /api/v1/personnel-files/{publicId}/employee-relations:
     get:
       tags:
-      - personnel-file-interests
-      summary: Get employee relations
+        - personnel-file-interests
+      summary: List employee relations of a personnel file
       operationId: GetPersonnelFileEmployeeRelations
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: OK
@@ -1398,16 +1572,16 @@ paths:
           description: Not Found
     post:
       tags:
-      - personnel-file-interests
-      summary: Add employee relation
+        - personnel-file-interests
+      summary: Add a employee relation to a personnel file
       operationId: AddPersonnelFileEmployeeRelation
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -1429,25 +1603,58 @@ paths:
           description: Conflict
         '422':
           description: Unprocessable Entity
-  /api/v1/personnel-files/{publicId}/employee-relations/{itemPublicId}:
+  /api/v1/personnel-files/{publicId}/employee-relations/{employeeRelationPublicId}:
+    get:
+      tags:
+        - personnel-file-interests
+      summary: Get a personnel file employee relation by id
+      operationId: GetPersonnelFileEmployeeRelationById
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: employeeRelationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
     put:
       tags:
-      - personnel-file-interests
-      summary: Update employee relation
+        - personnel-file-interests
+      summary: Replace a personnel file employee relation
       operationId: UpdatePersonnelFileEmployeeRelation
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: employeeRelationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the employee relation, quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -1469,33 +1676,83 @@ paths:
           description: Conflict
         '422':
           description: Unprocessable Entity
-    delete:
+    patch:
       tags:
-      - personnel-file-interests
-      summary: Delete employee relation
-      operationId: DeletePersonnelFileEmployeeRelation
+        - personnel-file-interests
+      summary: Patch a personnel file employee relation (RFC 6902 JSON Patch)
+      operationId: PatchPersonnelFileEmployeeRelation
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: employeeRelationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the employee relation, quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
-          application/json:
+          application/json-patch+json:
             schema:
-              type: object
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
       responses:
-        '204':
-          description: No Content
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+    delete:
+      tags:
+        - personnel-file-interests
+      summary: Remove a employee relation from a personnel file
+      operationId: DeletePersonnelFileEmployeeRelation
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: employeeRelationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the employee relation, quoted as an HTTP ETag.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
         '401':
           description: Unauthorized
         '403':
@@ -3237,858 +3494,855 @@ paths:
   /api/v1/personnel-files/{publicId}/identifications:
     get:
       tags:
-      - personnel-file-personal-info
+        - personnel-file-personal-info
+      summary: List identifications of a personnel file
       operationId: GetPersonnelFileIdentifications
-      summary: List personnel file identifications
-      security:
-      - Bearer: []
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Identification collection returned successfully.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelFileIdentificationResponse'
+          description: OK
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
     post:
       tags:
-      - personnel-file-personal-info
+        - personnel-file-personal-info
+      summary: Add a identification to a personnel file
       operationId: AddPersonnelFileIdentification
-      summary: Add one identification to a personnel file
-      description: Creates a single identification row for the target personnel file. The request uses the parent personnel file `concurrencyToken`.
-      security:
-      - Bearer: []
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PersonnelFileAddIdentificationRequest'
+              type: object
       responses:
         '201':
-          description: Identification created successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileIdentificationResponse'
+          description: Created
         '400':
-          description: Validation error, such as invalid identification format or inactive identification type.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Bad Request
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
         '409':
-          description: The parent `concurrencyToken` is stale or the identification is already used by another personnel file in the tenant.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Conflict
         '422':
-          description: Business-rule violation, such as invalid effective date range.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{publicId}/identifications/{itemPublicId}:
+          description: Unprocessable Entity
+  /api/v1/personnel-files/{publicId}/identifications/{identificationPublicId}:
+    get:
+      tags:
+        - personnel-file-personal-info
+      summary: Get a personnel file identification by id
+      operationId: GetPersonnelFileIdentificationById
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: identificationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
     put:
       tags:
-      - personnel-file-personal-info
+        - personnel-file-personal-info
+      summary: Replace a personnel file identification
       operationId: UpdatePersonnelFileIdentification
-      summary: Update one identification of a personnel file
-      description: Updates a single identification row for the target personnel file. The request uses the parent personnel file `concurrencyToken`.
-      security:
-      - Bearer: []
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: identificationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the identification, quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PersonnelFileUpdateIdentificationRequest'
+              type: object
       responses:
         '200':
-          description: Identification updated successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileIdentificationResponse'
+          description: OK
         '400':
-          description: Validation error, such as invalid identification format or inactive identification type.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Bad Request
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
         '409':
-          description: The parent `concurrencyToken` is stale or the identification is already used by another personnel file in the tenant.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Conflict
         '422':
-          description: Business-rule violation, such as invalid effective date range.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unprocessable Entity
+    patch:
+      tags:
+        - personnel-file-personal-info
+      summary: Patch a personnel file identification (RFC 6902 JSON Patch)
+      operationId: PatchPersonnelFileIdentification
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: identificationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the identification, quoted as an HTTP ETag.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+    delete:
+      tags:
+        - personnel-file-personal-info
+      summary: Remove a identification from a personnel file
+      operationId: DeletePersonnelFileIdentification
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: identificationPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the identification, quoted as an HTTP ETag.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
   /api/v1/personnel-files/{publicId}/addresses:
     get:
       tags:
-      - personnel-file-personal-info
-      operationId: GetPersonnelFileAddresses
-      summary: List personnel file addresses
-      security:
-      - Bearer: []
+        - personnel-file-personal-info
+      summary: List addresss of a personnel file
+      operationId: GetPersonnelFileAddresss
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Address collection returned successfully.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelFileAddressResponse'
+          description: OK
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
     post:
       tags:
-      - personnel-file-personal-info
+        - personnel-file-personal-info
+      summary: Add a address to a personnel file
       operationId: AddPersonnelFileAddress
-      summary: Add one address to a personnel file
-      security:
-      - Bearer: []
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PersonnelFileAddressMutationRequest'
+              type: object
       responses:
         '201':
-          description: Address created successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileAddressResponse'
+          description: Created
         '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Bad Request
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
         '409':
-          description: The parent `concurrencyToken` is stale.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{publicId}/addresses/{itemPublicId}:
-    put:
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+  /api/v1/personnel-files/{publicId}/addresses/{addressPublicId}:
+    get:
       tags:
-      - personnel-file-personal-info
-      operationId: UpdatePersonnelFileAddress
-      summary: Update one address of a personnel file
-      security:
-      - Bearer: []
+        - personnel-file-personal-info
+      summary: Get a personnel file address by id
+      operationId: GetPersonnelFileAddressById
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PersonnelFileAddressMutationRequest'
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: addressPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Address updated successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileAddressResponse'
-        '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: OK
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file or address was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: The parent `concurrencyToken` is stale.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    delete:
+          description: Not Found
+    put:
       tags:
-      - personnel-file-personal-info
-      operationId: DeletePersonnelFileAddress
-      summary: Delete one address of a personnel file
-      security:
-      - Bearer: []
+        - personnel-file-personal-info
+      summary: Replace a personnel file address
+      operationId: UpdatePersonnelFileAddress
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: addressPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the address, quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
+              type: object
       responses:
-        '204':
-          description: Address deleted successfully.
+        '200':
+          description: OK
         '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Bad Request
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file or address was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
         '409':
-          description: The parent `concurrencyToken` is stale.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+    patch:
+      tags:
+        - personnel-file-personal-info
+      summary: Patch a personnel file address (RFC 6902 JSON Patch)
+      operationId: PatchPersonnelFileAddress
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: addressPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the address, quoted as an HTTP ETag.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+    delete:
+      tags:
+        - personnel-file-personal-info
+      summary: Remove a address from a personnel file
+      operationId: DeletePersonnelFileAddress
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: addressPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the address, quoted as an HTTP ETag.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
   /api/v1/personnel-files/{publicId}/emergency-contacts:
     get:
       tags:
-      - personnel-file-personal-info
+        - personnel-file-personal-info
+      summary: List emergency contacts of a personnel file
       operationId: GetPersonnelFileEmergencyContacts
-      summary: List personnel file emergency contacts
-      security:
-      - Bearer: []
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Emergency contact collection returned successfully.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelFileEmergencyContactResponse'
+          description: OK
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
     post:
       tags:
-      - personnel-file-personal-info
+        - personnel-file-personal-info
+      summary: Add a emergency contact to a personnel file
       operationId: AddPersonnelFileEmergencyContact
-      summary: Add one emergency contact to a personnel file
-      security:
-      - Bearer: []
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PersonnelFileEmergencyContactMutationRequest'
+              type: object
       responses:
         '201':
-          description: Emergency contact created successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileEmergencyContactResponse'
+          description: Created
         '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Bad Request
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
         '409':
-          description: The parent `concurrencyToken` is stale.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{publicId}/emergency-contacts/{itemPublicId}:
-    put:
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+  /api/v1/personnel-files/{publicId}/emergency-contacts/{emergencyContactPublicId}:
+    get:
       tags:
-      - personnel-file-personal-info
-      operationId: UpdatePersonnelFileEmergencyContact
-      summary: Update one emergency contact of a personnel file
-      security:
-      - Bearer: []
+        - personnel-file-personal-info
+      summary: Get a personnel file emergency contact by id
+      operationId: GetPersonnelFileEmergencyContactById
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PersonnelFileEmergencyContactMutationRequest'
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: emergencyContactPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Emergency contact updated successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileEmergencyContactResponse'
-        '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: OK
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file or emergency contact was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: The parent `concurrencyToken` is stale.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    delete:
+          description: Not Found
+    put:
       tags:
-      - personnel-file-personal-info
-      operationId: DeletePersonnelFileEmergencyContact
-      summary: Delete one emergency contact of a personnel file
-      security:
-      - Bearer: []
+        - personnel-file-personal-info
+      summary: Replace a personnel file emergency contact
+      operationId: UpdatePersonnelFileEmergencyContact
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: emergencyContactPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the emergency contact, quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
+              type: object
       responses:
-        '204':
-          description: Emergency contact deleted successfully.
+        '200':
+          description: OK
         '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Bad Request
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file or emergency contact was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
         '409':
-          description: The parent `concurrencyToken` is stale.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+    patch:
+      tags:
+        - personnel-file-personal-info
+      summary: Patch a personnel file emergency contact (RFC 6902 JSON Patch)
+      operationId: PatchPersonnelFileEmergencyContact
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: emergencyContactPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the emergency contact, quoted as an HTTP ETag.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+    delete:
+      tags:
+        - personnel-file-personal-info
+      summary: Remove a emergency contact from a personnel file
+      operationId: DeletePersonnelFileEmergencyContact
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: emergencyContactPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the emergency contact, quoted as an HTTP ETag.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
   /api/v1/personnel-files/{publicId}/family-members:
     get:
       tags:
-      - personnel-file-personal-info
+        - personnel-file-personal-info
+      summary: List family members of a personnel file
       operationId: GetPersonnelFileFamilyMembers
-      summary: List personnel file family members
-      security:
-      - Bearer: []
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Family member collection returned successfully.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelFileFamilyMemberResponse'
+          description: OK
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
     post:
       tags:
-      - personnel-file-personal-info
+        - personnel-file-personal-info
+      summary: Add a family member to a personnel file
       operationId: AddPersonnelFileFamilyMember
-      summary: Add one family member to a personnel file
-      security:
-      - Bearer: []
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PersonnelFileFamilyMemberMutationRequest'
+              type: object
       responses:
         '201':
-          description: Family member created successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileFamilyMemberResponse'
+          description: Created
         '400':
-          description: Validation error, such as inactive kinship code.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Bad Request
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
         '409':
-          description: The parent `concurrencyToken` is stale.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Conflict
         '422':
-          description: Business-rule violation, such as inconsistent dependent fields.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{publicId}/family-members/{itemPublicId}:
-    put:
+          description: Unprocessable Entity
+  /api/v1/personnel-files/{publicId}/family-members/{familyMemberPublicId}:
+    get:
       tags:
-      - personnel-file-personal-info
-      operationId: UpdatePersonnelFileFamilyMember
-      summary: Update one family member of a personnel file
-      security:
-      - Bearer: []
+        - personnel-file-personal-info
+      summary: Get a personnel file family member by id
+      operationId: GetPersonnelFileFamilyMemberById
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PersonnelFileFamilyMemberMutationRequest'
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: familyMemberPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Family member updated successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileFamilyMemberResponse'
-        '400':
-          description: Validation error, such as inactive kinship code.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: OK
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file or family member was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: The parent `concurrencyToken` is stale.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Business-rule violation, such as inconsistent dependent fields.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    delete:
+          description: Not Found
+    put:
       tags:
-      - personnel-file-personal-info
-      operationId: DeletePersonnelFileFamilyMember
-      summary: Delete one family member of a personnel file
-      security:
-      - Bearer: []
+        - personnel-file-personal-info
+      summary: Replace a personnel file family member
+      operationId: UpdatePersonnelFileFamilyMember
       parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: itemPublicId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: familyMemberPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the family member, quoted as an HTTP ETag.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ConcurrencyRequest'
+              type: object
       responses:
-        '204':
-          description: Family member deleted successfully.
+        '200':
+          description: OK
         '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Bad Request
         '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Unauthorized
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Forbidden
         '404':
-          description: The target personnel file or family member was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Not Found
         '409':
-          description: The parent `concurrencyToken` is stale.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+    patch:
+      tags:
+        - personnel-file-personal-info
+      summary: Patch a personnel file family member (RFC 6902 JSON Patch)
+      operationId: PatchPersonnelFileFamilyMember
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: familyMemberPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the family member, quoted as an HTTP ETag.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
+        '422':
+          description: Unprocessable Entity
+    delete:
+      tags:
+        - personnel-file-personal-info
+      summary: Remove a family member from a personnel file
+      operationId: DeletePersonnelFileFamilyMember
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: familyMemberPublicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-Match
+          in: header
+          required: true
+          description: Current `concurrencyToken` of the family member, quoted as an HTTP ETag.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Not Found
+        '409':
+          description: Conflict
   /api/v1/personnel-files/{id}/documents:
     get:
       tags:

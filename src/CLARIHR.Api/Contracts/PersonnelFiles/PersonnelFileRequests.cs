@@ -434,8 +434,17 @@ public sealed record UpdateIdentificationRequest(
     DateTime? IssuedDate,
     DateTime? ExpiryDate,
     string? Issuer,
-    bool IsPrimary,
-    Guid ConcurrencyToken);
+    bool IsPrimary);
+
+public sealed class PatchIdentificationRequest
+{
+    public string IdentificationTypeCode { get; set; } = string.Empty;
+    public string IdentificationNumber { get; set; } = string.Empty;
+    public DateTime? IssuedDate { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public string? Issuer { get; set; }
+    public bool IsPrimary { get; set; }
+}
 
 public sealed record AddAddressRequest(
     string AddressLine,
@@ -451,8 +460,17 @@ public sealed record UpdateAddressRequest(
     string? Department,
     string? Municipality,
     string? PostalCode,
-    bool IsCurrent,
-    Guid ConcurrencyToken);
+    bool IsCurrent);
+
+public sealed class PatchAddressRequest
+{
+    public string AddressLine { get; set; } = string.Empty;
+    public string? Country { get; set; }
+    public string? Department { get; set; }
+    public string? Municipality { get; set; }
+    public string? PostalCode { get; set; }
+    public bool IsCurrent { get; set; }
+}
 
 public sealed record AddEmergencyContactRequest(
     string Name,
@@ -466,8 +484,16 @@ public sealed record UpdateEmergencyContactRequest(
     string Relationship,
     string Phone,
     string? Address,
-    string? Workplace,
-    Guid ConcurrencyToken);
+    string? Workplace);
+
+public sealed class PatchEmergencyContactRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string Relationship { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public string? Workplace { get; set; }
+}
 
 public sealed record AddFamilyMemberRequest(
     string FirstName,
@@ -515,12 +541,42 @@ public sealed record UpdateFamilyMemberRequest(
     string? WorkPhone,
     decimal? Salary,
     bool IsDeceased,
-    DateTime? DeceasedDate,
-    Guid ConcurrencyToken);
+    DateTime? DeceasedDate);
+
+public sealed class PatchFamilyMemberRequest
+{
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string KinshipCode { get; set; } = string.Empty;
+    public string? Nationality { get; set; }
+    public DateTime? BirthDate { get; set; }
+    public PersonnelFamilyMemberSex Sex { get; set; }
+    public string? MaritalStatus { get; set; }
+    public string? Occupation { get; set; }
+    public string? DocumentType { get; set; }
+    public string? DocumentNumber { get; set; }
+    public string? Phone { get; set; }
+    public bool IsStudying { get; set; }
+    public string? StudyPlace { get; set; }
+    public string? AcademicLevel { get; set; }
+    public bool IsBeneficiary { get; set; }
+    public bool IsWorking { get; set; }
+    public string? Workplace { get; set; }
+    public string? JobTitle { get; set; }
+    public string? WorkPhone { get; set; }
+    public decimal? Salary { get; set; }
+    public bool IsDeceased { get; set; }
+    public DateTime? DeceasedDate { get; set; }
+}
 
 public sealed record AddHobbyRequest(string HobbyName);
 
-public sealed record UpdateHobbyRequest(string HobbyName, Guid ConcurrencyToken);
+public sealed record UpdateHobbyRequest(string HobbyName);
+
+public sealed class PatchHobbyRequest
+{
+    public string HobbyName { get; set; } = string.Empty;
+}
 
 public sealed record AddEmployeeRelationRequest(
     Guid RelatedEmployeePublicId,
@@ -528,8 +584,13 @@ public sealed record AddEmployeeRelationRequest(
 
 public sealed record UpdateEmployeeRelationRequest(
     Guid RelatedEmployeePublicId,
-    string Relationship,
-    Guid ConcurrencyToken);
+    string Relationship);
+
+public sealed class PatchEmployeeRelationRequest
+{
+    public Guid RelatedEmployeePublicId { get; set; }
+    public string Relationship { get; set; } = string.Empty;
+}
 
 public sealed record AddBankAccountRequest(
     Guid BankPublicId,
@@ -558,8 +619,16 @@ public sealed record UpdateAssociationRequest(
     string? Role,
     DateTime? JoinedDate,
     DateTime? LeftDate,
-    decimal? Payment,
-    Guid ConcurrencyToken);
+    decimal? Payment);
+
+public sealed class PatchAssociationRequest
+{
+    public string AssociationName { get; set; } = string.Empty;
+    public string? Role { get; set; }
+    public DateTime? JoinedDate { get; set; }
+    public DateTime? LeftDate { get; set; }
+    public decimal? Payment { get; set; }
+}
 
 public sealed record EducationItemRequest(
     Guid StatusPublicId,

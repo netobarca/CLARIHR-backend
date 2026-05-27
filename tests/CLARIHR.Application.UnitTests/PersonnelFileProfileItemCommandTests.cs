@@ -49,11 +49,11 @@ public sealed class PersonnelFileProfileItemCommandTests
             new DeletePersonnelFileEmergencyContactCommand(
                 personnelFile.PublicId,
                 emergencyContact.PublicId,
-                personnelFile.ConcurrencyToken),
+                emergencyContact.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.True(result.Value);
+        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
         Assert.Empty(personnelFile.EmergencyContacts);
         Assert.Equal(2, repository.GetEmergencyContactsCalls);
     }
@@ -177,7 +177,7 @@ public sealed class PersonnelFileProfileItemCommandTests
                     null,
                     false,
                     null),
-                personnelFile.ConcurrencyToken),
+                familyMember.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -220,11 +220,11 @@ public sealed class PersonnelFileProfileItemCommandTests
             new DeletePersonnelFileAssociationCommand(
                 personnelFile.PublicId,
                 association.PublicId,
-                personnelFile.ConcurrencyToken),
+                association.ConcurrencyToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.True(result.Value);
+        Assert.Equal(personnelFile.ConcurrencyToken, result.Value.ParentConcurrencyToken);
         Assert.Empty(personnelFile.Associations);
         Assert.Equal(2, repository.GetAssociationsCalls);
     }
@@ -614,6 +614,14 @@ public sealed class PersonnelFileProfileItemCommandTests
 
         public Task<IReadOnlyCollection<PersonnelFileIdentificationResponse>> GetIdentificationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<PersonnelFileIdentificationResponse?> GetIdentificationAsync(Guid personnelFileId, Guid identificationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileAddressResponse?> GetAddressAsync(Guid personnelFileId, Guid addressPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileEmergencyContactResponse?> GetEmergencyContactAsync(Guid personnelFileId, Guid emergencyContactPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PersonnelFileFamilyMemberResponse?> GetFamilyMemberAsync(Guid personnelFileId, Guid familyMemberPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<IReadOnlyCollection<PersonnelFileAddressResponse>> GetAddressesAsync(Guid personnelFileId, CancellationToken cancellationToken)
         {
             GetAddressesCalls++;
@@ -630,7 +638,8 @@ public sealed class PersonnelFileProfileItemCommandTests
                     item.Department,
                     item.Municipality,
                     item.PostalCode,
-                    item.IsCurrent)).ToArray());
+                    item.IsCurrent,
+                    item.ConcurrencyToken)).ToArray());
         }
 
         public Task<IReadOnlyCollection<PersonnelFileEmergencyContactResponse>> GetEmergencyContactsAsync(Guid personnelFileId, CancellationToken cancellationToken)
@@ -648,7 +657,8 @@ public sealed class PersonnelFileProfileItemCommandTests
                     item.Relationship,
                     item.Phone,
                     item.Address,
-                    item.Workplace)).ToArray());
+                    item.Workplace,
+                    item.ConcurrencyToken)).ToArray());
         }
 
         public Task<IReadOnlyCollection<PersonnelFileFamilyMemberResponse>> GetFamilyMembersAsync(Guid personnelFileId, CancellationToken cancellationToken)
@@ -683,11 +693,14 @@ public sealed class PersonnelFileProfileItemCommandTests
                     item.WorkPhone,
                     item.Salary,
                     item.IsDeceased,
-                    item.DeceasedDate)).ToArray());
+                    item.DeceasedDate,
+                    item.ConcurrencyToken)).ToArray());
         }
 
         public Task<IReadOnlyCollection<PersonnelFileHobbyResponse>> GetHobbiesAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileHobbyResponse?> GetHobbyAsync(Guid personnelFileId, Guid hobbyPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileEmployeeRelationResponse>> GetEmployeeRelationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileEmployeeRelationResponse?> GetEmployeeRelationAsync(Guid personnelFileId, Guid employeeRelationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileBankAccountResponse>> GetBankAccountsAsync(Guid personnelFileId, CancellationToken cancellationToken)
         {
             GetBankAccountsCalls++;
@@ -725,8 +738,11 @@ public sealed class PersonnelFileProfileItemCommandTests
                     item.Role,
                     item.JoinedDate,
                     item.LeftDate,
-                    item.Payment)).ToArray());
+                    item.Payment,
+                    item.ConcurrencyToken)).ToArray());
         }
+
+        public Task<PersonnelFileAssociationResponse?> GetAssociationAsync(Guid personnelFileId, Guid associationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyCollection<PersonnelFileEducationResponse>> GetEducationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<PersonnelFileEducationResponse?> GetEducationAsync(Guid personnelFileId, Guid educationPublicId, CancellationToken cancellationToken) => throw new NotSupportedException();

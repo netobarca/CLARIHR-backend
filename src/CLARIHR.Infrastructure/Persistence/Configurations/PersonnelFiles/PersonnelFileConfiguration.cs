@@ -214,6 +214,7 @@ internal sealed class PersonnelFileIdentificationConfiguration : IEntityTypeConf
         builder.Property(item => item.ExpiryDate).HasColumnName("expiry_date");
         builder.Property(item => item.Issuer).HasColumnName("issuer").HasMaxLength(200);
         builder.Property(item => item.IsPrimary).HasColumnName("is_primary");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -249,6 +250,7 @@ internal sealed class PersonnelFileAddressConfiguration : IEntityTypeConfigurati
         builder.Property(item => item.Municipality).HasColumnName("municipality").HasMaxLength(120);
         builder.Property(item => item.PostalCode).HasColumnName("postal_code").HasMaxLength(40);
         builder.Property(item => item.IsCurrent).HasColumnName("is_current");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -279,6 +281,7 @@ internal sealed class PersonnelFileEmergencyContactConfiguration : IEntityTypeCo
         builder.Property(item => item.Phone).HasColumnName("phone").HasMaxLength(40);
         builder.Property(item => item.Address).HasColumnName("address").HasMaxLength(500);
         builder.Property(item => item.Workplace).HasColumnName("workplace").HasMaxLength(200);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -335,6 +338,7 @@ internal sealed class PersonnelFileFamilyMemberConfiguration : IEntityTypeConfig
             .HasPrecision(18, 2);
         builder.Property(item => item.IsDeceased).HasColumnName("is_deceased");
         builder.Property(item => item.DeceasedDate).HasColumnName("deceased_date");
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -361,6 +365,7 @@ internal sealed class PersonnelFileHobbyConfiguration : IEntityTypeConfiguration
         builder.Property(item => item.PersonnelFileId).HasColumnName("personnel_file_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
         builder.Property(item => item.HobbyName).HasColumnName("hobby_name").HasMaxLength(120);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -388,6 +393,7 @@ internal sealed class PersonnelFileEmployeeRelationConfiguration : IEntityTypeCo
         builder.Property(item => item.RelatedPersonnelFileId).HasColumnName("related_personnel_file_id");
         builder.Property(item => item.PublicId).HasColumnName("public_id");
         builder.Property(item => item.Relationship).HasColumnName("relationship").HasMaxLength(80);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
@@ -471,6 +477,7 @@ internal sealed class PersonnelFileAssociationConfiguration : IEntityTypeConfigu
         builder.Property(item => item.JoinedDate).HasColumnName("joined_date");
         builder.Property(item => item.LeftDate).HasColumnName("left_date");
         builder.Property(item => item.Payment).HasColumnName("payment").HasPrecision(18, 2);
+        builder.Property(item => item.ConcurrencyToken).HasColumnName("concurrency_token").IsConcurrencyToken();
         builder.Property(item => item.CreatedUtc).HasColumnName("created_utc");
         builder.Property(item => item.ModifiedUtc).HasColumnName("modified_utc");
 
