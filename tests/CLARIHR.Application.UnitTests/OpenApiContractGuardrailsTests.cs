@@ -41,14 +41,12 @@ public sealed class OpenApiContractGuardrailsTests
         ("JobProfile/JobCatalog", new Regex(@"^(JobProfile|JobCatalog)", RegexOptions.Compiled), "Job Profiles"),
         ("PositionSlot", new Regex(@"^PositionSlot", RegexOptions.Compiled), "Position Slots"),
         // PersonnelFileBackground, PersonnelFileInterests, PersonnelFilePersonalInfo, PersonnelFileTalent,
-        // PersonnelFileCompensation and PersonnelFileEmployment are the PersonnelFiles sub-resource
-        // controllers brought fully canonical (GET/POST/PUT/PATCH/DELETE per sub-entity with per-item
-        // concurrency tokens). Enrolled here so an action that drops [SwaggerOperation] or a class that
-        // drops [Tags] fails loudly. The narrow
-        // ^PersonnelFile(Background|Interests|PersonalInfo|Talent|Compensation|Employment) regex matches
-        // only those controllers; the remaining PersonnelFile controllers (Documents, Reporting) stay
-        // out until they are canonicalised (then broaden this to ^PersonnelFile).
-        ("PersonnelFileBackground/Interests/PersonalInfo/Talent/Compensation/Employment", new Regex(@"^PersonnelFile(Background|Interests|PersonalInfo|Talent|Compensation|Employment)", RegexOptions.Compiled), "Personnel Files"),
+        // PersonnelFileCompensation, PersonnelFileEmployment, PersonnelFileDocuments and
+        // PersonnelFileReporting are the canonicalised PersonnelFiles sub-resource / reporting controllers.
+        // Enrolled here so an action that drops [SwaggerOperation] or a class that drops [Tags] fails
+        // loudly. The shell PersonnelFilesController is governed separately; add a controller to the
+        // alternation only once it carries class-level [Tags] + per-action [SwaggerOperation].
+        ("PersonnelFileBackground/Interests/PersonalInfo/Talent/Compensation/Employment/Documents/Reporting", new Regex(@"^PersonnelFile(Background|Interests|PersonalInfo|Talent|Compensation|Employment|Documents|Reporting)", RegexOptions.Compiled), "Personnel Files"),
     ];
 
     public static TheoryData<string> FamilyLabels()

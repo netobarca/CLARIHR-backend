@@ -27,7 +27,6 @@ public sealed class PersonnelFilePhotoUrlResultFilter(
             PersonnelFilePersonalInfoResponse response => await ResolvePersonalInfoResponseAsync(response, cancellationToken),
             PersonnelFileSectionResult<PersonnelFilePersonalInfoResponse> response => await ResolvePersonalInfoSectionResultAsync(response, cancellationToken),
             FinalizePersonnelFileResponse response => await ResolveFinalizeResponseAsync(response, cancellationToken),
-            PersonnelFilePrintResponse response => await ResolvePrintResponseAsync(response, cancellationToken),
             _ => value
         };
     }
@@ -66,14 +65,6 @@ public sealed class PersonnelFilePhotoUrlResultFilter(
 
     private async Task<FinalizePersonnelFileResponse> ResolveFinalizeResponseAsync(
         FinalizePersonnelFileResponse response,
-        CancellationToken cancellationToken)
-    {
-        var personnelFile = await ResolvePersonnelFileResponseAsync(response.PersonnelFile, cancellationToken);
-        return response with { PersonnelFile = personnelFile };
-    }
-
-    private async Task<PersonnelFilePrintResponse> ResolvePrintResponseAsync(
-        PersonnelFilePrintResponse response,
         CancellationToken cancellationToken)
     {
         var personnelFile = await ResolvePersonnelFileResponseAsync(response.PersonnelFile, cancellationToken);

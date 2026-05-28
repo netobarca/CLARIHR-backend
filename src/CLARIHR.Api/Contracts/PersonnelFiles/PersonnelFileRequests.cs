@@ -1050,14 +1050,22 @@ public sealed record AddPersonnelFileDocumentRequest(
 public sealed record UpdatePersonnelFileDocumentRequest(
     Guid DocumentTypeCatalogItemPublicId,
     string? Observations,
-    Guid? FilePublicId,
-    Guid ConcurrencyToken);
+    Guid? FilePublicId);
 
 // ReplacePersonnelFileDocumentsRequest, ReplacePersonnelFileDocumentsManifestRequest,
 // ReplacePersonnelFileDocumentItemRequest and ReplacePersonnelFileDocumentFileRequest removed
 // — bulk-replace pattern replaced by atomic PUT /documents/{documentPublicId}.
 
-public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
+/// <summary>
+/// JSON Patch (RFC 6902) target for
+/// <c>PATCH /personnel-files/{publicId}/documents/{documentPublicId}</c>. The patchable members are
+/// the document's metadata fields; the file content itself is replaced via the <c>PUT</c> endpoint.
+/// </summary>
+public sealed class PatchDocumentRequest
+{
+    public Guid DocumentTypeCatalogItemPublicId { get; set; }
+    public string? Observations { get; set; }
+}
 
 public sealed record AddObservationRequest(string Note);
 

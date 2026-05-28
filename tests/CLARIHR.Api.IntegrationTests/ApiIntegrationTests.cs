@@ -2335,49 +2335,21 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task PersonnelFiles_Print_WithSections_ShouldReturnFilteredPayload()
+    public async Task PersonnelFiles_PrintRoute_ShouldNotExist()
     {
+        // `print` was removed as redundant: with no sections it returned the same payload as the
+        // personnel-file detail GET, and it produced no printable artifact (the export endpoints and
+        // async report-export jobs cover file output). This guard prevents the route reappearing.
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
         var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Diana", "Flores", "DUI", "04444444-4");
-        var languageResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/languages", new
-        {
-            languageCode = "ENGLISH",
-            levelCode = "ADVANCED",
-            speaks = true,
-            writes = true,
-            reads = true,
-            concurrencyToken = created.ConcurrencyToken
-        });
-        languageResponse.EnsureSuccessStatusCode();
 
-        var response = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/print?sections=languages,references");
-        response.EnsureSuccessStatusCode();
+        var response = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/print");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
 
-        var payload = await response.Content.ReadFromJsonAsync<PersonnelFilePrintItem>(JsonOptions);
-        Assert.NotNull(payload);
-        Assert.Contains("languages", payload!.IncludedSections, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains("references", payload.IncludedSections, StringComparer.OrdinalIgnoreCase);
-        Assert.Single(payload.PersonnelFile.Languages);
-        Assert.Empty(payload.PersonnelFile.Identifications);
-    }
-
-    [Fact]
-    public async Task PersonnelFiles_Print_WhenTenantMismatch_ShouldReturn403()
-    {
-        var scenario = await factory.ResetDatabaseAsync();
-        using var sourceClient = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
-        var created = await CreatePersonnelFileAsync(sourceClient, scenario.TenantId, "Tomas", "Perez", "DUI", "03333333-3");
-
-        using var otherTenantClient = factory.CreateClientFor(
-            TestUserContext.Authenticated(
-                scenario.ActorUserId,
-                scenario.OtherTenantId,
-                PersonnelFilePermissionCodes.Admin));
-
-        var response = await otherTenantClient.GetAsync($"/api/v1/personnel-files/{created.Id}/print");
-        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "TENANT_MISMATCH");
+        var withSections = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/print?sections=languages,references");
+        Assert.Equal(HttpStatusCode.NotFound, withSections.StatusCode);
     }
 
     [Fact]
@@ -8258,11 +8230,6 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         TData Data,
         Guid PersonnelFileConcurrencyToken,
         DateTime? ModifiedAtUtc);
-
-    private sealed record PersonnelFilePrintItem(
-        DateTime GeneratedAtUtc,
-        IReadOnlyCollection<string> IncludedSections,
-        PersonnelFileItem PersonnelFile);
 
     private sealed record PersonnelFileDynamicGroupBucketItem(
         string Key,
