@@ -9145,17 +9145,17 @@ paths:
           description: Not Found
         '409':
           description: Conflict
-  /api/v1/personnel-files/{id}/documents:
+  /api/v1/personnel-files/{publicId}/documents:
     get:
       tags:
       - personnel-files
       operationId: GetPersonnelFileDocuments
-      summary: List lightweight personnel file document previews
-      description: Returns document metadata for a personnel file, including a resolved `fileUrl` that the frontend can open directly without a separate download endpoint.
+      summary: List a personnel file's documents
+      description: Returns the metadata of every document attached to the specified personnel file. Each item carries its own concurrencyToken, required in the If-Match header of subsequent PUT/PATCH/DELETE requests, plus filePublicId to fetch the binary via GET /api/v1/files/{filePublicId}/read-url.
       security:
       - Bearer: []
       parameters:
-      - name: id
+      - name: publicId
         in: path
         required: true
         schema:
@@ -9163,7 +9163,7 @@ paths:
           format: uuid
       responses:
         '200':
-          description: Document metadata returned successfully.
+          description: Documents returned successfully.
           content:
             application/json:
               schema:
@@ -9177,98 +9177,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          description: Permission denied or tenant mismatch.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    put:
-      tags:
-      - personnel-files
-      operationId: ReplacePersonnelFileDocuments
-      summary: Replace the documents section of a personnel file
-      description: Synchronizes the complete documents section using a multipart manifest. Items with `documentPublicId` update existing documents, items without `documentPublicId` create new documents, and active documents omitted from the manifest are inactivated. Existing documents only upload a new blob when their item includes a `fileKey`.
-      security:
-      - Bearer: []
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required:
-              - manifestJson
-              - concurrencyToken
-              properties:
-                manifestJson:
-                  type: string
-                  description: |
-                    JSON payload with shape `{ "items": [...] }`. Each item accepts `documentPublicId`, `documentType`, `observations`, `deliveryDate`, `loanDate`, `returnDate` and optional `fileKey`. For new documents `fileKey` is required. For existing documents `fileKey` is optional and only required when replacing the binary file.
-                concurrencyToken:
-                  type: string
-                  format: uuid
-                  description: Current concurrency token of the personnel file shell/section.
-            encoding:
-              manifestJson:
-                contentType: application/json
-      responses:
-        '200':
-          description: Documents section synchronized successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFileDocumentMetadataResponseCollection'
-        '400':
-          description: Validation error, malformed manifest, missing file mapping, unsupported content type or malformed payload.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '413':
-          description: At least one uploaded document exceeds the 10 MiB size limit.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: The target personnel file or a referenced document was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Business conflict such as stale personnel file concurrency token.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Business-rule violation, such as invalid document dates.
+          description: Personnel file not found.
           content:
             application/problem+json:
               schema:
@@ -9276,13 +9191,13 @@ paths:
     post:
       tags:
       - personnel-files
-      operationId: UploadPersonnelFileDocument
-      summary: Upload a personnel file document
-      description: Uploads a new personnel file document using multipart form data and returns the persisted metadata without the binary payload. Files are rejected before full buffering when they exceed 10 MiB or when extension, declared MIME type, or basic file signature is not allowed. Allowed formats are PDF, JPG/JPEG, PNG, and DOCX.
+      operationId: AddPersonnelFileDocument
+      summary: Attach a document to a personnel file
+      description: Links a previously uploaded file to the personnel file as a typed document. Upload the file first through the Files API (POST /api/v1/files/upload-session with purpose=PersonnelDocument, then PATCH /api/v1/files/{filePublicId}/complete) and pass the resulting filePublicId. Returns 201 Created with the Location header pointing to the document and the ETag header carrying its initial concurrencyToken.
       security:
       - Bearer: []
       parameters:
-      - name: id
+      - name: publicId
         in: path
         required: true
         schema:
@@ -9291,53 +9206,18 @@ paths:
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
-              type: object
-              required:
-              - documentType
-              - file
-              - concurrencyToken
-              properties:
-                documentType:
-                  type: string
-                observations:
-                  type: string
-                  nullable: true
-                deliveryDate:
-                  type: string
-                  format: date-time
-                  nullable: true
-                loanDate:
-                  type: string
-                  format: date-time
-                  nullable: true
-                returnDate:
-                  type: string
-                  format: date-time
-                  nullable: true
-                concurrencyToken:
-                  type: string
-                  format: uuid
-                file:
-                  type: string
-                  format: binary
-                  description: Binary document payload. Maximum 10 MiB. Allowed formats are .pdf, .jpg, .jpeg, .png and .docx.
+              $ref: '#/components/schemas/AddPersonnelFileDocumentRequest'
       responses:
         '201':
-          description: Document uploaded successfully.
+          description: Document created successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PersonnelFileDocumentMetadataResponse'
         '400':
-          description: Validation error, missing file, unsupported content type or malformed payload.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '413':
-          description: The uploaded document exceeds the 10 MiB size limit.
+          description: Validation error.
           content:
             application/problem+json:
               schema:
@@ -9349,40 +9229,300 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          description: Permission denied or tenant mismatch.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: The target personnel file was not found in the tenant scope.
+          description: Personnel file not found.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
-          description: Business conflict such as stale concurrency token.
+          description: Stale concurrency token.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
-          description: Business-rule violation, such as invalid document dates.
+          description: Business-rule violation.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{id}/observations:
+  /api/v1/personnel-files/{publicId}/documents/{documentPublicId}:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFileDocumentById
+      summary: Get a personnel file document by id
+      description: Returns a single document's metadata. The concurrencyToken in the response is required in the If-Match header of subsequent PUT/PATCH/DELETE requests, and filePublicId is used with GET /api/v1/files/{filePublicId}/read-url to download the file.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: documentPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Document returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileDocumentMetadataResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or document not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - personnel-files
+      operationId: UpdatePersonnelFileDocument
+      summary: Update a personnel file document
+      description: Replaces the document's metadata (type and observations) and, optionally, the underlying file when filePublicId is supplied (the new file must be an Active file with purpose=PersonnelDocument). Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: documentPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the document, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePersonnelFileDocumentRequest'
+      responses:
+        '200':
+          description: Document updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileDocumentMetadataResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or document not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - personnel-files
+      operationId: PatchPersonnelFileDocument
+      summary: Patch a personnel file document
+      description: Applies a JSON Patch document (RFC 6902, media type application/json-patch+json) to an existing document's metadata. Mutable members are documentTypeCatalogItemPublicId and observations; the file content is replaced via PUT. Requires the If-Match header with the current concurrencyToken; the new token is returned in the ETag header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: documentPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the document, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations over PatchDocumentRequest.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Document patched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileDocumentMetadataResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or document not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      tags:
+      - personnel-files
+      operationId: DeletePersonnelFileDocument
+      summary: Remove a document from a personnel file
+      description: Soft-deletes the specified document (it is deactivated for retention) and soft-deletes its backing file so the storage cleanup job removes the blob. Requires the If-Match header with the current concurrencyToken. Returns the parent personnel file's refreshed concurrency token so the caller can keep mutating without an extra round-trip.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: documentPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current concurrencyToken of the document, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Document deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileParentConcurrencyResult'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file or document not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/personnel-files/{publicId}/observations:
     get:
       tags:
       - personnel-files
       operationId: GetPersonnelFileObservations
-      summary: List personnel file observations
-      description: Returns the observations timeline ordered from newest to oldest without reloading the rest of the personnel file aggregate.
+      summary: List a personnel file's observations
+      description: Returns the append-only observation log recorded for the specified personnel file, newest first.
       security:
       - Bearer: []
       parameters:
-      - name: id
+      - name: publicId
         in: path
         required: true
         schema:
@@ -9404,13 +9544,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
+          description: Permission denied or tenant mismatch.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: The target personnel file was not found in the tenant scope.
+          description: Personnel file not found.
           content:
             application/problem+json:
               schema:
@@ -9419,12 +9559,12 @@ paths:
       tags:
       - personnel-files
       operationId: AddPersonnelFileObservation
-      summary: Append an observation to a personnel file
-      description: Adds a new textual observation to the personnel file and rotates the file concurrency token.
+      summary: Add an observation to a personnel file
+      description: Appends an observation (attributed to the current user) to the personnel file's observation log. Observations are immutable once created and have no concurrency token.
       security:
       - Bearer: []
       parameters:
-      - name: id
+      - name: publicId
         in: path
         required: true
         schema:
@@ -9435,17 +9575,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-              - note
-              - concurrencyToken
-              properties:
-                note:
-                  type: string
-                  maxLength: 2000
-                concurrencyToken:
-                  type: string
-                  format: uuid
+              $ref: '#/components/schemas/AddObservationRequest'
       responses:
         '201':
           description: Observation created successfully.
@@ -9454,7 +9584,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PersonnelFileObservationResponse'
         '400':
-          description: Validation error, such as empty note or missing concurrency token.
+          description: Validation error.
           content:
             application/problem+json:
               schema:
@@ -9466,19 +9596,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
+          description: Permission denied or tenant mismatch.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: The target document was not found in the tenant scope.
+          description: Personnel file not found.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
-          description: Business conflict such as stale concurrency token.
+          description: Stale concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
           content:
             application/problem+json:
               schema:
@@ -15428,6 +15564,13 @@ components:
           type: string
           format: date-time
           nullable: true
+    AddObservationRequest:
+      type: object
+      required:
+      - note
+      properties:
+        note:
+          type: string
     AddPaymentMethodRequest:
       type: object
       properties:
@@ -15516,6 +15659,21 @@ components:
           format: double
           nullable: true
         currencyCode:
+          type: string
+          nullable: true
+    AddPersonnelFileDocumentRequest:
+      type: object
+      required:
+      - filePublicId
+      - documentTypeCatalogItemPublicId
+      properties:
+        filePublicId:
+          type: string
+          format: uuid
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+        observations:
           type: string
           nullable: true
     AddSalaryItemRequest:
@@ -15783,6 +15941,16 @@ components:
           format: uuid
           nullable: true
         notes:
+          type: string
+          nullable: true
+    PatchDocumentRequest:
+      type: object
+      description: Mutable metadata members of a personnel file document targeted by RFC 6902 JSON Patch operations.
+      properties:
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+        observations:
           type: string
           nullable: true
     PatchEmploymentAssignmentRequest:
@@ -16470,14 +16638,6 @@ components:
         status:
           type: string
           description: Resulting file status (`Active`).
-    ConcurrencyRequest:
-      type: object
-      required:
-      - concurrencyToken
-      properties:
-        concurrencyToken:
-          type: string
-          format: uuid
     CountryCatalogItemResponse:
       type: object
       required:
@@ -18752,6 +18912,7 @@ components:
       required:
       - id
       - documentType
+      - filePublicId
       - fileName
       - contentType
       - sizeBytes
@@ -18762,33 +18923,34 @@ components:
         id:
           type: string
           format: uuid
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        documentTypeCode:
+          type: string
+          nullable: true
+        documentTypeName:
+          type: string
+          nullable: true
         documentType:
           type: string
+          nullable: true
         observations:
           type: string
           nullable: true
-        deliveryDate:
+        filePublicId:
           type: string
-          format: date-time
-          nullable: true
-        loanDate:
-          type: string
-          format: date-time
-          nullable: true
-        returnDate:
-          type: string
-          format: date-time
-          nullable: true
+          format: uuid
+          description: Public id of the backing file. Use with GET /api/v1/files/{filePublicId}/read-url to download the binary.
         fileName:
           type: string
-          description: Original file name stored for the document. Present on every successful response because document persistence requires a concrete uploaded file.
+          nullable: true
+          description: Original file name stored for the document.
         contentType:
           type: string
-          description: MIME type stored for the document. Present on every successful response because document persistence requires a validated content type.
-        fileUrl:
-          type: string
           nullable: true
-          description: Resolved read URL for the stored file. This is normally present in successful responses after upload, replace and standard reads. It can be `null` only when the API cannot resolve a readable URL from the persisted blob reference at response time, for example because the managed storage read configuration is unavailable or legacy data lacks a persisted blob URL.
+          description: MIME type stored for the document.
         sizeBytes:
           type: integer
           format: int32
@@ -19816,23 +19978,6 @@ components:
         concurrencyToken:
           type: string
           format: uuid
-    PersonnelFileSectionResultOfPersonnelFileDocumentMetadataResponseCollection:
-      type: object
-      required:
-      - data
-      - personnelFileConcurrencyToken
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/PersonnelFileDocumentMetadataResponse'
-        personnelFileConcurrencyToken:
-          type: string
-          format: uuid
-        modifiedAtUtc:
-          type: string
-          format: date-time
-          nullable: true
     PersonnelFileSectionResultOfPersonnelFilePaymentMethodResponseCollection:
       type: object
       required:
@@ -20781,6 +20926,22 @@ components:
           type: string
           format: date-time
           nullable: true
+    UpdatePersonnelFileDocumentRequest:
+      type: object
+      required:
+      - documentTypeCatalogItemPublicId
+      properties:
+        documentTypeCatalogItemPublicId:
+          type: string
+          format: uuid
+        observations:
+          type: string
+          nullable: true
+        filePublicId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Present = replace the file reference with this Active file (purpose=PersonnelDocument).
     UpdatePersonnelFileEmployeeProfileRequest:
       type: object
       properties:

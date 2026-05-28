@@ -19,6 +19,8 @@ using CLARIHR.Application.Features.PositionSlots.Common;
 using CLARIHR.Application.Features.SalaryTabulator.Common;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.CostCenters;
+using CLARIHR.Domain.DocumentTypeCatalogs;
+using CLARIHR.Domain.Files;
 using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.JobProfiles;
 using CLARIHR.Domain.PositionSlots;
@@ -1698,229 +1700,213 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal("Analista de datos", listedItem.GetProperty("professionName").GetString());
     }
 
-    [Fact(Skip = "Pending rewrite: documents now use File Management (FilePublicId) instead of multipart upload")]
-    public async Task PersonnelFiles_DocumentUpload_ShouldReturnMetadataWithResolvedFileUrl()
+    [Fact]
+    public async Task PersonnelFiles_AddDocument_FromUploadedFile_ShouldReturnMetadata()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
         var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Carlos", "Gomez", "DUI", "07777777-7");
 
-        using var uploadContent = new MultipartFormDataContent();
-        uploadContent.Add(new StringContent("DIPLOMA"), "documentType");
-        uploadContent.Add(new StringContent("Adjunto de prueba"), "observations");
-        uploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
+        // Documents reference a previously uploaded file (File Management / SAS flow) by FilePublicId.
+        var (filePublicId, documentTypePublicId) = await SeedDocumentPrerequisitesAsync(scenario, created.Id);
 
-        var fileBytes = "%PDF-hello personnel file"u8.ToArray();
-        var fileContent = new ByteArrayContent(fileBytes);
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
-        uploadContent.Add(fileContent, "file", "proof.pdf");
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/documents", new
+        {
+            filePublicId,
+            documentTypeCatalogItemPublicId = documentTypePublicId,
+            observations = "Adjunto de prueba"
+        });
 
-        var uploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", uploadContent);
-        Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
-        var document = await uploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
+        Assert.NotNull(addResponse.Headers.Location);
+
+        var document = await addResponse.Content.ReadFromJsonAsync<DocumentMetadataItem>(JsonOptions);
         Assert.NotNull(document);
-        Assert.Equal("proof.pdf", document!.FileName);
+        Assert.Equal(filePublicId, document!.FilePublicId);
+        Assert.Equal(documentTypePublicId, document.DocumentTypeCatalogItemPublicId);
+        Assert.Equal("DIPLOMA", document.DocumentTypeCode);
+        Assert.Equal("contrato.pdf", document.FileName);
         Assert.Equal("application/pdf", document.ContentType);
-        Assert.Equal(fileBytes.Length, document.SizeBytes);
-        Assert.NotNull(document.FileUrl);
-        Assert.Contains("sig=fake", document.FileUrl, StringComparison.Ordinal);
+        Assert.Equal(2048, document.SizeBytes);
+        Assert.Equal("Adjunto de prueba", document.Observations);
+        Assert.True(document.IsActive);
+        Assert.NotEqual(Guid.Empty, document.ConcurrencyToken);
     }
 
-    [Fact(Skip = "Pending rewrite: documents now use File Management (FilePublicId) instead of multipart upload")]
-    public async Task PersonnelFiles_GetDocuments_ShouldReturnLightweightMetadataWithoutDownloadingFiles()
+    [Fact]
+    public async Task PersonnelFiles_GetDocuments_ShouldReturnMetadataNewestFirst()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
         var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Claudia", "Mendez", "DUI", "06666666-6");
 
-        using var olderUploadContent = new MultipartFormDataContent();
-        olderUploadContent.Add(new StringContent("CONSTANCIA"), "documentType");
-        olderUploadContent.Add(new StringContent("Documento mas antiguo"), "observations");
-        olderUploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
-
-        byte[] olderFileBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01, 0x02, 0x03];
-        var olderFileContent = new ByteArrayContent(olderFileBytes);
-        olderFileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-        olderUploadContent.Add(olderFileContent, "file", "older.png");
-
-        var olderUploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", olderUploadContent);
-        Assert.Equal(HttpStatusCode.Created, olderUploadResponse.StatusCode);
-        var olderDocument = await olderUploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        var (olderFile, constanciaType) = await SeedDocumentPrerequisitesAsync(
+            scenario, created.Id, "older.png", "image/png", 11, "CONSTANCIA", "Constancia");
+        var olderAdd = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/documents", new
+        {
+            filePublicId = olderFile,
+            documentTypeCatalogItemPublicId = constanciaType,
+            observations = "Documento mas antiguo"
+        });
+        olderAdd.EnsureSuccessStatusCode();
+        var olderDocument = await olderAdd.Content.ReadFromJsonAsync<DocumentMetadataItem>(JsonOptions);
         Assert.NotNull(olderDocument);
 
-        var personnelFileResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
-        personnelFileResponse.EnsureSuccessStatusCode();
-        var personnelFile = await personnelFileResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
-        Assert.NotNull(personnelFile);
-
-        using var newerUploadContent = new MultipartFormDataContent();
-        newerUploadContent.Add(new StringContent("DIPLOMA"), "documentType");
-        newerUploadContent.Add(new StringContent("Documento mas reciente"), "observations");
-        newerUploadContent.Add(new StringContent(personnelFile!.ConcurrencyToken.ToString()), "concurrencyToken");
-
-        var newerFileBytes = "%PDF-newer preview payload"u8.ToArray();
-        var newerFileContent = new ByteArrayContent(newerFileBytes);
-        newerFileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
-        newerUploadContent.Add(newerFileContent, "file", "newer.pdf");
-
-        var newerUploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", newerUploadContent);
-        Assert.Equal(HttpStatusCode.Created, newerUploadResponse.StatusCode);
-        var newerDocument = await newerUploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
+        var (newerFile, diplomaType) = await SeedDocumentPrerequisitesAsync(
+            scenario, created.Id, "newer.pdf", "application/pdf", 26, "DIPLOMA", "Diploma");
+        var newerAdd = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/documents", new
+        {
+            filePublicId = newerFile,
+            documentTypeCatalogItemPublicId = diplomaType,
+            observations = "Documento mas reciente"
+        });
+        newerAdd.EnsureSuccessStatusCode();
+        var newerDocument = await newerAdd.Content.ReadFromJsonAsync<DocumentMetadataItem>(JsonOptions);
         Assert.NotNull(newerDocument);
 
         var documentsResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/documents");
         documentsResponse.EnsureSuccessStatusCode();
+        var documentItems = (await documentsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<DocumentMetadataItem>>(JsonOptions))!.ToArray();
 
-        var documents = await documentsResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileDocumentDetailItem>>(JsonOptions);
-        Assert.NotNull(documents);
-
-        var documentItems = documents!.ToArray();
         Assert.Equal(2, documentItems.Length);
         Assert.Equal(newerDocument!.Id, documentItems[0].Id);
-        Assert.Equal("DIPLOMA", documentItems[0].DocumentType);
+        Assert.Equal("DIPLOMA", documentItems[0].DocumentTypeCode);
         Assert.Equal("newer.pdf", documentItems[0].FileName);
         Assert.Equal("application/pdf", documentItems[0].ContentType);
-        Assert.NotNull(documentItems[0].FileUrl);
-        Assert.Contains("sig=fake", documentItems[0].FileUrl!, StringComparison.Ordinal);
-        Assert.Equal(newerFileBytes.Length, documentItems[0].SizeBytes);
+        Assert.Equal(newerFile, documentItems[0].FilePublicId);
         Assert.True(documentItems[0].IsActive);
         Assert.Equal(olderDocument!.Id, documentItems[1].Id);
         Assert.Equal("older.png", documentItems[1].FileName);
+
+        // GET by id returns the same metadata.
+        var byIdResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/documents/{newerDocument.Id}");
+        byIdResponse.EnsureSuccessStatusCode();
+        var byId = await byIdResponse.Content.ReadFromJsonAsync<DocumentMetadataItem>(JsonOptions);
+        Assert.Equal(newerDocument.Id, byId!.Id);
+        Assert.Equal("Documento mas reciente", byId.Observations);
     }
 
-    [Fact(Skip = "Pending rewrite: documents now use File Management (FilePublicId) instead of multipart upload")]
-    public async Task PersonnelFiles_ReplaceDocuments_ShouldSyncCollection_WithoutUploadingUnchangedFiles()
+    [Fact]
+    public async Task PersonnelFiles_DocumentLifecycle_ShouldEnforceIfMatchAndSoftDeleteOnRemove()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
 
         var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Marcos", "Soto", "DUI", "01234567-8");
 
-        using var firstUploadContent = new MultipartFormDataContent();
-        firstUploadContent.Add(new StringContent("CONSTANCIA"), "documentType");
-        firstUploadContent.Add(new StringContent("Documento base"), "observations");
-        firstUploadContent.Add(new StringContent(created.ConcurrencyToken.ToString()), "concurrencyToken");
+        var (filePublicId, documentTypePublicId) = await SeedDocumentPrerequisitesAsync(scenario, created.Id);
 
-        var firstBytes = "%PDF-original payload"u8.ToArray();
-        var firstFileContent = new ByteArrayContent(firstBytes);
-        firstFileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
-        firstUploadContent.Add(firstFileContent, "file", "original.pdf");
-
-        var firstUploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", firstUploadContent);
-        Assert.Equal(HttpStatusCode.Created, firstUploadResponse.StatusCode);
-        var firstDocument = await firstUploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
-        Assert.NotNull(firstDocument);
-
-        var shellResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
-        shellResponse.EnsureSuccessStatusCode();
-        var shell = await shellResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
-        Assert.NotNull(shell);
-
-        using var secondUploadContent = new MultipartFormDataContent();
-        secondUploadContent.Add(new StringContent("EXPEDIENTE"), "documentType");
-        secondUploadContent.Add(new StringContent("Documento a reemplazar"), "observations");
-        secondUploadContent.Add(new StringContent(shell!.ConcurrencyToken.ToString()), "concurrencyToken");
-
-        byte[] secondBytes = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x10, 0x20, 0x30];
-        var secondFileContent = new ByteArrayContent(secondBytes);
-        secondFileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-        secondUploadContent.Add(secondFileContent, "file", "replace-me.png");
-
-        var secondUploadResponse = await client.PostAsync($"/api/v1/personnel-files/{created.Id}/documents", secondUploadContent);
-        Assert.Equal(HttpStatusCode.Created, secondUploadResponse.StatusCode);
-        var secondDocument = await secondUploadResponse.Content.ReadFromJsonAsync<PersonnelFileDocumentItem>(JsonOptions);
-        Assert.NotNull(secondDocument);
-
-        var latestShellResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}");
-        latestShellResponse.EnsureSuccessStatusCode();
-        var latestShell = await latestShellResponse.Content.ReadFromJsonAsync<PersonnelFileShellItem>(JsonOptions);
-        Assert.NotNull(latestShell);
-
-        using var replaceContent = new MultipartFormDataContent();
-        replaceContent.Add(new StringContent(latestShell!.ConcurrencyToken.ToString()), "concurrencyToken");
-        replaceContent.Add(new StringContent(JsonSerializer.Serialize(new
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/documents", new
         {
-            items = new object[]
+            filePublicId,
+            documentTypeCatalogItemPublicId = documentTypePublicId,
+            observations = "Original"
+        });
+        Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
+        var added = await addResponse.Content.ReadFromJsonAsync<DocumentMetadataItem>(JsonOptions);
+        Assert.NotNull(added);
+
+        // PUT (If-Match) — replace metadata; rotates the document's own concurrency token.
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/personnel-files/{created.Id}/documents/{added!.Id}")
+        {
+            Content = JsonContent.Create(new
             {
-                new
-                {
-                    documentPublicId = firstDocument!.Id,
-                    documentType = "CONSTANCIA-LABORAL",
-                    observations = "Solo metadatos",
-                    deliveryDate = "2026-04-25T00:00:00Z",
-                    loanDate = (string?)null,
-                    returnDate = (string?)null
-                },
-                new
-                {
-                    documentPublicId = secondDocument!.Id,
-                    documentType = "EXPEDIENTE-ACTUALIZADO",
-                    observations = "Reemplazo con archivo nuevo",
-                    deliveryDate = "2026-04-26T00:00:00Z",
-                    loanDate = "2026-04-27T00:00:00Z",
-                    returnDate = "2026-04-30T00:00:00Z",
-                    fileKey = "replacementFile"
-                },
-                new
-                {
-                    documentType = "DIPLOMA",
-                    observations = "Documento nuevo",
-                    deliveryDate = "2026-05-01T00:00:00Z",
-                    loanDate = (string?)null,
-                    returnDate = (string?)null,
-                    fileKey = "newFile"
-                }
-            }
-        })), "manifestJson");
+                documentTypeCatalogItemPublicId = documentTypePublicId,
+                observations = "Actualizado",
+                filePublicId = (Guid?)null
+            })
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{added.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<DocumentMetadataItem>(JsonOptions);
+        Assert.Equal("Actualizado", updated!.Observations);
+        Assert.NotEqual(added.ConcurrencyToken, updated.ConcurrencyToken);
 
-        byte[] replacementBytes = [0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00, 0x08, 0x00];
-        var replacementFile = new ByteArrayContent(replacementBytes);
-        replacementFile.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-        replaceContent.Add(replacementFile, "replacementFile", "replacement.docx");
+        // Stale If-Match (the now-rotated original token) → 409 Conflict.
+        using var staleRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/personnel-files/{created.Id}/documents/{added.Id}")
+        {
+            Content = JsonContent.Create(new
+            {
+                documentTypeCatalogItemPublicId = documentTypePublicId,
+                observations = "No debe aplicar",
+                filePublicId = (Guid?)null
+            })
+        };
+        staleRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{added.ConcurrencyToken}\"");
+        var staleResponse = await client.SendAsync(staleRequest);
+        Assert.Equal(HttpStatusCode.Conflict, staleResponse.StatusCode);
 
-        var newBytes = "%PDF-new document payload"u8.ToArray();
-        var newFile = new ByteArrayContent(newBytes);
-        newFile.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
-        replaceContent.Add(newFile, "newFile", "new-put.pdf");
+        // PATCH (RFC 6902, bare-array) — partial update of observations with the current token.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/personnel-files/{created.Id}/documents/{added.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/observations", value = "Parcheado" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated.ConcurrencyToken}\"");
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = await patchResponse.Content.ReadFromJsonAsync<DocumentMetadataItem>(JsonOptions);
+        Assert.Equal("Parcheado", patched!.Observations);
+        Assert.NotEqual(updated.ConcurrencyToken, patched.ConcurrencyToken);
 
-        var replaceResponse = await client.PutAsync($"/api/v1/personnel-files/{created.Id}/documents", replaceContent);
-        replaceResponse.EnsureSuccessStatusCode();
+        // DELETE (If-Match) — soft-delete; returns the parent personnel file's refreshed token.
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/documents/{added.Id}");
+        deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{patched.ConcurrencyToken}\"");
+        var deleteResponse = await client.SendAsync(deleteRequest);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+        var parent = await deleteResponse.Content.ReadFromJsonAsync<ParentConcurrencyItem>(JsonOptions);
+        Assert.NotNull(parent);
+        Assert.NotEqual(Guid.Empty, parent!.ParentConcurrencyToken);
 
-        var payload = await replaceResponse.Content.ReadFromJsonAsync<PersonnelFileSectionResultItem<IReadOnlyCollection<PersonnelFileDocumentDetailItem>>>(JsonOptions);
-        Assert.NotNull(payload);
-        Assert.NotEqual(latestShell.ConcurrencyToken, payload!.PersonnelFileConcurrencyToken);
-        Assert.Equal(3, payload.Data.Count);
+        // Soft-deleted: the document is retained in the listing but marked inactive.
+        var listResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/documents");
+        listResponse.EnsureSuccessStatusCode();
+        var remaining = (await listResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<DocumentMetadataItem>>(JsonOptions))!.ToArray();
+        var soft = Assert.Single(remaining);
+        Assert.Equal(added.Id, soft.Id);
+        Assert.False(soft.IsActive);
+    }
 
-        var synchronizedDocuments = payload.Data.OrderBy(item => item.CreatedAtUtc).ToArray();
-        var metadataOnly = synchronizedDocuments.Single(item => item.Id == firstDocument.Id);
-        var replaced = synchronizedDocuments.Single(item => item.Id == secondDocument.Id);
-        var createdByPut = synchronizedDocuments.Single(item => item.Id != firstDocument.Id && item.Id != secondDocument.Id);
+    private async Task<(Guid FilePublicId, Guid DocumentTypePublicId)> SeedDocumentPrerequisitesAsync(
+        IntegrationTestScenario scenario,
+        Guid personnelFilePublicId,
+        string fileName = "contrato.pdf",
+        string contentType = "application/pdf",
+        int sizeBytes = 2048,
+        string documentTypeCode = "DIPLOMA",
+        string documentTypeName = "Diploma")
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        Assert.Equal("CONSTANCIA-LABORAL", metadataOnly.DocumentType);
-        Assert.Equal("Solo metadatos", metadataOnly.Observations);
-        Assert.Equal("original.pdf", metadataOnly.FileName);
-        Assert.Equal("application/pdf", metadataOnly.ContentType);
-        Assert.True(metadataOnly.IsActive);
-        Assert.NotEqual(firstDocument.ConcurrencyToken, metadataOnly.ConcurrencyToken);
-        Assert.NotNull(metadataOnly.FileUrl);
-        Assert.Contains("sig=fake", metadataOnly.FileUrl!, StringComparison.Ordinal);
+        var documentType = DocumentTypeCatalogItem.Create(documentTypeCode, documentTypeName, sortOrder: 1);
+        dbContext.Set<DocumentTypeCatalogItem>().Add(documentType);
 
-        Assert.Equal("replacement.docx", replaced.FileName);
-        Assert.Equal("application/vnd.openxmlformats-officedocument.wordprocessingml.document", replaced.ContentType);
-        Assert.Equal(replacementBytes.Length, replaced.SizeBytes);
-        Assert.Equal("EXPEDIENTE-ACTUALIZADO", replaced.DocumentType);
-        Assert.True(replaced.IsActive);
-        Assert.NotEqual(secondDocument.ConcurrencyToken, replaced.ConcurrencyToken);
-        Assert.NotNull(replaced.FileUrl);
+        var extension = System.IO.Path.GetExtension(fileName);
+        var file = StoredFile.Create(
+            fileName,
+            contentType,
+            sizeBytes,
+            extension,
+            StorageProvider.AzureBlob,
+            "clarihr-personnel-documents",
+            $"personnel-documents/{Guid.NewGuid():N}{extension}",
+            FilePurpose.PersonnelDocument,
+            FileVisibility.Private,
+            FileUploadType.DirectUpload,
+            scenario.ActorUserId.ToString(),
+            personnelFilePublicId);
+        file.SetTenantId(scenario.TenantId);
+        file.MarkActive(sizeBytes, contentType);
+        dbContext.Set<StoredFile>().Add(file);
 
-        Assert.Equal("DIPLOMA", createdByPut.DocumentType);
-        Assert.Equal("new-put.pdf", createdByPut.FileName);
-        Assert.Equal("application/pdf", createdByPut.ContentType);
-        Assert.Equal(newBytes.Length, createdByPut.SizeBytes);
-        Assert.True(createdByPut.IsActive);
-        Assert.NotEqual(Guid.Empty, createdByPut.ConcurrencyToken);
+        await dbContext.SaveChangesAsync();
+        return (file.PublicId, documentType.PublicId);
     }
 
     [Fact]
@@ -8114,6 +8100,23 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid ConcurrencyToken,
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc);
+
+    private sealed record DocumentMetadataItem(
+        Guid Id,
+        Guid? DocumentTypeCatalogItemPublicId,
+        string? DocumentTypeCode,
+        string? DocumentTypeName,
+        string? Observations,
+        Guid FilePublicId,
+        string FileName,
+        string ContentType,
+        int SizeBytes,
+        bool IsActive,
+        Guid ConcurrencyToken,
+        DateTime CreatedAtUtc,
+        DateTime? ModifiedAtUtc);
+
+    private sealed record ParentConcurrencyItem(Guid ParentConcurrencyToken);
 
     private sealed record PersonnelFileObservationItem(
         Guid Id,
