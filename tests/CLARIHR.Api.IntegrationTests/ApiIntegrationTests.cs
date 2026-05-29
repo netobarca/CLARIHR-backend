@@ -2420,6 +2420,60 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task PersonnelFiles_AnalyticsSummary_ShouldReturnAggregateCounts()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Ana", "Lopez", "DUI", "02222222-2");
+        _ = await CreatePersonnelFileAsync(client, scenario.TenantId, "Bea", "Mejia", "DUI", "03333333-3");
+
+        var response = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/personnel-files/analytics/summary");
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<PersonnelFileAnalyticsSummaryItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.True(payload!.TotalCount >= 2);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_PositionHierarchy_OnDraftFile_ShouldReturnUnprocessableEntity()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        // A draft personnel file is not yet a completed employee, so the position hierarchy is
+        // unavailable (StateRuleViolation -> 422). The 200 happy path requires the finalize flow.
+        var file = await CreatePersonnelFileAsync(client, scenario.TenantId, "Caro", "Diaz", "DUI", "04444444-4");
+
+        var response = await client.GetAsync($"/api/v1/personnel-files/{file.Id}/position-hierarchy");
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_PositionHierarchy_UnknownFile_ShouldReturnNotFound()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/personnel-files/{Guid.NewGuid()}/position-hierarchy");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PersonnelFiles_PositionHierarchy_WithoutPersonnelFilePermission_ShouldReturnForbidden()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateSalaryTabulatorReadContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/personnel-files/{Guid.NewGuid()}/position-hierarchy");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task LocationHierarchy_Get_ShouldReturnSeededDefaults()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -8249,6 +8303,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         int TotalCount,
         int PageNumber,
         int PageSize);
+
+    private sealed record PersonnelFileAnalyticsSummaryItem(
+        int TotalCount,
+        int ActiveCount,
+        int InactiveCount);
 
     private sealed record ActiveCompanyItem(
         Guid PublicId,

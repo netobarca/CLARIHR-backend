@@ -9619,7 +9619,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{id}/personal-info:
+  /api/v1/personnel-files/{publicId}/personal-info:
     get:
       tags:
       - personnel-file-personal-info
@@ -9629,7 +9629,7 @@ paths:
       security:
       - Bearer: []
       parameters:
-      - name: id
+      - name: publicId
         in: path
         required: true
         schema:
@@ -9773,119 +9773,6 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '422':
           description: Business-rule violation, such as attempting to update the section for a non-completed employee file.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{id}/payment-methods:
-    get:
-      tags:
-      - personnel-files
-      operationId: GetPersonnelFilePaymentMethods
-      summary: Get the payment-methods section of a personnel file
-      description: Returns only the payment methods configured for the personnel file. The personnel file must already be a completed employee record.
-      security:
-      - Bearer: []
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '200':
-          description: Payment methods returned successfully.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PersonnelFilePaymentMethodResponse'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to read personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Business-rule violation, such as requesting the section for a non-completed employee file.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    put:
-      tags:
-      - personnel-files
-      operationId: ReplacePersonnelFilePaymentMethods
-      summary: Replace the payment-methods section of a personnel file
-      description: Replaces the complete payment-methods section and validates bank-account references through targeted lookups before persisting the change.
-      security:
-      - Bearer: []
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReplacePaymentMethodsRequest'
-      responses:
-        '200':
-          description: Payment methods updated successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PersonnelFileSectionResultOfPersonnelFilePaymentMethodResponseCollection'
-        '400':
-          description: Validation error, such as missing concurrency token or malformed section payload.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication is required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: The authenticated user does not have permission to manage personnel files or the tenant scope does not match.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: The target personnel file was not found in the tenant scope.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Business conflict such as stale concurrency token.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '422':
-          description: Business-rule violation, such as attempting to update the section for a non-completed employee file or referencing bank accounts outside the file.
           content:
             application/problem+json:
               schema:
@@ -11430,7 +11317,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{id}/finalize:
+  /api/v1/personnel-files/{publicId}/finalize:
     patch:
       tags:
       - personnel-files
@@ -11440,7 +11327,7 @@ paths:
       security:
       - Bearer: []
       parameters:
-      - name: id
+      - name: publicId
         in: path
         required: true
         schema:
@@ -11495,7 +11382,7 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/v1/personnel-files/{id}/finalize/preview:
+  /api/v1/personnel-files/{publicId}/finalize/preview:
     get:
       tags:
       - personnel-files
@@ -11505,7 +11392,7 @@ paths:
       security:
       - Bearer: []
       parameters:
-      - name: id
+      - name: publicId
         in: path
         required: true
         schema:
@@ -14916,6 +14803,313 @@ paths:
           duplicate code or in-use inactivation conflict.: null
         '413':
           description: Patch request body exceeds the 64 KiB limit.
+  /api/v1/personnel-files/{publicId}/position-hierarchy:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFilePositionHierarchy
+      summary: Get a personnel file's position hierarchy
+      description: Returns the read-only position hierarchy (reporting line and subordinates) computed for the specified personnel file's assigned position.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Position hierarchy returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFilePositionHierarchyResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Personnel file not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation, such as requesting the hierarchy for a file without an assigned position.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/personnel-files/dynamic-query:
+    post:
+      tags:
+      - personnel-files
+      operationId: DynamicQueryPersonnelFiles
+      summary: Run a dynamic query over a company's personnel files
+      description: Read-only search and aggregation over a company's personnel files (arbitrary field filters, grouping, sorting, free-text q and pagination). Requires read permission only; it never mutates. For downloads use the export endpoint (small result sets) or an asynchronous report export job (large result sets).
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DynamicQueryPersonnelFilesRequest'
+      responses:
+        '200':
+          description: Query results returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileDynamicQueryResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Business-rule violation.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/personnel-files/export:
+    get:
+      tags:
+      - personnel-files
+      operationId: ExportPersonnelFiles
+      summary: Export a company's personnel files (synchronous)
+      description: Streams the filtered personnel files as a downloadable file (default xlsx, also csv). This synchronous path is capped at the configured synchronous row limit; when the filtered result would exceed it the endpoint responds 413 Payload Too Large. For larger exports submit an asynchronous report export job (POST /api/v1/companies/{companyPublicId}/report-export-jobs with resourceKey=PERSONNEL_FILES) and download its artifact. Both paths share the same rows and filters.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: format
+        in: query
+        required: false
+        description: Export format. One of csv or xlsx.
+        schema:
+          type: string
+          default: xlsx
+      - name: isActive
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: recordType
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/PersonnelFileRecordType'
+      - name: orgUnitPublicId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: minAge
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: maxAge
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: maritalStatus
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: nationality
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: profession
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: createdFromUtc
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: createdToUtc
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: sortBy
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: sortDirection
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/PersonnelFileSortDirection'
+      responses:
+        '200':
+          description: Export artifact stream.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '413':
+          description: Result set exceeds the synchronous export limit; submit an asynchronous report export job instead.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/companies/{companyPublicId}/personnel-files/analytics/summary:
+    get:
+      tags:
+      - personnel-files
+      operationId: GetPersonnelFilesAnalyticsSummary
+      summary: Get a company's personnel files analytics summary
+      description: Returns read-only aggregate counts for the company's personnel files (totals plus breakdowns by record type, age range and org unit), honoring the same filters as the list and export endpoints.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: isActive
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: recordType
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/PersonnelFileRecordType'
+      - name: orgUnitPublicId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: minAge
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: maxAge
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Analytics summary returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonnelFileAnalyticsSummaryResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Permission denied or tenant mismatch.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 components:
   securitySchemes:
     Bearer:
@@ -18442,34 +18636,6 @@ components:
           type: integer
         totalPages:
           type: integer
-    PaymentMethodItemRequest:
-      type: object
-      required:
-      - paymentMethodCode
-      - isPrimary
-      - isActive
-      - effectiveFromUtc
-      properties:
-        paymentMethodCode:
-          type: string
-        bankAccountPublicId:
-          type: string
-          format: uuid
-          nullable: true
-        isPrimary:
-          type: boolean
-        isActive:
-          type: boolean
-        effectiveFromUtc:
-          type: string
-          format: date-time
-        effectiveToUtc:
-          type: string
-          format: date-time
-          nullable: true
-        notes:
-          type: string
-          nullable: true
     PersonnelCatalogItemResponse:
       type: object
       properties:
@@ -19978,23 +20144,6 @@ components:
         concurrencyToken:
           type: string
           format: uuid
-    PersonnelFileSectionResultOfPersonnelFilePaymentMethodResponseCollection:
-      type: object
-      required:
-      - data
-      - personnelFileConcurrencyToken
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/PersonnelFilePaymentMethodResponse'
-        personnelFileConcurrencyToken:
-          type: string
-          format: uuid
-        modifiedAtUtc:
-          type: string
-          format: date-time
-          nullable: true
     PersonnelFileSelectionContestResponse:
       type: object
       required:
@@ -20467,19 +20616,6 @@ components:
           description: Optional structured metadata returned by some authorization or policy failures.
           items:
             $ref: '#/components/schemas/ProblemDetailItem'
-    ReplacePaymentMethodsRequest:
-      type: object
-      required:
-      - items
-      - concurrencyToken
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/PaymentMethodItemRequest'
-        concurrencyToken:
-          type: string
-          format: uuid
     ReportExportJobResponse:
       type: object
       required:
@@ -21211,3 +21347,189 @@ components:
       - PendingActivation
       - Active
       - Inactive
+    DynamicPersonnelFileFilterRequest:
+      type: object
+      properties:
+        field:
+          type: string
+          nullable: true
+        operator:
+          type: string
+          nullable: true
+        value:
+          type: string
+          nullable: true
+        valueTo:
+          type: string
+          nullable: true
+        values:
+          type: array
+          items:
+            type: string
+          nullable: true
+      additionalProperties: false
+    DynamicPersonnelFileSortRequest:
+      type: object
+      properties:
+        field:
+          type: string
+          nullable: true
+        direction:
+          $ref: '#/components/schemas/PersonnelFileSortDirection'
+      additionalProperties: false
+    DynamicQueryPersonnelFilesRequest:
+      type: object
+      properties:
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/DynamicPersonnelFileFilterRequest'
+          nullable: true
+        groupBy:
+          type: array
+          items:
+            type: string
+          nullable: true
+        sort:
+          type: array
+          items:
+            $ref: '#/components/schemas/DynamicPersonnelFileSortRequest'
+          nullable: true
+        q:
+          type: string
+          nullable: true
+        page:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        includeAllowedActions:
+          type: boolean
+      additionalProperties: false
+    PersonnelFileAnalyticsBreakdownResponse:
+      type: object
+      properties:
+        key:
+          type: string
+          nullable: true
+        label:
+          type: string
+          nullable: true
+        count:
+          type: integer
+          format: int32
+      additionalProperties: false
+    PersonnelFileAnalyticsSummaryResponse:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+          format: int32
+        activeCount:
+          type: integer
+          format: int32
+        inactiveCount:
+          type: integer
+          format: int32
+        byRecordType:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFileAnalyticsBreakdownResponse'
+          nullable: true
+        byAgeRange:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFileAnalyticsBreakdownResponse'
+          nullable: true
+        byOrgUnit:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFileAnalyticsBreakdownResponse'
+          nullable: true
+      additionalProperties: false
+    PersonnelFileDynamicGroupBucketResponse:
+      type: object
+      properties:
+        key:
+          type: string
+          nullable: true
+        label:
+          type: string
+          nullable: true
+        count:
+          type: integer
+          format: int32
+      additionalProperties: false
+    PersonnelFileDynamicGroupResponse:
+      type: object
+      properties:
+        field:
+          type: string
+          nullable: true
+        buckets:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFileDynamicGroupBucketResponse'
+          nullable: true
+      additionalProperties: false
+    PersonnelFileDynamicQueryResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFileListItemResponse'
+          nullable: true
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFileDynamicGroupResponse'
+          nullable: true
+        totalCount:
+          type: integer
+          format: int32
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+      additionalProperties: false
+    PersonnelFilePositionHierarchyResponse:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        orgUnitPublicId:
+          type: string
+          format: uuid
+          nullable: true
+        immediateSupervisorPersonnelFilePublicId:
+          type: string
+          format: uuid
+          nullable: true
+        immediateSupervisorName:
+          type: string
+          nullable: true
+        subordinates:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonnelFilePositionHierarchySubordinateResponse'
+          nullable: true
+      additionalProperties: false
+    PersonnelFilePositionHierarchySubordinateResponse:
+      type: object
+      properties:
+        personnelFilePublicId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+          nullable: true
+        orgUnitPublicId:
+          type: string
+          format: uuid
+          nullable: true
+      additionalProperties: false

@@ -30,8 +30,14 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     private static readonly Assembly ApplicationAssembly = typeof(IQuery<>).Assembly;
     private static readonly Assembly ApiAssembly = typeof(AuthorizationPolicySetAttribute).Assembly;
 
+    // The PersonnelFile sub-resource family is enrolled for whole-family coverage EXCEPT
+    // PersonnelFileReportingController, excluded structurally via the (?!Reporting) lookahead
+    // (no hand-maintained controller list, no cross-controller coupling). Reporting cannot carry
+    // [AuthorizationPolicySet]: its POST `dynamic-query` is a read whose handler gates on
+    // EnsureCanReadAsync, so the convention's Manage-on-POST would exceed the gate and yield false
+    // 403s (the two-layer authorization superset invariant). It stays handler-gated + [Authorize].
     private static readonly Regex GovernedFamilyRegex =
-        new(@"^(JobProfile|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot)", RegexOptions.Compiled);
+        new(@"^(JobProfile|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot|PersonnelFile(?!Reporting))", RegexOptions.Compiled);
 
     private static readonly HashSet<string> JobProfilePolicyNames = new(StringComparer.Ordinal)
     {
@@ -52,9 +58,9 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         PositionSlotPolicies.Manage,
     };
 
-    // PersonnelFiles enrolls only its shell controller under the convention; the broader
-    // sub-resource family is not (yet) in GovernedFamilyRegex, so the marker may reference
-    // these constants but whole-family coverage is intentionally not required.
+    // The whole PersonnelFile sub-resource family is enrolled in GovernedFamilyRegex (so every
+    // PF controller must declare the marker), except PersonnelFileReportingController which is
+    // excluded by the (?!Reporting) lookahead for the read-via-POST reason documented there.
     private static readonly HashSet<string> PersonnelFilePolicyNames = new(StringComparer.Ordinal)
     {
         PersonnelFilePolicies.Read,
@@ -114,9 +120,9 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
                 PositionSlotPolicyNames.Contains(entry.Marker.ManagePolicy));
         }
 
-        // PersonnelFiles enrolls its shell controller (PersonnelFilesController); the broader
-        // sub-resource family stays handler-gated only, so this asserts "at least one marked
-        // controller", not whole-family coverage (PersonnelFile is absent from GovernedFamilyRegex).
+        // The PersonnelFile family is enrolled for whole-family coverage in
+        // EveryGovernedFamilyController_DeclaresPolicySetMarker (except Reporting, see the regex);
+        // this Inv-1 check independently asserts at least one marked controller exists for the domain.
         if (AnyHandlerInjects(typeof(IPersonnelFileAuthorizationService)))
         {
             Assert.Contains(controllers, entry => entry.Marker is not null &&
