@@ -1617,8 +1617,34 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             createdToUtc: null);
         query = ApplySearch(query, search, includeIdentificationMatch: false);
 
-        var totalCount = await query.CountAsync(cancellationToken);
-        var activeCount = await query.CountAsync(file => file.IsActive, cancellationToken);
+        var today = DateTime.UtcNow.Date;
+        var age18BirthDate = today.AddYears(-18);
+        var age26BirthDate = today.AddYears(-26);
+        var age36BirthDate = today.AddYears(-36);
+        var age46BirthDate = today.AddYears(-46);
+        var age56BirthDate = today.AddYears(-56);
+
+        // Single-pass rollup: total + active + the six mutually-exclusive age buckets in ONE
+        // aggregate query (PostgreSQL COUNT(*) FILTER (WHERE …)) instead of eight sequential
+        // full scans. GroupBy(_ => 1) collapses everything into a single group; an empty set
+        // yields no row, so coalesce the null result to zeros.
+        var rollup = await query
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Total = group.Count(),
+                Active = group.Count(file => file.IsActive),
+                AgeUnder18 = group.Count(file => file.BirthDate > age18BirthDate),
+                Age18To25 = group.Count(file => file.BirthDate <= age18BirthDate && file.BirthDate > age26BirthDate),
+                Age26To35 = group.Count(file => file.BirthDate <= age26BirthDate && file.BirthDate > age36BirthDate),
+                Age36To45 = group.Count(file => file.BirthDate <= age36BirthDate && file.BirthDate > age46BirthDate),
+                Age46To55 = group.Count(file => file.BirthDate <= age46BirthDate && file.BirthDate > age56BirthDate),
+                Age56Plus = group.Count(file => file.BirthDate <= age56BirthDate)
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var totalCount = rollup?.Total ?? 0;
+        var activeCount = rollup?.Active ?? 0;
         var inactiveCount = totalCount - activeCount;
 
         var recordTypeCounts = await query
@@ -1637,38 +1663,14 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
                 item.Count))
             .ToArray();
 
-        var today = DateTime.UtcNow.Date;
-        var age18BirthDate = today.AddYears(-18);
-        var age26BirthDate = today.AddYears(-26);
-        var age36BirthDate = today.AddYears(-36);
-        var age46BirthDate = today.AddYears(-46);
-        var age56BirthDate = today.AddYears(-56);
         var byAgeRange = new[]
         {
-            new PersonnelFileAnalyticsBreakdownResponse(
-                "<18",
-                "<18",
-                await query.CountAsync(file => file.BirthDate > age18BirthDate, cancellationToken)),
-            new PersonnelFileAnalyticsBreakdownResponse(
-                "18-25",
-                "18-25",
-                await query.CountAsync(file => file.BirthDate <= age18BirthDate && file.BirthDate > age26BirthDate, cancellationToken)),
-            new PersonnelFileAnalyticsBreakdownResponse(
-                "26-35",
-                "26-35",
-                await query.CountAsync(file => file.BirthDate <= age26BirthDate && file.BirthDate > age36BirthDate, cancellationToken)),
-            new PersonnelFileAnalyticsBreakdownResponse(
-                "36-45",
-                "36-45",
-                await query.CountAsync(file => file.BirthDate <= age36BirthDate && file.BirthDate > age46BirthDate, cancellationToken)),
-            new PersonnelFileAnalyticsBreakdownResponse(
-                "46-55",
-                "46-55",
-                await query.CountAsync(file => file.BirthDate <= age46BirthDate && file.BirthDate > age56BirthDate, cancellationToken)),
-            new PersonnelFileAnalyticsBreakdownResponse(
-                "56+",
-                "56+",
-                await query.CountAsync(file => file.BirthDate <= age56BirthDate, cancellationToken))
+            new PersonnelFileAnalyticsBreakdownResponse("<18", "<18", rollup?.AgeUnder18 ?? 0),
+            new PersonnelFileAnalyticsBreakdownResponse("18-25", "18-25", rollup?.Age18To25 ?? 0),
+            new PersonnelFileAnalyticsBreakdownResponse("26-35", "26-35", rollup?.Age26To35 ?? 0),
+            new PersonnelFileAnalyticsBreakdownResponse("36-45", "36-45", rollup?.Age36To45 ?? 0),
+            new PersonnelFileAnalyticsBreakdownResponse("46-55", "46-55", rollup?.Age46To55 ?? 0),
+            new PersonnelFileAnalyticsBreakdownResponse("56+", "56+", rollup?.Age56Plus ?? 0)
         };
 
         var orgUnitCounts = await query

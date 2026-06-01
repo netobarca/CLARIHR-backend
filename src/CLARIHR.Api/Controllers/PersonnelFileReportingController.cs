@@ -10,6 +10,7 @@ using CLARIHR.Domain.PersonnelFiles;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -26,6 +27,7 @@ public sealed class PersonnelFileReportingController(
     IQueryDispatcher queryDispatcher,
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
     [HttpPost("api/v1/companies/{companyId:guid}/personnel-files/dynamic-query")]
     [Consumes("application/json")]
     [Produces("application/json")]
@@ -67,6 +69,7 @@ public sealed class PersonnelFileReportingController(
         return this.ToActionResult(result);
     }
 
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Export)]
     [HttpGet("api/v1/companies/{companyId:guid}/personnel-files/export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -155,6 +158,7 @@ public sealed class PersonnelFileReportingController(
             cancellationToken);
     }
 
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Export)]
     [HttpGet("api/v1/companies/{companyId:guid}/personnel-files/analytics/summary")]
     [Produces("application/json")]
     [ProducesResponseType<PersonnelFileAnalyticsSummaryResponse>(StatusCodes.Status200OK)]

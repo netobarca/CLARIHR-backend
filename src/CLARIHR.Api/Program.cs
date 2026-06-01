@@ -198,9 +198,12 @@ builder.Services.AddRateLimiter(options =>
                 AutoReplenishment = true
             });
     });
-    options.AddPolicy("personnel-files-create", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Create:PermitLimit", 20));
-    options.AddPolicy("personnel-files-search", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Search:PermitLimit", 120));
-    options.AddPolicy("personnel-files-lifecycle", httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Lifecycle:PermitLimit", 30));
+    options.AddPolicy(PersonnelFileRateLimitPolicies.Create, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Create:PermitLimit", 20));
+    options.AddPolicy(PersonnelFileRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Search:PermitLimit", 120));
+    options.AddPolicy(PersonnelFileRateLimitPolicies.Lifecycle, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Lifecycle:PermitLimit", 30));
+    // Tight limiter for the unbounded-cost Personnel Files reads (row exports + full-tenant
+    // analytics aggregation) — same abuse class as PositionSlots export; mirrors its 10/min default.
+    options.AddPolicy(PersonnelFileRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PersonnelFiles:Export:PermitLimit", 10));
 
     // Position Slots: tight limiter for the unbounded-cost generators (export /
     // diagram-export / full-tenant graph) — same abuse class as personnel-files-search,

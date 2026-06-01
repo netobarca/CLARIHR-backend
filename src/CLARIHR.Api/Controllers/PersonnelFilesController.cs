@@ -32,7 +32,7 @@ public sealed class PersonnelFilesController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
-    [EnableRateLimiting("personnel-files-create")]
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Create)]
     [HttpPost("companies/{companyPublicId:guid}/personnel-files")]
     [ProducesResponseType<PersonnelFileShellResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
@@ -90,7 +90,7 @@ public sealed class PersonnelFilesController(
             value => value.ConcurrencyToken);
     }
 
-    [EnableRateLimiting("personnel-files-search")]
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Search)]
     [HttpGet("companies/{companyPublicId:guid}/personnel-files")]
     [ProducesResponseType<PagedResponse<PersonnelFileListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status429TooManyRequests)]
@@ -219,7 +219,7 @@ public sealed class PersonnelFilesController(
         return this.ToActionResultWithETag(mapped, value => value.ConcurrencyToken);
     }
 
-    [EnableRateLimiting("personnel-files-lifecycle")]
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Lifecycle)]
     [HttpPatch("personnel-files/{publicId:guid}")]
     [Consumes("application/json-patch+json")]
     [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]

@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -764,6 +765,7 @@ public sealed class PersonnelFileEmploymentController(
         return this.ToActionResult(result);
     }
 
+    [EnableRateLimiting(PersonnelFileRateLimitPolicies.Export)]
     [HttpGet("api/v1/personnel-files/{publicId:guid}/personnel-actions/export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
