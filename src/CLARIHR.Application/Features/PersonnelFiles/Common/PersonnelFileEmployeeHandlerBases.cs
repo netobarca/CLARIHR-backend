@@ -92,7 +92,12 @@ internal abstract class PersonnelFileEmployeeCommandHandlerBase
                 null);
         }
 
-        if (personnelFile.ConcurrencyToken != concurrencyToken)
+        // Employee sub-resource writes enforce optimistic concurrency at the item level (each
+        // command carries the item's own If-Match token), not on the parent file — so callers
+        // pass Guid.Empty to opt out of a parent-file concurrency check here. Only enforce the
+        // parent token when a caller actually supplies one; a non-empty file token must never be
+        // compared against the Guid.Empty sentinel (that produced a spurious 409 on every write).
+        if (concurrencyToken != Guid.Empty && personnelFile.ConcurrencyToken != concurrencyToken)
         {
             return (Result<TResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict), null);
         }

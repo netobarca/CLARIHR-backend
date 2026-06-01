@@ -2474,6 +2474,105 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task PersonnelFileHobbies_ItemCrud_ShouldPersistAndEnforceIfMatch()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Lucia", "Mendez", "DUI", "11223344-5");
+
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/hobbies", new
+        {
+            hobbyName = "Photography"
+        });
+        Assert.Equal(HttpStatusCode.Created, addResponse.StatusCode);
+        var added = await addResponse.Content.ReadFromJsonAsync<PersonnelFileHobbyItem>(JsonOptions);
+        Assert.NotNull(added);
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/personnel-files/{created.Id}/hobbies/{added!.Id}")
+        {
+            Content = JsonContent.Create(new { hobbyName = "Cycling" })
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{added.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = await updateResponse.Content.ReadFromJsonAsync<PersonnelFileHobbyItem>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Equal("Cycling", updated!.HobbyName);
+
+        // Stale If-Match (the now-rotated original token) must be rejected with 409.
+        using var staleRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/personnel-files/{created.Id}/hobbies/{added.Id}")
+        {
+            Content = JsonContent.Create(new { hobbyName = "Running" })
+        };
+        staleRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{added.ConcurrencyToken}\"");
+        var staleResponse = await client.SendAsync(staleRequest);
+        Assert.Equal(HttpStatusCode.Conflict, staleResponse.StatusCode);
+
+        var listResponse = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/hobbies");
+        listResponse.EnsureSuccessStatusCode();
+        var hobbies = await listResponse.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileHobbyItem>>(JsonOptions);
+        var hobby = Assert.Single(hobbies!);
+        Assert.Equal("Cycling", hobby.HobbyName);
+
+        using var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, $"/api/v1/personnel-files/{created.Id}/hobbies/{added.Id}");
+        deleteRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated.ConcurrencyToken}\"");
+        var deleteResponse = await client.SendAsync(deleteRequest);
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+
+        var afterDelete = await client.GetAsync($"/api/v1/personnel-files/{created.Id}/hobbies");
+        afterDelete.EnsureSuccessStatusCode();
+        var remaining = await afterDelete.Content.ReadFromJsonAsync<IReadOnlyCollection<PersonnelFileHobbyItem>>(JsonOptions);
+        Assert.Empty(remaining!);
+    }
+
+    [Fact]
+    public async Task PersonnelFilePerformanceEvaluations_OnDraftFile_ShouldReturnUnprocessableEntity()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Mario", "Rivas", "DUI", "22334455-6");
+
+        // Talent/Compensation/Employment sub-resources require a completed-employee file. On a draft
+        // the write must return 422 (state rule) — and crucially NOT the spurious 409 that the parent
+        // concurrency check produced for EVERY employee sub-resource write before the LoadForManageAsync
+        // Guid.Empty-sentinel fix (PersonnelFileEmployeeHandlerBases).
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/evaluations", new
+        {
+            evaluatorName = "Ana Supervisor",
+            evaluationDateUtc = new DateTime(2024, 3, 10, 0, 0, 0, DateTimeKind.Utc),
+            score = 4.2m
+        });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, addResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task PersonnelFileSalaryItems_OnDraftFile_ShouldReturnUnprocessableEntity()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+
+        var created = await CreatePersonnelFileAsync(client, scenario.TenantId, "Sofia", "Lara", "DUI", "33445566-7");
+
+        // Same employee-state gate as evaluations: a draft file yields 422, not the pre-fix 409.
+        var addResponse = await client.PostJsonAsync($"/api/v1/personnel-files/{created.Id}/salary-items", new
+        {
+            incomeTypeCode = "SUELDO_BASE",
+            salaryRubricCode = "FIJO",
+            currencyCode = "USD",
+            payPeriodCode = "MENSUAL",
+            amount = 1500.00m,
+            startDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            endDate = (DateTime?)null,
+            isActive = true
+        });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, addResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task LocationHierarchy_Get_ShouldReturnSeededDefaults()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -8247,6 +8346,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         string Phone,
         string? Address,
         string? Workplace,
+        Guid ConcurrencyToken);
+
+    private sealed record PersonnelFileHobbyItem(
+        [property: JsonPropertyName("hobbyPublicId")] Guid Id,
+        string HobbyName,
         Guid ConcurrencyToken);
 
     private sealed record PersonnelFileListProjectionItem(

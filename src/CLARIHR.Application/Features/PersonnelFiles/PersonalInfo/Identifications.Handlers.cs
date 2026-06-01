@@ -92,34 +92,26 @@ internal sealed class AddPersonnelFileIdentificationCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<AddPersonnelFileIdentificationCommand, PersonnelFileIdentificationResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<AddPersonnelFileIdentificationCommand, PersonnelFileIdentificationResponse>
 {
     public async Task<Result<PersonnelFileIdentificationResponse>> Handle(
         AddPersonnelFileIdentificationCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileIdentificationResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileIdentificationResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileIdentificationResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Identifications,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileIdentificationResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
 
         var normalizedIdentificationTypeCode = command.Identification.IdentificationTypeCode.Trim().ToUpperInvariant();
@@ -207,34 +199,26 @@ internal sealed class UpdatePersonnelFileIdentificationCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdatePersonnelFileIdentificationCommand, PersonnelFileIdentificationResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<UpdatePersonnelFileIdentificationCommand, PersonnelFileIdentificationResponse>
 {
     public async Task<Result<PersonnelFileIdentificationResponse>> Handle(
         UpdatePersonnelFileIdentificationCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileIdentificationResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileIdentificationResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileIdentificationResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Identifications,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileIdentificationResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var identification = personnelFile.Identifications.FirstOrDefault(item => item.PublicId == command.IdentificationPublicId);
         if (identification is null)
@@ -336,34 +320,26 @@ internal sealed class DeletePersonnelFileIdentificationCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<DeletePersonnelFileIdentificationCommand, PersonnelFileParentConcurrencyResult>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<DeletePersonnelFileIdentificationCommand, PersonnelFileParentConcurrencyResult>
 {
     public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
         DeletePersonnelFileIdentificationCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileParentConcurrencyResult>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Identifications,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var identification = personnelFile.Identifications.FirstOrDefault(item => item.PublicId == command.IdentificationPublicId);
         if (identification is null)
@@ -432,34 +408,26 @@ internal sealed class PatchPersonnelFileIdentificationCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<PatchPersonnelFileIdentificationCommand, PersonnelFileIdentificationResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<PatchPersonnelFileIdentificationCommand, PersonnelFileIdentificationResponse>
 {
     public async Task<Result<PersonnelFileIdentificationResponse>> Handle(
         PatchPersonnelFileIdentificationCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileIdentificationResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileIdentificationResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileIdentificationResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Identifications,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileIdentificationResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var identification = personnelFile.Identifications.FirstOrDefault(item => item.PublicId == command.IdentificationPublicId);
         if (identification is null)

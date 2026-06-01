@@ -92,34 +92,26 @@ internal sealed class AddPersonnelFileLanguageCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<AddPersonnelFileLanguageCommand, PersonnelFileLanguageResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<AddPersonnelFileLanguageCommand, PersonnelFileLanguageResponse>
 {
     public async Task<Result<PersonnelFileLanguageResponse>> Handle(
         AddPersonnelFileLanguageCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileLanguageResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileLanguageResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileLanguageResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Languages,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileLanguageResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
 
         var languageError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
@@ -214,34 +206,26 @@ internal sealed class UpdatePersonnelFileLanguageCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdatePersonnelFileLanguageCommand, PersonnelFileLanguageResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<UpdatePersonnelFileLanguageCommand, PersonnelFileLanguageResponse>
 {
     public async Task<Result<PersonnelFileLanguageResponse>> Handle(
         UpdatePersonnelFileLanguageCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileLanguageResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileLanguageResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileLanguageResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Languages,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileLanguageResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var language = personnelFile.Languages.FirstOrDefault(item => item.PublicId == command.LanguagePublicId);
         if (language is null)
@@ -342,34 +326,26 @@ internal sealed class DeletePersonnelFileLanguageCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<DeletePersonnelFileLanguageCommand, PersonnelFileParentConcurrencyResult>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<DeletePersonnelFileLanguageCommand, PersonnelFileParentConcurrencyResult>
 {
     public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
         DeletePersonnelFileLanguageCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileParentConcurrencyResult>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Languages,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var language = personnelFile.Languages.FirstOrDefault(item => item.PublicId == command.LanguagePublicId);
         if (language is null)
@@ -438,34 +414,26 @@ internal sealed class PatchPersonnelFileLanguageCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<PatchPersonnelFileLanguageCommand, PersonnelFileLanguageResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<PatchPersonnelFileLanguageCommand, PersonnelFileLanguageResponse>
 {
     public async Task<Result<PersonnelFileLanguageResponse>> Handle(
         PatchPersonnelFileLanguageCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileLanguageResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileLanguageResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileLanguageResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Languages,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileLanguageResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var language = personnelFile.Languages.FirstOrDefault(item => item.PublicId == command.LanguagePublicId);
         if (language is null)

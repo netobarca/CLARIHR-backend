@@ -92,34 +92,26 @@ internal sealed class AddPersonnelFileFamilyMemberCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<AddPersonnelFileFamilyMemberCommand, PersonnelFileFamilyMemberResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<AddPersonnelFileFamilyMemberCommand, PersonnelFileFamilyMemberResponse>
 {
     public async Task<Result<PersonnelFileFamilyMemberResponse>> Handle(
         AddPersonnelFileFamilyMemberCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileFamilyMemberResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileFamilyMemberResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileFamilyMemberResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.FamilyMembers,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileFamilyMemberResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
 
         var kinshipCodeValidation = await PersonnelReferenceCatalogValidation.ValidateKinshipCodeAsync(
@@ -219,34 +211,26 @@ internal sealed class UpdatePersonnelFileFamilyMemberCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdatePersonnelFileFamilyMemberCommand, PersonnelFileFamilyMemberResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<UpdatePersonnelFileFamilyMemberCommand, PersonnelFileFamilyMemberResponse>
 {
     public async Task<Result<PersonnelFileFamilyMemberResponse>> Handle(
         UpdatePersonnelFileFamilyMemberCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileFamilyMemberResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileFamilyMemberResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileFamilyMemberResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.FamilyMembers,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileFamilyMemberResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var familyMember = personnelFile.FamilyMembers.FirstOrDefault(item => item.PublicId == command.FamilyMemberPublicId);
         if (familyMember is null)
@@ -356,34 +340,26 @@ internal sealed class DeletePersonnelFileFamilyMemberCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<DeletePersonnelFileFamilyMemberCommand, PersonnelFileParentConcurrencyResult>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<DeletePersonnelFileFamilyMemberCommand, PersonnelFileParentConcurrencyResult>
 {
     public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
         DeletePersonnelFileFamilyMemberCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileParentConcurrencyResult>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.FamilyMembers,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var familyMember = personnelFile.FamilyMembers.FirstOrDefault(item => item.PublicId == command.FamilyMemberPublicId);
         if (familyMember is null)
@@ -452,34 +428,26 @@ internal sealed class PatchPersonnelFileFamilyMemberCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<PatchPersonnelFileFamilyMemberCommand, PersonnelFileFamilyMemberResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<PatchPersonnelFileFamilyMemberCommand, PersonnelFileFamilyMemberResponse>
 {
     public async Task<Result<PersonnelFileFamilyMemberResponse>> Handle(
         PatchPersonnelFileFamilyMemberCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileFamilyMemberResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileFamilyMemberResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileFamilyMemberResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.FamilyMembers,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileFamilyMemberResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var familyMember = personnelFile.FamilyMembers.FirstOrDefault(item => item.PublicId == command.FamilyMemberPublicId);
         if (familyMember is null)

@@ -11,10 +11,11 @@ using CLARIHR.Domain.GeneralCatalogs;
 using CLARIHR.Domain.PersonnelFiles;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace CLARIHR.Infrastructure.PersonnelFiles;
 
-internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : IPersonnelFileRepository
+internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IMemoryCache memoryCache) : IPersonnelFileRepository
 {
     public void Add(PersonnelFile personnelFile) => dbContext.Set<PersonnelFile>().Add(personnelFile);
 
@@ -2509,22 +2510,60 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
         };
     }
 
-    private Task<Dictionary<string, string>> ResolveReferenceNamesByCodeAsync<TCatalogItem>(
+    // §PF-cache: reference catalogs (marital status, profession, identification type, department,
+    // municipality) are country-scoped static data resolved on every detail read and list page. Cache
+    // the full per-(country, catalog) name map once (short TTL bounds staleness for the rare admin
+    // edit) and resolve requested codes in memory, replacing the 3-6 sequential DB lookups per read.
+    private const string ReferenceCatalogCacheKeyPrefix = "personnel-files:refcat";
+    private static readonly TimeSpan ReferenceCatalogCacheTtl = TimeSpan.FromMinutes(10);
+
+    private async Task<IReadOnlyDictionary<string, string>> GetReferenceCatalogMapAsync<TCatalogItem>(
         string countryCode,
-        IReadOnlyCollection<string> normalizedCodes,
         CancellationToken cancellationToken)
-        where TCatalogItem : PersonnelReferenceCatalogItemBase =>
-        dbContext.Set<TCatalogItem>()
+        where TCatalogItem : PersonnelReferenceCatalogItemBase
+    {
+        var cacheKey = $"{ReferenceCatalogCacheKeyPrefix}:{typeof(TCatalogItem).Name}:{countryCode}";
+        if (memoryCache.TryGetValue(cacheKey, out IReadOnlyDictionary<string, string>? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        var map = await dbContext.Set<TCatalogItem>()
             .AsNoTracking()
-            .Where(item =>
-                item.IsActive &&
-                item.CountryCode == countryCode &&
-                normalizedCodes.Contains(item.NormalizedCode))
+            .Where(item => item.IsActive && item.CountryCode == countryCode)
             .ToDictionaryAsync(
                 static item => item.NormalizedCode,
                 static item => item.Name,
                 StringComparer.Ordinal,
                 cancellationToken);
+
+        memoryCache.Set(cacheKey, (IReadOnlyDictionary<string, string>)map, ReferenceCatalogCacheTtl);
+        return map;
+    }
+
+    private async Task<Dictionary<string, string>> ResolveReferenceNamesByCodeAsync<TCatalogItem>(
+        string countryCode,
+        IReadOnlyCollection<string> normalizedCodes,
+        CancellationToken cancellationToken)
+        where TCatalogItem : PersonnelReferenceCatalogItemBase
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (normalizedCodes.Count == 0)
+        {
+            return result;
+        }
+
+        var map = await GetReferenceCatalogMapAsync<TCatalogItem>(countryCode, cancellationToken);
+        foreach (var code in normalizedCodes)
+        {
+            if (map.TryGetValue(code, out var name))
+            {
+                result[code] = name;
+            }
+        }
+
+        return result;
+    }
 
     private async Task<Dictionary<string, string>> ResolveCountryNamesByCodeAsync(
         IEnumerable<string?> codes,
@@ -2541,14 +2580,38 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext) : 
             return new Dictionary<string, string>(StringComparer.Ordinal);
         }
 
-        return await dbContext.CountryCatalogItems
+        var map = await GetCountryCatalogMapAsync(cancellationToken);
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var code in normalizedCodes)
+        {
+            if (map.TryGetValue(code, out var name))
+            {
+                result[code] = name;
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<IReadOnlyDictionary<string, string>> GetCountryCatalogMapAsync(CancellationToken cancellationToken)
+    {
+        var cacheKey = $"{ReferenceCatalogCacheKeyPrefix}:countries";
+        if (memoryCache.TryGetValue(cacheKey, out IReadOnlyDictionary<string, string>? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        var map = await dbContext.CountryCatalogItems
             .AsNoTracking()
-            .Where(item => item.IsActive && normalizedCodes.Contains(item.NormalizedCode))
+            .Where(static item => item.IsActive)
             .ToDictionaryAsync(
                 static item => item.NormalizedCode,
                 static item => item.Name,
                 StringComparer.Ordinal,
                 cancellationToken);
+
+        memoryCache.Set(cacheKey, (IReadOnlyDictionary<string, string>)map, ReferenceCatalogCacheTtl);
+        return map;
     }
 
     private static string? TryResolveName(

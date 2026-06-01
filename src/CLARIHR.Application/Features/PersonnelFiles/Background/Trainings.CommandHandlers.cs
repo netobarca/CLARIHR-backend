@@ -36,34 +36,26 @@ internal sealed class AddPersonnelFileTrainingCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<AddPersonnelFileTrainingCommand, PersonnelFileTrainingResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<AddPersonnelFileTrainingCommand, PersonnelFileTrainingResponse>
 {
     public async Task<Result<PersonnelFileTrainingResponse>> Handle(
         AddPersonnelFileTrainingCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileTrainingResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileTrainingResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileTrainingResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Trainings,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileTrainingResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
 
         var typeError = await PersonnelCurriculumCatalogValidation.ValidateCodeAsync(
@@ -180,34 +172,26 @@ internal sealed class UpdatePersonnelFileTrainingCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<UpdatePersonnelFileTrainingCommand, PersonnelFileTrainingResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<UpdatePersonnelFileTrainingCommand, PersonnelFileTrainingResponse>
 {
     public async Task<Result<PersonnelFileTrainingResponse>> Handle(
         UpdatePersonnelFileTrainingCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileTrainingResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileTrainingResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileTrainingResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Trainings,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileTrainingResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var training = personnelFile.Trainings.FirstOrDefault(item => item.PublicId == command.TrainingPublicId);
         if (training is null)
@@ -333,34 +317,26 @@ internal sealed class DeletePersonnelFileTrainingCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<DeletePersonnelFileTrainingCommand, PersonnelFileParentConcurrencyResult>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<DeletePersonnelFileTrainingCommand, PersonnelFileParentConcurrencyResult>
 {
     public async Task<Result<PersonnelFileParentConcurrencyResult>> Handle(
         DeletePersonnelFileTrainingCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileParentConcurrencyResult>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Trainings,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileParentConcurrencyResult>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var training = personnelFile.Trainings.FirstOrDefault(item => item.PublicId == command.TrainingPublicId);
         if (training is null)
@@ -430,34 +406,26 @@ internal sealed class PatchPersonnelFileTrainingCommandHandler(
     IAuditService auditService,
     ITenantContext tenantContext,
     IUnitOfWork unitOfWork)
-    : ICommandHandler<PatchPersonnelFileTrainingCommand, PersonnelFileTrainingResponse>
+    : PersonnelFileSectionCommandHandlerBase,
+      ICommandHandler<PatchPersonnelFileTrainingCommand, PersonnelFileTrainingResponse>
 {
     public async Task<Result<PersonnelFileTrainingResponse>> Handle(
         PatchPersonnelFileTrainingCommand command,
         CancellationToken cancellationToken)
     {
-        if (!tenantContext.TenantId.HasValue)
-        {
-            return Result<PersonnelFileTrainingResponse>.Failure(AuthorizationErrors.Unauthenticated);
-        }
-
-        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
-        if (authorizationResult.IsFailure)
-        {
-            return Result<PersonnelFileTrainingResponse>.Failure(authorizationResult.Error);
-        }
-
-        var personnelFile = await repository.GetForProfileSectionUpdateAsync(
+        var (failure, file) = await LoadForSectionManageAsync<PersonnelFileTrainingResponse>(
             command.PersonnelFileId,
             PersonnelFileTrackedSection.Trainings,
+            tenantContext,
+            authorizationService,
+            repository,
             cancellationToken);
-        if (personnelFile is null)
+        if (failure is not null)
         {
-            return Result<PersonnelFileTrainingResponse>.Failure(
-                await repository.ExistsOutsideTenantAsync(command.PersonnelFileId, cancellationToken)
-                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
-                    : PersonnelFileErrors.NotFound);
+            return failure;
         }
+
+        var personnelFile = file!;
 
         var training = personnelFile.Trainings.FirstOrDefault(item => item.PublicId == command.TrainingPublicId);
         if (training is null)

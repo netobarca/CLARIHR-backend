@@ -97,6 +97,52 @@ internal abstract class GetPersonnelFileSectionQueryHandlerBase
     }
 }
 
+internal abstract class PersonnelFileSectionCommandHandlerBase
+{
+    /// <summary>
+    /// Shared write prologue for per-item personnel-file section mutations (add / update /
+    /// delete / patch): tenant presence → <c>EnsureCanManageAsync</c> → load the targeted
+    /// section for update → not-found / cross-tenant mapping. Optimistic concurrency for these
+    /// endpoints is enforced at the <b>item</b> level by each handler (the item's own
+    /// If-Match token), so this prologue performs no parent-file concurrency check — mirroring
+    /// the employee <c>LoadForManageAsync</c>. Returns the loaded file on success; otherwise a
+    /// failure <see cref="Result{TResponse}"/> and a null file. Replaces ~56 hand-inlined copies
+    /// of this gate so the tenant/authz/not-found behavior has a single source of truth.
+    /// </summary>
+    protected static async Task<(Result<TResponse>? Failure, PersonnelFile? File)> LoadForSectionManageAsync<TResponse>(
+        Guid personnelFileId,
+        PersonnelFileTrackedSection section,
+        ITenantContext tenantContext,
+        IPersonnelFileAuthorizationService authorizationService,
+        IPersonnelFileRepository repository,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return (Result<TResponse>.Failure(AuthorizationErrors.Unauthenticated), null);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return (Result<TResponse>.Failure(authorizationResult.Error), null);
+        }
+
+        var personnelFile = await repository.GetForProfileSectionUpdateAsync(personnelFileId, section, cancellationToken);
+        if (personnelFile is null)
+        {
+            return (
+                Result<TResponse>.Failure(
+                    await repository.ExistsOutsideTenantAsync(personnelFileId, cancellationToken)
+                        ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                        : PersonnelFileErrors.NotFound),
+                null);
+        }
+
+        return (null, personnelFile);
+    }
+}
+
 internal abstract class ReplacePersonnelFileSectionCommandHandlerBase
 {
     internal static PersonnelFileSectionResult<TSection> CreateSectionResult<TSection>(
