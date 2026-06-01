@@ -1236,11 +1236,12 @@ internal sealed class PersonnelFileRepository(ApplicationDbContext dbContext, IM
             .ToArrayAsync(cancellationToken);
 
     public Task<PersonnelFileDocumentMetadataResponse?> GetDocumentMetadataByIdAsync(
+        Guid personnelFileId,
         Guid documentId,
         CancellationToken cancellationToken) =>
         dbContext.Set<PersonnelFileDocument>()
             .AsNoTracking()
-            .Where(item => item.PublicId == documentId)
+            .Where(item => item.PersonnelFile.PublicId == personnelFileId && item.PublicId == documentId)
             .Select(item => new PersonnelFileDocumentMetadataResponse(
                 item.PublicId,
                 item.DocumentTypeCatalogItem != null ? item.DocumentTypeCatalogItem.PublicId : null,

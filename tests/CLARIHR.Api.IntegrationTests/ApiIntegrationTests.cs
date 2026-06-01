@@ -2474,6 +2474,27 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task PersonnelFiles_ReadOnlyUser_CanReadButCannotWrite()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var adminClient = factory.CreateClientFor(CreatePersonnelFileAdminContext(scenario));
+        var created = await CreatePersonnelFileAsync(adminClient, scenario.TenantId, "Read", "Only", "DUI", "55667788-9");
+
+        using var readerClient = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, PersonnelFilePermissionCodes.Read));
+
+        // Superset POSITIVE side: a pure reader (PersonnelFiles.Read) must NOT be falsely 403'd on a
+        // GET — the declarative Read policy and the EnsureCanReadAsync handler gate both admit readers.
+        var getResponse = await readerClient.GetAsync($"/api/v1/personnel-files/{created.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+
+        // NEGATIVE side: the reader lacks Manage, so a write is forbidden (Read ⊉ Manage).
+        var writeResponse = await readerClient.PostJsonAsync(
+            $"/api/v1/personnel-files/{created.Id}/hobbies", new { hobbyName = "Reading" });
+        Assert.Equal(HttpStatusCode.Forbidden, writeResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task PersonnelFileHobbies_ItemCrud_ShouldPersistAndEnforceIfMatch()
     {
         var scenario = await factory.ResetDatabaseAsync();

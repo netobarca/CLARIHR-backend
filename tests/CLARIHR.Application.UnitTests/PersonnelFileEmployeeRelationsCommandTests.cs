@@ -519,7 +519,7 @@ public sealed class PersonnelFileEmployeeRelationsCommandTests
 
         public Task<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>> GetDocumentsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<PersonnelFileDocumentMetadataResponse?> GetDocumentMetadataByIdAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PersonnelFileDocumentMetadataResponse?> GetDocumentMetadataByIdAsync(Guid personnelFileId, Guid documentId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<IReadOnlyCollection<PersonnelFileObservationResponse>> GetObservationsAsync(Guid personnelFileId, CancellationToken cancellationToken) => throw new NotSupportedException();
 

@@ -79,7 +79,7 @@ internal sealed class GetPersonnelFileDocumentByIdQueryHandler(
             return failure;
         }
 
-        var document = await repository.GetDocumentMetadataByIdAsync(query.DocumentPublicId, cancellationToken);
+        var document = await repository.GetDocumentMetadataByIdAsync(query.PersonnelFileId, query.DocumentPublicId, cancellationToken);
         if (document is null)
         {
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(
@@ -177,7 +177,7 @@ internal sealed class AddPersonnelFileDocumentCommandHandler(
             personnelFile.AddDocument(document);
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var uploaded = await repository.GetDocumentMetadataByIdAsync(document.PublicId, cancellationToken)
+            var uploaded = await repository.GetDocumentMetadataByIdAsync(command.PersonnelFileId, document.PublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Personnel file document could not be resolved after upload.");
 
             await auditService.LogAsync(
@@ -310,7 +310,7 @@ internal sealed class UpdatePersonnelFileDocumentCommandHandler(
             personnelFile.MarkDocumentsUpdated();
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var updated = await repository.GetDocumentMetadataByIdAsync(document.PublicId, cancellationToken)
+            var updated = await repository.GetDocumentMetadataByIdAsync(command.PersonnelFileId, document.PublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Personnel file document could not be resolved after update.");
 
             await auditService.LogAsync(
@@ -386,7 +386,7 @@ internal sealed class PatchPersonnelFileDocumentCommandHandler(
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.ConcurrencyConflict);
         }
 
-        var before = await repository.GetDocumentMetadataByIdAsync(command.DocumentPublicId, cancellationToken);
+        var before = await repository.GetDocumentMetadataByIdAsync(command.PersonnelFileId, command.DocumentPublicId, cancellationToken);
         if (before is null)
         {
             return Result<PersonnelFileDocumentMetadataResponse>.Failure(PersonnelFileErrors.DocumentNotFound);
@@ -428,7 +428,7 @@ internal sealed class PatchPersonnelFileDocumentCommandHandler(
             personnelFile.MarkDocumentsUpdated();
             _ = await unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var updated = await repository.GetDocumentMetadataByIdAsync(command.DocumentPublicId, cancellationToken)
+            var updated = await repository.GetDocumentMetadataByIdAsync(command.PersonnelFileId, command.DocumentPublicId, cancellationToken)
                 ?? throw new InvalidOperationException("Personnel file document could not be resolved after patch.");
 
             await auditService.LogAsync(

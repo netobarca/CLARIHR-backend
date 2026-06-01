@@ -177,6 +177,7 @@ public interface IPersonnelFileRepository
         CancellationToken cancellationToken);
 
     Task<PersonnelFileDocumentMetadataResponse?> GetDocumentMetadataByIdAsync(
+        Guid personnelFileId,
         Guid documentId,
         CancellationToken cancellationToken);
 

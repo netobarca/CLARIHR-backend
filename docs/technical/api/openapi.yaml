@@ -11333,6 +11333,12 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the personnel file, quoted as an HTTP ETag.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -11347,7 +11353,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/FinalizePersonnelFileResponse'
         '400':
-          description: Validation error, such as missing concurrency token.
+          description: Validation error, or a missing or malformed `If-Match` concurrency-token header.
           content:
             application/problem+json:
               schema:
@@ -17128,12 +17134,7 @@ components:
             $ref: '#/components/schemas/FinalizePersonnelFilePreviewIssueResponse'
     FinalizePersonnelFileRequest:
       type: object
-      required:
-      - concurrencyToken
       properties:
-        concurrencyToken:
-          type: string
-          format: uuid
         createUserAccount:
           type: boolean
           nullable: true

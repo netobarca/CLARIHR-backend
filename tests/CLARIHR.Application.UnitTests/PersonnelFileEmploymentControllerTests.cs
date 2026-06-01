@@ -29,7 +29,8 @@ public sealed class PersonnelFileEmploymentControllerTests
 
         _ = await controller.Finalize(
             Guid.NewGuid(),
-            new FinalizePersonnelFileRequest(Guid.NewGuid(), CreateUserAccount: null),
+            Guid.NewGuid(),
+            new FinalizePersonnelFileRequest(CreateUserAccount: null),
             CancellationToken.None);
 
         Assert.NotNull(dispatcher.LastCommand);

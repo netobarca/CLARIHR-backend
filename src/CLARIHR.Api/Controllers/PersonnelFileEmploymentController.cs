@@ -62,15 +62,17 @@ public sealed class PersonnelFileEmploymentController(
         Summary = "Finalize a personnel file",
         Description = """
             Transitions the specified personnel file out of `Draft` (and optionally provisions a user
-            account). Requires the current `concurrencyToken`. Returns the finalization outcome.
+            account). Requires the `If-Match` header with the current `concurrencyToken`. Returns the
+            finalization outcome.
             """)]
     public async Task<ActionResult<FinalizePersonnelFileResponse>> Finalize(
         Guid publicId,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] FinalizePersonnelFileRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new FinalizePersonnelFileCommand(publicId, request.ConcurrencyToken, request.CreateUserAccount ?? true),
+            new FinalizePersonnelFileCommand(publicId, concurrencyToken, request.CreateUserAccount ?? true),
             cancellationToken);
 
         return this.ToActionResult(result);

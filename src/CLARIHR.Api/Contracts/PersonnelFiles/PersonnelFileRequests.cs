@@ -80,7 +80,7 @@ public sealed class PatchPersonnelFileRequest
     public bool IsActive { get; set; }
 }
 
-public sealed record FinalizePersonnelFileRequest(Guid ConcurrencyToken, bool? CreateUserAccount);
+public sealed record FinalizePersonnelFileRequest(bool? CreateUserAccount);
 
 public sealed record UpdatePersonnelFileEmployeeProfileRequest(
     string EmployeeCode,
