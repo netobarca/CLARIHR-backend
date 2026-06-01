@@ -1255,6 +1255,21 @@ internal sealed class GetPersonnelFilePersonnelActionByIdQueryValidator : Abstra
     }
 }
 
+internal sealed class SearchPersonnelFilePersonnelActionsQueryValidator : AbstractValidator<SearchPersonnelFilePersonnelActionsQuery>
+{
+    public SearchPersonnelFilePersonnelActionsQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.Search)
+            .MaximumLength(PersonnelFileValidationRules.MaxSearchLength)
+            .Must(PersonnelFileValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {PersonnelFileValidationRules.MinSearchLength} characters when provided.");
+        RuleFor(query => query.SortBy).MaximumLength(80);
+        RuleFor(query => query.PageNumber).GreaterThan(0);
+        RuleFor(query => query.PageSize).InclusiveBetween(1, PersonnelFileValidationRules.MaxPageSize);
+    }
+}
+
 internal sealed class PayrollTransactionInputValidator : AbstractValidator<PayrollTransactionInput>
 {
     public PayrollTransactionInputValidator()
@@ -1736,6 +1751,21 @@ internal sealed class GetPersonnelFilePayrollTransactionByIdQueryValidator : Abs
     {
         RuleFor(query => query.PersonnelFileId).NotEmpty();
         RuleFor(query => query.PayrollTransactionPublicId).NotEmpty();
+    }
+}
+
+internal sealed class SearchPersonnelFilePayrollTransactionsQueryValidator : AbstractValidator<SearchPersonnelFilePayrollTransactionsQuery>
+{
+    public SearchPersonnelFilePayrollTransactionsQueryValidator()
+    {
+        RuleFor(query => query.PersonnelFileId).NotEmpty();
+        RuleFor(query => query.Search)
+            .MaximumLength(PersonnelFileValidationRules.MaxSearchLength)
+            .Must(PersonnelFileValidationRules.IsValidSearchLength)
+            .WithMessage($"Search must be at least {PersonnelFileValidationRules.MinSearchLength} characters when provided.");
+        RuleFor(query => query.SortBy).MaximumLength(80);
+        RuleFor(query => query.PageNumber).GreaterThan(0);
+        RuleFor(query => query.PageSize).InclusiveBetween(1, PersonnelFileValidationRules.MaxPageSize);
     }
 }
 

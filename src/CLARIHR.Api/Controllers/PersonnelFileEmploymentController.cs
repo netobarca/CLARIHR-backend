@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -743,6 +744,7 @@ public sealed class PersonnelFileEmploymentController(
         [FromQuery] string? sortBy = null,
         [FromQuery] PersonnelFileSortDirection sortDirection = PersonnelFileSortDirection.Desc,
         [FromQuery(Name = "page")] int pageNumber = 1,
+        [Range(1, PersonnelFileValidationRules.MaxPageSize)]
         [FromQuery] int pageSize = PersonnelFileValidationRules.DefaultPageSize,
         CancellationToken cancellationToken = default)
     {
