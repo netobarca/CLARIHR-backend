@@ -23,9 +23,9 @@ Sub‑recurso que registra los **documentos** (contratos, títulos, certificados
 
 El documento **no recibe bytes**: enlaza un `filePublicId` ya existente. El binario se sube por la Files API **antes** de adjuntar el documento:
 
-1. `POST /api/v1/files/upload-session` con `purpose=PersonnelDocument` → devuelve el `filePublicId` y la URL/SAS de subida.
+1. `POST /api/v1/files/upload-session` con `purpose=PersonnelDocument` → devuelve el `filePublicId`, la URL/SAS de subida y el `concurrencyToken` del archivo recién creado.
 2. Subí el archivo a esa URL.
-3. `PATCH /api/v1/files/{filePublicId}/complete` → deja el archivo en estado `Active`.
+3. `PATCH /api/v1/files/{filePublicId}/complete` con body `{ "concurrencyToken": "<el del paso 1>" }` → deja el archivo en estado `Active`. (Si omitís el `concurrencyToken` la API responde `400`.)
 4. Adjuntá el documento acá pasando ese `filePublicId` (paso `POST`, más abajo).
 
 Para **descargar** el binario de un documento existente, usá su `filePublicId`: `GET /api/v1/files/{filePublicId}/read-url`.

@@ -17045,6 +17045,7 @@ components:
       - uploadUrl
       - expiresUtc
       - requiredHeaders
+      - concurrencyToken
       properties:
         filePublicId:
           type: string
@@ -17060,6 +17061,11 @@ components:
           additionalProperties:
             type: string
           description: HTTP headers the client must include when uploading to `uploadUrl`.
+        concurrencyToken:
+          type: string
+          format: uuid
+          description: Optimistic-concurrency token of the newly created file. Echo it
+            back in the body of `PATCH /api/v1/files/{filePublicId}/complete`.
     DeleteFileResponse:
       type: object
       required:

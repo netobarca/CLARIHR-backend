@@ -24,7 +24,8 @@ public sealed record CreateUploadSessionResponse(
     Guid FilePublicId,
     string UploadUrl,
     DateTime ExpiresUtc,
-    IReadOnlyDictionary<string, string> RequiredHeaders);
+    IReadOnlyDictionary<string, string> RequiredHeaders,
+    Guid ConcurrencyToken);
 
 // --- Handler ---
 
@@ -115,6 +116,7 @@ internal sealed class CreateUploadSessionCommandHandler(
                 storedFile.PublicId,
                 uploadSession.UploadUrl,
                 uploadSession.ExpiresUtc,
-                uploadSession.RequiredHeaders));
+                uploadSession.RequiredHeaders,
+                storedFile.ConcurrencyToken));
     }
 }
