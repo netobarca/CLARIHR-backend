@@ -56,10 +56,16 @@ La plantilla ya apunta a los servicios de `docker compose`, así que **con esos 
 
 > Orden de carga (mayor gana): `appsettings.json` → `appsettings.Development.json` → **User Secrets** (solo Development) → **variables de entorno** (`Seccion__Subseccion__Clave`).
 >
-> **Secretos reales en local** (p. ej. un Google ClientId real): NO los pongas en `appsettings.Development.json`; usa User Secrets:
+> **Secretos reales en local** (p. ej. un Google ClientId real): NO los pongas en `appsettings.Development.json`. Usa **una** de estas dos vías:
 > ```bash
+> # Opción A — User Secrets (no toca el repo; por clave)
 > dotnet user-secrets --project src/CLARIHR.Api set "Authentication:Google:ClientId" "<valor-real>"
+>
+> # Opción B — archivo .env (gitignored). Copia la plantilla y rellénala:
+> cp .env.example .env            # edita .env con los valores reales
+> set -a; source .env; set +a     # cárgalo en el entorno antes de dotnet run
 > ```
+> Las variables de entorno usan `Seccion__Subseccion__Clave` (doble guion bajo) y sobrescriben a los archivos. No mezcles claves sueltas entre las dos vías.
 
 | Propiedad | Qué es | Valor LOCAL (de dónde) | Valor PROD (de dónde) |
 |---|---|---|---|
@@ -126,8 +132,14 @@ Excepción no controlada al iniciar (en `StartupInitializationExtensions.Initial
 
 ## 6. Relación con §N1 (incidente de seguridad)
 
-Este documento + el `.gitignore` + las plantillas resuelven la parte **estructural** de §N1 (dejar de versionar secretos + gate de CI `secret-scan`). **Queda pendiente, como acción operativa tuya**:
+Este documento + el `.gitignore` + las plantillas resuelven la parte **estructural** de §N1 (dejar de versionar secretos + gate de CI `secret-scan`).
 
-1. **Rotar** las credenciales ya expuestas en el historial: usuario `rh_usr` de PostgreSQL, `SigningKey` JWT, y revisar el `ClientId` de Google. Asumirlas como **comprometidas**.
+**Purga del historial — HECHA (2026-06-02).** Se reescribió el historial completo con `git filter-repo --replace-text`, redactando el `AccountKey` de Azure (`clarifydevblobstorage`) y la contraseña de PostgreSQL (`rh_usr`) en las 3 ramas, seguido de force-push. La `SigningKey` JWT que quedaba en código vivo (test de DI) se rotó a un valor de test no-secreto. Verificado: 0 coincidencias de los secretos en todo el historial. Backup pre-reescritura en `/tmp/clarihr-backup-prefilter-fabe044.bundle`.
+
+> ⚠️ La reescritura **no des-filtra** lo ya expuesto: GitHub puede servir los SHAs viejos desde caché hasta su GC, y forks/clones existentes conservan los secretos. La **rotación** sigue siendo la mitigación real.
+
+**Acciones operativas tuyas (pendientes):**
+
+1. **Rotar** las credenciales expuestas si los entornos dejan de ser desechables: usuario `rh_usr` de PostgreSQL, `AccountKey` de Azure Storage, y revisar el `ClientId` de Google. *(Decisión actual: no se rotan por ser entornos de desarrollo — asúmelas comprometidas y no las promuevas a prod.)*
 2. **Restringir** por red/IP el PostgreSQL `34.19.232.60`.
-3. **Purgar el historial git** (opcional pero recomendado): `git filter-repo --path src/CLARIHR.Api/appsettings.Development.json --path src/CLARIHR.Backoffice.Api/appsettings.Development.json --invert-paths` (o BFG), seguido de force-push **coordinado con todo el equipo** (reescribe la historia). Si no se purga, las credenciales del historial siguen expuestas → la rotación (paso 1) es la mitigación real.
+3. **Colaboradores**: cualquier clon previo conserva los secretos y diverge del historial reescrito → deben **re-clonar** (no `git pull`).

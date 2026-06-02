@@ -15,3 +15,8 @@ appsettings.Development.json
 appsettings.*.Development.json
 appsettings.Production.json
 appsettings.*.local.json
+
+# Real secrets via env vars: copy .env.example -> .env and fill it. Never commit .env.
+.env
+.env.*
+!.env.example

@@ -17,7 +17,7 @@ public sealed class DependencyInjectionTests
                 ["Authentication:Google:ClientId"] = "dev-client-id",
                 ["Authentication:Jwt:Issuer"] = "clarihr-local",
                 ["Authentication:Jwt:Audience"] = "clarihr-local",
-                ["Authentication:Jwt:SigningKey"] = "clarihr-local-dev-signing-key-2026"
+                ["Authentication:Jwt:SigningKey"] = "unit-test-only-signing-key-do-not-use-in-any-real-environment"
             })
             .Build();
 
