@@ -18853,11 +18853,12 @@ components:
     PersonnelFileAddressResponse:
       type: object
       required:
-      - id
+      - addressPublicId
       - addressLine
       - isCurrent
+      - concurrencyToken
       properties:
-        id:
+        addressPublicId:
           type: string
           format: uuid
         addressLine:
@@ -18876,6 +18877,9 @@ components:
           nullable: true
         isCurrent:
           type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFileContractHistoryResponse:
       type: object
       required:
@@ -19160,12 +19164,13 @@ components:
     PersonnelFileEmergencyContactResponse:
       type: object
       required:
-      - id
+      - emergencyContactPublicId
       - name
       - relationship
       - phone
+      - concurrencyToken
       properties:
-        id:
+        emergencyContactPublicId:
           type: string
           format: uuid
         name:
@@ -19180,6 +19185,9 @@ components:
         workplace:
           type: string
           nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFileEmployeeProfileResponse:
       type: object
       required:
@@ -19394,7 +19402,7 @@ components:
     PersonnelFileFamilyMemberResponse:
       type: object
       required:
-      - id
+      - familyMemberPublicId
       - firstName
       - lastName
       - fullName
@@ -19404,8 +19412,9 @@ components:
       - isBeneficiary
       - isWorking
       - isDeceased
+      - concurrencyToken
       properties:
-        id:
+        familyMemberPublicId:
           type: string
           format: uuid
         firstName:
@@ -19471,6 +19480,9 @@ components:
           type: string
           format: date-time
           nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFileIdentificationItemRequest:
       type: object
       required:
@@ -19502,12 +19514,13 @@ components:
     PersonnelFileIdentificationResponse:
       type: object
       required:
-      - id
+      - identificationPublicId
       - identificationTypeCode
       - identificationNumber
       - isPrimary
+      - concurrencyToken
       properties:
-        id:
+        identificationPublicId:
           type: string
           format: uuid
         identificationTypeCode:
@@ -19530,6 +19543,9 @@ components:
           nullable: true
         isPrimary:
           type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
     PersonnelFileInsuranceBeneficiaryResponse:
       type: object
       required:
