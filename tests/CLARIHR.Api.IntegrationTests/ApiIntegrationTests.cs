@@ -5824,7 +5824,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(0, usage.OrgUnitActiveReferences);
         Assert.Equal(0, usage.PositionSlotActiveReferences);
 
-        var inactivateResponse = await client.PatchAsJsonAsync($"/api/v1/cost-centers/{created.Id}/inactivate", new
+        var inactivateResponse = await client.PatchJsonAsync($"/api/v1/cost-centers/{created.Id}/inactivate", new
         {
             concurrencyToken = updated.ConcurrencyToken
         });
@@ -5833,7 +5833,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(inactive);
         Assert.False(inactive!.IsActive);
 
-        var activateResponse = await client.PatchAsJsonAsync($"/api/v1/cost-centers/{created.Id}/activate", new
+        var activateResponse = await client.PatchJsonAsync($"/api/v1/cost-centers/{created.Id}/activate", new
         {
             concurrencyToken = inactive.ConcurrencyToken
         });
@@ -5914,12 +5914,102 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             orgUnitTypeCode: "Direccion",
             costCenterCode: costCenter.Code);
 
-        var response = await client.PatchAsJsonAsync($"/api/v1/cost-centers/{costCenter.Id}/inactivate", new
+        var response = await client.PatchJsonAsync($"/api/v1/cost-centers/{costCenter.Id}/inactivate", new
         {
             concurrencyToken = costCenter.ConcurrencyToken
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "COST_CENTER_IN_USE");
+    }
+
+    [Fact]
+    public async Task CostCenters_Patch_WithValidIfMatch_ShouldApplyScalarChangesAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-PATCH", "Centro Patch", "Mixed");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/cost-centers/{created.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Centro Patcheado" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{created.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = await patchResponse.Content.ReadFromJsonAsync<CostCenterItem>(JsonOptions);
+        Assert.NotNull(patched);
+        Assert.Equal("Centro Patcheado", patched!.Name);
+        Assert.Equal("CC-PATCH", patched.Code);
+        Assert.NotEqual(created.ConcurrencyToken, patched.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task CostCenters_Patch_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-NOMATCH", "Centro", "Mixed");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/cost-centers/{created.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Sin If-Match" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CostCenters_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-PSTALE", "Centro", "Mixed");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/cost-centers/{created.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Token viejo" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(patchResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task CostCenters_Patch_WithIsActivePath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCostCenterAdminContext(scenario));
+
+        var created = await CreateCostCenterAsync(client, scenario.TenantId, "CC-NOISACTIVE", "Centro", "Mixed");
+
+        // Scalar-only PATCH: /isActive is not a patchable path (activation lives in the
+        // dedicated /activate and /inactivate endpoints), so it must be rejected with 400.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/cost-centers/{created.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/isActive", value = false } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{created.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
     }
 
     [Fact]

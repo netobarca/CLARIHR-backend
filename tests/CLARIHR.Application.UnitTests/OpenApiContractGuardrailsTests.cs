@@ -40,6 +40,7 @@ public sealed class OpenApiContractGuardrailsTests
     [
         ("JobProfile/JobCatalog", new Regex(@"^(JobProfile|JobCatalog)", RegexOptions.Compiled), "Job Profiles"),
         ("PositionSlot", new Regex(@"^PositionSlot", RegexOptions.Compiled), "Position Slots"),
+        ("CostCenter", new Regex(@"^CostCenter", RegexOptions.Compiled), "Cost Centers"),
         // PersonnelFileBackground, PersonnelFileInterests, PersonnelFilePersonalInfo, PersonnelFileTalent,
         // PersonnelFileCompensation, PersonnelFileEmployment, PersonnelFileDocuments and
         // PersonnelFileReporting are the canonicalised PersonnelFiles sub-resource / reporting controllers.

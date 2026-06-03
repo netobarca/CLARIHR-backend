@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Abstractions.Persistence;
@@ -5,6 +6,7 @@ using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
@@ -119,6 +121,18 @@ public sealed record ActivateCostCenterCommand(Guid CostCenterId, Guid Concurren
 public sealed record InactivateCostCenterCommand(Guid CostCenterId, Guid ConcurrencyToken)
     : ICommand<CostCenterResponse>;
 
+public sealed record CostCenterPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchCostCenterCommand(
+    Guid CostCenterId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<CostCenterPatchOperation> Operations)
+    : ICommand<CostCenterResponse>;
+
 internal sealed class SearchCostCentersQueryValidator : AbstractValidator<SearchCostCentersQuery>
 {
     public SearchCostCentersQueryValidator()
@@ -231,6 +245,24 @@ internal sealed class InactivateCostCenterCommandValidator : AbstractValidator<I
     {
         RuleFor(command => command.CostCenterId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchCostCenterCommandValidator : AbstractValidator<PatchCostCenterCommand>
+{
+    public PatchCostCenterCommandValidator()
+    {
+        RuleFor(command => command.CostCenterId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -676,6 +708,383 @@ internal sealed class InactivateCostCenterCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class PatchCostCenterCommandHandler(
+    ICostCenterAuthorizationService authorizationService,
+    ICostCenterRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchCostCenterCommand, CostCenterResponse>
+{
+    public async Task<Result<CostCenterResponse>> Handle(
+        PatchCostCenterCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<CostCenterResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<CostCenterResponse>.Failure(authorizationResult.Error);
+        }
+
+        var costCenter = await repository.GetByIdAsync(command.CostCenterId, cancellationToken);
+        if (costCenter is null)
+        {
+            return Result<CostCenterResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.CostCenterId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : CostCenterErrors.CostCenterNotFound);
+        }
+
+        if (costCenter.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<CostCenterResponse>.Failure(CostCenterErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetResponseByIdAsync(costCenter.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Cost center response could not be resolved before patch.");
+
+        var state = CostCenterPatchState.From(before);
+
+        var applied = CostCenterPatchApplier.Apply(command.Operations, state);
+        if (applied.IsFailure)
+        {
+            return Result<CostCenterResponse>.Failure(applied.Error);
+        }
+
+        var validation = CostCenterPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<CostCenterResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<CostCenterResponse>.Success(before);
+        }
+
+        if (await repository.CodeExistsAsync(costCenter.TenantId, state.Code.Trim().ToUpperInvariant(), costCenter.Id, cancellationToken))
+        {
+            return Result<CostCenterResponse>.Failure(CostCenterErrors.CodeConflict);
+        }
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            costCenter.Update(
+                state.Code,
+                state.Name,
+                state.Type,
+                state.PayrollExpenseAccountCode,
+                state.EmployerContributionAccountCode,
+                state.ProvisionAccountCode,
+                state.Description);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetResponseByIdAsync(costCenter.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Cost center response could not be resolved after patch.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.CostCenterUpdated,
+                    AuditEntityTypes.CostCenter,
+                    costCenter.PublicId,
+                    costCenter.Code,
+                    AuditActions.Update,
+                    $"Patched cost center {costCenter.Code}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<CostCenterResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class CostCenterPatchState
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public CostCenterType Type { get; set; }
+    public string? PayrollExpenseAccountCode { get; set; }
+    public string? EmployerContributionAccountCode { get; set; }
+    public string? ProvisionAccountCode { get; set; }
+    public string? Description { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static CostCenterPatchState From(CostCenterResponse response) =>
+        new()
+        {
+            Code = response.Code,
+            Name = response.Name,
+            Type = response.Type,
+            PayrollExpenseAccountCode = response.PayrollExpenseAccountCode,
+            EmployerContributionAccountCode = response.EmployerContributionAccountCode,
+            ProvisionAccountCode = response.ProvisionAccountCode,
+            Description = response.Description
+        };
+}
+
+internal sealed class CostCenterPatchValueException(string path, string message) : Exception(message)
+{
+    public string Path { get; } = path;
+}
+
+internal static class CostCenterPatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<CostCenterPatchOperation> operations, CostCenterPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root cost center properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (CostCenterPatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(CostCenterPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.Code))
+        {
+            errors["code"] = ["Code is required."];
+        }
+        else if (state.Code.Length > 50)
+        {
+            errors["code"] = ["Code must be 50 characters or fewer."];
+        }
+        else if (!CostCenterValidationRules.IsValidCode(state.Code))
+        {
+            errors["code"] = ["Code format is invalid."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.Name))
+        {
+            errors["name"] = ["Name is required."];
+        }
+        else if (state.Name.Length > 150)
+        {
+            errors["name"] = ["Name must be 150 characters or fewer."];
+        }
+
+        ValidateAccountCode(errors, "payrollExpenseAccountCode", state.PayrollExpenseAccountCode);
+        ValidateAccountCode(errors, "employerContributionAccountCode", state.EmployerContributionAccountCode);
+        ValidateAccountCode(errors, "provisionAccountCode", state.ProvisionAccountCode);
+
+        if (state.Description is { Length: > 500 })
+        {
+            errors["description"] = ["Description must be 500 characters or fewer."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static void ValidateAccountCode(Dictionary<string, string[]> errors, string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        if (value.Length > 100)
+        {
+            errors[key] = ["Account code must be 100 characters or fewer."];
+        }
+        else if (!CostCenterValidationRules.IsValidAccountCode(value))
+        {
+            errors[key] = ["Account code format is invalid."];
+        }
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        CostCenterPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "concurrencyToken"))
+        {
+            return ValidationFailure(path, "The concurrency token cannot be patched; send the current token in the If-Match header.");
+        }
+
+        if (IsSegment(property, "code"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Code cannot be removed.");
+            }
+
+            state.Code = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "name"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Name cannot be removed.");
+            }
+
+            state.Name = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "type"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Type cannot be removed.");
+            }
+
+            state.Type = ReadEnum<CostCenterType>(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "payrollExpenseAccountCode"))
+        {
+            state.PayrollExpenseAccountCode = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "employerContributionAccountCode"))
+        {
+            state.EmployerContributionAccountCode = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "provisionAccountCode"))
+        {
+            state.ProvisionAccountCode = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "description"))
+        {
+            state.Description = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadRequiredString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new CostCenterPatchValueException(path, "Value is required.");
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString() ?? string.Empty
+            : throw new CostCenterPatchValueException(path, "Value must be a string.");
+    }
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new CostCenterPatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static TEnum ReadEnum<TEnum>(JsonElement? value, string path)
+        where TEnum : struct, Enum
+    {
+        if (IsNull(value))
+        {
+            throw new CostCenterPatchValueException(path, "Value is required.");
+        }
+
+        if (value!.Value.ValueKind == JsonValueKind.String &&
+            Enum.TryParse<TEnum>(value.Value.GetString(), ignoreCase: true, out var parsed) &&
+            Enum.IsDefined(parsed))
+        {
+            return parsed;
+        }
+
+        throw new CostCenterPatchValueException(path, $"Value must be a valid {typeof(TEnum).Name}.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
 
 internal static class CostCenterPolicyAdapter

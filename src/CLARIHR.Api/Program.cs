@@ -8,6 +8,7 @@ using CLARIHR.Api.Configuration;
 using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
@@ -294,6 +295,24 @@ builder.Services.AddAuthorization(options =>
             context,
             PersonnelFilePermissionCodes.Admin,
             PersonnelFilePermissionCodes.ManageAdministration)));
+
+    // Cost Centers — declarative policies kept a superset of the precise
+    // CostCenterAuthorizationService handler gate (EnsureCanReadAsync /
+    // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.
+    options.AddPolicy(CostCenterPolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            CostCenterPermissionCodes.Read,
+            CostCenterPermissionCodes.Admin,
+            CostCenterPermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(CostCenterPolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            CostCenterPermissionCodes.Admin,
+            CostCenterPermissionCodes.ManageAdministration)));
 });
 
 // Emit the standard ProblemDetails contract (code/traceId/localized title) on policy-layer

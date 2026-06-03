@@ -1,6 +1,10 @@
+using Asp.Versioning;
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CostCenters;
@@ -8,22 +12,34 @@ using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.Reports.Common;
 using CLARIHR.Domain.CostCenters;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
+[Route("api/v{version:apiVersion}")]
+[Tags("Cost Centers")]
+[AuthorizationPolicySet(CostCenterPolicies.Read, CostCenterPolicies.Manage)]
 public sealed class CostCentersController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
-    [HttpGet("api/v1/companies/{companyId:guid}/cost-centers")]
+    [HttpGet("companies/{companyId:guid}/cost-centers")]
     [ProducesResponseType<PagedResponse<CostCenterListItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "List cost centers for a company",
+        Description = """
+            Returns a paginated list of cost centers for the company, filterable by `type`,
+            `isActive` and free-text `q`. The owning company is validated against the
+            authenticated tenant. Set `includeAllowedActions=true` to receive per-item
+            read/manage flags.
+            """)]
     public async Task<ActionResult<PagedResponse<CostCenterListItemResponse>>> Search(
         Guid companyId,
         [FromQuery] CostCenterType? type,
@@ -41,34 +57,50 @@ public sealed class CostCentersController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/cost-centers/{id:guid}")]
+    [HttpGet("cost-centers/{id:guid}")]
     [ProducesResponseType<CostCenterResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a cost center by id",
+        Description = """
+            Returns a single cost center by its public id. The owning company is resolved
+            from the authenticated tenant; a cost center belonging to another tenant yields
+            `404`. The current `concurrencyToken` is emitted as the `ETag` header on mutations.
+            """)]
     public async Task<ActionResult<CostCenterResponse>> GetById(Guid id, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetCostCenterByIdQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/cost-centers/{id:guid}/usage")]
+    [HttpGet("cost-centers/{id:guid}/usage")]
     [ProducesResponseType<CostCenterUsageResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a cost center's usage",
+        Description = """
+            Returns the active/inactive reference counts for the cost center across
+            organization units and position slots, indicating whether it is safe to
+            inactivate.
+            """)]
     public async Task<ActionResult<CostCenterUsageResponse>> Usage(Guid id, CancellationToken cancellationToken = default)
     {
         var result = await queryDispatcher.SendAsync(new GetCostCenterUsageQuery(id), cancellationToken);
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/companies/{companyId:guid}/cost-centers/export")]
+    [HttpGet("companies/{companyId:guid}/cost-centers/export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "Export cost centers as a report",
+        Description = """
+            Exports the filtered cost centers as a downloadable report in the requested
+            `format` (e.g. `xlsx`; an unknown format yields `400`). The same filters as the
+            list endpoint apply (`type`, `isActive`, free-text `q`). The export is bounded by
+            the synchronous read limit and audited.
+            """)]
     public async Task<IActionResult> Export(
         Guid companyId,
         [FromQuery] string format = "xlsx",
@@ -105,12 +137,16 @@ public sealed class CostCentersController(
             cancellationToken);
     }
 
-    [HttpPost("api/v1/companies/{companyId:guid}/cost-centers")]
+    [HttpPost("companies/{companyId:guid}/cost-centers")]
     [ProducesResponseType<CostCenterResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Create a cost center",
+        Description = """
+            Creates a cost center under the company and returns `201 Created` with the
+            `Location` header pointing to the new resource and the `ETag` header carrying its
+            initial `concurrencyToken`. A duplicate code yields `409`.
+            """)]
     public async Task<ActionResult<CostCenterResponse>> Create(
         Guid companyId,
         [FromBody] CreateCostCenterRequest request,
@@ -128,20 +164,31 @@ public sealed class CostCentersController(
                 request.Description),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(Result<CostCenterResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+        // The PublicContractRouteConvention rewrites the GetById route token `{id}` to
+        // `{publicId}`, so the Location route value MUST be keyed `publicId` (not `id`) or
+        // link generation fails. Mirrors JobProfilesController's POST.
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetById),
+            value => new { publicId = value.Id },
+            value => value.ConcurrencyToken);
     }
 
-    [HttpPut("api/v1/cost-centers/{id:guid}")]
+    [HttpPut("cost-centers/{id:guid}")]
     [ProducesResponseType<CostCenterResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Update a cost center",
+        Description = """
+            Replaces the editable fields of a cost center (code, name, type, account codes,
+            description). Requires the current `concurrencyToken` in the `If-Match` header; a
+            missing/malformed header yields `400` and a stale token yields
+            `409 CONCURRENCY_CONFLICT`. A duplicate code yields `409`. The refreshed token is
+            returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<CostCenterResponse>> Update(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateCostCenterRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -155,48 +202,89 @@ public sealed class CostCentersController(
                 request.EmployerContributionAccountCode,
                 request.ProvisionAccountCode,
                 request.Description,
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/cost-centers/{id:guid}/activate")]
+    [HttpPatch("cost-centers/{id:guid}")]
+    [Consumes("application/json-patch+json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<CostCenterResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Patch a cost center",
+        Description = """
+            Applies a partial update using JSON Patch (RFC 6902), media type
+            `application/json-patch+json`. Supported operations are `add`/`replace`/`remove`
+            on root paths `/code`, `/name`, `/type`, `/payrollExpenseAccountCode`,
+            `/employerContributionAccountCode`, `/provisionAccountCode`, `/description`
+            (activation is handled by the dedicated `/activate` and `/inactivate` endpoints).
+            Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`,
+            stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+            """)]
+    public async Task<ActionResult<CostCenterResponse>> Patch(
+        Guid id,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<PatchCostCenterRequest> patchDoc,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new PatchCostCenterCommand(
+                id,
+                concurrencyToken,
+                JsonPatchOperationMapper.Map(
+                    patchDoc,
+                    static (op, path, from, value) => new CostCenterPatchOperation(op, path, from, value))),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpPatch("cost-centers/{id:guid}/activate")]
+    [ProducesResponseType<CostCenterResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Activate a cost center",
+        Description = """
+            Reactivates an inactive cost center. Requires the current `concurrencyToken` in
+            the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is
+            returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<CostCenterResponse>> Activate(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ActivateCostCenterCommand(id, request.ConcurrencyToken),
+            new ActivateCostCenterCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/cost-centers/{id:guid}/inactivate")]
+    [HttpPatch("cost-centers/{id:guid}/inactivate")]
     [ProducesResponseType<CostCenterResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Inactivate a cost center",
+        Description = """
+            Deactivates (soft-delete) a cost center. Fails with `409` if it is still used by
+            active organization units or position slots. Requires the current
+            `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The
+            refreshed token is returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<CostCenterResponse>> Inactivate(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new InactivateCostCenterCommand(id, request.ConcurrencyToken),
+            new InactivateCostCenterCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     public sealed record CreateCostCenterRequest(
@@ -215,8 +303,16 @@ public sealed class CostCentersController(
         string? PayrollExpenseAccountCode,
         string? EmployerContributionAccountCode,
         string? ProvisionAccountCode,
-        string? Description,
-        Guid ConcurrencyToken);
+        string? Description);
 
-    public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
+    public sealed class PatchCostCenterRequest
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public CostCenterType Type { get; set; }
+        public string? PayrollExpenseAccountCode { get; set; }
+        public string? EmployerContributionAccountCode { get; set; }
+        public string? ProvisionAccountCode { get; set; }
+        public string? Description { get; set; }
+    }
 }

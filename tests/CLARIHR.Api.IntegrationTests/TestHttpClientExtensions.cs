@@ -61,6 +61,14 @@ internal static class TestHttpClientExtensions
             Content = JsonContent.Create(value, options: JsonOptions)
         };
 
+        // Mirror the body's concurrencyToken into the If-Match header so call sites that
+        // target canonical (If-Match) controllers keep working with a body-token payload;
+        // controllers that still read the token from the body ignore the extra header.
+        if (TryReadConcurrencyToken(value, out var concurrencyToken))
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", concurrencyToken.ToString("D"));
+        }
+
         return client.SendAsync(request, cancellationToken);
     }
 
