@@ -45,6 +45,7 @@ public sealed class OpenApiContractGuardrailsTests
         ("WorkCenterTypes", new Regex(@"^WorkCenterTypes", RegexOptions.Compiled), "Work Center Types"),
         ("LocationGroups", new Regex(@"^LocationGroups", RegexOptions.Compiled), "Location Groups"),
         ("LocationLevels", new Regex(@"^LocationLevels", RegexOptions.Compiled), "Location Levels"),
+        ("LocationHierarchy", new Regex(@"^LocationHierarchy", RegexOptions.Compiled), "Location Hierarchy"),
         // PersonnelFileBackground, PersonnelFileInterests, PersonnelFilePersonalInfo, PersonnelFileTalent,
         // PersonnelFileCompensation, PersonnelFileEmployment, PersonnelFileDocuments and
         // PersonnelFileReporting are the canonicalised PersonnelFiles sub-resource / reporting controllers.

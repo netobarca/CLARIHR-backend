@@ -41,7 +41,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     // EnsureCanReadAsync, so the convention's Manage-on-POST would exceed the gate and yield false
     // 403s (the two-layer authorization superset invariant). It stays handler-gated + [Authorize].
     private static readonly Regex GovernedFamilyRegex =
-        new(@"^(JobProfile|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot|PersonnelFile(?!Reporting)|CostCenter|WorkCenter|LocationGroups|LocationLevels)", RegexOptions.Compiled);
+        new(@"^(JobProfile|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot|PersonnelFile(?!Reporting)|CostCenter|WorkCenter|LocationGroups|LocationLevels|LocationHierarchy)", RegexOptions.Compiled);
 
     private static readonly HashSet<string> JobProfilePolicyNames = new(StringComparer.Ordinal)
     {

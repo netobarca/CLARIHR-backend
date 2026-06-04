@@ -2648,6 +2648,25 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task LocationHierarchy_Update_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/companies/{scenario.TenantId}/location-hierarchy")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { isMultiLevel = true }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        // No If-Match header: the canonical concurrency contract requires it.
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task LocationHierarchy_WithTenantMismatch_ShouldReturn403()
     {
         var scenario = await factory.ResetDatabaseAsync();
