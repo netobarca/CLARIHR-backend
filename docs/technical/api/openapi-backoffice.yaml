@@ -682,6 +682,427 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/job-profile-catalog-types:
+    get:
+      tags:
+      - job-profile-catalog-types
+      operationId: SearchJobProfileCatalogTypes
+      summary: List global Job Profile catalog types
+      security:
+      - Bearer: []
+      parameters:
+      - name: isActive
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: pageNumber
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged global Job Profile catalog types.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedJobProfileCatalogTypeResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - job-profile-catalog-types
+      operationId: CreateJobProfileCatalogType
+      summary: Create a global Job Profile catalog type
+      description: Creates a Job Profile catalog type. Returns `201`; the current `concurrencyToken` is included in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJobProfileCatalogTypeRequest'
+      responses:
+        '201':
+          description: Job Profile catalog type created successfully.
+          headers:
+            ETag:
+              description: Current concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCatalogTypeResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/job-profile-catalog-types/{publicId}:
+    get:
+      tags:
+      - job-profile-catalog-types
+      operationId: GetJobProfileCatalogTypeById
+      summary: Get a global Job Profile catalog type by public id
+      description: Returns the catalog type. The current `concurrencyToken` is included in the body for use in the `If-Match` header of a subsequent update.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Job Profile catalog type returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCatalogTypeResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested Job Profile catalog type was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - job-profile-catalog-types
+      operationId: UpdateJobProfileCatalogType
+      summary: Update a global Job Profile catalog type
+      description: Replaces the editable fields (name, sort order). The code is immutable and is not accepted. Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateJobProfileCatalogTypeRequest'
+      responses:
+        '200':
+          description: Job Profile catalog type updated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCatalogTypeResponse'
+        '400':
+          description: Validation error, or the `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested Job Profile catalog type was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - job-profile-catalog-types
+      operationId: PatchJobProfileCatalogType
+      summary: Patch a global Job Profile catalog type (RFC 6902 JSON Patch)
+      description: Applies a partial update using JSON Patch (RFC 6902), media type `application/json-patch+json`. Patchable paths are `/name` and `/sortOrder`. The code is immutable; activation state changes use the `/activate` and `/inactivate` actions. Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Job Profile catalog type updated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCatalogTypeResponse'
+        '400':
+          description: Validation error for one or more patch operations, or the `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested Job Profile catalog type was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/job-profile-catalog-types/{publicId}/activate:
+    patch:
+      tags:
+      - job-profile-catalog-types
+      operationId: ActivateJobProfileCatalogType
+      summary: Activate a global Job Profile catalog type
+      description: Activates the catalog type. Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Job Profile catalog type activated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCatalogTypeResponse'
+        '400':
+          description: The `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested Job Profile catalog type was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/job-profile-catalog-types/{publicId}/inactivate:
+    patch:
+      tags:
+      - job-profile-catalog-types
+      operationId: InactivateJobProfileCatalogType
+      summary: Inactivate a global Job Profile catalog type
+      description: Inactivates the catalog type. Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Job Profile catalog type inactivated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobProfileCatalogTypeResponse'
+        '400':
+          description: The `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested Job Profile catalog type was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/platform/bank-catalogs:
     get:
       tags:
@@ -3065,6 +3486,96 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    JobProfileCatalogTypeResponse:
+      type: object
+      required:
+      - id
+      - code
+      - name
+      - sortOrder
+      - isActive
+      - concurrencyToken
+      - createdAtUtc
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: COMPETENCY
+        name:
+          type: string
+          example: Competency
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+          description: Current concurrency token; echo it (quoted) in the `If-Match` header of the next update.
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PagedJobProfileCatalogTypeResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobProfileCatalogTypeResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    CreateJobProfileCatalogTypeRequest:
+      type: object
+      required:
+      - code
+      - name
+      - sortOrder
+      properties:
+        code:
+          type: string
+          maxLength: 80
+          example: COMPETENCY
+        name:
+          type: string
+          maxLength: 200
+          example: Competency
+        sortOrder:
+          type: integer
+          format: int32
+          minimum: 0
+    UpdateJobProfileCatalogTypeRequest:
+      type: object
+      description: The code is immutable and is intentionally omitted.
+      required:
+      - name
+      - sortOrder
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        sortOrder:
+          type: integer
+          format: int32
+          minimum: 0
     DocumentTypeCatalogItemResponse:
       type: object
       required:
