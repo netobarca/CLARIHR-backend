@@ -47,6 +47,7 @@ public partial class Program
                 options.ModelMetadataDetailsProviders.Add(new PublicContractBindingMetadataProvider());
                 options.Conventions.Add(new PublicContractRouteConvention());
                 options.Conventions.Add(new CLARIHR.Api.Common.Conventions.ProducesStandardErrorsConvention());
+                options.Filters.AddService<ValidateJsonPatchDocumentFilter>();
             })
             .AddJsonOptions(options =>
             {
@@ -55,6 +56,7 @@ public partial class Program
                     new PublicContractJsonTypeInfoResolver(),
                     options.JsonSerializerOptions.TypeInfoResolver);
             });
+        builder.Services.AddScoped<ValidateJsonPatchDocumentFilter>();
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen(options =>
         {
