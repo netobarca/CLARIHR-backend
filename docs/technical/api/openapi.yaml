@@ -7578,13 +7578,13 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/account/me/preferences:
+  /api/v1/account/me/preferences:
     get:
       tags:
       - preferences
       operationId: GetCurrentUserPreferences
-      summary: Get current user preferences
-      description: Returns the authenticated user profile preferences, including language.
+      summary: Get the current user's preferences
+      description: Returns the authenticated user's preferences (language and social links). The record is auto-provisioned on first access, so it always exists for an authenticated caller. The current `concurrencyToken` is included in the body for use in the `If-Match` header of a subsequent update.
       security:
       - Bearer: []
       responses:
@@ -7604,10 +7604,17 @@ paths:
       tags:
       - preferences
       operationId: UpdateCurrentUserPreferences
-      summary: Update current user preferences
-      description: Updates the authenticated user profile preferences, including language.
+      summary: Replace the current user's language
+      description: Replaces the authenticated user's language preference. Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
       security:
       - Bearer: []
+      parameters:
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the user preferences, quoted as an HTTP ETag.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -7617,18 +7624,135 @@ paths:
       responses:
         '200':
           description: Current user preferences updated successfully.
+          headers:
+            ETag:
+              description: New user-preference concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPreferenceResponse'
         '400':
-          description: Validation error for one or more request fields.
+          description: Validation error, or the `If-Match` header is missing.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '401':
           description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict. Refresh and retry with the latest concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - preferences
+      operationId: PatchCurrentUserPreferences
+      summary: Patch the current user's preferences (RFC 6902 JSON Patch)
+      description: Applies a partial update to the authenticated user's preferences using JSON Patch (RFC 6902). The only patchable path is `/language` (2–3 letters); it is required and cannot be removed. Social links are replaced via `PUT /social-links`, not patched. The concurrency token travels in the `If-Match` header and is not patchable.
+      security:
+      - Bearer: []
+      parameters:
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the user preferences, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Current user preferences updated successfully.
+          headers:
+            ETag:
+              description: New user-preference concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferenceResponse'
+        '400':
+          description: Validation error for one or more patch operations, or the `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict. Refresh and retry with the latest concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/v1/account/me/preferences/social-links:
+    put:
+      tags:
+      - preferences
+      operationId: ReplaceCurrentUserSocialLinks
+      summary: Replace the current user's social links
+      description: Replaces the full set of social links (max 10, unique provider codes, absolute https URLs). Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the user preferences, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceUserSocialLinksRequest'
+      responses:
+        '200':
+          description: Current user social links replaced successfully.
+          headers:
+            ETag:
+              description: New user-preference concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferenceResponse'
+        '400':
+          description: Validation error, or the `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict. Refresh and retry with the latest concurrency token.
           content:
             application/problem+json:
               schema:
@@ -21432,6 +21556,8 @@ components:
       required:
       - id
       - language
+      - socialLinks
+      - concurrencyToken
       - createdAtUtc
       properties:
         id:
@@ -21443,6 +21569,15 @@ components:
           pattern: ^[A-Za-z]{2,3}$
           description: Language selected by the authenticated user profile.
           example: es
+        socialLinks:
+          type: array
+          description: Social links ordered by sort order.
+          items:
+            $ref: '#/components/schemas/UserSocialLinkResponse'
+        concurrencyToken:
+          type: string
+          format: uuid
+          description: Current concurrency token; echo it (quoted) in the `If-Match` header of the next update.
         createdAtUtc:
           type: string
           format: date-time
@@ -21450,6 +21585,47 @@ components:
           type: string
           format: date-time
           nullable: true
+    UserSocialLinkResponse:
+      type: object
+      required:
+      - providerCode
+      - url
+      properties:
+        providerCode:
+          type: string
+          example: LINKEDIN
+        url:
+          type: string
+          format: uri
+          example: https://linkedin.com/in/jane
+    ReplaceUserSocialLinksRequest:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          maxItems: 10
+          description: Full replacement set of social links (max 10, unique provider codes).
+          items:
+            $ref: '#/components/schemas/UserSocialLinkItemRequest'
+    UserSocialLinkItemRequest:
+      type: object
+      required:
+      - providerCode
+      - url
+      properties:
+        providerCode:
+          type: string
+          maxLength: 50
+          pattern: ^[A-Za-z0-9_.-]+$
+          example: linkedin
+        url:
+          type: string
+          format: uri
+          maxLength: 500
+          description: Absolute https URL.
+          example: https://linkedin.com/in/jane
     UserStatus:
       type: string
       enum:

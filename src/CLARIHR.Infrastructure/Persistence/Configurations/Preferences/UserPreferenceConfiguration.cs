@@ -27,6 +27,10 @@ internal sealed class UserPreferenceConfiguration : IEntityTypeConfiguration<Use
             .HasColumnName("locale")
             .HasMaxLength(3);
 
+        builder.Property(preference => preference.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
+
         builder.Property(preference => preference.CreatedUtc)
             .HasColumnName("created_utc");
 

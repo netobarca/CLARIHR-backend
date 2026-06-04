@@ -119,7 +119,7 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 | Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar, cambiar plan, administrar add-ons y listar suscripciones empresariales globales |
 | **Education catalogs** | `EducationCatalogsController` (Core), `EducationCatalogsController` (Backoffice) | `/api/v1/education-catalogs/{catalogKey}` (Core lectura), `/api/platform/education-catalogs/{catalogKey}` (Backoffice CRUD) | catalogos de educacion globales de sistema administrados exclusivamente por Backoffice y consultados en modo lectura desde el Core |
 | Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
-| Preferences | `UserPreferencesController`, `CompanyPreferencesController` | `/api/account/me/preferences`, `/api/v1/companies/{companyId}/preferences` | administrar preferencias personales (language y `socialLinks`) y preferencias operativas de compania (moneda y zona horaria) |
+| Preferences | `UserPreferencesController`, `CompanyPreferencesController` | `/api/v1/account/me/preferences`, `/api/v1/companies/{companyId}/preferences` | administrar preferencias personales (language y `socialLinks`) y preferencias operativas de compania (moneda y zona horaria) |
 | Account company authorization | `AccountCompaniesController`, `AccountCompanyAuthorizationController` | `/api/account/companies/{companyPublicId}/access-context`, `/api/account/companies/{companyPublicId}/authorization*` | contexto de acceso, catalogo filtrado, roles, grants y policies del tenant |
 | Audit | `AuditController` | `/api/audit*` | consulta y detalle de logs de auditoria |
 | Org structure catalogs | `OrgStructureCatalogsController` | `/api/account/org-structure-catalogs/*`, `/api/v1/companies/{companyPublicId}/org-structure-catalogs/*` | tipos de compania, tipos de unidad y areas funcionales |
@@ -145,9 +145,10 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 - `POST /api/auth/password-reset/redeem`: redime el token con la nueva contrasena y revoca sesiones activas
 - `POST /api/auth/company-user-invitations/accept`: activa un usuario invitado por compania y define su contrasena final
 - `POST /api/auth/logout`: revoca la sesion autenticada
-- `GET /api/account/me/preferences`: obtiene preferencias de perfil del usuario autenticado
-- `PUT /api/account/me/preferences`: actualiza preferencias de perfil (por ejemplo `language`) del usuario autenticado
-- `PUT /api/account/me/preferences/social-links`: reemplaza la coleccion completa de links sociales del usuario autenticado
+- `GET /api/v1/account/me/preferences`: obtiene preferencias del usuario autenticado (auto-provisiona el registro en el primer acceso); el body incluye el `concurrencyToken` actual
+- `PUT /api/v1/account/me/preferences`: reemplaza el `language` del usuario autenticado; requiere el `concurrencyToken` actual en el header `If-Match` (ausente -> `400`, obsoleto -> `409`) y devuelve el token rotado en el body y el header `ETag`
+- `PATCH /api/v1/account/me/preferences`: actualizacion parcial con JSON Patch RFC-6902 (`application/json-patch+json`); unico path patcheable `/language`; mismo contrato de `If-Match`/`ETag` que el PUT
+- `PUT /api/v1/account/me/preferences/social-links`: reemplaza la coleccion completa de links sociales del usuario autenticado; mismo contrato de `If-Match`/`ETag`
 - `GET /api/v1/companies/{companyId}/preferences`: obtiene preferencias administrativas de la compania en contexto tenant
 - `PUT /api/v1/companies/{companyId}/preferences`: reemplaza preferencias administrativas de la compania (`currencyCode`, `timeZone`); requiere el `concurrencyToken` actual en el header `If-Match` (ausente -> `400`, obsoleto -> `409`) y devuelve el token rotado en el body y el header `ETag`
 - `PATCH /api/v1/companies/{companyId}/preferences`: actualizacion parcial con JSON Patch RFC-6902 (`application/json-patch+json`); paths patcheables `/currencyCode` y `/timeZone`; mismo contrato de `If-Match`/`ETag` que el PUT

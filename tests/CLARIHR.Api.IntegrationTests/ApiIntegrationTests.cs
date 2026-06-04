@@ -1388,6 +1388,277 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task UserPreferences_Get_ShouldAutoProvisionDefault()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var preference = await GetUserPreferenceAsync(client);
+
+        Assert.Equal("en", preference.Language);
+        Assert.Empty(preference.SocialLinks);
+        Assert.NotEqual(Guid.Empty, preference.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task UserPreferences_Put_WithValidIfMatch_ShouldUpdateLanguageAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var preference = await GetUserPreferenceAsync(client);
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, "/api/v1/account/me/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { language = "es" }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var updateResponse = await client.SendAsync(updateRequest);
+        updateResponse.EnsureSuccessStatusCode();
+
+        var updated = await updateResponse.Content.ReadFromJsonAsync<UserPreferenceItem>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Equal("es", updated!.Language);
+        Assert.NotEqual(preference.ConcurrencyToken, updated.ConcurrencyToken);
+        // The ETag header must carry the SAME rotated token the body returns (the value the client
+        // must echo in the next If-Match), not merely be present.
+        Assert.Equal($"\"{updated.ConcurrencyToken:D}\"", updateResponse.Headers.ETag!.Tag);
+    }
+
+    [Fact]
+    public async Task UserPreferences_Put_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, "/api/v1/account/me/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { language = "es" }),
+                Encoding.UTF8,
+                "application/json")
+        };
+
+        var updateResponse = await client.SendAsync(updateRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task UserPreferences_Put_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        // Provision first so the row exists; a non-matching token must then conflict (not auto-provision).
+        _ = await GetUserPreferenceAsync(client);
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, "/api/v1/account/me/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { language = "es" }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var updateResponse = await client.SendAsync(updateRequest);
+        await AssertProblemDetailsAsync(updateResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task UserPreferences_PutSocialLinks_WithValidIfMatch_ShouldReplaceAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var preference = await GetUserPreferenceAsync(client);
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, "/api/v1/account/me/preferences/social-links")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    items = new[]
+                    {
+                        new { providerCode = "linkedin", url = "https://linkedin.com/in/actor" },
+                        new { providerCode = "github", url = "https://github.com/actor" }
+                    }
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var updateResponse = await client.SendAsync(updateRequest);
+        updateResponse.EnsureSuccessStatusCode();
+
+        var updated = await updateResponse.Content.ReadFromJsonAsync<UserPreferenceItem>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Equal(2, updated!.SocialLinks.Count);
+        Assert.Equal("LINKEDIN", updated.SocialLinks[0].ProviderCode);
+        Assert.NotEqual(preference.ConcurrencyToken, updated.ConcurrencyToken);
+        Assert.Equal($"\"{updated.ConcurrencyToken:D}\"", updateResponse.Headers.ETag!.Tag);
+    }
+
+    [Fact]
+    public async Task UserPreferences_PutSocialLinks_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        _ = await GetUserPreferenceAsync(client);
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, "/api/v1/account/me/preferences/social-links")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    items = new[] { new { providerCode = "github", url = "https://github.com/actor" } }
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var updateResponse = await client.SendAsync(updateRequest);
+        await AssertProblemDetailsAsync(updateResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task UserPreferences_Patch_WithValidIfMatch_ShouldApplyAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var preference = await GetUserPreferenceAsync(client);
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, "/api/v1/account/me/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/language", value = "fr" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+
+        var patched = await patchResponse.Content.ReadFromJsonAsync<UserPreferenceItem>(JsonOptions);
+        Assert.NotNull(patched);
+        Assert.Equal("fr", patched!.Language);
+        Assert.NotEqual(preference.ConcurrencyToken, patched.ConcurrencyToken);
+        Assert.Equal($"\"{patched.ConcurrencyToken:D}\"", patchResponse.Headers.ETag!.Tag);
+    }
+
+    [Fact]
+    public async Task UserPreferences_Patch_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, "/api/v1/account/me/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/language", value = "fr" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task UserPreferences_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        _ = await GetUserPreferenceAsync(client);
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, "/api/v1/account/me/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/language", value = "fr" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(patchResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task UserPreferences_Patch_WithSocialLinksPath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var preference = await GetUserPreferenceAsync(client);
+
+        // Social links are replaced via PUT /social-links; a /socialLinks patch op must be rejected (400).
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, "/api/v1/account/me/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "add", path = "/socialLinks", value = "x" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task UserPreferences_Patch_WithInvalidLanguageFormat_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var preference = await GetUserPreferenceAsync(client);
+
+        // A syntactically valid op with an out-of-format value ("e1") must hit the applier's Validate
+        // branch and surface a 400 through HTTP — never reach UpdateLanguage and throw a 500.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, "/api/v1/account/me/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/language", value = "e1" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    private async Task<UserPreferenceItem> GetUserPreferenceAsync(HttpClient client)
+    {
+        var response = await client.GetAsync("/api/v1/account/me/preferences");
+        response.EnsureSuccessStatusCode();
+        var preference = await response.Content.ReadFromJsonAsync<UserPreferenceItem>(JsonOptions);
+        return preference!;
+    }
+
+    [Fact]
     public async Task PersonnelFiles_CreateAndGet_ShouldReturnCreatedFile()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -9882,6 +10153,16 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Guid ConcurrencyToken,
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc);
+
+    private sealed record UserPreferenceItem(
+        Guid Id,
+        string Language,
+        IReadOnlyList<UserSocialLinkItem> SocialLinks,
+        Guid ConcurrencyToken,
+        DateTime CreatedAtUtc,
+        DateTime? ModifiedAtUtc);
+
+    private sealed record UserSocialLinkItem(string ProviderCode, string Url);
 
     private sealed record CostCenterUsageItem(
         Guid Id,

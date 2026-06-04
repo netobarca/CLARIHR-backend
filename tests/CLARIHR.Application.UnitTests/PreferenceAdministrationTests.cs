@@ -20,7 +20,7 @@ public sealed class UserPreferenceAdministrationTests
     {
         var validator = new UpdateCurrentUserPreferencesCommandValidator();
 
-        var result = validator.Validate(new UpdateCurrentUserPreferencesCommand("es-sv"));
+        var result = validator.Validate(new UpdateCurrentUserPreferencesCommand("es-sv", Guid.NewGuid()));
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, error => error.PropertyName == nameof(UpdateCurrentUserPreferencesCommand.Language));
@@ -56,7 +56,9 @@ public sealed class UserPreferenceAdministrationTests
         var currentUserService = new TestCurrentUserService(user.PublicId.ToString());
         var userRepository = new TestUserRepository(user);
         var preferenceRepository = new TestUserPreferenceRepository();
-        preferenceRepository.Add(UserPreference.Create(user.Id, "en"));
+        var preference = UserPreference.Create(user.Id, "en");
+        var originalToken = preference.ConcurrencyToken;
+        preferenceRepository.Add(preference);
 
         var unitOfWork = new TestUnitOfWork();
         var handler = new UpdateCurrentUserPreferencesCommandHandler(
@@ -65,12 +67,56 @@ public sealed class UserPreferenceAdministrationTests
             preferenceRepository,
             unitOfWork);
 
-        var result = await handler.Handle(new UpdateCurrentUserPreferencesCommand("it"), CancellationToken.None);
+        var result = await handler.Handle(new UpdateCurrentUserPreferencesCommand("it", originalToken), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("it", result.Value.Language);
+        Assert.NotEqual(originalToken, result.Value.ConcurrencyToken);
         Assert.Equal(1, unitOfWork.SaveChangesCalls);
         Assert.Equal("it", preferenceRepository.GetByUserId(user.Id)!.Language);
+    }
+
+    [Fact]
+    public async Task UpdateCurrentUserPreferencesCommandHandler_WhenConcurrencyTokenDiffers_ShouldReturnConflict()
+    {
+        var user = SeededUser(12, Guid.NewGuid(), "elena@clarihr.test");
+        var currentUserService = new TestCurrentUserService(user.PublicId.ToString());
+        var userRepository = new TestUserRepository(user);
+        var preferenceRepository = new TestUserPreferenceRepository(UserPreference.Create(user.Id, "en"));
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new UpdateCurrentUserPreferencesCommandHandler(
+            currentUserService,
+            userRepository,
+            preferenceRepository,
+            unitOfWork);
+
+        var result = await handler.Handle(new UpdateCurrentUserPreferencesCommand("it", Guid.NewGuid()), CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(PreferenceErrors.ConcurrencyConflict.Code, result.Error.Code);
+        Assert.Equal(0, unitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task UpdateCurrentUserPreferencesCommandHandler_WhenPreferenceDoesNotExist_ShouldAutoProvisionIgnoringToken()
+    {
+        var user = SeededUser(13, Guid.NewGuid(), "fabio@clarihr.test");
+        var currentUserService = new TestCurrentUserService(user.PublicId.ToString());
+        var userRepository = new TestUserRepository(user);
+        var preferenceRepository = new TestUserPreferenceRepository();
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new UpdateCurrentUserPreferencesCommandHandler(
+            currentUserService,
+            userRepository,
+            preferenceRepository,
+            unitOfWork);
+
+        // No preference yet → first write provisions it; the supplied (necessarily unknown) token is ignored.
+        var result = await handler.Handle(new UpdateCurrentUserPreferencesCommand("pt", Guid.NewGuid()), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("pt", result.Value.Language);
+        Assert.Equal(1, unitOfWork.SaveChangesCalls);
     }
 
     [Fact]
@@ -82,7 +128,7 @@ public sealed class UserPreferenceAdministrationTests
         [
             new UpdateCurrentUserSocialLinkItem("linkedin", "https://linkedin.com/in/ana"),
             new UpdateCurrentUserSocialLinkItem("LINKEDIN", "https://linkedin.com/in/ana-2")
-        ]));
+        ], Guid.NewGuid()));
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, error => error.ErrorMessage == "Provider codes must be unique.");
@@ -94,7 +140,9 @@ public sealed class UserPreferenceAdministrationTests
         var user = SeededUser(17, Guid.NewGuid(), "diana@clarihr.test");
         var currentUserService = new TestCurrentUserService(user.PublicId.ToString());
         var userRepository = new TestUserRepository(user);
-        var preferenceRepository = new TestUserPreferenceRepository(UserPreference.Create(user.Id, "en"));
+        var preference = UserPreference.Create(user.Id, "en");
+        var originalToken = preference.ConcurrencyToken;
+        var preferenceRepository = new TestUserPreferenceRepository(preference);
         var unitOfWork = new TestUnitOfWork();
         var handler = new ReplaceCurrentUserSocialLinksCommandHandler(
             currentUserService,
@@ -107,11 +155,12 @@ public sealed class UserPreferenceAdministrationTests
             [
                 new UpdateCurrentUserSocialLinkItem("linkedin", "https://linkedin.com/in/diana"),
                 new UpdateCurrentUserSocialLinkItem("github", "https://github.com/diana")
-            ]),
+            ], originalToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value.SocialLinks.Count);
+        Assert.NotEqual(originalToken, result.Value.ConcurrencyToken);
         Assert.Collection(
             result.Value.SocialLinks,
             link =>
@@ -126,6 +175,109 @@ public sealed class UserPreferenceAdministrationTests
             });
         Assert.Equal(1, unitOfWork.SaveChangesCalls);
     }
+
+    [Fact]
+    public async Task ReplaceCurrentUserSocialLinksCommandHandler_WhenConcurrencyTokenDiffers_ShouldReturnConflict()
+    {
+        var user = SeededUser(18, Guid.NewGuid(), "elsa@clarihr.test");
+        var currentUserService = new TestCurrentUserService(user.PublicId.ToString());
+        var userRepository = new TestUserRepository(user);
+        var preferenceRepository = new TestUserPreferenceRepository(UserPreference.Create(user.Id, "en"));
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new ReplaceCurrentUserSocialLinksCommandHandler(
+            currentUserService,
+            userRepository,
+            preferenceRepository,
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new ReplaceCurrentUserSocialLinksCommand(
+            [
+                new UpdateCurrentUserSocialLinkItem("github", "https://github.com/elsa")
+            ], Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(PreferenceErrors.ConcurrencyConflict.Code, result.Error.Code);
+        Assert.Equal(0, unitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task PatchCurrentUserPreferencesCommandHandler_WhenConcurrencyTokenDiffers_ShouldReturnConflict()
+    {
+        var user = SeededUser(21, Guid.NewGuid(), "gael@clarihr.test");
+        var currentUserService = new TestCurrentUserService(user.PublicId.ToString());
+        var userRepository = new TestUserRepository(user);
+        var preferenceRepository = new TestUserPreferenceRepository(UserPreference.Create(user.Id, "en"));
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new PatchCurrentUserPreferencesCommandHandler(
+            currentUserService,
+            userRepository,
+            preferenceRepository,
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new PatchCurrentUserPreferencesCommand(Guid.NewGuid(), [PatchOp("replace", "/language", "es")]),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(PreferenceErrors.ConcurrencyConflict.Code, result.Error.Code);
+        Assert.Equal(0, unitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task PatchCurrentUserPreferencesCommandHandler_WhenRequestIsValid_ShouldApplyPatchAndBumpToken()
+    {
+        var user = SeededUser(22, Guid.NewGuid(), "hugo@clarihr.test");
+        var currentUserService = new TestCurrentUserService(user.PublicId.ToString());
+        var userRepository = new TestUserRepository(user);
+        var preference = UserPreference.Create(user.Id, "en");
+        var originalToken = preference.ConcurrencyToken;
+        var preferenceRepository = new TestUserPreferenceRepository(preference);
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new PatchCurrentUserPreferencesCommandHandler(
+            currentUserService,
+            userRepository,
+            preferenceRepository,
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new PatchCurrentUserPreferencesCommand(originalToken, [PatchOp("replace", "/language", "fr")]),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("fr", result.Value.Language);
+        Assert.NotEqual(originalToken, result.Value.ConcurrencyToken);
+        Assert.Equal(1, unitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task PatchCurrentUserPreferencesCommandHandler_WhenPathIsNotPatchable_ShouldReturnValidationFailure()
+    {
+        var user = SeededUser(23, Guid.NewGuid(), "iris@clarihr.test");
+        var currentUserService = new TestCurrentUserService(user.PublicId.ToString());
+        var userRepository = new TestUserRepository(user);
+        var preference = UserPreference.Create(user.Id, "en");
+        var preferenceRepository = new TestUserPreferenceRepository(preference);
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new PatchCurrentUserPreferencesCommandHandler(
+            currentUserService,
+            userRepository,
+            preferenceRepository,
+            unitOfWork);
+
+        var result = await handler.Handle(
+            new PatchCurrentUserPreferencesCommand(
+                preference.ConcurrencyToken,
+                [PatchOp("add", "/socialLinks", "x")]),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(0, unitOfWork.SaveChangesCalls);
+    }
+
+    private static UserPreferencePatchOperation PatchOp(string op, string path, object? value) =>
+        new(op, path, null, value is null ? null : System.Text.Json.JsonSerializer.SerializeToElement(value));
 
     private static User SeededUser(long id, Guid publicId, string email)
     {

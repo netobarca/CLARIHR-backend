@@ -20,11 +20,14 @@ public sealed class UserPreference : AuditableEntity
         PublicId = publicId;
         UserId = userId;
         Language = PreferenceNormalization.NormalizeLanguage(language);
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public long UserId { get; private set; }
 
     public string Language { get; private set; } = "en";
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public IReadOnlyCollection<UserSocialLink> SocialLinks => _socialLinks.AsReadOnly();
 
@@ -34,6 +37,7 @@ public sealed class UserPreference : AuditableEntity
     public void UpdateLanguage(string language)
     {
         Language = PreferenceNormalization.NormalizeLanguage(language);
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public void ReplaceSocialLinks(IEnumerable<UserSocialLinkInput> socialLinks)
@@ -67,6 +71,8 @@ public sealed class UserPreference : AuditableEntity
             normalizedLinks[index].AssignSortOrder(index);
             _socialLinks.Add(normalizedLinks[index]);
         }
+
+        ConcurrencyToken = Guid.NewGuid();
     }
 }
 
