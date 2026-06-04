@@ -215,6 +215,87 @@ public sealed class CompanyPreferenceAdministrationTests
         Assert.Equal("Europe/Madrid", result.Value.TimeZone);
         Assert.Equal(1, unitOfWork.SaveChangesCalls);
     }
+
+    [Fact]
+    public async Task PatchCompanyPreferencesCommandHandler_WhenConcurrencyTokenDiffers_ShouldReturnConflict()
+    {
+        var tenantId = Guid.NewGuid();
+        var preference = CompanyPreference.Create("USD", "UTC");
+        preference.SetTenantId(tenantId);
+
+        var authorizationService = new TestCompanyPreferenceAuthorizationService(Result.Success(), Result.Success());
+        var repository = new TestCompanyPreferenceRepository(preference);
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new PatchCompanyPreferencesCommandHandler(authorizationService, repository, unitOfWork);
+
+        var result = await handler.Handle(
+            new PatchCompanyPreferencesCommand(
+                tenantId,
+                Guid.NewGuid(),
+                [PatchOp("replace", "/currencyCode", "EUR")]),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(PreferenceErrors.ConcurrencyConflict.Code, result.Error.Code);
+        Assert.Equal(0, unitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task PatchCompanyPreferencesCommandHandler_WhenRequestIsValid_ShouldApplyPatch()
+    {
+        var tenantId = Guid.NewGuid();
+        var preference = CompanyPreference.Create("USD", "UTC");
+        preference.SetTenantId(tenantId);
+        var expectedToken = preference.ConcurrencyToken;
+
+        var authorizationService = new TestCompanyPreferenceAuthorizationService(Result.Success(), Result.Success());
+        var repository = new TestCompanyPreferenceRepository(preference);
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new PatchCompanyPreferencesCommandHandler(authorizationService, repository, unitOfWork);
+
+        var result = await handler.Handle(
+            new PatchCompanyPreferencesCommand(
+                tenantId,
+                expectedToken,
+                [
+                    PatchOp("replace", "/currencyCode", "EUR"),
+                    PatchOp("replace", "/timeZone", "Europe/Madrid")
+                ]),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("EUR", result.Value.CurrencyCode);
+        Assert.Equal("Europe/Madrid", result.Value.TimeZone);
+        Assert.NotEqual(expectedToken, result.Value.ConcurrencyToken);
+        Assert.Equal(1, unitOfWork.SaveChangesCalls);
+    }
+
+    [Fact]
+    public async Task PatchCompanyPreferencesCommandHandler_WhenPathIsNotPatchable_ShouldReturnValidationFailure()
+    {
+        var tenantId = Guid.NewGuid();
+        var preference = CompanyPreference.Create("USD", "UTC");
+        preference.SetTenantId(tenantId);
+        var expectedToken = preference.ConcurrencyToken;
+
+        var authorizationService = new TestCompanyPreferenceAuthorizationService(Result.Success(), Result.Success());
+        var repository = new TestCompanyPreferenceRepository(preference);
+        var unitOfWork = new TestUnitOfWork();
+        var handler = new PatchCompanyPreferencesCommandHandler(authorizationService, repository, unitOfWork);
+
+        var result = await handler.Handle(
+            new PatchCompanyPreferencesCommand(
+                tenantId,
+                expectedToken,
+                [PatchOp("replace", "/concurrencyToken", Guid.NewGuid().ToString())]),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(0, unitOfWork.SaveChangesCalls);
+    }
+
+    private static CompanyPreferencePatchOperation PatchOp(string op, string path, object? value) =>
+        new(op, path, null, value is null ? null : System.Text.Json.JsonSerializer.SerializeToElement(value));
 }
 
 file sealed class TestCurrentUserService(string? userId) : ICurrentUserService

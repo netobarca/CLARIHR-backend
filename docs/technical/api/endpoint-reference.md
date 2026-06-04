@@ -149,7 +149,8 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 - `PUT /api/account/me/preferences`: actualiza preferencias de perfil (por ejemplo `language`) del usuario autenticado
 - `PUT /api/account/me/preferences/social-links`: reemplaza la coleccion completa de links sociales del usuario autenticado
 - `GET /api/v1/companies/{companyId}/preferences`: obtiene preferencias administrativas de la compania en contexto tenant
-- `PUT /api/v1/companies/{companyId}/preferences`: actualiza preferencias administrativas de la compania (`currencyCode`, `timeZone`)
+- `PUT /api/v1/companies/{companyId}/preferences`: reemplaza preferencias administrativas de la compania (`currencyCode`, `timeZone`); requiere el `concurrencyToken` actual en el header `If-Match` (ausente -> `400`, obsoleto -> `409`) y devuelve el token rotado en el body y el header `ETag`
+- `PATCH /api/v1/companies/{companyId}/preferences`: actualizacion parcial con JSON Patch RFC-6902 (`application/json-patch+json`); paths patcheables `/currencyCode` y `/timeZone`; mismo contrato de `If-Match`/`ETag` que el PUT
 
 Comportamiento observable:
 

@@ -1129,6 +1129,265 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task CompanyPreferences_Get_ShouldReturnSeededPreference()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        var preference = await GetCompanyPreferenceAsync(client, scenario.TenantId);
+
+        Assert.Equal("USD", preference.CurrencyCode);
+        Assert.Equal("UTC", preference.TimeZone);
+        Assert.NotEqual(Guid.Empty, preference.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Put_WithValidIfMatch_ShouldUpdateAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        var preference = await GetCompanyPreferenceAsync(client, scenario.TenantId);
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/companies/{scenario.TenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { currencyCode = "EUR", timeZone = "Europe/Madrid" }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var updateResponse = await client.SendAsync(updateRequest);
+        updateResponse.EnsureSuccessStatusCode();
+
+        var updated = await updateResponse.Content.ReadFromJsonAsync<CompanyPreferenceItem>(JsonOptions);
+        Assert.NotNull(updated);
+        Assert.Equal("EUR", updated!.CurrencyCode);
+        Assert.Equal("Europe/Madrid", updated.TimeZone);
+        Assert.NotEqual(preference.ConcurrencyToken, updated.ConcurrencyToken);
+        // The ETag header must carry the SAME rotated token the body returns (the value the client
+        // must echo in the next If-Match), not merely be present.
+        Assert.Equal($"\"{updated.ConcurrencyToken:D}\"", updateResponse.Headers.ETag!.Tag);
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Put_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/companies/{scenario.TenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { currencyCode = "EUR", timeZone = "Europe/Madrid" }),
+                Encoding.UTF8,
+                "application/json")
+        };
+
+        var updateResponse = await client.SendAsync(updateRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Put_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/companies/{scenario.TenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { currencyCode = "EUR", timeZone = "Europe/Madrid" }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var updateResponse = await client.SendAsync(updateRequest);
+        await AssertProblemDetailsAsync(updateResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Patch_WithValidIfMatch_ShouldApplyAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        var preference = await GetCompanyPreferenceAsync(client, scenario.TenantId);
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/companies/{scenario.TenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[]
+                {
+                    new { op = "replace", path = "/currencyCode", value = "GBP" },
+                    new { op = "replace", path = "/timeZone", value = "Europe/London" }
+                }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+
+        var patched = await patchResponse.Content.ReadFromJsonAsync<CompanyPreferenceItem>(JsonOptions);
+        Assert.NotNull(patched);
+        Assert.Equal("GBP", patched!.CurrencyCode);
+        Assert.Equal("Europe/London", patched.TimeZone);
+        Assert.NotEqual(preference.ConcurrencyToken, patched.ConcurrencyToken);
+        // The ETag header must carry the SAME rotated token the body returns.
+        Assert.Equal($"\"{patched.ConcurrencyToken:D}\"", patchResponse.Headers.ETag!.Tag);
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Patch_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/companies/{scenario.TenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/currencyCode", value = "GBP" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/companies/{scenario.TenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/currencyCode", value = "GBP" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(patchResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Patch_WithConcurrencyTokenPath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        var preference = await GetCompanyPreferenceAsync(client, scenario.TenantId);
+
+        // The concurrency token travels in the If-Match header and is not patchable; a /concurrencyToken
+        // op must be rejected with 400 (validation), not silently applied.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/companies/{scenario.TenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/concurrencyToken", value = Guid.NewGuid().ToString() } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Patch_WithInvalidCurrencyCodeLength_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        var preference = await GetCompanyPreferenceAsync(client, scenario.TenantId);
+
+        // A syntactically valid op with an out-of-range value must hit the applier's Validate branch
+        // (state mutated, length check fails) and surface a 400 through HTTP — not be applied.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/companies/{scenario.TenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/currencyCode", value = "EU" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Patch_WithWhitespacePaddedCurrencyCode_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        var preference = await GetCompanyPreferenceAsync(client, scenario.TenantId);
+
+        // " US" is raw length 3 but trims to length 2; it must be rejected with 400, NOT make the
+        // domain normalizer throw an unmapped ArgumentException (which would surface as a 500).
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/companies/{scenario.TenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/currencyCode", value = " US" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanyPreferences_Put_WithWhitespacePaddedCurrencyCode_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "CompanyPreferences.Admin"));
+
+        var preference = await GetCompanyPreferenceAsync(client, scenario.TenantId);
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/companies/{scenario.TenantId}/preferences")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { currencyCode = " US", timeZone = "Europe/Madrid" }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{preference.ConcurrencyToken}\"");
+
+        var updateResponse = await client.SendAsync(updateRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+    }
+
+    private async Task<CompanyPreferenceItem> GetCompanyPreferenceAsync(HttpClient client, Guid tenantId)
+    {
+        var response = await client.GetAsync($"/api/v1/companies/{tenantId}/preferences");
+        response.EnsureSuccessStatusCode();
+        var preference = await response.Content.ReadFromJsonAsync<CompanyPreferenceItem>(JsonOptions);
+        return preference!;
+    }
+
+    [Fact]
     public async Task PersonnelFiles_CreateAndGet_ShouldReturnCreatedFile()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -9615,6 +9874,14 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         CostCenterType Type,
         bool IsActive,
         Guid ConcurrencyToken);
+
+    private sealed record CompanyPreferenceItem(
+        Guid Id,
+        string CurrencyCode,
+        string TimeZone,
+        Guid ConcurrencyToken,
+        DateTime CreatedAtUtc,
+        DateTime? ModifiedAtUtc);
 
     private sealed record CostCenterUsageItem(
         Guid Id,

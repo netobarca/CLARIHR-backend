@@ -1087,6 +1087,9 @@
   <data name="validation.message.code_format_is_invalid" xml:space="preserve">
     <value>El formato de codigo no es valido.</value>
   </data>
+  <data name="validation.message.currency_code_must_be_exactly_3_characters" xml:space="preserve">
+    <value>El codigo de moneda debe tener exactamente 3 caracteres.</value>
+  </data>
   <data name="validation.message.commercial_add_on_module_keys_cannot_contain_duplicates" xml:space="preserve">
     <value>Las claves de modulos de complementos comerciales no pueden contener duplicados.</value>
   </data>

@@ -10,6 +10,7 @@ using CLARIHR.Domain.IdentityAccess;
 using CLARIHR.Domain.LegalRepresentatives;
 using CLARIHR.Domain.Locations;
 using CLARIHR.Domain.PersonnelFiles;
+using CLARIHR.Domain.Preferences;
 using CLARIHR.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
@@ -36,6 +37,10 @@ internal static class IntegrationTestSeeder
 
         var tenantA = companyA.PublicId;
         var tenantB = companyB.PublicId;
+
+        var companyPreferenceA = CompanyPreference.Create("USD", "UTC");
+        companyPreferenceA.SetTenantId(tenantA);
+        dbContext.CompanyPreferences.Add(companyPreferenceA);
 
         dbContext.LegalRepresentatives.AddRange(
             CreateLegalRepresentative(

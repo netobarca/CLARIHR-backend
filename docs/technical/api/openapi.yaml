@@ -7689,6 +7689,12 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the company preferences, quoted as an HTTP ETag.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -7698,6 +7704,11 @@ paths:
       responses:
         '200':
           description: Company preferences updated successfully.
+          headers:
+            ETag:
+              description: New company-preference concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -7728,6 +7739,90 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Concurrency conflict. Refresh and retry with the latest concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Validation error that prevents applying the update.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - preferences
+      operationId: PatchCompanyPreferences
+      summary: Patch company preferences (RFC 6902 JSON Patch)
+      description: Applies a partial update to tenant-scoped company preferences using JSON Patch (RFC 6902). Patchable paths are `/currencyCode` (exactly 3 characters) and `/timeZone` (max 100 characters); both are required and cannot be removed. The concurrency token travels in the `If-Match` header and is not patchable.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the company preferences, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Company preferences updated successfully.
+          headers:
+            ETag:
+              description: New company-preference concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyPreferenceResponse'
+        '400':
+          description: Validation error for one or more patch operations.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The user does not have permission to manage company preferences or tenant scope does not match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Company preferences were not found for the requested tenant.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict. Refresh and retry with the latest concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Validation error that prevents applying the update.
           content:
             application/problem+json:
               schema:
@@ -20993,7 +21088,6 @@ components:
       required:
       - currencyCode
       - timeZone
-      - concurrencyToken
       properties:
         currencyCode:
           type: string
@@ -21004,9 +21098,6 @@ components:
           type: string
           maxLength: 100
           example: Europe/Madrid
-        concurrencyToken:
-          type: string
-          format: uuid
     UpdateCurricularCompetencyRequest:
       type: object
       required:
