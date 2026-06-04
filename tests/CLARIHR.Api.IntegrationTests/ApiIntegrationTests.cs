@@ -737,7 +737,32 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
-    public async Task AccountCompanies_Update_ShouldRenameOwnedCompany()
+    public async Task AccountCompanies_Update_WithValidIfMatch_ShouldRenameAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/account/companies/{scenario.OtherTenantId}")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new { name = "Acme Two Updated" }), Encoding.UTF8, "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{current.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(updateRequest);
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Acme Two Updated", payload!.Name);
+        Assert.Equal("acme-two", payload.Slug);
+        Assert.NotEqual(current.ConcurrencyToken, payload.ConcurrencyToken);
+        Assert.Equal($"\"{payload.ConcurrencyToken:D}\"", response.Headers.ETag!.Tag);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Update_WithoutIfMatch_ShouldReturn400()
     {
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
@@ -747,12 +772,23 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             name = "Acme Two Updated"
         });
 
-        response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 
-        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
-        Assert.NotNull(payload);
-        Assert.Equal("Acme Two Updated", payload!.Name);
-        Assert.Equal("acme-two", payload.Slug);
+    [Fact]
+    public async Task AccountCompanies_Update_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/account/companies/{scenario.OtherTenantId}")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new { name = "Acme Two Updated" }), Encoding.UTF8, "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var response = await client.SendAsync(updateRequest);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
     }
 
     [Fact]
@@ -763,13 +799,18 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var companyType = (await GetAccountCompanyTypesAsync(client, "SV"))
             .Single(item => item.Code == "SA_DE_CV");
+        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
 
-        var response = await client.PutJsonAsync($"/api/account/companies/{scenario.OtherTenantId}", new
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/account/companies/{scenario.OtherTenantId}")
         {
-            name = "Acme Two Typed",
-            companyTypePublicId = companyType.Id
-        });
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { name = "Acme Two Typed", companyTypePublicId = companyType.Id }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{current.ConcurrencyToken}\"");
 
+        var response = await client.SendAsync(updateRequest);
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
@@ -787,14 +828,87 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var usCompanyType = (await GetAccountCompanyTypesAsync(client, "US"))
             .Single(item => item.Code == "LLC");
+        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
 
-        var response = await client.PutJsonAsync($"/api/account/companies/{scenario.OtherTenantId}", new
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/account/companies/{scenario.OtherTenantId}")
         {
-            name = "Acme Two Typed",
-            companyTypePublicId = usCompanyType.Id
-        });
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { name = "Acme Two Typed", companyTypePublicId = usCompanyType.Id }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{current.ConcurrencyToken}\"");
 
+        var response = await client.SendAsync(updateRequest);
         await AssertProblemDetailsAsync(response, HttpStatusCode.NotFound, "COMPANY_TYPE_NOT_FOUND");
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Patch_WithValidIfMatch_ShouldRenameAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/account/companies/{scenario.OtherTenantId}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Acme Two Patched" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{current.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(patchRequest);
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Acme Two Patched", payload!.Name);
+        Assert.NotEqual(current.ConcurrencyToken, payload.ConcurrencyToken);
+        Assert.Equal($"\"{payload.ConcurrencyToken:D}\"", response.Headers.ETag!.Tag);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Patch_WithStatusPath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
+
+        // Status transitions go through /archive and /reactivate; a /status patch op must be rejected (400).
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/account/companies/{scenario.OtherTenantId}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/status", value = "Archived" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{current.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/account/companies/{scenario.OtherTenantId}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Acme Two Patched" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var response = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
     }
 
     [Fact]
@@ -803,13 +917,29 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var scenario = await factory.ResetDatabaseAsync();
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PatchAsync($"/api/account/companies/{scenario.TenantId}/archive", content: null);
+        var current = await GetAccountCompanyAsync(client, scenario.TenantId);
+
+        using var archiveRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/account/companies/{scenario.TenantId}/archive");
+        archiveRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{current.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(archiveRequest);
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ACTIVE_COMPANY_ARCHIVE_FORBIDDEN");
     }
 
     [Fact]
-    public async Task AccountCompanies_Reactivate_ArchivedCompany_ShouldReturnActiveCompany()
+    public async Task AccountCompanies_Archive_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
+
+        var response = await client.PatchAsync($"/api/account/companies/{scenario.OtherTenantId}/archive", content: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AccountCompanies_Reactivate_ArchivedCompany_WithValidIfMatch_ShouldReturnActiveCompany()
     {
         var scenario = await factory.ResetDatabaseAsync(async dbContext =>
         {
@@ -820,14 +950,27 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var client = factory.CreateClientFor(TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId));
 
-        var response = await client.PatchAsync($"/api/account/companies/{scenario.OtherTenantId}/reactivate", content: null);
+        var current = await GetAccountCompanyAsync(client, scenario.OtherTenantId);
 
+        using var reactivateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/account/companies/{scenario.OtherTenantId}/reactivate");
+        reactivateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{current.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(reactivateRequest);
         response.EnsureSuccessStatusCode();
 
         var payload = await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions);
         Assert.NotNull(payload);
         Assert.Equal("Active", payload!.Status);
         Assert.Equal("Acme Two", payload.Name);
+        Assert.NotEqual(current.ConcurrencyToken, payload.ConcurrencyToken);
+        Assert.Equal($"\"{payload.ConcurrencyToken:D}\"", response.Headers.ETag!.Tag);
+    }
+
+    private async Task<AccountCompanyDetailItem> GetAccountCompanyAsync(HttpClient client, Guid companyPublicId)
+    {
+        var response = await client.GetAsync($"/api/account/companies/{companyPublicId}");
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<AccountCompanyDetailItem>(JsonOptions))!;
     }
 
     [Fact]
@@ -9538,6 +9681,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         bool IsOwnedByCurrentUser,
         DateTime CreatedAtUtc,
         DateTime? ModifiedAtUtc,
+        Guid ConcurrencyToken,
         IReadOnlyCollection<ActiveLegalRepresentativeItem> ActiveLegalRepresentatives,
         CompanyTypeMetadataItem? CompanyType);
 

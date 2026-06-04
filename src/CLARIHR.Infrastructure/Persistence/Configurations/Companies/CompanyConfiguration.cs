@@ -53,6 +53,10 @@ internal sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
         builder.Property(company => company.BillableSinceUtc)
             .HasColumnName("billable_since_utc");
 
+        builder.Property(company => company.ConcurrencyToken)
+            .HasColumnName("concurrency_token")
+            .IsConcurrencyToken();
+
         builder.Property(company => company.CreatedUtc)
             .HasColumnName("created_utc");
 

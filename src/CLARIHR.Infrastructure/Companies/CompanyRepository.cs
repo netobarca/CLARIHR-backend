@@ -35,6 +35,7 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                 IsOwnedByCurrentUser: true,
                 company.CreatedAtUtc,
                 company.ModifiedAtUtc,
+                company.ConcurrencyToken,
                 dbContext.LegalRepresentatives
                     .AsNoTracking()
                     .Where(legalRepresentative =>
@@ -166,7 +167,8 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
                     .Select(item => (bool?)item.IsActive)
                     .FirstOrDefault(),
                 CreatedAtUtc = company.CreatedUtc,
-                ModifiedAtUtc = company.ModifiedUtc
+                ModifiedAtUtc = company.ModifiedUtc,
+                ConcurrencyToken = company.ConcurrencyToken
             });
 
     private sealed class OwnedCompanyProjection
@@ -196,5 +198,7 @@ internal sealed class CompanyRepository(ApplicationDbContext dbContext) : ICompa
         public DateTime CreatedAtUtc { get; init; }
 
         public DateTime? ModifiedAtUtc { get; init; }
+
+        public Guid ConcurrencyToken { get; init; }
     }
 }

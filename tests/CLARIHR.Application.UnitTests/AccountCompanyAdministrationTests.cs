@@ -127,16 +127,140 @@ public sealed class AccountCompanyAdministrationTests
             new TestTenantContext(CurrentTenantId),
             new TestUnitOfWork());
 
+        var originalToken = company.ConcurrencyToken;
+
         var result = await handler.Handle(
-            new UpdateAccountCompanyCommand(company.PublicId, "Acme Services Group", null),
+            new UpdateAccountCompanyCommand(company.PublicId, "Acme Services Group", null, originalToken),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Acme Services Group", company.Name);
         Assert.Equal("acme-services", company.Slug);
+        Assert.NotEqual(originalToken, company.ConcurrencyToken);
+        Assert.Equal(company.ConcurrencyToken, result.Value.ConcurrencyToken);
         Assert.Single(auditService.Entries);
         Assert.Equal(AuditEventTypes.CompanyUpdated, auditService.Entries[0].Entry.EventType);
     }
+
+    [Fact]
+    public async Task Update_WhenConcurrencyTokenDiffers_ShouldReturnConflict()
+    {
+        var userRepository = new TestUserRepository();
+        userRepository.Seed(CreatePersistedUser(CurrentUserId, "owner@test.com"));
+        var companyRepository = new TestCompanyRepository();
+        var company = CreateCompany(CurrentUserId, "Acme Services", "acme-services");
+        companyRepository.Add(company);
+        var auditService = new TestAuditService();
+
+        var handler = new UpdateAccountCompanyCommandHandler(
+            new TestCurrentUserService(CurrentUserId),
+            userRepository,
+            companyRepository,
+            new TestOrgStructureCatalogRepository(),
+            auditService,
+            new TestTenantContext(CurrentTenantId),
+            new TestUnitOfWork());
+
+        var result = await handler.Handle(
+            new UpdateAccountCompanyCommand(company.PublicId, "Acme Services Group", null, Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(AccountCompanyErrors.ConcurrencyConflict.Code, result.Error.Code);
+        Assert.Equal("Acme Services", company.Name);
+        Assert.Empty(auditService.Entries);
+    }
+
+    [Fact]
+    public async Task Patch_WhenConcurrencyTokenDiffers_ShouldReturnConflict()
+    {
+        var userRepository = new TestUserRepository();
+        userRepository.Seed(CreatePersistedUser(CurrentUserId, "owner@test.com"));
+        var companyRepository = new TestCompanyRepository();
+        var company = CreateCompany(CurrentUserId, "Acme Services", "acme-services");
+        companyRepository.Add(company);
+        var auditService = new TestAuditService();
+
+        var handler = new PatchAccountCompanyCommandHandler(
+            new TestCurrentUserService(CurrentUserId),
+            userRepository,
+            companyRepository,
+            new TestOrgStructureCatalogRepository(),
+            auditService,
+            new TestTenantContext(CurrentTenantId),
+            new TestUnitOfWork());
+
+        var result = await handler.Handle(
+            new PatchAccountCompanyCommand(company.PublicId, Guid.NewGuid(), [PatchOp("replace", "/name", "Renamed")]),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(AccountCompanyErrors.ConcurrencyConflict.Code, result.Error.Code);
+        Assert.Equal("Acme Services", company.Name);
+        Assert.Empty(auditService.Entries);
+    }
+
+    [Fact]
+    public async Task Patch_WhenRenamingName_ShouldApplyAndRotateTokenAndAudit()
+    {
+        var userRepository = new TestUserRepository();
+        userRepository.Seed(CreatePersistedUser(CurrentUserId, "owner@test.com"));
+        var companyRepository = new TestCompanyRepository();
+        var company = CreateCompany(CurrentUserId, "Acme Services", "acme-services");
+        companyRepository.Add(company);
+        var auditService = new TestAuditService();
+        var originalToken = company.ConcurrencyToken;
+
+        var handler = new PatchAccountCompanyCommandHandler(
+            new TestCurrentUserService(CurrentUserId),
+            userRepository,
+            companyRepository,
+            new TestOrgStructureCatalogRepository(),
+            auditService,
+            new TestTenantContext(CurrentTenantId),
+            new TestUnitOfWork());
+
+        var result = await handler.Handle(
+            new PatchAccountCompanyCommand(company.PublicId, originalToken, [PatchOp("replace", "/name", "Acme Renamed")]),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Acme Renamed", company.Name);
+        Assert.NotEqual(originalToken, company.ConcurrencyToken);
+        Assert.Equal(company.ConcurrencyToken, result.Value.ConcurrencyToken);
+        Assert.Equal(AuditEventTypes.CompanyUpdated, Assert.Single(auditService.Entries).Entry.EventType);
+    }
+
+    [Fact]
+    public async Task Patch_WhenPathIsNotPatchable_ShouldReturnValidationFailure()
+    {
+        var userRepository = new TestUserRepository();
+        userRepository.Seed(CreatePersistedUser(CurrentUserId, "owner@test.com"));
+        var companyRepository = new TestCompanyRepository();
+        var company = CreateCompany(CurrentUserId, "Acme Services", "acme-services");
+        companyRepository.Add(company);
+        var auditService = new TestAuditService();
+
+        var handler = new PatchAccountCompanyCommandHandler(
+            new TestCurrentUserService(CurrentUserId),
+            userRepository,
+            companyRepository,
+            new TestOrgStructureCatalogRepository(),
+            auditService,
+            new TestTenantContext(CurrentTenantId),
+            new TestUnitOfWork());
+
+        var result = await handler.Handle(
+            new PatchAccountCompanyCommand(company.PublicId, company.ConcurrencyToken, [PatchOp("replace", "/slug", "hacked")]),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Acme Services", company.Name);
+        Assert.Empty(auditService.Entries);
+    }
+
+    private static AccountCompanyPatchOperation PatchOp(string op, string path, object? value) =>
+        new(op, path, null, value is null ? null : System.Text.Json.JsonSerializer.SerializeToElement(value));
 
     [Fact]
     public async Task Archive_WhenCompanyIsActiveContext_ShouldReturnConflict()
@@ -159,7 +283,7 @@ public sealed class AccountCompanyAdministrationTests
             new TestTenantContext(CurrentTenantId),
             new TestUnitOfWork());
 
-        var result = await handler.Handle(new ArchiveAccountCompanyCommand(company.PublicId), CancellationToken.None);
+        var result = await handler.Handle(new ArchiveAccountCompanyCommand(company.PublicId, company.ConcurrencyToken), CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(AccountCompanyErrors.ActiveCompanyArchiveForbidden.Code, result.Error.Code);
@@ -182,7 +306,7 @@ public sealed class AccountCompanyAdministrationTests
             new TestTenantContext(CurrentTenantId),
             new TestUnitOfWork());
 
-        var result = await handler.Handle(new ArchiveAccountCompanyCommand(companyRepository.Items[0].PublicId), CancellationToken.None);
+        var result = await handler.Handle(new ArchiveAccountCompanyCommand(companyRepository.Items[0].PublicId, companyRepository.Items[0].ConcurrencyToken), CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(AccountCompanyErrors.OwnershipForbidden.Code, result.Error.Code);
@@ -208,7 +332,7 @@ public sealed class AccountCompanyAdministrationTests
             new TestTenantContext(CurrentTenantId),
             new TestUnitOfWork());
 
-        var result = await handler.Handle(new ReactivateAccountCompanyCommand(company.PublicId), CancellationToken.None);
+        var result = await handler.Handle(new ReactivateAccountCompanyCommand(company.PublicId, company.ConcurrencyToken), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(CompanyStatus.Active, company.Status);
@@ -234,7 +358,7 @@ public sealed class AccountCompanyAdministrationTests
             new TestTenantContext(CurrentTenantId),
             new TestUnitOfWork());
 
-        var result = await handler.Handle(new ReactivateAccountCompanyCommand(company.PublicId), CancellationToken.None);
+        var result = await handler.Handle(new ReactivateAccountCompanyCommand(company.PublicId, company.ConcurrencyToken), CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Equal(AccountCompanyErrors.CompanyReactivationLimitReached.Code, result.Error.Code);
@@ -466,6 +590,7 @@ public sealed class AccountCompanyAdministrationTests
                 IsOwnedByCurrentUser: true,
                 company.CreatedUtc,
                 company.ModifiedUtc,
+                company.ConcurrencyToken,
                 Array.Empty<ActiveLegalRepresentativeSummaryResponse>(),
                 CompanyType: null));
         }

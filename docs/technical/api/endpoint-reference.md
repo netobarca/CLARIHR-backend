@@ -108,7 +108,7 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 |---|---|---|---|
 | System | `SystemController` | `/api/system/status` | salud y estado de runtime |
 | Auth | `AuthController` | `/api/auth/*` | registro, auth externa, login, refresh, recuperacion de contrasena y logout |
-| Account companies | `AccountCompaniesController` | `/api/account/companies*` | crear, listar, archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
+| Account companies | `AccountCompaniesController` | `/api/account/companies*` | crear, listar, actualizar (PUT/PATCH con `If-Match`/`ETag`), archivar, reactivar, cambiar compania activa y resolver catalogos previos al contexto tenant |
 | Account company subscriptions | `AccountCompanySubscriptionsController` | `/api/account/companies/{publicId}/subscription*` | consultar y administrar como owner el plan activo, marketplace de add-ons y modulos efectivos de la compania |
 | Account internal catalogs | `AccountInternalCatalogsController` | `/api/account/internal-catalogs*` | exponer catalogos internos globales reutilizables por frontend y permitir altas controladas por similitud |
 | Platform auth | `PlatformAuthController` | `/api/platform/auth*` | login, refresh y logout de operadores del backoffice global |
@@ -164,14 +164,20 @@ Comportamiento observable:
 
 - `GET /api/v1/companies/{companyId}/reference-catalogs/identification-types`
 - `GET /api/account/companies`
-- `POST /api/account/companies`
-- `PATCH /api/account/companies/{companyPublicId}/switch`
+- `GET /api/account/companies/{companyPublicId}`: detalle de compania propia; el body incluye el `concurrencyToken` actual
+- `POST /api/account/companies`: crea la compania; devuelve `201` con el `concurrencyToken` en el body y el header `ETag`
+- `PUT /api/account/companies/{companyPublicId}`: reemplaza `name` y `companyTypePublicId`; requiere el `concurrencyToken` actual en el header `If-Match` (ausente -> `400`, obsoleto -> `409`) y devuelve el token rotado en el body y el header `ETag`
+- `PATCH /api/account/companies/{companyPublicId}`: actualizacion parcial con JSON Patch RFC-6902 (`application/json-patch+json`); paths patcheables `/name` y `/companyTypePublicId` (transiciones de estado via `/archive` y `/reactivate`); mismo contrato de `If-Match`/`ETag` que el PUT
+- `PATCH /api/account/companies/{companyPublicId}/archive`: archiva la compania (no la activa/primary); mismo contrato de `If-Match`/`ETag`
+- `PATCH /api/account/companies/{companyPublicId}/reactivate`: reactiva la compania archivada (sujeto al limite de companias activas); mismo contrato de `If-Match`/`ETag`
+- `PATCH /api/account/companies/{companyPublicId}/switch`: cambia la compania activa; NO usa `If-Match` (muta la membresia y re-emite el JWT, no la fila de la compania)
 
 Comportamiento observable:
 
 - el catalogo de tipos documentales del representante legal se resuelve desde `reference-catalogs/identification-types` y devuelve opciones activas ordenadas por pais de compania
 - la creacion de compania siembra datos iniciales de locations segun el pais
 - el cambio de compania modifica el contexto tenant activo del usuario
+- las mutaciones de la fila `companies` (Create/Update/PATCH/Archive/Reactivate) usan el token de concurrencia `concurrencyToken`; la autorizacion es por ownership (no RBAC) resuelta en los handlers y la familia esta excluida de `[AuthorizationPolicySet]`/`GovernedFamilyRegex`
 
 ### 4.3 Platform backoffice de suscripciones
 

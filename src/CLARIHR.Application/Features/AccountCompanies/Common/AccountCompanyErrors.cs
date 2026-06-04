@@ -58,4 +58,9 @@ public static class AccountCompanyErrors
         "ACTIVE_COMPANY_SWITCH_FORBIDDEN",
         "The requested company cannot become the active company.",
         ErrorType.Conflict);
+
+    public static readonly Error ConcurrencyConflict = new(
+        "CONCURRENCY_CONFLICT",
+        "The company was modified by another request. Refresh and try again.",
+        ErrorType.Conflict);
 }

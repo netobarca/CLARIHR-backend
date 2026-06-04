@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Auth;
 using CLARIHR.Application.Abstractions.Authentication;
@@ -289,6 +290,10 @@ internal sealed class UpdateAccountCompanyCommandHandler(
         }
 
         var company = companyResult.Value;
+        if (company.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.ConcurrencyConflict);
+        }
 
         CatalogReferenceLookup? companyType = null;
         if (command.CompanyTypeId.HasValue)
@@ -346,6 +351,314 @@ internal sealed class UpdateAccountCompanyCommandHandler(
     }
 }
 
+internal sealed class PatchAccountCompanyCommandHandler(
+    ICurrentUserService currentUserService,
+    IUserRepository userRepository,
+    ICompanyRepository companyRepository,
+    IOrgStructureCatalogRepository orgStructureCatalogRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchAccountCompanyCommand, AccountCompanyDetailResponse>
+{
+    public async Task<Result<AccountCompanyDetailResponse>> Handle(
+        PatchAccountCompanyCommand command,
+        CancellationToken cancellationToken)
+    {
+        var currentUserResult = await AccountCompanyActorResolver.ResolveCurrentUserAsync(
+            currentUserService,
+            userRepository,
+            cancellationToken);
+        if (currentUserResult.IsFailure)
+        {
+            return Result<AccountCompanyDetailResponse>.Failure(currentUserResult.Error);
+        }
+
+        var companyResult = await AccountCompanyActorResolver.ResolveOwnedCompanyAsync(
+            companyRepository,
+            command.CompanyId,
+            currentUserResult.Value.PublicId,
+            cancellationToken);
+        if (companyResult.IsFailure)
+        {
+            return Result<AccountCompanyDetailResponse>.Failure(companyResult.Error);
+        }
+
+        var company = companyResult.Value;
+        if (company.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.ConcurrencyConflict);
+        }
+
+        var state = new AccountCompanyPatchState();
+        var applied = AccountCompanyPatchApplier.Apply(command.Operations, state);
+        if (applied.IsFailure)
+        {
+            return Result<AccountCompanyDetailResponse>.Failure(applied.Error);
+        }
+
+        var validation = AccountCompanyPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<AccountCompanyDetailResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            // No patchable field was touched: skip the write so the token is not rotated and no
+            // spurious audit entry is emitted (mirrors the canonical Preferences PATCH handlers).
+            var current = await companyRepository.FindOwnedByUserAsync(
+                company.PublicId,
+                currentUserResult.Value.PublicId,
+                tenantContext.TenantId,
+                cancellationToken);
+            return Result<AccountCompanyDetailResponse>.Success(current!);
+        }
+
+        // Resolve the (optional) company type only when the patch touched it, mirroring the PUT path.
+        CatalogReferenceLookup? companyType = null;
+        if (state.CompanyTypeSet && state.CompanyTypePublicId.HasValue)
+        {
+            companyType = await orgStructureCatalogRepository.GetActiveCompanyTypeLookupAsync(
+                company.CountryCatalogItemId,
+                state.CompanyTypePublicId.Value,
+                cancellationToken);
+            if (companyType is null)
+            {
+                return Result<AccountCompanyDetailResponse>.Failure(OrgStructureCatalogErrors.CompanyTypeNotFound);
+            }
+        }
+
+        var before = await companyRepository.FindOwnedByUserAsync(
+            company.PublicId,
+            currentUserResult.Value.PublicId,
+            tenantContext.TenantId,
+            cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            if (state.NameSet)
+            {
+                company.Rename(state.Name);
+            }
+
+            if (state.CompanyTypeSet)
+            {
+                company.SetCompanyType(companyType?.InternalId);
+            }
+
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await companyRepository.FindOwnedByUserAsync(
+                company.PublicId,
+                currentUserResult.Value.PublicId,
+                tenantContext.TenantId,
+                cancellationToken);
+
+            await auditService.LogForTenantAsync(
+                company.PublicId,
+                new AuditLogEntry(
+                    AuditEventTypes.CompanyUpdated,
+                    AuditEntityTypes.Company,
+                    company.PublicId,
+                    company.Slug,
+                    AuditActions.Update,
+                    $"Updated company {company.Name}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<AccountCompanyDetailResponse>.Success(after!);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class AccountCompanyPatchState
+{
+    public string Name { get; set; } = string.Empty;
+    public bool NameSet { get; set; }
+    public Guid? CompanyTypePublicId { get; set; }
+    public bool CompanyTypeSet { get; set; }
+
+    public bool HasMutation => NameSet || CompanyTypeSet;
+}
+
+internal sealed class AccountCompanyPatchValueException(string path, string message) : Exception(message)
+{
+    public string Path { get; } = path;
+}
+
+internal static class AccountCompanyPatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<AccountCompanyPatchOperation> operations, AccountCompanyPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root company properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (AccountCompanyPatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(AccountCompanyPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        // Mirror the PUT validator + the domain normalizer (Company.Rename → Clean trims then requires
+        // non-empty). The DB column is varchar(150), so a name that trims longer than 150 would otherwise
+        // throw on save → HTTP 500; validate the trimmed length here as a 400.
+        if (state.NameSet)
+        {
+            if (string.IsNullOrWhiteSpace(state.Name))
+            {
+                errors["name"] = ["Name is required."];
+            }
+            else if (state.Name.Trim().Length > 150)
+            {
+                errors["name"] = ["Name must be 150 characters or fewer."];
+            }
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        AccountCompanyPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "concurrencyToken"))
+        {
+            return ValidationFailure(path, "The concurrency token cannot be patched; send the current token in the If-Match header.");
+        }
+
+        // Status transitions go through the dedicated /archive and /reactivate actions, not this patch.
+        if (IsSegment(property, "id") || IsSegment(property, "publicId") || IsSegment(property, "slug") ||
+            IsSegment(property, "countryCode") || IsSegment(property, "status") || IsSegment(property, "planCode") ||
+            IsSegment(property, "isActiveContext") || IsSegment(property, "isOwnedByCurrentUser") ||
+            IsSegment(property, "createdAtUtc") || IsSegment(property, "modifiedAtUtc") ||
+            IsSegment(property, "activeLegalRepresentatives") || IsSegment(property, "companyType"))
+        {
+            return ValidationFailure(path, "This property is read-only and cannot be patched.");
+        }
+
+        if (IsSegment(property, "name"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Name cannot be removed.");
+            }
+
+            state.Name = ReadRequiredString(value, path);
+            state.NameSet = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "companyTypePublicId"))
+        {
+            // The company type is optional, so a remove (or an explicit null) clears it.
+            state.CompanyTypePublicId = isRemove ? null : ReadOptionalGuid(value, path);
+            state.CompanyTypeSet = true;
+            return Result.Success();
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadRequiredString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new AccountCompanyPatchValueException(path, "Value is required.");
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString() ?? string.Empty
+            : throw new AccountCompanyPatchValueException(path, "Value must be a string.");
+    }
+
+    private static Guid? ReadOptionalGuid(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        if (value!.Value.ValueKind != JsonValueKind.String)
+        {
+            throw new AccountCompanyPatchValueException(path, "Value must be a string GUID or null.");
+        }
+
+        return Guid.TryParse(value.Value.GetString(), out var parsed)
+            ? parsed
+            : throw new AccountCompanyPatchValueException(path, "Value must be a valid GUID.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
+}
+
 internal sealed class ArchiveAccountCompanyCommandHandler(
     ICurrentUserService currentUserService,
     IUserRepository userRepository,
@@ -380,6 +693,11 @@ internal sealed class ArchiveAccountCompanyCommandHandler(
         }
 
         var company = companyResult.Value;
+        if (company.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.ConcurrencyConflict);
+        }
+
         if (company.Status == CompanyStatus.Archived)
         {
             return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.CompanyAlreadyArchived);
@@ -468,6 +786,11 @@ internal sealed class ReactivateAccountCompanyCommandHandler(
         }
 
         var company = companyResult.Value;
+        if (company.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.ConcurrencyConflict);
+        }
+
         if (company.Status == CompanyStatus.Active)
         {
             return Result<AccountCompanyDetailResponse>.Failure(AccountCompanyErrors.CompanyAlreadyActive);

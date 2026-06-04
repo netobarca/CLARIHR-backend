@@ -34,6 +34,7 @@ public sealed class Company : AuditableEntity
         SetCompanyType(companyTypeCatalogItemId);
         IsBillable = isBillable;
         BillableSinceUtc = billableSinceUtc;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public string Name { get; private set; } = string.Empty;
@@ -53,6 +54,8 @@ public sealed class Company : AuditableEntity
     public bool IsBillable { get; private set; }
 
     public DateTime? BillableSinceUtc { get; private set; }
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public static Company Create(
         string name,
@@ -87,6 +90,7 @@ public sealed class Company : AuditableEntity
     public void Rename(string name)
     {
         Name = CompanyNormalization.Clean(name, nameof(name));
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public void SetCompanyType(long? companyTypeCatalogItemId)
@@ -97,6 +101,7 @@ public sealed class Company : AuditableEntity
         }
 
         CompanyTypeCatalogItemId = companyTypeCatalogItemId;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public void Archive()
@@ -107,6 +112,7 @@ public sealed class Company : AuditableEntity
         }
 
         Status = CompanyStatus.Archived;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public void Reactivate()
@@ -117,6 +123,7 @@ public sealed class Company : AuditableEntity
         }
 
         Status = CompanyStatus.Active;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public void MarkBillable(DateTime effectiveFromUtc)

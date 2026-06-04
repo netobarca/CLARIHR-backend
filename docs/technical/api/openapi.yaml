@@ -6959,6 +6959,11 @@ paths:
       responses:
         '201':
           description: Company created successfully.
+          headers:
+            ETag:
+              description: Current company concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -6977,6 +6982,316 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Business conflict such as company limit reached.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/{companyPublicId}:
+    get:
+      tags:
+      - account-companies
+      operationId: GetAccountCompany
+      summary: Get an owned company
+      description: Returns the owned company detail. The current `concurrencyToken` is included in the body for use in the `If-Match` header of a subsequent update.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Company returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCompanyDetailResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The company could not be found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - account-companies
+      operationId: UpdateAccountCompany
+      summary: Update an owned company
+      description: Replaces the editable fields (name and company type). Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the company, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAccountCompanyRequest'
+      responses:
+        '200':
+          description: Company updated successfully.
+          headers:
+            ETag:
+              description: New company concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCompanyDetailResponse'
+        '400':
+          description: Validation error, or the `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The company or company type could not be found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict. Refresh and retry with the latest concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - account-companies
+      operationId: PatchAccountCompany
+      summary: Patch an owned company (RFC 6902 JSON Patch)
+      description: Applies a partial update using JSON Patch (RFC 6902), media type `application/json-patch+json`. Patchable paths are `/name` (max 150 characters, required, cannot be removed) and `/companyTypePublicId` (a company-type publicId, or null/remove to clear it). Status transitions use the dedicated `/archive` and `/reactivate` actions. Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the company, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Company updated successfully.
+          headers:
+            ETag:
+              description: New company concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCompanyDetailResponse'
+        '400':
+          description: Validation error for one or more patch operations, or the `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The company or company type could not be found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict. Refresh and retry with the latest concurrency token.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/{companyPublicId}/archive:
+    patch:
+      tags:
+      - account-companies
+      operationId: ArchiveAccountCompany
+      summary: Archive an owned company
+      description: Archives an owned company (cannot be the active or primary company). Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the company, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Company archived successfully.
+          headers:
+            ETag:
+              description: New company concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCompanyDetailResponse'
+        '400':
+          description: The `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The company could not be found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict, or the company is the active/primary company or already archived.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/account/companies/{companyPublicId}/reactivate:
+    patch:
+      tags:
+      - account-companies
+      operationId: ReactivateAccountCompany
+      summary: Reactivate an owned company
+      description: Reactivates an archived company (subject to the active-company capacity limit). Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: companyPublicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the company, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Company reactivated successfully.
+          headers:
+            ETag:
+              description: New company concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCompanyDetailResponse'
+        '400':
+          description: The `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not own the company.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The company could not be found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict, the company is already active, or the active-company limit was reached.
           content:
             application/problem+json:
               schema:
@@ -15393,6 +15708,19 @@ components:
           type: array
           items:
             type: string
+    UpdateAccountCompanyRequest:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          maxLength: 150
+        companyTypePublicId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Company-type publicId, or null to clear the company type.
     AccountCompanyDetailResponse:
       type: object
       required:
@@ -15405,6 +15733,7 @@ components:
       - isActiveContext
       - isOwnedByCurrentUser
       - createdAtUtc
+      - concurrencyToken
       - activeLegalRepresentatives
       properties:
         companyPublicId:
@@ -15433,6 +15762,10 @@ components:
           type: string
           format: date-time
           nullable: true
+        concurrencyToken:
+          type: string
+          format: uuid
+          description: Current concurrency token; echo it (quoted) in the `If-Match` header of the next update.
         activeLegalRepresentatives:
           type: array
           items:

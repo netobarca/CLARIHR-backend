@@ -1,4 +1,6 @@
+using System.Text.Json;
 using CLARIHR.Application.Common.CQRS;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
@@ -33,6 +35,7 @@ public sealed record AccountCompanyDetailResponse(
     bool IsOwnedByCurrentUser,
     DateTime CreatedAtUtc,
     DateTime? ModifiedAtUtc,
+    Guid ConcurrencyToken,
     IReadOnlyCollection<ActiveLegalRepresentativeSummaryResponse> ActiveLegalRepresentatives,
     CompanyTypeMetadataResponse? CompanyType);
 
@@ -89,11 +92,22 @@ public sealed record CreateAccountCompanyCommand(
     Guid? CompanyTypeId,
     InitialLegalRepresentativeInput InitialLegalRepresentative) : ICommand<AccountCompanyDetailResponse>;
 
-public sealed record UpdateAccountCompanyCommand(Guid CompanyId, string Name, Guid? CompanyTypeId) : ICommand<AccountCompanyDetailResponse>;
+public sealed record UpdateAccountCompanyCommand(Guid CompanyId, string Name, Guid? CompanyTypeId, Guid ConcurrencyToken) : ICommand<AccountCompanyDetailResponse>;
 
-public sealed record ArchiveAccountCompanyCommand(Guid CompanyId) : ICommand<AccountCompanyDetailResponse>;
+public sealed record AccountCompanyPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
 
-public sealed record ReactivateAccountCompanyCommand(Guid CompanyId) : ICommand<AccountCompanyDetailResponse>;
+public sealed record PatchAccountCompanyCommand(
+    Guid CompanyId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<AccountCompanyPatchOperation> Operations) : ICommand<AccountCompanyDetailResponse>;
+
+public sealed record ArchiveAccountCompanyCommand(Guid CompanyId, Guid ConcurrencyToken) : ICommand<AccountCompanyDetailResponse>;
+
+public sealed record ReactivateAccountCompanyCommand(Guid CompanyId, Guid ConcurrencyToken) : ICommand<AccountCompanyDetailResponse>;
 
 public sealed record SwitchActiveCompanyCommand(Guid CompanyId) : ICommand<SwitchActiveCompanyResponse>;
 
@@ -158,6 +172,25 @@ internal sealed class UpdateAccountCompanyCommandValidator : AbstractValidator<U
         RuleFor(command => command.CompanyTypeId)
             .NotEqual(Guid.Empty)
             .When(static command => command.CompanyTypeId.HasValue);
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchAccountCompanyCommandValidator : AbstractValidator<PatchAccountCompanyCommand>
+{
+    public PatchAccountCompanyCommandValidator()
+    {
+        RuleFor(command => command.CompanyId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -166,6 +199,7 @@ internal sealed class ArchiveAccountCompanyCommandValidator : AbstractValidator<
     public ArchiveAccountCompanyCommandValidator()
     {
         RuleFor(command => command.CompanyId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
@@ -174,6 +208,7 @@ internal sealed class ReactivateAccountCompanyCommandValidator : AbstractValidat
     public ReactivateAccountCompanyCommandValidator()
     {
         RuleFor(command => command.CompanyId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
     }
 }
 
