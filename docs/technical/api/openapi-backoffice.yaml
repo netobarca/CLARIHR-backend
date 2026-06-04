@@ -38,8 +38,6 @@ tags:
   description: Global bank catalog administration in backoffice and company-scoped bank lookup in core.
 - name: platform-subscriptions
   description: Global company subscription, plan-change and company add-on administration from the platform backoffice.
-- name: education-catalogs-backoffice
-  description: Full CRUD administration of system-wide education catalogs from the Platform Backoffice.
 paths:
   /api/platform/auth/login:
     post:
@@ -257,6 +255,482 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '409':
           description: Business conflict such as duplicated add-on code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/education-catalogs/{catalogKey}:
+    get:
+      tags:
+      - education-catalogs
+      operationId: SearchEducationCatalogItems
+      summary: List items of a global education catalog
+      description: Returns a paged list of the system-wide catalog identified by `catalogKey` (`education-statuses`, `study-types`, `careers`, `shifts`, `modalities`). An unknown `catalogKey` yields `404`.
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - education-statuses
+          - study-types
+          - careers
+          - shifts
+          - modalities
+      - name: isActive
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: pageNumber
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Paged education catalog items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedEducationCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The `catalogKey` is unknown.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    post:
+      tags:
+      - education-catalogs
+      operationId: CreateEducationCatalogItem
+      summary: Create an item in a global education catalog
+      description: Creates a catalog item in the catalog identified by `catalogKey`. Returns `201`; the current `concurrencyToken` is included in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEducationCatalogItemRequest'
+      responses:
+        '201':
+          description: Education catalog item created successfully.
+          headers:
+            ETag:
+              description: Current concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCatalogItemResponse'
+        '400':
+          description: Validation error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The `catalogKey` is unknown.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Business conflict such as duplicated code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/education-catalogs/{catalogKey}/{publicId}:
+    get:
+      tags:
+      - education-catalogs
+      operationId: GetEducationCatalogItemById
+      summary: Get an education catalog item by public id
+      description: Returns the catalog item. The current `concurrencyToken` is included in the body for use in the `If-Match` header of a subsequent update.
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Education catalog item returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCatalogItemResponse'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The catalog item or `catalogKey` was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      tags:
+      - education-catalogs
+      operationId: UpdateEducationCatalogItem
+      summary: Update an education catalog item
+      description: Replaces the editable fields (code, name, sort order). Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEducationCatalogItemRequest'
+      responses:
+        '200':
+          description: Education catalog item updated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCatalogItemResponse'
+        '400':
+          description: Validation error, or the `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The catalog item or `catalogKey` was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict, or duplicated code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - education-catalogs
+      operationId: PatchEducationCatalogItem
+      summary: Patch an education catalog item (RFC 6902 JSON Patch)
+      description: Applies a partial update using JSON Patch (RFC 6902), media type `application/json-patch+json`. Patchable paths are `/code`, `/name`, `/sortOrder`. Activation state changes use the `/activate` and `/inactivate` actions. Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Education catalog item updated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCatalogItemResponse'
+        '400':
+          description: Validation error for one or more patch operations, or the `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The catalog item or `catalogKey` was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict, or duplicated code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/education-catalogs/{catalogKey}/{publicId}/activate:
+    patch:
+      tags:
+      - education-catalogs
+      operationId: ActivateEducationCatalogItem
+      summary: Activate an education catalog item
+      description: Activates the item. Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Education catalog item activated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCatalogItemResponse'
+        '400':
+          description: The `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The catalog item or `catalogKey` was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+  /api/platform/education-catalogs/{catalogKey}/{publicId}/inactivate:
+    patch:
+      tags:
+      - education-catalogs
+      operationId: InactivateEducationCatalogItem
+      summary: Inactivate an education catalog item
+      description: Inactivates the item (rejected if it is in use). Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: catalogKey
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Education catalog item inactivated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EducationCatalogItemResponse'
+        '400':
+          description: The `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The catalog item or `catalogKey` was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict, or the item is in use.
           content:
             application/problem+json:
               schema:
@@ -3100,353 +3574,6 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-  /api/platform/education-catalogs/{catalogKey}:
-    get:
-      tags:
-      - education-catalogs-backoffice
-      summary: Search education catalog items (backoffice)
-      description: |
-        Returns a paged list of education catalog items with full admin filters.
-        Requires PlatformOperator authorization.
-      operationId: SearchEducationCatalogItems
-      security:
-      - Bearer: []
-      parameters:
-      - name: catalogKey
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: isActive
-        in: query
-        required: false
-        schema:
-          type: boolean
-      - name: search
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: pageNumber
-        in: query
-        required: false
-        schema:
-          type: integer
-          default: 1
-      - name: pageSize
-        in: query
-        required: false
-        schema:
-          type: integer
-          default: 50
-      responses:
-        '200':
-          description: Paged list of education catalog items.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PagedResponseEducationCatalogItemResponse'
-        '400':
-          description: Invalid parameters.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: PlatformOperator role required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Unknown catalogKey.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    post:
-      tags:
-      - education-catalogs-backoffice
-      summary: Create education catalog item
-      operationId: CreateEducationCatalogItem
-      security:
-      - Bearer: []
-      parameters:
-      - name: catalogKey
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateEducationCatalogItemRequest'
-      responses:
-        '201':
-          description: Item created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EducationCatalogItemResponse'
-        '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: PlatformOperator role required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Unknown catalogKey.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Code already exists in this catalog type.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/platform/education-catalogs/{catalogKey}/{id}:
-    get:
-      tags:
-      - education-catalogs-backoffice
-      summary: Get education catalog item by id (backoffice)
-      operationId: GetEducationCatalogItemById
-      security:
-      - Bearer: []
-      parameters:
-      - name: catalogKey
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        '200':
-          description: Education catalog item.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EducationCatalogItemResponse'
-        '401':
-          description: Authentication required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: PlatformOperator role required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Unknown catalogKey or item not found.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-    put:
-      tags:
-      - education-catalogs-backoffice
-      summary: Update education catalog item
-      operationId: UpdateEducationCatalogItem
-      security:
-      - Bearer: []
-      parameters:
-      - name: catalogKey
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateEducationCatalogItemRequest'
-      responses:
-        '200':
-          description: Updated item.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EducationCatalogItemResponse'
-        '400':
-          description: Validation error.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '401':
-          description: Authentication required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: PlatformOperator role required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Item not found.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Code conflict or concurrency token mismatch.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/platform/education-catalogs/{catalogKey}/{id}/activate:
-    patch:
-      tags:
-      - education-catalogs-backoffice
-      summary: Activate education catalog item
-      operationId: ActivateEducationCatalogItem
-      security:
-      - Bearer: []
-      parameters:
-      - name: catalogKey
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyTokenRequest'
-      responses:
-        '200':
-          description: Activated item.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EducationCatalogItemResponse'
-        '401':
-          description: Authentication required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: PlatformOperator role required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Item not found.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Concurrency token mismatch.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-  /api/platform/education-catalogs/{catalogKey}/{id}/inactivate:
-    patch:
-      tags:
-      - education-catalogs-backoffice
-      summary: Inactivate education catalog item
-      operationId: InactivateEducationCatalogItem
-      security:
-      - Bearer: []
-      parameters:
-      - name: catalogKey
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConcurrencyTokenRequest'
-      responses:
-        '200':
-          description: Inactivated item.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EducationCatalogItemResponse'
-        '401':
-          description: Authentication required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '403':
-          description: PlatformOperator role required.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Item not found.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '409':
-          description: Concurrency token mismatch.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
 components:
   securitySchemes:
     Bearer:
@@ -3486,6 +3613,108 @@ components:
         concurrencyToken:
           type: string
           format: uuid
+    EducationCatalogItemResponse:
+      type: object
+      required:
+      - id
+      - catalogType
+      - code
+      - name
+      - sortOrder
+      - isActive
+      - concurrencyToken
+      - createdAtUtc
+      properties:
+        id:
+          type: string
+          format: uuid
+        catalogType:
+          type: string
+          enum:
+          - EducationStatus
+          - StudyType
+          - Career
+          - Shift
+          - Modality
+        code:
+          type: string
+          example: ENGINEERING
+        name:
+          type: string
+          example: Engineering
+        sortOrder:
+          type: integer
+          format: int32
+        isActive:
+          type: boolean
+        concurrencyToken:
+          type: string
+          format: uuid
+          description: Current concurrency token; echo it (quoted) in the `If-Match` header of the next update.
+        createdAtUtc:
+          type: string
+          format: date-time
+        modifiedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+    PagedEducationCatalogItemResponse:
+      type: object
+      required:
+      - items
+      - pageNumber
+      - pageSize
+      - totalCount
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EducationCatalogItemResponse'
+        pageNumber:
+          type: integer
+          format: int32
+        pageSize:
+          type: integer
+          format: int32
+        totalCount:
+          type: integer
+          format: int32
+    CreateEducationCatalogItemRequest:
+      type: object
+      required:
+      - code
+      - name
+      - sortOrder
+      properties:
+        code:
+          type: string
+          maxLength: 80
+          example: ENGINEERING
+        name:
+          type: string
+          maxLength: 200
+          example: Engineering
+        sortOrder:
+          type: integer
+          format: int32
+          minimum: 0
+    UpdateEducationCatalogItemRequest:
+      type: object
+      required:
+      - code
+      - name
+      - sortOrder
+      properties:
+        code:
+          type: string
+          maxLength: 80
+        name:
+          type: string
+          maxLength: 200
+        sortOrder:
+          type: integer
+          format: int32
+          minimum: 0
     JobProfileCatalogTypeResponse:
       type: object
       required:
@@ -4123,14 +4352,6 @@ components:
       enum:
       - Monthly
       - Annual
-    ConcurrencyTokenRequest:
-      type: object
-      required:
-      - concurrencyToken
-      properties:
-        concurrencyToken:
-          type: string
-          format: uuid
     CreateBankCatalogItemRequest:
       type: object
       required:
@@ -4257,22 +4478,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CommercialPlanLimitInput'
-    CreateEducationCatalogItemRequest:
-      type: object
-      required:
-      - code
-      - name
-      - sortOrder
-      properties:
-        code:
-          type: string
-          description: Unique business code within the catalog type (normalized to uppercase).
-        name:
-          type: string
-          description: Display name.
-        sortOrder:
-          type: integer
-          description: Display sort order.
     CreatePlatformCompanyAddonChangeRequest:
       type: object
       required:
@@ -4318,26 +4523,6 @@ components:
         observations:
           type: string
           nullable: true
-    EducationCatalogItemResponse:
-      type: object
-      description: Full projection of a system education catalog item for Backoffice consumers.
-      properties:
-        id:
-          type: string
-          format: uuid
-        code:
-          type: string
-        normalizedCode:
-          type: string
-        name:
-          type: string
-        sortOrder:
-          type: integer
-        isActive:
-          type: boolean
-        concurrencyToken:
-          type: string
-          format: uuid
     PagedBankCatalogItemResponse:
       type: object
       required:
@@ -4557,21 +4742,6 @@ components:
         totalCount:
           type: integer
           format: int32
-    PagedResponseEducationCatalogItemResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/EducationCatalogItemResponse'
-        pageNumber:
-          type: integer
-        pageSize:
-          type: integer
-        totalCount:
-          type: integer
-        totalPages:
-          type: integer
     PlatformCompanyAddonChangePreviewResponse:
       type: object
       required:
@@ -5822,23 +5992,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CommercialPlanLimitInput'
-        concurrencyToken:
-          type: string
-          format: uuid
-    UpdateEducationCatalogItemRequest:
-      type: object
-      required:
-      - code
-      - name
-      - sortOrder
-      - concurrencyToken
-      properties:
-        code:
-          type: string
-        name:
-          type: string
-        sortOrder:
-          type: integer
         concurrencyToken:
           type: string
           format: uuid
