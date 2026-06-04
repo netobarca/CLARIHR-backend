@@ -1,6 +1,8 @@
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
@@ -37,6 +39,8 @@ public sealed record UpdateLocationHierarchyConfigCommand(
 
 public sealed record GetLocationLevelsQuery(Guid CompanyId) : IQuery<IReadOnlyCollection<LocationLevelResponse>>;
 
+public sealed record GetLocationLevelByIdQuery(Guid LevelId) : IQuery<LocationLevelResponse>;
+
 public sealed record CreateLocationLevelCommand(
     Guid CompanyId,
     int LevelOrder,
@@ -56,6 +60,17 @@ public sealed record UpdateLocationLevelCommand(
 public sealed record ActivateLocationLevelCommand(Guid LevelId, Guid ConcurrencyToken) : ICommand<LocationLevelResponse>;
 
 public sealed record InactivateLocationLevelCommand(Guid LevelId, Guid ConcurrencyToken) : ICommand<LocationLevelResponse>;
+
+public sealed record LocationLevelPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchLocationLevelCommand(
+    Guid LevelId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<LocationLevelPatchOperation> Operations) : ICommand<LocationLevelResponse>;
 
 internal sealed class GetLocationHierarchyQueryValidator : AbstractValidator<GetLocationHierarchyQuery>
 {
@@ -79,6 +94,14 @@ internal sealed class GetLocationLevelsQueryValidator : AbstractValidator<GetLoc
     public GetLocationLevelsQueryValidator()
     {
         RuleFor(query => query.CompanyId).NotEmpty();
+    }
+}
+
+internal sealed class GetLocationLevelByIdQueryValidator : AbstractValidator<GetLocationLevelByIdQuery>
+{
+    public GetLocationLevelByIdQueryValidator()
+    {
+        RuleFor(query => query.LevelId).NotEmpty();
     }
 }
 
@@ -129,6 +152,24 @@ internal sealed class InactivateLocationLevelCommandValidator : AbstractValidato
     {
         RuleFor(command => command.LevelId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchLocationLevelCommandValidator : AbstractValidator<PatchLocationLevelCommand>
+{
+    public PatchLocationLevelCommandValidator()
+    {
+        RuleFor(command => command.LevelId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -597,6 +638,283 @@ internal sealed class InactivateLocationLevelCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class GetLocationLevelByIdQueryHandler(
+    ILocationAuthorizationService authorizationService,
+    ILocationHierarchyRepository repository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetLocationLevelByIdQuery, LocationLevelResponse>
+{
+    public async Task<Result<LocationLevelResponse>> Handle(
+        GetLocationLevelByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<LocationLevelResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<LocationLevelResponse>.Failure(authorizationResult.Error);
+        }
+
+        var level = await repository.GetLevelByIdAsync(query.LevelId, cancellationToken);
+        if (level is not null)
+        {
+            return Result<LocationLevelResponse>.Success(LocationHierarchyMapper.Map(level));
+        }
+
+        return Result<LocationLevelResponse>.Failure(
+            await repository.LevelExistsOutsideTenantAsync(query.LevelId, cancellationToken)
+                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                : LocationErrors.LevelNotFound);
+    }
+}
+
+internal sealed class PatchLocationLevelCommandHandler(
+    ILocationAuthorizationService authorizationService,
+    ILocationHierarchyRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchLocationLevelCommand, LocationLevelResponse>
+{
+    public async Task<Result<LocationLevelResponse>> Handle(
+        PatchLocationLevelCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<LocationLevelResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<LocationLevelResponse>.Failure(authorizationResult.Error);
+        }
+
+        var level = await repository.GetLevelByIdAsync(command.LevelId, cancellationToken);
+        if (level is null)
+        {
+            return Result<LocationLevelResponse>.Failure(
+                await repository.LevelExistsOutsideTenantAsync(command.LevelId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : LocationErrors.LevelNotFound);
+        }
+
+        if (level.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<LocationLevelResponse>.Failure(LocationErrors.ConcurrencyConflict);
+        }
+
+        var before = LocationHierarchyMapper.Map(level);
+        var state = LocationLevelPatchState.From(before);
+
+        var applied = LocationLevelPatchApplier.Apply(command.Operations, state);
+        if (applied.IsFailure)
+        {
+            return Result<LocationLevelResponse>.Failure(applied.Error);
+        }
+
+        var validation = LocationLevelPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<LocationLevelResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<LocationLevelResponse>.Success(before);
+        }
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // Display-name-only patch: the interdependent structural flags
+            // (isActive / isRequired / allowsWorkCenters) are kept at their current — already valid
+            // — values, so no cross-field guard is needed (those changes go through PUT). Use PUT to
+            // reconfigure flags and /activate-/inactivate to change activation.
+            level.Update(state.DisplayName, level.IsActive, level.IsRequired, level.AllowsWorkCenters);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = LocationHierarchyMapper.Map(level);
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    "LOCATION_LEVEL_UPDATED",
+                    "LocationLevel",
+                    level.PublicId,
+                    level.LevelOrder.ToString(),
+                    AuditActions.Update,
+                    $"Patched location level {level.DisplayName}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<LocationLevelResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class LocationLevelPatchState
+{
+    public string DisplayName { get; set; } = string.Empty;
+    public bool HasMutation { get; set; }
+
+    public static LocationLevelPatchState From(LocationLevelResponse response) =>
+        new() { DisplayName = response.DisplayName };
+}
+
+internal sealed class LocationLevelPatchValueException(string path, string message) : Exception(message)
+{
+    public string Path { get; } = path;
+}
+
+internal static class LocationLevelPatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<LocationLevelPatchOperation> operations, LocationLevelPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root location level properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (LocationLevelPatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(LocationLevelPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.DisplayName))
+        {
+            errors["displayName"] = ["Display name is required."];
+        }
+        else if (state.DisplayName.Length > 100)
+        {
+            errors["displayName"] = ["Display name must be 100 characters or fewer."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        LocationLevelPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "concurrencyToken"))
+        {
+            return ValidationFailure(path, "The concurrency token cannot be patched; send the current token in the If-Match header.");
+        }
+
+        if (IsSegment(property, "isActive"))
+        {
+            return ValidationFailure(path, "Activation is not patchable; use the /activate and /inactivate endpoints.");
+        }
+
+        if (IsSegment(property, "levelOrder"))
+        {
+            return ValidationFailure(path, "The level order is immutable and cannot be patched.");
+        }
+
+        if (IsSegment(property, "isRequired") || IsSegment(property, "allowsWorkCenters"))
+        {
+            return ValidationFailure(path, "Structural flags are not patchable here; use PUT to reconfigure the level (their rules are validated as a unit).");
+        }
+
+        if (IsSegment(property, "displayName"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Display name cannot be removed.");
+            }
+
+            state.DisplayName = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadRequiredString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new LocationLevelPatchValueException(path, "Value is required.");
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString() ?? string.Empty
+            : throw new LocationLevelPatchValueException(path, "Value must be a string.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
 
 internal static class LocationHierarchyMapper

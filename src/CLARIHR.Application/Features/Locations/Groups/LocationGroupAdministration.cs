@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.Policies;
@@ -5,6 +6,7 @@ using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
@@ -63,6 +65,8 @@ public sealed record SearchLocationGroupsQuery(
     int PageSize = LocationValidationRules.DefaultPageSize,
     bool IncludeAllowedActions = false) : IQuery<PagedResponse<LocationGroupResponse>>;
 
+public sealed record GetLocationGroupByIdQuery(Guid GroupId) : IQuery<LocationGroupResponse>;
+
 public sealed record CreateLocationGroupCommand(
     Guid CompanyId,
     int LevelOrder,
@@ -87,6 +91,17 @@ public sealed record ActivateLocationGroupCommand(Guid GroupId, Guid Concurrency
 
 public sealed record InactivateLocationGroupCommand(Guid GroupId, Guid ConcurrencyToken) : ICommand<LocationGroupResponse>;
 
+public sealed record LocationGroupPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchLocationGroupCommand(
+    Guid GroupId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<LocationGroupPatchOperation> Operations) : ICommand<LocationGroupResponse>;
+
 internal sealed class GetLocationGroupTreeQueryValidator : AbstractValidator<GetLocationGroupTreeQuery>
 {
     public GetLocationGroupTreeQueryValidator()
@@ -104,6 +119,14 @@ internal sealed class SearchLocationGroupsQueryValidator : AbstractValidator<Sea
         RuleFor(query => query.PageNumber).GreaterThan(0);
         RuleFor(query => query.PageSize).InclusiveBetween(1, LocationValidationRules.MaxPageSize);
         RuleFor(query => query.Search).MaximumLength(150);
+    }
+}
+
+internal sealed class GetLocationGroupByIdQueryValidator : AbstractValidator<GetLocationGroupByIdQuery>
+{
+    public GetLocationGroupByIdQueryValidator()
+    {
+        RuleFor(query => query.GroupId).NotEmpty();
     }
 }
 
@@ -166,6 +189,24 @@ internal sealed class InactivateLocationGroupCommandValidator : AbstractValidato
     {
         RuleFor(command => command.GroupId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchLocationGroupCommandValidator : AbstractValidator<PatchLocationGroupCommand>
+{
+    public PatchLocationGroupCommandValidator()
+    {
+        RuleFor(command => command.GroupId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -731,6 +772,355 @@ internal sealed class InactivateLocationGroupCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class GetLocationGroupByIdQueryHandler(
+    ILocationAuthorizationService authorizationService,
+    ILocationGroupRepository groupRepository,
+    ITenantContext tenantContext)
+    : IQueryHandler<GetLocationGroupByIdQuery, LocationGroupResponse>
+{
+    public async Task<Result<LocationGroupResponse>> Handle(
+        GetLocationGroupByIdQuery query,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<LocationGroupResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanReadAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<LocationGroupResponse>.Failure(authorizationResult.Error);
+        }
+
+        var group = await groupRepository.GetByIdAsync(query.GroupId, cancellationToken);
+        if (group is not null)
+        {
+            return Result<LocationGroupResponse>.Success(
+                await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken));
+        }
+
+        return Result<LocationGroupResponse>.Failure(
+            await groupRepository.ExistsOutsideTenantAsync(query.GroupId, cancellationToken)
+                ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                : LocationErrors.GroupNotFound);
+    }
+}
+
+internal sealed class PatchLocationGroupCommandHandler(
+    ILocationAuthorizationService authorizationService,
+    ILocationGroupRepository groupRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchLocationGroupCommand, LocationGroupResponse>
+{
+    public async Task<Result<LocationGroupResponse>> Handle(
+        PatchLocationGroupCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<LocationGroupResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<LocationGroupResponse>.Failure(authorizationResult.Error);
+        }
+
+        var group = await groupRepository.GetByIdAsync(command.GroupId, cancellationToken);
+        if (group is null)
+        {
+            return Result<LocationGroupResponse>.Failure(
+                await groupRepository.ExistsOutsideTenantAsync(command.GroupId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : LocationErrors.GroupNotFound);
+        }
+
+        if (group.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<LocationGroupResponse>.Failure(LocationErrors.ConcurrencyConflict);
+        }
+
+        var before = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+        var state = LocationGroupPatchState.From(before);
+
+        var applied = LocationGroupPatchApplier.Apply(command.Operations, state);
+        if (applied.IsFailure)
+        {
+            return Result<LocationGroupResponse>.Failure(applied.Error);
+        }
+
+        var validation = LocationGroupPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<LocationGroupResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<LocationGroupResponse>.Success(before);
+        }
+
+        // Mirror Update: the default group's identity (code/name) is protected; its description
+        // may still be patched. The entity also enforces this (throws), caught below as a backstop.
+        if (group.IsDefault &&
+            (!group.Code.Equals(state.Code.Trim(), StringComparison.OrdinalIgnoreCase) ||
+             !group.Name.Equals(state.Name.Trim(), StringComparison.Ordinal)))
+        {
+            return Result<LocationGroupResponse>.Failure(LocationErrors.DefaultGroupProtected);
+        }
+
+        if (await groupRepository.CodeExistsAsync(group.TenantId, state.Code.Trim().ToUpperInvariant(), group.Id, cancellationToken))
+        {
+            return Result<LocationGroupResponse>.Failure(LocationErrors.GroupCodeConflict);
+        }
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            group.Update(state.Code, state.Name, state.Description);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await LocationGroupLookup.GetResponseAsync(groupRepository, group, cancellationToken);
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    "LOCATION_GROUP_UPDATED",
+                    "LocationGroup",
+                    group.PublicId,
+                    group.Code,
+                    AuditActions.Update,
+                    $"Patched location group {group.Code}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<LocationGroupResponse>.Success(after);
+        }
+        catch (InvalidOperationException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return Result<LocationGroupResponse>.Failure(LocationErrors.DefaultGroupProtected);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class LocationGroupPatchState
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static LocationGroupPatchState From(LocationGroupResponse response) =>
+        new()
+        {
+            Code = response.Code,
+            Name = response.Name,
+            Description = response.Description
+        };
+}
+
+internal sealed class LocationGroupPatchValueException(string path, string message) : Exception(message)
+{
+    public string Path { get; } = path;
+}
+
+internal static class LocationGroupPatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<LocationGroupPatchOperation> operations, LocationGroupPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root location group properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (LocationGroupPatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(LocationGroupPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.Code))
+        {
+            errors["code"] = ["Code is required."];
+        }
+        else if (state.Code.Length > 50)
+        {
+            errors["code"] = ["Code must be 50 characters or fewer."];
+        }
+        else if (!LocationValidationRules.IsValidCode(state.Code))
+        {
+            errors["code"] = ["Code format is invalid."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.Name))
+        {
+            errors["name"] = ["Name is required."];
+        }
+        else if (state.Name.Length > 150)
+        {
+            errors["name"] = ["Name must be 150 characters or fewer."];
+        }
+
+        if (state.Description is { Length: > 500 })
+        {
+            errors["description"] = ["Description must be 500 characters or fewer."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        LocationGroupPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "concurrencyToken"))
+        {
+            return ValidationFailure(path, "The concurrency token cannot be patched; send the current token in the If-Match header.");
+        }
+
+        if (IsSegment(property, "isActive"))
+        {
+            return ValidationFailure(path, "Activation is not patchable; use the /activate and /inactivate endpoints.");
+        }
+
+        if (IsSegment(property, "levelOrder"))
+        {
+            return ValidationFailure(path, "The level order is immutable and cannot be patched.");
+        }
+
+        if (IsSegment(property, "parentId") || IsSegment(property, "parentPublicId"))
+        {
+            return ValidationFailure(path, "The parent is not patchable; use the /move endpoint.");
+        }
+
+        if (IsSegment(property, "code"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Code cannot be removed.");
+            }
+
+            state.Code = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "name"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Name cannot be removed.");
+            }
+
+            state.Name = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "description"))
+        {
+            state.Description = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadRequiredString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new LocationGroupPatchValueException(path, "Value is required.");
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString() ?? string.Empty
+            : throw new LocationGroupPatchValueException(path, "Value must be a string.");
+    }
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new LocationGroupPatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
 
 internal static class LocationGroupLookup

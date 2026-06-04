@@ -2701,6 +2701,121 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task LocationLevels_GetById_ShouldReturnLevel()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 2);
+
+        var getResponse = await client.GetAsync($"/api/v1/location-levels/{level.Id}");
+        getResponse.EnsureSuccessStatusCode();
+        var payload = await getResponse.Content.ReadFromJsonAsync<LocationLevelItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(level.Id, payload!.Id);
+        Assert.Equal(2, payload.LevelOrder);
+    }
+
+    [Fact]
+    public async Task LocationLevels_Patch_WithValidIfMatch_ShouldRenameAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 2);
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-levels/{level.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/displayName", value = "Region" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{level.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = await patchResponse.Content.ReadFromJsonAsync<LocationLevelItem>(JsonOptions);
+        Assert.NotNull(patched);
+        Assert.Equal("Region", patched!.DisplayName);
+        Assert.Equal(2, patched.LevelOrder);
+        Assert.NotEqual(level.ConcurrencyToken, patched.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task LocationLevels_Patch_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 2);
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-levels/{level.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/displayName", value = "Sin If-Match" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task LocationLevels_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 2);
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-levels/{level.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/displayName", value = "Token viejo" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(patchResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task LocationLevels_Patch_WithStructuralFlagPath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var level = await GetLocationLevelAsync(client, scenario.TenantId, levelOrder: 2);
+
+        // Display-name-only PATCH: the structural flags are validated as a unit by PUT, so a
+        // /isRequired op must be rejected with 400.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-levels/{level.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/isRequired", value = true } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{level.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    private async Task<LocationLevelItem> GetLocationLevelAsync(HttpClient client, Guid tenantId, int levelOrder)
+    {
+        var response = await client.GetAsync($"/api/v1/companies/{tenantId}/location-levels");
+        response.EnsureSuccessStatusCode();
+        var levels = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<LocationLevelItem>>(JsonOptions);
+        Assert.NotNull(levels);
+        return Assert.Single(levels!, level => level.LevelOrder == levelOrder);
+    }
+
+    [Fact]
     public async Task LocationGroups_Create_ShouldReturnCreatedGroup()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -2837,12 +2952,137 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         createCenterResponse.EnsureSuccessStatusCode();
 
-        var response = await client.PatchAsJsonAsync($"/api/v1/location-groups/{group.Id}/inactivate", new
+        var response = await client.PatchJsonAsync($"/api/v1/location-groups/{group.Id}/inactivate", new
         {
             concurrencyToken = group.ConcurrencyToken
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "LOCATION_GROUP_HAS_ACTIVE_WORK_CENTERS");
+    }
+
+    [Fact]
+    public async Task LocationGroups_GetById_ShouldReturnGroup()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var group = await CreateLocationGroupForPatchAsync(client, scenario.TenantId, "LG-GET");
+
+        var getResponse = await client.GetAsync($"/api/v1/location-groups/{group.Id}");
+        getResponse.EnsureSuccessStatusCode();
+        var payload = await getResponse.Content.ReadFromJsonAsync<LocationGroupItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(group.Id, payload!.Id);
+        Assert.Equal("LG-GET", payload.Code);
+    }
+
+    [Fact]
+    public async Task LocationGroups_Patch_WithValidIfMatch_ShouldApplyScalarChangesAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var group = await CreateLocationGroupForPatchAsync(client, scenario.TenantId, "LG-PATCH");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-groups/{group.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[]
+                {
+                    new { op = "replace", path = "/name", value = "Zona Patcheada" },
+                    new { op = "replace", path = "/description", value = "Via JSON Patch" }
+                }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{group.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = await patchResponse.Content.ReadFromJsonAsync<LocationGroupItem>(JsonOptions);
+        Assert.NotNull(patched);
+        Assert.Equal("Zona Patcheada", patched!.Name);
+        Assert.Equal("LG-PATCH", patched.Code);
+        Assert.NotEqual(group.ConcurrencyToken, patched.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task LocationGroups_Patch_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var group = await CreateLocationGroupForPatchAsync(client, scenario.TenantId, "LG-NOMATCH");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-groups/{group.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Sin If-Match" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task LocationGroups_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var group = await CreateLocationGroupForPatchAsync(client, scenario.TenantId, "LG-PSTALE");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-groups/{group.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Token viejo" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(patchResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task LocationGroups_Patch_WithLevelOrderPath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var group = await CreateLocationGroupForPatchAsync(client, scenario.TenantId, "LG-NOLEVEL");
+
+        // Scalar-only PATCH: the level order is immutable and the parent moves via /move,
+        // so a /levelOrder op must be rejected with 400.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/location-groups/{group.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/levelOrder", value = 3 } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{group.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    private async Task<LocationGroupItem> CreateLocationGroupForPatchAsync(HttpClient client, Guid tenantId, string code)
+    {
+        var response = await client.PostJsonAsync($"/api/v1/companies/{tenantId}/location-groups", new
+        {
+            levelOrder = 1,
+            code,
+            name = "Zona Centro",
+            parentPublicId = (Guid?)null,
+            description = "Grupo inicial"
+        });
+        response.EnsureSuccessStatusCode();
+        var group = await response.Content.ReadFromJsonAsync<LocationGroupItem>(JsonOptions);
+        return group!;
     }
 
     [Fact]
@@ -2879,12 +3119,136 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         });
         createCenterResponse.EnsureSuccessStatusCode();
 
-        var response = await client.PatchAsJsonAsync($"/api/v1/work-center-types/{workCenterType.Id}/inactivate", new
+        var response = await client.PatchJsonAsync($"/api/v1/work-center-types/{workCenterType.Id}/inactivate", new
         {
             concurrencyToken = workCenterType.ConcurrencyToken
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "WORK_CENTER_TYPE_IN_USE");
+    }
+
+    [Fact]
+    public async Task WorkCenterTypes_GetById_ShouldReturnType()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var workCenterType = await CreateWorkCenterTypeForPatchAsync(client, scenario.TenantId, "WCT-GET");
+
+        var getResponse = await client.GetAsync($"/api/v1/work-center-types/{workCenterType.Id}");
+        getResponse.EnsureSuccessStatusCode();
+        var payload = await getResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal(workCenterType.Id, payload!.Id);
+        Assert.Equal("WCT-GET", payload.Code);
+    }
+
+    [Fact]
+    public async Task WorkCenterTypes_Patch_WithValidIfMatch_ShouldApplyScalarChangesAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var workCenterType = await CreateWorkCenterTypeForPatchAsync(client, scenario.TenantId, "WCT-PATCH");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/work-center-types/{workCenterType.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new object[]
+                {
+                    new { op = "replace", path = "/name", value = "Tipo Patcheado" },
+                    new { op = "replace", path = "/requiresGeo", value = true }
+                }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{workCenterType.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = await patchResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
+        Assert.NotNull(patched);
+        Assert.Equal("Tipo Patcheado", patched!.Name);
+        Assert.Equal("WCT-PATCH", patched.Code);
+        Assert.NotEqual(workCenterType.ConcurrencyToken, patched.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task WorkCenterTypes_Patch_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var workCenterType = await CreateWorkCenterTypeForPatchAsync(client, scenario.TenantId, "WCT-NOMATCH");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/work-center-types/{workCenterType.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Sin If-Match" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task WorkCenterTypes_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var workCenterType = await CreateWorkCenterTypeForPatchAsync(client, scenario.TenantId, "WCT-PSTALE");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/work-center-types/{workCenterType.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Token viejo" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(patchResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task WorkCenterTypes_Patch_WithIsActivePath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var workCenterType = await CreateWorkCenterTypeForPatchAsync(client, scenario.TenantId, "WCT-NOISACTIVE");
+
+        // Scalar-only PATCH: /isActive is not patchable (use /activate and /inactivate).
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/work-center-types/{workCenterType.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/isActive", value = false } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{workCenterType.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    private async Task<WorkCenterTypeItem> CreateWorkCenterTypeForPatchAsync(HttpClient client, Guid tenantId, string code)
+    {
+        var typeResponse = await client.PostJsonAsync($"/api/v1/companies/{tenantId}/work-center-types", new
+        {
+            code,
+            name = "Agency",
+            requiresAddress = true,
+            requiresGeo = false,
+            allowsBiometric = true
+        });
+        typeResponse.EnsureSuccessStatusCode();
+        var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
+        return workCenterType!;
     }
 
     [Fact]
