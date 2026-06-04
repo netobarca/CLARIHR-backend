@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Domain.Companies;
@@ -170,24 +171,28 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
         Assert.Equal(created.PublicId, fetched!.PublicId);
         Assert.Equal(created.ModuleKeys.OrderBy(static key => key), fetched.ModuleKeys.OrderBy(static key => key));
 
-        var updateResponse = await client.PutJsonAsync($"/api/platform/commercial-addons/{created.PublicId}", new
+        // The create exposes the current concurrency token in the ETag header.
+        Assert.Equal($"\"{created.ConcurrencyToken:D}\"", createResponse.Headers.ETag!.Tag);
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/platform/commercial-addons/{created.PublicId}")
         {
-            code = "ADDON-RECRUITING",
-            name = "Recruiting ATS Plus",
-            description = "Recruiting addon updated",
-            type = CommercialAddonType.Specialized,
-            billingModel = CommercialAddonBillingModel.PerVolume,
-            measurementUnit = "vacante",
-            unitPrice = 1.5m,
-            minimumQuantity = 10,
-            minimumMonthlyFee = (decimal?)null,
-            moduleKeys = new[]
+            Content = JsonBody(new
             {
-                CommercialModuleKeys.PersonnelFiles
-            },
-            periodicity = CommercialAddonPeriodicity.Annual,
-            concurrencyToken = created.ConcurrencyToken
-        });
+                code = "ADDON-RECRUITING",
+                name = "Recruiting ATS Plus",
+                description = "Recruiting addon updated",
+                type = CommercialAddonType.Specialized,
+                billingModel = CommercialAddonBillingModel.PerVolume,
+                measurementUnit = "vacante",
+                unitPrice = 1.5m,
+                minimumQuantity = 10,
+                minimumMonthlyFee = (decimal?)null,
+                moduleKeys = new[] { CommercialModuleKeys.PersonnelFiles },
+                periodicity = CommercialAddonPeriodicity.Annual
+            })
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{created.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
         updateResponse.EnsureSuccessStatusCode();
 
         var updated = await updateResponse.Content.ReadFromJsonAsync<CommercialAddonEnvelope>(JsonOptions);
@@ -200,19 +205,22 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
         Assert.Equal(CommercialAddonPeriodicity.Annual, updated.Periodicity);
         Assert.Equal(1, updated.ModuleCount);
         Assert.Equal([CommercialModuleKeys.PersonnelFiles], updated.ModuleKeys.ToArray());
+        Assert.NotEqual(created.ConcurrencyToken, updated.ConcurrencyToken);
+        Assert.Equal($"\"{updated.ConcurrencyToken:D}\"", updateResponse.Headers.ETag!.Tag);
 
-        var activateResponse = await client.PatchAsJsonAsync(
-            $"/api/platform/commercial-addons/{created.PublicId}/activate",
-            new { concurrencyToken = updated.ConcurrencyToken });
+        using var activateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/platform/commercial-addons/{created.PublicId}/activate");
+        activateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated.ConcurrencyToken}\"");
+        var activateResponse = await client.SendAsync(activateRequest);
         activateResponse.EnsureSuccessStatusCode();
 
         var activated = await activateResponse.Content.ReadFromJsonAsync<CommercialAddonEnvelope>(JsonOptions);
         Assert.NotNull(activated);
         Assert.Equal(CommercialAddonStatus.Active, activated!.Status);
+        Assert.Equal($"\"{activated.ConcurrencyToken:D}\"", activateResponse.Headers.ETag!.Tag);
 
-        var inactivateResponse = await client.PatchAsJsonAsync(
-            $"/api/platform/commercial-addons/{created.PublicId}/inactivate",
-            new { concurrencyToken = activated.ConcurrencyToken });
+        using var inactivateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/platform/commercial-addons/{created.PublicId}/inactivate");
+        inactivateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{activated.ConcurrencyToken}\"");
+        var inactivateResponse = await client.SendAsync(inactivateRequest);
         inactivateResponse.EnsureSuccessStatusCode();
 
         var inactivated = await inactivateResponse.Content.ReadFromJsonAsync<CommercialAddonEnvelope>(JsonOptions);
@@ -232,6 +240,103 @@ public sealed class BackofficeCommercialAddonsIntegrationTests(BackofficeIntegra
         Assert.True(await dbContext.PlatformAuditLogs.AnyAsync(log =>
             log.EntityId == created.PublicId &&
             log.EventType == AuditEventTypes.CommercialAddonInactivated));
+    }
+
+    [Fact]
+    public async Task CommercialAddons_Update_WithoutIfMatch_ShouldReturn400()
+    {
+        using var client = await CreateAdminClientAsync();
+        var created = await CreateRecruitingAddonAsync(client);
+
+        var response = await client.PutJsonAsync($"/api/platform/commercial-addons/{created.PublicId}", new
+        {
+            code = "ADDON-RECRUITING",
+            name = "Recruiting ATS Plus",
+            description = (string?)null,
+            type = CommercialAddonType.Specialized,
+            billingModel = CommercialAddonBillingModel.PerSeat,
+            measurementUnit = "recruiter seat",
+            unitPrice = 12.5m,
+            minimumQuantity = 2,
+            minimumMonthlyFee = (decimal?)null,
+            moduleKeys = new[] { CommercialModuleKeys.PersonnelFiles },
+            periodicity = CommercialAddonPeriodicity.Monthly
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CommercialAddons_Update_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        using var client = await CreateAdminClientAsync();
+        var created = await CreateRecruitingAddonAsync(client);
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/platform/commercial-addons/{created.PublicId}")
+        {
+            Content = JsonBody(new
+            {
+                code = "ADDON-RECRUITING",
+                name = "Recruiting ATS Plus",
+                description = (string?)null,
+                type = CommercialAddonType.Specialized,
+                billingModel = CommercialAddonBillingModel.PerSeat,
+                measurementUnit = "recruiter seat",
+                unitPrice = 12.5m,
+                minimumQuantity = 2,
+                minimumMonthlyFee = (decimal?)null,
+                moduleKeys = new[] { CommercialModuleKeys.PersonnelFiles },
+                periodicity = CommercialAddonPeriodicity.Monthly
+            })
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var response = await client.SendAsync(request);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    private async Task<HttpClient> CreateAdminClientAsync()
+    {
+        await factory.ResetDatabaseAsync(dbContext =>
+            PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                AdminUserId,
+                "platform.addons@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin));
+
+        return factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(AdminUserId));
+    }
+
+    private async Task<CommercialAddonEnvelope> CreateRecruitingAddonAsync(HttpClient client)
+    {
+        var createResponse = await client.PostJsonAsync("/api/platform/commercial-addons", new
+        {
+            code = "ADDON-RECRUITING",
+            name = "Recruiting ATS",
+            description = "Recruiting seat addon",
+            type = CommercialAddonType.Specialized,
+            billingModel = CommercialAddonBillingModel.PerSeat,
+            measurementUnit = "recruiter seat",
+            unitPrice = 12.5m,
+            minimumQuantity = 2,
+            minimumMonthlyFee = (decimal?)null,
+            moduleKeys = new[] { CommercialModuleKeys.JobProfiles },
+            periodicity = CommercialAddonPeriodicity.Monthly,
+            status = CommercialAddonStatus.Draft
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        return (await createResponse.Content.ReadFromJsonAsync<CommercialAddonEnvelope>(JsonOptions))!;
+    }
+
+    private static StringContent JsonBody(object body) =>
+        new(JsonSerializer.Serialize(body, JsonOptions), Encoding.UTF8, "application/json");
+
+    private static async Task AssertProblemDetailsAsync(HttpResponseMessage response, HttpStatusCode expectedStatus, string expectedCode)
+    {
+        Assert.Equal(expectedStatus, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(expectedCode, document.RootElement.GetProperty("code").GetString());
     }
 
     private sealed record PagedResponseEnvelope<TItem>(

@@ -231,6 +231,11 @@ paths:
       responses:
         '201':
           description: Commercial add-on created successfully.
+          headers:
+            ETag:
+              description: Current concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -1986,6 +1991,12 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the add-on, quoted as an HTTP ETag.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1995,6 +2006,11 @@ paths:
       responses:
         '200':
           description: Commercial add-on updated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -2044,15 +2060,20 @@ paths:
         schema:
           type: string
           format: uuid
-      requestBody:
+      - name: If-Match
+        in: header
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CommercialAddonConcurrencyRequest'
+        description: Current `concurrencyToken` of the add-on, quoted as an HTTP ETag.
+        schema:
+          type: string
       responses:
         '200':
           description: Commercial add-on activated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -2102,15 +2123,20 @@ paths:
         schema:
           type: string
           format: uuid
-      requestBody:
+      - name: If-Match
+        in: header
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CommercialAddonConcurrencyRequest'
+        description: Current `concurrencyToken` of the add-on, quoted as an HTTP ETag.
+        schema:
+          type: string
       responses:
         '200':
           description: Commercial add-on inactivated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -3983,14 +4009,6 @@ components:
       - PerActiveEmployee
       - PerSeat
       - PerVolume
-    CommercialAddonConcurrencyRequest:
-      type: object
-      required:
-      - concurrencyToken
-      properties:
-        concurrencyToken:
-          type: string
-          format: uuid
     CommercialAddonPeriodicity:
       type: string
       enum:
@@ -5910,7 +5928,6 @@ components:
       - unitPrice
       - moduleKeys
       - periodicity
-      - concurrencyToken
       properties:
         code:
           type: string
@@ -5950,9 +5967,6 @@ components:
             type: string
         periodicity:
           $ref: '#/components/schemas/CommercialAddonPeriodicity'
-        concurrencyToken:
-          type: string
-          format: uuid
     UpdateCommercialPlanRequest:
       type: object
       required:

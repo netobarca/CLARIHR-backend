@@ -1,5 +1,6 @@
+using CLARIHR.Api.Common.Binders;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
-using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CommercialAddons;
 using CLARIHR.Application.Features.CommercialAddons.Common;
@@ -7,21 +8,24 @@ using CLARIHR.Backoffice.Api.Common;
 using CLARIHR.Domain.Companies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Backoffice.Api.Controllers;
 
 [ApiController]
 [Authorize]
 [Route("api/platform/commercial-addons")]
+[Tags("Commercial Addons")]
 public sealed class CommercialAddonsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType<PagedResponse<CommercialAddonSummaryResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "Search commercial add-ons",
+        Description = "Returns a paged list of global commercial add-ons.")]
     public async Task<ActionResult<PagedResponse<CommercialAddonSummaryResponse>>> Search(
         [FromQuery] CommercialAddonType? type,
         [FromQuery] CommercialAddonBillingModel? billingModel,
@@ -40,9 +44,10 @@ public sealed class CommercialAddonsController(
 
     [HttpGet("{publicId:guid}")]
     [ProducesResponseType<CommercialAddonResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a commercial add-on",
+        Description = "Returns a single commercial add-on. The current `concurrencyToken` is included in the body for use in the `If-Match` header of a subsequent update.")]
     public async Task<ActionResult<CommercialAddonResponse>> GetById(
         Guid publicId,
         CancellationToken cancellationToken = default)
@@ -53,10 +58,10 @@ public sealed class CommercialAddonsController(
 
     [HttpPost]
     [ProducesResponseType<CommercialAddonResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.Conflict)]
+    [SwaggerOperation(
+        Summary = "Create a commercial add-on",
+        Description = "Creates a global commercial add-on. Returns `201`; the current `concurrencyToken` is included in the body and the `ETag` header.")]
     public async Task<ActionResult<CommercialAddonResponse>> Create(
         [FromBody] CreateCommercialAddonRequest request,
         CancellationToken cancellationToken = default)
@@ -77,23 +82,22 @@ public sealed class CommercialAddonsController(
                 request.Status),
             cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return this.ToActionResult(Result<CommercialAddonResponse>.Failure(result.Error));
-        }
-
-        return CreatedAtAction(nameof(GetById), new { publicId = result.Value.PublicId }, result.Value);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetById),
+            value => new { publicId = value.PublicId },
+            value => value.ConcurrencyToken);
     }
 
     [HttpPut("{publicId:guid}")]
     [ProducesResponseType<CommercialAddonResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Update a commercial add-on",
+        Description = "Replaces the editable fields. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<CommercialAddonResponse>> Update(
         Guid publicId,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateCommercialAddonRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -111,48 +115,46 @@ public sealed class CommercialAddonsController(
                 request.MinimumMonthlyFee,
                 request.ModuleKeys,
                 request.Periodicity,
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("{publicId:guid}/activate")]
     [ProducesResponseType<CommercialAddonResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Activate a commercial add-on",
+        Description = "Activates the add-on. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<CommercialAddonResponse>> Activate(
         Guid publicId,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ActivateCommercialAddonCommand(publicId, request.ConcurrencyToken),
+            new ActivateCommercialAddonCommand(publicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("{publicId:guid}/inactivate")]
     [ProducesResponseType<CommercialAddonResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Inactivate a commercial add-on",
+        Description = "Inactivates the add-on. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<CommercialAddonResponse>> Inactivate(
         Guid publicId,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new InactivateCommercialAddonCommand(publicId, request.ConcurrencyToken),
+            new InactivateCommercialAddonCommand(publicId, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     public sealed record CreateCommercialAddonRequest(
@@ -180,8 +182,5 @@ public sealed class CommercialAddonsController(
         int? MinimumQuantity,
         decimal? MinimumMonthlyFee,
         IReadOnlyCollection<string> ModuleKeys,
-        CommercialAddonPeriodicity Periodicity,
-        Guid ConcurrencyToken);
-
-    public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
+        CommercialAddonPeriodicity Periodicity);
 }
