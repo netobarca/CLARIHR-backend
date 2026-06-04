@@ -969,7 +969,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(listPayload);
         var target = Assert.Single(listPayload!.Items);
 
-        var inactivateResponse = await client.PatchAsJsonAsync(
+        var inactivateResponse = await client.PatchJsonAsync(
             $"/api/v1/legal-representatives/{target.Id}/inactivate",
             new { concurrencyToken = target.ConcurrencyToken });
 
@@ -977,6 +977,128 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             inactivateResponse,
             HttpStatusCode.Conflict,
             "LEGAL_REPRESENTATIVE_ACTIVE_MIN_REQUIRED");
+    }
+
+    [Fact]
+    public async Task LegalRepresentatives_Patch_WithValidIfMatch_ShouldApplyDescriptiveChangesAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "LegalRepresentatives.Admin"));
+
+        var rep = await CreateLegalRepresentativeForPatchAsync(client, scenario.TenantId, "P-PATCH-001");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/legal-representatives/{rep.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[]
+                {
+                    new { op = "replace", path = "/firstName", value = "Patricia" },
+                    new { op = "replace", path = "/phone", value = "+50377777777" }
+                }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{rep.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = await patchResponse.Content.ReadFromJsonAsync<LegalRepresentativeItem>(JsonOptions);
+        Assert.NotNull(patched);
+        Assert.Equal("Patricia", patched!.FirstName);
+        Assert.Equal("P-PATCH-001", patched.DocumentNumber);
+        Assert.NotEqual(rep.ConcurrencyToken, patched.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task LegalRepresentatives_Patch_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "LegalRepresentatives.Admin"));
+
+        var rep = await CreateLegalRepresentativeForPatchAsync(client, scenario.TenantId, "P-PATCH-002");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/legal-representatives/{rep.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/firstName", value = "Sin If-Match" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task LegalRepresentatives_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "LegalRepresentatives.Admin"));
+
+        var rep = await CreateLegalRepresentativeForPatchAsync(client, scenario.TenantId, "P-PATCH-003");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/legal-representatives/{rep.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/firstName", value = "Token viejo" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(patchResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task LegalRepresentatives_Patch_WithDocumentNumberPath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(scenario.ActorUserId, scenario.TenantId, "LegalRepresentatives.Admin"));
+
+        var rep = await CreateLegalRepresentativeForPatchAsync(client, scenario.TenantId, "P-PATCH-004");
+
+        // Descriptive-only PATCH: the legal identity (document) is not patchable (uniqueness-checked
+        // via PUT), so a /documentNumber op must be rejected with 400.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/legal-representatives/{rep.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/documentNumber", value = "P-OTHER-999" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{rep.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    private async Task<LegalRepresentativeItem> CreateLegalRepresentativeForPatchAsync(HttpClient client, Guid tenantId, string documentNumber)
+    {
+        var response = await client.PostJsonAsync($"/api/v1/companies/{tenantId}/legal-representatives", new
+        {
+            firstName = "Carla",
+            lastName = "Lopez",
+            documentType = "Passport",
+            documentNumber,
+            positionTitle = "Apoderada Legal",
+            representationType = "AttorneyInFact",
+            authorityDescription = "Representacion especial",
+            appointmentInstrument = "Poder especial",
+            appointmentDateUtc = DateTime.UtcNow.Date,
+            effectiveFromUtc = DateTime.UtcNow.Date,
+            effectiveToUtc = (DateTime?)null,
+            email = "carla.lopez@test.com",
+            phone = "+50371111111",
+            isPrimary = false
+        });
+        response.EnsureSuccessStatusCode();
+        var rep = await response.Content.ReadFromJsonAsync<LegalRepresentativeItem>(JsonOptions);
+        return rep!;
     }
 
     [Fact]
@@ -3576,7 +3698,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var root = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
         var child = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia", root.Id);
 
-        var response = await client.PatchAsJsonAsync($"/api/v1/org-units/{root.Id}/move", new
+        var response = await client.PatchJsonAsync($"/api/v1/org-units/{root.Id}/move", new
         {
             newParentPublicId = child.Id,
             sortOrder = (int?)null,
@@ -3595,12 +3717,106 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var root = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-001", "Direccion General", "Direccion");
         _ = await CreateOrgUnitAsync(client, scenario.TenantId, "GER-001", "Gerencia Finanzas", "Gerencia", root.Id);
 
-        var response = await client.PatchAsJsonAsync($"/api/v1/org-units/{root.Id}/inactivate", new
+        var response = await client.PatchJsonAsync($"/api/v1/org-units/{root.Id}/inactivate", new
         {
             concurrencyToken = root.ConcurrencyToken
         });
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "ORG_UNIT_HAS_ACTIVE_CHILDREN");
+    }
+
+    [Fact]
+    public async Task OrgUnits_Patch_WithValidIfMatch_ShouldApplyDescriptiveChangesAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var unit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-PATCH", "Direccion General", "Direccion");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/org-units/{unit.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new object[]
+                {
+                    new { op = "replace", path = "/name", value = "Direccion Patcheada" },
+                    new { op = "replace", path = "/sortOrder", value = 7 }
+                }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{unit.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = await patchResponse.Content.ReadFromJsonAsync<OrgUnitItem>(JsonOptions);
+        Assert.NotNull(patched);
+        Assert.Equal("Direccion Patcheada", patched!.Name);
+        Assert.Equal("DIR-PATCH", patched.Code);
+        Assert.NotEqual(unit.ConcurrencyToken, patched.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task OrgUnits_Patch_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var unit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-NOMATCH", "Direccion General", "Direccion");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/org-units/{unit.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Sin If-Match" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task OrgUnits_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var unit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-PSTALE", "Direccion General", "Direccion");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/org-units/{unit.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Token viejo" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(patchResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task OrgUnits_Patch_WithCodePath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateOrgUnitAdminContext(scenario));
+
+        var unit = await CreateOrgUnitAsync(client, scenario.TenantId, "DIR-NOCODE", "Direccion General", "Direccion");
+
+        // Descriptive-only PATCH: the code is not patchable (uniqueness-checked via PUT), so a
+        // /code op must be rejected with 400.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/org-units/{unit.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/code", value = "DIR-OTHER" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{unit.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
     }
 
     [Fact]

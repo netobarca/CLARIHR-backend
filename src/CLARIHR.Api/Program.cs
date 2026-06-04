@@ -10,7 +10,9 @@ using CLARIHR.Application;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.LegalRepresentatives.Common;
 using CLARIHR.Application.Features.Locations.Common;
+using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
@@ -333,6 +335,42 @@ builder.Services.AddAuthorization(options =>
             context,
             LocationPermissionCodes.Admin,
             LocationPermissionCodes.ManageAdministration)));
+
+    // Legal Representatives — declarative policies kept a superset of the precise
+    // LegalRepresentativeAuthorizationService handler gate (EnsureCanReadAsync /
+    // EnsureCanManageAsync) so a legitimate reader/manager is never falsely 403'd.
+    options.AddPolicy(LegalRepresentativePolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            LegalRepresentativePermissionCodes.Read,
+            LegalRepresentativePermissionCodes.Admin,
+            LegalRepresentativePermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(LegalRepresentativePolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            LegalRepresentativePermissionCodes.Admin,
+            LegalRepresentativePermissionCodes.ManageAdministration)));
+
+    // Org Units — declarative policies kept a superset of the precise OrgUnitAuthorizationService
+    // handler gate (EnsureCanReadAsync / EnsureCanManageAsync) so a legitimate reader/manager is
+    // never falsely 403'd.
+    options.AddPolicy(OrgUnitPolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            OrgUnitPermissionCodes.Read,
+            OrgUnitPermissionCodes.Admin,
+            OrgUnitPermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(OrgUnitPolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            OrgUnitPermissionCodes.Admin,
+            OrgUnitPermissionCodes.ManageAdministration)));
 });
 
 // Emit the standard ProblemDetails contract (code/traceId/localized title) on policy-layer

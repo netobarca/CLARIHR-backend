@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Abstractions.OrgStructureCatalogs;
@@ -7,6 +8,7 @@ using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
@@ -167,6 +169,17 @@ public sealed record ActivateOrgUnitCommand(Guid OrgUnitId, Guid ConcurrencyToke
 
 public sealed record InactivateOrgUnitCommand(Guid OrgUnitId, Guid ConcurrencyToken) : ICommand<OrgUnitResponse>;
 
+public sealed record OrgUnitPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchOrgUnitCommand(
+    Guid OrgUnitId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<OrgUnitPatchOperation> Operations) : ICommand<OrgUnitResponse>;
+
 public sealed record GetOrgUnitTreeQuery(Guid CompanyId, Guid? RootId, int? Depth)
     : IQuery<IReadOnlyCollection<OrgUnitTreeNodeResponse>>;
 
@@ -285,6 +298,24 @@ internal sealed class InactivateOrgUnitCommandValidator : AbstractValidator<Inac
     {
         RuleFor(command => command.OrgUnitId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchOrgUnitCommandValidator : AbstractValidator<PatchOrgUnitCommand>
+{
+    public PatchOrgUnitCommandValidator()
+    {
+        RuleFor(command => command.OrgUnitId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -1021,6 +1052,325 @@ internal sealed class InactivateOrgUnitCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class PatchOrgUnitCommandHandler(
+    IOrgUnitAuthorizationService authorizationService,
+    IOrgUnitRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchOrgUnitCommand, OrgUnitResponse>
+{
+    public async Task<Result<OrgUnitResponse>> Handle(
+        PatchOrgUnitCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<OrgUnitResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<OrgUnitResponse>.Failure(authorizationResult.Error);
+        }
+
+        var orgUnit = await repository.GetByIdAsync(command.OrgUnitId, cancellationToken);
+        if (orgUnit is null)
+        {
+            return Result<OrgUnitResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.OrgUnitId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : OrgUnitErrors.OrgUnitNotFound);
+        }
+
+        if (orgUnit.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<OrgUnitResponse>.Failure(OrgUnitErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetResponseByIdAsync(orgUnit.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Org unit response could not be resolved before patch.");
+
+        var state = OrgUnitPatchState.From(before);
+
+        var applied = OrgUnitPatchApplier.Apply(command.Operations, state);
+        if (applied.IsFailure)
+        {
+            return Result<OrgUnitResponse>.Failure(applied.Error);
+        }
+
+        var validation = OrgUnitPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<OrgUnitResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<OrgUnitResponse>.Success(before);
+        }
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // Descriptive-only patch: code (uniqueness), the type/functional-area/manager FKs and the
+            // cost-center code (resolved/validated) are kept at their current — already valid —
+            // values, and the parent moves via /move. So the patch re-runs no code-conflict, no FK
+            // resolution and no cost-center validation. Only name/sortOrder/description change.
+            orgUnit.Update(
+                orgUnit.Code,
+                state.Name,
+                orgUnit.OrgUnitTypeCatalogItemId,
+                orgUnit.FunctionalAreaCatalogItemId,
+                state.SortOrder,
+                state.Description,
+                orgUnit.CostCenterCode,
+                orgUnit.ManagerEmployeeId);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetResponseByIdAsync(orgUnit.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Org unit response could not be resolved after patch.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    "ORG_UNIT_UPDATED",
+                    "OrgUnit",
+                    orgUnit.PublicId,
+                    orgUnit.Code,
+                    AuditActions.Update,
+                    $"Patched organization unit {orgUnit.Code}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<OrgUnitResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class OrgUnitPatchState
+{
+    public string Name { get; set; } = string.Empty;
+    public int? SortOrder { get; set; }
+    public string? Description { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static OrgUnitPatchState From(OrgUnitResponse response) =>
+        new()
+        {
+            Name = response.Name,
+            SortOrder = response.SortOrder,
+            Description = response.Description
+        };
+}
+
+internal sealed class OrgUnitPatchValueException(string path, string message) : Exception(message)
+{
+    public string Path { get; } = path;
+}
+
+internal static class OrgUnitPatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<OrgUnitPatchOperation> operations, OrgUnitPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root org unit properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (OrgUnitPatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(OrgUnitPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.Name))
+        {
+            errors["name"] = ["Name is required."];
+        }
+        else if (state.Name.Length > 150)
+        {
+            errors["name"] = ["Name must be 150 characters or fewer."];
+        }
+
+        if (state.SortOrder is < 0)
+        {
+            errors["sortOrder"] = ["Sort order must be greater than or equal to zero."];
+        }
+
+        if (state.Description is { Length: > 500 })
+        {
+            errors["description"] = ["Description must be 500 characters or fewer."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        OrgUnitPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "concurrencyToken"))
+        {
+            return ValidationFailure(path, "The concurrency token cannot be patched; send the current token in the If-Match header.");
+        }
+
+        if (IsSegment(property, "isActive"))
+        {
+            return ValidationFailure(path, "Activation is not patchable; use the /activate and /inactivate endpoints.");
+        }
+
+        if (IsSegment(property, "parentId") || IsSegment(property, "parentPublicId") || IsSegment(property, "parent"))
+        {
+            return ValidationFailure(path, "The parent is not patchable; use the /move endpoint.");
+        }
+
+        if (IsSegment(property, "code"))
+        {
+            return ValidationFailure(path, "The code is not patchable here; use PUT (it is uniqueness-checked).");
+        }
+
+        if (IsSegment(property, "orgUnitTypePublicId") || IsSegment(property, "orgUnitType") ||
+            IsSegment(property, "functionalAreaPublicId") || IsSegment(property, "functionalArea") ||
+            IsSegment(property, "managerEmployeePublicId") || IsSegment(property, "managerEmployeeId") ||
+            IsSegment(property, "costCenterCode"))
+        {
+            return ValidationFailure(path, "The type, functional area, manager and cost center are not patchable here; use PUT (they are resolved/validated).");
+        }
+
+        if (IsSegment(property, "name"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Name cannot be removed.");
+            }
+
+            state.Name = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "sortOrder"))
+        {
+            state.SortOrder = isRemove ? null : ReadNullableInt(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "description"))
+        {
+            state.Description = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static string ReadRequiredString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new OrgUnitPatchValueException(path, "Value is required.");
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString() ?? string.Empty
+            : throw new OrgUnitPatchValueException(path, "Value must be a string.");
+    }
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new OrgUnitPatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static int? ReadNullableInt(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.Number && value.Value.TryGetInt32(out var parsed)
+            ? parsed
+            : throw new OrgUnitPatchValueException(path, "Value must be an integer or null.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
 
 internal static class OrgUnitPolicyAdapter

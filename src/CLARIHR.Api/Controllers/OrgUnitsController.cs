@@ -2,31 +2,48 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Xml;
+using Asp.Versioning;
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.OrgUnits;
 using CLARIHR.Application.Features.OrgUnits.Common;
 using CLARIHR.Application.Features.Reports.Common;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
+[ApiVersion("1.0")]
 [Authorize]
+[Route("api/v{version:apiVersion}")]
+[Tags("Org Units")]
+[AuthorizationPolicySet(OrgUnitPolicies.Read, OrgUnitPolicies.Manage)]
 public sealed class OrgUnitsController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
-    [HttpGet("api/v1/companies/{companyId:guid}/org-units")]
+    [HttpGet("companies/{companyId:guid}/org-units")]
     [ProducesResponseType<PagedResponse<OrgUnitResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "List org units for a company",
+        Description = """
+            Returns a paginated list of organization units for the company, filterable by
+            `isActive`, `orgUnitTypeId`, `functionalAreaId`, `parentId` and free-text `q`. The
+            owning company is validated against the authenticated tenant. Set
+            `includeAllowedActions=true` to receive per-item read/manage flags. For the hierarchy
+            use the `/tree` endpoint.
+            """)]
     public async Task<ActionResult<PagedResponse<OrgUnitResponse>>> Search(
         Guid companyId,
         [FromQuery] bool? isActive,
@@ -46,11 +63,16 @@ public sealed class OrgUnitsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/org-units/{id:guid}")]
+    [HttpGet("org-units/{id:guid}")]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get an org unit by id",
+        Description = """
+            Returns a single organization unit by its public id. The owning company is resolved
+            from the authenticated tenant; a unit belonging to another tenant yields `404`. The
+            `concurrencyToken` is emitted as the `ETag` header on mutations.
+            """)]
     public async Task<ActionResult<OrgUnitResponse>> GetById(
         Guid id,
         CancellationToken cancellationToken = default)
@@ -59,12 +81,17 @@ public sealed class OrgUnitsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/companies/{companyId:guid}/org-units/tree")]
+    [HttpGet("companies/{companyId:guid}/org-units/tree")]
     [ProducesResponseType<IReadOnlyCollection<OrgUnitTreeNodeResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.NotFound)]
+    [SwaggerOperation(
+        Summary = "Get the org units tree",
+        Description = """
+            Returns the organization unit hierarchy for the company as a nested tree, optionally
+            scoped to a `rootId` and a `depth`. The owning company is validated against the
+            authenticated tenant; an unknown `rootId` yields `404`. This is the hierarchical
+            projection; the flat paginated list is served by the sibling list endpoint.
+            """)]
     public async Task<ActionResult<IReadOnlyCollection<OrgUnitTreeNodeResponse>>> Tree(
         Guid companyId,
         [FromQuery] Guid? rootId,
@@ -78,12 +105,16 @@ public sealed class OrgUnitsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/companies/{companyId:guid}/org-units/graph")]
+    [HttpGet("companies/{companyId:guid}/org-units/graph")]
     [ProducesResponseType<OrgUnitGraphResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.NotFound)]
+    [SwaggerOperation(
+        Summary = "Get the org units dependency graph (JSON)",
+        Description = """
+            Returns the nodes and edges of the organization unit graph for the company as JSON,
+            optionally scoped to a `rootId` and a `depth`. The owning company is validated against
+            the authenticated tenant.
+            """)]
     public async Task<ActionResult<OrgUnitGraphResponse>> Graph(
         Guid companyId,
         [FromQuery] Guid? rootId,
@@ -97,13 +128,17 @@ public sealed class OrgUnitsController(
         return this.ToActionResult(result);
     }
 
-    [HttpGet("api/v1/companies/{companyId:guid}/org-units/export")]
+    [HttpGet("companies/{companyId:guid}/org-units/export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "Export org units as a report",
+        Description = """
+            Exports the filtered organization units as a downloadable report in the requested
+            `format` (e.g. `xlsx`; an unknown format yields `400`). The same filters as the list
+            endpoint apply. The export is bounded by the synchronous read limit and audited.
+            """)]
     public async Task<IActionResult> Export(
         Guid companyId,
         [FromQuery] string format = "xlsx",
@@ -144,13 +179,18 @@ public sealed class OrgUnitsController(
             cancellationToken);
     }
 
-    [HttpGet("api/v1/companies/{companyId:guid}/org-units/diagram-export")]
+    [HttpGet("companies/{companyId:guid}/org-units/diagram-export")]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.NotFound)]
+    [SwaggerOperation(
+        Summary = "Export the org units diagram",
+        Description = """
+            Exports the organization unit graph as a downloadable file in the requested `format`
+            (`graphml`, `json` or `dot`; an unknown format yields `400`). Scope is controllable via
+            `rootId` and `depth`. The result is capped at the configured maximum node count (`413`
+            if exceeded) and the export is audited.
+            """)]
     public async Task<IActionResult> DiagramExport(
         Guid companyId,
         [FromQuery] string format = "graphml",
@@ -220,14 +260,18 @@ public sealed class OrgUnitsController(
         return this.ToActionResult(Result<OrgUnitGraphResponse>.Failure(ReportPolicyErrors.FormatNotSupported)).Result!;
     }
 
-    [HttpPost("api/v1/companies/{companyId:guid}/org-units")]
+    [HttpPost("companies/{companyId:guid}/org-units")]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Create an org unit",
+        Description = """
+            Creates an organization unit under the company and returns `201 Created` with the
+            `Location` header pointing to the new resource and the `ETag` header carrying its
+            initial `concurrencyToken`. The type, optional functional area, optional parent and
+            optional manager are referenced by public id; the cost center by code. A duplicate code
+            yields `409`; an invalid cost center yields `422`; a depth/cycle violation yields `409`.
+            """)]
     public async Task<ActionResult<OrgUnitResponse>> Create(
         Guid companyId,
         [FromBody] CreateOrgUnitRequest request,
@@ -247,21 +291,30 @@ public sealed class OrgUnitsController(
                 request.ManagerEmployeePublicId),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(Result<OrgUnitResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+        // The PublicContractRouteConvention rewrites the GetById route token `{id}` to
+        // `{publicId}`, so the Location route value MUST be keyed `publicId` (not `id`).
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetById),
+            value => new { publicId = value.Id },
+            value => value.ConcurrencyToken);
     }
 
-    [HttpPut("api/v1/org-units/{id:guid}")]
+    [HttpPut("org-units/{id:guid}")]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Update an org unit",
+        Description = """
+            Replaces the editable fields of an organization unit (code, name, type, functional
+            area, sort order, description, cost center, manager). The parent is changed via
+            `/move`. Requires the current `concurrencyToken` in the `If-Match` header (missing →
+            `400`, stale → `409`). A duplicate code yields `409`; an invalid cost center yields
+            `422`. The refreshed token is returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<OrgUnitResponse>> Update(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateOrgUnitRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -276,67 +329,112 @@ public sealed class OrgUnitsController(
                 request.Description,
                 request.CostCenterCode,
                 request.ManagerEmployeePublicId,
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/org-units/{id:guid}/move")]
+    [HttpPatch("org-units/{id:guid}")]
+    [Consumes("application/json-patch+json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Patch an org unit",
+        Description = """
+            Applies a partial update using JSON Patch (RFC 6902), media type
+            `application/json-patch+json`. Patchable descriptive paths: `/name`, `/sortOrder`,
+            `/description`. The code (uniqueness-checked), the type/functional-area/manager
+            references and the cost center (resolved/validated) are changed via PUT; the parent via
+            `/move`; activation via `/activate` and `/inactivate`. Requires the current
+            `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The
+            refreshed token is returned in the body and the `ETag` header.
+            """)]
+    public async Task<ActionResult<OrgUnitResponse>> Patch(
+        Guid id,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<PatchOrgUnitRequest> patchDoc,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new PatchOrgUnitCommand(
+                id,
+                concurrencyToken,
+                JsonPatchOperationMapper.Map(
+                    patchDoc,
+                    static (op, path, from, value) => new OrgUnitPatchOperation(op, path, from, value))),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpPatch("org-units/{id:guid}/move")]
+    [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Move an org unit to another parent",
+        Description = """
+            Reparents the organization unit (by new parent public id) and optionally sets its sort
+            order. A move that would create a cycle or exceed the depth limit yields `409`. Requires
+            the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale →
+            `409`). The refreshed token is returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<OrgUnitResponse>> Move(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] MoveOrgUnitRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new MoveOrgUnitCommand(id, request.NewParentPublicId, request.SortOrder, request.ConcurrencyToken),
+            new MoveOrgUnitCommand(id, request.NewParentPublicId, request.SortOrder, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/org-units/{id:guid}/activate")]
+    [HttpPatch("org-units/{id:guid}/activate")]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Activate an org unit",
+        Description = """
+            Reactivates an inactive organization unit. Requires the current `concurrencyToken` in
+            the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned
+            in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<OrgUnitResponse>> Activate(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ActivateOrgUnitCommand(id, request.ConcurrencyToken),
+            new ActivateOrgUnitCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
-    [HttpPatch("api/v1/org-units/{id:guid}/inactivate")]
+    [HttpPatch("org-units/{id:guid}/inactivate")]
     [ProducesResponseType<OrgUnitResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Command)]
+    [SwaggerOperation(
+        Summary = "Inactivate an org unit",
+        Description = """
+            Deactivates (soft-delete) an organization unit. Fails with `409` if it still has active
+            child units. Requires the current `concurrencyToken` in the `If-Match` header (missing →
+            `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<OrgUnitResponse>> Inactivate(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new InactivateOrgUnitCommand(id, request.ConcurrencyToken),
+            new InactivateOrgUnitCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     private static string BuildGraphMl(OrgUnitGraphResponse graph)
@@ -470,10 +568,14 @@ public sealed class OrgUnitsController(
         int? SortOrder,
         string? Description,
         string? CostCenterCode,
-        Guid? ManagerEmployeePublicId,
-        Guid ConcurrencyToken);
+        Guid? ManagerEmployeePublicId);
 
-    public sealed record MoveOrgUnitRequest(Guid? NewParentPublicId, int? SortOrder, Guid ConcurrencyToken);
+    public sealed record MoveOrgUnitRequest(Guid? NewParentPublicId, int? SortOrder);
 
-    public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
+    public sealed class PatchOrgUnitRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public int? SortOrder { get; set; }
+        public string? Description { get; set; }
+    }
 }

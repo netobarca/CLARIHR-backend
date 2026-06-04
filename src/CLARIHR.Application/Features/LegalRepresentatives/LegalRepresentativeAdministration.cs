@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.LegalRepresentatives;
 using CLARIHR.Application.Abstractions.Persistence;
@@ -5,6 +6,7 @@ using CLARIHR.Application.Abstractions.Policies;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
@@ -181,6 +183,18 @@ public sealed record InactivateLegalRepresentativeCommand(Guid LegalRepresentati
 public sealed record SetPrimaryLegalRepresentativeCommand(Guid LegalRepresentativeId, Guid ConcurrencyToken)
     : ICommand<LegalRepresentativeResponse>;
 
+public sealed record LegalRepresentativePatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchLegalRepresentativeCommand(
+    Guid LegalRepresentativeId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<LegalRepresentativePatchOperation> Operations)
+    : ICommand<LegalRepresentativeResponse>;
+
 internal sealed class SearchLegalRepresentativesQueryValidator : AbstractValidator<SearchLegalRepresentativesQuery>
 {
     public SearchLegalRepresentativesQueryValidator()
@@ -326,6 +340,24 @@ internal sealed class SetPrimaryLegalRepresentativeCommandValidator : AbstractVa
     {
         RuleFor(command => command.LegalRepresentativeId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchLegalRepresentativeCommandValidator : AbstractValidator<PatchLegalRepresentativeCommand>
+{
+    public PatchLegalRepresentativeCommandValidator()
+    {
+        RuleFor(command => command.LegalRepresentativeId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -995,4 +1027,456 @@ internal sealed class SetPrimaryLegalRepresentativeCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class PatchLegalRepresentativeCommandHandler(
+    ILegalRepresentativeAuthorizationService authorizationService,
+    ILegalRepresentativeRepository repository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchLegalRepresentativeCommand, LegalRepresentativeResponse>
+{
+    public async Task<Result<LegalRepresentativeResponse>> Handle(
+        PatchLegalRepresentativeCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<LegalRepresentativeResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<LegalRepresentativeResponse>.Failure(authorizationResult.Error);
+        }
+
+        var legalRepresentative = await repository.GetByIdAsync(command.LegalRepresentativeId, cancellationToken);
+        if (legalRepresentative is null)
+        {
+            return Result<LegalRepresentativeResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.LegalRepresentativeId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : LegalRepresentativeErrors.NotFound);
+        }
+
+        if (legalRepresentative.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<LegalRepresentativeResponse>.Failure(LegalRepresentativeErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetResponseByIdAsync(legalRepresentative.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Legal representative response could not be resolved before patch.");
+
+        var state = LegalRepresentativePatchState.From(before);
+
+        var applied = LegalRepresentativePatchApplier.Apply(command.Operations, state);
+        if (applied.IsFailure)
+        {
+            return Result<LegalRepresentativeResponse>.Failure(applied.Error);
+        }
+
+        var validation = LegalRepresentativePatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<LegalRepresentativeResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<LegalRepresentativeResponse>.Success(before);
+        }
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // Descriptive/contact fields only. The legal identity (document type/number), the
+            // effective-date range, the primary flag and activation are NOT patchable here — they
+            // carry uniqueness/range/state invariants (use PUT, /set-primary, /activate,
+            // /inactivate). They are kept at their current — already valid — values, so the patch
+            // re-runs no document-conflict, no date-range and no primary-clearing logic. (IsPrimary
+            // is kept current: an already-primary rep stays primary with no other primary to clear.)
+            legalRepresentative.Update(
+                state.FirstName,
+                state.LastName,
+                before.DocumentType,
+                before.DocumentNumber,
+                state.PositionTitle,
+                state.RepresentationType,
+                state.AuthorityDescription,
+                state.AppointmentInstrument,
+                state.AppointmentDateUtc,
+                before.EffectiveFromUtc,
+                before.EffectiveToUtc,
+                state.Email,
+                state.Phone,
+                before.IsPrimary ?? false);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetResponseByIdAsync(legalRepresentative.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Legal representative response could not be resolved after patch.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    AuditEventTypes.LegalRepresentativeUpdated,
+                    AuditEntityTypes.LegalRepresentative,
+                    legalRepresentative.PublicId,
+                    legalRepresentative.FullName,
+                    AuditActions.Update,
+                    $"Patched legal representative {legalRepresentative.FullName}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<LegalRepresentativeResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class LegalRepresentativePatchState
+{
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
+    public string PositionTitle { get; set; } = string.Empty;
+    public LegalRepresentativeRepresentationType RepresentationType { get; set; }
+    public string? AuthorityDescription { get; set; }
+    public string? AppointmentInstrument { get; set; }
+    public DateTime? AppointmentDateUtc { get; set; }
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static LegalRepresentativePatchState From(LegalRepresentativeResponse response) =>
+        new()
+        {
+            FirstName = response.FirstName,
+            LastName = response.LastName,
+            PositionTitle = response.PositionTitle,
+            RepresentationType = response.RepresentationType,
+            AuthorityDescription = response.AuthorityDescription,
+            AppointmentInstrument = response.AppointmentInstrument,
+            AppointmentDateUtc = response.AppointmentDateUtc,
+            Email = response.Email,
+            Phone = response.Phone
+        };
+}
+
+internal sealed class LegalRepresentativePatchValueException(string path, string message) : Exception(message)
+{
+    public string Path { get; } = path;
+}
+
+internal static class LegalRepresentativePatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<LegalRepresentativePatchOperation> operations, LegalRepresentativePatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root legal representative properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (LegalRepresentativePatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(LegalRepresentativePatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        ValidateName(errors, "firstName", state.FirstName);
+        ValidateName(errors, "lastName", state.LastName);
+
+        if (string.IsNullOrWhiteSpace(state.PositionTitle))
+        {
+            errors["positionTitle"] = ["Position title is required."];
+        }
+        else if (state.PositionTitle.Length > 150)
+        {
+            errors["positionTitle"] = ["Position title must be 150 characters or fewer."];
+        }
+        else if (!LegalRepresentativeValidationRules.IsValidPositionTitle(state.PositionTitle))
+        {
+            errors["positionTitle"] = ["PositionTitle format is invalid."];
+        }
+
+        if (state.AuthorityDescription is { Length: > 500 })
+        {
+            errors["authorityDescription"] = ["Authority description must be 500 characters or fewer."];
+        }
+
+        if (state.AppointmentInstrument is { Length: > 500 })
+        {
+            errors["appointmentInstrument"] = ["Appointment instrument must be 500 characters or fewer."];
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.Email) && (state.Email.Length > 320 || !IsValidEmail(state.Email)))
+        {
+            errors["email"] = ["Email format is invalid."];
+        }
+
+        if (state.Phone is { Length: > 40 })
+        {
+            errors["phone"] = ["Phone must be 40 characters or fewer."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static void ValidateName(Dictionary<string, string[]> errors, string key, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            errors[key] = ["Value is required."];
+        }
+        else if (value.Length > 100)
+        {
+            errors[key] = ["Value must be 100 characters or fewer."];
+        }
+        else if (!LegalRepresentativeValidationRules.IsValidName(value))
+        {
+            errors[key] = ["Value format is invalid."];
+        }
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        LegalRepresentativePatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "concurrencyToken"))
+        {
+            return ValidationFailure(path, "The concurrency token cannot be patched; send the current token in the If-Match header.");
+        }
+
+        if (IsSegment(property, "isActive"))
+        {
+            return ValidationFailure(path, "Activation is not patchable; use the /activate and /inactivate endpoints.");
+        }
+
+        if (IsSegment(property, "isPrimary"))
+        {
+            return ValidationFailure(path, "The primary flag is not patchable; use the /set-primary endpoint.");
+        }
+
+        if (IsSegment(property, "documentType") || IsSegment(property, "documentNumber"))
+        {
+            return ValidationFailure(path, "The legal identity (document) is not patchable here; use PUT (it is uniqueness-checked).");
+        }
+
+        if (IsSegment(property, "effectiveFromUtc") || IsSegment(property, "effectiveToUtc"))
+        {
+            return ValidationFailure(path, "The effective date range is not patchable here; use PUT (the range is validated as a unit).");
+        }
+
+        if (IsSegment(property, "firstName"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "First name cannot be removed.");
+            }
+
+            state.FirstName = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "lastName"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Last name cannot be removed.");
+            }
+
+            state.LastName = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "positionTitle"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Position title cannot be removed.");
+            }
+
+            state.PositionTitle = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "representationType"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Representation type cannot be removed.");
+            }
+
+            state.RepresentationType = ReadEnum<LegalRepresentativeRepresentationType>(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "authorityDescription"))
+        {
+            state.AuthorityDescription = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "appointmentInstrument"))
+        {
+            state.AppointmentInstrument = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "appointmentDateUtc"))
+        {
+            state.AppointmentDateUtc = isRemove ? null : ReadNullableDateTime(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "email"))
+        {
+            state.Email = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "phone"))
+        {
+            state.Phone = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsValidEmail(string email)
+    {
+        var index = email.IndexOf('@', StringComparison.Ordinal);
+        return index > 0 &&
+            index < email.Length - 1 &&
+            email.IndexOf('@', index + 1) < 0;
+    }
+
+    private static string ReadRequiredString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new LegalRepresentativePatchValueException(path, "Value is required.");
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString() ?? string.Empty
+            : throw new LegalRepresentativePatchValueException(path, "Value must be a string.");
+    }
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new LegalRepresentativePatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static DateTime? ReadNullableDateTime(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String && value.Value.TryGetDateTime(out var parsed)
+            ? parsed
+            : throw new LegalRepresentativePatchValueException(path, "Value must be an ISO-8601 date-time or null.");
+    }
+
+    private static TEnum ReadEnum<TEnum>(JsonElement? value, string path)
+        where TEnum : struct, Enum
+    {
+        if (IsNull(value))
+        {
+            throw new LegalRepresentativePatchValueException(path, "Value is required.");
+        }
+
+        if (value!.Value.ValueKind == JsonValueKind.String &&
+            Enum.TryParse<TEnum>(value.Value.GetString(), ignoreCase: true, out var parsed) &&
+            Enum.IsDefined(parsed))
+        {
+            return parsed;
+        }
+
+        throw new LegalRepresentativePatchValueException(path, $"Value must be a valid {typeof(TEnum).Name}.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
