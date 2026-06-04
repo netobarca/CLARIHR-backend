@@ -1,6 +1,6 @@
 namespace CLARIHR.Api.Common;
 
-internal static class IfMatchHeader
+public static class IfMatchHeader
 {
     public const string HeaderName = "If-Match";
 

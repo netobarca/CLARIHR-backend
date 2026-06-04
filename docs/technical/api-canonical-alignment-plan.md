@@ -29,7 +29,7 @@ Leyenda de estado: ⬜ pendiente · 🟡 en progreso · ✅ hecho · ⏸️ bloq
 | 0 | Piloto (fija la receta) | 1 | 1/1 ✅ verificado (build 0/0, unit 1294/0, integration 274/0/24) |
 | 1 | Estructura org. & Locations | 7 | **7/7 ✅ COMPLETA** (Locations [5] + LegalRepresentatives + OrgUnits) — commiteada (último: `3cca1e0`); build 0/0, unit 1388/0, integration 303/0/24 |
 | 2 | Company / Users / Preferences | 4 | **✅ CERRADA (3/3 alineables)** — CompanyPreferences ✅ (`9c970df`); UserPreferences ✅ (`5d54281`); AccountCompanies ✅ (migración generada, usuario aplica). CompanyUsers ⏸️ **sacado de la ola** → spike de concurrencia de Identity (disparador de retomada en §7). |
-| 3 | Backoffice & catálogos | 6 | 0/6 |
+| 3 | Backoffice & catálogos | 6 | **0/6 — EN PROGRESO**: PR de infra ✅ (proyecto compartido `CLARIHR.Api.Common` extraído + Backoffice cableado; build 0/0, unit 1449/0, integration 331/0/24). Cero migraciones (todos con token). Siguiente: piloto `DocumentTypeCatalogs`. |
 | — | Limpieza / tombstone | 1 | 0/1 |
 | — | Excluidos (no-CRUD) | 9 | ➖ |
 | — | Spikes de diseño | 3 | ⏸️ |
@@ -115,13 +115,15 @@ Referencia gold-standard: `src/CLARIHR.Api/Controllers/JobProfileFunctionsContro
 - [ ] ⏸️ **`CompanyUsersController`** · L · **SPIKE confirmado → DIFERIDO**. Proyección read sobre el aggregate `User` (Auth) ensamblada de 3+ tablas con filtrado field-level; **no hay un aggregate único** cuyo `ConcurrencyToken` represente el recurso. Migración a `auth_users` (login/registro/OAuth/reset/invitación) = blast-radius de autenticación → spike propio + regresión de Auth. Authz `[AuthorizeResource]` field-level diverge de la convención. POST devuelve invitation-envelope (no entidad con token). Mantener fuera de la ola; abordar con una decisión de concurrencia de Identity/Auth aparte.
 
 ### Ola 3 — Backoffice & catálogos (prioridad final)
-Usan `openapi-backoffice.yaml`; mayoría con token mapeado.
-- [ ] **`BankCatalogsController`** · S/M
-- [ ] **`DocumentTypeCatalogsController`** · S/M
-- [ ] **`EducationCatalogsController`** · S/M
-- [ ] **`JobProfileCatalogTypesController`** · S/M
-- [ ] **`CommercialAddonsController`** · S/M
-- [ ] **`CommercialPlansController`** · S/M
+Viven en `CLARIHR.Backoffice.Api` (proyecto aparte; rutas `/api/platform/*`); usan `openapi-backoffice.yaml`. **Mapeo (workflow 7-agentes):** los 6 son casi idénticos — GET list/by-id + POST + PUT + PATCH `/activate` + `/inactivate`; **TODOS con `ConcurrencyToken` ya mapeado → CERO migraciones**; authz `[Authorize(Policy="PlatformOperator")]` + `IPlatformAuthorizationService`; ya devuelven 409. **Gap común:** el token viaja en `[FromBody]`, no en `If-Match`/`ETag`. **Decisiones del wave:** (a) backoffice **sin `[ApiVersion]`** (convención existente, rutas `/api/platform/*` sin versionar); (b) mantener `/activate`+`/inactivate` como acciones + agregar **PATCH RFC-6902** escalar; (c) **If-Match obligatorio** (rompe el FE de plataforma — decisión del usuario).
+
+- [x] **PR infra (prerequisito) — proyecto compartido `CLARIHR.Api.Common`** · ✅ **HECHO** (verificado: build 0/0, unit 1449/0, integration 331/0/24 = idéntico a antes, sin regresión). Extraído `src/CLARIHR.Api.Common` (classlib) con los primitivos canónicos HTTP movidos vía `git mv` desde `CLARIHR.Api/Common` (mismos namespaces → cero churn en el tenant API): `FromIfMatchAttribute`+`IfMatchModelBinder`, `ETagHeader`+`IfMatchHeader` (ahora `public`), `ProducesStandardErrorsAttribute`/`Convention`/`StandardErrorSet`. `CLARIHR.Api` y `CLARIHR.Backoffice.Api` lo referencian. Backoffice cableado: +`Microsoft.AspNetCore.JsonPatch.SystemTextJson` +`Swashbuckle.AspNetCore.Annotations`, `ProducesStandardErrorsConvention` registrada en `Program.cs`, overloads ETag (`ToActionResultWithETag`/`ToCreatedAtActionResult`) agregados a `Backoffice.Api.Common.ResultExtensions` (usan su propio `ProblemDetailsFactory` + `ETagHeader` compartido). El `[FromIfMatch]` referencia su binder directo → no requiere registro. Pendiente: commit. **Orden de pilotos** (mapeo): system-scoped escalares primero (más simples), luego los de colecciones hijas.
+- [ ] **`DocumentTypeCatalogsController`** · S (piloto recomendado — system-scoped, escalar, ya tiene `[Tags]`)
+- [ ] **`JobProfileCatalogTypesController`** · S (system-scoped `CatalogTypeDescriptor`, escalar)
+- [ ] **`EducationCatalogsController`** · M (ruta con `{catalogKey}`)
+- [ ] **`BankCatalogsController`** · M (country-scoped)
+- [ ] **`CommercialAddonsController`** · M (colección hija Entitlements)
+- [ ] **`CommercialPlansController`** · M (colecciones hijas Entitlements/Limits/Versions)
 
 ---
 

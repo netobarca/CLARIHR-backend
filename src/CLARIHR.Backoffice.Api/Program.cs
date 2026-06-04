@@ -46,6 +46,7 @@ public partial class Program
             {
                 options.ModelMetadataDetailsProviders.Add(new PublicContractBindingMetadataProvider());
                 options.Conventions.Add(new PublicContractRouteConvention());
+                options.Conventions.Add(new CLARIHR.Api.Common.Conventions.ProducesStandardErrorsConvention());
             })
             .AddJsonOptions(options =>
             {

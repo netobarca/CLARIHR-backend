@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <ProjectReference Include="..\CLARIHR.Api.Common\CLARIHR.Api.Common.csproj" />
     <ProjectReference Include="..\CLARIHR.Application\CLARIHR.Application.csproj" />
     <ProjectReference Include="..\CLARIHR.Infrastructure\CLARIHR.Infrastructure.csproj" />
   </ItemGroup>

@@ -1,6 +1,6 @@
 namespace CLARIHR.Api.Common;
 
-internal static class ETagHeader
+public static class ETagHeader
 {
     public const string HeaderName = "ETag";
 
