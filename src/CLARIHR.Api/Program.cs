@@ -10,6 +10,7 @@ using CLARIHR.Application;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
@@ -313,6 +314,25 @@ builder.Services.AddAuthorization(options =>
             context,
             CostCenterPermissionCodes.Admin,
             CostCenterPermissionCodes.ManageAdministration)));
+
+    // Locations (work centers, work center types, location groups/levels/hierarchy) — declarative
+    // policies kept a superset of the precise ILocationAuthorizationService handler gate
+    // (EnsureCanReadAsync / EnsureCanManageAsync) so a legitimate reader/manager is never falsely
+    // 403'd. Shared across every Locations controller.
+    options.AddPolicy(LocationPolicies.Read, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            LocationPermissionCodes.Read,
+            LocationPermissionCodes.Admin,
+            LocationPermissionCodes.ManageAdministration)));
+
+    options.AddPolicy(LocationPolicies.Manage, policyBuilder => policyBuilder
+        .Combine(policy)
+        .RequireAssertion(static context => PermissionClaimEvaluator.HasAnyPermission(
+            context,
+            LocationPermissionCodes.Admin,
+            LocationPermissionCodes.ManageAdministration)));
 });
 
 // Emit the standard ProblemDetails contract (code/traceId/localized title) on policy-layer

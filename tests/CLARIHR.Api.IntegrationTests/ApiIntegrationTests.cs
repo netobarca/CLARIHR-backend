@@ -2922,7 +2922,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         createCenterResponse.EnsureSuccessStatusCode();
         var workCenter = await createCenterResponse.Content.ReadFromJsonAsync<WorkCenterItem>(JsonOptions);
 
-        var response = await client.PatchAsJsonAsync($"/api/v1/work-centers/{workCenter!.Id}/inactivate", new
+        var response = await client.PatchJsonAsync($"/api/v1/work-centers/{workCenter!.Id}/inactivate", new
         {
             concurrencyToken = workCenter.ConcurrencyToken
         });
@@ -2932,6 +2932,156 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var payload = await response.Content.ReadFromJsonAsync<WorkCenterItem>(JsonOptions);
         Assert.NotNull(payload);
         Assert.False(payload!.IsActive);
+    }
+
+    [Fact]
+    public async Task WorkCenters_Patch_WithValidIfMatch_ShouldApplyScalarChangesAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var workCenter = await CreateWorkCenterForPatchAsync(client, scenario.TenantId, "WC-PATCH");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/work-centers/{workCenter.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[]
+                {
+                    new { op = "replace", path = "/name", value = "Centro Patcheado" },
+                    new { op = "replace", path = "/phone", value = "7777-7777" }
+                }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{workCenter.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = await patchResponse.Content.ReadFromJsonAsync<WorkCenterItem>(JsonOptions);
+        Assert.NotNull(patched);
+        Assert.Equal("Centro Patcheado", patched!.Name);
+        Assert.Equal("WC-PATCH", patched.Code);
+        Assert.NotEqual(workCenter.ConcurrencyToken, patched.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task WorkCenters_Patch_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var workCenter = await CreateWorkCenterForPatchAsync(client, scenario.TenantId, "WC-NOMATCH");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/work-centers/{workCenter.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Sin If-Match" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task WorkCenters_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var workCenter = await CreateWorkCenterForPatchAsync(client, scenario.TenantId, "WC-PSTALE");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/work-centers/{workCenter.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "Token viejo" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(patchResponse, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task WorkCenters_Patch_WithLocationGroupPath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        var workCenter = await CreateWorkCenterForPatchAsync(client, scenario.TenantId, "WC-NOGROUP");
+
+        // Scalar-only PATCH: the location group is not a patchable path (use /reassign-group),
+        // so it must be rejected with 400.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/work-centers/{workCenter.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/locationGroupPublicId", value = Guid.NewGuid().ToString() } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{workCenter.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, patchResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task WorkCenters_Patch_RemovingAddressWhenTypeRequiresIt_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateLocationAdminContext(scenario));
+
+        // The helper creates the work center under a type with requiresAddress=true, so the
+        // PATCH must re-run the type-dependent assignment validation and reject a null address.
+        var workCenter = await CreateWorkCenterForPatchAsync(client, scenario.TenantId, "WC-ADDRREQ");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/work-centers/{workCenter.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "remove", path = "/address" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{workCenter.ConcurrencyToken}\"");
+
+        var patchResponse = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(patchResponse, HttpStatusCode.BadRequest, "WORK_CENTER_ADDRESS_REQUIRED");
+    }
+
+    private async Task<WorkCenterItem> CreateWorkCenterForPatchAsync(HttpClient client, Guid tenantId, string code)
+    {
+        var defaultGroup = await GetDefaultLocationGroupAsync(client, tenantId);
+
+        var typeResponse = await client.PostJsonAsync($"/api/v1/companies/{tenantId}/work-center-types", new
+        {
+            code = $"T-{code}",
+            name = "Agency",
+            requiresAddress = true,
+            requiresGeo = false,
+            allowsBiometric = true
+        });
+        typeResponse.EnsureSuccessStatusCode();
+        var workCenterType = await typeResponse.Content.ReadFromJsonAsync<WorkCenterTypeItem>(JsonOptions);
+
+        var createCenterResponse = await client.PostJsonAsync($"/api/v1/companies/{tenantId}/work-centers", new
+        {
+            code,
+            name = "Centro General",
+            workCenterTypePublicId = workCenterType!.Id,
+            locationGroupPublicId = defaultGroup.Id,
+            address = "San Salvador",
+            geoLat = (decimal?)null,
+            geoLong = (decimal?)null,
+            phone = "2222-2222",
+            email = "centro@acme-one.test",
+            notes = "Centro inicial"
+        });
+        createCenterResponse.EnsureSuccessStatusCode();
+        var workCenter = await createCenterResponse.Content.ReadFromJsonAsync<WorkCenterItem>(JsonOptions);
+        return workCenter!;
     }
 
     [Fact]

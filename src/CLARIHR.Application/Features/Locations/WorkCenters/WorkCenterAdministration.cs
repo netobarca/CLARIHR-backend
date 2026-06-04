@@ -1,3 +1,4 @@
+using System.Text.Json;
 using CLARIHR.Application.Abstractions.Auditing;
 using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.Policies;
@@ -5,6 +6,7 @@ using CLARIHR.Application.Abstractions.Persistence;
 using CLARIHR.Application.Abstractions.Tenancy;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
 using CLARIHR.Application.Features.Audit.Common;
@@ -85,6 +87,17 @@ public sealed record ReassignWorkCenterGroupCommand(
 public sealed record ActivateWorkCenterCommand(Guid WorkCenterId, Guid ConcurrencyToken) : ICommand<WorkCenterResponse>;
 
 public sealed record InactivateWorkCenterCommand(Guid WorkCenterId, Guid ConcurrencyToken) : ICommand<WorkCenterResponse>;
+
+public sealed record WorkCenterPatchOperation(
+    string Op,
+    string Path,
+    string? From,
+    JsonElement? Value);
+
+public sealed record PatchWorkCenterCommand(
+    Guid WorkCenterId,
+    Guid ConcurrencyToken,
+    IReadOnlyCollection<WorkCenterPatchOperation> Operations) : ICommand<WorkCenterResponse>;
 
 internal sealed class SearchWorkCentersQueryValidator : AbstractValidator<SearchWorkCentersQuery>
 {
@@ -177,6 +190,24 @@ internal sealed class InactivateWorkCenterCommandValidator : AbstractValidator<I
     {
         RuleFor(command => command.WorkCenterId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+    }
+}
+
+internal sealed class PatchWorkCenterCommandValidator : AbstractValidator<PatchWorkCenterCommand>
+{
+    public PatchWorkCenterCommandValidator()
+    {
+        RuleFor(command => command.WorkCenterId).NotEmpty();
+        RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Operations).NotEmpty();
+        RuleFor(command => command.Operations)
+            .Must(static operations => operations.Count <= JsonPatchHardening.MaxOperationsPerDocument)
+            .WithMessage(JsonPatchHardening.MaxOperationsMessage);
+        RuleForEach(command => command.Operations).ChildRules(operation =>
+        {
+            operation.RuleFor(item => item.Op).NotEmpty();
+            operation.RuleFor(item => item.Path).NotEmpty();
+        });
     }
 }
 
@@ -765,6 +796,448 @@ internal sealed class InactivateWorkCenterCommandHandler(
             throw;
         }
     }
+}
+
+internal sealed class PatchWorkCenterCommandHandler(
+    ILocationAuthorizationService authorizationService,
+    IWorkCenterRepository repository,
+    IWorkCenterTypeRepository workCenterTypeRepository,
+    ILocationGroupRepository groupRepository,
+    ILocationHierarchyRepository hierarchyRepository,
+    IAuditService auditService,
+    ITenantContext tenantContext,
+    IUnitOfWork unitOfWork)
+    : ICommandHandler<PatchWorkCenterCommand, WorkCenterResponse>
+{
+    public async Task<Result<WorkCenterResponse>> Handle(
+        PatchWorkCenterCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!tenantContext.TenantId.HasValue)
+        {
+            return Result<WorkCenterResponse>.Failure(AuthorizationErrors.Unauthenticated);
+        }
+
+        var authorizationResult = await authorizationService.EnsureCanManageAsync(tenantContext.TenantId.Value, cancellationToken);
+        if (authorizationResult.IsFailure)
+        {
+            return Result<WorkCenterResponse>.Failure(authorizationResult.Error);
+        }
+
+        var workCenter = await repository.GetByIdAsync(command.WorkCenterId, cancellationToken);
+        if (workCenter is null)
+        {
+            return Result<WorkCenterResponse>.Failure(
+                await repository.ExistsOutsideTenantAsync(command.WorkCenterId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Update)
+                    : LocationErrors.WorkCenterNotFound);
+        }
+
+        if (workCenter.ConcurrencyToken != command.ConcurrencyToken)
+        {
+            return Result<WorkCenterResponse>.Failure(LocationErrors.ConcurrencyConflict);
+        }
+
+        var before = await repository.GetResponseByIdAsync(workCenter.PublicId, cancellationToken)
+            ?? throw new InvalidOperationException("Work center response could not be resolved before patch.");
+
+        var state = WorkCenterPatchState.From(before);
+
+        var applied = WorkCenterPatchApplier.Apply(command.Operations, state);
+        if (applied.IsFailure)
+        {
+            return Result<WorkCenterResponse>.Failure(applied.Error);
+        }
+
+        var validation = WorkCenterPatchApplier.Validate(state);
+        if (validation.IsFailure)
+        {
+            return Result<WorkCenterResponse>.Failure(validation.Error);
+        }
+
+        if (!state.HasMutation)
+        {
+            return Result<WorkCenterResponse>.Success(before);
+        }
+
+        if (await repository.CodeExistsAsync(workCenter.TenantId, state.Code.Trim().ToUpperInvariant(), workCenter.Id, cancellationToken))
+        {
+            return Result<WorkCenterResponse>.Failure(LocationErrors.WorkCenterCodeConflict);
+        }
+
+        // Type/group are NOT patchable here (use PUT / reassign-group). Re-resolve the CURRENT ones
+        // so the type-dependent assignment rules (RequiresAddress / RequiresGeo / group-level) are
+        // re-validated against the patched address/geo — identical semantics to Update.
+        var typeResult = await WorkCenterRules.ResolveTypeAsync(
+            workCenterTypeRepository,
+            authorizationService,
+            before.WorkCenterTypeId,
+            RbacPermissionAction.Update,
+            cancellationToken);
+        if (typeResult.IsFailure)
+        {
+            return Result<WorkCenterResponse>.Failure(typeResult.Error);
+        }
+
+        var groupResult = await WorkCenterRules.ResolveGroupAsync(
+            groupRepository,
+            authorizationService,
+            before.LocationGroupId,
+            RbacPermissionAction.Update,
+            cancellationToken);
+        if (groupResult.IsFailure)
+        {
+            return Result<WorkCenterResponse>.Failure(groupResult.Error);
+        }
+
+        var validationResult = await WorkCenterRules.ValidateAssignmentAsync(
+            hierarchyRepository,
+            workCenter.TenantId,
+            typeResult.Value,
+            groupResult.Value,
+            state.Address,
+            state.GeoLat,
+            state.GeoLong,
+            cancellationToken);
+        if (validationResult.IsFailure)
+        {
+            return Result<WorkCenterResponse>.Failure(validationResult.Error);
+        }
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            workCenter.Update(
+                state.Code,
+                state.Name,
+                typeResult.Value.Id,
+                groupResult.Value.Id,
+                state.Address,
+                state.GeoLat,
+                state.GeoLong,
+                state.Phone,
+                state.Email,
+                state.Notes);
+            _ = await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var after = await repository.GetResponseByIdAsync(workCenter.PublicId, cancellationToken)
+                ?? throw new InvalidOperationException("Work center response could not be resolved after patch.");
+
+            await auditService.LogAsync(
+                new AuditLogEntry(
+                    "WORK_CENTER_UPDATED",
+                    "WorkCenter",
+                    workCenter.PublicId,
+                    workCenter.Code,
+                    AuditActions.Update,
+                    $"Patched work center {workCenter.Code}.",
+                    Before: before,
+                    After: after),
+                cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return Result<WorkCenterResponse>.Success(after);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+}
+
+internal sealed class WorkCenterPatchState
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Address { get; set; }
+    public decimal? GeoLat { get; set; }
+    public decimal? GeoLong { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public string? Notes { get; set; }
+    public bool HasMutation { get; set; }
+
+    public static WorkCenterPatchState From(WorkCenterResponse response) =>
+        new()
+        {
+            Code = response.Code,
+            Name = response.Name,
+            Address = response.Address,
+            GeoLat = response.GeoLat,
+            GeoLong = response.GeoLong,
+            Phone = response.Phone,
+            Email = response.Email,
+            Notes = response.Notes
+        };
+}
+
+internal sealed class WorkCenterPatchValueException(string path, string message) : Exception(message)
+{
+    public string Path { get; } = path;
+}
+
+internal static class WorkCenterPatchApplier
+{
+    private static readonly HashSet<string> SupportedOperations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "add",
+        "replace",
+        "remove"
+    };
+
+    public static Result Apply(IReadOnlyCollection<WorkCenterPatchOperation> operations, WorkCenterPatchState state)
+    {
+        foreach (var operation in operations)
+        {
+            var op = operation.Op.Trim();
+            if (!SupportedOperations.Contains(op))
+            {
+                return ValidationFailure(operation.Path, $"Unsupported JSON Patch operation '{operation.Op}'.");
+            }
+
+            var segments = ParsePath(operation.Path);
+            if (segments.Length != 1)
+            {
+                return ValidationFailure(operation.Path, "Only root work center properties can be patched.");
+            }
+
+            try
+            {
+                var result = ApplyOperation(op, segments[0], operation.Value, state, operation.Path);
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+            }
+            catch (WorkCenterPatchValueException exception)
+            {
+                return ValidationFailure(exception.Path, exception.Message);
+            }
+        }
+
+        return Result.Success();
+    }
+
+    public static Result Validate(WorkCenterPatchState state)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(state.Code))
+        {
+            errors["code"] = ["Code is required."];
+        }
+        else if (state.Code.Length > 50)
+        {
+            errors["code"] = ["Code must be 50 characters or fewer."];
+        }
+        else if (!LocationValidationRules.IsValidCode(state.Code))
+        {
+            errors["code"] = ["Code format is invalid."];
+        }
+
+        if (string.IsNullOrWhiteSpace(state.Name))
+        {
+            errors["name"] = ["Name is required."];
+        }
+        else if (state.Name.Length > 150)
+        {
+            errors["name"] = ["Name must be 150 characters or fewer."];
+        }
+
+        if (state.Address is { Length: > 300 })
+        {
+            errors["address"] = ["Address must be 300 characters or fewer."];
+        }
+
+        if (state.Phone is { Length: > 50 })
+        {
+            errors["phone"] = ["Phone must be 50 characters or fewer."];
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.Email) && !IsValidEmail(state.Email))
+        {
+            errors["email"] = ["Email format is invalid."];
+        }
+
+        if (state.Notes is { Length: > 1000 })
+        {
+            errors["notes"] = ["Notes must be 1000 characters or fewer."];
+        }
+
+        if (state.GeoLat is < -90m or > 90m)
+        {
+            errors["geoLat"] = ["Latitude must be between -90 and 90."];
+        }
+
+        if (state.GeoLong is < -180m or > 180m)
+        {
+            errors["geoLong"] = ["Longitude must be between -180 and 180."];
+        }
+
+        return errors.Count == 0
+            ? Result.Success()
+            : Result.Failure(ErrorCatalog.Validation(errors));
+    }
+
+    private static Result ApplyOperation(
+        string op,
+        string property,
+        JsonElement? value,
+        WorkCenterPatchState state,
+        string path)
+    {
+        var isRemove = string.Equals(op, "remove", StringComparison.OrdinalIgnoreCase);
+
+        if (IsSegment(property, "concurrencyToken"))
+        {
+            return ValidationFailure(path, "The concurrency token cannot be patched; send the current token in the If-Match header.");
+        }
+
+        if (IsSegment(property, "isActive"))
+        {
+            return ValidationFailure(path, "Activation is not patchable; use the /activate and /inactivate endpoints.");
+        }
+
+        if (IsSegment(property, "workCenterTypeId") || IsSegment(property, "workCenterTypePublicId") ||
+            IsSegment(property, "locationGroupId") || IsSegment(property, "locationGroupPublicId"))
+        {
+            return ValidationFailure(path, "The work center type and location group are not patchable; use PUT or the /reassign-group endpoint.");
+        }
+
+        if (IsSegment(property, "code"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Code cannot be removed.");
+            }
+
+            state.Code = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "name"))
+        {
+            if (isRemove)
+            {
+                return ValidationFailure(path, "Name cannot be removed.");
+            }
+
+            state.Name = ReadRequiredString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "address"))
+        {
+            state.Address = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "geoLat"))
+        {
+            state.GeoLat = isRemove ? null : ReadNullableDecimal(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "geoLong"))
+        {
+            state.GeoLong = isRemove ? null : ReadNullableDecimal(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "phone"))
+        {
+            state.Phone = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "email"))
+        {
+            state.Email = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        if (IsSegment(property, "notes"))
+        {
+            state.Notes = isRemove ? null : ReadNullableString(value, path);
+            state.HasMutation = true;
+            return Result.Success();
+        }
+
+        return ValidationFailure(path, $"Unsupported patch path '{path}'.");
+    }
+
+    private static string[] ParsePath(string path) =>
+        path.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(UnescapeJsonPointerSegment)
+            .ToArray();
+
+    private static string UnescapeJsonPointerSegment(string segment) =>
+        segment.Replace("~1", "/", StringComparison.Ordinal)
+            .Replace("~0", "~", StringComparison.Ordinal);
+
+    private static bool IsNull(JsonElement? value) =>
+        !value.HasValue || value.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined;
+
+    private static bool IsSegment(string actual, string expected) =>
+        string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsValidEmail(string email)
+    {
+        var index = email.IndexOf('@', StringComparison.Ordinal);
+        return index > 0 &&
+            index < email.Length - 1 &&
+            email.IndexOf('@', index + 1) < 0;
+    }
+
+    private static string ReadRequiredString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            throw new WorkCenterPatchValueException(path, "Value is required.");
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString() ?? string.Empty
+            : throw new WorkCenterPatchValueException(path, "Value must be a string.");
+    }
+
+    private static string? ReadNullableString(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.String
+            ? value.Value.GetString()
+            : throw new WorkCenterPatchValueException(path, "Value must be a string or null.");
+    }
+
+    private static decimal? ReadNullableDecimal(JsonElement? value, string path)
+    {
+        if (IsNull(value))
+        {
+            return null;
+        }
+
+        return value!.Value.ValueKind == JsonValueKind.Number && value.Value.TryGetDecimal(out var parsed)
+            ? parsed
+            : throw new WorkCenterPatchValueException(path, "Value must be a number or null.");
+    }
+
+    private static Result ValidationFailure(string path, string message) =>
+        Result.Failure(ErrorCatalog.Validation(new Dictionary<string, string[]>
+        {
+            [path.TrimStart('/')] = [message]
+        }));
 }
 
 internal static class WorkCenterRules

@@ -27,7 +27,7 @@ Leyenda de estado: ⬜ pendiente · 🟡 en progreso · ✅ hecho · ⏸️ bloq
 | Ola | Dominio | Controladores | Progreso |
 |---|---|---|---|
 | 0 | Piloto (fija la receta) | 1 | 1/1 ✅ verificado (build 0/0, unit 1294/0, integration 274/0/24) |
-| 1 | Estructura org. & Locations | 7 | 0/7 |
+| 1 | Estructura org. & Locations | 7 | 1/7 ✅ WorkCenters (build 0/0, unit 1311/0, integration 278/0/24) — `LocationPolicies` infra compartida ya lista para los demás Locations |
 | 2 | Company / Users / Preferences | 4 | 0/4 |
 | 3 | Backoffice & catálogos | 6 | 0/6 |
 | — | Limpieza / tombstone | 1 | 0/1 |
@@ -100,7 +100,7 @@ Referencia gold-standard: `src/CLARIHR.Api/Controllers/JobProfileFunctionsContro
 - [x] **`CostCentersController`** · S · sin migración · ✅ **verificado** (build 0/0, unit 1294/0, integration 274/0/24, todos los guardrails de integración verdes). Dejó la plantilla canónica reutilizable + `CostCenterPolicies.cs` + registro Program.cs + extensión de `GovernedFamilyRegex`/`Families[]`. Aplicado: PATCH RFC-6902 scalar-only (nuevo), If-Match+ETag en todas las mutaciones, 201+Location, `[ApiVersion]`/`[Tags]`/`[AuthorizationPolicySet]`/`[ProducesStandardErrors]`/`[SwaggerOperation]`. **Hallazgo:** el naming `*PublicId` NO requería cambios (la convención `PublicContractRouteConvention`/`PublicContractJsonTypeInfoResolver` renderiza `Id`→`publicId` automáticamente). **Bug atrapado en review:** `ToCreatedAtActionResult` necesita clave de ruta `publicId` (no `id`) porque la convención reescribe el template. **Diferido:** rate-limiting (su guardrail solo cubre PositionSlots; no obligatorio). Archivos: `CostCentersController.cs`, `Features/CostCenters/CostCenterAdministration.cs`, `Common/CostCenterPolicies.cs` (nuevo), `Program.cs`, 2 guardrails, + tests (3 existentes migrados a If-Match, 4 nuevos de integración RFC-6902, 12 unit del applier).
 
 ### Ola 1 — Estructura organizativa & Locations (cero migraciones)
-- [ ] **`WorkCentersController`** · M · alta centralidad. Decidir `/reassign-group` (conservar acción o absorber en PATCH).
+- [x] **`WorkCentersController`** · M · ✅ **HECHO** (verificado: build 0/0, unit 1311/0, integration 278/0/24). `/reassign-group` **conservado** (tiene validación de negocio: el grupo debe permitir work-centers) → migrado a If-Match+ETag. PATCH RFC-6902 scalar-only (code/name/address/geoLat/geoLong/phone/email/notes) que **reusa la validación de assignment de Update** (re-valida requisitos dependientes del tipo: address/geo). Creó `LocationPolicies` (compartido para todo el dominio Locations). Sin migración.
 - [ ] **`WorkCenterTypesController`** · S · trivial; junto a WorkCenters.
 - [ ] **`OrgUnitsController`** · M · **god-file (~479 líneas)**: separar CRUD de `export/diagram/graph`; decidir destino de esos endpoints.
 - [ ] **`LegalRepresentativesController`** · S · conservar `set-primary` (migrar a If-Match).
@@ -177,4 +177,5 @@ Usan `openapi-backoffice.yaml`; mayoría con token mapeado.
 |---|---|---|---|
 | 2026-06-03 | — | — | Plan creado a partir de auditoría de 32 controladores. |
 | 2026-06-03 | — | — | Corregido caveat OpenAPI (scripts `extract_contract.py`/`validate_contract_docs.py` no existen ni se necesitan; contrato a mano + swagger vivo). Agregado ítem de mejora §7: automatizar export con `dotnet swagger tofile`. |
-| 2026-06-03 | (sin commit) | CostCenters | **Ola 0 piloto VERIFICADO.** Alineación canónica + PATCH RFC-6902. Build 0/0, unit 1294/0, **integration 274/0/24 (todo verde incl. guardrails)**. Integration atrapó 1 defecto real: faltaba el mapeo `CostCenterPolicies.*→CostCenterErrors.Forbidden` en `ProblemDetailsAuthorizationMiddlewareResultHandler` (un 403 de policy daba `auth.forbidden` en vez de `COST_CENTERS_FORBIDDEN`) — corregido + documentado en §4.1 como gotcha de la receta. Pendiente: commit en rama `feat/cost-centers/...`. |
+| 2026-06-03 | (sin commit) | WorkCenters | **Ola 1 #1 VERIFICADO.** Alineación canónica + PATCH RFC-6902 (scalar-only, reusa validación de Update). Creó `LocationPolicies` (compartido para todo Locations) + mapeo forbidden `LocationPolicies.*→LocationErrors.Forbidden`. `/reassign-group` conservado (validación de negocio) migrado a If-Match. Build 0/0, unit 1311/0, integration 278/0/24. 1 test migrado a If-Match + 5 nuevos PATCH (incl. caso borde type-dependent) + 14 unit del applier. Guardrails: enrolado `^WorkCenters` (no toca WorkCenterTypes). Pendiente: commit. |
+| 2026-06-03 | b2fbd17 | CostCenters | **Ola 0 piloto VERIFICADO.** Alineación canónica + PATCH RFC-6902. Build 0/0, unit 1294/0, **integration 274/0/24 (todo verde incl. guardrails)**. Integration atrapó 1 defecto real: faltaba el mapeo `CostCenterPolicies.*→CostCenterErrors.Forbidden` en `ProblemDetailsAuthorizationMiddlewareResultHandler` (un 403 de policy daba `auth.forbidden` en vez de `COST_CENTERS_FORBIDDEN`) — corregido + documentado en §4.1 como gotcha de la receta. Pendiente: commit en rama `feat/cost-centers/...`. |

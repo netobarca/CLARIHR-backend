@@ -3,6 +3,7 @@ using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.IdentityAccess.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
@@ -84,6 +85,8 @@ public sealed class ProblemDetailsAuthorizationMiddlewareResultHandler : IAuthor
                 PersonnelFileErrors.Forbidden,
             CostCenterPolicies.Read or CostCenterPolicies.Manage =>
                 CostCenterErrors.Forbidden,
+            LocationPolicies.Read or LocationPolicies.Manage =>
+                LocationErrors.Forbidden,
             _ => ErrorCatalog.Forbidden
         };
     }

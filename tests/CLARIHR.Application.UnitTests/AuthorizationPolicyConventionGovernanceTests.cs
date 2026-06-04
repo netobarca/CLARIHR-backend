@@ -3,12 +3,14 @@ using System.Text.RegularExpressions;
 using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Abstractions.CostCenters;
 using CLARIHR.Application.Abstractions.JobProfiles;
+using CLARIHR.Application.Abstractions.Locations;
 using CLARIHR.Application.Abstractions.PersonnelFiles;
 using CLARIHR.Application.Abstractions.PositionDescriptionCatalogs;
 using CLARIHR.Application.Abstractions.PositionSlots;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
+using CLARIHR.Application.Features.Locations.Common;
 using CLARIHR.Application.Features.PersonnelFiles.Common;
 using CLARIHR.Application.Features.PositionDescriptionCatalogs.Common;
 using CLARIHR.Application.Features.PositionSlots.Common;
@@ -39,7 +41,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     // EnsureCanReadAsync, so the convention's Manage-on-POST would exceed the gate and yield false
     // 403s (the two-layer authorization superset invariant). It stays handler-gated + [Authorize].
     private static readonly Regex GovernedFamilyRegex =
-        new(@"^(JobProfile|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot|PersonnelFile(?!Reporting)|CostCenter)", RegexOptions.Compiled);
+        new(@"^(JobProfile|JobCatalog|PositionCategor|PositionDescriptionCatalog|PositionSlot|PersonnelFile(?!Reporting)|CostCenter|WorkCenters)", RegexOptions.Compiled);
 
     private static readonly HashSet<string> JobProfilePolicyNames = new(StringComparer.Ordinal)
     {
@@ -73,6 +75,12 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
     {
         CostCenterPolicies.Read,
         CostCenterPolicies.Manage,
+    };
+
+    private static readonly HashSet<string> LocationPolicyNames = new(StringComparer.Ordinal)
+    {
+        LocationPolicies.Read,
+        LocationPolicies.Manage,
     };
 
     private static IReadOnlyList<(Type Controller, AuthorizationPolicySetAttribute? Marker)> Controllers() =>
@@ -144,6 +152,13 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
                 CostCenterPolicyNames.Contains(entry.Marker.ReadPolicy) &&
                 CostCenterPolicyNames.Contains(entry.Marker.ManagePolicy));
         }
+
+        if (AnyHandlerInjects(typeof(ILocationAuthorizationService)))
+        {
+            Assert.Contains(controllers, entry => entry.Marker is not null &&
+                LocationPolicyNames.Contains(entry.Marker.ReadPolicy) &&
+                LocationPolicyNames.Contains(entry.Marker.ManagePolicy));
+        }
     }
 
     /// <summary>
@@ -187,6 +202,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
         valid.UnionWith(PositionSlotPolicyNames);
         valid.UnionWith(PersonnelFilePolicyNames);
         valid.UnionWith(CostCenterPolicyNames);
+        valid.UnionWith(LocationPolicyNames);
 
         var invalid = Controllers()
             .Where(static entry => entry.Marker is not null)
@@ -204,7 +220,7 @@ public sealed class AuthorizationPolicyConventionGovernanceTests
             invalid.Length == 0,
             "[AuthorizationPolicySet] must reference a constant from JobProfilePolicies / " +
             "PositionDescriptionCatalogPolicies / PositionSlotPolicies / PersonnelFilePolicies / " +
-            "CostCenterPolicies. Offending:\n  " +
+            "CostCenterPolicies / LocationPolicies. Offending:\n  " +
             string.Join("\n  ", invalid));
     }
 }
