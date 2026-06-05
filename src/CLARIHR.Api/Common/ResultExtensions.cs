@@ -30,6 +30,52 @@ internal static class ResultExtensions
         return new ActionResult<TValue>(ProblemDetailsFactory.Create(controller.HttpContext, result.Error));
     }
 
+    public static ActionResult<TValue> ToActionResultWithWeakETag<TValue>(
+        this ControllerBase controller,
+        CLARIHR.Application.Common.Errors.Result<TValue> result,
+        Func<TValue, string?> weakETagSelector)
+    {
+        ArgumentNullException.ThrowIfNull(weakETagSelector);
+
+        if (result.IsSuccess)
+        {
+            var opaqueTag = weakETagSelector(result.Value);
+            if (!string.IsNullOrEmpty(opaqueTag))
+            {
+                controller.Response.Headers[ETagHeader.HeaderName] = ETagHeader.FormatWeak(opaqueTag);
+            }
+
+            return controller.Ok(result.Value);
+        }
+
+        return new ActionResult<TValue>(ProblemDetailsFactory.Create(controller.HttpContext, result.Error));
+    }
+
+    public static ActionResult<TValue> ToCreatedAtActionResultWithWeakETag<TValue>(
+        this ControllerBase controller,
+        CLARIHR.Application.Common.Errors.Result<TValue> result,
+        string actionName,
+        Func<TValue, object?> routeValuesFactory,
+        Func<TValue, string?> weakETagSelector)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(actionName);
+        ArgumentNullException.ThrowIfNull(routeValuesFactory);
+        ArgumentNullException.ThrowIfNull(weakETagSelector);
+
+        if (result.IsSuccess)
+        {
+            var opaqueTag = weakETagSelector(result.Value);
+            if (!string.IsNullOrEmpty(opaqueTag))
+            {
+                controller.Response.Headers[ETagHeader.HeaderName] = ETagHeader.FormatWeak(opaqueTag);
+            }
+
+            return controller.CreatedAtAction(actionName, routeValuesFactory(result.Value), result.Value);
+        }
+
+        return new ActionResult<TValue>(ProblemDetailsFactory.Create(controller.HttpContext, result.Error));
+    }
+
     public static ActionResult<TValue> ToCreatedResult<TValue>(
         this ControllerBase controller,
         CLARIHR.Application.Common.Errors.Result<TValue> result,

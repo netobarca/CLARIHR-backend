@@ -63,4 +63,14 @@ public static class CompanyUserErrors
         "FIELD_EDIT_FORBIDDEN",
         "One or more submitted fields cannot be modified by the current user.",
         ErrorType.Forbidden);
+
+    // The CompanyUser resource is a read projection over three aggregates (User/auth_users,
+    // UserCompanyMembership, IamUser) with no persisted concurrency token, so concurrency is
+    // enforced with a WEAK computed ETag (a deterministic hash of the projection — see
+    // CompanyUserETag). A stale If-Match maps to 409 CONCURRENCY_CONFLICT, consistent with the
+    // app-wide convention (no 412/428).
+    public static readonly Error ConcurrencyConflict = new(
+        "CONCURRENCY_CONFLICT",
+        "The user was modified by another request. Refresh and try again.",
+        ErrorType.Conflict);
 }

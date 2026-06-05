@@ -66,6 +66,15 @@ internal sealed class ReactivateCompanyUserCommandHandler(
         }
 
         var currentState = await userCompanyRepository.GetUserAsync(companyPublicId, command.UserId, cancellationToken);
+
+        // Weak-ETag concurrency check (the API layer enforces a present If-Match with 400; null skips).
+        if (command.ExpectedETag is not null &&
+            currentState is not null &&
+            !CompanyUserETag.Matches(command.ExpectedETag, currentState))
+        {
+            return Result<CompanyUserResponse>.Failure(CompanyUserErrors.ConcurrencyConflict);
+        }
+
         var beforeStatus = currentState?.Status?.ToString() ?? user.Status.ToString();
         var beforeMembershipStatus = membership.Status.ToString();
 
@@ -124,6 +133,7 @@ internal sealed class ReactivateCompanyUserCommandHandler(
         return response is null
             ? Result<CompanyUserResponse>.Failure(CompanyUserErrors.UserNotFound)
             : Result<CompanyUserResponse>.Success(
-                CompanyUserManagementHelpers.Filter(response, fieldAccessResult.Value, fieldSerializationService));
+                CompanyUserManagementHelpers.Filter(response, fieldAccessResult.Value, fieldSerializationService)
+                    with { WeakETag = CompanyUserETag.Compute(response) });
     }
 }

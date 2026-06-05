@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Common.Policies;
@@ -26,7 +27,14 @@ public sealed record CompanyUserResponse(
     string? FirstName,
     string? LastName,
     IReadOnlyCollection<CompanyUserRoleResponse> Roles,
-    UserStatus? Status);
+    UserStatus? Status)
+{
+    // Weak ETag for the resource (a hash of the unfiltered projection — see CompanyUserETag). Carried
+    // out-of-band to the API layer for the `ETag` header / `If-Match` concurrency check; never serialized
+    // into the response body.
+    [JsonIgnore]
+    public string? WeakETag { get; init; }
+}
 
 public sealed record CompanyUserInvitationResponse(
     CompanyUserResponse User,
@@ -50,10 +58,11 @@ public sealed record UpdateCompanyUserCommand(
     Guid UserId,
     string FirstName,
     string LastName,
-    IReadOnlyCollection<Guid> RoleIds) : ICommand<CompanyUserResponse>;
+    IReadOnlyCollection<Guid> RoleIds,
+    string? ExpectedETag = null) : ICommand<CompanyUserResponse>;
 
-public sealed record DeactivateCompanyUserCommand(Guid UserId) : ICommand<CompanyUserResponse>;
+public sealed record DeactivateCompanyUserCommand(Guid UserId, string? ExpectedETag = null) : ICommand<CompanyUserResponse>;
 
-public sealed record ReactivateCompanyUserCommand(Guid UserId) : ICommand<CompanyUserResponse>;
+public sealed record ReactivateCompanyUserCommand(Guid UserId, string? ExpectedETag = null) : ICommand<CompanyUserResponse>;
 
 public sealed record ResetInvitationCommand(Guid UserId) : ICommand<CompanyUserInvitationResponse>;

@@ -120,7 +120,7 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables; canonico con `If-Match`/`ETag` (sin PATCH RFC-6902 por invariantes cross-field — el PUT cubre la edicion completa) |
 | Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar, cambiar plan, administrar add-ons y listar suscripciones empresariales globales |
 | **Education catalogs** | `EducationCatalogsController` (Core), `EducationCatalogsController` (Backoffice) | `/api/v1/education-catalogs/{catalogKey}` (Core lectura), `/api/platform/education-catalogs/{catalogKey}` (Backoffice CRUD) | catalogos de educacion globales de sistema administrados exclusivamente por Backoffice y consultados en modo lectura desde el Core; Backoffice canonico con `If-Match`/`ETag` + PATCH RFC-6902 (`/code`,`/name`,`/sortOrder`), scoped por `catalogKey` |
-| Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant |
+| Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant; concurrencia con **ETag debil computado** (`W/"hash"`) + `If-Match` (sin token persistido — proyeccion de 3 aggregates); authz handler-gated RBAC field-level |
 | Preferences | `UserPreferencesController`, `CompanyPreferencesController` | `/api/v1/account/me/preferences`, `/api/v1/companies/{companyId}/preferences` | administrar preferencias personales (language y `socialLinks`) y preferencias operativas de compania (moneda y zona horaria) |
 | Account company authorization | `AccountCompaniesController`, `AccountCompanyAuthorizationController` | `/api/account/companies/{companyPublicId}/access-context`, `/api/account/companies/{companyPublicId}/authorization*` | contexto de acceso, catalogo filtrado, roles, grants y policies del tenant |
 | Audit | `AuditController` | `/api/audit*` | consulta y detalle de logs de auditoria |
@@ -666,6 +666,7 @@ Reglas comunes:
 - Las lecturas y respuestas de escritura se filtran por field permissions; algunos campos pueden salir ocultos o enmascarados.
 - El campo `status` usa `UserStatus` (`Active`, `Inactive`, `PendingActivation`).
 - Este bloque sincroniza el usuario funcional (`User`), la membresia a compania y su proyeccion IAM (`IamUser`).
+- **Concurrencia (ETag debil):** el recurso es una proyeccion de 3 aggregates sin token persistido, asi que usa un **ETag computado debil** (`W/"<hash>"`) — un hash determinístico de la proyeccion (perfil + status + set de roles, calculado sobre la proyeccion SIN filtrar para que sea independiente de los field permissions del llamante). `GET {userPublicId}` y las respuestas de escritura emiten el header `ETag`; las mutaciones (`PUT`, `/deactivate`, `/reactivate`) exigen el valor actual en `If-Match` (ausente → `400`, obsoleto → `409 CONCURRENCY_CONFLICT`; no se usan 412/428). Cambiar roles rota el ETag aunque ningun timestamp de aggregate cambie, porque el set de roles entra al hash.
 
 ##### `GET /api/company/users`
 
@@ -680,7 +681,7 @@ Reglas comunes:
 
 - Proposito: obtener un usuario operativo puntual de la compania activa por `userPublicId`.
 - Autorizacion: `RBAC_USERS:Read`.
-- Response: `CompanyUserResponse`.
+- Response: `CompanyUserResponse` + header `ETag: W/"<hash>"` (token debil para el `If-Match` de las mutaciones).
 - Observaciones: mantiene tenant scope implicito y el campo `id` del response representa el `publicId` externo del usuario.
 
 ##### `POST /api/company/users`
@@ -688,7 +689,7 @@ Reglas comunes:
 - Proposito: invitar un usuario a la compania activa y asignarle un rol inicial.
 - Autorizacion: `RBAC_USERS:Create`.
 - Request body: `email`, `firstName`, `lastName`, `roleId`.
-- Response: `201 Created` con `CompanyUserInvitationResponse`.
+- Response: `201 Created` con `CompanyUserInvitationResponse` + header `Location` (→ `GET {userPublicId}`) y `ETag: W/"<hash>"` del usuario creado.
 - Errores relevantes: `company_users.role.not_found`, `company_users.user_already_in_company`, `company_users.user_in_another_company`, `FIELD_EDIT_FORBIDDEN`.
 - Observaciones: si el email ya existe como usuario local reutiliza el usuario; si no existe, crea un usuario invitado local, crea membresia, sincroniza `IamUser`, genera token de invitacion, revoca invitaciones activas previas para esa combinacion usuario/compania y envia correo.
 
@@ -697,24 +698,27 @@ Reglas comunes:
 - Proposito: actualizar nombre/apellido del usuario y cambiar su rol dentro de la compania activa.
 - Autorizacion: `RBAC_USERS:Update`.
 - Request body: `firstName`, `lastName`, `roleId`.
-- Response: `200 OK` con `CompanyUserResponse`.
-- Errores relevantes: `company_users.role.not_found`, `company_users.last_admin_required`, `FIELD_EDIT_FORBIDDEN`, `TENANT_MISMATCH`.
-- Observaciones: la autorizacion por campo se evalua solo para los campos realmente cambiados; tambien sincroniza el `IamUser` asociado para que el rol efectivo del tenant quede consistente.
+- Concurrencia: requiere `If-Match: W/"<hash>"` (ausente → `400`, obsoleto → `409 CONCURRENCY_CONFLICT`); responde con el `ETag` rotado.
+- Response: `200 OK` con `CompanyUserResponse` + header `ETag`.
+- Errores relevantes: `CONCURRENCY_CONFLICT`, `company_users.role.not_found`, `company_users.last_admin_required`, `FIELD_EDIT_FORBIDDEN`, `TENANT_MISMATCH`.
+- Observaciones: la autorizacion por campo se evalua solo para los campos realmente cambiados; tambien sincroniza el `IamUser` asociado para que el rol efectivo del tenant quede consistente. El chequeo de `If-Match` corre antes de la autorizacion por campo.
 
 ##### `PATCH /api/company/users/{userId}/deactivate`
 
 - Proposito: desactivar al usuario en la compania activa.
 - Autorizacion: `RBAC_USERS:Update`.
-- Response: `200 OK` con `CompanyUserResponse`.
-- Errores relevantes: `company_users.last_admin_required`, `TENANT_MISMATCH`.
+- Concurrencia: requiere `If-Match: W/"<hash>"` (ausente → `400`, obsoleto → `409`); responde con el `ETag` rotado.
+- Response: `200 OK` con `CompanyUserResponse` + header `ETag`.
+- Errores relevantes: `CONCURRENCY_CONFLICT`, `company_users.last_admin_required`, `TENANT_MISMATCH`.
 - Observaciones: desactiva el usuario funcional, la membresia y el `IamUser` vinculado; ademas revoca refresh tokens con razon `company-user-deactivated`.
 
 ##### `PATCH /api/company/users/{userId}/reactivate`
 
 - Proposito: reactivar al usuario en la compania activa.
 - Autorizacion: `RBAC_USERS:Update`.
-- Response: `200 OK` con `CompanyUserResponse`.
-- Errores relevantes: `TENANT_MISMATCH`, `company_users.user.not_found`.
+- Concurrencia: requiere `If-Match: W/"<hash>"` (ausente → `400`, obsoleto → `409`); responde con el `ETag` rotado.
+- Response: `200 OK` con `CompanyUserResponse` + header `ETag`.
+- Errores relevantes: `CONCURRENCY_CONFLICT`, `TENANT_MISMATCH`, `company_users.user.not_found`.
 - Observaciones: reactiva membresia y vuelve a marcar activo el `IamUser` si el estado funcional del usuario queda `Active`.
 
 ##### `POST /api/company/users/{userId}/reset-invitation`
@@ -723,6 +727,7 @@ Reglas comunes:
 - Autorizacion: `RBAC_USERS:Update`.
 - Response: `200 OK` con `CompanyUserInvitationResponse`.
 - Errores relevantes: `company_users.reset_invitation.external_user_not_supported`, `TENANT_MISMATCH`.
+- Concurrencia: **NO** exige `If-Match` (reemite la invitacion; no muta los campos del recurso proyectado).
 - Observaciones: solo aplica a usuarios `Local`; revoca tokens de invitacion previos, emite uno nuevo y envia correo con `CompanyUserInvitationEmailKind.ResetInvitation`.
 
 #### 5.1.6 `AccountCompanyAuthorizationController` - roles y grants del tenant

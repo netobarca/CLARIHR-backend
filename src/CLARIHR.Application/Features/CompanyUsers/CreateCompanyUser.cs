@@ -209,7 +209,8 @@ internal sealed class CreateCompanyUserCommandHandler(
         return response is null
             ? Result<CompanyUserInvitationResponse>.Failure(CompanyUserErrors.UserNotFound)
             : Result<CompanyUserInvitationResponse>.Success(new CompanyUserInvitationResponse(
-                CompanyUserManagementHelpers.Filter(response, fieldAccessResult.Value, fieldSerializationService),
+                CompanyUserManagementHelpers.Filter(response, fieldAccessResult.Value, fieldSerializationService)
+                    with { WeakETag = CompanyUserETag.Compute(response) },
                 invitationExpiresUtc));
     }
 }

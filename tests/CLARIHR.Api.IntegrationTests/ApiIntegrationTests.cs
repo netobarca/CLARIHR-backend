@@ -8366,12 +8366,17 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
 
-        var response = await client.PutJsonAsync($"/api/company/users/{scenario.TargetUserId}", new
-        {
-            firstName = "Blocked",
-            lastName = "User",
-            rolePublicIds = new[] { scenario.TargetRoleId }
-        });
+        var etag = await GetCompanyUserETagAsync(client, scenario.TargetUserId);
+        var response = await SendCompanyUserPutAsync(
+            client,
+            scenario.TargetUserId,
+            new
+            {
+                firstName = "Blocked",
+                lastName = "User",
+                rolePublicIds = new[] { scenario.TargetRoleId }
+            },
+            etag);
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "FIELD_EDIT_FORBIDDEN");
     }
@@ -8388,14 +8393,22 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
 
-        var response = await client.PutJsonAsync($"/api/company/users/{scenario.TargetUserId}", new
-        {
-            firstName = "Target",
-            lastName = "Updated",
-            rolePublicIds = new[] { scenario.TargetRoleId }
-        });
+        var etag = await GetCompanyUserETagAsync(client, scenario.TargetUserId);
+        var response = await SendCompanyUserPutAsync(
+            client,
+            scenario.TargetUserId,
+            new
+            {
+                firstName = "Target",
+                lastName = "Updated",
+                rolePublicIds = new[] { scenario.TargetRoleId }
+            },
+            etag);
 
         response.EnsureSuccessStatusCode();
+        Assert.NotNull(response.Headers.ETag);
+        Assert.True(response.Headers.ETag!.IsWeak);
+        Assert.NotEqual(etag, response.Headers.ETag.ToString());
 
         var payload = await response.Content.ReadFromJsonAsync<CompanyUserItem>(JsonOptions);
         Assert.NotNull(payload);
@@ -8415,9 +8428,11 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
 
-        var response = await client.PatchAsync($"/api/company/users/{scenario.TargetUserId}/deactivate", content: null);
+        var etag = await GetCompanyUserETagAsync(client, scenario.TargetUserId);
+        var response = await SendCompanyUserActionAsync(client, $"/api/company/users/{scenario.TargetUserId}/deactivate", etag);
 
         response.EnsureSuccessStatusCode();
+        Assert.NotNull(response.Headers.ETag);
 
         var payload = await response.Content.ReadFromJsonAsync<CompanyUserItem>(JsonOptions);
         Assert.NotNull(payload);
@@ -8438,6 +8453,128 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var response = await client.PatchAsync($"/api/company/users/{scenario.TargetUserId}/deactivate", content: null);
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "RBAC_DENIED");
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Get_ShouldEmitWeakETag()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read)));
+
+        var response = await client.GetAsync($"/api/company/users/{scenario.TargetUserId}");
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(response.Headers.ETag);
+        Assert.True(response.Headers.ETag!.IsWeak);
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Update_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        // No concurrencyToken in the body → PutJsonAsync sets no If-Match header → required-precondition 400.
+        var response = await client.PutJsonAsync($"/api/company/users/{scenario.TargetUserId}", new
+        {
+            firstName = "NoIfMatch",
+            lastName = "User",
+            rolePublicIds = new[] { scenario.TargetRoleId }
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Update_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        var response = await SendCompanyUserPutAsync(
+            client,
+            scenario.TargetUserId,
+            new
+            {
+                firstName = "Stale",
+                lastName = "User",
+                rolePublicIds = new[] { scenario.TargetRoleId }
+            },
+            "W/\"0000000000000000000000000000000000000000000000000000000000000000\"");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Update_WithWildcardIfMatch_ShouldSucceed()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        // RFC 7232 wildcard: If-Match: * must satisfy the precondition for any existing resource.
+        // Uses the same field-permission-allowed change as CompanyUsers_Update_WhenFieldsAreAllowed
+        // (only lastName), so any 4xx would come from the precondition path, not field authorization.
+        var response = await SendCompanyUserPutAsync(
+            client,
+            scenario.TargetUserId,
+            new
+            {
+                firstName = "Target",
+                lastName = "Wildcard",
+                rolePublicIds = new[] { scenario.TargetRoleId }
+            },
+            "*");
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(response.Headers.ETag);
+    }
+
+    private static async Task<string> GetCompanyUserETagAsync(HttpClient client, Guid userId)
+    {
+        var response = await client.GetAsync($"/api/company/users/{userId}");
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(response.Headers.ETag);
+        return response.Headers.ETag!.ToString();
+    }
+
+    private static Task<HttpResponseMessage> SendCompanyUserPutAsync(HttpClient client, Guid userId, object body, string ifMatch)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, $"/api/company/users/{userId}")
+        {
+            Content = JsonContent.Create(body, options: JsonOptions)
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        return client.SendAsync(request);
+    }
+
+    private static Task<HttpResponseMessage> SendCompanyUserActionAsync(HttpClient client, string url, string ifMatch)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, url);
+        request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        return client.SendAsync(request);
     }
 
     [Fact(Skip = LegacyIamRbacApiDeprecatedSkipReason)]

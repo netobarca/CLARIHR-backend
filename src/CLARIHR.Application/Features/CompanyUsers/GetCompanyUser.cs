@@ -58,7 +58,10 @@ internal sealed class GetCompanyUserQueryHandler(
             return Result<CompanyUserResponse>.Failure(fieldAccessResult.Error);
         }
 
+        // Compute the weak ETag from the UNFILTERED projection so it is independent of the caller's
+        // field-level visibility, then carry it on the filtered response for the `ETag` header.
+        var etag = CompanyUserETag.Compute(response);
         return Result<CompanyUserResponse>.Success(
-            CompanyUserManagementHelpers.Filter(response, fieldAccessResult.Value, fieldSerializationService));
+            CompanyUserManagementHelpers.Filter(response, fieldAccessResult.Value, fieldSerializationService) with { WeakETag = etag });
     }
 }

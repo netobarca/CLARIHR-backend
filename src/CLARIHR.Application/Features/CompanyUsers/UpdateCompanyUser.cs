@@ -68,6 +68,17 @@ internal sealed class UpdateCompanyUserCommandHandler(
         }
 
         var currentState = await userCompanyRepository.GetUserAsync(companyPublicId, command.UserId, cancellationToken);
+
+        // Weak-ETag concurrency check. The API layer rejects a missing If-Match with 400 before
+        // dispatching, so ExpectedETag is non-null on the request path; it is null only for direct
+        // (non-HTTP) callers, which skip the check.
+        if (command.ExpectedETag is not null &&
+            currentState is not null &&
+            !CompanyUserETag.Matches(command.ExpectedETag, currentState))
+        {
+            return Result<CompanyUserResponse>.Failure(CompanyUserErrors.ConcurrencyConflict);
+        }
+
         var requestedRoleIds = command.RoleIds
             .Distinct()
             .ToArray();
@@ -178,6 +189,7 @@ internal sealed class UpdateCompanyUserCommandHandler(
         return response is null
             ? Result<CompanyUserResponse>.Failure(CompanyUserErrors.UserNotFound)
             : Result<CompanyUserResponse>.Success(
-                CompanyUserManagementHelpers.Filter(response, fieldAccessResult.Value, fieldSerializationService));
+                CompanyUserManagementHelpers.Filter(response, fieldAccessResult.Value, fieldSerializationService)
+                    with { WeakETag = CompanyUserETag.Compute(response) });
     }
 }

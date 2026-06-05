@@ -4,12 +4,22 @@ using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.CompanyUsers;
 using CLARIHR.Application.Features.IdentityAccess.Common;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CLARIHR.Api.Controllers;
 
+// Authorization is handler-gated via RBAC field-level permissions ([AuthorizeResource("RBAC_USERS", ...)]
+// + ICompanyUserAuthorizationService + IFieldPermissionService), NOT the declarative Read/Manage policy
+// pair, so this family is intentionally excluded from [AuthorizationPolicySet]/GovernedFamilyRegex.
+// Concurrency: the resource is a read projection over three aggregates (User/auth_users +
+// UserCompanyMembership + IamUser) with NO persisted token, so it uses a WEAK computed ETag — a
+// deterministic hash of the projection (CompanyUserETag) advertised as `W/"..."`. Mutations require the
+// current value in `If-Match` (missing → 400, stale → 409 CONCURRENCY_CONFLICT, per the app-wide
+// convention — no 412/428). The literal `api/company/users` route is kept unversioned (FE-facing).
 [ApiController]
 [Route("api/company/users")]
+[Tags("Company Users")]
 public sealed class CompanyUsersController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher) : ControllerBase
@@ -40,7 +50,7 @@ public sealed class CompanyUsersController(
         CancellationToken cancellationToken)
     {
         var result = await queryDispatcher.SendAsync(new GetCompanyUserQuery(userPublicId), cancellationToken);
-        return this.ToActionResult(result);
+        return this.ToActionResultWithWeakETag(result, value => value.WeakETag);
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Create)]
@@ -64,12 +74,11 @@ public sealed class CompanyUsersController(
                 request.RolePublicIds),
             cancellationToken);
 
-        if (result.IsFailure)
-        {
-            return this.ToActionResult(result);
-        }
-
-        return StatusCode(StatusCodes.Status201Created, result.Value);
+        return this.ToCreatedAtActionResultWithWeakETag(
+            result,
+            nameof(Get),
+            value => new { userPublicId = value.User.Id },
+            value => value.User.WeakETag);
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
@@ -86,15 +95,21 @@ public sealed class CompanyUsersController(
         [FromBody] UpdateCompanyUserRequest request,
         CancellationToken cancellationToken)
     {
+        if (!TryGetWeakIfMatch(out var expectedETag))
+        {
+            return ValidationProblem(ModelState);
+        }
+
         var result = await commandDispatcher.SendAsync(
             new UpdateCompanyUserCommand(
                 userId,
                 request.FirstName,
                 request.LastName,
-                request.RolePublicIds),
+                request.RolePublicIds,
+                expectedETag),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithWeakETag(result, value => value.WeakETag);
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
@@ -108,8 +123,13 @@ public sealed class CompanyUsersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<CompanyUserResponse>> Deactivate(Guid userId, CancellationToken cancellationToken)
     {
-        var result = await commandDispatcher.SendAsync(new DeactivateCompanyUserCommand(userId), cancellationToken);
-        return this.ToActionResult(result);
+        if (!TryGetWeakIfMatch(out var expectedETag))
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var result = await commandDispatcher.SendAsync(new DeactivateCompanyUserCommand(userId, expectedETag), cancellationToken);
+        return this.ToActionResultWithWeakETag(result, value => value.WeakETag);
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
@@ -123,8 +143,13 @@ public sealed class CompanyUsersController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<CompanyUserResponse>> Reactivate(Guid userId, CancellationToken cancellationToken)
     {
-        var result = await commandDispatcher.SendAsync(new ReactivateCompanyUserCommand(userId), cancellationToken);
-        return this.ToActionResult(result);
+        if (!TryGetWeakIfMatch(out var expectedETag))
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var result = await commandDispatcher.SendAsync(new ReactivateCompanyUserCommand(userId, expectedETag), cancellationToken);
+        return this.ToActionResultWithWeakETag(result, value => value.WeakETag);
     }
 
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
@@ -142,6 +167,35 @@ public sealed class CompanyUsersController(
     {
         var result = await commandDispatcher.SendAsync(new ResetInvitationCommand(userId), cancellationToken);
         return this.ToActionResult(result);
+    }
+
+    // Extracts the weak If-Match value (`W/"hash"` or `"hash"`) as the opaque tag. On a missing/empty
+    // header it records the standard model error (mirroring IfMatchModelBinder) and returns false, so
+    // the caller responds 400. Note: `reset-invitation` intentionally does NOT require If-Match — it
+    // reissues the invitation token and does not mutate the projected user resource.
+    private bool TryGetWeakIfMatch(out string? expectedETag)
+    {
+        expectedETag = null;
+
+        var normalized = Request.Headers[IfMatchHeader.HeaderName].ToString().Trim();
+        if (normalized.StartsWith("W/", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized[2..].Trim();
+        }
+
+        if (normalized.Length >= 2 && normalized.StartsWith('"') && normalized.EndsWith('"'))
+        {
+            normalized = normalized[1..^1];
+        }
+
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            ModelState.TryAddModelError(IfMatchHeader.HeaderName, IfMatchHeader.MissingDetail);
+            return false;
+        }
+
+        expectedETag = normalized;
+        return true;
     }
 
     public sealed record CreateCompanyUserRequest(
