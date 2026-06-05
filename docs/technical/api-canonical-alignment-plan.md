@@ -30,7 +30,7 @@ Leyenda de estado: ⬜ pendiente · 🟡 en progreso · ✅ hecho · ⏸️ bloq
 | 1 | Estructura org. & Locations | 7 | **7/7 ✅ COMPLETA** (Locations [5] + LegalRepresentatives + OrgUnits) — commiteada (último: `3cca1e0`); build 0/0, unit 1388/0, integration 303/0/24 |
 | 2 | Company / Users / Preferences | 4 | **✅ CERRADA (3/3 alineables)** — CompanyPreferences ✅ (`9c970df`); UserPreferences ✅ (`5d54281`); AccountCompanies ✅ (migración generada, usuario aplica). CompanyUsers ⏸️ **sacado de la ola** → spike de concurrencia de Identity (disparador de retomada en §7). |
 | 3 | Backoffice & catálogos | 6 | **✅ COMPLETA (6/6)** — infra (`67017b1`) + DocumentTypeCatalogs (`7777ba5`) + JobProfileCatalogTypes (`261fdfa`) + EducationCatalogs (`835b32d`) + CommercialAddons (`079e77b`) + CommercialPlans (`ff40c13`) + **BankCatalogs ✅** (escalar, PATCH completo; build 0/0, unit 1523/0, integration 4/4 nuevos). Cero migraciones en toda la ola. |
-| — | Limpieza / tombstone | 1 | 0/1 |
+| — | Limpieza / tombstone | 1 | **1/1 ✅** (borrado `PersonnelEducationCatalogsController.cs` vacío; build 0/0) |
 | — | Excluidos (no-CRUD) | 9 | ➖ |
 | — | Spikes de diseño | 3 | ⏸️ |
 
@@ -130,13 +130,17 @@ Viven en `CLARIHR.Backoffice.Api` (proyecto aparte; rutas `/api/platform/*`); us
 ## 7. Limpieza, exclusiones y spikes
 
 ### Limpieza (PR independiente)
-- [ ] **Borrar tombstone:** `src/CLARIHR.Api/Controllers/PersonnelEducationCatalogsController.cs` (vacío; su función migró a `EducationCatalogsController` del backoffice).
+- [x] **Borrar tombstone:** `src/CLARIHR.Api/Controllers/PersonnelEducationCatalogsController.cs` ✅ **HECHO** (`git rm`; era 4 líneas de comentario sin código; nada lo referenciaba; build 0/0). Pendiente: commit.
 
 ### ➖ Excluidos del patrón (no son CRUD de recurso — documentar exclusión / lookahead negativo en guardrails)
 `AccountCompanyAuthorization` (fachada IAM) · `AccountCompanySubscriptions` y `PlatformSubscriptions` (RPC comercial) · `GeneralCatalogs` y `AccountInternalCatalogs` (proyecciones read-only) · `CommercialModules` (catálogo de sistema en código) · `Audit` (append-only) · `LocationHierarchy` (singleton — alineación parcial en Ola 1).
 
 ### ⏸️ Spikes de diseño antes de alinear (no CRUD simple)
-- `CompetencyFramework` — sin aggregate root (value objects/catálogos).
+- `CompetencyFramework` — **SPIKE HECHO (2026-06-04, workflow 5-agentes). Veredicto: ALINEABLE COMPLETO, sin exclusiones.** Es un controller tenant-scoped (`api/v1`, hoy con token-en-body, sin `[ApiVersion]`) con **3 familias de recursos**, cada una ya con `ConcurrencyToken` mapeado (`.IsConcurrencyToken()`) → **cero migraciones**:
+  1. **OccupationalPyramidLevel** (aggregate escalar simple) → **PATCH RFC-6902 completo** (allow-list `/code`,`/name`,`/levelOrder`,`/description`; deny `isActive`/`concurrencyToken`; el handler debe re-correr las uniqueness queries per-tenant de `levelOrder`+`normalizedCode` tras aplicar el patch; `Validate` espeja el normalizador trimeado — ver [[patch-applier-trim-domain-parity]]).
+  2. **CompetencyConduct** (+ colección hija `behaviors`, sin PublicId) → **concurrency-only, SIN PATCH** (uniqueness de tupla de 4 campos + normalización de Description viven solo en el handler; el `/behaviors` PUT es replace-collection sobre un hijo no-público → RFC-6902 inapropiado).
+  3. **JobProfileCompetencyMatrix** (PUT replace-matrix + export GET) → **concurrency-only, SIN PATCH** (invariantes de tupla única + conduct-set + status≠Archived solo en el handler; ETag = token del `JobProfile` padre).
+  **Trabajo común (las 3):** `[ApiVersion("1.0")]`+ruta relativa; migrar token-en-body → `[FromIfMatch]`; `ToActionResultWithETag` / `ToCreatedAtActionResult`; decoradores; borrar el record `ConcurrencyRequest` local al final. **Plan: 3 PRs** (OPL primero con su PATCH; luego CompetencyConduct; luego Matrix). Activate/inactivate siguen como sub-rutas de acción (no se funden en PATCH). Export GET intacto. **Referencias:** `WorkCentersController`/`JobProfileCompetenciesController` (ya alineados) son la plantilla. **Rompe el FE** (token body→header) en los 6 endpoints de mutación — confirmar cutover con el usuario.
 - `SalaryTabulator` — sin aggregate root; patrón change-request; `SalaryTabulatorChangeRequest` sin token (auditoría aparte).
 - `CompanyUsers` — proyección read sobre 3+ aggregates (`User`/`auth_users` + `UserCompanyMembership` + `IamUser`/roles); no hay un aggregate único cuyo token represente el recurso. **Disparador de retomada (por condición, no por fecha):**
   1. **Preferente — oportunista:** cuando se abra `auth_users`/Identity para otro trabajo, para pagar la regresión de Auth (login/registro/OAuth/reset/invitación) **una sola vez** en vez de standalone.
