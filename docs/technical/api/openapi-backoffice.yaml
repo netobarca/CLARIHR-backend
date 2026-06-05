@@ -1667,6 +1667,11 @@ paths:
       responses:
         '201':
           description: Bank catalog item created successfully.
+          headers:
+            ETag:
+              description: Current concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -1685,6 +1690,12 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '403':
           description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested country was not found.
           content:
             application/problem+json:
               schema:
@@ -1749,6 +1760,12 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -1758,6 +1775,11 @@ paths:
       responses:
         '200':
           description: Bank catalog item updated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -1792,6 +1814,78 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+    patch:
+      tags:
+      - bank-catalogs
+      operationId: PatchBankCatalogItem
+      summary: Patch a global bank catalog item (RFC 6902 JSON Patch)
+      description: Applies a partial update using JSON Patch (RFC 6902), media type `application/json-patch+json`. Patchable paths are `/code`, `/name`, `/sortOrder` and the optional `/alias`, `/swiftCode`, `/routingCode` (string, or null/remove to clear). The country is immutable; activation state changes use the `/activate` and `/inactivate` actions. Requires the current `concurrencyToken` in the `If-Match` header (missing → 400, stale → 409). The refreshed token is returned in the body and the `ETag` header.
+      security:
+      - Bearer: []
+      parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json-patch+json:
+            schema:
+              type: array
+              description: RFC 6902 JSON Patch operations.
+              items:
+                type: object
+      responses:
+        '200':
+          description: Bank catalog item updated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankCatalogItemResponse'
+        '400':
+          description: Validation error for one or more patch operations, or the `If-Match` header is missing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Authentication is required.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: The authenticated user does not have platform admin access.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: The requested bank catalog item was not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Concurrency conflict, or duplicated code.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/platform/bank-catalogs/{publicId}/activate:
     patch:
       tags:
@@ -1807,15 +1901,20 @@ paths:
         schema:
           type: string
           format: uuid
-      requestBody:
+      - name: If-Match
+        in: header
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BankCatalogConcurrencyRequest'
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
       responses:
         '200':
           description: Bank catalog item activated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -1865,15 +1964,20 @@ paths:
         schema:
           type: string
           format: uuid
-      requestBody:
+      - name: If-Match
+        in: header
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BankCatalogConcurrencyRequest'
+        description: Current `concurrencyToken` of the item, quoted as an HTTP ETag.
+        schema:
+          type: string
       responses:
         '200':
           description: Bank catalog item inactivated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -3657,14 +3761,6 @@ components:
           format: int32
         user:
           $ref: '#/components/schemas/UserDto'
-    BankCatalogConcurrencyRequest:
-      type: object
-      required:
-      - concurrencyToken
-      properties:
-        concurrencyToken:
-          type: string
-          format: uuid
     EducationCatalogItemResponse:
       type: object
       required:
@@ -5926,15 +6022,9 @@ components:
       - SubscriptionReplacement
       - LegacyMigration
     UpdateBankCatalogItemRequest:
+      description: Same shape as the create request; the country cannot be changed and the concurrency token travels in the If-Match header.
       allOf:
       - $ref: '#/components/schemas/CreateBankCatalogItemRequest'
-      - type: object
-        required:
-        - concurrencyToken
-        properties:
-          concurrencyToken:
-            type: string
-            format: uuid
     UpdateCommercialAddonRequest:
       type: object
       required:
