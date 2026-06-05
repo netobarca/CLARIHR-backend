@@ -4721,7 +4721,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             scenario,
             (RbacPermissionScreen.Users, RbacPermissionAction.Read),
             (RbacPermissionScreen.Users, RbacPermissionAction.Update)));
-        var companyUsersList = await companyUsersClient.GetAsync("/api/company/users?page=1&pageSize=20&includeAllowedActions=true");
+        var companyUsersList = await companyUsersClient.GetAsync("/api/v1/company/users?page=1&pageSize=20&includeAllowedActions=true");
         await AssertFirstItemHasAllowedActionsAsync(companyUsersList);
 
         using var locationClient = factory.CreateClientFor(CreateLocationAdminContext(scenario));
@@ -8281,7 +8281,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         await factory.ResetDatabaseAsync();
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/api/company/users");
+        var response = await client.GetAsync("/api/v1/company/users");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -8343,7 +8343,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read)));
 
-        var response = await client.GetAsync("/api/company/users?page=1&pageSize=20");
+        var response = await client.GetAsync("/api/v1/company/users?page=1&pageSize=20");
 
         response.EnsureSuccessStatusCode();
 
@@ -8429,7 +8429,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
 
         var etag = await GetCompanyUserETagAsync(client, scenario.TargetUserId);
-        var response = await SendCompanyUserActionAsync(client, $"/api/company/users/{scenario.TargetUserId}/deactivate", etag);
+        var response = await SendCompanyUserActionAsync(client, $"/api/v1/company/users/{scenario.TargetUserId}/deactivate", etag);
 
         response.EnsureSuccessStatusCode();
         Assert.NotNull(response.Headers.ETag);
@@ -8450,7 +8450,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Delete)));
 
-        var response = await client.PatchAsync($"/api/company/users/{scenario.TargetUserId}/deactivate", content: null);
+        var response = await client.PatchAsync($"/api/v1/company/users/{scenario.TargetUserId}/deactivate", content: null);
 
         await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "RBAC_DENIED");
     }
@@ -8466,7 +8466,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read)));
 
-        var response = await client.GetAsync($"/api/company/users/{scenario.TargetUserId}");
+        var response = await client.GetAsync($"/api/v1/company/users/{scenario.TargetUserId}");
 
         response.EnsureSuccessStatusCode();
         Assert.NotNull(response.Headers.ETag);
@@ -8486,7 +8486,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
 
         // No concurrencyToken in the body → PutJsonAsync sets no If-Match header → required-precondition 400.
-        var response = await client.PutJsonAsync($"/api/company/users/{scenario.TargetUserId}", new
+        var response = await client.PutJsonAsync($"/api/v1/company/users/{scenario.TargetUserId}", new
         {
             firstName = "NoIfMatch",
             lastName = "User",
@@ -8552,9 +8552,125 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(response.Headers.ETag);
     }
 
+    [Fact]
+    public async Task CompanyUsers_Patch_WhenFieldsAreAllowed_ShouldReturnUpdatedUser()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        var etag = await GetCompanyUserETagAsync(client, scenario.TargetUserId);
+        var response = await SendCompanyUserPatchAsync(
+            client,
+            scenario.TargetUserId,
+            "[{\"op\":\"replace\",\"path\":\"/lastName\",\"value\":\"Patched\"}]",
+            etag);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(response.Headers.ETag);
+        Assert.True(response.Headers.ETag!.IsWeak);
+        Assert.NotEqual(etag, response.Headers.ETag.ToString());
+
+        var payload = await response.Content.ReadFromJsonAsync<CompanyUserItem>(JsonOptions);
+        Assert.NotNull(payload);
+        Assert.Equal("Patched", payload!.LastName);
+        Assert.Equal("Target", payload.FirstName);
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Patch_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        var response = await SendCompanyUserPatchAsync(
+            client,
+            scenario.TargetUserId,
+            "[{\"op\":\"replace\",\"path\":\"/lastName\",\"value\":\"NoIfMatch\"}]",
+            ifMatch: null);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        var response = await SendCompanyUserPatchAsync(
+            client,
+            scenario.TargetUserId,
+            "[{\"op\":\"replace\",\"path\":\"/lastName\",\"value\":\"Stale\"}]",
+            "W/\"0000000000000000000000000000000000000000000000000000000000000000\"");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Patch_WithDisallowedPath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        var etag = await GetCompanyUserETagAsync(client, scenario.TargetUserId);
+        var response = await SendCompanyUserPatchAsync(
+            client,
+            scenario.TargetUserId,
+            "[{\"op\":\"replace\",\"path\":\"/email\",\"value\":\"new@acme.test\"}]",
+            etag);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompanyUsers_Patch_WhenFieldIsNotEditable_ShouldReturn403FieldEditForbidden()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(
+            TestUserContext.Authenticated(
+                scenario.ActorUserId,
+                scenario.TenantId,
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Access),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Read),
+                PermissionMatrixCatalog.BuildPermissionCode(RbacPermissionScreen.Users, RbacPermissionAction.Update)));
+
+        var etag = await GetCompanyUserETagAsync(client, scenario.TargetUserId);
+        var response = await SendCompanyUserPatchAsync(
+            client,
+            scenario.TargetUserId,
+            "[{\"op\":\"replace\",\"path\":\"/firstName\",\"value\":\"Blocked\"}]",
+            etag);
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Forbidden, "FIELD_EDIT_FORBIDDEN");
+    }
+
     private static async Task<string> GetCompanyUserETagAsync(HttpClient client, Guid userId)
     {
-        var response = await client.GetAsync($"/api/company/users/{userId}");
+        var response = await client.GetAsync($"/api/v1/company/users/{userId}");
         response.EnsureSuccessStatusCode();
         Assert.NotNull(response.Headers.ETag);
         return response.Headers.ETag!.ToString();
@@ -8562,7 +8678,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
     private static Task<HttpResponseMessage> SendCompanyUserPutAsync(HttpClient client, Guid userId, object body, string ifMatch)
     {
-        var request = new HttpRequestMessage(HttpMethod.Put, $"/api/company/users/{userId}")
+        var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/company/users/{userId}")
         {
             Content = JsonContent.Create(body, options: JsonOptions)
         };
@@ -8574,6 +8690,20 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     {
         var request = new HttpRequestMessage(HttpMethod.Patch, url);
         request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        return client.SendAsync(request);
+    }
+
+    private static Task<HttpResponseMessage> SendCompanyUserPatchAsync(HttpClient client, Guid userId, string operationsJson, string? ifMatch)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/company/users/{userId}")
+        {
+            Content = new StringContent(operationsJson, Encoding.UTF8, "application/json-patch+json")
+        };
+        if (ifMatch is not null)
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        }
+
         return client.SendAsync(request);
     }
 

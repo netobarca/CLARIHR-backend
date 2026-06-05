@@ -20,7 +20,7 @@ public sealed class AuthorizeResourceFilterTests
             RbacPermissionAction.Read,
             new TestRbacAuthorizationService(Result.Failure(AuthorizationErrors.Unauthenticated)));
 
-        var context = CreateContext("/api/company/users");
+        var context = CreateContext("/api/v1/company/users");
         var nextCalled = false;
 
         await filter.OnActionExecutionAsync(context, () =>
@@ -42,7 +42,7 @@ public sealed class AuthorizeResourceFilterTests
             RbacPermissionAction.Update,
             new TestRbacAuthorizationService(Result.Failure(AuthorizationErrors.Denied("RBAC_USERS", RbacPermissionAction.Update))));
 
-        var context = CreateContext("/api/company/users/123");
+        var context = CreateContext("/api/v1/company/users/123");
 
         await filter.OnActionExecutionAsync(context, () => Task.FromResult<ActionExecutedContext>(null!));
 
@@ -58,7 +58,7 @@ public sealed class AuthorizeResourceFilterTests
             RbacPermissionAction.Read,
             new TestRbacAuthorizationService(Result.Success()));
 
-        var context = CreateContext("/api/company/users");
+        var context = CreateContext("/api/v1/company/users");
         var nextCalled = false;
 
         await filter.OnActionExecutionAsync(context, () =>

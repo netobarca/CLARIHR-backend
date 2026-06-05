@@ -120,7 +120,7 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 | Platform commercial plans | `CommercialPlansController` | `/api/platform/commercial-plans*` | administrar el catalogo comercial global de planes reutilizables; canonico con `If-Match`/`ETag` (sin PATCH RFC-6902 por invariantes cross-field — el PUT cubre la edicion completa) |
 | Platform subscriptions | `PlatformCompanySubscriptionsController`, `PlatformSubscriptionsController` | `/api/platform/companies/{companyPublicId}/subscription*`, `/api/platform/company-subscriptions` | consultar, previsualizar, activar, cambiar plan, administrar add-ons y listar suscripciones empresariales globales |
 | **Education catalogs** | `EducationCatalogsController` (Core), `EducationCatalogsController` (Backoffice) | `/api/v1/education-catalogs/{catalogKey}` (Core lectura), `/api/platform/education-catalogs/{catalogKey}` (Backoffice CRUD) | catalogos de educacion globales de sistema administrados exclusivamente por Backoffice y consultados en modo lectura desde el Core; Backoffice canonico con `If-Match`/`ETag` + PATCH RFC-6902 (`/code`,`/name`,`/sortOrder`), scoped por `catalogKey` |
-| Company users | `CompanyUsersController` | `/api/company/users*` | invitar y administrar usuarios del tenant; concurrencia con **ETag debil computado** (`W/"hash"`) + `If-Match` (sin token persistido — proyeccion de 3 aggregates); authz handler-gated RBAC field-level |
+| Company users | `CompanyUsersController` | `/api/v1/company/users*` | invitar y administrar usuarios del tenant; concurrencia con **ETag debil computado** (`W/"hash"`) + `If-Match` (sin token persistido — proyeccion de 3 aggregates); authz handler-gated RBAC field-level |
 | Preferences | `UserPreferencesController`, `CompanyPreferencesController` | `/api/v1/account/me/preferences`, `/api/v1/companies/{companyId}/preferences` | administrar preferencias personales (language y `socialLinks`) y preferencias operativas de compania (moneda y zona horaria) |
 | Account company authorization | `AccountCompaniesController`, `AccountCompanyAuthorizationController` | `/api/account/companies/{companyPublicId}/access-context`, `/api/account/companies/{companyPublicId}/authorization*` | contexto de acceso, catalogo filtrado, roles, grants y policies del tenant |
 | Audit | `AuditController` | `/api/audit*` | consulta y detalle de logs de auditoria |
@@ -608,7 +608,7 @@ La profundizacion modular se ira completando por iteraciones. Esta version ya do
 
 Este bloque cubre la administracion de acceso del tenant activo e incluye:
 
-- `CompanyUsersController` con base `/api/company/users`
+- `CompanyUsersController` con base `/api/v1/company/users`
 - `AccountCompaniesController` para `access-context`, `role-builder-catalog` y `resource-policies`
 - `AccountCompanyAuthorizationController` con base `/api/account/companies/{companyPublicId}/authorization`
 
@@ -625,11 +625,11 @@ El modulo de autorizacion sirve para:
 - resolver `resource-policies` para recursos sensibles
 - separar claramente lifecycle de usuarios de la administracion de autorizacion
 
-En la practica, `api/company/users` resuelve la administracion funcional de usuarios del tenant, mientras que `/api/account/companies/{companyPublicId}/authorization/*` resuelve el plano tecnico de roles, grants y policies.
+En la practica, `api/v1/company/users` resuelve la administracion funcional de usuarios del tenant, mientras que `/api/account/companies/{companyPublicId}/authorization/*` resuelve el plano tecnico de roles, grants y policies.
 
 #### 5.1.3 Modelo operativo y reglas transversales del modulo
 
-- El lifecycle de usuarios (`/api/company/users`) sigue tenant-scoped implicito por el tenant activo del token despues de `company switch`.
+- El lifecycle de usuarios (`/api/v1/company/users`) sigue tenant-scoped implicito por el tenant activo del token despues de `company switch`.
 - La nueva superficie de autorizacion es company-scoped explicita y exige `companyPublicId` en la ruta.
 - `access-context` expone capacidades efectivas, modulos efectivos, roles, permisos y scopes del usuario para esa compania.
 - `role-builder-catalog` devuelve solo el catalogo filtrado y util para la compania activa.
@@ -650,7 +650,7 @@ En la practica, `api/company/users` resuelve la administracion funcional de usua
 
 #### 5.1.5 `CompanyUsersController` - usuarios operativos del tenant
 
-Base route: `/api/company/users`
+Base route: `/api/v1/company/users`
 
 Usar este controlador cuando el frontend necesita administrar usuarios reales de la compania activa: invitarlos, cambiarles rol, desactivarlos o reenviar su invitacion. Es el entry point funcional para administracion de usuarios del tenant.
 
@@ -667,8 +667,9 @@ Reglas comunes:
 - El campo `status` usa `UserStatus` (`Active`, `Inactive`, `PendingActivation`).
 - Este bloque sincroniza el usuario funcional (`User`), la membresia a compania y su proyeccion IAM (`IamUser`).
 - **Concurrencia (ETag debil):** el recurso es una proyeccion de 3 aggregates sin token persistido, asi que usa un **ETag computado debil** (`W/"<hash>"`) — un hash determinístico de la proyeccion (perfil + status + set de roles, calculado sobre la proyeccion SIN filtrar para que sea independiente de los field permissions del llamante). `GET {userPublicId}` y las respuestas de escritura emiten el header `ETag`; las mutaciones (`PUT`, `/deactivate`, `/reactivate`) exigen el valor actual en `If-Match` (ausente → `400`, obsoleto → `409 CONCURRENCY_CONFLICT`; no se usan 412/428). Cambiar roles rota el ETag aunque ningun timestamp de aggregate cambie, porque el set de roles entra al hash.
+- **Actualizacion parcial (JSON Patch):** ademas del `PUT` (reemplazo total) existe un `PATCH` JSON Patch (RFC 6902, media type `application/json-patch+json`, body = array desnudo de operaciones) sobre `/firstName`, `/lastName`, `/rolePublicIds`. Comparte el mismo `If-Match` debil y reutiliza la misma ruta de mutacion que el `PUT`.
 
-##### `GET /api/company/users`
+##### `GET /api/v1/company/users`
 
 - Proposito: listar usuarios de la compania activa.
 - Autorizacion: `RBAC_USERS:Read`.
@@ -677,14 +678,14 @@ Reglas comunes:
 - Response: `PagedResponse<CompanyUserSummaryResponse>`.
 - Observaciones: la lista ya sale filtrada por permisos de campo del usuario autenticado.
 
-##### `GET /api/company/users/{userPublicId}`
+##### `GET /api/v1/company/users/{userPublicId}`
 
 - Proposito: obtener un usuario operativo puntual de la compania activa por `userPublicId`.
 - Autorizacion: `RBAC_USERS:Read`.
 - Response: `CompanyUserResponse` + header `ETag: W/"<hash>"` (token debil para el `If-Match` de las mutaciones).
 - Observaciones: mantiene tenant scope implicito y el campo `id` del response representa el `publicId` externo del usuario.
 
-##### `POST /api/company/users`
+##### `POST /api/v1/company/users`
 
 - Proposito: invitar un usuario a la compania activa y asignarle un rol inicial.
 - Autorizacion: `RBAC_USERS:Create`.
@@ -693,7 +694,7 @@ Reglas comunes:
 - Errores relevantes: `company_users.role.not_found`, `company_users.user_already_in_company`, `company_users.user_in_another_company`, `FIELD_EDIT_FORBIDDEN`.
 - Observaciones: si el email ya existe como usuario local reutiliza el usuario; si no existe, crea un usuario invitado local, crea membresia, sincroniza `IamUser`, genera token de invitacion, revoca invitaciones activas previas para esa combinacion usuario/compania y envia correo.
 
-##### `PUT /api/company/users/{userId}`
+##### `PUT /api/v1/company/users/{userId}`
 
 - Proposito: actualizar nombre/apellido del usuario y cambiar su rol dentro de la compania activa.
 - Autorizacion: `RBAC_USERS:Update`.
@@ -703,7 +704,27 @@ Reglas comunes:
 - Errores relevantes: `CONCURRENCY_CONFLICT`, `company_users.role.not_found`, `company_users.last_admin_required`, `FIELD_EDIT_FORBIDDEN`, `TENANT_MISMATCH`.
 - Observaciones: la autorizacion por campo se evalua solo para los campos realmente cambiados; tambien sincroniza el `IamUser` asociado para que el rol efectivo del tenant quede consistente. El chequeo de `If-Match` corre antes de la autorizacion por campo.
 
-##### `PATCH /api/company/users/{userId}/deactivate`
+##### `PATCH /api/v1/company/users/{userPublicId}`
+
+- Proposito: actualizacion parcial de los campos editables del usuario via JSON Patch (RFC 6902).
+- Autorizacion: `RBAC_USERS:Update`.
+- Media type: `application/json-patch+json`. El body es un **array desnudo** de operaciones (sin envoltorio `operations`).
+- Paths patchables: `/firstName`, `/lastName`, `/rolePublicIds` (reemplazo del set completo de roles). El cambio de estado va por `/deactivate` y `/reactivate`; el `email` es inmutable.
+- Concurrencia: requiere `If-Match: W/"<hash>"` (ausente → `400`, obsoleto → `409 CONCURRENCY_CONFLICT`); responde con el `ETag` rotado.
+- Response: `200 OK` con `CompanyUserResponse` + header `ETag`.
+- Errores relevantes: `CONCURRENCY_CONFLICT`, `company_users.role.not_found`, `company_users.last_admin_required`, `FIELD_EDIT_FORBIDDEN`, `TENANT_MISMATCH`; un path no permitido o un valor con tipo incorrecto devuelven `400` con la clave = el path de la operacion.
+- Ejemplo de body:
+
+  ```json
+  [
+    { "op": "replace", "path": "/lastName", "value": "Mendoza" },
+    { "op": "replace", "path": "/rolePublicIds", "value": ["7b2f0e6c-...", "9c1a4d22-..."] }
+  ]
+  ```
+
+- Observaciones: resuelve el cambio parcial sobre el estado actual y reutiliza exactamente la ruta de mutacion del `PUT` (misma validacion, autorizacion por campo solo sobre los campos cambiados, sincronizacion de `IamUser`, auditoria y rotacion del ETag debil). El `PUT` sigue disponible para reemplazo total.
+
+##### `PATCH /api/v1/company/users/{userId}/deactivate`
 
 - Proposito: desactivar al usuario en la compania activa.
 - Autorizacion: `RBAC_USERS:Update`.
@@ -712,7 +733,7 @@ Reglas comunes:
 - Errores relevantes: `CONCURRENCY_CONFLICT`, `company_users.last_admin_required`, `TENANT_MISMATCH`.
 - Observaciones: desactiva el usuario funcional, la membresia y el `IamUser` vinculado; ademas revoca refresh tokens con razon `company-user-deactivated`.
 
-##### `PATCH /api/company/users/{userId}/reactivate`
+##### `PATCH /api/v1/company/users/{userId}/reactivate`
 
 - Proposito: reactivar al usuario en la compania activa.
 - Autorizacion: `RBAC_USERS:Update`.
@@ -721,7 +742,7 @@ Reglas comunes:
 - Errores relevantes: `CONCURRENCY_CONFLICT`, `TENANT_MISMATCH`, `company_users.user.not_found`.
 - Observaciones: reactiva membresia y vuelve a marcar activo el `IamUser` si el estado funcional del usuario queda `Active`.
 
-##### `POST /api/company/users/{userId}/reset-invitation`
+##### `POST /api/v1/company/users/{userId}/reset-invitation`
 
 - Proposito: emitir una nueva invitacion para un usuario pendiente o reenviable.
 - Autorizacion: `RBAC_USERS:Update`.
@@ -868,7 +889,7 @@ Reglas comunes:
 
 #### 5.1.9 Relacion entre superficies de usuarios y authorization
 
-- `api/company/users` resuelve membresia, invitacion y lifecycle operativo del usuario dentro de una compania.
+- `api/v1/company/users` resuelve membresia, invitacion y lifecycle operativo del usuario dentro de una compania.
 - `api/account/companies/{companyPublicId}/authorization/*` resuelve roles, grants, policies y asignacion de roles a usuarios.
 - `api/account/companies/{companyPublicId}/access-context` resuelve el contexto efectivo de acceso.
 
