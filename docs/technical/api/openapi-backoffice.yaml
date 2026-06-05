@@ -2251,6 +2251,11 @@ paths:
       responses:
         '201':
           description: Commercial plan created successfully.
+          headers:
+            ETag:
+              description: Current concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -2334,6 +2339,12 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: If-Match
+        in: header
+        required: true
+        description: Current `concurrencyToken` of the plan, quoted as an HTTP ETag.
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -2343,6 +2354,11 @@ paths:
       responses:
         '200':
           description: Commercial plan updated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -2392,15 +2408,20 @@ paths:
         schema:
           type: string
           format: uuid
-      requestBody:
+      - name: If-Match
+        in: header
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CommercialPlanConcurrencyRequest'
+        description: Current `concurrencyToken` of the plan, quoted as an HTTP ETag.
+        schema:
+          type: string
       responses:
         '200':
           description: Commercial plan activated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -2451,15 +2472,20 @@ paths:
         schema:
           type: string
           format: uuid
-      requestBody:
+      - name: If-Match
+        in: header
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CommercialPlanConcurrencyRequest'
+        description: Current `concurrencyToken` of the plan, quoted as an HTTP ETag.
+        schema:
+          type: string
       responses:
         '200':
           description: Commercial plan inactivated successfully.
+          headers:
+            ETag:
+              description: New concurrency token, quoted as an HTTP ETag.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -4173,14 +4199,6 @@ components:
           example: Job Profiles
         description:
           type: string
-    CommercialPlanConcurrencyRequest:
-      type: object
-      required:
-      - concurrencyToken
-      properties:
-        concurrencyToken:
-          type: string
-          format: uuid
     CommercialPlanLimitInput:
       type: object
       required:
@@ -5976,7 +5994,6 @@ components:
       - pricePerActiveEmployee
       - moduleKeys
       - limits
-      - concurrencyToken
       properties:
         code:
           type: string
@@ -6006,9 +6023,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CommercialPlanLimitInput'
-        concurrencyToken:
-          type: string
-          format: uuid
     UpsertPlatformCompanySubscriptionRequest:
       type: object
       required:

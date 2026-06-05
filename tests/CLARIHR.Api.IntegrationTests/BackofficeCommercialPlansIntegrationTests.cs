@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using CLARIHR.Domain.Companies;
 using CLARIHR.Domain.Platform;
@@ -102,25 +103,24 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
         Assert.Equal(created.Id, fetched!.Id);
         Assert.Equal(created.ModuleKeys.OrderBy(static key => key), fetched.ModuleKeys.OrderBy(static key => key));
 
-        var updateResponse = await client.PutJsonAsync($"/api/platform/commercial-plans/{created.Id}", new
-        {
-            code = "PRO",
-            name = "Professional Plus",
-            description = "Plan actualizado",
-            baseMonthlyFee = 180m,
-            pricePerActiveEmployee = 4m,
-            moduleKeys = new[]
-            {
-                CommercialModuleKeys.JobProfiles,
-                CommercialModuleKeys.PositionSlots
-            },
-            limits = new[]
-            {
-                new { code = "work_centers", value = 10m }
-            },
-            concurrencyToken = created.ConcurrencyToken
-        });
+        // The create exposes the current concurrency token in the ETag header.
+        Assert.Equal($"\"{created.ConcurrencyToken:D}\"", createResponse.Headers.ETag!.Tag);
 
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/platform/commercial-plans/{created.Id}")
+        {
+            Content = JsonBody(new
+            {
+                code = "PRO",
+                name = "Professional Plus",
+                description = "Plan actualizado",
+                baseMonthlyFee = 180m,
+                pricePerActiveEmployee = 4m,
+                moduleKeys = new[] { CommercialModuleKeys.JobProfiles, CommercialModuleKeys.PositionSlots },
+                limits = new[] { new { code = "work_centers", value = 10m } }
+            })
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{created.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
         updateResponse.EnsureSuccessStatusCode();
 
         var updated = await updateResponse.Content.ReadFromJsonAsync<CommercialPlanEnvelope>(JsonOptions);
@@ -134,19 +134,22 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
         Assert.Equal(
             [CommercialModuleKeys.JobProfiles, CommercialModuleKeys.PositionSlots],
             updated.ModuleKeys.OrderBy(static key => key).ToArray());
+        Assert.NotEqual(created.ConcurrencyToken, updated.ConcurrencyToken);
+        Assert.Equal($"\"{updated.ConcurrencyToken:D}\"", updateResponse.Headers.ETag!.Tag);
 
-        var activateResponse = await client.PatchAsJsonAsync(
-            $"/api/platform/commercial-plans/{created.Id}/activate",
-            new { concurrencyToken = updated.ConcurrencyToken });
+        using var activateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/platform/commercial-plans/{created.Id}/activate");
+        activateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated.ConcurrencyToken}\"");
+        var activateResponse = await client.SendAsync(activateRequest);
         activateResponse.EnsureSuccessStatusCode();
 
         var activated = await activateResponse.Content.ReadFromJsonAsync<CommercialPlanEnvelope>(JsonOptions);
         Assert.NotNull(activated);
         Assert.Equal(CommercialPlanStatus.Active, activated!.Status);
+        Assert.Equal($"\"{activated.ConcurrencyToken:D}\"", activateResponse.Headers.ETag!.Tag);
 
-        var inactivateResponse = await client.PatchAsJsonAsync(
-            $"/api/platform/commercial-plans/{created.Id}/inactivate",
-            new { concurrencyToken = activated.ConcurrencyToken });
+        using var inactivateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/platform/commercial-plans/{created.Id}/inactivate");
+        inactivateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{activated.ConcurrencyToken}\"");
+        var inactivateResponse = await client.SendAsync(inactivateRequest);
         inactivateResponse.EnsureSuccessStatusCode();
 
         var inactivated = await inactivateResponse.Content.ReadFromJsonAsync<CommercialPlanEnvelope>(JsonOptions);
@@ -181,6 +184,91 @@ public sealed class BackofficeCommercialPlansIntegrationTests(BackofficeIntegrat
         Assert.Contains(payload!, static module => module.Key == CommercialModuleKeys.Rbac);
         Assert.Contains(payload!, static module => module.Key == CommercialModuleKeys.JobProfiles);
         Assert.Contains(payload!, static module => module.Key == CommercialModuleKeys.PersonnelFiles);
+    }
+
+    [Fact]
+    public async Task CommercialPlans_Update_WithoutIfMatch_ShouldReturn400()
+    {
+        using var client = await CreateAdminClientAsync();
+        var created = await CreateProPlanAsync(client);
+
+        var response = await client.PutJsonAsync($"/api/platform/commercial-plans/{created.Id}", new
+        {
+            code = "PRO",
+            name = "Professional Plus",
+            description = (string?)null,
+            baseMonthlyFee = 180m,
+            pricePerActiveEmployee = 4m,
+            moduleKeys = new[] { CommercialModuleKeys.JobProfiles },
+            limits = Array.Empty<object>()
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CommercialPlans_Update_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        using var client = await CreateAdminClientAsync();
+        var created = await CreateProPlanAsync(client);
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/platform/commercial-plans/{created.Id}")
+        {
+            Content = JsonBody(new
+            {
+                code = "PRO",
+                name = "Professional Plus",
+                description = (string?)null,
+                baseMonthlyFee = 180m,
+                pricePerActiveEmployee = 4m,
+                moduleKeys = new[] { CommercialModuleKeys.JobProfiles },
+                limits = Array.Empty<object>()
+            })
+        };
+        request.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var response = await client.SendAsync(request);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    private async Task<HttpClient> CreateAdminClientAsync()
+    {
+        await factory.ResetDatabaseAsync(dbContext =>
+            PlatformTestSeed.SeedPlatformOperatorAsync(
+                dbContext,
+                PlatformOperatorUserId,
+                "platform.admin@clarihr.test",
+                "hashed-password",
+                PlatformOperatorRole.Admin));
+
+        return factory.CreateClientFor(TestUserContext.PlatformAuthenticatedWithoutTenant(PlatformOperatorUserId));
+    }
+
+    private async Task<CommercialPlanEnvelope> CreateProPlanAsync(HttpClient client)
+    {
+        var createResponse = await client.PostJsonAsync("/api/platform/commercial-plans", new
+        {
+            code = "PRO",
+            name = "Professional",
+            description = "Plan base profesional",
+            baseMonthlyFee = 120m,
+            pricePerActiveEmployee = 3.5m,
+            status = CommercialPlanStatus.Draft,
+            moduleKeys = new[] { CommercialModuleKeys.JobProfiles },
+            limits = new[] { new { code = "employees", value = 25m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        return (await createResponse.Content.ReadFromJsonAsync<CommercialPlanEnvelope>(JsonOptions))!;
+    }
+
+    private static StringContent JsonBody(object body) =>
+        new(JsonSerializer.Serialize(body, JsonOptions), Encoding.UTF8, "application/json");
+
+    private static async Task AssertProblemDetailsAsync(HttpResponseMessage response, HttpStatusCode expectedStatus, string expectedCode)
+    {
+        Assert.Equal(expectedStatus, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(expectedCode, document.RootElement.GetProperty("code").GetString());
     }
 
     private sealed record PagedResponseEnvelope<TItem>(
