@@ -4673,7 +4673,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
         var createdRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-AA", "S1", 1300m);
-        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
+        var submitResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
         {
             concurrencyToken = createdRequest.ConcurrencyToken
         });
@@ -4682,7 +4682,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(submittedRequest);
 
         using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
-        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        var approveResponse = await approverClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
         {
             decisionComment = "ok",
             concurrencyToken = submittedRequest!.ConcurrencyToken
@@ -5066,7 +5066,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "CLS-JP-CANON");
         var createdRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-JP-CANON", "S1", 1850m);
 
-        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
+        var submitResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
         {
             concurrencyToken = createdRequest.ConcurrencyToken
         });
@@ -5074,7 +5074,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(submitted);
 
-        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        var approveResponse = await approverClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
         {
             decisionComment = "Aprobado para compensaciones de perfil",
             concurrencyToken = submitted!.ConcurrencyToken
@@ -5162,7 +5162,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var createdRequest = await requestResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(createdRequest);
 
-        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest!.Id}/submit", new
+        var submitResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest!.Id}/submit", new
         {
             concurrencyToken = createdRequest.ConcurrencyToken
         });
@@ -5170,7 +5170,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(submitted);
 
-        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        var approveResponse = await approverClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
         {
             decisionComment = "Aprobado para request legado",
             concurrencyToken = submitted!.ConcurrencyToken
@@ -5273,7 +5273,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var createdRequest = await requestResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(createdRequest);
 
-        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest!.Id}/submit", new
+        var submitResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest!.Id}/submit", new
         {
             concurrencyToken = createdRequest.ConcurrencyToken
         });
@@ -5281,7 +5281,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(submitted);
 
-        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        var approveResponse = await approverClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
         {
             decisionComment = "Aprobado para rango",
             concurrencyToken = submitted!.ConcurrencyToken
@@ -5355,7 +5355,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var salaryClass = await EnsureSalaryClassAsync(requesterClient, scenario.TenantId, "CLS-JP-COVERAGE");
         var createdRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-JP-COVERAGE", "S1", 1600m);
 
-        var submitCreateResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
+        var submitCreateResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
         {
             concurrencyToken = createdRequest.ConcurrencyToken
         });
@@ -5363,7 +5363,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var submittedCreate = await submitCreateResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(submittedCreate);
 
-        var approveCreateResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        var approveCreateResponse = await approverClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
         {
             decisionComment = "Linea base aprobada",
             concurrencyToken = submittedCreate!.ConcurrencyToken
@@ -5425,7 +5425,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var inactivateRequest = await inactivateRequestResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(inactivateRequest);
 
-        var submitInactivateResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{inactivateRequest!.Id}/submit", new
+        var submitInactivateResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{inactivateRequest!.Id}/submit", new
         {
             concurrencyToken = inactivateRequest.ConcurrencyToken
         });
@@ -5433,7 +5433,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var submittedInactivate = await submitInactivateResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(submittedInactivate);
 
-        var approveInactivateResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{inactivateRequest.Id}/approve", new
+        var approveInactivateResponse = await approverClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{inactivateRequest.Id}/approve", new
         {
             decisionComment = "Intento de inactivacion",
             concurrencyToken = submittedInactivate!.ConcurrencyToken
@@ -7939,7 +7939,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var updated = await updateResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(updated);
 
-        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/submit", new
+        var submitResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/submit", new
         {
             concurrencyToken = updated!.ConcurrencyToken
         });
@@ -7952,7 +7952,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         impactResponse.EnsureSuccessStatusCode();
 
         using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverContext(scenario));
-        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/approve", new
+        var approveResponse = await approverClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/approve", new
         {
             decisionComment = "Aprobado",
             concurrencyToken = submitted.ConcurrencyToken
@@ -7978,6 +7978,37 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task SalaryTabulator_Submit_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        var created = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-NOIFMATCH", "S1", 1200m);
+
+        // No If-Match header and no body token: the [FromIfMatch] binder must reject with 400.
+        var submitRequest = new HttpRequestMessage(
+            HttpMethod.Patch,
+            $"/api/v1/salary-tabulator/change-requests/{created.Id}/submit");
+        var submitResponse = await requesterClient.SendAsync(submitRequest);
+
+        Assert.Equal(HttpStatusCode.BadRequest, submitResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task SalaryTabulator_Submit_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
+        var created = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-STALE", "S1", 1200m);
+
+        // PatchJsonAsync mirrors the body token into the If-Match header; a non-matching token → 409.
+        var submitResponse = await requesterClient.PatchJsonAsync(
+            $"/api/v1/salary-tabulator/change-requests/{created.Id}/submit",
+            new { concurrencyToken = Guid.NewGuid() });
+
+        Assert.Equal(HttpStatusCode.Conflict, submitResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task SalaryTabulator_Approve_WithSelfApproval_ShouldReturn422()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -7985,7 +8016,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var created = await CreateSalaryTabulatorRequestAsync(client, scenario.TenantId, "CLS-B", "S1", 1100m);
 
-        var submitResponse = await client.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/submit", new
+        var submitResponse = await client.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/submit", new
         {
             concurrencyToken = created.ConcurrencyToken
         });
@@ -7993,7 +8024,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(submitted);
 
-        var approveResponse = await client.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/approve", new
+        var approveResponse = await client.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/approve", new
         {
             decisionComment = "auto",
             concurrencyToken = submitted!.ConcurrencyToken
@@ -8067,7 +8098,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
 
         var createdRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-ACTIONS", "S1", 1350m);
 
-        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
+        var submitResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/submit", new
         {
             concurrencyToken = createdRequest.ConcurrencyToken
         });
@@ -8075,7 +8106,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var submitted = await submitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(submitted);
 
-        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
+        var approveResponse = await approverClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{createdRequest.Id}/approve", new
         {
             decisionComment = "approved",
             concurrencyToken = submitted!.ConcurrencyToken
@@ -8118,7 +8149,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 AssertActionPermission(allowedActions, "approve", SalaryTabulatorPermissionCodes.Approve, allowed: false);
             });
 
-        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{draft.Id}/submit", new
+        var submitResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{draft.Id}/submit", new
         {
             concurrencyToken = draft.ConcurrencyToken
         });
@@ -8144,7 +8175,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             });
 
         var selfApprovalRequest = await CreateSalaryTabulatorRequestAsync(requestAndApproveClient, scenario.TenantId, "CLS-WFA-SELF", "S1", 1200m);
-        var selfSubmitResponse = await requestAndApproveClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{selfApprovalRequest.Id}/submit", new
+        var selfSubmitResponse = await requestAndApproveClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{selfApprovalRequest.Id}/submit", new
         {
             concurrencyToken = selfApprovalRequest.ConcurrencyToken
         });
@@ -8167,7 +8198,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
                 AssertActionPermission(allowedActions, "reject", SalaryTabulatorPermissionCodes.Approve, allowed: true);
             });
 
-        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{draft.Id}/approve", new
+        var approveResponse = await approverClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{draft.Id}/approve", new
         {
             decisionComment = "approved",
             concurrencyToken = submitted!.ConcurrencyToken
@@ -8180,7 +8211,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             AssertNoWorkflowAllowedActions);
 
         var rejectedRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-WFA-REJECT", "S1", 1300m);
-        var rejectedSubmitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{rejectedRequest.Id}/submit", new
+        var rejectedSubmitResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{rejectedRequest.Id}/submit", new
         {
             concurrencyToken = rejectedRequest.ConcurrencyToken
         });
@@ -8188,7 +8219,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var rejectedSubmitted = await rejectedSubmitResponse.Content.ReadFromJsonAsync<SalaryTabulatorChangeRequestItem>(JsonOptions);
         Assert.NotNull(rejectedSubmitted);
 
-        var rejectResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{rejectedRequest.Id}/reject", new
+        var rejectResponse = await approverClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{rejectedRequest.Id}/reject", new
         {
             decisionComment = "rejected",
             concurrencyToken = rejectedSubmitted!.ConcurrencyToken
@@ -8201,7 +8232,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             AssertNoWorkflowAllowedActions);
 
         var canceledRequest = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-WFA-CANCEL", "S1", 1400m);
-        var cancelResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{canceledRequest.Id}/cancel", new
+        var cancelResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{canceledRequest.Id}/cancel", new
         {
             concurrencyToken = canceledRequest.ConcurrencyToken
         });
@@ -8220,7 +8251,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         using var requesterClient = factory.CreateClientFor(CreateSalaryTabulatorRequesterContext(scenario));
         var created = await CreateSalaryTabulatorRequestAsync(requesterClient, scenario.TenantId, "CLS-D", "S1", 1400m);
 
-        var submitResponse = await requesterClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/submit", new
+        var submitResponse = await requesterClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/submit", new
         {
             concurrencyToken = created.ConcurrencyToken
         });
@@ -8229,7 +8260,7 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.NotNull(submitted);
 
         using var approverClient = factory.CreateClientFor(CreateSalaryTabulatorApproverWithAuditContext(scenario));
-        var approveResponse = await approverClient.PatchAsJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/approve", new
+        var approveResponse = await approverClient.PatchJsonAsync($"/api/v1/salary-tabulator/change-requests/{created.Id}/approve", new
         {
             decisionComment = "approved",
             concurrencyToken = submitted!.ConcurrencyToken

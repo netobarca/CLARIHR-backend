@@ -1,4 +1,5 @@
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
 using CLARIHR.Application.Common.Pagination;
@@ -9,11 +10,19 @@ using CLARIHR.Application.Features.SalaryTabulator.Common;
 using CLARIHR.Domain.SalaryTabulator;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
+// Authorization is handler-gated via ISalaryTabulatorAuthorizationService (company-scoped capability
+// checks run inside the command/query handlers), NOT declarative RBAC. This family is intentionally
+// excluded from [AuthorizationPolicySet]/GovernedFamilyRegex (like AccountCompanies and
+// PersonnelFileReporting): there is no single Read/Manage policy pair to declare, so a declarative
+// attribute would be misleading. The literal `api/v1/...` routes are kept unversioned (no [ApiVersion])
+// because the wire path must stay identical for the existing FE.
 [ApiController]
 [Authorize]
+[Tags("Salary Tabulator")]
 public sealed class SalaryTabulatorController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
@@ -167,6 +176,13 @@ public sealed class SalaryTabulatorController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [SwaggerOperation(
+        Summary = "Create a salary-tabulator change request",
+        Description = """
+            Creates a new change request in `Draft` status for the company's salary tabulator. Returns
+            `201` with the created request; the current `concurrencyToken` is included in the body and
+            the `ETag` header for use in a subsequent update or lifecycle action.
+            """)]
     public async Task<ActionResult<SalaryTabulatorChangeRequestResponse>> CreateRequest(
         Guid companyId,
         [FromBody] CreateSalaryTabulatorChangeRequestRequest request,
@@ -180,9 +196,13 @@ public sealed class SalaryTabulatorController(
                 MapCreateItems(request)),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(Result<SalaryTabulatorChangeRequestResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+        // The PublicContractRouteConvention rewrites the GetRequestById route token `{id}` to
+        // `{publicId}`, so the Location route value MUST be keyed `publicId` (not `id`).
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetRequestById),
+            value => new { publicId = value.Id },
+            value => value.ConcurrencyToken);
     }
 
     [HttpPut("api/v1/salary-tabulator/change-requests/{id:guid}")]
@@ -193,8 +213,16 @@ public sealed class SalaryTabulatorController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [SwaggerOperation(
+        Summary = "Update a draft change request",
+        Description = """
+            Replaces the editable fields (reason, effective range and items) of a `Draft` change
+            request. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`,
+            stale → `409`). The refreshed token is returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<SalaryTabulatorChangeRequestResponse>> UpdateRequest(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateSalaryTabulatorChangeRequestRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -205,10 +233,10 @@ public sealed class SalaryTabulatorController(
                 request.EffectiveFromUtc,
                 request.EffectiveToUtc,
                 MapItems(request.Items),
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("api/v1/salary-tabulator/change-requests/{id:guid}/submit")]
@@ -218,16 +246,23 @@ public sealed class SalaryTabulatorController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [SwaggerOperation(
+        Summary = "Submit a draft change request for approval",
+        Description = """
+            Transitions a `Draft` change request to `Submitted`. Requires the current `concurrencyToken`
+            in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in
+            the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<SalaryTabulatorChangeRequestResponse>> SubmitRequest(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new SubmitSalaryTabulatorChangeRequestCommand(id, request.ConcurrencyToken),
+            new SubmitSalaryTabulatorChangeRequestCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("api/v1/salary-tabulator/change-requests/{id:guid}/approve")]
@@ -238,16 +273,25 @@ public sealed class SalaryTabulatorController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [SwaggerOperation(
+        Summary = "Approve a submitted change request",
+        Description = """
+            Transitions a `Submitted` change request to `Approved` and applies its items to the salary
+            tabulator lines. The decision comment travels in the body. Requires the current
+            `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed
+            token is returned in the body and the `ETag` header.
+            """)]
     public async Task<ActionResult<SalaryTabulatorChangeRequestResponse>> ApproveRequest(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] ApprovalRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ApproveSalaryTabulatorChangeRequestCommand(id, request.DecisionComment, request.ConcurrencyToken),
+            new ApproveSalaryTabulatorChangeRequestCommand(id, request.DecisionComment, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("api/v1/salary-tabulator/change-requests/{id:guid}/reject")]
@@ -258,16 +302,25 @@ public sealed class SalaryTabulatorController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [SwaggerOperation(
+        Summary = "Reject a submitted change request",
+        Description = """
+            Transitions a `Submitted` change request to `Rejected` without applying its items. The
+            decision comment travels in the body. Requires the current `concurrencyToken` in the
+            `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the
+            body and the `ETag` header.
+            """)]
     public async Task<ActionResult<SalaryTabulatorChangeRequestResponse>> RejectRequest(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] ApprovalRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new RejectSalaryTabulatorChangeRequestCommand(id, request.DecisionComment, request.ConcurrencyToken),
+            new RejectSalaryTabulatorChangeRequestCommand(id, request.DecisionComment, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("api/v1/salary-tabulator/change-requests/{id:guid}/cancel")]
@@ -277,16 +330,23 @@ public sealed class SalaryTabulatorController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [SwaggerOperation(
+        Summary = "Cancel a draft change request",
+        Description = """
+            Cancels a `Draft` change request. Requires the current `concurrencyToken` in the `If-Match`
+            header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the
+            `ETag` header.
+            """)]
     public async Task<ActionResult<SalaryTabulatorChangeRequestResponse>> CancelRequest(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new CancelSalaryTabulatorChangeRequestCommand(id, request.ConcurrencyToken),
+            new CancelSalaryTabulatorChangeRequestCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     private static IReadOnlyCollection<SalaryTabulatorChangeRequestItemInput> MapCreateItems(CreateSalaryTabulatorChangeRequestRequest request)
@@ -315,8 +375,7 @@ public sealed class SalaryTabulatorController(
         string Reason,
         DateTime EffectiveFromUtc,
         DateTime? EffectiveToUtc,
-        IReadOnlyCollection<SalaryTabulatorChangeRequestItemRequest> Items,
-        Guid ConcurrencyToken);
+        IReadOnlyCollection<SalaryTabulatorChangeRequestItemRequest> Items);
 
     public sealed record SalaryTabulatorChangeRequestItemRequest(
         Guid SalaryClassPublicId,
@@ -328,7 +387,5 @@ public sealed class SalaryTabulatorController(
         decimal? ProposedMaxAmount,
         string? Notes);
 
-    public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
-
-    public sealed record ApprovalRequest(string DecisionComment, Guid ConcurrencyToken);
+    public sealed record ApprovalRequest(string DecisionComment);
 }

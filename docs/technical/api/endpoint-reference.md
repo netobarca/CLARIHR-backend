@@ -130,7 +130,7 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 | Legal representatives | `LegalRepresentativesController` | `/api/v1/companies/{companyPublicId}/legal-representatives*` | ciclo de vida y uso de representantes legales |
 | Job and competency design | `JobCatalogsController`, `JobProfilesController`, `CompetencyFrameworkController`, `PositionDescriptionCatalogItemsController`, `PositionCategoryClassificationsController`, `PositionCategoriesController`, `PositionSlotsController` | `/api/v1/companies/{companyPublicId}/job-*`, `/api/v1/companies/{companyPublicId}/occupational-*`, `/api/v1/companies/{companyPublicId}/position-*` | diseno de puestos, competencias, catalogos y posiciones |
 | Personnel files | `PersonnelFilesController`, `PersonnelFilePersonalInfoController`, `PersonnelFileBackgroundController`, `PersonnelFileInterestsController`, `PersonnelFileProfileController`, `PersonnelFileEmploymentController`, `PersonnelFileCompensationController`, `PersonnelFileTalentController`, `PersonnelFileDocumentsController`, `PersonnelFileAdministrationController`, `PersonnelFileReportingController` | `/api/v1/companies/{companyPublicId}/personnel-files*`, `/api/v1/personnel-files/*`, `/api/v1/personnel-custom-field-definitions*` | ciclo de vida del expediente, datos personales, antecedentes, intereses, perfil financiero, empleo, compensacion, talento, documentos y reporting |
-| Salary governance | `SalaryTabulatorController` | `/api/v1/companies/{companyPublicId}/salary-tabulator/*` | lineas salariales, exportes y change requests |
+| Salary governance | `SalaryTabulatorController` | `/api/v1/companies/{companyPublicId}/salary-tabulator/*` | lineas salariales (read-only), exportes y change requests; mutaciones del change request canonicas con `If-Match`/`ETag` (sin PATCH RFC-6902 — workflow de aprobacion + invariantes cross-field; el PUT cubre la edicion del draft); authz handler-gated |
 | Report capabilities | `ReportsController` | `/api/v1/companies/{companyPublicId}/reports/capabilities` | descubrimiento de capacidades de reporte para frontend |
 | Report export jobs | `ReportExportJobsController` | `/api/v1/companies/{companyPublicId}/report-export-jobs*`, `/api/v1/report-export-jobs/*` | cola persistida de exportes grandes, estado, cancelacion y descarga segura |
 
@@ -494,17 +494,28 @@ Comportamiento observable:
 
 ### 4.7 Salary tabulator
 
-Endpoints representativos:
+Endpoints (lectura — el tabulador vigente es de solo lectura por API):
 
 - `GET /api/v1/companies/{companyPublicId}/salary-tabulator/lines`
+- `GET /api/v1/salary-tabulator/lines/{publicId}`
 - `GET /api/v1/companies/{companyPublicId}/salary-tabulator/export`
 - `GET /api/v1/companies/{companyPublicId}/salary-tabulator/change-requests`
-- `POST /api/v1/companies/{companyPublicId}/salary-tabulator/change-requests`
-- `PATCH /api/v1/salary-tabulator/change-requests/{publicId}/approve`
+- `GET /api/v1/salary-tabulator/change-requests/{publicId}`
+- `GET /api/v1/salary-tabulator/change-requests/{publicId}/impact`
+
+Endpoints (mutación del `change request` — canónicos con `If-Match`/`ETag`):
+
+- `POST /api/v1/companies/{companyPublicId}/salary-tabulator/change-requests`: crea el change request en `Draft`; devuelve `201` con `Location` → GetById, el `concurrencyToken` en el body y el header `ETag`
+- `PUT /api/v1/salary-tabulator/change-requests/{publicId}`: reemplaza los campos editables del draft (reason, rango efectivo, items); requiere el `concurrencyToken` actual en el header `If-Match` (ausente → `400`, obsoleto → `409`) y devuelve el token rotado en el body y el header `ETag`. No hay PATCH RFC-6902 (los items tienen invariantes cross-field `min≤base≤max` → el PUT cubre la edición completa)
+- `PATCH /api/v1/salary-tabulator/change-requests/{publicId}/submit`: transición `Draft`→`Submitted`; mismo contrato de `If-Match`/`ETag` (sin body)
+- `PATCH /api/v1/salary-tabulator/change-requests/{publicId}/approve`: transición `Submitted`→`Approved` y aplica los items a las líneas; el `decisionComment` viaja en el body; mismo contrato de `If-Match`/`ETag`
+- `PATCH /api/v1/salary-tabulator/change-requests/{publicId}/reject`: transición `Submitted`→`Rejected`; `decisionComment` en body; mismo contrato de `If-Match`/`ETag`
+- `PATCH /api/v1/salary-tabulator/change-requests/{publicId}/cancel`: cancela un draft; mismo contrato de `If-Match`/`ETag` (sin body)
 
 Comportamiento observable:
 
-- los cambios salariales se modelan como `change requests` con transiciones explicitas de estado
+- los cambios salariales se modelan como `change requests` con transiciones explicitas de estado (máquina de estados); las acciones de ciclo de vida se conservan como sub-rutas de acción, NO se funden en un PATCH RFC-6902
+- autorización **handler-gated** vía `ISalaryTabulatorAuthorizationService` (no declarativa); rutas `api/v1` literales sin versionar (no rompe el path del FE)
 - la estrategia de eliminar `companyId` de rutas tenant-scoped nuevas y migrar rutas legacy esta registrada en `docs/technical/api/tenant-route-technical-debt.md`
 
 ### 4.8 Education Catalogs
