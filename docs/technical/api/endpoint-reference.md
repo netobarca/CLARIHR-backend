@@ -2959,6 +2959,7 @@ Route family:
 - `GET /api/v1/occupational-pyramid-levels/{id}`
 - `POST /api/v1/companies/{companyId}/occupational-pyramid-levels`
 - `PUT /api/v1/occupational-pyramid-levels/{id}`
+- `PATCH /api/v1/occupational-pyramid-levels/{id}` (RFC-6902 JSON Patch)
 - `PATCH /api/v1/occupational-pyramid-levels/{id}/activate`
 - `PATCH /api/v1/occupational-pyramid-levels/{id}/inactivate`
 - `GET /api/v1/companies/{companyId}/competency-conducts`
@@ -2982,6 +2983,7 @@ Observaciones funcionales:
 - `occupational-pyramid-levels` soporta `isActive`, `q`, `page`, `pageSize` e `includeAllowedActions`.
 - el orden observable de niveles es `LevelOrder`, luego `Code`.
 - `create/update` de niveles exigen unicidad de `code` y unicidad de `LevelOrder`.
+- **(Alineación canónica — PR1)** `occupational-pyramid-levels` es canónico: `update`/`activate`/`inactivate` y el nuevo `PATCH` RFC-6902 (`/code`,`/name`,`/levelOrder`,`/description`) exigen el `concurrencyToken` actual en el header `If-Match` (ausente→`400`, stale→`409`); el token rotado se devuelve en el body y en el header `ETag`; `POST` devuelve `201`+`ETag`. El PATCH re-corre las uniqueness checks de `code`+`levelOrder`; el estado activo solo cambia por `/activate`,`/inactivate`. Los conductos y la matriz aún usan token-en-body (PR2/PR3 pendientes).
 - `inactivate` de nivel falla si matrices activas aun lo estan usando.
 - `competency-conducts` soporta filtros `competencyId`, `competencyTypeId`, `behaviorLevelId`, `isActive`, `q`, `page`, `pageSize` e `includeAllowedActions`.
 - Si se usa cualquiera de `competencyId`, `competencyTypeId` o `behaviorLevelId`, deben enviarse los tres para evitar resultados ambiguos entre niveles de comportamiento.

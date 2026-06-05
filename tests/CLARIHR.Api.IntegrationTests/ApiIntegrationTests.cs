@@ -6532,6 +6532,140 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal("Leadership", item.Name);
     }
 
+    private async Task<OccupationalPyramidLevelItem> CreatePyramidLevelAsync(HttpClient client, Guid tenantId, string code)
+    {
+        var response = await client.PostJsonAsync($"/api/v1/companies/{tenantId}/occupational-pyramid-levels", new
+        {
+            code,
+            name = "Nivel Estrategico",
+            levelOrder = 1,
+            description = "Nivel semilla."
+        });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        // The create exposes the current concurrency token in the ETag header.
+        var created = (await response.Content.ReadFromJsonAsync<OccupationalPyramidLevelItem>(JsonOptions))!;
+        Assert.Equal($"\"{created.ConcurrencyToken:D}\"", response.Headers.ETag!.Tag);
+        return created;
+    }
+
+    [Fact]
+    public async Task OccupationalPyramidLevel_Lifecycle_WithIfMatch_ShouldUpdatePatchAndToggle()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var created = await CreatePyramidLevelAsync(client, scenario.TenantId, "OPL-LC-001");
+
+        // PUT with If-Match → rename + rotate token.
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/occupational-pyramid-levels/{created.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { code = "OPL-LC-001", name = "Nivel Actualizado", levelOrder = 2, description = "Editado." }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{created.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = (await updateResponse.Content.ReadFromJsonAsync<OccupationalPyramidLevelItem>(JsonOptions))!;
+        Assert.Equal("Nivel Actualizado", updated.Name);
+        Assert.Equal(2, updated.LevelOrder);
+        Assert.NotEqual(created.ConcurrencyToken, updated.ConcurrencyToken);
+        Assert.Equal($"\"{updated.ConcurrencyToken:D}\"", updateResponse.Headers.ETag!.Tag);
+
+        // PATCH (RFC-6902) with If-Match → change name + clear description.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/occupational-pyramid-levels/{created.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new object[]
+                {
+                    new { op = "replace", path = "/name", value = "Nivel Patcheado" },
+                    new { op = "remove", path = "/description" }
+                }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated.ConcurrencyToken}\"");
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = (await patchResponse.Content.ReadFromJsonAsync<OccupationalPyramidLevelItem>(JsonOptions))!;
+        Assert.Equal("Nivel Patcheado", patched.Name);
+        Assert.Null(patched.Description);
+        Assert.NotEqual(updated.ConcurrencyToken, patched.ConcurrencyToken);
+        Assert.Equal($"\"{patched.ConcurrencyToken:D}\"", patchResponse.Headers.ETag!.Tag);
+
+        // Inactivate with If-Match.
+        using var inactivateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/occupational-pyramid-levels/{created.Id}/inactivate");
+        inactivateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{patched.ConcurrencyToken}\"");
+        var inactivateResponse = await client.SendAsync(inactivateRequest);
+        inactivateResponse.EnsureSuccessStatusCode();
+        var inactivated = (await inactivateResponse.Content.ReadFromJsonAsync<OccupationalPyramidLevelItem>(JsonOptions))!;
+        Assert.False(inactivated.IsActive);
+        Assert.Equal($"\"{inactivated.ConcurrencyToken:D}\"", inactivateResponse.Headers.ETag!.Tag);
+    }
+
+    [Fact]
+    public async Task OccupationalPyramidLevel_Update_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var created = await CreatePyramidLevelAsync(client, scenario.TenantId, "OPL-400-001");
+
+        var response = await client.PutJsonAsync($"/api/v1/occupational-pyramid-levels/{created.Id}", new
+        {
+            code = "OPL-400-001",
+            name = "Sin If-Match",
+            levelOrder = 1,
+            description = (string?)null
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task OccupationalPyramidLevel_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var created = await CreatePyramidLevelAsync(client, scenario.TenantId, "OPL-409-001");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/occupational-pyramid-levels/{created.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/name", value = "x" } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var response = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task OccupationalPyramidLevel_Patch_WithIsActivePath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var created = await CreatePyramidLevelAsync(client, scenario.TenantId, "OPL-ISACTIVE-001");
+
+        // Activation state goes through /activate and /inactivate; an /isActive patch op must be rejected (400).
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/occupational-pyramid-levels/{created.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/isActive", value = false } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{created.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task CompetencyFramework_FullFlow_ShouldManagePyramidConductMatrixAndExports()
     {

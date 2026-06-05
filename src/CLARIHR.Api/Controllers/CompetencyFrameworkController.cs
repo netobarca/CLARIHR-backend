@@ -1,18 +1,24 @@
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Binders;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Common.JsonPatch;
 using CLARIHR.Application.Common.Pagination;
 using CLARIHR.Application.Features.Audit.Common;
 using CLARIHR.Application.Features.CompetencyFramework;
 using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.Reports.Common;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[Tags("Competency Framework")]
 public sealed class CompetencyFrameworkController(
     ICommandDispatcher commandDispatcher,
     IQueryDispatcher queryDispatcher,
@@ -20,9 +26,10 @@ public sealed class CompetencyFrameworkController(
 {
     [HttpGet("api/v1/companies/{companyId:guid}/occupational-pyramid-levels")]
     [ProducesResponseType<PagedResponse<OccupationalPyramidLevelListItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "Search occupational pyramid levels",
+        Description = "Returns a paged list of the company's occupational pyramid levels.")]
     public async Task<ActionResult<PagedResponse<OccupationalPyramidLevelListItemResponse>>> SearchOccupationalPyramidLevels(
         Guid companyId,
         [FromQuery] bool? isActive,
@@ -41,9 +48,10 @@ public sealed class CompetencyFrameworkController(
 
     [HttpGet("api/v1/occupational-pyramid-levels/{id:guid}")]
     [ProducesResponseType<OccupationalPyramidLevelResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get an occupational pyramid level",
+        Description = "Returns a single occupational pyramid level. The current `concurrencyToken` is included in the body for use in the `If-Match` header of a subsequent update.")]
     public async Task<ActionResult<OccupationalPyramidLevelResponse>> GetOccupationalPyramidLevelById(
         Guid id,
         CancellationToken cancellationToken = default)
@@ -54,10 +62,10 @@ public sealed class CompetencyFrameworkController(
 
     [HttpPost("api/v1/companies/{companyId:guid}/occupational-pyramid-levels")]
     [ProducesResponseType<OccupationalPyramidLevelResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.Conflict)]
+    [SwaggerOperation(
+        Summary = "Create an occupational pyramid level",
+        Description = "Creates an occupational pyramid level. Returns `201`; the current `concurrencyToken` is included in the body and the `ETag` header.")]
     public async Task<ActionResult<OccupationalPyramidLevelResponse>> CreateOccupationalPyramidLevel(
         Guid companyId,
         [FromBody] CreateOccupationalPyramidLevelRequest request,
@@ -67,66 +75,92 @@ public sealed class CompetencyFrameworkController(
             new CreateOccupationalPyramidLevelCommand(companyId, request.Code, request.Name, request.LevelOrder, request.Description),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(Result<OccupationalPyramidLevelResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetOccupationalPyramidLevelById),
+            value => new { publicId = value.Id },
+            value => value.ConcurrencyToken);
     }
 
     [HttpPut("api/v1/occupational-pyramid-levels/{id:guid}")]
     [ProducesResponseType<OccupationalPyramidLevelResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Update an occupational pyramid level",
+        Description = "Replaces the editable fields. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<OccupationalPyramidLevelResponse>> UpdateOccupationalPyramidLevel(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateOccupationalPyramidLevelRequest request,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new UpdateOccupationalPyramidLevelCommand(id, request.Code, request.Name, request.LevelOrder, request.Description, request.ConcurrencyToken),
+            new UpdateOccupationalPyramidLevelCommand(id, request.Code, request.Name, request.LevelOrder, request.Description, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
+    }
+
+    [HttpPatch("api/v1/occupational-pyramid-levels/{id:guid}")]
+    [Consumes("application/json-patch+json")]
+    [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
+    [ProducesResponseType<OccupationalPyramidLevelResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Patch an occupational pyramid level (RFC 6902 JSON Patch)",
+        Description = "Applies a partial update using JSON Patch (RFC 6902), media type `application/json-patch+json`. Patchable paths: `/code`, `/name`, `/levelOrder`, `/description` (optional, accepts `null` or remove to clear). Activation state uses the `/activate` and `/inactivate` actions. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
+    public async Task<ActionResult<OccupationalPyramidLevelResponse>> PatchOccupationalPyramidLevel(
+        Guid id,
+        [FromIfMatch] Guid concurrencyToken,
+        [FromBody] JsonPatchDocument<PatchOccupationalPyramidLevelRequest> patchDoc,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await commandDispatcher.SendAsync(
+            new PatchOccupationalPyramidLevelCommand(
+                id,
+                concurrencyToken,
+                JsonPatchOperationMapper.Map(
+                    patchDoc,
+                    static (op, path, from, value) => new OccupationalPyramidLevelPatchOperation(op, path, from, value))),
+            cancellationToken);
+
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("api/v1/occupational-pyramid-levels/{id:guid}/activate")]
     [ProducesResponseType<OccupationalPyramidLevelResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Activate an occupational pyramid level",
+        Description = "Activates the level. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<OccupationalPyramidLevelResponse>> ActivateOccupationalPyramidLevel(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ActivateOccupationalPyramidLevelCommand(id, request.ConcurrencyToken),
+            new ActivateOccupationalPyramidLevelCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("api/v1/occupational-pyramid-levels/{id:guid}/inactivate")]
     [ProducesResponseType<OccupationalPyramidLevelResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Inactivate an occupational pyramid level",
+        Description = "Inactivates the level. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<OccupationalPyramidLevelResponse>> InactivateOccupationalPyramidLevel(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new InactivateOccupationalPyramidLevelCommand(id, request.ConcurrencyToken),
+            new InactivateOccupationalPyramidLevelCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpGet("api/v1/companies/{companyId:guid}/competency-conducts")]
@@ -363,8 +397,18 @@ public sealed class CompetencyFrameworkController(
         string Code,
         string Name,
         int LevelOrder,
-        string? Description,
-        Guid ConcurrencyToken);
+        string? Description);
+
+    public sealed class PatchOccupationalPyramidLevelRequest
+    {
+        public string Code { get; set; } = string.Empty;
+
+        public string Name { get; set; } = string.Empty;
+
+        public int LevelOrder { get; set; }
+
+        public string? Description { get; set; }
+    }
 
     public sealed record CreateCompetencyConductRequest(
         Guid CompetencyPublicId,
