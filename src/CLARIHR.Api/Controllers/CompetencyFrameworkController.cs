@@ -165,9 +165,10 @@ public sealed class CompetencyFrameworkController(
 
     [HttpGet("api/v1/companies/{companyId:guid}/competency-conducts")]
     [ProducesResponseType<PagedResponse<CompetencyConductListItemResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "Search competency conducts",
+        Description = "Returns a paged list of the company's competency conducts.")]
     public async Task<ActionResult<PagedResponse<CompetencyConductListItemResponse>>> SearchCompetencyConducts(
         Guid companyId,
         [FromQuery(Name = "competencyId")] Guid? competencyId,
@@ -198,9 +199,10 @@ public sealed class CompetencyFrameworkController(
 
     [HttpGet("api/v1/competency-conducts/{id:guid}")]
     [ProducesResponseType<CompetencyConductResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a competency conduct",
+        Description = "Returns a single competency conduct. The current `concurrencyToken` is included in the body for use in the `If-Match` header of a subsequent update.")]
     public async Task<ActionResult<CompetencyConductResponse>> GetCompetencyConductById(
         Guid id,
         CancellationToken cancellationToken = default)
@@ -211,11 +213,10 @@ public sealed class CompetencyFrameworkController(
 
     [HttpPost("api/v1/companies/{companyId:guid}/competency-conducts")]
     [ProducesResponseType<CompetencyConductResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.NotFound | StandardErrorSet.Conflict)]
+    [SwaggerOperation(
+        Summary = "Create a competency conduct",
+        Description = "Creates a competency conduct. Returns `201`; the current `concurrencyToken` is included in the body and the `ETag` header.")]
     public async Task<ActionResult<CompetencyConductResponse>> CreateCompetencyConduct(
         Guid companyId,
         [FromBody] CreateCompetencyConductRequest request,
@@ -231,20 +232,22 @@ public sealed class CompetencyFrameworkController(
                 request.SortOrder),
             cancellationToken);
 
-        return result.IsFailure
-            ? this.ToActionResult(Result<CompetencyConductResponse>.Failure(result.Error))
-            : StatusCode(StatusCodes.Status201Created, result.Value);
+        return this.ToCreatedAtActionResult(
+            result,
+            nameof(GetCompetencyConductById),
+            value => new { publicId = value.Id },
+            value => value.ConcurrencyToken);
     }
 
     [HttpPut("api/v1/competency-conducts/{id:guid}")]
     [ProducesResponseType<CompetencyConductResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Update a competency conduct",
+        Description = "Replaces the editable fields. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<CompetencyConductResponse>> UpdateCompetencyConduct(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateCompetencyConductRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -256,59 +259,57 @@ public sealed class CompetencyFrameworkController(
                 request.BehaviorLevelPublicId,
                 request.Description,
                 request.SortOrder,
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("api/v1/competency-conducts/{id:guid}/activate")]
     [ProducesResponseType<CompetencyConductResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Activate a competency conduct",
+        Description = "Activates the conduct. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<CompetencyConductResponse>> ActivateCompetencyConduct(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new ActivateCompetencyConductCommand(id, request.ConcurrencyToken),
+            new ActivateCompetencyConductCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPatch("api/v1/competency-conducts/{id:guid}/inactivate")]
     [ProducesResponseType<CompetencyConductResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Inactivate a competency conduct",
+        Description = "Inactivates the conduct. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<CompetencyConductResponse>> InactivateCompetencyConduct(
         Guid id,
-        [FromBody] ConcurrencyRequest request,
+        [FromIfMatch] Guid concurrencyToken,
         CancellationToken cancellationToken = default)
     {
         var result = await commandDispatcher.SendAsync(
-            new InactivateCompetencyConductCommand(id, request.ConcurrencyToken),
+            new InactivateCompetencyConductCommand(id, concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPut("api/v1/competency-conducts/{id:guid}/behaviors")]
     [ProducesResponseType<CompetencyConductResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Replace a competency conduct's behaviors",
+        Description = "Replaces the conduct's behaviors collection. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<CompetencyConductResponse>> UpdateCompetencyConductBehaviors(
         Guid id,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateCompetencyConductBehaviorsRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -316,10 +317,10 @@ public sealed class CompetencyFrameworkController(
             new UpdateCompetencyConductBehaviorsCommand(
                 id,
                 request.Behaviors?.Select(item => new CompetencyConductBehaviorInput(item.BehaviorPublicId, item.Notes, item.SortOrder)).ToArray() ?? [],
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpPut("api/v1/job-profiles/{publicId:guid}/competency-matrix")]
@@ -422,12 +423,10 @@ public sealed class CompetencyFrameworkController(
         Guid CompetencyTypePublicId,
         Guid BehaviorLevelPublicId,
         string Description,
-        int SortOrder,
-        Guid ConcurrencyToken);
+        int SortOrder);
 
     public sealed record UpdateCompetencyConductBehaviorsRequest(
-        IReadOnlyCollection<CompetencyConductBehaviorRequest>? Behaviors,
-        Guid ConcurrencyToken);
+        IReadOnlyCollection<CompetencyConductBehaviorRequest>? Behaviors);
 
     public sealed record CompetencyConductBehaviorRequest(
         Guid BehaviorPublicId,
@@ -446,6 +445,4 @@ public sealed class CompetencyFrameworkController(
         IReadOnlyCollection<Guid>? ConductPublicIds,
         string? ExpectedEvidence,
         int SortOrder);
-
-    public sealed record ConcurrencyRequest(Guid ConcurrencyToken);
 }

@@ -6666,6 +6666,132 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    private async Task<(CompetencyConductItem Conduct, Guid BehaviorId)> CreateConductWithCatalogAsync(HttpClient client, Guid tenantId, string suffix)
+    {
+        var competency = await CreateJobCatalogItemAsync(client, tenantId, JobCatalogCategory.Competency, $"COMP-{suffix}", "Liderazgo");
+        var competencyType = await CreateJobCatalogItemAsync(client, tenantId, JobCatalogCategory.CompetencyType, $"CTYPE-{suffix}", "Gerencial");
+        var behaviorLevel = await CreateJobCatalogItemAsync(client, tenantId, JobCatalogCategory.BehaviorLevel, $"BLEVEL-{suffix}", "Estrategico");
+        var behavior = await CreateJobCatalogItemAsync(client, tenantId, JobCatalogCategory.Behavior, $"BEHAV-{suffix}", "Comunica objetivos");
+
+        var response = await client.PostJsonAsync($"/api/v1/companies/{tenantId}/competency-conducts", new
+        {
+            competencyPublicId = competency.Id,
+            competencyTypePublicId = competencyType.Id,
+            behaviorLevelPublicId = behaviorLevel.Id,
+            description = "Alinea decisiones con objetivos.",
+            sortOrder = 1
+        });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var conduct = (await response.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions))!;
+        Assert.Equal($"\"{conduct.ConcurrencyToken:D}\"", response.Headers.ETag!.Tag);
+        return (conduct, behavior.Id);
+    }
+
+    [Fact]
+    public async Task CompetencyConduct_Lifecycle_WithIfMatch_ShouldUpdateBehaviorsAndToggle()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var (conduct, behaviorId) = await CreateConductWithCatalogAsync(client, scenario.TenantId, "CC-LC");
+
+        // PUT update with If-Match → rotate token.
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/competency-conducts/{conduct.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    competencyPublicId = conduct.CompetencyId,
+                    competencyTypePublicId = conduct.CompetencyTypeId,
+                    behaviorLevelPublicId = conduct.BehaviorLevelId,
+                    description = "Descripcion actualizada.",
+                    sortOrder = 3
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{conduct.ConcurrencyToken}\"");
+        var updateResponse = await client.SendAsync(updateRequest);
+        updateResponse.EnsureSuccessStatusCode();
+        var updated = (await updateResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions))!;
+        Assert.Equal("Descripcion actualizada.", updated.Description);
+        Assert.NotEqual(conduct.ConcurrencyToken, updated.ConcurrencyToken);
+        Assert.Equal($"\"{updated.ConcurrencyToken:D}\"", updateResponse.Headers.ETag!.Tag);
+
+        // Replace behaviors with If-Match.
+        using var behaviorsRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/competency-conducts/{conduct.Id}/behaviors")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new { behaviors = new[] { new { behaviorPublicId = behaviorId, notes = "Base.", sortOrder = 0 } } }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        behaviorsRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{updated.ConcurrencyToken}\"");
+        var behaviorsResponse = await client.SendAsync(behaviorsRequest);
+        behaviorsResponse.EnsureSuccessStatusCode();
+        var withBehaviors = (await behaviorsResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions))!;
+        Assert.Single(withBehaviors.Behaviors);
+        Assert.NotEqual(updated.ConcurrencyToken, withBehaviors.ConcurrencyToken);
+        Assert.Equal($"\"{withBehaviors.ConcurrencyToken:D}\"", behaviorsResponse.Headers.ETag!.Tag);
+
+        // Inactivate with If-Match.
+        using var inactivateRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/competency-conducts/{conduct.Id}/inactivate");
+        inactivateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{withBehaviors.ConcurrencyToken}\"");
+        var inactivateResponse = await client.SendAsync(inactivateRequest);
+        inactivateResponse.EnsureSuccessStatusCode();
+        var inactivated = (await inactivateResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions))!;
+        Assert.False(inactivated.IsActive);
+        Assert.Equal($"\"{inactivated.ConcurrencyToken:D}\"", inactivateResponse.Headers.ETag!.Tag);
+    }
+
+    [Fact]
+    public async Task CompetencyConduct_Update_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var (conduct, _) = await CreateConductWithCatalogAsync(client, scenario.TenantId, "CC-400");
+
+        var response = await client.PutJsonAsync($"/api/v1/competency-conducts/{conduct.Id}", new
+        {
+            competencyPublicId = conduct.CompetencyId,
+            competencyTypePublicId = conduct.CompetencyTypeId,
+            behaviorLevelPublicId = conduct.BehaviorLevelId,
+            description = "Sin If-Match.",
+            sortOrder = 1
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompetencyConduct_Update_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var (conduct, _) = await CreateConductWithCatalogAsync(client, scenario.TenantId, "CC-409");
+
+        using var updateRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/competency-conducts/{conduct.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    competencyPublicId = conduct.CompetencyId,
+                    competencyTypePublicId = conduct.CompetencyTypeId,
+                    behaviorLevelPublicId = conduct.BehaviorLevelId,
+                    description = "Stale.",
+                    sortOrder = 1
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        updateRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var response = await client.SendAsync(updateRequest);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
     [Fact]
     public async Task CompetencyFramework_FullFlow_ShouldManagePyramidConductMatrixAndExports()
     {
@@ -6701,19 +6827,26 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
         var conduct = await conductResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions);
         Assert.NotNull(conduct);
 
-        var conductBehaviorResponse = await client.PutJsonAsync($"/api/v1/competency-conducts/{conduct!.Id}/behaviors", new
+        using var conductBehaviorRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/competency-conducts/{conduct!.Id}/behaviors")
         {
-            behaviors = new[]
-            {
-                new
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
                 {
-                    behaviorPublicId = behavior.Id,
-                    notes = "Comportamiento base para pruebas.",
-                    sortOrder = 0
-                }
-            },
-            concurrencyToken = conduct.ConcurrencyToken
-        });
+                    behaviors = new[]
+                    {
+                        new
+                        {
+                            behaviorPublicId = behavior.Id,
+                            notes = "Comportamiento base para pruebas.",
+                            sortOrder = 0
+                        }
+                    }
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        conductBehaviorRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{conduct.ConcurrencyToken}\"");
+        var conductBehaviorResponse = await client.SendAsync(conductBehaviorRequest);
         conductBehaviorResponse.EnsureSuccessStatusCode();
         var conductWithBehaviors = await conductBehaviorResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions);
         Assert.NotNull(conductWithBehaviors);
