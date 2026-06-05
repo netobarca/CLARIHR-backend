@@ -325,14 +325,13 @@ public sealed class CompetencyFrameworkController(
 
     [HttpPut("api/v1/job-profiles/{publicId:guid}/competency-matrix")]
     [ProducesResponseType<JobProfileCompetencyMatrixResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Replace a job profile's competency matrix",
+        Description = "Replaces the entire competency matrix for the job profile. Requires the current `concurrencyToken` in the `If-Match` header (missing → `400`, stale → `409`). Structural/field validation errors return `400`; matrix-constraint violations (duplicate item tuples, conduct-set mismatches, or an `Archived` job profile) return `409`. The refreshed token is returned in the body and the `ETag` header.")]
     public async Task<ActionResult<JobProfileCompetencyMatrixResponse>> UpdateJobProfileCompetencyMatrix(
         Guid publicId,
+        [FromIfMatch] Guid concurrencyToken,
         [FromBody] UpdateJobProfileCompetencyMatrixRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -348,10 +347,10 @@ public sealed class CompetencyFrameworkController(
                         item.ExpectedEvidence,
                         item.SortOrder))
                     .ToArray() ?? [],
-                request.ConcurrencyToken),
+                concurrencyToken),
             cancellationToken);
 
-        return this.ToActionResult(result);
+        return this.ToActionResultWithETag(result, value => value.ConcurrencyToken);
     }
 
     [HttpGet("api/v1/job-profiles/{publicId:guid}/competency-matrix/export")]
@@ -434,8 +433,7 @@ public sealed class CompetencyFrameworkController(
         int SortOrder);
 
     public sealed record UpdateJobProfileCompetencyMatrixRequest(
-        IReadOnlyCollection<JobProfileCompetencyMatrixItemRequest>? Items,
-        Guid ConcurrencyToken);
+        IReadOnlyCollection<JobProfileCompetencyMatrixItemRequest>? Items);
 
     public sealed record JobProfileCompetencyMatrixItemRequest(
         Guid OccupationalPyramidLevelPublicId,
