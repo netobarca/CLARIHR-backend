@@ -8,6 +8,7 @@ using CLARIHR.Api.Configuration;
 using CLARIHR.Api.Middleware;
 using CLARIHR.Application;
 using CLARIHR.Application.Common.Errors;
+using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.CostCenters.Common;
 using CLARIHR.Application.Features.JobProfiles.Common;
 using CLARIHR.Application.Features.LegalRepresentatives.Common;
@@ -214,6 +215,11 @@ builder.Services.AddRateLimiter(options =>
     // sensitive HR data — plus a generous limiter for the paged search/list.
     options.AddPolicy(PositionSlotRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PositionSlots:Export:PermitLimit", 10));
     options.AddPolicy(PositionSlotRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:PositionSlots:Search:PermitLimit", 120));
+
+    // Competency Framework: tight limiter for the unbounded-cost competency-matrix export,
+    // plus a generous limiter for the paged occupational-pyramid-levels / competency-conducts search.
+    options.AddPolicy(CompetencyFrameworkRateLimitPolicies.Export, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CompetencyFramework:Export:PermitLimit", 10));
+    options.AddPolicy(CompetencyFrameworkRateLimitPolicies.Search, httpContext => CreateUserTenantPartitionedLimiter(httpContext, "RateLimiting:CompetencyFramework:Search:PermitLimit", 120));
 });
 builder.Services.AddAuthorization(options =>
 {

@@ -1340,6 +1340,13 @@ internal sealed class UpdateCompetencyConductBehaviorsCommandHandler(
             return Result<CompetencyConductResponse>.Failure(CompetencyFrameworkErrors.ConcurrencyConflict);
         }
 
+        // Batch-resolve the behavior catalog items up front (one query) to avoid a per-behavior N+1.
+        var behaviorCatalogById = await repository.ResolveActiveCatalogItemsAsync(
+            conduct.TenantId,
+            JobCatalogCategory.Behavior,
+            command.Behaviors.Select(behavior => behavior.BehaviorId).ToArray(),
+            cancellationToken);
+
         var behaviorById = new Dictionary<Guid, long>();
         foreach (var behavior in command.Behaviors)
         {
@@ -1348,8 +1355,8 @@ internal sealed class UpdateCompetencyConductBehaviorsCommandHandler(
                 return Result<CompetencyConductResponse>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict);
             }
 
-            var resolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogAsync(
-                conduct.TenantId,
+            var resolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogFromMapAsync(
+                behaviorCatalogById,
                 behavior.BehaviorId,
                 JobCatalogCategory.Behavior,
                 repository,
@@ -1534,13 +1541,40 @@ internal sealed class UpdateJobProfileCompetencyMatrixCommandHandler(
         var before = await repository.GetJobProfileCompetencyMatrixResponseAsync(profile.PublicId, cancellationToken)
             ?? throw new InvalidOperationException("Job profile competency matrix response could not be resolved before update.");
 
+        // Batch-resolve every referenced level / catalog item / conduct up front (one query per
+        // category) so the per-item loop below resolves from memory instead of issuing an N+1
+        // fan-out of one query per item (and per conduct).
+        var levelsById = await repository.ResolveActiveOccupationalPyramidLevelsAsync(
+            profile.TenantId,
+            command.Items.Select(item => item.OccupationalPyramidLevelId).ToArray(),
+            cancellationToken);
+        var competenciesById = await repository.ResolveActiveCatalogItemsAsync(
+            profile.TenantId,
+            JobCatalogCategory.Competency,
+            command.Items.Select(item => item.CompetencyId).ToArray(),
+            cancellationToken);
+        var competencyTypesById = await repository.ResolveActiveCatalogItemsAsync(
+            profile.TenantId,
+            JobCatalogCategory.CompetencyType,
+            command.Items.Select(item => item.CompetencyTypeId).ToArray(),
+            cancellationToken);
+        var behaviorLevelsById = await repository.ResolveActiveCatalogItemsAsync(
+            profile.TenantId,
+            JobCatalogCategory.BehaviorLevel,
+            command.Items.Select(item => item.BehaviorLevelId).ToArray(),
+            cancellationToken);
+        var conductsById = await repository.ResolveActiveCompetencyConductsAsync(
+            profile.TenantId,
+            command.Items.SelectMany(item => item.ConductIds).ToArray(),
+            cancellationToken);
+
         var matrixItems = new List<JobProfileCompetencyExpectation>();
         var uniqueCombinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in command.Items)
         {
-            var levelResolution = await CompetencyFrameworkCatalogResolver.ResolvePyramidLevelAsync(
-                profile.TenantId,
+            var levelResolution = await CompetencyFrameworkCatalogResolver.ResolvePyramidLevelFromMapAsync(
+                levelsById,
                 item.OccupationalPyramidLevelId,
                 repository,
                 authorizationService,
@@ -1551,8 +1585,8 @@ internal sealed class UpdateJobProfileCompetencyMatrixCommandHandler(
                 return Result<JobProfileCompetencyMatrixResponse>.Failure(levelResolution.Error);
             }
 
-            var competencyResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogAsync(
-                profile.TenantId,
+            var competencyResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogFromMapAsync(
+                competenciesById,
                 item.CompetencyId,
                 JobCatalogCategory.Competency,
                 repository,
@@ -1564,8 +1598,8 @@ internal sealed class UpdateJobProfileCompetencyMatrixCommandHandler(
                 return Result<JobProfileCompetencyMatrixResponse>.Failure(competencyResolution.Error);
             }
 
-            var typeResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogAsync(
-                profile.TenantId,
+            var typeResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogFromMapAsync(
+                competencyTypesById,
                 item.CompetencyTypeId,
                 JobCatalogCategory.CompetencyType,
                 repository,
@@ -1577,8 +1611,8 @@ internal sealed class UpdateJobProfileCompetencyMatrixCommandHandler(
                 return Result<JobProfileCompetencyMatrixResponse>.Failure(typeResolution.Error);
             }
 
-            var behaviorLevelResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogAsync(
-                profile.TenantId,
+            var behaviorLevelResolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogFromMapAsync(
+                behaviorLevelsById,
                 item.BehaviorLevelId,
                 JobCatalogCategory.BehaviorLevel,
                 repository,
@@ -1616,8 +1650,8 @@ internal sealed class UpdateJobProfileCompetencyMatrixCommandHandler(
                     return Result<JobProfileCompetencyMatrixResponse>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict);
                 }
 
-                var conductResolution = await CompetencyFrameworkCatalogResolver.ResolveConductAsync(
-                    profile.TenantId,
+                var conductResolution = await CompetencyFrameworkCatalogResolver.ResolveConductFromMapAsync(
+                    conductsById,
                     conductId,
                     repository,
                     authorizationService,
@@ -1846,16 +1880,44 @@ internal static class CompetencyFrameworkCatalogResolver
         });
     }
 
-    public static async Task<Result<OccupationalPyramidLevel>> ResolvePyramidLevelAsync(
-        Guid tenantId,
+    public static async Task<Result<JobCatalogItem>> ResolveCatalogFromMapAsync(
+        IReadOnlyDictionary<Guid, JobCatalogItem> resolved,
+        Guid catalogItemId,
+        JobCatalogCategory category,
+        ICompetencyFrameworkRepository repository,
+        ICompetencyFrameworkAuthorizationService authorizationService,
+        RbacPermissionAction action,
+        CancellationToken cancellationToken)
+    {
+        if (resolved.TryGetValue(catalogItemId, out var catalogItem))
+        {
+            return Result<JobCatalogItem>.Success(catalogItem);
+        }
+
+        if (await repository.CatalogItemExistsOutsideTenantAsync(catalogItemId, cancellationToken))
+        {
+            return Result<JobCatalogItem>.Failure(authorizationService.TenantMismatch(action));
+        }
+
+        return Result<JobCatalogItem>.Failure(category switch
+        {
+            JobCatalogCategory.Competency => CompetencyFrameworkErrors.CompetencyNotFound,
+            JobCatalogCategory.CompetencyType => CompetencyFrameworkErrors.CompetencyTypeNotFound,
+            JobCatalogCategory.BehaviorLevel => CompetencyFrameworkErrors.BehaviorLevelNotFound,
+            JobCatalogCategory.Behavior => CompetencyFrameworkErrors.BehaviorNotFound,
+            _ => CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict
+        });
+    }
+
+    public static async Task<Result<OccupationalPyramidLevel>> ResolvePyramidLevelFromMapAsync(
+        IReadOnlyDictionary<Guid, OccupationalPyramidLevel> resolved,
         Guid levelId,
         ICompetencyFrameworkRepository repository,
         ICompetencyFrameworkAuthorizationService authorizationService,
         RbacPermissionAction action,
         CancellationToken cancellationToken)
     {
-        var level = await repository.ResolveActiveOccupationalPyramidLevelAsync(tenantId, levelId, cancellationToken);
-        if (level is not null)
+        if (resolved.TryGetValue(levelId, out var level))
         {
             return Result<OccupationalPyramidLevel>.Success(level);
         }
@@ -1868,16 +1930,15 @@ internal static class CompetencyFrameworkCatalogResolver
         return Result<OccupationalPyramidLevel>.Failure(CompetencyFrameworkErrors.OccupationalPyramidLevelNotFound);
     }
 
-    public static async Task<Result<CompetencyConduct>> ResolveConductAsync(
-        Guid tenantId,
+    public static async Task<Result<CompetencyConduct>> ResolveConductFromMapAsync(
+        IReadOnlyDictionary<Guid, CompetencyConduct> resolved,
         Guid conductId,
         ICompetencyFrameworkRepository repository,
         ICompetencyFrameworkAuthorizationService authorizationService,
         RbacPermissionAction action,
         CancellationToken cancellationToken)
     {
-        var conduct = await repository.ResolveActiveCompetencyConductAsync(tenantId, conductId, cancellationToken);
-        if (conduct is not null)
+        if (resolved.TryGetValue(conductId, out var conduct))
         {
             return Result<CompetencyConduct>.Success(conduct);
         }

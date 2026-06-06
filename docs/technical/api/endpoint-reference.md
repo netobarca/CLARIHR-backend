@@ -3009,6 +3009,7 @@ Route family:
 - `PATCH /api/v1/competency-conducts/{id}/activate`
 - `PATCH /api/v1/competency-conducts/{id}/inactivate`
 - `PUT /api/v1/competency-conducts/{id}/behaviors`
+- `GET /api/v1/job-profiles/{jobProfilePublicId}/competency-matrix`
 - `PUT /api/v1/job-profiles/{jobProfilePublicId}/competency-matrix`
 - `GET /api/v1/job-profiles/{jobProfilePublicId}/competency-matrix/export`
 
@@ -3027,6 +3028,8 @@ Observaciones funcionales:
 - **(Alineación canónica — PR2 + v2)** `competency-conducts` es canónico: `update`/`activate`/`inactivate`, el `PUT /behaviors` (reemplazo de la colección) y el nuevo `PATCH` RFC-6902 (`/competencyPublicId`,`/competencyTypePublicId`,`/behaviorLevelPublicId`,`/description`,`/sortOrder`) exigen `If-Match` (ausente→`400`, stale→`409`); token rotado en body+`ETag`; `POST`→`201`+`ETag`. El PATCH re-corre la verificación de unicidad de la tupla (competency/type/level/descripción normalizada)→`409` `COMPETENCY_CONDUCT_DUPLICATE`; el estado activo solo cambia por `/activate`,`/inactivate` y los behaviors por su endpoint dedicado.
 - **(Alineación canónica — PR3, cierra CompetencyFramework)** el `PUT /job-profiles/{publicId}/competency-matrix` exige `If-Match` (el token es el del `JobProfile`; ausente→`400`, stale→`409`); errores de validación estructural→`400`, violaciones de la matriz (tuplas duplicadas, conduct-set inválido, perfil `Archived`)→`409`; token rotado en body+`ETag`. El `GET .../competency-matrix/export` queda igual (solo lectura). **CompetencyFramework 100% canónico.**
 - **(Alineación canónica — v2, 15 criterios)** el antiguo `CompetencyFrameworkController` se dividió en tres controladores por recurso (`OccupationalPyramidLevelsController`, `CompetencyConductsController`, `JobProfileCompetencyMatrixController`), todos bajo el tag Swagger `Competency Framework`. Las rutas en el wire **no cambian** salvo el parámetro de la matriz (`{publicId}`→`{jobProfilePublicId}`, mismo valor). Los tres adoptan `[ApiVersion("1.0")]` + `api/v{version:apiVersion}/...` (el path sigue resolviendo a `/v1/`). El endpoint `GET .../competency-matrix/export` ahora declara `[SwaggerOperation]`+`[ProducesStandardErrors]`. Cambios respecto a PR1–PR3: se agregó el `PATCH` RFC-6902 de `competency-conducts`.
+- **(Auditoría F2)** la matriz se puede leer como JSON: `GET /api/v1/job-profiles/{jobProfilePublicId}/competency-matrix` devuelve los items + conductos + el `concurrencyToken` (el del `JobProfile`, para el `If-Match` del PUT); un perfil sin expectativas responde `200` con `items` vacío. Antes solo se leía vía `export` (xlsx/csv/json).
+- **(Auditoría F3/F6)** el `export` está rate-limited (10/min por usuario+tenant) y los `search` (120/min) → exceso responde `429` `common.too_many_requests`; los `pageSize` validan `[Range(1, 100)]` en el boundary además del validator del handler.
 - `inactivate` de nivel falla si matrices activas aun lo estan usando.
 - `competency-conducts` soporta filtros `competencyId`, `competencyTypeId`, `behaviorLevelId`, `isActive`, `q`, `page`, `pageSize` e `includeAllowedActions`.
 - Si se usa cualquiera de `competencyId`, `competencyTypeId` o `behaviorLevelId`, deben enviarse los tres para evitar resultados ambiguos entre niveles de comportamiento.

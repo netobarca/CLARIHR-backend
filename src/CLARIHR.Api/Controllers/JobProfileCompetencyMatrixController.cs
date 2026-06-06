@@ -10,6 +10,7 @@ using CLARIHR.Application.Features.CompetencyFramework.Common;
 using CLARIHR.Application.Features.Reports.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -24,6 +25,20 @@ public sealed class JobProfileCompetencyMatrixController(
     IQueryDispatcher queryDispatcher,
     ReportExportDeliveryService reportExportDeliveryService) : ControllerBase
 {
+    [HttpGet("job-profiles/{jobProfilePublicId:guid}/competency-matrix")]
+    [ProducesResponseType<JobProfileCompetencyMatrixResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a job profile's competency matrix",
+        Description = "Returns the job profile's competency matrix as JSON: its items, each item's conducts, and the current `concurrencyToken` (the job profile's token) for use in the `If-Match` header of a subsequent matrix replace. A job profile with no expectations yet returns `200` with an empty `items` array.")]
+    public async Task<ActionResult<JobProfileCompetencyMatrixResponse>> GetJobProfileCompetencyMatrix(
+        Guid jobProfilePublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(new GetJobProfileCompetencyMatrixQuery(jobProfilePublicId), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpPut("job-profiles/{jobProfilePublicId:guid}/competency-matrix")]
     [ProducesResponseType<JobProfileCompetencyMatrixResponse>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
@@ -55,6 +70,7 @@ public sealed class JobProfileCompetencyMatrixController(
     }
 
     [HttpGet("job-profiles/{jobProfilePublicId:guid}/competency-matrix/export")]
+    [EnableRateLimiting(CompetencyFrameworkRateLimitPolicies.Export)]
     [ProducesResponseType<FileResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     [ProducesStandardErrors(StandardErrorSet.Query | StandardErrorSet.NotFound)]

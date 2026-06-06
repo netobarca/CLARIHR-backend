@@ -128,16 +128,24 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
                 level.ModifiedUtc))
             .SingleOrDefaultAsync(cancellationToken);
 
-    public Task<OccupationalPyramidLevel?> ResolveActiveOccupationalPyramidLevelAsync(
+    public async Task<IReadOnlyDictionary<Guid, OccupationalPyramidLevel>> ResolveActiveOccupationalPyramidLevelsAsync(
         Guid tenantId,
-        Guid levelId,
-        CancellationToken cancellationToken) =>
-        dbContext.Set<OccupationalPyramidLevel>()
-            .SingleOrDefaultAsync(level =>
-                level.TenantId == tenantId &&
-                level.PublicId == levelId &&
-                level.IsActive,
-                cancellationToken);
+        IReadOnlyCollection<Guid> levelIds,
+        CancellationToken cancellationToken)
+    {
+        if (levelIds.Count == 0)
+        {
+            return new Dictionary<Guid, OccupationalPyramidLevel>();
+        }
+
+        var distinctIds = levelIds.Distinct().ToArray();
+        var levels = await dbContext.Set<OccupationalPyramidLevel>()
+            .AsNoTracking()
+            .Where(level => level.TenantId == tenantId && level.IsActive && distinctIds.Contains(level.PublicId))
+            .ToListAsync(cancellationToken);
+
+        return levels.ToDictionary(level => level.PublicId);
+    }
 
     public async Task<CompetencyConduct?> GetCompetencyConductByIdAsync(
         Guid conductId,
@@ -329,13 +337,24 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
             baseRow.Conduct.ModifiedUtc);
     }
 
-    public Task<CompetencyConduct?> ResolveActiveCompetencyConductAsync(Guid tenantId, Guid conductId, CancellationToken cancellationToken) =>
-        dbContext.Set<CompetencyConduct>()
-            .SingleOrDefaultAsync(conduct =>
-                conduct.TenantId == tenantId &&
-                conduct.PublicId == conductId &&
-                conduct.IsActive,
-                cancellationToken);
+    public async Task<IReadOnlyDictionary<Guid, CompetencyConduct>> ResolveActiveCompetencyConductsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> conductIds,
+        CancellationToken cancellationToken)
+    {
+        if (conductIds.Count == 0)
+        {
+            return new Dictionary<Guid, CompetencyConduct>();
+        }
+
+        var distinctIds = conductIds.Distinct().ToArray();
+        var conducts = await dbContext.Set<CompetencyConduct>()
+            .AsNoTracking()
+            .Where(conduct => conduct.TenantId == tenantId && conduct.IsActive && distinctIds.Contains(conduct.PublicId))
+            .ToListAsync(cancellationToken);
+
+        return conducts.ToDictionary(conduct => conduct.PublicId);
+    }
 
     public Task<JobCatalogItem?> ResolveActiveCatalogItemAsync(
         Guid tenantId,
@@ -349,6 +368,30 @@ internal sealed class CompetencyFrameworkRepository(ApplicationDbContext dbConte
                 item.Category == category &&
                 item.IsActive,
                 cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, JobCatalogItem>> ResolveActiveCatalogItemsAsync(
+        Guid tenantId,
+        JobCatalogCategory category,
+        IReadOnlyCollection<Guid> catalogItemIds,
+        CancellationToken cancellationToken)
+    {
+        if (catalogItemIds.Count == 0)
+        {
+            return new Dictionary<Guid, JobCatalogItem>();
+        }
+
+        var distinctIds = catalogItemIds.Distinct().ToArray();
+        var items = await dbContext.JobCatalogItems
+            .AsNoTracking()
+            .Where(item =>
+                item.TenantId == tenantId &&
+                item.Category == category &&
+                item.IsActive &&
+                distinctIds.Contains(item.PublicId))
+            .ToListAsync(cancellationToken);
+
+        return items.ToDictionary(item => item.PublicId);
+    }
 
     public Task<bool> CatalogItemExistsOutsideTenantAsync(Guid catalogItemId, CancellationToken cancellationToken) =>
         dbContext.JobCatalogItems

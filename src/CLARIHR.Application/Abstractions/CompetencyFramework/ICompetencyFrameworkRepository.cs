@@ -43,9 +43,9 @@ public interface ICompetencyFrameworkRepository
 
     Task<OccupationalPyramidLevelResponse?> GetOccupationalPyramidLevelResponseByIdAsync(Guid levelId, CancellationToken cancellationToken);
 
-    Task<OccupationalPyramidLevel?> ResolveActiveOccupationalPyramidLevelAsync(
+    Task<IReadOnlyDictionary<Guid, OccupationalPyramidLevel>> ResolveActiveOccupationalPyramidLevelsAsync(
         Guid tenantId,
-        Guid levelId,
+        IReadOnlyCollection<Guid> levelIds,
         CancellationToken cancellationToken);
 
     Task<CompetencyConduct?> GetCompetencyConductByIdAsync(
@@ -79,12 +79,21 @@ public interface ICompetencyFrameworkRepository
 
     Task<CompetencyConductResponse?> GetCompetencyConductResponseByIdAsync(Guid conductId, CancellationToken cancellationToken);
 
-    Task<CompetencyConduct?> ResolveActiveCompetencyConductAsync(Guid tenantId, Guid conductId, CancellationToken cancellationToken);
+    Task<IReadOnlyDictionary<Guid, CompetencyConduct>> ResolveActiveCompetencyConductsAsync(
+        Guid tenantId,
+        IReadOnlyCollection<Guid> conductIds,
+        CancellationToken cancellationToken);
 
     Task<JobCatalogItem?> ResolveActiveCatalogItemAsync(
         Guid tenantId,
         JobCatalogCategory category,
         Guid catalogItemId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyDictionary<Guid, JobCatalogItem>> ResolveActiveCatalogItemsAsync(
+        Guid tenantId,
+        JobCatalogCategory category,
+        IReadOnlyCollection<Guid> catalogItemIds,
         CancellationToken cancellationToken);
 
     Task<bool> CatalogItemExistsOutsideTenantAsync(Guid catalogItemId, CancellationToken cancellationToken);

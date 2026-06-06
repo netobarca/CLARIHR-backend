@@ -2880,6 +2880,50 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task CompetencyFramework_MatrixExport_ShouldRateLimit()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-RL-EXPORT", "Perfil RL Export");
+
+        HttpResponseMessage? lastResponse = null;
+        for (var index = 0; index < 11; index++)
+        {
+            lastResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix/export?format=csv");
+            if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(lastResponse);
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastResponse!.StatusCode);
+        await AssertProblemDetailsAsync(lastResponse, HttpStatusCode.TooManyRequests, "common.too_many_requests");
+    }
+
+    [Fact]
+    public async Task CompetencyFramework_Search_ShouldRateLimit()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        HttpResponseMessage? lastResponse = null;
+        for (var index = 0; index < 121; index++)
+        {
+            lastResponse = await client.GetAsync($"/api/v1/companies/{scenario.TenantId}/occupational-pyramid-levels?page=1&pageSize=20&q={index}");
+            if (lastResponse.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(lastResponse);
+        Assert.Equal(HttpStatusCode.TooManyRequests, lastResponse!.StatusCode);
+        await AssertProblemDetailsAsync(lastResponse, HttpStatusCode.TooManyRequests, "common.too_many_requests");
+    }
+
+    [Fact]
     public async Task PersonnelFiles_Lifecycle_ShouldRateLimit()
     {
         var scenario = await factory.ResetDatabaseAsync();
@@ -7052,6 +7096,194 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
             auditPayload!.Items,
             static item => item.EventType == "REPORT_EXPORTED" &&
                            item.EntityType == "JobProfileCompetencyMatrix");
+    }
+
+    [Fact]
+    public async Task CompetencyFramework_MatrixUpdate_WithMultipleItemsAndConducts_ShouldPersistAll()
+    {
+        // Exercises the batch-resolution path (F1): a matrix with 2 items across 2 levels and
+        // multiple conducts must resolve every reference correctly from the pre-loaded maps.
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-MULTI", "Perfil Matriz Multi");
+        var competency = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-MULTI", "Liderazgo");
+        var competencyType = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.CompetencyType, "CTYPE-MULTI", "Gerencial");
+        var behaviorLevel = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.BehaviorLevel, "BLEVEL-MULTI", "Estrategico");
+
+        // Two pyramid levels (distinct order) so the two matrix items form distinct tuples.
+        var level1Response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/occupational-pyramid-levels", new
+        {
+            code = "OPL-MULTI-1", name = "Nivel 1", levelOrder = 1, description = (string?)null
+        });
+        level1Response.EnsureSuccessStatusCode();
+        var level1 = (await level1Response.Content.ReadFromJsonAsync<OccupationalPyramidLevelItem>(JsonOptions))!;
+
+        var level2Response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/occupational-pyramid-levels", new
+        {
+            code = "OPL-MULTI-2", name = "Nivel 2", levelOrder = 2, description = (string?)null
+        });
+        level2Response.EnsureSuccessStatusCode();
+        var level2 = (await level2Response.Content.ReadFromJsonAsync<OccupationalPyramidLevelItem>(JsonOptions))!;
+
+        // Two conducts sharing the same competency/type/behaviorLevel tuple (different description).
+        var conduct1Response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/competency-conducts", new
+        {
+            competencyPublicId = competency.Id,
+            competencyTypePublicId = competencyType.Id,
+            behaviorLevelPublicId = behaviorLevel.Id,
+            description = "Conducta uno.",
+            sortOrder = 1
+        });
+        conduct1Response.EnsureSuccessStatusCode();
+        var conduct1 = (await conduct1Response.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions))!;
+
+        var conduct2Response = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/competency-conducts", new
+        {
+            competencyPublicId = competency.Id,
+            competencyTypePublicId = competencyType.Id,
+            behaviorLevelPublicId = behaviorLevel.Id,
+            description = "Conducta dos.",
+            sortOrder = 2
+        });
+        conduct2Response.EnsureSuccessStatusCode();
+        var conduct2 = (await conduct2Response.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions))!;
+
+        var profileBefore = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}"))
+            .Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions))!;
+
+        using var matrixRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    items = new[]
+                    {
+                        new
+                        {
+                            occupationalPyramidLevelPublicId = level1.Id,
+                            competencyPublicId = competency.Id,
+                            competencyTypePublicId = competencyType.Id,
+                            behaviorLevelPublicId = behaviorLevel.Id,
+                            conductPublicIds = new[] { conduct1.Id, conduct2.Id },
+                            expectedEvidence = "Item 1.",
+                            sortOrder = 1
+                        },
+                        new
+                        {
+                            occupationalPyramidLevelPublicId = level2.Id,
+                            competencyPublicId = competency.Id,
+                            competencyTypePublicId = competencyType.Id,
+                            behaviorLevelPublicId = behaviorLevel.Id,
+                            conductPublicIds = new[] { conduct1.Id },
+                            expectedEvidence = "Item 2.",
+                            sortOrder = 2
+                        }
+                    }
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        matrixRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{profileBefore.ConcurrencyToken}\"");
+        var matrixResponse = await client.SendAsync(matrixRequest);
+        matrixResponse.EnsureSuccessStatusCode();
+
+        var matrix = (await matrixResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions))!;
+        Assert.Equal(2, matrix.Items.Count);
+        var item1 = matrix.Items.Single(item => item.OccupationalPyramidLevelId == level1.Id);
+        var item2 = matrix.Items.Single(item => item.OccupationalPyramidLevelId == level2.Id);
+        Assert.Equal(2, item1.Conducts.Count);
+        Assert.Single(item2.Conducts);
+    }
+
+    [Fact]
+    public async Task CompetencyFramework_GetMatrix_ShouldReturnItemsAndToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-GET", "Perfil Get Matriz");
+        var competency = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.Competency, "COMP-GET", "Liderazgo");
+        var competencyType = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.CompetencyType, "CTYPE-GET", "Gerencial");
+        var behaviorLevel = await CreateJobCatalogItemAsync(client, scenario.TenantId, JobCatalogCategory.BehaviorLevel, "BLEVEL-GET", "Estrategico");
+        var level = await CreatePyramidLevelAsync(client, scenario.TenantId, "OPL-GET-001");
+
+        var conductResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/competency-conducts", new
+        {
+            competencyPublicId = competency.Id,
+            competencyTypePublicId = competencyType.Id,
+            behaviorLevelPublicId = behaviorLevel.Id,
+            description = "Conducta para get.",
+            sortOrder = 1
+        });
+        conductResponse.EnsureSuccessStatusCode();
+        var conduct = (await conductResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions))!;
+
+        var profileBefore = (await (await client.GetAsync($"/api/v1/job-profiles/{profile.Id}"))
+            .Content.ReadFromJsonAsync<JobProfileEntityItem>(JsonOptions))!;
+
+        using var matrixRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/job-profiles/{profile.Id}/competency-matrix")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    items = new[]
+                    {
+                        new
+                        {
+                            occupationalPyramidLevelPublicId = level.Id,
+                            competencyPublicId = competency.Id,
+                            competencyTypePublicId = competencyType.Id,
+                            behaviorLevelPublicId = behaviorLevel.Id,
+                            conductPublicIds = new[] { conduct.Id },
+                            expectedEvidence = "Evidencia.",
+                            sortOrder = 1
+                        }
+                    }
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        matrixRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{profileBefore.ConcurrencyToken}\"");
+        var putResponse = await client.SendAsync(matrixRequest);
+        putResponse.EnsureSuccessStatusCode();
+        var putMatrix = (await putResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions))!;
+
+        // GET the matrix as JSON — must echo the persisted items and the current token.
+        var getResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix");
+        getResponse.EnsureSuccessStatusCode();
+        var matrix = (await getResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions))!;
+        var item = Assert.Single(matrix.Items);
+        Assert.Equal(level.Id, item.OccupationalPyramidLevelId);
+        Assert.Equal(competency.Id, item.CompetencyId);
+        Assert.Single(item.Conducts);
+        Assert.Equal(putMatrix.ConcurrencyToken, matrix.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task CompetencyFramework_GetMatrix_WithoutExpectations_ShouldReturnOkWithEmptyItems()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var profile = await CreateJobProfileAsync(client, scenario.TenantId, "JP-CF-GET-EMPTY", "Perfil Sin Matriz");
+
+        var getResponse = await client.GetAsync($"/api/v1/job-profiles/{profile.Id}/competency-matrix");
+        getResponse.EnsureSuccessStatusCode();
+        var matrix = (await getResponse.Content.ReadFromJsonAsync<JobProfileCompetencyMatrixItem>(JsonOptions))!;
+        Assert.Empty(matrix.Items);
+        Assert.NotEqual(Guid.Empty, matrix.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task CompetencyFramework_GetMatrix_UnknownJobProfile_ShouldReturn404()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var response = await client.GetAsync($"/api/v1/job-profiles/{Guid.NewGuid()}/competency-matrix");
+
+        await AssertProblemDetailsAsync(response, HttpStatusCode.NotFound, "JOB_PROFILE_NOT_FOUND");
     }
 
     [Fact]

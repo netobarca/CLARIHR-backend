@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using System.ComponentModel.DataAnnotations;
 using CLARIHR.Api.Common;
 using CLARIHR.Api.Common.Binders;
 using CLARIHR.Api.Common.Conventions;
@@ -10,6 +11,7 @@ using CLARIHR.Application.Features.CompetencyFramework.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
@@ -24,6 +26,7 @@ public sealed class CompetencyConductsController(
     IQueryDispatcher queryDispatcher) : ControllerBase
 {
     [HttpGet("companies/{companyId:guid}/competency-conducts")]
+    [EnableRateLimiting(CompetencyFrameworkRateLimitPolicies.Search)]
     [ProducesResponseType<PagedResponse<CompetencyConductListItemResponse>>(StatusCodes.Status200OK)]
     [ProducesStandardErrors(StandardErrorSet.Query)]
     [SwaggerOperation(
@@ -37,6 +40,7 @@ public sealed class CompetencyConductsController(
         [FromQuery] bool? isActive,
         [FromQuery(Name = "q")] string? search,
         [FromQuery] int page = 1,
+        [Range(1, CompetencyFrameworkValidationRules.MaxPageSize)]
         [FromQuery] int pageSize = CompetencyFrameworkValidationRules.DefaultPageSize,
         [FromQuery] bool includeAllowedActions = false,
         CancellationToken cancellationToken = default)
