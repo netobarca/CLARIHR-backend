@@ -69,7 +69,7 @@ Lo accionable: **1 N+1 (perf), rate-limiting ausente en endpoints de email/searc
 | **PR-C** ✅ | F6 | Consistencia: `WeakETag` en reset-invitation. **Hecho 2026-06-06.** |
 | **PR-D** ✅ | F4 | Privacidad: respuesta genérica (colapsar cross-tenant en `user_already_in_company`). **Hecho 2026-06-06.** |
 | **Decisión** ➖ | F3 | Producto: **resuelto won't-fix** — se acepta el modelo "user-admin asigna cualquier rol del tenant" (RBAC intencional, sin exposición cross-tenant). **2026-06-06.** |
-| Aparte | F7 | Auditoría separada del provisioning (position-slot role-sync). |
+| **Aparte** ✅ | F7 | Escindido a la [auditoría de provisioning](company-user-provisioning-audit.md) (position-slot role-sync) — **cerrada** (PV1/PV2/PV3 ✅, PV4 ➖). No queda trabajo pendiente en este tracker. |
 
 ---
 
