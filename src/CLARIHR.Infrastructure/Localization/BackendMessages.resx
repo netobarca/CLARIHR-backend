@@ -749,6 +749,9 @@
     <value>The resource cannot be deleted because it has active dependencies.</value>
   </data>
   <data name="RESOURCE_IN_USE" xml:space="preserve">
+    <value>The resource cannot be deactivated while it is in use.</value>
+  </data>
+  <data name="COMPETENCY_CONDUCT_IN_USE" xml:space="preserve">
     <value>The competency conduct cannot be inactivated while it is associated to active job profile expectations.</value>
   </data>
   <data name="SALARY_CLASS_NOT_FOUND" xml:space="preserve">

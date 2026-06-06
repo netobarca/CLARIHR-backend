@@ -62,7 +62,7 @@ public static class CompetencyFrameworkErrors
         ErrorType.Conflict);
 
     public static readonly Error CompetencyConductInUse = new(
-        "RESOURCE_IN_USE",
+        "COMPETENCY_CONDUCT_IN_USE",
         "The competency conduct cannot be inactivated while it is associated to active job profile expectations.",
         ErrorType.Conflict);
 

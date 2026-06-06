@@ -749,7 +749,10 @@
     <value>resource no puede ser eliminado porque it has active dependencies.</value>
   </data>
   <data name="RESOURCE_IN_USE" xml:space="preserve">
-    <value>competency conduct no puede ser inactivado mientras it is associated to active job profile expectations.</value>
+    <value>El recurso no puede inactivarse mientras esté en uso.</value>
+  </data>
+  <data name="COMPETENCY_CONDUCT_IN_USE" xml:space="preserve">
+    <value>La conducta de competencia no puede inactivarse mientras esté asociada a expectativas activas de perfiles de puesto.</value>
   </data>
   <data name="SALARY_CLASS_NOT_FOUND" xml:space="preserve">
     <value>No se pudo encontrar salary class solicitado.</value>
