@@ -18,7 +18,9 @@ public interface IFileStorageProvider
 
     Task<FileObjectInfo?> GetObjectInfoAsync(string containerName, string objectKey, CancellationToken cancellationToken);
 
-    Task DeleteAsync(string containerName, string objectKey, CancellationToken cancellationToken);
+    // Returns true if a blob existed and was deleted, false if it was already absent (delete-if-exists
+    // semantics), so callers can report accurate deletion counts without a separate existence probe.
+    Task<bool> DeleteAsync(string containerName, string objectKey, CancellationToken cancellationToken);
 
     Task<FileObjectInfo> UploadStreamAsync(
         string containerName,

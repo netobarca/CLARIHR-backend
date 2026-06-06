@@ -34,8 +34,8 @@ public sealed class PersonnelFileDocumentsController(
         Description = """
             Returns the metadata of every document attached to the specified personnel file. Each
             item carries its own `concurrencyToken`, required in the `If-Match` header of subsequent
-            `PUT`/`PATCH`/`DELETE` requests, plus `filePublicId` to fetch the binary via
-            `GET /api/v1/files/{filePublicId}/read-url`.
+            `PUT`/`PATCH`/`DELETE` requests. Fetch the binary via
+            `GET /api/v1/personnel-files/{publicId}/documents/{documentPublicId}/read-url`.
             """)]
     public async Task<ActionResult<IReadOnlyCollection<PersonnelFileDocumentMetadataResponse>>> GetDocuments(
         Guid publicId,
@@ -53,8 +53,8 @@ public sealed class PersonnelFileDocumentsController(
         Summary = "Get a personnel file document by id",
         Description = """
             Returns a single document's metadata. The `concurrencyToken` in the response is required
-            in the `If-Match` header of subsequent `PUT`/`PATCH`/`DELETE` requests, and `filePublicId`
-            is used with `GET /api/v1/files/{filePublicId}/read-url` to download the file.
+            in the `If-Match` header of subsequent `PUT`/`PATCH`/`DELETE` requests. Download the file
+            via `GET /api/v1/personnel-files/{publicId}/documents/{documentPublicId}/read-url`.
             """)]
     public async Task<ActionResult<PersonnelFileDocumentMetadataResponse>> GetDocument(
         Guid publicId,
@@ -63,6 +63,30 @@ public sealed class PersonnelFileDocumentsController(
     {
         var result = await queryDispatcher.SendAsync(
             new GetPersonnelFileDocumentByIdQuery(publicId, documentPublicId),
+            cancellationToken);
+        return this.ToActionResult(result);
+    }
+
+    [HttpGet("api/v1/personnel-files/{publicId:guid}/documents/{documentPublicId:guid}/read-url")]
+    [Produces("application/json")]
+    [ProducesResponseType<GetPersonnelFileDocumentReadUrlResponse>(StatusCodes.Status200OK)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a download URL for a personnel file document",
+        Description = """
+            Returns a short-lived, read-only pre-signed URL to download the document's binary. Access
+            is authorized against the owning personnel file (same gate as the document metadata
+            endpoints), so only users entitled to the personnel file can download its documents. Use
+            this instead of the generic `GET /api/v1/files/{filePublicId}/read-url`, which is restricted
+            to the file's uploader.
+            """)]
+    public async Task<ActionResult<GetPersonnelFileDocumentReadUrlResponse>> GetDocumentReadUrl(
+        Guid publicId,
+        Guid documentPublicId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await queryDispatcher.SendAsync(
+            new GetPersonnelFileDocumentReadUrlQuery(publicId, documentPublicId),
             cancellationToken);
         return this.ToActionResult(result);
     }

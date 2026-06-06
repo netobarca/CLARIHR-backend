@@ -122,11 +122,12 @@ internal sealed class AzureBlobStorageProvider(
         }
     }
 
-    public async Task DeleteAsync(string containerName, string objectKey, CancellationToken cancellationToken)
+    public async Task<bool> DeleteAsync(string containerName, string objectKey, CancellationToken cancellationToken)
     {
         var containerClient = clientFactory.Client.GetBlobContainerClient(containerName);
         var blobClient = containerClient.GetBlobClient(objectKey);
-        await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
+        var response = await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
+        return response.Value;
     }
 
     public async Task<FileObjectInfo> UploadStreamAsync(string containerName, string objectKey, string contentType, Stream content, CancellationToken cancellationToken)

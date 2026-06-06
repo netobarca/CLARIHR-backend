@@ -346,14 +346,12 @@ internal sealed class InMemoryReportExportStorage : IFileStorageProvider
         }
     }
 
-    public Task DeleteAsync(string containerName, string objectKey, CancellationToken cancellationToken)
+    public Task<bool> DeleteAsync(string containerName, string objectKey, CancellationToken cancellationToken)
     {
         lock (_gate)
         {
-            _blobs.Remove(BuildStorageKey(containerName, objectKey));
+            return Task.FromResult(_blobs.Remove(BuildStorageKey(containerName, objectKey)));
         }
-
-        return Task.CompletedTask;
     }
 
     public async Task<FileObjectInfo> UploadStreamAsync(

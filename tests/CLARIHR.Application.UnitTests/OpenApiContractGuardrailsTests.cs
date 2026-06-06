@@ -67,6 +67,10 @@ public sealed class OpenApiContractGuardrailsTests
         // handler-gated authz keeps it out of GovernedFamilyRegex by design, but it is still a public
         // contract family. `^CompanyUsers` matches only CompanyUsersController (not CompanyPreferences).
         ("CompanyUsers", new Regex(@"^CompanyUsers", RegexOptions.Compiled), "Company Users"),
+        // FilesController is an infrastructure controller (handler-gated authz, kept out of
+        // GovernedFamilyRegex by design) but still a public OpenAPI surface. `^Files` matches only
+        // FilesController (PersonnelFile* controllers start with "PersonnelFile", not "Files").
+        ("Files", new Regex(@"^Files", RegexOptions.Compiled), "Files"),
     ];
 
     public static TheoryData<string> FamilyLabels()

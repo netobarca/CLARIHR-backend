@@ -347,7 +347,7 @@ public sealed class ReportExportTelemetryTests
     {
         public Func<Guid, Guid, string, string, Stream, CancellationToken, Task<FileObjectInfo>>? UploadHandler { get; init; }
 
-        public Func<string, CancellationToken, Task>? DeleteHandler { get; init; }
+        public Func<string, CancellationToken, Task<bool>>? DeleteHandler { get; init; }
 
         public StorageProvider ProviderType => StorageProvider.AzureBlob;
 
@@ -385,11 +385,11 @@ public sealed class ReportExportTelemetryTests
         public Task<Stream?> OpenReadStreamAsync(string containerName, string objectKey, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task DeleteAsync(string containerName, string objectKey, CancellationToken cancellationToken)
+        public Task<bool> DeleteAsync(string containerName, string objectKey, CancellationToken cancellationToken)
         {
             if (DeleteHandler is null)
             {
-                return Task.CompletedTask;
+                return Task.FromResult(true);
             }
 
             return DeleteHandler(objectKey, cancellationToken);

@@ -52,6 +52,18 @@ public sealed record GetPersonnelFileDocumentByIdQuery(
     Guid PersonnelFileId,
     Guid DocumentPublicId) : IQuery<PersonnelFileDocumentMetadataResponse>;
 
+// FILE-1 (security): domain-delegated download. The generic GET /files/{id}/read-url is now
+// owner-only, so a document binary is fetched through this personnel-file-authorized endpoint
+// instead. Authorizes the personnel file (same gate as GetPersonnelFileDocumentByIdQuery), then
+// mints the read SAS server-side for the document's underlying StoredFile.
+public sealed record GetPersonnelFileDocumentReadUrlQuery(
+    Guid PersonnelFileId,
+    Guid DocumentPublicId) : IQuery<GetPersonnelFileDocumentReadUrlResponse>;
+
+public sealed record GetPersonnelFileDocumentReadUrlResponse(
+    string ReadUrl,
+    DateTime ExpiresUtc);
+
 public sealed record UpdatePersonnelFileDocumentCommand(
     Guid PersonnelFileId,
     Guid DocumentPublicId,

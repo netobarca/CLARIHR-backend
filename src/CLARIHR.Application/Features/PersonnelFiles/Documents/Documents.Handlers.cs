@@ -92,6 +92,63 @@ internal sealed class GetPersonnelFileDocumentByIdQueryHandler(
     }
 }
 
+// FILE-1 (security): authorized download. Mirrors GetPersonnelFileDocumentByIdQueryHandler's
+// personnel-file authorization + document resolution, then mints a read SAS server-side for the
+// document's StoredFile (the generic /files/{id}/read-url endpoint is owner-only).
+internal sealed class GetPersonnelFileDocumentReadUrlQueryHandler(
+    IPersonnelFileAuthorizationService authorizationService,
+    IPersonnelFileRepository repository,
+    ITenantContext tenantContext,
+    IFileRepository fileRepository,
+    IFileStorageProviderResolver providerResolver)
+    : GetPersonnelFileSectionQueryHandlerBase,
+      IQueryHandler<GetPersonnelFileDocumentReadUrlQuery, GetPersonnelFileDocumentReadUrlResponse>
+{
+    public async Task<Result<GetPersonnelFileDocumentReadUrlResponse>> Handle(
+        GetPersonnelFileDocumentReadUrlQuery query,
+        CancellationToken cancellationToken)
+    {
+        var failure = await EnsureCanReadAsync<GetPersonnelFileDocumentReadUrlResponse>(
+            query.PersonnelFileId,
+            tenantContext,
+            authorizationService,
+            repository,
+            cancellationToken);
+        if (failure is not null)
+        {
+            return failure;
+        }
+
+        var document = await repository.GetDocumentMetadataByIdAsync(query.PersonnelFileId, query.DocumentPublicId, cancellationToken);
+        if (document is null)
+        {
+            return Result<GetPersonnelFileDocumentReadUrlResponse>.Failure(
+                await repository.DocumentExistsOutsideTenantAsync(query.DocumentPublicId, cancellationToken)
+                    ? authorizationService.TenantMismatch(RbacPermissionAction.Read)
+                    : PersonnelFileErrors.DocumentNotFound);
+        }
+
+        var file = await fileRepository.GetByPublicIdAsync(document.FilePublicId, cancellationToken);
+        if (file is null)
+        {
+            return Result<GetPersonnelFileDocumentReadUrlResponse>.Failure(FileErrors.FileNotFound);
+        }
+
+        if (file.Status != FileStatus.Active)
+        {
+            return Result<GetPersonnelFileDocumentReadUrlResponse>.Failure(FileErrors.FileNotActive);
+        }
+
+        var provider = providerResolver.Resolve(file.Provider);
+        var session = await provider.CreateReadSessionAsync(
+            new CreateReadSessionCommand(file.ContainerName, file.ObjectKey),
+            cancellationToken);
+
+        return Result<GetPersonnelFileDocumentReadUrlResponse>.Success(
+            new GetPersonnelFileDocumentReadUrlResponse(session.ReadUrl, session.ExpiresUtc));
+    }
+}
+
 internal sealed class AddPersonnelFileDocumentCommandHandler(
     IPersonnelFileAuthorizationService authorizationService,
     IPersonnelFileRepository repository,

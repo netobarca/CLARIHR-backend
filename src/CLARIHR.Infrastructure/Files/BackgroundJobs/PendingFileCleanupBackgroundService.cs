@@ -61,11 +61,11 @@ internal sealed class PendingFileCleanupBackgroundService(
                 try
                 {
                     var provider = providerResolver.Resolve(file.Provider);
-                    var exists = await provider.ExistsAsync(file.ContainerName, file.ObjectKey, cancellationToken);
 
-                    if (exists)
+                    // FILE-5 (perf): delete-if-exists in a single round-trip; the returned flag tells
+                    // us whether an orphan blob was actually reclaimed (no separate ExistsAsync probe).
+                    if (await provider.DeleteAsync(file.ContainerName, file.ObjectKey, cancellationToken))
                     {
-                        await provider.DeleteAsync(file.ContainerName, file.ObjectKey, cancellationToken);
                         deletedFromStorageCount++;
                     }
 
