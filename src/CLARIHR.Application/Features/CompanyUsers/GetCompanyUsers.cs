@@ -46,23 +46,22 @@ internal sealed class GetCompanyUsersQueryHandler(
         if (query.IncludeAllowedActions)
         {
             var canManageUsers = (await authorizationService.EnsureAuthorizedAsync(RbacPermissionAction.Update, cancellationToken)).IsSuccess;
-            var enrichedItems = new List<CompanyUserSummaryResponse>(users.Items.Count);
 
-            foreach (var user in users.Items)
-            {
-                var isLastActiveAdministrator = user.Status == Domain.Auth.UserStatus.Active
-                    && await userCompanyRepository.IsLastActiveAdministratorAsync(
-                        tenantContext.TenantId.Value,
-                        user.Id,
-                        cancellationToken);
+            // Resolve the active-administrator set once per page so the last-active-administrator
+            // flag is evaluated in memory, instead of issuing one admin query per user (N+1).
+            var activeAdministratorUserIds = await userCompanyRepository.GetActiveAdministratorUserIdsAsync(
+                tenantContext.TenantId.Value,
+                cancellationToken);
 
-                enrichedItems.Add(
-                    CompanyUserManagementHelpers.ApplyAllowedActions(
-                        user,
-                        resourceActionPolicyService,
-                        canManageUsers,
-                        isLastActiveAdministrator));
-            }
+            var enrichedItems = users.Items
+                .Select(user => CompanyUserManagementHelpers.ApplyAllowedActions(
+                    user,
+                    resourceActionPolicyService,
+                    canManageUsers,
+                    user.Status == Domain.Auth.UserStatus.Active
+                        && activeAdministratorUserIds.Count == 1
+                        && activeAdministratorUserIds.Contains(user.Id)))
+                .ToArray();
 
             users = new PagedResponse<CompanyUserSummaryResponse>(
                 enrichedItems,

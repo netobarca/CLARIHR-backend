@@ -1053,6 +1053,9 @@ public sealed class ProvisionCompanyForUserCommandHandlerTests
         public Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(Guid companyPublicId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<PagedResponse<CompanyUserSummaryResponse>> GetUsersAsync(
             Guid companyPublicId,
             int pageNumber,

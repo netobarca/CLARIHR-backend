@@ -568,6 +568,74 @@ public sealed class CompanyUserManagementTests
     }
 
     [Fact]
+    public async Task Handle_WhenListingWithAllowedActions_ShouldResolveAdministratorsOncePerPage()
+    {
+        var userRepository = new TestUserRepository();
+        var companyRepository = SeedCompanyRepository(TenantId, "Acme HR");
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository, userRepository, iamRepository);
+
+        var adminRole = CreateAdminRole(iamRepository, TenantId, "Admin de Empresa");
+        var firstAdmin = CreatePersistedLocalUser("admin1@acme.test");
+        var secondAdmin = CreatePersistedLocalUser("admin2@acme.test");
+        userRepository.Seed(firstAdmin);
+        userRepository.Seed(secondAdmin);
+        userCompanyRepository.Add(UserCompanyMembership.Create(firstAdmin.Id, companyRepository.Items[0].Id, adminRole.Id, isPrimary: true));
+        userCompanyRepository.Add(UserCompanyMembership.Create(secondAdmin.Id, companyRepository.Items[0].Id, adminRole.Id, isPrimary: true));
+
+        var handler = new GetCompanyUsersQueryHandler(
+            userCompanyRepository,
+            new AllowCompanyUserAuthorizationService(),
+            new ResourceActionPolicyService(),
+            new TestTenantContext(TenantId),
+            CreateFieldPermissionService(),
+            CreateFieldSerializationService());
+
+        var result = await handler.Handle(
+            new GetCompanyUsersQuery(Page: 1, PageSize: 20, IncludeAllowedActions: true),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Value.Items.Count);
+        // The administrator set is resolved once for the whole page, not once per user (N+1 guard).
+        Assert.Equal(1, userCompanyRepository.GetActiveAdministratorUserIdsCallCount);
+        // With two active administrators neither is the last one, so inactivation stays allowed.
+        Assert.All(result.Value.Items, item => Assert.True(item.AllowedActions!.CanInactivate));
+    }
+
+    [Fact]
+    public async Task Handle_WhenListingWithAllowedActions_AndSingleAdministrator_ShouldFlagLastActiveAdministrator()
+    {
+        var userRepository = new TestUserRepository();
+        var companyRepository = SeedCompanyRepository(TenantId, "Acme HR");
+        var iamRepository = new TestIamAdministrationRepository();
+        var userCompanyRepository = new TestUserCompanyRepository(companyRepository, userRepository, iamRepository);
+
+        var adminRole = CreateAdminRole(iamRepository, TenantId, "Admin de Empresa");
+        var adminUser = CreatePersistedLocalUser("admin@acme.test");
+        userRepository.Seed(adminUser);
+        userCompanyRepository.Add(UserCompanyMembership.Create(adminUser.Id, companyRepository.Items[0].Id, adminRole.Id, isPrimary: true));
+
+        var handler = new GetCompanyUsersQueryHandler(
+            userCompanyRepository,
+            new AllowCompanyUserAuthorizationService(),
+            new ResourceActionPolicyService(),
+            new TestTenantContext(TenantId),
+            CreateFieldPermissionService(),
+            CreateFieldSerializationService());
+
+        var result = await handler.Handle(
+            new GetCompanyUsersQuery(Page: 1, PageSize: 20, IncludeAllowedActions: true),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var item = Assert.Single(result.Value.Items);
+        Assert.Equal(1, userCompanyRepository.GetActiveAdministratorUserIdsCallCount);
+        // The sole active administrator is the last one, so inactivation is blocked (HasDependencies).
+        Assert.False(item.AllowedActions!.CanInactivate);
+    }
+
+    [Fact]
     public async Task Handle_WhenGettingSingleUser_ShouldReturnTenantScopedUser()
     {
         var userRepository = new TestUserRepository();
@@ -908,6 +976,8 @@ public sealed class CompanyUserManagementTests
 
         public List<UserCompanyMembership> Items { get; } = [];
 
+        public int GetActiveAdministratorUserIdsCallCount { get; private set; }
+
         public void Add(UserCompanyMembership membership)
         {
             if (membership.Id == 0)
@@ -1054,12 +1124,14 @@ public sealed class CompanyUserManagementTests
             return Task.CompletedTask;
         }
 
-        public Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken)
+        public Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(Guid companyPublicId, CancellationToken cancellationToken)
         {
+            GetActiveAdministratorUserIdsCallCount++;
+
             var company = companyRepository.Items.SingleOrDefault(item => item.PublicId == companyPublicId);
             if (company is null)
             {
-                return Task.FromResult(false);
+                return Task.FromResult<IReadOnlyCollection<Guid>>(Array.Empty<Guid>());
             }
 
             var adminUsers = Items
@@ -1072,9 +1144,15 @@ public sealed class CompanyUserManagementTests
                 .Where(item => IsAdministrativeRole(item.RoleId))
                 .Select(item => item.PublicId)
                 .Distinct()
-                .ToList();
+                .ToArray();
 
-            return Task.FromResult(adminUsers.Count == 1 && adminUsers[0] == userPublicId);
+            return Task.FromResult<IReadOnlyCollection<Guid>>(adminUsers);
+        }
+
+        public async Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken)
+        {
+            var adminUsers = await GetActiveAdministratorUserIdsAsync(companyPublicId, cancellationToken);
+            return adminUsers.Count == 1 && adminUsers.First() == userPublicId;
         }
 
         public Task<PagedResponse<CompanyUserSummaryResponse>> GetUsersAsync(

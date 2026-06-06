@@ -35,6 +35,8 @@ public interface IUserCompanyRepository
 
     Task<bool> IsLastActiveAdministratorAsync(Guid companyPublicId, Guid userPublicId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(Guid companyPublicId, CancellationToken cancellationToken);
+
     Task<PagedResponse<CompanyUserSummaryResponse>> GetUsersAsync(
         Guid companyPublicId,
         int pageNumber,

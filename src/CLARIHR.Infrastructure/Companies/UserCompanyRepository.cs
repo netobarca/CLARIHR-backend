@@ -335,7 +335,7 @@ internal sealed class UserCompanyRepository(ApplicationDbContext dbContext) : IU
             item.Status);
     }
 
-    private async Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(
+    public async Task<IReadOnlyCollection<Guid>> GetActiveAdministratorUserIdsAsync(
         Guid companyPublicId,
         CancellationToken cancellationToken)
     {
