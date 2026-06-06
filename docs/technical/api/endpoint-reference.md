@@ -128,7 +128,7 @@ Exenciones observables: el export sincrono de datos de un unico `JOB_PROFILE` (J
 | Locations | `LocationHierarchyController`, `LocationLevelsController`, `LocationGroupsController`, `WorkCenterTypesController`, `WorkCentersController` | `/api/v1/companies/{companyPublicId}/location-*`, `/api/v1/companies/{companyPublicId}/work-*` | modelo geografico del tenant, grupos y work centers |
 | Org units and cost centers | `OrgUnitsController`, `CostCentersController` | `/api/v1/companies/{companyPublicId}/org-units*`, `/api/v1/companies/{companyPublicId}/cost-centers*` | arbol organizacional, grafos, exportes y centros de costo |
 | Legal representatives | `LegalRepresentativesController` | `/api/v1/companies/{companyPublicId}/legal-representatives*` | ciclo de vida y uso de representantes legales |
-| Job and competency design | `JobCatalogsController`, `JobProfilesController`, `CompetencyFrameworkController`, `PositionDescriptionCatalogItemsController`, `PositionCategoryClassificationsController`, `PositionCategoriesController`, `PositionSlotsController` | `/api/v1/companies/{companyPublicId}/job-*`, `/api/v1/companies/{companyPublicId}/occupational-*`, `/api/v1/companies/{companyPublicId}/position-*` | diseno de puestos, competencias, catalogos y posiciones |
+| Job and competency design | `JobCatalogsController`, `JobProfilesController`, `OccupationalPyramidLevelsController`, `CompetencyConductsController`, `JobProfileCompetencyMatrixController`, `PositionDescriptionCatalogItemsController`, `PositionCategoryClassificationsController`, `PositionCategoriesController`, `PositionSlotsController` | `/api/v1/companies/{companyPublicId}/job-*`, `/api/v1/companies/{companyPublicId}/occupational-*`, `/api/v1/companies/{companyPublicId}/position-*` | diseno de puestos, competencias, catalogos y posiciones |
 | Personnel files | `PersonnelFilesController`, `PersonnelFilePersonalInfoController`, `PersonnelFileBackgroundController`, `PersonnelFileInterestsController`, `PersonnelFileProfileController`, `PersonnelFileEmploymentController`, `PersonnelFileCompensationController`, `PersonnelFileTalentController`, `PersonnelFileDocumentsController`, `PersonnelFileAdministrationController`, `PersonnelFileReportingController` | `/api/v1/companies/{companyPublicId}/personnel-files*`, `/api/v1/personnel-files/*`, `/api/v1/personnel-custom-field-definitions*` | ciclo de vida del expediente, datos personales, antecedentes, intereses, perfil financiero, empleo, compensacion, talento, documentos y reporting |
 | Salary governance | `SalaryTabulatorController` | `/api/v1/companies/{companyPublicId}/salary-tabulator/*` | lineas salariales (read-only), exportes y change requests; mutaciones del change request canonicas con `If-Match`/`ETag` (sin PATCH RFC-6902 — workflow de aprobacion + invariantes cross-field; el PUT cubre la edicion del draft); authz handler-gated |
 | Report capabilities | `ReportsController` | `/api/v1/companies/{companyPublicId}/reports/capabilities` | descubrimiento de capacidades de reporte para frontend |
@@ -2662,7 +2662,9 @@ Este bloque cubre nueve controladores que juntos definen el diseno formal de pue
 - `JobProfileFunctionsController`
 - `JobProfileRelationsController`
 - `JobProfileCompetenciesController`
-- `CompetencyFrameworkController`
+- `OccupationalPyramidLevelsController`
+- `CompetencyConductsController`
+- `JobProfileCompetencyMatrixController`
 - `PositionDescriptionCatalogItemsController`
 - `PositionCategoryClassificationsController`
 - `PositionCategoriesController`
@@ -2702,8 +2704,8 @@ Familias de rutas:
 - `/api/v1/companies/{companyId}/competency-conducts`
 - `/api/v1/competency-conducts/{id}`
 - `/api/v1/competency-conducts/{id}/behaviors`
-- `/api/v1/job-profiles/{publicId}/competency-matrix`
-- `/api/v1/job-profiles/{publicId}/competency-matrix/export`
+- `/api/v1/job-profiles/{jobProfilePublicId}/competency-matrix`
+- `/api/v1/job-profiles/{jobProfilePublicId}/competency-matrix/export`
 - `/api/v1/companies/{companyPublicId}/position-description-catalogs/{catalogType}/items`
 - `/api/v1/position-description-catalogs/{catalogType}/items/{positionDescriptionCatalogItemPublicId}`
 - `/api/v1/companies/{companyPublicId}/position-category-classifications`
@@ -3003,11 +3005,12 @@ Route family:
 - `GET /api/v1/competency-conducts/{id}`
 - `POST /api/v1/companies/{companyId}/competency-conducts`
 - `PUT /api/v1/competency-conducts/{id}`
+- `PATCH /api/v1/competency-conducts/{id}` (RFC-6902 JSON Patch)
 - `PATCH /api/v1/competency-conducts/{id}/activate`
 - `PATCH /api/v1/competency-conducts/{id}/inactivate`
 - `PUT /api/v1/competency-conducts/{id}/behaviors`
-- `PUT /api/v1/job-profiles/{publicId}/competency-matrix`
-- `GET /api/v1/job-profiles/{publicId}/competency-matrix/export`
+- `PUT /api/v1/job-profiles/{jobProfilePublicId}/competency-matrix`
+- `GET /api/v1/job-profiles/{jobProfilePublicId}/competency-matrix/export`
 
 Uso principal:
 
@@ -3021,8 +3024,9 @@ Observaciones funcionales:
 - el orden observable de niveles es `LevelOrder`, luego `Code`.
 - `create/update` de niveles exigen unicidad de `code` y unicidad de `LevelOrder`.
 - **(Alineación canónica — PR1)** `occupational-pyramid-levels` es canónico: `update`/`activate`/`inactivate` y el nuevo `PATCH` RFC-6902 (`/code`,`/name`,`/levelOrder`,`/description`) exigen el `concurrencyToken` actual en el header `If-Match` (ausente→`400`, stale→`409`); el token rotado se devuelve en el body y en el header `ETag`; `POST` devuelve `201`+`ETag`. El PATCH re-corre las uniqueness checks de `code`+`levelOrder`; el estado activo solo cambia por `/activate`,`/inactivate`.
-- **(Alineación canónica — PR2)** `competency-conducts` es canónico (concurrency-only, sin PATCH): `update`/`activate`/`inactivate` y el `PUT /behaviors` (reemplazo de la colección) exigen `If-Match` (ausente→`400`, stale→`409`); token rotado en body+`ETag`; `POST`→`201`+`ETag`.
+- **(Alineación canónica — PR2 + v2)** `competency-conducts` es canónico: `update`/`activate`/`inactivate`, el `PUT /behaviors` (reemplazo de la colección) y el nuevo `PATCH` RFC-6902 (`/competencyPublicId`,`/competencyTypePublicId`,`/behaviorLevelPublicId`,`/description`,`/sortOrder`) exigen `If-Match` (ausente→`400`, stale→`409`); token rotado en body+`ETag`; `POST`→`201`+`ETag`. El PATCH re-corre la verificación de unicidad de la tupla (competency/type/level/descripción normalizada)→`409` `COMPETENCY_CONDUCT_DUPLICATE`; el estado activo solo cambia por `/activate`,`/inactivate` y los behaviors por su endpoint dedicado.
 - **(Alineación canónica — PR3, cierra CompetencyFramework)** el `PUT /job-profiles/{publicId}/competency-matrix` exige `If-Match` (el token es el del `JobProfile`; ausente→`400`, stale→`409`); errores de validación estructural→`400`, violaciones de la matriz (tuplas duplicadas, conduct-set inválido, perfil `Archived`)→`409`; token rotado en body+`ETag`. El `GET .../competency-matrix/export` queda igual (solo lectura). **CompetencyFramework 100% canónico.**
+- **(Alineación canónica — v2, 15 criterios)** el antiguo `CompetencyFrameworkController` se dividió en tres controladores por recurso (`OccupationalPyramidLevelsController`, `CompetencyConductsController`, `JobProfileCompetencyMatrixController`), todos bajo el tag Swagger `Competency Framework`. Las rutas en el wire **no cambian** salvo el parámetro de la matriz (`{publicId}`→`{jobProfilePublicId}`, mismo valor). Los tres adoptan `[ApiVersion("1.0")]` + `api/v{version:apiVersion}/...` (el path sigue resolviendo a `/v1/`). El endpoint `GET .../competency-matrix/export` ahora declara `[SwaggerOperation]`+`[ProducesStandardErrors]`. Cambios respecto a PR1–PR3: se agregó el `PATCH` RFC-6902 de `competency-conducts`.
 - `inactivate` de nivel falla si matrices activas aun lo estan usando.
 - `competency-conducts` soporta filtros `competencyId`, `competencyTypeId`, `behaviorLevelId`, `isActive`, `q`, `page`, `pageSize` e `includeAllowedActions`.
 - Si se usa cualquiera de `competencyId`, `competencyTypeId` o `behaviorLevelId`, deben enviarse los tres para evitar resultados ambiguos entre niveles de comportamiento.

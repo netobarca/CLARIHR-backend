@@ -38,7 +38,10 @@ public sealed class OpenApiContractGuardrailsTests
     /// </summary>
     private static readonly (string Label, Regex Family, string ExpectedTag)[] Families =
     [
-        ("JobProfile/JobCatalog", new Regex(@"^(JobProfile|JobCatalog)", RegexOptions.Compiled), "Job Profiles"),
+        // JobProfileCompetencyMatrixController is carved out via (?!CompetencyMatrix): it is a
+        // CompetencyFramework controller (tagged "Competency Framework", handler-gated) that happens to
+        // sit under /job-profiles/{}; it is enrolled in the CompetencyFramework family below instead.
+        ("JobProfile/JobCatalog", new Regex(@"^(JobProfile(?!CompetencyMatrix)|JobCatalog)", RegexOptions.Compiled), "Job Profiles"),
         ("PositionSlot", new Regex(@"^PositionSlot", RegexOptions.Compiled), "Position Slots"),
         ("CostCenter", new Regex(@"^CostCenter", RegexOptions.Compiled), "Cost Centers"),
         ("WorkCenters", new Regex(@"^WorkCenters", RegexOptions.Compiled), "Work Centers"),
@@ -55,6 +58,11 @@ public sealed class OpenApiContractGuardrailsTests
         // loudly. The shell PersonnelFilesController is governed separately; add a controller to the
         // alternation only once it carries class-level [Tags] + per-action [SwaggerOperation].
         ("PersonnelFileBackground/Interests/PersonalInfo/Talent/Compensation/Employment/Documents/Reporting", new Regex(@"^PersonnelFile(Background|Interests|PersonalInfo|Talent|Compensation|Employment|Documents|Reporting)", RegexOptions.Compiled), "Personnel Files"),
+        // OccupationalPyramidLevels, CompetencyConducts and JobProfileCompetencyMatrix are the three
+        // CompetencyFramework controllers (split from the former single CompetencyFrameworkController),
+        // all consolidated under the "Competency Framework" tag. JobProfileCompetencyMatrix is carved
+        // out of the JobProfile family above by its (?!CompetencyMatrix) lookahead.
+        ("CompetencyFramework", new Regex(@"^(OccupationalPyramidLevels|CompetencyConducts|JobProfileCompetencyMatrix)", RegexOptions.Compiled), "Competency Framework"),
     ];
 
     public static TheoryData<string> FamilyLabels()

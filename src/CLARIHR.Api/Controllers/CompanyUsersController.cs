@@ -1,4 +1,5 @@
 using CLARIHR.Api.Common;
+using CLARIHR.Api.Common.Conventions;
 using CLARIHR.Api.Authorization;
 using CLARIHR.Application.Common.CQRS;
 using CLARIHR.Application.Common.JsonPatch;
@@ -8,6 +9,7 @@ using CLARIHR.Application.Features.IdentityAccess.Common;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace CLARIHR.Api.Controllers;
 
@@ -22,6 +24,8 @@ namespace CLARIHR.Api.Controllers;
 // (`api/v1/company/users`); the tenant/company is resolved implicitly from the active token.
 [ApiController]
 [Route("api/v1/company/users")]
+[Consumes("application/json")]
+[Produces("application/json")]
 [Tags("Company Users")]
 public sealed class CompanyUsersController(
     ICommandDispatcher commandDispatcher,
@@ -30,9 +34,14 @@ public sealed class CompanyUsersController(
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Read)]
     [HttpGet]
     [ProducesResponseType<PagedResponse<CompanyUserSummaryResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesStandardErrors(StandardErrorSet.Query)]
+    [SwaggerOperation(
+        Summary = "List company users",
+        Description = """
+            Returns a paginated list of the users of the active company, already
+            filtered by the caller's field-level permissions. Use `page`,
+            `pageSize`, `status`, `roleId` and `search` to navigate and filter.
+            """)]
     public async Task<ActionResult<PagedResponse<CompanyUserSummaryResponse>>> List(
         [FromQuery] GetCompanyUsersQuery query,
         CancellationToken cancellationToken)
@@ -44,10 +53,15 @@ public sealed class CompanyUsersController(
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Read)]
     [HttpGet("{userId:guid}")]
     [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesStandardErrors(StandardErrorSet.Read)]
+    [SwaggerOperation(
+        Summary = "Get a company user by id",
+        Description = """
+            Returns a single user of the active company. The response carries a
+            weak `ETag` header (`W/"<hash>"`) — send it in the `If-Match` header of
+            subsequent `PUT`/`PATCH`/`/deactivate`/`/reactivate` requests to guard
+            against lost updates.
+            """)]
     public async Task<ActionResult<CompanyUserResponse>> Get(
         Guid userId,
         CancellationToken cancellationToken)
@@ -59,12 +73,16 @@ public sealed class CompanyUsersController(
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Create)]
     [HttpPost]
     [ProducesResponseType<CompanyUserInvitationResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Invite a user to the company",
+        Description = """
+            Invites a user to the active company and assigns the initial roles.
+            Returns `201 Created` with the created user wrapped in a
+            `CompanyUserInvitationResponse`; the `Location` header points to the
+            user and the `ETag` header carries its initial weak token. Reuses an
+            existing local user when the e-mail already exists.
+            """)]
     public async Task<ActionResult<CompanyUserInvitationResponse>> Create(
         [FromBody] CreateCompanyUserRequest request,
         CancellationToken cancellationToken)
@@ -87,12 +105,16 @@ public sealed class CompanyUsersController(
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
     [HttpPut("{userId:guid}")]
     [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Update a company user",
+        Description = """
+            Replaces the editable fields (first name, last name) and the assigned
+            roles of a user in the active company. Requires the current weak token
+            in the `If-Match` header (missing → `400`, stale → `409`); the rotated
+            token is returned in the `ETag` header. Field-level authorization is
+            evaluated only for the fields that actually change.
+            """)]
     public async Task<ActionResult<CompanyUserResponse>> Update(
         Guid userId,
         [FromBody] UpdateCompanyUserRequest request,
@@ -115,23 +137,25 @@ public sealed class CompanyUsersController(
         return this.ToActionResultWithWeakETag(result, value => value.WeakETag);
     }
 
-    // RFC 6902 JSON Patch over the editable fields of the company user. Media type
-    // `application/json-patch+json`; the wire body is a bare array of operations. Patchable paths:
-    // `/firstName`, `/lastName`, `/rolePublicIds`. Activation state changes use the `/deactivate` and
-    // `/reactivate` actions; the e-mail address is immutable. Requires the current weak ETag in
-    // `If-Match` (missing → 400, stale → 409 CONCURRENCY_CONFLICT). The refreshed weak ETag is returned
-    // in the `ETag` header. Internally it resolves the partial change and reuses the PUT mutation path.
+    // Resolves the partial change onto the current projection and reuses the PUT mutation path
+    // (PatchCompanyUserCommand → UpdateCompanyUserCommand) so PUT and PATCH cannot drift.
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
     [HttpPatch("{userId:guid}")]
     [Consumes("application/json-patch+json")]
     [RequestSizeLimit(JsonPatchHardening.MaxRequestBodySizeBytes)]
     [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Patch a company user (RFC 6902 JSON Patch)",
+        Description = """
+            Applies a partial update using JSON Patch (RFC 6902, media type
+            `application/json-patch+json`; the wire body is a bare array of
+            operations). Patchable paths: `/firstName`, `/lastName`,
+            `/rolePublicIds`. Activation state uses the `/deactivate` and
+            `/reactivate` actions; the e-mail address is immutable. Requires the
+            current weak token in the `If-Match` header (missing → `400`, stale →
+            `409`); the rotated token is returned in the `ETag` header.
+            """)]
     public async Task<ActionResult<CompanyUserResponse>> Patch(
         Guid userId,
         [FromBody] JsonPatchDocument<PatchCompanyUserRequest> patchDoc,
@@ -156,12 +180,16 @@ public sealed class CompanyUsersController(
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
     [HttpPatch("{userId:guid}/deactivate")]
     [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Deactivate a company user",
+        Description = """
+            Deactivates the user in the active company (functional user, membership
+            and linked IAM user) and revokes their refresh tokens. Enforces the
+            "at least one active administrator" invariant. Requires the current weak
+            token in the `If-Match` header (missing → `400`, stale → `409`); the
+            rotated token is returned in the `ETag` header.
+            """)]
     public async Task<ActionResult<CompanyUserResponse>> Deactivate(Guid userId, CancellationToken cancellationToken)
     {
         if (!TryGetWeakIfMatch(out var expectedETag))
@@ -176,12 +204,15 @@ public sealed class CompanyUsersController(
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
     [HttpPatch("{userId:guid}/reactivate")]
     [ProducesResponseType<CompanyUserResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Reactivate a company user",
+        Description = """
+            Reactivates the user's membership in the active company and re-enables
+            the linked IAM user when the functional user becomes `Active`. Requires
+            the current weak token in the `If-Match` header (missing → `400`, stale
+            → `409`); the rotated token is returned in the `ETag` header.
+            """)]
     public async Task<ActionResult<CompanyUserResponse>> Reactivate(Guid userId, CancellationToken cancellationToken)
     {
         if (!TryGetWeakIfMatch(out var expectedETag))
@@ -196,12 +227,15 @@ public sealed class CompanyUsersController(
     [AuthorizeResource("RBAC_USERS", RbacPermissionAction.Update)]
     [HttpPost("{userId:guid}/reset-invitation")]
     [ProducesResponseType<CompanyUserInvitationResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    [ProducesStandardErrors(StandardErrorSet.SubResourceWrite)]
+    [SwaggerOperation(
+        Summary = "Resend a company user invitation",
+        Description = """
+            Issues a fresh invitation for a pending/resendable local user: revokes
+            previous invitation tokens, emits a new one and sends the e-mail.
+            Returns `200 OK` with the `CompanyUserInvitationResponse`. Does not
+            require `If-Match` (it does not mutate the projected user fields).
+            """)]
     public async Task<ActionResult<CompanyUserInvitationResponse>> ResetInvitation(
         Guid userId,
         CancellationToken cancellationToken)

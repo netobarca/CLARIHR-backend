@@ -6793,6 +6793,134 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task CompetencyConduct_Patch_WithIfMatch_ShouldApplyAndRotateToken()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var (conduct, _) = await CreateConductWithCatalogAsync(client, scenario.TenantId, "CC-PATCH");
+
+        // PATCH (RFC-6902) with If-Match → change description + sortOrder, rotate token.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/competency-conducts/{conduct.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new object[]
+                {
+                    new { op = "replace", path = "/description", value = "Conducta patcheada." },
+                    new { op = "replace", path = "/sortOrder", value = 5 }
+                }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{conduct.ConcurrencyToken}\"");
+        var patchResponse = await client.SendAsync(patchRequest);
+        patchResponse.EnsureSuccessStatusCode();
+        var patched = (await patchResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions))!;
+        Assert.Equal("Conducta patcheada.", patched.Description);
+        Assert.Equal(5, patched.SortOrder);
+        Assert.NotEqual(conduct.ConcurrencyToken, patched.ConcurrencyToken);
+        Assert.Equal($"\"{patched.ConcurrencyToken:D}\"", patchResponse.Headers.ETag!.Tag);
+    }
+
+    [Fact]
+    public async Task CompetencyConduct_Patch_WithoutIfMatch_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var (conduct, _) = await CreateConductWithCatalogAsync(client, scenario.TenantId, "CC-PATCH-400");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/competency-conducts/{conduct.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/description", value = "Sin If-Match." } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+
+        var response = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompetencyConduct_Patch_WithStaleIfMatch_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var (conduct, _) = await CreateConductWithCatalogAsync(client, scenario.TenantId, "CC-PATCH-409");
+
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/competency-conducts/{conduct.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/description", value = "Stale." } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"");
+
+        var response = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "CONCURRENCY_CONFLICT");
+    }
+
+    [Fact]
+    public async Task CompetencyConduct_Patch_WithIsActivePath_ShouldReturn400()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var (conduct, _) = await CreateConductWithCatalogAsync(client, scenario.TenantId, "CC-PATCH-ISACTIVE");
+
+        // Activation state goes through /activate and /inactivate; an /isActive patch op must be rejected (400).
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/competency-conducts/{conduct.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/isActive", value = false } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{conduct.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(patchRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompetencyConduct_Patch_DuplicateTuple_ShouldReturn409Conflict()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        // Conduct A and B share the same competency/type/level; only the description differs.
+        var (first, _) = await CreateConductWithCatalogAsync(client, scenario.TenantId, "CC-DUP");
+
+        var secondResponse = await client.PostJsonAsync($"/api/v1/companies/{scenario.TenantId}/competency-conducts", new
+        {
+            competencyPublicId = first.CompetencyId,
+            competencyTypePublicId = first.CompetencyTypeId,
+            behaviorLevelPublicId = first.BehaviorLevelId,
+            description = "Otra conducta distinta.",
+            sortOrder = 2
+        });
+        Assert.Equal(HttpStatusCode.Created, secondResponse.StatusCode);
+        var second = (await secondResponse.Content.ReadFromJsonAsync<CompetencyConductItem>(JsonOptions))!;
+
+        // Patching B's description to A's collides on the (competency, type, level, normalized-description)
+        // tuple — the PATCH handler must re-run the same uniqueness check the PUT path performs.
+        using var patchRequest = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/competency-conducts/{second.Id}")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new[] { new { op = "replace", path = "/description", value = first.Description } }),
+                Encoding.UTF8,
+                "application/json-patch+json")
+        };
+        patchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{second.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(patchRequest);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "COMPETENCY_CONDUCT_DUPLICATE");
+    }
+
+    [Fact]
     public async Task CompetencyFramework_FullFlow_ShouldManagePyramidConductMatrixAndExports()
     {
         var scenario = await factory.ResetDatabaseAsync();
