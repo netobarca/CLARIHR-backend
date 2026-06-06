@@ -9,6 +9,15 @@ public static partial class CompetencyFrameworkValidationRules
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
 
+    // Upper bounds for the collection-replace mutations (single source of truth, referenced by the
+    // FluentValidation rules and their guardrail tests). The per-item N+1 was removed in F1/F4; these
+    // also cap the *count* so one privileged request cannot submit an unbounded matrix/behavior set and
+    // drive a huge in-memory build + bulk insert. Mirrors the `.Must(items.Count <= N)` convention used
+    // by ReplaceCurrentUserSocialLinks. Generous for the domain, firm against abuse.
+    public const int MaxMatrixItems = 200;
+    public const int MaxConductsPerMatrixItem = 50;
+    public const int MaxBehaviorsPerConduct = 50;
+
     public static bool IsValidCode(string code) =>
         CodeRegex().IsMatch(code.Trim());
 
@@ -64,6 +73,11 @@ public static class CompetencyFrameworkErrors
     public static readonly Error CompetencyConductInUse = new(
         "COMPETENCY_CONDUCT_IN_USE",
         "The competency conduct cannot be inactivated while it is associated to active job profile expectations.",
+        ErrorType.Conflict);
+
+    public static readonly Error CompetencyConductBehaviorDuplicate = new(
+        "COMPETENCY_CONDUCT_BEHAVIOR_DUPLICATE",
+        "A behavior is referenced more than once in the request.",
         ErrorType.Conflict);
 
     public static readonly Error CompetencyNotFound = new(

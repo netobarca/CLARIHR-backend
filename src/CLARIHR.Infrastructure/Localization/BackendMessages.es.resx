@@ -139,6 +139,9 @@
   <data name="COMPANY_TYPE_NOT_FOUND" xml:space="preserve">
     <value>No se pudo encontrar company type seleccionado o esta inactivo.</value>
   </data>
+  <data name="COMPETENCY_CONDUCT_BEHAVIOR_DUPLICATE" xml:space="preserve">
+    <value>Un comportamiento esta referenciado mas de una vez en la solicitud.</value>
+  </data>
   <data name="COMPETENCY_CONDUCT_DUPLICATE" xml:space="preserve">
     <value>Ya existe una conducta para la misma competencia, tipo, nivel y descripcion.</value>
   </data>
@@ -1341,6 +1344,15 @@
   </data>
   <data name="validation.message.a_maximum_of_10_social_links_is_allowed" xml:space="preserve">
     <value>Se permite un maximo de 10 enlaces sociales.</value>
+  </data>
+  <data name="validation.message.a_maximum_of_200_competency_matrix_items_is_allowed" xml:space="preserve">
+    <value>Se permite un maximo de 200 elementos de la matriz de competencias.</value>
+  </data>
+  <data name="validation.message.a_maximum_of_50_behaviors_per_competency_conduct_is_allowed" xml:space="preserve">
+    <value>Se permite un maximo de 50 comportamientos por conducta de competencia.</value>
+  </data>
+  <data name="validation.message.a_maximum_of_50_conducts_per_competency_matrix_item_is_allowed" xml:space="preserve">
+    <value>Se permite un maximo de 50 conductas por elemento de la matriz de competencias.</value>
   </data>
   <data name="validation.message.effectivetoutc_cannot_be_less_than_effectivefromutc" xml:space="preserve">
     <value>EffectiveToUtc no puede ser menor que EffectiveFromUtc.</value>

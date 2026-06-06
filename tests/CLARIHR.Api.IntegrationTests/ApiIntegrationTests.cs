@@ -6848,6 +6848,36 @@ public sealed class ApiIntegrationTests(IntegrationTestWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task CompetencyConductBehaviors_WhenBehaviorIsDuplicated_ShouldReturn409WithSpecificCode()
+    {
+        var scenario = await factory.ResetDatabaseAsync();
+        using var client = factory.CreateClientFor(CreateCompetencyFrameworkAdminWithAuditContext(scenario));
+
+        var (conduct, behaviorId) = await CreateConductWithCatalogAsync(client, scenario.TenantId, "CC-DUP");
+
+        // R2 (re-audit 2026-06-06): a behavior referenced twice in the same request must map to the
+        // specific COMPETENCY_CONDUCT_BEHAVIOR_DUPLICATE conflict, not the borrowed matrix-conflict code.
+        using var behaviorsRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/competency-conducts/{conduct.Id}/behaviors")
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(new
+                {
+                    behaviors = new[]
+                    {
+                        new { behaviorPublicId = behaviorId, notes = "First.", sortOrder = 0 },
+                        new { behaviorPublicId = behaviorId, notes = "Duplicate.", sortOrder = 1 }
+                    }
+                }),
+                Encoding.UTF8,
+                "application/json")
+        };
+        behaviorsRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{conduct.ConcurrencyToken}\"");
+
+        var response = await client.SendAsync(behaviorsRequest);
+        await AssertProblemDetailsAsync(response, HttpStatusCode.Conflict, "COMPETENCY_CONDUCT_BEHAVIOR_DUPLICATE");
+    }
+
+    [Fact]
     public async Task CompetencyConduct_Update_WithoutIfMatch_ShouldReturn400()
     {
         var scenario = await factory.ResetDatabaseAsync();

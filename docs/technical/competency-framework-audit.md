@@ -1,7 +1,7 @@
 # Auditoría CompetencyFramework — seguimiento
 
 > **Documento vivo / tracker.** Se actualiza al cerrar cada hallazgo.
-> **Creado:** 2026-06-05 · **Estado:** ✅ CERRADO (11/11 corregidos) · **Owner:** equipo backend
+> **Creado:** 2026-06-05 · **Reauditado:** 2026-06-06 · **Estado:** ✅ CERRADO (11/11 + R1/R2 de la reauditoría = 13/13 corregidos) · **Owner:** equipo backend
 > **Alcance:** dominio CompetencyFramework completo — 3 controladores (`OccupationalPyramidLevelsController`, `CompetencyConductsController`, `JobProfileCompetencyMatrixController`) + capa Application (`Features/CompetencyFramework/`) + repositorio + dominio + EF config.
 > **Dimensiones:** seguridad · performance · arquitectura, contra los estándares definidos en `AGENTS.md` (§17) y `docs/technical/overview/project-foundation.md`.
 
@@ -17,15 +17,19 @@ Dominio **maduro y canónico** (alineado a los 15 criterios — ver `api-canonic
 
 Lo accionable es **performance (N+1), un hueco funcional (lectura de la matriz) y endurecimiento (rate-limit, guardrails, dedupe)** — todo **P2/P3**.
 
+**Reauditoría 2026-06-06:** doble pase — (A) anti-regresión: los 11 fixes (F1-F11) siguen presentes y verificados en el código actual (incl. los 4 guardrails: rate-limit, paginación, tenant-scope, sentinel de tokens). (B) Pase adversarial fresco sobre los 3 controladores + handlers + repo + dominio + appliers PATCH. Re-confirmado: aislamiento de tenant sólido (getters confían en el filtro global EF; `*ExistsOutsideTenantAsync` es el único `IgnoreQueryFilters`, comentado; mutaciones filtran `TenantId` explícito), authz handler-gated en los 12 handlers, tokens de concurrencia reales (rotan en cada mutación), **PATCH deny-lists completas**, el *miss* de la resolución batch falla rápido (sin N+1). **Sin nuevas brechas de seguridad.** Dos mejoras nuevas, **ambas resueltas en la misma reauditoría: R1 (perf/hardening, P3) + R2 (consistencia, P3-low).**
+
 ## 2. Leyenda de estado
 
 ⬜ pendiente · 🟡 en progreso · ✅ resuelto · ⏸️ diferido (backlog) · ➖ descartado
 
 | Severidad | P1 crítico | P2 alto | P3 medio/bajo |
 |---|---|---|---|
-| Conteo | 0 | 3 | 8 |
+| Conteo | 0 | 3 | 10 |
 
-**Progreso:** **11/11 corregidos = AUDIT COMPLETO (0 pendientes).** F1,F4 (PR-A) · F2 (PR-B) · F3,F6,F7 (PR-C) · F5,F8 (PR-D) · F10,F11 (PR-E) · F9 (PR-F), 2026-06-05.
+*(P3 incluye R1 y R2, añadidos en la reauditoría 2026-06-06 y resueltos en PR-G.)*
+
+**Progreso:** **13/13 corregidos = AUDIT COMPLETO (0 pendientes).** F1,F4 (PR-A) · F2 (PR-B) · F3,F6,F7 (PR-C) · F5,F8 (PR-D) · F10,F11 (PR-E) · F9 (PR-F), 2026-06-05; **R1,R2 (PR-G), 2026-06-06 (reauditoría).**
 
 ---
 
@@ -44,6 +48,8 @@ Lo accionable es **performance (N+1), un hueco funcional (lectura de la matriz) 
 | **F9** | ARCH | P3 (low) | ✅ | **Inconsistencia de código de error**: `CompetencyConductInUse` usaba el genérico `"RESOURCE_IN_USE"` mientras **12 recursos** (incl. su hermano OPL) usan código específico `<RECURSO>_IN_USE`. | `CompetencyFrameworkCommon.cs:64-67` | **Corregido (PR-F):** renombrado a `COMPETENCY_CONDUCT_IN_USE` (+ resx en/es), alineado con la convención dominante. Bonus bug-fix: el mensaje resx de `RESOURCE_IN_USE` era específico de conducta → ahora genérico (corrige el mensaje equivocado en `OrgStructureCatalogs`, el único que aún lo usa). **Nota:** el "won't-fix" de PR-D estaba mal fundamentado — un censo de los `*_IN_USE` mostró que los códigos específicos SON la norma (12 vs 2), así que la conducta era el outlier. |
 | **F10** | SEC | P3 (low) | ✅ | **Defense-in-depth de tenant**: los getters por public-id confían en el filtro global EF (verificado correcto). **No es vuln hoy.** | `CompetencyFrameworkRepository.cs:114,276,378` | **Cerrado vía guardrail (PR-E):** se descartó la opción literal (`.Where` explícito) por anti-patrón — ningún repo inyecta `ITenantContext`; el filtro global EF es la convención. Se fija con un guardrail drift-proof (`CompetencyFrameworkTenantScopeGuardrailsTests`) que asegura que las 5 entidades CF son `ITenantScopedEntity` (cubiertas por el filtro global). |
 | **F11** | ARCH | P3 (low) | ✅ | **Dominio no auto-valida longitudes/regex** (confía en la capa app). Sin path de bypass real hoy (appliers+validators cubren), pero viola self-defending domain. | `OccupationalPyramidLevel.SetCode/SetName`, `CompetencyConduct.Update` | Opcional: guardas de longitud/regex en el dominio (endurecimiento DDD; sin bug vivo). |
+| **R1** | PERF | P3 | ✅ | **Mutaciones *replace* de colección sin tope de tamaño** (hallazgo de la reauditoría 2026-06-06). El replace de matriz (`Items` + `ConductIds` anidados) y el de behaviors aceptan colecciones ilimitadas — sin `.Must(Count <= N)` en sus validators. El F1 original anotó "Sin tope de ítems", pero PR-A sólo eliminó el N+1; el conteo ilimitado quedó. El codebase **sí tiene convención** (`ReplaceCurrentUserSocialLinks` → `.Must(items.Count <= 10)`); CF era el outlier. Riesgo: un caller con `CompetencyFramework.Admin` envía una colección enorme (sólo acotada por Kestrel ~30MB) → build en memoria de millones de entidades + INSERT masivo. Acotado intra-tenant + caller privilegiado → P3. | `JobProfileCompetencyMatrixAdministration.cs` (validators), `CompetencyConductAdministration.cs` (validator behaviors) | **Resuelto (PR-G · 2026-06-06):** constantes `CompetencyFrameworkValidationRules.MaxMatrixItems=200 / MaxConductsPerMatrixItem=50 / MaxBehaviorsPerConduct=50` (single source of truth) + `.Must(Count <= …)` en los 3 puntos, espejo de `ReplaceCurrentUserSocialLinks`. Anclado por `CompetencyFrameworkCollectionCapGuardrailTests` (drift-proof: Max+1 rechazado / Max aceptado, construido desde la constante). Mensajes de cap con entradas resx en/es (las exige `BackendMessageLocalizationTests`). |
+| **R2** | ARCH | P3 (low) | ✅ | **Código de error impreciso en behaviors** (hallazgo de la reauditoría 2026-06-06). El handler de `UpdateCompetencyConductBehaviors` devolvía `JobProfileCompetencyMatrixConflict` ("…competency **matrix** change is not valid…") ante un behavior **duplicado** en el request — un código de *matriz* reusado en un endpoint de *conducts*. Adyacente a F9 (precisión de códigos). | `CompetencyConductAdministration.cs` (dedupe de behaviors) | **Resuelto (PR-G · 2026-06-06):** nuevo error específico `COMPETENCY_CONDUCT_BEHAVIOR_DUPLICATE` (Conflict, + resx en/es) usado en el dedupe. Anclado por integración `CompetencyConductBehaviors_WhenBehaviorIsDuplicated_ShouldReturn409WithSpecificCode` (provider real, behavior duplicado → 409 con el código específico). |
 
 ---
 
@@ -70,6 +76,8 @@ Lo accionable es **performance (N+1), un hueco funcional (lectura de la matriz) 
 | **PR-C** ✅ | F3 + F6 + F7 | Hardening: rate-limit export + `[Range]` + sentinel de tokens (cada uno con su guardrail). **Hecho 2026-06-05.** |
 | **PR-D** ✅ | F5 + F8 (F9 ➖ won't-fix) | Cleanup: split god-file, dedupe `ApplyAllowedActions`. **Hecho 2026-06-05.** |
 | **PR-E** ✅ | F10, F11 | Endurecimiento (F11 invariantes de longitud en el dominio; F10 guardrail de tenant-scope). **Hecho 2026-06-05.** |
+| **PR-F** ✅ | F9 | Precisión de código de error (`RESOURCE_IN_USE`→`COMPETENCY_CONDUCT_IN_USE`, reabierto desde won't-fix). **Hecho 2026-06-05.** |
+| **PR-G** ✅ | R1, R2 | Reauditoría: cap de colecciones (matriz/conductas/behaviors) + código específico `COMPETENCY_CONDUCT_BEHAVIOR_DUPLICATE`. **Hecho 2026-06-06.** |
 
 ---
 
@@ -77,6 +85,7 @@ Lo accionable es **performance (N+1), un hueco funcional (lectura de la matriz) 
 
 | Fecha | Cambio |
 |---|---|
+| 2026-06-06 | **Reauditoría + PR-G (R1+R2) ✅.** Doble pase a petición: (A) anti-regresión — los 11 fixes (F1-F11) verificados presentes en el código actual, incl. los 4 guardrails. (B) Pase adversarial fresco sobre los 3 controladores + handlers + repo + dominio + appliers PATCH. Re-confirmado sin nuevas brechas de seguridad (tenant-scope, authz handler-gated, deny-lists PATCH, miss-de-batch sin N+1). Dos mejoras nuevas resueltas: **R1 (perf/hardening)** — el replace de matriz (`Items`+`ConductIds`) y el de behaviors no acotaban el conteo (el F1 anotó "Sin tope de ítems" pero PR-A sólo quitó el N+1); CF era el outlier vs la convención `ReplaceCurrentUserSocialLinks` `.Must(Count <= N)`. Añadidas constantes `MaxMatrixItems=200/MaxConductsPerMatrixItem=50/MaxBehaviorsPerConduct=50` + `.Must(Count <= …)` (drift-proof `CompetencyFrameworkCollectionCapGuardrailTests`) + mensajes resx en/es. **R2 (consistencia)** — el dedupe de behaviors devolvía `JobProfileCompetencyMatrixConflict` (código de matriz) en un endpoint de conducts; nuevo `COMPETENCY_CONDUCT_BEHAVIOR_DUPLICATE` (+ resx en/es) + integración `CompetencyConductBehaviors_WhenBehaviorIsDuplicated_…`. Verificado: build 0/0, unit 1639/0, CF integración 23/23 (+1 R2). |
 | 2026-06-05 | Auditoría inicial (4 agentes: perf/seguridad/arquitectura/estándares + verificación adversarial del filtro de tenant). 11 hallazgos accionables (0 P1, 3 P2, 8 P3); 6 temas descartados como falsos positivos / por-diseño. Todos ⬜ pendientes. |
 | 2026-06-05 | **PR-F — F9 ✅ corregido (reabierto desde won't-fix); AUDIT 11/11.** El "won't-fix" de PR-D estaba mal fundamentado: un censo de los códigos `*_IN_USE` muestra **12 recursos con código específico** `<RECURSO>_IN_USE` (incl. el hermano OPL) y **solo 2 con el genérico** `RESOURCE_IN_USE` → la conducta era el outlier, no la norma. Renombrado `CompetencyConductInUse` `RESOURCE_IN_USE`→`COMPETENCY_CONDUCT_IN_USE` + entradas resx en/es. **Bonus bug-fix:** el mensaje resx de `RESOURCE_IN_USE` era específico de conducta (se mostraba mal en `OrgStructureCatalogs`, el único que aún lo usa) → ahora genérico. Breaking: clientes que key-eaban `RESOURCE_IN_USE` para conductas → `COMPETENCY_CONDUCT_IN_USE` (coordinar FE). Sin migración. Verificado: build 0/0, unit 1598/0 (localization guardrail verde), CF+OrgStructure integration 28/28. Pendiente: commit. |
 | 2026-06-05 | **PR-E — F10+F11 ✅; AUDIT CERRADO (10 corregidos + 1 won't-fix).** F11: invariantes de longitud en el dominio (`OccupationalPyramidLevel.MaxCode/Name/DescriptionLength`, `CompetencyConduct.MaxDescriptionLength`) con guardas en los setters; validators + appliers referencian esas constantes (single source of truth). Las guardas solo disparan ante un bug de capa (convierten un 500 de constraint de DB en `ArgumentException` clara) → sin cambio de comportamiento. F10: cerrado vía guardrail drift-proof `CompetencyFrameworkTenantScopeGuardrailsTests` (las 5 entidades CF son `ITenantScopedEntity` → cubiertas por el filtro global EF); se descartó la opción literal `.Where` explícito por anti-patrón (ningún repo inyecta `ITenantContext`). Sin migración. Verificado: build 0/0, unit 1598/0 (+5), CompetencyFramework integration 26/26. Pendiente: commit. |

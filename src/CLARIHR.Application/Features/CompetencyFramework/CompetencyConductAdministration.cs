@@ -199,6 +199,9 @@ internal sealed class UpdateCompetencyConductBehaviorsCommandValidator : Abstrac
     {
         RuleFor(command => command.ConductId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Behaviors)
+            .Must(static behaviors => behaviors is null || behaviors.Count <= CompetencyFrameworkValidationRules.MaxBehaviorsPerConduct)
+            .WithMessage("A maximum of 50 behaviors per competency conduct is allowed.");
         RuleForEach(command => command.Behaviors).SetValidator(new CompetencyConductBehaviorInputValidator());
     }
 }
@@ -730,7 +733,7 @@ internal sealed class UpdateCompetencyConductBehaviorsCommandHandler(
         {
             if (behaviorById.ContainsKey(behavior.BehaviorId))
             {
-                return Result<CompetencyConductResponse>.Failure(CompetencyFrameworkErrors.JobProfileCompetencyMatrixConflict);
+                return Result<CompetencyConductResponse>.Failure(CompetencyFrameworkErrors.CompetencyConductBehaviorDuplicate);
             }
 
             var resolution = await CompetencyFrameworkCatalogResolver.ResolveCatalogFromMapAsync(

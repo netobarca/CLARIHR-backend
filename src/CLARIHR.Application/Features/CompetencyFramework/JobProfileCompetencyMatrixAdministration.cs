@@ -116,6 +116,9 @@ internal sealed class UpdateJobProfileCompetencyMatrixCommandValidator : Abstrac
     {
         RuleFor(command => command.JobProfileId).NotEmpty();
         RuleFor(command => command.ConcurrencyToken).NotEmpty();
+        RuleFor(command => command.Items)
+            .Must(static items => items is null || items.Count <= CompetencyFrameworkValidationRules.MaxMatrixItems)
+            .WithMessage("A maximum of 200 competency matrix items is allowed.");
         RuleForEach(command => command.Items).SetValidator(new JobProfileCompetencyMatrixItemInputValidator());
     }
 }
@@ -130,6 +133,9 @@ internal sealed class JobProfileCompetencyMatrixItemInputValidator : AbstractVal
         RuleFor(item => item.BehaviorLevelId).NotEmpty();
         RuleFor(item => item.ExpectedEvidence).MaximumLength(1000);
         RuleFor(item => item.SortOrder).GreaterThanOrEqualTo(0);
+        RuleFor(item => item.ConductIds)
+            .Must(static conductIds => conductIds is null || conductIds.Count <= CompetencyFrameworkValidationRules.MaxConductsPerMatrixItem)
+            .WithMessage("A maximum of 50 conducts per competency matrix item is allowed.");
         RuleForEach(item => item.ConductIds).NotEqual(Guid.Empty);
     }
 }
