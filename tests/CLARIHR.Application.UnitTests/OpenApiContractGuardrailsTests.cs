@@ -71,6 +71,11 @@ public sealed class OpenApiContractGuardrailsTests
         // GovernedFamilyRegex by design) but still a public OpenAPI surface. `^Files` matches only
         // FilesController (PersonnelFile* controllers start with "PersonnelFile", not "Files").
         ("Files", new Regex(@"^Files", RegexOptions.Compiled), "Files"),
+        // GeneralCatalogsController is the read-only general/reference catalog surface. Its read authz
+        // is intentionally handler-gated via the personnel-files authorization service (GC2 by-design,
+        // see the GeneralCatalogs audit), so it stays out of GovernedFamilyRegex but is still a public
+        // OpenAPI surface. `^GeneralCatalogs` matches only GeneralCatalogsController.
+        ("GeneralCatalogs", new Regex(@"^GeneralCatalogs", RegexOptions.Compiled), "General Catalogs"),
     ];
 
     public static TheoryData<string> FamilyLabels()
